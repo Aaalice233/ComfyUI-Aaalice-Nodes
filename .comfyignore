@@ -1,25 +1,54 @@
-# 发布到 Comfy Registry 时排除（在 .gitignore 之外再裁一层）
-# 语法同 .gitignore
+# Comfy Registry 发布包排除（在 .gitignore 之上再裁）
+# 语法同 .gitignore；已被 git 跟踪的路径也会被排除
 
-# 协作 / 本地状态（不进安装包）
-AGENTS.md
-.omc/
-.claude/
+# —— 协作 / AI / 本地工具（曾误打进 0.1.x zip 触发扫描）——
+.codex/
 .grok/
+.claude/
+.omc/
+.cursor/
+.agents/
+AGENTS.md
+Agents.md
 
-# 测试与开发
+# —— CI / 元数据（安装运行不需要）——
+.github/
+.gitignore
+.comfyignore
+
+# —— 测试与缓存 ——
 tests/
+test/
 **/__pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# —— IDE / OS ——
 .vscode/
 .idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
 
-# 本地环境与密钥
+# —— 环境与密钥 ——
 .venv/
 venv/
+env/
 .env
 .env.*
+!.env.example
 *.local
+
+# —— 构建产物 ——
+dist/
+build/
+*.egg-info/
+.eggs/

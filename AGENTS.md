@@ -42,6 +42,8 @@
 
 手动：Actions → **Publish to Comfy Registry** → Run workflow。Secret：`REGISTRY_ACCESS_TOKEN`（Registry 的 Publishing API Key，勿提交仓库、勿贴聊天）。细则：[publishing](https://docs.comfy.org/registry/publishing)。
 
+**`.comfyignore`**：只影响 Registry **发布 zip**（语法同 `.gitignore`；已跟踪文件也会被排除）。运行时需要的代码/资源勿写进去；`.codex/`、`.grok/`、`.github/`、`AGENTS.md` 等协作杂项必须排除。改 ignore 后需 **升 version 再发版** 才进新包。
+
 ---
 
 ## 仓库与节点文件夹结构
