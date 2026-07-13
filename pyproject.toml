@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-aaalice-nodes"
-version = "0.1.0"
+version = "0.1.1"
 description = "Reset of ComfyUI-Danbooru-Gallery: Aaalice tools, prompt, media, gallery and Krita nodes for ComfyUI (WIP)"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -33,3 +33,5 @@ packages = ["nodes", "nodes.tools"]
 [tool.comfy]
 PublisherId = "aaalice"
 DisplayName = "ComfyUI-Aaalice-Nodes"
+Icon = "https://raw.githubusercontent.com/Aaalice233/ComfyUI-Aaalice-Nodes/main/assets/icon.png"
+Banner = "https://raw.githubusercontent.com/Aaalice233/ComfyUI-Aaalice-Nodes/main/assets/banner.png"
