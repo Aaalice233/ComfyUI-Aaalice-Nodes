@@ -31,5 +31,5 @@ packages = ["nodes", "nodes.tools"]
 # Comfy Registry / Manager 发布元数据
 # PublisherId 须与 https://registry.comfy.org 上创建的发布者 ID 完全一致（创建后不可改）
 [tool.comfy]
-PublisherId = "aaalice233"
+PublisherId = "aaalice"
 DisplayName = "ComfyUI-Aaalice-Nodes"
