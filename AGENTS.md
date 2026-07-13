@@ -17,6 +17,16 @@
 - 提交：`type(scope): 中文描述`
 - 验证：能加载则测加载；有节点测主路径；有 UI 时测节点图主路径；切换 `en` / `zh`；不宣称未完成工作
 
+### Registry 发布 / 更新
+
+上架 [Comfy Registry](https://registry.comfy.org)（Manager 可搜装）。`PublisherId=aaalice`；包名 `comfyui-aaalice-nodes`（见 `pyproject.toml` `[tool.comfy]`）。
+
+1. 改功能并自测 → **升高** `pyproject.toml` 的 `version`（semver；已发版本不可覆盖）
+2. 提交 push 到 `main`（改动含 `pyproject.toml` 会触发 `.github/workflows/publish.yml`）
+3. 看 Actions 是否成功；用户在 Manager 更新即可
+
+手动：Actions → **Publish to Comfy Registry** → Run workflow。Secret：`REGISTRY_ACCESS_TOKEN`（Registry 的 Publishing API Key，勿提交仓库、勿贴聊天）。细则：[publishing](https://docs.comfy.org/registry/publishing)。
+
 ---
 
 ## 仓库与节点文件夹结构
