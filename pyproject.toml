@@ -1,0 +1,30 @@
+[project]
+name = "comfyui-aaalice-nodes"
+version = "0.1.0"
+description = "ComfyUI-Danbooru-Gallery 的重置版自定义节点包（重写，非整包复制）"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Aaalice233" }]
+# 依赖以 requirements.txt 为准；此处保持空，避免与 ComfyUI 自带库冲突
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes"
+Homepage = "https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes"
+Issues = "https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["nodes"]
+
+[tool.setuptools.package-data]
+"*" = ["js/**/*"]
+
+# 发布到 Comfy Registry 时再填写 PublisherId / DisplayName
+# [tool.comfy]
+# PublisherId = "aaalice233"
+# DisplayName = "ComfyUI-Aaalice-Nodes"
