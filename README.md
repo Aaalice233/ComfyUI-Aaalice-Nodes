@@ -6,7 +6,7 @@
 |---|---|
 | **状态** | 重置进行中 · 尚无可替代旧包的实现 |
 | **旧包** | 仅作行为参考 · 节点名 / API **不默认兼容** |
-| **进度** | `1 / 26` 完成（P0 骨架 + 条目 #1–25） |
+| **进度** | `1 / 26` 完成（#0 骨架；下一跳 #1） |
 | **语言** | 简体中文 + English · 跟随 ComfyUI 界面语言自动切换 · `locales/` 骨架已就绪 |
 
 暂时不考虑 App Mode 与 Nodes 2.0。
@@ -56,12 +56,12 @@ ComfyUI-Aaalice-Nodes/
 ├── nodes/                   # V3 节点
 │   ├── __init__.py          # iter_node_classes() 聚合各域
 │   ├── _lib/                # 共享纯逻辑（非节点）
-│   ├── tools/               # P1 #1–9     → category Aaalice/tools
-│   ├── prompt/              # P2 #10–12   → Aaalice/prompt
+│   ├── tools/               # #1–9        → category Aaalice/tools
+│   ├── prompt/              # #10–12      → Aaalice/prompt
 │   ├── media/               # #13–14,#23  → Aaalice/media
-│   ├── control/             # P3 #15–19   → Aaalice/control（#20 纯 JS）
-│   ├── gallery/             # P4 #21–22   → Aaalice/gallery
-│   └── krita/               # P4 #24–25   → Aaalice/krita
+│   ├── control/             # #15–19      → Aaalice/control（#20 纯 JS）
+│   ├── gallery/             # #21–22      → Aaalice/gallery
+│   └── krita/               # #24–25      → Aaalice/krita
 └── server/                  # 可选 HTTP 路由（画廊 / Krita 等，按需）
 ```
 
@@ -105,11 +105,12 @@ ComfyUI 会自动扫描 `locales/` 并随界面语言切换节点显示名等；
 
 ## 重置顺序
 
-按 **# 从小到大** 实现；无依赖的纯工具节点可有限并行，**不打乱阶段依赖**。
+按 **# 从小到大、一次一项** 推进；做完并闭环当前条再开下一条。不按阶段或功能域批量排期。
 
-```
-P0 脚手架 ──► P1 基础工具 ──► P2 提示词与 I/O ──► P3 控制与组 ──► P4 旗舰与外联
-```
+硬依赖（实现时注意，不改变序号）：
+
+- #16 依赖 #15（参数面板 / 展开成对）
+- #25 为 #24 的兼容别名，随 #24 一并落地
 
 | 标记 | 含义 |
 |:----:|------|
@@ -118,20 +119,9 @@ P0 脚手架 ──► P1 基础工具 ──► P2 提示词与 I/O ──► P
 | ✅ | 已完成 |
 | ⏸ | 阻塞 |
 
-`OpenInKrita` 为 `FetchFromKrita` 的兼容别名，随 #24 一并处理。
-
-### P0 · 脚手架
-
-| # | 项 | 说明 | 状态 |
-|--:|----|------|:----:|
-| 0 | 包骨架 | 薄 `__init__.py`、域分包、i18n、`WEB_DIRECTORY`、可加载 | ✅ |
-
-### P1 · 基础工具
-
-依赖少，用来跑通「单节点闭环」。
-
-| # | 类名 | 显示名 | 作用 | 状态 |
-|--:|------|--------|------|:----:|
+| # | 类名 / 名称 | 显示名 | 作用 | 状态 |
+|--:|-------------|--------|------|:----:|
+| 0 | 包骨架 | — | 薄 `__init__.py`、域分包、i18n、`WEB_DIRECTORY`、可加载 | ✅ |
 | 1 | `SimpleStringSplit` | 简易字符串分隔 | 按分隔符拆分字符串 | ⬜ |
 | 2 | `SimpleValueSwitch` | 简易值切换 | 多输入择一输出 | ⬜ |
 | 3 | `EnumSwitch` | 枚举切换 | 按枚举选通任意类型 | ⬜ |
@@ -141,45 +131,30 @@ P0 脚手架 ──► P1 基础工具 ──► P2 提示词与 I/O ──► P
 | 7 | `ModelNameExtractor` | 模型名称提取器 | 提取可读模型名字符串 | ⬜ |
 | 8 | `ResolutionMasterSimplify` | 分辨率大师简化版 | 计算 / 选择分辨率与尺寸 | ⬜ |
 | 9 | `SimpleLoadImage` | 简易加载图像 | 本地图 → `IMAGE` / `MASK` | ⬜ |
-
-### P2 · 提示词与图像 I/O
-
-| # | 类名 | 显示名 | 作用 | 状态 |
-|--:|------|--------|------|:----:|
 | 10 | `PromptCleaningMaid` | 提示词清洁女仆 | 清洗、去重、规范化标签 | ⬜ |
 | 11 | `PromptSelector` | 提示词选择器 | 列表勾选并组合提示词 | ⬜ |
 | 12 | `CharacterFeatureSwapNode` | 角色特征交换 | 交换 / 替换角色特征片段 | ⬜ |
 | 13 | `SimpleImageCompare` | 简易图像对比 | 节点 UI 对比图像 | ⬜ |
 | 14 | `SimpleCheckpointLoaderWithName` | 简易 Checkpoint 加载器 | 加载 checkpoint，附名称 / 预览 | ⬜ |
+| 15 | `ParameterControlPanel` | 参数控制面板 | 集中配置并下发参数 | ⬜ |
+| 16 | `ParameterBreak` | 参数展开 | 将打包参数拆成独立输出 | ⬜ |
+| 17 | `GroupIsEnabled` | 组是否启用 | 查询 Group 状态 → 布尔 | ⬜ |
+| 18 | `GroupMuteManager` | 组静音管理器 | 批量管理 Group 静音 | ⬜ |
+| 19 | `GroupIgnoreManager` | 组忽略管理器 | 批量管理 Group 忽略 | ⬜ |
+| 20 | Quick Group Navigation | 快速组导航 | 悬浮球 / 快捷键跳转 Group（纯 JS，无节点类） | ⬜ |
+| 21 | `DanbooruGalleryNode` | D站画廊 | 图站检索与标签辅助 | ⬜ |
+| 22 | `MultiCharacterEditorNode` | 多角色编辑器 | 区域 / 注意力提示词编辑 | ⬜ |
+| 23 | `SaveImagePlus` | 保存图像增强版 | 增强保存（元数据、命名等） | ⬜ |
+| 24 | `FetchFromKrita` | 从 Krita 获取数据 | 从 Krita 拉图层 / 图像 | ⬜ |
+| 25 | `OpenInKrita` | （同 #24） | 兼容别名，与 #24 同模块 | ⬜ |
 
-### P3 · 控制与组
-
-| # | 类名 / 名称 | 显示名 | 作用 | 备注 | 状态 |
-|--:|-------------|--------|------|------|:----:|
-| 15 | `ParameterControlPanel` | 参数控制面板 | 集中配置并下发参数 | 与 #16 成对 | ⬜ |
-| 16 | `ParameterBreak` | 参数展开 | 将打包参数拆成独立输出 | 依赖 #15 | ⬜ |
-| 17 | `GroupIsEnabled` | 组是否启用 | 查询 Group 状态 → 布尔 | 组能力基础 | ⬜ |
-| 18 | `GroupMuteManager` | 组静音管理器 | 批量管理 Group 静音 | 组套件 | ⬜ |
-| 19 | `GroupIgnoreManager` | 组忽略管理器 | 批量管理 Group 忽略 | 组套件 | ⬜ |
-| 20 | Quick Group Navigation | 快速组导航 | 悬浮球 / 快捷键跳转 Group | 纯 JS，无节点类 | ⬜ |
-
-### P4 · 旗舰与外联
-
-| # | 类名 | 显示名 | 作用 | 备注 | 状态 |
-|--:|------|--------|------|------|:----:|
-| 21 | `DanbooruGalleryNode` | D站画廊 | 图站检索与标签辅助 | 旗舰，工作量大 | ⬜ |
-| 22 | `MultiCharacterEditorNode` | 多角色编辑器 | 区域 / 注意力提示词编辑 | 前端最复杂之一 | ⬜ |
-| 23 | `SaveImagePlus` | 保存图像增强版 | 增强保存（元数据、命名等） | 可能含采集链路 | ⬜ |
-| 24 | `FetchFromKrita` | 从 Krita 获取数据 | 从 Krita 拉图层 / 图像 | 依赖 Krita 侧插件 | ⬜ |
-| 25 | `OpenInKrita` | （同 #24） | 兼容别名，同一实现 | 随 #24 处理 | ⬜ |
-
-旧仓行为细节以 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 源码为准；本页只跟踪重置范围、顺序与完成标记。
+旧仓行为细节以 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 源码为准；本页只跟踪重置范围、顺序与完成标记。代码落盘路径（`nodes/<domain>/`）见 [AGENTS.md](./AGENTS.md)，与排期序号无关。
 
 ---
 
 ## 工作流程
 
-**原则**：单条目闭环后再开下一项。无依赖的纯工具节点允许有限并行。
+**原则**：一次只做表中的下一条（# 递增）；该条闭环后再开下一项。
 
 | 步骤 | 做什么 |
 |:----:|--------|

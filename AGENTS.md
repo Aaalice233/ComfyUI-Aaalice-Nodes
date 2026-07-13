@@ -6,7 +6,7 @@
 
 重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)：翻新、对齐新 UI。范围与顺序见 [README.md](./README.md)。
 
-- 参考旧码按顺序**重写**，禁止整包复制；改顺序或砍范围先问
+- 参考旧码按 README **# 逐条**重写，禁止整包复制；改顺序或砍范围先问
 - 前端优先官方扩展 API，少绑 LiteGraph 内部
 - **`__init__.py` 极薄**，节点按域放在 `nodes/<domain>/`；依赖少且先征得同意
 - 禁止静默吞错/假成功
@@ -53,7 +53,7 @@ ComfyUI-Aaalice-Nodes/
 │   ├── __init__.py             # iter_node_classes()：聚合各域 NODE 列表
 │   ├── _lib/                   # 后端共享纯函数 / 类型 / 常量（禁止放 ComfyNode）
 │   │   └── …                   # 例：text.py、images.py、paths.py
-│   ├── tools/                  # P1 基础工具  #1–9
+│   ├── tools/                  # #1–9（落盘域，非排期分组）
 │   │   ├── __init__.py         # 导出本域 node classes 列表
 │   │   ├── simple_string_split.py
 │   │   ├── simple_value_switch.py
@@ -64,24 +64,24 @@ ComfyUI-Aaalice-Nodes/
 │   │   ├── model_name_extractor.py
 │   │   ├── resolution_master_simplify.py
 │   │   └── simple_load_image.py
-│   ├── prompt/                 # P2 提示词  #10–12
+│   ├── prompt/                 # #10–12
 │   │   ├── prompt_cleaning_maid.py
 │   │   ├── prompt_selector.py
 │   │   └── character_feature_swap.py
-│   ├── media/                  # P2 图像 I/O + P4 保存  #13–14、#23
+│   ├── media/                  # #13–14、#23
 │   │   ├── simple_image_compare.py
 │   │   ├── simple_checkpoint_loader.py
 │   │   └── save_image_plus.py
-│   ├── control/                # P3 参数与组  #15–19（#20 无 Python 节点）
+│   ├── control/                # #15–19（#20 无 Python 节点）
 │   │   ├── parameter_control_panel.py
 │   │   ├── parameter_break.py
 │   │   ├── group_is_enabled.py
 │   │   ├── group_mute_manager.py
 │   │   └── group_ignore_manager.py
-│   ├── gallery/                # P4 旗舰  #21–22
+│   ├── gallery/                # #21–22
 │   │   ├── danbooru_gallery.py
 │   │   └── multi_character_editor.py
-│   └── krita/                  # P4 外联  #24–25
+│   └── krita/                  # #24–25
 │       └── fetch_from_krita.py # OpenInKrita 作兼容别名，同模块注册
 └── server/                     # 可选：aiohttp 路由（画廊检索、Krita 桥等）
     ├── __init__.py             # 注册路由入口（被包加载时调用）
@@ -91,16 +91,18 @@ ComfyUI-Aaalice-Nodes/
 
 当前仓库只需存在**已用到的**路径；**禁止**为占位一次性创建全部空包。某域第一个节点落地时再建该域目录与 `__init__.py`。
 
-### 域 ↔ 阶段 ↔ 菜单 category
+### 域 ↔ 条目 ↔ 菜单 category
 
-| 域包 `nodes/` | 阶段 | 条目 | 默认 `category`（Schema） | 前端 `js/` |
-|---------------|------|------|---------------------------|------------|
-| `tools` | P1 | #1–9 | `Aaalice/tools` | `js/tools/`（有 UI 时） |
-| `prompt` | P2 | #10–12 | `Aaalice/prompt` | `js/prompt/` |
-| `media` | P2+#23 | #13–14、#23 | `Aaalice/media` | `js/media/` |
-| `control` | P3 | #15–19 | `Aaalice/control` | `js/control/`（#20 仅此） |
-| `gallery` | P4 | #21–22 | `Aaalice/gallery` | `js/gallery/` |
-| `krita` | P4 | #24–25 | `Aaalice/krita` | `js/krita/` |
+> 排期以 README 的 **# 逐条**为准；下表只说明代码落盘域与菜单 `category`，不是实现批次。
+
+| 域包 `nodes/` | 条目 | 默认 `category`（Schema） | 前端 `js/` |
+|---------------|------|---------------------------|------------|
+| `tools` | #1–9 | `Aaalice/tools` | `js/tools/`（有 UI 时） |
+| `prompt` | #10–12 | `Aaalice/prompt` | `js/prompt/` |
+| `media` | #13–14、#23 | `Aaalice/media` | `js/media/` |
+| `control` | #15–19 | `Aaalice/control` | `js/control/`（#20 仅此） |
+| `gallery` | #21–22 | `Aaalice/gallery` | `js/gallery/` |
+| `krita` | #24–25 | `Aaalice/krita` | `js/krita/` |
 
 - 菜单路径统一前缀 **`Aaalice/`**，避免污染根菜单、便于搜索。
 - 纯前端功能（#20 快速组导航）**不建** Python 节点类，只放 `js/control/`（或 `js/control/group_nav.js`），在 `extension.js` 或域入口中注册。

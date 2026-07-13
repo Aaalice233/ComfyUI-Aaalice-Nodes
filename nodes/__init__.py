@@ -1,13 +1,13 @@
 """按域聚合节点类，供包入口 `comfy_entrypoint` 注册。
 
-域包规划（详见 AGENTS.md「仓库与节点文件夹结构」；有节点再建，勿空壳堆砌）:
+域包（仅落盘与菜单 category；排期见 README # 逐条。有节点再建，勿空壳堆砌）:
 
-  tools   — P1 #1–9    category: Aaalice/tools
-  prompt  — P2 #10–12  category: Aaalice/prompt
-  media   — #13–14,#23 category: Aaalice/media
-  control — P3 #15–19  category: Aaalice/control  （#20 纯 JS）
-  gallery — P4 #21–22  category: Aaalice/gallery
-  krita   — P4 #24–25  category: Aaalice/krita
+  tools   — #1–9        category: Aaalice/tools
+  prompt  — #10–12      category: Aaalice/prompt
+  media   — #13–14,#23  category: Aaalice/media
+  control — #15–19      category: Aaalice/control  （#20 纯 JS）
+  gallery — #21–22      category: Aaalice/gallery
+  krita   — #24–25      category: Aaalice/krita
   _lib    — 共享纯逻辑，禁止放 ComfyNode
 
 各域 `nodes/<domain>/__init__.py` 导出 NODE_CLASSES；此处按固定顺序拼接。
