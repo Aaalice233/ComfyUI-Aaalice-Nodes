@@ -1,199 +1,188 @@
 <p align="center">
-  <img src="assets/banner.png" alt="ComfyUI-Aaalice-Nodes banner" width="100%" />
+  <img src="assets/banner.png" alt="ComfyUI-Aaalice-Nodes" width="100%" />
 </p>
 
-**English** | [简体中文](./README.zh-CN.md)
+<p align="center">
+  <b>English</b> · <a href="./README.zh-CN.md">简体中文</a>
+</p>
 
-# <img src="assets/icon.png" alt="" width="36" height="36" align="top" /> ComfyUI-Aaalice-Nodes
+# ComfyUI-Aaalice-Nodes
 
-Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery): rewrite within the agreed scope, align with the current ComfyUI frontend and extension APIs, and simplify selectively.
+Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery): rewrite by agreed scope, align with the current ComfyUI frontend and extension APIs, simplify selectively.
 
-| | |
-|---|---|
-| **Status** | Reset in progress · not a drop-in replacement for the old pack yet |
-| **Legacy pack** | Behavior reference only · node names / APIs are **not** compatibility-by-default |
-| **Progress** | `2 / 26` done (#0–#1; next: #2) |
-| **UI languages** | Simplified Chinese + English · follows ComfyUI interface language · `locales/` ready |
-| **Registry** | [comfyui-aaalice-nodes](https://registry.comfy.org/nodes/comfyui-aaalice-nodes) (node count may be empty while a version is still scanning) |
+| Status | Progress | Next | Languages | License |
+|:------:|:--------:|:----:|:---------:|:-------:|
+| Reset in progress | **2 / 26** | #2 `SimpleValueSwitch` | en + zh | [MIT](./LICENSE) |
 
-App Mode and Nodes 2.0 are out of scope for now.
+- **Not** a drop-in replacement for the legacy pack (names / APIs are not compatibility-by-default).
+- UI language follows ComfyUI **Settings → Language**.
+- App Mode and Nodes 2.0 are out of scope for now.
+- Registry: [comfyui-aaalice-nodes](https://registry.comfy.org/nodes/comfyui-aaalice-nodes)  
+  *(node count may stay empty while a version is still scanning)*
 
 ---
 
-## Contents
+## Table of contents
 
-- [Install](#install)
-- [Repository layout](#repository-layout)
-- [Languages (i18n)](#languages-i18n)
-- [Reset order](#reset-order)
-- [Workflow](#workflow)
-- [Development](#development)
-- [License](#license)
+1. [Install](#install)
+2. [Repository layout](#repository-layout)
+3. [Languages (i18n)](#languages-i18n)
+4. [Reset checklist](#reset-checklist)
+5. [Implementation workflow](#implementation-workflow)
+6. [Development](#development)
+7. [License](#license)
 
 ---
 
 ## Install
 
-### ComfyUI Manager / extensions (recommended)
+### Manager / Extensions
 
-1. After this pack is on the [Comfy Registry](https://registry.comfy.org), search **`ComfyUI-Aaalice-Nodes`** or **`comfyui-aaalice-nodes`** in Manager / Extensions and install.
-2. Restart ComfyUI. Right-click add-node path: **Aaalice → tools / …**
+1. Open ComfyUI → Manager / Extensions.
+2. Search **`ComfyUI-Aaalice-Nodes`** or **`comfyui-aaalice-nodes`**.
+3. Install → **restart ComfyUI**.
+4. Right-click canvas → **Aaalice → tools / …**
 
-> If it does not show up yet: the version may still be pending Registry scan (see `.github/workflows/publish.yml` and [publishing docs](https://docs.comfy.org/registry/publishing)).
+If the pack is missing from the list, the Registry version may still be pending scan. See [publishing](https://docs.comfy.org/registry/publishing) and `.github/workflows/publish.yml`.
 
-### Manual install (Git)
+### Git (manual)
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes.git
 cd ComfyUI-Aaalice-Nodes
-pip install -r requirements.txt   # may be empty; install when deps are added
+pip install -r requirements.txt   # often empty; install when deps appear
 ```
 
-Restart ComfyUI. Dependencies follow `requirements.txt` / `pyproject.toml`.
+Restart ComfyUI. Dependencies: `requirements.txt` / `pyproject.toml`.
 
-> For full legacy features, keep using [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery).
+> Need full legacy behavior? Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery).
 
 ---
 
 ## Repository layout
 
-Layout is inspired by [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) (themed `nodes/`) and [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) (one node per file + frontend), scoped to this pack’s items. Placement rules: [AGENTS.md · 仓库与节点文件夹结构](./AGENTS.md#仓库与节点文件夹结构).
+Inspired by [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) and [rgthree-comfy](https://github.com/rgthree/rgthree-comfy); scoped to this pack. Details: [AGENTS.md](./AGENTS.md).
 
-```
+```text
 ComfyUI-Aaalice-Nodes/
-├── __init__.py              # thin entry: V3 entrypoint + WEB_DIRECTORY
-├── locales/{en,zh}/         # i18n (loaded by Comfy)
-├── js/                      # frontend
-│   ├── extension.js         # entry
-│   ├── i18n.js
-│   ├── lib/                 # shared (as needed)
-│   ├── tools|prompt|media|control|gallery|krita/
-├── nodes/                   # V3 nodes
-│   ├── __init__.py          # iter_node_classes()
-│   ├── _lib/                # pure helpers (not nodes)
-│   ├── tools/               # #1–9        → Aaalice/tools
-│   ├── prompt/              # #10–12      → Aaalice/prompt
-│   ├── media/               # #13–14,#23  → Aaalice/media
-│   ├── control/             # #15–19      → Aaalice/control (#20 JS-only)
-│   ├── gallery/             # #21–22      → Aaalice/gallery
-│   └── krita/               # #24–25      → Aaalice/krita
-└── server/                  # optional HTTP routes (gallery / Krita, on demand)
+├── __init__.py                 # V3 entrypoint + WEB_DIRECTORY
+├── README.md / README.zh-CN.md # bilingual docs (keep in sync)
+├── assets/                     # Registry / README banner (icon for Registry only)
+├── locales/{en,zh}/            # Comfy i18n
+├── js/                         # frontend (mirrors domains)
+├── nodes/                      # V3 nodes by domain
+│   ├── tools/    #1–9
+│   ├── prompt/   #10–12
+│   ├── media/    #13–14, #23
+│   ├── control/  #15–19
+│   ├── gallery/  #21–22
+│   └── krita/    #24–25
+└── server/                     # optional HTTP (on demand)
 ```
 
-| Rule | Note |
-|------|------|
-| One node per file by default | `nodes/<domain>/<snake_case>.py` |
-| Create domains on demand | first node in a domain creates the package; no empty stubs |
-| Menu prefix | Schema `category` = `Aaalice/<domain>` |
-| Frontend mirror | heavy UI scripts under matching `js/<domain>/` |
+| Rule | Detail |
+|------|--------|
+| One node per file | `nodes/<domain>/<snake_case>.py` |
+| Domains on demand | create package with the first node; no empty stubs |
+| Menu | `category = "Aaalice/<domain>"` only — never stock Comfy roots |
+| Frontend | heavy UI under matching `js/<domain>/` |
 
 ---
 
 ## Languages (i18n)
 
-Node and extension UI support **Simplified Chinese (`zh`)** and **English (`en`)** only.
+| Locale | Role |
+|--------|------|
+| `en` | Source / fallback |
+| `zh` | Full Simplified Chinese |
 
-- Display language follows ComfyUI **Settings → Language**
-- Chinese UI when set to 简体中文; English (or untranslated locales fall back to English)
-- Workflows store stable English ids (node type, input names, option values)
+No other locales. Unlisted UI languages fall back to English. Workflow JSON keeps English ids.
 
-```
-locales/
-├── en/                 # English (source)
-│   ├── main.json
-│   ├── nodeDefs.json
-│   ├── settings.json
-│   └── commands.json
-└── zh/                 # Simplified Chinese (keys aligned with en)
-js/
-├── extension.js
-└── i18n.js
+```text
+locales/en|zh/{ main, nodeDefs, settings, commands }.json
+js/i18n.js   → custom DOM strings (aaalice.*)
 ```
 
-Conventions: [AGENTS.md · 国际化](./AGENTS.md#国际化i18n). Official: [Custom Nodes i18n](https://docs.comfy.org/custom-nodes/i18n).
+See [AGENTS.md · i18n](./AGENTS.md#国际化i18n) and [Custom Nodes i18n](https://docs.comfy.org/custom-nodes/i18n).
 
 ---
 
-## Reset order
+## Reset checklist
 
-Advance **one item at a time by # (ascending)**; close the current item before starting the next. No bulk scheduling by feature domain.
+**One item at a time, ascending `#`.** Finish the current row before the next.
 
-Hard dependencies (do not renumber):
+**Dependencies (do not renumber):** #16 needs #15 · #25 ships with #24.
 
-- #16 depends on #15 (parameter panel / break pair)
-- #25 is a compatibility alias of #24; land with #24
-
-| Mark | Meaning |
-|:----:|---------|
+| | Meaning |
+|:---:|---------|
 | ⬜ | Not started |
 | 🔄 | In progress |
 | ✅ | Done |
 | ⏸ | Blocked |
 
-| # | Class / name | Display (zh) | Role | Status |
-|--:|--------------|--------------|------|:----:|
-| 0 | Package skeleton | — | Thin `__init__.py`, domain layout, i18n, `WEB_DIRECTORY`, loadable | ✅ |
-| 1 | `SimpleStringSplit` | 简易字符串分隔 | Split string by delimiter | ✅ |
-| 2 | `SimpleValueSwitch` | 简易值切换 | Pick one of multiple inputs | ⬜ |
-| 3 | `EnumSwitch` | 枚举切换 | Route any type by enum | ⬜ |
-| 4 | `SimpleNotify` | 简易通知 | Notify on execute | ⬜ |
-| 5 | `WorkflowDescription` | 工作流说明 | On-graph notes / description UI | ⬜ |
-| 6 | `VAEImageBatchFix` | VAE 图像批次修复 | Fix batch shape in VAE flows | ⬜ |
-| 7 | `ModelNameExtractor` | 模型名称提取器 | Readable model name string | ⬜ |
-| 8 | `ResolutionMasterSimplify` | 分辨率大师简化版 | Resolve / pick sizes | ⬜ |
-| 9 | `SimpleLoadImage` | 简易加载图像 | Local image → `IMAGE` / `MASK` | ⬜ |
-| 10 | `PromptCleaningMaid` | 提示词清洁女仆 | Clean / dedupe / normalize tags | ⬜ |
-| 11 | `PromptSelector` | 提示词选择器 | Checklist-combine prompts | ⬜ |
-| 12 | `CharacterFeatureSwapNode` | 角色特征交换 | Swap / replace character features | ⬜ |
-| 13 | `SimpleImageCompare` | 简易图像对比 | Compare images in node UI | ⬜ |
-| 14 | `SimpleCheckpointLoaderWithName` | 简易 Checkpoint 加载器 | Load checkpoint with name / preview | ⬜ |
-| 15 | `ParameterControlPanel` | 参数控制面板 | Central params | ⬜ |
-| 16 | `ParameterBreak` | 参数展开 | Unpack params to outputs | ⬜ |
-| 17 | `GroupIsEnabled` | 组是否启用 | Group state → bool | ⬜ |
-| 18 | `GroupMuteManager` | 组静音管理器 | Batch mute groups | ⬜ |
-| 19 | `GroupIgnoreManager` | 组忽略管理器 | Batch ignore groups | ⬜ |
-| 20 | Quick Group Navigation | 快速组导航 | Floating nav / hotkeys (JS only) | ⬜ |
-| 21 | `DanbooruGalleryNode` | D站画廊 | Gallery search / tag assist | ⬜ |
-| 22 | `MultiCharacterEditorNode` | 多角色编辑器 | Regional / attention prompts | ⬜ |
-| 23 | `SaveImagePlus` | 保存图像增强版 | Enhanced save | ⬜ |
-| 24 | `FetchFromKrita` | 从 Krita 获取数据 | Pull layers / images from Krita | ⬜ |
-| 25 | `OpenInKrita` | (same as #24) | Alias with #24 | ⬜ |
+### Done
 
-Legacy behavior: [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) source. This page tracks scope, order, and status only. Paths: [AGENTS.md](./AGENTS.md).
+| # | Id | Role |
+|--:|----|------|
+| 0 | *(skeleton)* | Loadable package, domains, i18n, `WEB_DIRECTORY` |
+| 1 | `SimpleStringSplit` | Split string by delimiter → list |
+
+### Queue
+
+| # | Id | Domain | Role |
+|--:|----|--------|------|
+| 2 | `SimpleValueSwitch` | tools | Pick one of several inputs |
+| 3 | `EnumSwitch` | tools | Route any type by enum |
+| 4 | `SimpleNotify` | tools | Notify on execute |
+| 5 | `WorkflowDescription` | tools | On-graph notes UI |
+| 6 | `VAEImageBatchFix` | tools | VAE batch shape fix |
+| 7 | `ModelNameExtractor` | tools | Readable model name |
+| 8 | `ResolutionMasterSimplify` | tools | Size / resolution helper |
+| 9 | `SimpleLoadImage` | tools | Load local image → `IMAGE` / `MASK` |
+| 10 | `PromptCleaningMaid` | prompt | Clean / dedupe tags |
+| 11 | `PromptSelector` | prompt | Checklist prompts |
+| 12 | `CharacterFeatureSwapNode` | prompt | Swap character features |
+| 13 | `SimpleImageCompare` | media | Image compare UI |
+| 14 | `SimpleCheckpointLoaderWithName` | media | Checkpoint + name / preview |
+| 15 | `ParameterControlPanel` | control | Central parameters |
+| 16 | `ParameterBreak` | control | Unpack parameters |
+| 17 | `GroupIsEnabled` | control | Group enabled → bool |
+| 18 | `GroupMuteManager` | control | Batch mute groups |
+| 19 | `GroupIgnoreManager` | control | Batch ignore groups |
+| 20 | Quick Group Navigation | control | Floating nav (JS only) |
+| 21 | `DanbooruGalleryNode` | gallery | Gallery search / tags |
+| 22 | `MultiCharacterEditorNode` | gallery | Multi-character prompts |
+| 23 | `SaveImagePlus` | media | Enhanced save |
+| 24 | `FetchFromKrita` | krita | Pull from Krita |
+| 25 | `OpenInKrita` | krita | Alias of #24 |
+
+Legacy reference only: [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery). Code paths: [AGENTS.md](./AGENTS.md).
 
 ---
 
-## Workflow
+## Implementation workflow
 
-**Rule:** only the next table row (# ascending); close it before the next.
-
-| Step | Do |
-|:----:|----|
-| 1 | **Scope** — I/O, deltas vs legacy, keep class / `node_id`? |
-| 2 | **Read legacy** — behavior and edges only; no whole-file copy |
-| 3 | **Rewrite** — V3 schema; official `registerExtension`; avoid LiteGraph internals |
-| 4 | **i18n** — `locales/en` and `locales/zh` (at least `nodeDefs.json`) |
-| 5 | **Test** — load pack, main path; UI on canvas; switch en / zh |
-| 6 | **Docs** — update **both** `README.md` and `README.zh-CN.md` status in sync |
-| 7 | **Commit** — `type(scope): 中文描述` |
+| Step | Action |
+|:----:|--------|
+| 1 | Scope I/O and deltas vs legacy |
+| 2 | Read legacy for behavior only — no whole-file copy |
+| 3 | Rewrite (V3 schema; official `registerExtension`) |
+| 4 | i18n: `locales/en` + `locales/zh` |
+| 5 | Test load + main path; switch en / zh |
+| 6 | Update **both** READMEs in the same change |
+| 7 | Commit: `type(scope): 中文描述` |
 
 ---
 
 ## Development
 
-See [AGENTS.md](./AGENTS.md):
+Full rules: [AGENTS.md](./AGENTS.md) (layout · i18n · bilingual README · Registry publish).
 
-- [仓库与节点文件夹结构](./AGENTS.md#仓库与节点文件夹结构)
-- [国际化 i18n](./AGENTS.md#国际化i18n)
-- [README 双语](./AGENTS.md#readme-双语)
-
-Summary:
-
-- Nodes under `nodes/<domain>/`; keep root `__init__.py` thin
-- English ids for serialization / COMBO **values**; user-visible strings in `locales/`
-- Schema `display_name` / description English fallback; `category` = `Aaalice/<domain>`
-- Only `en` + `zh`
+- Thin root `__init__.py`; nodes under `nodes/<domain>/`
+- English serialization ids; user-visible text in `locales/`
+- Schema English fallbacks; `category` = `Aaalice/<domain>`
+- Docs: keep `README.md` ↔ `README.zh-CN.md` aligned
 
 ---
 
