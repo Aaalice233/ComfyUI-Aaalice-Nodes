@@ -1,198 +1,202 @@
-# ComfyUI-Aaalice-Nodes
+<p align="center">
+  <img src="assets/banner.png" alt="ComfyUI-Aaalice-Nodes banner" width="100%" />
+</p>
 
-[ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 的重置版：按确认范围重写，对齐 ComfyUI 新前端与扩展 API，并有选择地精简。
+**English** | [简体中文](./README.zh-CN.md)
+
+# <img src="assets/icon.png" alt="" width="36" height="36" align="top" /> ComfyUI-Aaalice-Nodes
+
+Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery): rewrite within the agreed scope, align with the current ComfyUI frontend and extension APIs, and simplify selectively.
 
 | | |
 |---|---|
-| **状态** | 重置进行中 · 尚无可替代旧包的实现 |
-| **旧包** | 仅作行为参考 · 节点名 / API **不默认兼容** |
-| **进度** | `2 / 26` 完成（#0–#1；下一跳 #2） |
-| **语言** | 简体中文 + English · 跟随 ComfyUI 界面语言自动切换 · `locales/` 骨架已就绪 |
+| **Status** | Reset in progress · not a drop-in replacement for the old pack yet |
+| **Legacy pack** | Behavior reference only · node names / APIs are **not** compatibility-by-default |
+| **Progress** | `2 / 26` done (#0–#1; next: #2) |
+| **UI languages** | Simplified Chinese + English · follows ComfyUI interface language · `locales/` ready |
+| **Registry** | [comfyui-aaalice-nodes](https://registry.comfy.org/nodes/comfyui-aaalice-nodes) (node count may be empty while a version is still scanning) |
 
-暂时不考虑 App Mode 与 Nodes 2.0。
-
----
-
-## 目录
-
-- [安装](#安装)
-- [仓库结构](#仓库结构)
-- [语言（i18n）](#语言i18n)
-- [重置顺序](#重置顺序)
-- [工作流程](#工作流程)
-- [开发](#开发)
-- [许可](#许可)
+App Mode and Nodes 2.0 are out of scope for now.
 
 ---
 
-## 安装
+## Contents
 
-### ComfyUI Manager / 在线扩展（推荐）
+- [Install](#install)
+- [Repository layout](#repository-layout)
+- [Languages (i18n)](#languages-i18n)
+- [Reset order](#reset-order)
+- [Workflow](#workflow)
+- [Development](#development)
+- [License](#license)
 
-1. 本包发布到 [Comfy Registry](https://registry.comfy.org) 后，可在 Manager / 扩展列表中搜索 **`ComfyUI-Aaalice-Nodes`** 或 **`comfyui-aaalice-nodes`** 安装。
-2. 安装后重启 ComfyUI。右键添加节点路径：**Aaalice → tools / …**
+---
 
-> 若列表中尚搜不到：作者需先完成 Registry 发布（见仓库 `.github/workflows/publish.yml` 注释与 [官方发布说明](https://docs.comfy.org/registry/publishing)）。
+## Install
 
-### 手动安装（Git）
+### ComfyUI Manager / extensions (recommended)
+
+1. After this pack is on the [Comfy Registry](https://registry.comfy.org), search **`ComfyUI-Aaalice-Nodes`** or **`comfyui-aaalice-nodes`** in Manager / Extensions and install.
+2. Restart ComfyUI. Right-click add-node path: **Aaalice → tools / …**
+
+> If it does not show up yet: the version may still be pending Registry scan (see `.github/workflows/publish.yml` and [publishing docs](https://docs.comfy.org/registry/publishing)).
+
+### Manual install (Git)
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes.git
 cd ComfyUI-Aaalice-Nodes
-pip install -r requirements.txt   # 当前可为空；有新增依赖时再装
+pip install -r requirements.txt   # may be empty; install when deps are added
 ```
 
-重启 ComfyUI。依赖以仓库内 `requirements.txt` / `pyproject.toml` 为准。
+Restart ComfyUI. Dependencies follow `requirements.txt` / `pyproject.toml`.
 
-> 需要完整旧功能时，请继续使用 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。
+> For full legacy features, keep using [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery).
 
 ---
 
-## 仓库结构
+## Repository layout
 
-布局参考 [KJNodes](https://github.com/kijai/ComfyUI-KJNodes)（`nodes/` 按主题分）、[rgthree-comfy](https://github.com/rgthree/rgthree-comfy)（一节点一文件 + 独立前端），按本包条目收成 **域分包**。细则与放置规则见 [AGENTS.md · 仓库与节点文件夹结构](./AGENTS.md#仓库与节点文件夹结构)。
+Layout is inspired by [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) (themed `nodes/`) and [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) (one node per file + frontend), scoped to this pack’s items. Placement rules: [AGENTS.md · 仓库与节点文件夹结构](./AGENTS.md#仓库与节点文件夹结构).
 
 ```
 ComfyUI-Aaalice-Nodes/
-├── __init__.py              # 薄入口：V3 entrypoint + WEB_DIRECTORY
-├── locales/{en,zh}/         # i18n（Comfy 自动加载）
-├── js/                      # 前端扩展
-│   ├── extension.js         # 总入口
+├── __init__.py              # thin entry: V3 entrypoint + WEB_DIRECTORY
+├── locales/{en,zh}/         # i18n (loaded by Comfy)
+├── js/                      # frontend
+│   ├── extension.js         # entry
 │   ├── i18n.js
-│   ├── lib/                 # 共享（按需）
-│   ├── tools|prompt|media|control|gallery|krita/   # 与后端域对齐
-├── nodes/                   # V3 节点
-│   ├── __init__.py          # iter_node_classes() 聚合各域
-│   ├── _lib/                # 共享纯逻辑（非节点）
-│   ├── tools/               # #1–9        → category Aaalice/tools
+│   ├── lib/                 # shared (as needed)
+│   ├── tools|prompt|media|control|gallery|krita/
+├── nodes/                   # V3 nodes
+│   ├── __init__.py          # iter_node_classes()
+│   ├── _lib/                # pure helpers (not nodes)
+│   ├── tools/               # #1–9        → Aaalice/tools
 │   ├── prompt/              # #10–12      → Aaalice/prompt
 │   ├── media/               # #13–14,#23  → Aaalice/media
-│   ├── control/             # #15–19      → Aaalice/control（#20 纯 JS）
+│   ├── control/             # #15–19      → Aaalice/control (#20 JS-only)
 │   ├── gallery/             # #21–22      → Aaalice/gallery
 │   └── krita/               # #24–25      → Aaalice/krita
-└── server/                  # 可选 HTTP 路由（画廊 / Krita 等，按需）
+└── server/                  # optional HTTP routes (gallery / Krita, on demand)
 ```
 
-| 约定 | 说明 |
+| Rule | Note |
 |------|------|
-| 默认一节点一文件 | `nodes/<domain>/<snake_case>.py` |
-| 域按需创建 | 该域第一个节点落地时再建包，不预建空目录 |
-| 菜单前缀 | Schema `category` 使用 `Aaalice/<domain>` |
-| 前后端对齐 | 重 UI 节点的脚本放在同名 `js/<domain>/` |
+| One node per file by default | `nodes/<domain>/<snake_case>.py` |
+| Create domains on demand | first node in a domain creates the package; no empty stubs |
+| Menu prefix | Schema `category` = `Aaalice/<domain>` |
+| Frontend mirror | heavy UI scripts under matching `js/<domain>/` |
 
 ---
 
-## 语言（i18n）
+## Languages (i18n)
 
-本包节点与扩展 UI 支持 **简体中文（zh）** 与 **English（en）**，**不**维护其它语言包。
+Node and extension UI support **Simplified Chinese (`zh`)** and **English (`en`)** only.
 
-- 显示语言与 ComfyUI **设置 → 语言 / Language** 一致，无需在本包内单独切换
-- 选中简体中文时显示中文；选中 English 或其它未提供翻译的语言时，回退为英文
-- 工作流里保存的是稳定英文标识（节点类型、输入名、选项值等），换语言不会改坏已有工作流
-
-翻译与前端辅助（骨架已落地，节点文案随条目写入）：
+- Display language follows ComfyUI **Settings → Language**
+- Chinese UI when set to 简体中文; English (or untranslated locales fall back to English)
+- Workflows store stable English ids (node type, input names, option values)
 
 ```
 locales/
-├── en/                 # English（基准）
-│   ├── main.json       # 通用 / 设置分类 / 自绘 UI（aaalice.*）
-│   ├── nodeDefs.json   # 节点定义（有节点后填充）
+├── en/                 # English (source)
+│   ├── main.json
+│   ├── nodeDefs.json
 │   ├── settings.json
 │   └── commands.json
-└── zh/                 # 简体中文（key 与 en 对齐）
+└── zh/                 # Simplified Chinese (keys aligned with en)
 js/
-├── extension.js        # 扩展入口，预加载 i18n
-└── i18n.js             # 自绘 UI：t / tAsync / getLocale
+├── extension.js
+└── i18n.js
 ```
 
-ComfyUI 会自动扫描 `locales/` 并随界面语言切换节点显示名等；自定义 UI 通过 `js/i18n.js` 读同一套目录。
-
-实现约定见 [AGENTS.md · 国际化](./AGENTS.md#国际化i18n)。官方机制说明：[Custom Nodes i18n](https://docs.comfy.org/custom-nodes/i18n)。
+Conventions: [AGENTS.md · 国际化](./AGENTS.md#国际化i18n). Official: [Custom Nodes i18n](https://docs.comfy.org/custom-nodes/i18n).
 
 ---
 
-## 重置顺序
+## Reset order
 
-按 **# 从小到大、一次一项** 推进；做完并闭环当前条再开下一条。不按阶段或功能域批量排期。
+Advance **one item at a time by # (ascending)**; close the current item before starting the next. No bulk scheduling by feature domain.
 
-硬依赖（实现时注意，不改变序号）：
+Hard dependencies (do not renumber):
 
-- #16 依赖 #15（参数面板 / 展开成对）
-- #25 为 #24 的兼容别名，随 #24 一并落地
+- #16 depends on #15 (parameter panel / break pair)
+- #25 is a compatibility alias of #24; land with #24
 
-| 标记 | 含义 |
-|:----:|------|
-| ⬜ | 未开始 |
-| 🔄 | 进行中 |
-| ✅ | 已完成 |
-| ⏸ | 阻塞 |
+| Mark | Meaning |
+|:----:|---------|
+| ⬜ | Not started |
+| 🔄 | In progress |
+| ✅ | Done |
+| ⏸ | Blocked |
 
-| # | 类名 / 名称 | 显示名 | 作用 | 状态 |
-|--:|-------------|--------|------|:----:|
-| 0 | 包骨架 | — | 薄 `__init__.py`、域分包、i18n、`WEB_DIRECTORY`、可加载 | ✅ |
-| 1 | `SimpleStringSplit` | 简易字符串分隔 | 按分隔符拆分字符串 | ✅ |
-| 2 | `SimpleValueSwitch` | 简易值切换 | 多输入择一输出 | ⬜ |
-| 3 | `EnumSwitch` | 枚举切换 | 按枚举选通任意类型 | ⬜ |
-| 4 | `SimpleNotify` | 简易通知 | 执行时弹出 / 发送通知 | ⬜ |
-| 5 | `WorkflowDescription` | 工作流说明 | 图上备注与说明 UI | ⬜ |
-| 6 | `VAEImageBatchFix` | VAE 图像批次修复 | 修复 VAE 场景下的 batch 形态 | ⬜ |
-| 7 | `ModelNameExtractor` | 模型名称提取器 | 提取可读模型名字符串 | ⬜ |
-| 8 | `ResolutionMasterSimplify` | 分辨率大师简化版 | 计算 / 选择分辨率与尺寸 | ⬜ |
-| 9 | `SimpleLoadImage` | 简易加载图像 | 本地图 → `IMAGE` / `MASK` | ⬜ |
-| 10 | `PromptCleaningMaid` | 提示词清洁女仆 | 清洗、去重、规范化标签 | ⬜ |
-| 11 | `PromptSelector` | 提示词选择器 | 列表勾选并组合提示词 | ⬜ |
-| 12 | `CharacterFeatureSwapNode` | 角色特征交换 | 交换 / 替换角色特征片段 | ⬜ |
-| 13 | `SimpleImageCompare` | 简易图像对比 | 节点 UI 对比图像 | ⬜ |
-| 14 | `SimpleCheckpointLoaderWithName` | 简易 Checkpoint 加载器 | 加载 checkpoint，附名称 / 预览 | ⬜ |
-| 15 | `ParameterControlPanel` | 参数控制面板 | 集中配置并下发参数 | ⬜ |
-| 16 | `ParameterBreak` | 参数展开 | 将打包参数拆成独立输出 | ⬜ |
-| 17 | `GroupIsEnabled` | 组是否启用 | 查询 Group 状态 → 布尔 | ⬜ |
-| 18 | `GroupMuteManager` | 组静音管理器 | 批量管理 Group 静音 | ⬜ |
-| 19 | `GroupIgnoreManager` | 组忽略管理器 | 批量管理 Group 忽略 | ⬜ |
-| 20 | Quick Group Navigation | 快速组导航 | 悬浮球 / 快捷键跳转 Group（纯 JS，无节点类） | ⬜ |
-| 21 | `DanbooruGalleryNode` | D站画廊 | 图站检索与标签辅助 | ⬜ |
-| 22 | `MultiCharacterEditorNode` | 多角色编辑器 | 区域 / 注意力提示词编辑 | ⬜ |
-| 23 | `SaveImagePlus` | 保存图像增强版 | 增强保存（元数据、命名等） | ⬜ |
-| 24 | `FetchFromKrita` | 从 Krita 获取数据 | 从 Krita 拉图层 / 图像 | ⬜ |
-| 25 | `OpenInKrita` | （同 #24） | 兼容别名，与 #24 同模块 | ⬜ |
+| # | Class / name | Display (zh) | Role | Status |
+|--:|--------------|--------------|------|:----:|
+| 0 | Package skeleton | — | Thin `__init__.py`, domain layout, i18n, `WEB_DIRECTORY`, loadable | ✅ |
+| 1 | `SimpleStringSplit` | 简易字符串分隔 | Split string by delimiter | ✅ |
+| 2 | `SimpleValueSwitch` | 简易值切换 | Pick one of multiple inputs | ⬜ |
+| 3 | `EnumSwitch` | 枚举切换 | Route any type by enum | ⬜ |
+| 4 | `SimpleNotify` | 简易通知 | Notify on execute | ⬜ |
+| 5 | `WorkflowDescription` | 工作流说明 | On-graph notes / description UI | ⬜ |
+| 6 | `VAEImageBatchFix` | VAE 图像批次修复 | Fix batch shape in VAE flows | ⬜ |
+| 7 | `ModelNameExtractor` | 模型名称提取器 | Readable model name string | ⬜ |
+| 8 | `ResolutionMasterSimplify` | 分辨率大师简化版 | Resolve / pick sizes | ⬜ |
+| 9 | `SimpleLoadImage` | 简易加载图像 | Local image → `IMAGE` / `MASK` | ⬜ |
+| 10 | `PromptCleaningMaid` | 提示词清洁女仆 | Clean / dedupe / normalize tags | ⬜ |
+| 11 | `PromptSelector` | 提示词选择器 | Checklist-combine prompts | ⬜ |
+| 12 | `CharacterFeatureSwapNode` | 角色特征交换 | Swap / replace character features | ⬜ |
+| 13 | `SimpleImageCompare` | 简易图像对比 | Compare images in node UI | ⬜ |
+| 14 | `SimpleCheckpointLoaderWithName` | 简易 Checkpoint 加载器 | Load checkpoint with name / preview | ⬜ |
+| 15 | `ParameterControlPanel` | 参数控制面板 | Central params | ⬜ |
+| 16 | `ParameterBreak` | 参数展开 | Unpack params to outputs | ⬜ |
+| 17 | `GroupIsEnabled` | 组是否启用 | Group state → bool | ⬜ |
+| 18 | `GroupMuteManager` | 组静音管理器 | Batch mute groups | ⬜ |
+| 19 | `GroupIgnoreManager` | 组忽略管理器 | Batch ignore groups | ⬜ |
+| 20 | Quick Group Navigation | 快速组导航 | Floating nav / hotkeys (JS only) | ⬜ |
+| 21 | `DanbooruGalleryNode` | D站画廊 | Gallery search / tag assist | ⬜ |
+| 22 | `MultiCharacterEditorNode` | 多角色编辑器 | Regional / attention prompts | ⬜ |
+| 23 | `SaveImagePlus` | 保存图像增强版 | Enhanced save | ⬜ |
+| 24 | `FetchFromKrita` | 从 Krita 获取数据 | Pull layers / images from Krita | ⬜ |
+| 25 | `OpenInKrita` | (same as #24) | Alias with #24 | ⬜ |
 
-旧仓行为细节以 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 源码为准；本页只跟踪重置范围、顺序与完成标记。代码落盘路径（`nodes/<domain>/`）见 [AGENTS.md](./AGENTS.md)，与排期序号无关。
-
----
-
-## 工作流程
-
-**原则**：一次只做表中的下一条（# 递增）；该条闭环后再开下一项。
-
-| 步骤 | 做什么 |
-|:----:|--------|
-| 1 | **定范围** — 输入输出、与旧包行为差、是否保留类名 / `node_id` |
-| 2 | **读旧实现** — 只摘行为与边界，禁止整文件复制 |
-| 3 | **重写** — 后端优先 V3 schema；前端走官方 `registerExtension`，少绑 LiteGraph 内部 |
-| 4 | **i18n** — 补齐 `locales/en` 与 `locales/zh`（至少 `nodeDefs.json`）；自定义 UI 文案可随语言切换 |
-| 5 | **自测** — 包可加载、主路径可跑；有 UI 时在当前节点图画布上测；切换 ComfyUI 语言检查 en / zh |
-| 6 | **文档** — 更新本页状态；提交说明用中文 |
-| 7 | **提交** — `type(scope): 中文描述` |
+Legacy behavior: [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) source. This page tracks scope, order, and status only. Paths: [AGENTS.md](./AGENTS.md).
 
 ---
 
-## 开发
+## Workflow
 
-约定与文档索引见 [AGENTS.md](./AGENTS.md)：
+**Rule:** only the next table row (# ascending); close it before the next.
+
+| Step | Do |
+|:----:|----|
+| 1 | **Scope** — I/O, deltas vs legacy, keep class / `node_id`? |
+| 2 | **Read legacy** — behavior and edges only; no whole-file copy |
+| 3 | **Rewrite** — V3 schema; official `registerExtension`; avoid LiteGraph internals |
+| 4 | **i18n** — `locales/en` and `locales/zh` (at least `nodeDefs.json`) |
+| 5 | **Test** — load pack, main path; UI on canvas; switch en / zh |
+| 6 | **Docs** — update **both** `README.md` and `README.zh-CN.md` status in sync |
+| 7 | **Commit** — `type(scope): 中文描述` |
+
+---
+
+## Development
+
+See [AGENTS.md](./AGENTS.md):
 
 - [仓库与节点文件夹结构](./AGENTS.md#仓库与节点文件夹结构)
 - [国际化 i18n](./AGENTS.md#国际化i18n)
+- [README 双语](./AGENTS.md#readme-双语)
 
-要点摘要：
+Summary:
 
-- 节点进 `nodes/<domain>/`，默认一节点一文件；根 `__init__.py` 保持薄
-- 标识符、序列化键、COMBO **选项值**用英文；用户可见字符串进 `locales/`
-- Schema 内 `display_name` / description 用**英文**作 fallback，与 `locales/en` 对齐；`category` 用 `Aaalice/<domain>`
-- 仅维护 `en` + `zh`；节点定义 → `nodeDefs.json`；自绘 UI → `aaalice.*` + `js/i18n.js`
+- Nodes under `nodes/<domain>/`; keep root `__init__.py` thin
+- English ids for serialization / COMBO **values**; user-visible strings in `locales/`
+- Schema `display_name` / description English fallback; `category` = `Aaalice/<domain>`
+- Only `en` + `zh`
 
 ---
 
-## 许可
+## License
 
 [MIT](./LICENSE) · Copyright (c) 2026 Aaalice233

@@ -4,7 +4,7 @@
 
 ## 项目与原则
 
-重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)：翻新、对齐新 UI。范围与顺序见 [README.md](./README.md)。
+重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)：翻新、对齐新 UI。范围与顺序见 [README](./README.md) / [README.zh-CN](./README.zh-CN.md)。
 
 - 参考旧码按 README **# 逐条**重写，禁止整包复制；改顺序或砍范围先问
 - 前端优先官方扩展 API，少绑 LiteGraph 内部
@@ -12,10 +12,25 @@
 - 禁止静默吞错/假成功
 - **标识符英文**（类名、`node_id`、输入/输出 id、COMBO 选项值、API 字段、文件名）
 - **用户可见文案走 i18n**（`en` + `zh`），随 ComfyUI 界面语言自动切换；禁止只写死中文或只写死英文显示名
+- **README 双语同步**（见 [README 双语](#readme-双语)）：改一必改另一
 - **右键菜单独立分类**：`category` 必须为 `Aaalice/<domain>`，顶级仅 `Aaalice`，子类按域；禁止混入 ComfyUI 原版分类（细则见 [右键菜单分类](#右键菜单分类硬性约定)）
 - 暂时不考虑 [App Mode](https://docs.comfy.org/interface/app-mode) 与 [Nodes 2.0](https://docs.comfy.org/interface/nodes-2)
 - 提交：`type(scope): 中文描述`
 - 验证：能加载则测加载；有节点测主路径；有 UI 时测节点图主路径；切换 `en` / `zh`；不宣称未完成工作
+
+### README 双语
+
+| 文件 | 语言 | 说明 |
+|------|------|------|
+| `README.md` | English | GitHub / Registry 默认展示 |
+| `README.zh-CN.md` | 简体中文 | 中文读者；页顶可与英文版互链切换 |
+
+**硬性约定：**
+
+- 两文件**结构与信息对齐**（进度表、安装、状态标记等）；禁止只更新一侧
+- 页顶保留语言切换：`English` ↔ `简体中文` 相对链接
+- 进度 / 完成标记 / 安装步骤变更时：**同一提交内**改完两份
+- `pyproject.toml` 的 `readme` 指向 `README.md`（英文）
 
 ### Registry 发布 / 更新
 
@@ -46,7 +61,7 @@ ComfyUI-Aaalice-Nodes/
 ├── __init__.py                 # 仅：WEB_DIRECTORY + comfy_entrypoint（禁止堆节点实现）
 ├── pyproject.toml
 ├── requirements.txt
-├── AGENTS.md / README.md
+├── AGENTS.md / README.md / README.zh-CN.md
 ├── locales/                    # i18n（Comfy 自动扫描，见下文）
 │   ├── en/
 │   └── zh/
@@ -365,4 +380,4 @@ const label = t("aaalice.common.confirm", "Confirm");
 
 ### 工作流中的文档步骤
 
-实现条目时，同步维护 **locales** 与 README 状态。
+实现条目时，同步维护 **locales** 与 **双语 README**（`README.md` + `README.zh-CN.md`）状态。
