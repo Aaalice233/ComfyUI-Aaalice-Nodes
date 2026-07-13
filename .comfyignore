@@ -1,0 +1,25 @@
+# 发布到 Comfy Registry 时排除（在 .gitignore 之外再裁一层）
+# 语法同 .gitignore
+
+# 协作 / 本地状态（不进安装包）
+AGENTS.md
+.omc/
+.claude/
+.grok/
+
+# 测试与开发
+tests/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+.idea/
+
+# 本地环境与密钥
+.venv/
+venv/
+.env
+.env.*
+*.local

@@ -1,0 +1,36 @@
+# 将节点包发布到 Comfy Registry（供 Manager / 在线扩展列表安装）
+# 文档：https://docs.comfy.org/registry/publishing
+#
+# 首次使用前：
+# 1. 在 https://registry.comfy.org 创建 Publisher（ID 须与 pyproject.toml 的 PublisherId 一致）
+# 2. 创建 Publishing API Key
+# 3. 仓库 Settings → Secrets and variables → Actions → New repository secret
+#    名称：REGISTRY_ACCESS_TOKEN
+#    值：上述 API Key
+#
+# 之后：提高 pyproject.toml 的 version 并 push 到 main，或手动 Run workflow
+
+name: Publish to Comfy Registry
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "pyproject.toml"
+
+jobs:
+  publish-node:
+    name: Publish Custom Node to Registry
+    runs-on: ubuntu-latest
+    # 无 Secret 时跳过，避免 fork / 未配置环境失败刷屏
+    if: github.event.repository.fork == false
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Publish Custom Node
+        uses: Comfy-Org/publish-node-action@1.0.1
+        with:
+          personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}

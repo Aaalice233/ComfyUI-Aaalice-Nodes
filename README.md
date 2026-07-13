@@ -27,14 +27,23 @@
 
 ## 安装
 
+### ComfyUI Manager / 在线扩展（推荐）
+
+1. 本包发布到 [Comfy Registry](https://registry.comfy.org) 后，可在 Manager / 扩展列表中搜索 **`ComfyUI-Aaalice-Nodes`** 或 **`comfyui-aaalice-nodes`** 安装。
+2. 安装后重启 ComfyUI。右键添加节点路径：**Aaalice → tools / …**
+
+> 若列表中尚搜不到：作者需先完成 Registry 发布（见仓库 `.github/workflows/publish.yml` 注释与 [官方发布说明](https://docs.comfy.org/registry/publishing)）。
+
+### 手动安装（Git）
+
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes.git
 cd ComfyUI-Aaalice-Nodes
-pip install -r requirements.txt   # 待就绪
+pip install -r requirements.txt   # 当前可为空；有新增依赖时再装
 ```
 
-重启 ComfyUI。依赖以仓库内配置为准。
+重启 ComfyUI。依赖以仓库内 `requirements.txt` / `pyproject.toml` 为准。
 
 > 需要完整旧功能时，请继续使用 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。
 
