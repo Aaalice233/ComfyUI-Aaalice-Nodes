@@ -1,1 +1,22 @@
-{}
+{
+  "SimpleStringSplit": {
+    "display_name": "Simple String Split",
+    "description": "Split a string by delimiter, strip whitespace from each part, and drop empty segments.",
+    "inputs": {
+      "text": {
+        "name": "Text",
+        "tooltip": "Source string to split"
+      },
+      "delimiter": {
+        "name": "Delimiter",
+        "tooltip": "Delimiter character"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "Parts",
+        "tooltip": "Split segments as a list"
+      }
+    }
+  }
+}

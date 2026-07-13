@@ -12,6 +12,7 @@
 - 禁止静默吞错/假成功
 - **标识符英文**（类名、`node_id`、输入/输出 id、COMBO 选项值、API 字段、文件名）
 - **用户可见文案走 i18n**（`en` + `zh`），随 ComfyUI 界面语言自动切换；禁止只写死中文或只写死英文显示名
+- **右键菜单独立分类**：`category` 必须为 `Aaalice/<domain>`，顶级仅 `Aaalice`，子类按域；禁止混入 ComfyUI 原版分类（细则见 [右键菜单分类](#右键菜单分类硬性约定)）
 - 暂时不考虑 [App Mode](https://docs.comfy.org/interface/app-mode) 与 [Nodes 2.0](https://docs.comfy.org/interface/nodes-2)
 - 提交：`type(scope): 中文描述`
 - 验证：能加载则测加载；有节点测主路径；有 UI 时测节点图主路径；切换 `en` / `zh`；不宣称未完成工作
@@ -95,6 +96,49 @@ ComfyUI-Aaalice-Nodes/
 
 > 排期以 README 的 **# 逐条**为准；下表只说明代码落盘域与菜单 `category`，不是实现批次。
 
+#### 右键菜单分类（硬性约定）
+
+本包节点在 ComfyUI **右键 → 添加节点** 菜单中必须挂在**独立顶级分类 `Aaalice` 下**，再按域分子类。  
+**禁止**混入 ComfyUI 原版分类（如 `image`、`sampling`、`conditioning`、`latent`、`utils`、`advanced` 等），也禁止把本包节点直接挂在这些根类或其子路径下。
+
+ComfyUI 用 `/` 分层。Schema 的 `category` 格式固定为：
+
+```text
+Aaalice/<domain>
+```
+
+右键菜单呈现为：
+
+```text
+Aaalice                 ← 唯一顶级分类（本包专用）
+ ├── tools
+ ├── prompt
+ ├── media
+ ├── control
+ ├── gallery
+ └── krita
+      └── <节点显示名>
+```
+
+| 规则 | 说明 |
+|------|------|
+| 顶级 | 必须是 **`Aaalice`**（拼写固定，勿改成 `Alice` / `aaalice` / `Aaalice Nodes` 等） |
+| 子类 | 第二段为域名，与 `nodes/<domain>/` 一致：`tools` / `prompt` / `media` / `control` / `gallery` / `krita` |
+| 深度 | 默认两级：`Aaalice/<domain>`；一般不需要三级，确有需要先问 |
+| 写法 | `io.Schema(category="Aaalice/tools")`（V3）；禁止只写 `tools`、`utils` 等无前缀路径 |
+| 标识 | `category` 路径用英文稳定键；用户可见节点名走 i18n，不靠把 `category` 写成中文 |
+
+**禁止示例**（会混进原版或污染根菜单）：
+
+- `utils`、`image`、`sampling`、`conditioning`
+- `tools`（缺少 `Aaalice/` 前缀）
+- `danbooru`、`custom` 等非本包约定前缀
+- `Aaalice` 单段无子类（应用 `Aaalice/<domain>`，勿把所有节点堆在顶级）
+
+**正确示例**：`Aaalice/tools`、`Aaalice/prompt`、`Aaalice/gallery`
+
+#### 域与 category 对照
+
 | 域包 `nodes/` | 条目 | 默认 `category`（Schema） | 前端 `js/` |
 |---------------|------|---------------------------|------------|
 | `tools` | #1–9 | `Aaalice/tools` | `js/tools/`（有 UI 时） |
@@ -104,8 +148,7 @@ ComfyUI-Aaalice-Nodes/
 | `gallery` | #21–22 | `Aaalice/gallery` | `js/gallery/` |
 | `krita` | #24–25 | `Aaalice/krita` | `js/krita/` |
 
-- 菜单路径统一前缀 **`Aaalice/`**，避免污染根菜单、便于搜索。
-- 纯前端功能（#20 快速组导航）**不建** Python 节点类，只放 `js/control/`（或 `js/control/group_nav.js`），在 `extension.js` 或域入口中注册。
+- 纯前端功能（#20 快速组导航）**不建** Python 节点类，只放 `js/control/`（或 `js/control/group_nav.js`），在 `extension.js` 或域入口中注册；若将来出现「纯前端也能进添加节点菜单」的入口，仍须落在 `Aaalice/...` 命名空间下，不得挂到原版分类。
 
 ### 放置规则
 
@@ -302,11 +345,13 @@ const label = t("aaalice.common.confirm", "Confirm");
 ### 实现检查清单（每个节点 / 有 UI 的条目）
 
 - [ ] Schema：`node_id` 与输入输出 id 为英文稳定键；`display_name` / description / tooltip 为英文 fallback
+- [ ] Schema：`category` 为 `Aaalice/<domain>`（独立顶级 `Aaalice` + 域子类）；未混入原版分类、无前缀路径
 - [ ] `locales/en/nodeDefs.json` 与 `locales/zh/nodeDefs.json` 已补全且 key 对齐
 - [ ] COMBO 选项值英文，展示名在 locales 的 `options` 中
 - [ ] 有 settings/commands 则双语文案齐全
 - [ ] 自定义前端文案可随 ComfyUI 语言在 en/zh 间切换
 - [ ] 语言 = English / 简体中文 下各看一眼主路径 UI
+- [ ] 右键菜单可在 **Aaalice → 对应域子类** 下找到该节点
 
 ### 工作流中的文档步骤
 
