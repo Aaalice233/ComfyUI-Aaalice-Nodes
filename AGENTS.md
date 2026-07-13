@@ -4,9 +4,9 @@
 
 ## 项目与原则
 
-重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)：翻新、对齐新 UI、有选择精简。**节点取舍未定**，有实现后再更新 README。
+重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)：翻新、对齐新 UI。范围与顺序见 [README.md](./README.md)。
 
-- 参考旧码按确认范围**重写**，禁止整包复制；范围未定先问
+- 参考旧码按顺序**重写**，禁止整包复制；改顺序或砍范围先问
 - 前端优先官方扩展 API，少绑 LiteGraph 内部
 - `__init__.py` 薄、按域分包；依赖少且先征得同意
 - 禁止静默吞错/假成功；文案中文、标识符英文
