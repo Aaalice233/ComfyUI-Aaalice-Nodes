@@ -22,7 +22,7 @@ build-backend = "setuptools.build_meta"
 packages = ["nodes"]
 
 [tool.setuptools.package-data]
-"*" = ["js/**/*"]
+"*" = ["js/**/*", "locales/**/*"]
 
 # 发布到 Comfy Registry 时再填写 PublisherId / DisplayName
 # [tool.comfy]
