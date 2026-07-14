@@ -51,7 +51,14 @@
 .aaalice-pcp-node-switch.active:hover { background: color-mix(in srgb, var(--aaalice-node-accent) 22%, transparent); }
 .aaalice-pcp-node-section { box-sizing: border-box; min-height: 28px; margin: 2px 0; padding: 4px 2px; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-node-border) 72%, transparent); color: var(--aaalice-node-muted); font-weight: 600; }
 .aaalice-pcp-node-row { padding: 2px 2px 3px; }
-.aaalice-pcp-node-root .aaalice-pcp-node-row { box-sizing: border-box; min-height: 48px; padding: 2px 0 3px; }
+.aaalice-pcp-node-root .aaalice-pcp-node-row {
+	box-sizing: border-box;
+	display: grid;
+	min-height: 64px;
+	padding: 2px 0 3px;
+	grid-template-rows: 18px 36px;
+	row-gap: 4px;
+}
 .aaalice-pcp-node-row-heading { display: flex; align-items: center; justify-content: space-between; min-height: 18px; gap: 5px; }
 .aaalice-pcp-node-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .aaalice-pcp-description-trigger { display: inline-flex; min-width: 0; align-items: center; gap: 5px; outline: none; cursor: help; }

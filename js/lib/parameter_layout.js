@@ -6,7 +6,10 @@ export const PARAMETER_NODE_LAYOUT = Object.freeze({
 	minWidth: 370,
 	outputColumn: 53,
 	bodyPadding: 8,
-	rowHeight: 48,
+	// Every parameter row contains a label line and a 34–36px control.
+	// Keeping the geometry large enough for both is what prevents select/slider
+	// overlays from spilling into the next row at normal canvas zoom.
+	rowHeight: 64,
 	sectionHeight: 28,
 	controlHeight: 34,
 	rowGap: 4,
@@ -27,7 +30,9 @@ function controlRect(width, rowTop, parameter) {
 		: PARAMETER_NODE_LAYOUT.controlHeight;
 	return {
 		left,
-		top: rowTop + Math.max(0, (rowHeight(parameter) - height) / 2),
+		// The label occupies the first line; controls sit below it instead of
+		// sharing the same vertical center as the label.
+		top: rowTop + 24,
 		width: Math.max(80, right - left),
 		height,
 	};
@@ -63,7 +68,7 @@ export function computeParameterLayout(node) {
 		const control = controlRect(width, cursor, parameter);
 		const label = {
 			left: control.left,
-			top: cursor + 8,
+			top: cursor + 5,
 			width: control.width,
 			height: 18,
 		};
