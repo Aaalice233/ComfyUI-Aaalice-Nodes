@@ -66,7 +66,7 @@
 .aa-ui-field__error { color: var(--aa-ui-danger); }
 .aa-ui-field.has-error input, .aa-ui-field.has-error select, .aa-ui-field.has-error textarea { border-color: var(--aa-ui-danger); }
 
-.aa-ui-badge { display: inline-flex; align-items: center; width: max-content; padding: 2px 7px; border: 1px solid var(--aa-ui-border-soft); border-radius: 999px; background: var(--aa-ui-control); color: var(--aa-ui-muted); font-size: 10px; line-height: 1.4; }
+.aa-ui-badge { display: inline-flex; min-height: 22px; align-items: center; width: max-content; padding: 3px 9px; border: 1px solid var(--aa-ui-border-soft); border-radius: 999px; background: var(--aa-ui-control); color: var(--aa-ui-muted); font-size: 11px; line-height: 1.35; }
 .aa-ui-badge--accent { border-color: color-mix(in srgb, var(--aa-ui-accent) 38%, transparent); background: var(--aa-ui-accent-soft); color: var(--aa-ui-text); }
 .aa-ui-badge--danger { border-color: color-mix(in srgb, var(--aa-ui-danger) 38%, transparent); color: var(--aa-ui-danger); }
 

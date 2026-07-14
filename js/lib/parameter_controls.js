@@ -1,9 +1,10 @@
 /** Shared DOM controls used by the node, editor and Operation Panel. */
 import { el, icon } from "./ui.js";
 
-function numericInput(parameter, onChange) {
+function numericInput(parameter, onChange, ariaLabel = "") {
 	const input = document.createElement("input");
 	input.type = "number";
+	if (ariaLabel) input.setAttribute("aria-label", ariaLabel);
 	input.value = String(parameter.value ?? 0);
 	input.min = String(parameter.config?.min ?? 0);
 	input.max = String(parameter.config?.max ?? Number.MAX_SAFE_INTEGER);
@@ -35,9 +36,10 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	const restoreFocus = () => {
 		let target = anchor;
 		if (!target.isConnected && anchor.dataset?.parameterId) {
-			target = [...anchor.ownerDocument.querySelectorAll("[data-parameter-id]")]
-				.find((candidate) => candidate.dataset.parameterId === anchor.dataset.parameterId
+			const candidates = [...anchor.ownerDocument.querySelectorAll("[data-parameter-id]")]
+				.filter((candidate) => candidate.dataset.parameterId === anchor.dataset.parameterId
 					&& candidate.matches?.("button, input, select, textarea, [tabindex]"));
+			target = candidates.find((candidate) => candidate.dataset.aaaliceValuePill === "true") || candidates[0];
 		}
 		if (!target?.isConnected) return;
 		try { target.focus({ preventScroll: true }); } catch { target.focus(); }
@@ -110,9 +112,10 @@ export function createSwitchControl(value, { onChange, ariaLabel = "" } = {}) {
 export function createParameterControl({ parameter, mode = "sidebar", onChange, labels = {} } = {}) {
 	if (!parameter) return document.createElement("span");
 	const config = parameter.config || {};
-	if (parameter.param_type === "seed") return numericInput(parameter, onChange);
+	const parameterLabel = labels.input || labels.select || labels.switch || parameter.name || parameter.id || "Parameter";
+	if (parameter.param_type === "seed") return numericInput(parameter, onChange, parameterLabel);
 	if (parameter.param_type === "slider") {
-		if (mode === "node") return numericInput(parameter, onChange);
+		if (mode === "node") return numericInput(parameter, onChange, parameterLabel);
 		const wrap = el("div", `aaalice-shared-slider${parameter.param_type === "seed" ? " seed" : ""}`);
 		const range = document.createElement("input");
 		range.type = "range";
@@ -120,7 +123,8 @@ export function createParameterControl({ parameter, mode = "sidebar", onChange, 
 		range.max = String(config.max ?? 100);
 		range.step = String(config.step ?? 1);
 		range.value = String(parameter.value ?? 0);
-		const number = numericInput(parameter, (value) => { range.value = String(value); onChange?.(value); });
+		range.setAttribute("aria-label", parameterLabel);
+		const number = numericInput(parameter, (value) => { range.value = String(value); onChange?.(value); }, parameterLabel);
 		range.addEventListener("input", () => { parameter.value = Number(range.value); number.value = range.value; onChange?.(parameter.value); });
 		wrap.append(range, number);
 		return wrap;

@@ -31,7 +31,7 @@ function message(key, fallback, values = {}) {
 }
 
 function toast(severity, detail) {
-	app.extensionManager?.toast?.add?.({ severity, summary: "Aaalice", detail, life: 4500 });
+	app.extensionManager?.toast?.add?.({ severity, summary: t("aaalice.packageName", "Aaalice Nodes"), detail, life: 4500 });
 }
 
 async function confirmAction(text) {
@@ -68,7 +68,7 @@ function defaultState() {
 	return {
 		version: 2,
 		active_page_id: "page_main",
-		pages: [{ id: "page_main", name: "Main", order: 0, sections: [{ id: "section_general", name: "General", order: 0 }] }],
+		pages: [{ id: "page_main", name: t("aaalice.operation.defaultPage", "Main"), order: 0, sections: [{ id: "section_general", name: t("aaalice.operation.defaultSection", "General"), order: 0 }] }],
 		nodes: {},
 	};
 }
@@ -88,7 +88,7 @@ function operationState(graph = app.graph, create = false) {
 	if (!state.pages.some((page) => page.id === state.active_page_id)) state.active_page_id = state.pages[0].id;
 	for (const page of state.pages) {
 		page.sections ||= [];
-		if (!page.sections.length) page.sections.push({ id: newStableId("section"), name: "General", order: 0 });
+		if (!page.sections.length) page.sections.push({ id: newStableId("section"), name: t("aaalice.operation.defaultSection", "General"), order: 0 });
 	}
 	return state;
 }
@@ -125,7 +125,7 @@ function markDirty(node = null) {
 }
 
 function cardTitle(item) {
-	return item.entry.label_override || item.node.getTitle?.() || item.node.title || item.node.type || `Node ${item.node.id}`;
+	return item.entry.label_override || item.node.getTitle?.() || item.node.title || item.node.type || message("aaalice.operation.nodeFallback", "Node {id}", { id: item.node.id });
 }
 
 function collectItems(pageId = null) {
@@ -211,7 +211,7 @@ function renderNodeResults(container, node) {
 	for (const source of node.imgs) {
 		const image = document.createElement("img");
 		image.src = source?.src || source?.url || String(source || "");
-		image.alt = node.title || node.type || "Result";
+		image.alt = node.title || node.type || t("aaalice.operation.result", "Result");
 		results.append(image);
 	}
 	container.append(results);
@@ -489,10 +489,10 @@ async function presetMenu() {
 
 async function addPage() {
 	const state = operationState(app.graph, true);
-	const name = await promptText(t("aaalice.operation.pageAdd", "New page name"), "Page");
+	const name = await promptText(t("aaalice.operation.pageAdd", "New page name"), t("aaalice.operation.defaultPage", "Main"));
 	if (!name?.trim()) return;
 	if (state.pages.some((page) => page.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return toast("warn", t("aaalice.operation.pageNameUnique", "Page names must be unique."));
-	const page = { id: newStableId("page"), name: name.trim(), order: state.pages.length, sections: [{ id: newStableId("section"), name: "General", order: 0 }] };
+	const page = { id: newStableId("page"), name: name.trim(), order: state.pages.length, sections: [{ id: newStableId("section"), name: t("aaalice.operation.defaultSection", "General"), order: 0 }] };
 	state.pages.push(page);
 	state.active_page_id = page.id;
 	markDirty();
@@ -536,7 +536,7 @@ async function deletePage(page) {
 }
 
 async function addSection(page) {
-	const name = await promptText(t("aaalice.operation.sectionAdd", "New section name"), "Section");
+	const name = await promptText(t("aaalice.operation.sectionAdd", "New section name"), t("aaalice.operation.defaultSection", "General"));
 	if (!name?.trim()) return;
 	if (page.sections.some((section) => section.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return toast("warn", t("aaalice.operation.sectionNameUnique", "Section names must be unique within a page."));
 	page.sections.push({ id: newStableId("section"), name: name.trim(), order: page.sections.length });

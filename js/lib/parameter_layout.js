@@ -117,7 +117,11 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 	const concrete = node?._concreteOutputs;
 	if (Array.isArray(concrete)) {
 		const previousAll = node._aaaliceAllConcreteOutputs;
-		if (!Array.isArray(previousAll) || previousAll.length !== (node.outputs?.length || 0) || previousAll[0] !== concrete[0]) {
+		const expectedCount = node.outputs?.length || 0;
+		// _concreteOutputs is filtered below. Only replace the retained complete
+		// collection when the native layer hands us every protocol slot; otherwise
+		// a zero-parameter panel could permanently lose its slots after filtering.
+		if (!Array.isArray(previousAll) || concrete.length >= expectedCount) {
 			node._aaaliceAllConcreteOutputs = concrete.slice();
 		}
 		const all = node._aaaliceAllConcreteOutputs || concrete;

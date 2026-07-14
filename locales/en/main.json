@@ -10,6 +10,7 @@
     "operation": {
       "title": "Operation Panel", "tooltip": "Workflow operation controls",
       "subtitle": "Tune the workflow without leaving its operating surface.", "pagesAria": "Operation pages",
+      "defaultPage": "Main", "defaultSection": "General", "nodeFallback": "Node {id}", "result": "Result",
       "add": "Add to Operation Panel", "remove": "Remove from Operation Panel",
       "removeConfirm": "Remove this node from Operation Panel?",
       "emptyTitle": "Nothing on this page yet", "empty": "Add a Parameter Panel or register another node from its context menu.",

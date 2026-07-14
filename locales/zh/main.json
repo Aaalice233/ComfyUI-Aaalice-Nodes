@@ -10,6 +10,7 @@
     "operation": {
       "title": "操作面板", "tooltip": "工作流通用操作控件",
       "subtitle": "在统一操作面中调整当前工作流。", "pagesAria": "操作页面",
+      "defaultPage": "主页面", "defaultSection": "常规", "nodeFallback": "节点 {id}", "result": "结果",
       "add": "加入操作面板", "remove": "从操作面板移除",
       "removeConfirm": "从操作面板移除这个节点？",
       "emptyTitle": "当前页面还没有内容", "empty": "添加参数面板，或通过右键菜单注册其它节点。",

@@ -297,7 +297,8 @@ function numericDisplay(label, parameter, config, onCommit) {
 	const value = isolate(el("button", "aaalice-pcp-value-display", String(parameter.value ?? 0)));
 	value.type = "button";
 	value.dataset.parameterId = String(parameter.id || "");
-	value.setAttribute("aria-label", t("aaalice.pcp.inline.editValue", "Edit value"));
+	value.dataset.aaaliceValuePill = "true";
+	value.setAttribute("aria-label", `${displayName(parameter)}: ${t("aaalice.pcp.inline.editValue", "Edit value")}`);
 	value.addEventListener("click", () => openInlineNumberInput(
 		value,
 		parameter.value,
@@ -320,6 +321,7 @@ function valueControl(node, parameter) {
 		range.max = String(config.max ?? 100);
 		range.step = String(config.step ?? 1);
 		range.value = String(parameter.value ?? 0);
+		range.setAttribute("aria-label", displayName(parameter));
 		const display = numericDisplay("", parameter, config, (value) => {
 			parameter.value = value;
 			range.value = String(value);
@@ -359,7 +361,7 @@ function valueControl(node, parameter) {
 			const locked = parameter.config?.control_after_generate !== "randomize";
 			modeButton.replaceChildren(icon("lock"));
 			modeButton.classList.toggle("is-locked", locked);
-			modeButton.setAttribute("aria-label", modeLabel());
+			modeButton.setAttribute("aria-label", `${displayName(parameter)}: ${modeLabel()}`);
 			modeButton.setAttribute("aria-pressed", String(locked));
 		};
 		modeButton.addEventListener("click", () => {
@@ -377,6 +379,7 @@ function valueControl(node, parameter) {
 	if (parameter.param_type === "switch") {
 		const switchButton = isolate(el("button", `aaalice-pcp-node-switch${parameter.value ? " active" : ""}`));
 		switchButton.type = "button";
+		switchButton.setAttribute("aria-label", displayName(parameter));
 		switchButton.setAttribute("aria-pressed", String(Boolean(parameter.value)));
 		switchButton.append(
 			el("span", { className: "aaalice-pcp-switch-track", children: [el("span", "aaalice-pcp-switch-thumb")] }),
@@ -413,6 +416,7 @@ function valueControl(node, parameter) {
 			return segmented;
 		}
 		const select = isolate(document.createElement("select"));
+		select.setAttribute("aria-label", displayName(parameter));
 		const selectWrap = el("div", "aaalice-pcp-select-wrap");
 		const valid = options.includes(String(parameter.value));
 		if (!valid && parameter.value != null) {
@@ -440,6 +444,7 @@ function valueControl(node, parameter) {
 	if (parameter.param_type === "image") {
 		const imageButton = isolate(el("button", "aaalice-pcp-node-value", parameter.value?.filename || t("aaalice.pcp.image.none", "Choose image")));
 		imageButton.type = "button";
+		imageButton.setAttribute("aria-label", displayName(parameter));
 		imageButton.addEventListener("click", async () => { if (await chooseImage(parameter)) persist(); });
 		return imageButton;
 	}
