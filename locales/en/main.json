@@ -63,7 +63,7 @@
       "editor": {
         "title": "Edit parameters", "menu": "⚙️ Edit Parameters…", "add": "Add parameter",
         "selectParameter": "Select a parameter to edit its settings.", "discard": "Discard unsaved parameter changes?",
-        "emptyTitle": "No parameter selected", "inspector": "Parameter settings", "nodeFallback": "Parameter Panel",
+        "emptyTitle": "No parameter selected", "nodeFallback": "Parameter Panel",
         "subtitle": "Configure the panel structure and default values.",
         "renameHint": "Double-click to rename",
         "parameterCount": "{count} parameters", "general": "General", "valueRules": "Value rules",
