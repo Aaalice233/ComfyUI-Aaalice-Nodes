@@ -184,7 +184,7 @@ t("aaalice.common.confirm", "Confirm");
 7. **证据与判定**：每轮保存 `server.stdout.log`、`server.stderr.log`、截图和关键 Console 错误到 `../../../logs/codex-e2e-<timestamp>/`。`/object_info/<Node>` 只证明后端注册，不代表 UI 通过；UI 通过必须同时满足节点可创建、控件可见可操作、输出槽无截断、截图符合设计和无阻断性前端错误。
 8. **收尾**：测试完成后保留用户要求查看的 deliverable 页面，否则清理临时标签；不要把测试工作流、截图或日志写入仓库发布内容。
 
-本流程已在 2026-07-14 实际验证：重启 8189 实例、Browser 打开本地页面、新建工作流、搜索并放置 `ParameterPanel`、截图、读取 Console 和运行一次批量 `node --check` 均可完成。此次视觉断言失败（节点仍显示 32 个输出槽且缺少参数控件），应记录为产品失败而不是伪造通过。
+本流程已在 2026-07-14 实际验证：启动带独立 PID/日志的专用 ComfyUI 实例，按本轮日志取得端口，使用 Codex Browser 打开本地页面，新建工作流、放置 `ParameterPanel`、截图并读取 DOM/Console；节点显示实际参数控件和可见输出槽，数字 pill 可进入 inline editor，Escape 可取消。前端改动收口后统一运行一次批量 `node --check`；若视觉断言失败，记录为产品失败，不以截图或 mock 伪造通过。
 
 ### 5.4 完成检查
 

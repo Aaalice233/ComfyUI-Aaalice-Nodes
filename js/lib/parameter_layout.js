@@ -1,6 +1,6 @@
 /** Shared geometry for the ParameterPanel node and its native output slots. */
 import { displayName, ensureParameters, isTunable, tunableMeta } from "./param_model.js";
-import { app } from "../../scripts/app.js";
+import { app } from "../../../scripts/app.js";
 
 export const PARAMETER_NODE_LAYOUT = Object.freeze({
 	minWidth: 370,
@@ -106,6 +106,18 @@ export function computeParameterLayout(node) {
 export function syncNativeOutputLayout(node, layout = computeParameterLayout(node)) {
 	node._aaaliceParameterLayout = layout;
 	node._aaaliceVisibleOutputIndices = new Set(layout.visibleOutputIndices);
+	// Nodes 2.0 measures the private concrete slot collection directly. Keep the
+	// public 32-slot protocol intact, but expose only the active prefix to native
+	// layout and hit testing so unused outputs cannot reserve phantom height.
+	const concrete = node?._concreteOutputs;
+	if (Array.isArray(concrete)) {
+		const previousAll = node._aaaliceAllConcreteOutputs;
+		if (!Array.isArray(previousAll) || previousAll.length !== (node.outputs?.length || 0) || previousAll[0] !== concrete[0]) {
+			node._aaaliceAllConcreteOutputs = concrete.slice();
+		}
+		const all = node._aaaliceAllConcreteOutputs || concrete;
+		node._concreteOutputs = all.filter((slot) => node._aaaliceVisibleOutputIndices.has(all.indexOf(slot)));
+	}
 	for (const row of layout.rows) {
 		if (row.kind !== "parameter") continue;
 		const output = node.outputs?.[row.index];

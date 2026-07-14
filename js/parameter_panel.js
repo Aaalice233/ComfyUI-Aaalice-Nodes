@@ -482,6 +482,30 @@ function nodeHeight(node) {
 	return Math.max(66, computeParameterLayout(node).height);
 }
 
+function panelNodeSize(node) {
+	const widgetStart = Number(node?.constructor?.slot_start_y) || 4;
+	return Math.max(72, widgetStart + nodeHeight(node) + 12);
+}
+
+function applyCompactNodeSize(node) {
+	if (!node) return;
+	const width = Math.max(MIN_WIDTH, Number(node.size?.[0]) || MIN_WIDTH);
+	const target = panelNodeSize(node);
+	if (Math.abs(Number(node.size?.[1]) - target) > 1) node.setSize?.([width, target]);
+}
+
+function scheduleCompactNodeSize(node) {
+	if (node._aaaliceCompactResizeTimer) clearTimeout(node._aaaliceCompactResizeTimer);
+	node._aaaliceCompactResizeTimer = setTimeout(() => {
+		node._aaaliceCompactResizeTimer = null;
+		if (!node.graph) return;
+		applyCompactNodeSize(node);
+		node.arrange?.();
+		applyCompactNodeSize(node);
+		node.setDirtyCanvas?.(true, true);
+	}, 500);
+}
+
 function inspectorField(label, control) {
 	return field({ label, control });
 }
@@ -746,11 +770,8 @@ function setupParameterPanel(node, loaded = false) {
 	});
 	if (!node._aaaliceOutputPresentationPatched) {
 		node._aaaliceOutputPresentationPatched = true;
-		const previousComputeSize = node.computeSize;
 		node.computeSize = function () {
-			const size = previousComputeSize?.apply(this, arguments) || [MIN_WIDTH, 0];
-			const desiredHeight = nodeHeight(this) + 44;
-			return [Math.max(MIN_WIDTH, Number(size?.[0]) || 0), Math.max(60, desiredHeight)];
+			return [Math.max(MIN_WIDTH, Number(this.size?.[0]) || MIN_WIDTH), panelNodeSize(this)];
 		};
 		const previousDrawSlots = node.drawSlots;
 		node.drawSlots = function (ctx, options) {
@@ -760,6 +781,14 @@ function setupParameterPanel(node, loaded = false) {
 		if (typeof previousMeasureSlots === "function") {
 			node._measureSlots = function () {
 				return withVisibleConcreteOutputs(this, () => previousMeasureSlots.apply(this, arguments));
+			};
+		}
+		const previousSetConcreteSlots = node._setConcreteSlots;
+		if (typeof previousSetConcreteSlots === "function") {
+			node._setConcreteSlots = function () {
+				const value = previousSetConcreteSlots.apply(this, arguments);
+				if (this._aaaliceParameterLayout) syncNativeOutputLayout(this, this._aaaliceParameterLayout);
+				return value;
 			};
 		}
 		const previousArrangeWidgets = node._arrangeWidgets;
@@ -774,6 +803,17 @@ function setupParameterPanel(node, loaded = false) {
 				? withVisibleConcreteOutputs(this, () => previousArrangeWidgets.apply(this, arguments))
 				: undefined;
 			placeWidget(this);
+			// LiteGraph grows the node when a widget is measured below the slots.
+			// Keep that fallback from reintroducing the hidden-output height after
+			// the native layout pass has completed.
+			if (this.graph) applyCompactNodeSize(this);
+			return value;
+		};
+		const previousArrange = node.arrange;
+		node.arrange = function () {
+			const value = withVisibleConcreteOutputs(this, () => previousArrange?.apply(this, arguments));
+			placeWidget(this);
+			applyCompactNodeSize(this);
 			return value;
 		};
 		const previousDrawForeground = node.onDrawForeground;
@@ -788,8 +828,13 @@ function setupParameterPanel(node, loaded = false) {
 		widget.computedHeight = desired;
 		root.style.minHeight = `${desired}px`;
 		widget.y = Number(node.constructor?.slot_start_y) || 4;
-		node.setSize([Math.max(node.size?.[0] || MIN_WIDTH, MIN_WIDTH), desired + 44]);
+		applyCompactNodeSize(node);
 		syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
+		if (node.graph) {
+			node.arrange?.();
+			applyCompactNodeSize(node);
+		}
+		scheduleCompactNodeSize(node);
 		node.setDirtyCanvas?.(true, true);
 	};
 	const onChange = (event) => {
@@ -809,6 +854,7 @@ function setupParameterPanel(node, loaded = false) {
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onChange);
+		if (this._aaaliceCompactResizeTimer) clearTimeout(this._aaaliceCompactResizeTimer);
 		return previousRemoved?.apply(this, arguments);
 	};
 	const previousConfigure = node.onConfigure;
@@ -878,7 +924,10 @@ app.registerExtension({
 		if (kjItem) items.push(kjItem);
 		return items;
 	},
-	nodeCreated(node) { if (isParameterPanel(node)) setupParameterPanel(node, false); },
+	nodeCreated(node) {
+		if (!isParameterPanel(node)) return;
+		setupParameterPanel(node, false);
+	},
 	loadedGraphNode(node) { if (isParameterPanel(node)) setupParameterPanel(node, true); },
 	async setup() {
 		installPromptHook();
