@@ -1,385 +1,214 @@
 # AGENTS.md
 
-协作者与 AI 助手用。与当次指令冲突时以当次为准。
+协作者与 AI 助手用。与当次指令冲突时以当次为准。**本文件宜 ≤500 行**。
+
+**文档分工（勿混用）：**
+
+| 文件 | 写什么 | 不写什么 |
+|------|--------|----------|
+| **本文件 `AGENTS.md`** | 硬性约定、目录/菜单/i18n/双模式/JS 挂载、日志路径、检查清单 | 用户安装说明、长篇进度叙事 |
+| **README / README.zh-CN** | 进度表、安装、面向使用者的说明 | 协作硬规则 |
+| **docs/adr/** | 难逆决策的 Why | 日常操作步骤 |
+
+实现时以本文件 + 当次指令为准；进度以 README 为准。
 
 ## 项目与原则
 
-重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)：翻新、对齐新 UI。范围与顺序见 [README](./README.md) / [README.zh-CN](./README.zh-CN.md)。
+重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。**当前条目与下一跳**见 [README](./README.md) / [README.zh-CN](./README.zh-CN.md)（仅排期，不含协作硬规则）。
 
-- 参考旧码按 README **# 逐条**重写，禁止整包复制；改顺序或砍范围先问
-- 前端优先官方扩展 API，少绑 LiteGraph 内部
-- **`__init__.py` 极薄**，节点按域放在 `nodes/<domain>/`；依赖少且先征得同意
-- 禁止静默吞错/假成功
-- **标识符英文**（类名、`node_id`、输入/输出 id、COMBO 选项值、API 字段、文件名）
-- **用户可见文案走 i18n**（`en` + `zh`），随 ComfyUI 界面语言自动切换；禁止只写死中文或只写死英文显示名
-- **README 双语同步**（见 [README 双语](#readme-双语)）：改一必改另一
-- **右键菜单独立分类**：`category` 必须为 `Aaalice/<domain>`，顶级仅 `Aaalice`，子类按域；禁止混入 ComfyUI 原版分类（细则见 [右键菜单分类](#右键菜单分类硬性约定)）
-- 暂时不考虑 [App Mode](https://docs.comfy.org/interface/app-mode) 与 [Nodes 2.0](https://docs.comfy.org/interface/nodes-2)
+- 按 README **优先级队列**重写，禁止整包复制；**# 为稳定 id**；改范围先问
+- **`__init__.py` 极薄**；节点在 `nodes/<domain>/`；依赖少且先征得同意
+- 禁止静默吞错 / 假成功
+- **标识符英文**；**用户文案 en+zh i18n**（跟 Comfy 界面语言）
+- **README 双语同步**；`pyproject.toml` 的 `readme` → `README.md`
+- **菜单** `category = "Aaalice/<domain>"`（顶级仅 `Aaalice`）
+- **双渲染兼容**：经典模式 **与** [Nodes 2.0](https://docs.comfy.org/interface/nodes-2) 都要可用
+- 暂不考虑 [App Mode](https://docs.comfy.org/interface/app-mode)
 - 提交：`type(scope): 中文描述`
-- 验证：能加载则测加载；有节点测主路径；有 UI 时测节点图主路径；切换 `en` / `zh`；不宣称未完成工作
+- 验证：加载 + 主路径；**经典 + Nodes 2.0**；en/zh
 
 ### README 双语
 
-| 文件 | 语言 | 说明 |
-|------|------|------|
-| `README.md` | English | GitHub / Registry 默认展示 |
-| `README.zh-CN.md` | 简体中文 | 中文读者；页顶可与英文版互链切换 |
+| 文件 | 语言 |
+|------|------|
+| `README.md` | English（Registry 默认） |
+| `README.zh-CN.md` | 简体中文 |
 
-**硬性约定：**
+两文件结构对齐；页顶互链；进度变更同一改动内双改。
 
-- 两文件**结构与信息对齐**（进度表、安装、状态标记等）；禁止只更新一侧
-- 页顶保留语言切换：`English` ↔ `简体中文` 相对链接
-- 进度 / 完成标记 / 安装步骤变更时：**同一提交内**改完两份
-- `pyproject.toml` 的 `readme` 指向 `README.md`（英文）
+### Registry
 
-### Registry 发布 / 更新
+`PublisherId=aaalice`；包名 `comfyui-aaalice-nodes`。升 `version` → push `main` → Actions。Secret：`REGISTRY_ACCESS_TOKEN`。  
+`.comfyignore` 排除协作杂项（含 `AGENTS.md`、`.grok/` 等）；勿排除运行时代码。
 
-上架 [Comfy Registry](https://registry.comfy.org)（Manager 可搜装）。`PublisherId=aaalice`；包名 `comfyui-aaalice-nodes`（见 `pyproject.toml` `[tool.comfy]`）。
+### 日志位置（相对本仓库根 `ComfyUI-Aaalice-Nodes/`）
 
-1. 改功能并自测 → **升高** `pyproject.toml` 的 `version`（semver；已发版本不可覆盖）
-2. 提交 push 到 `main`（改动含 `pyproject.toml` 会触发 `.github/workflows/publish.yml`）
-3. 看 Actions 是否成功；用户在 Manager 更新即可
+本仓库在 `custom_nodes/` 下时，Comfy 安装根 ≈ `../../..`（即 `…/ComfyUI/ComfyUI` 的上一级 Desktop 布局以本机为准）。
 
-手动：Actions → **Publish to Comfy Registry** → Run workflow。Secret：`REGISTRY_ACCESS_TOKEN`（Registry 的 Publishing API Key，勿提交仓库、勿贴聊天）。细则：[publishing](https://docs.comfy.org/registry/publishing)。
+| 用途 | 相对路径（相对本仓库） |
+|------|------------------------|
+| 当前主日志 | `../../../logs/comfyui.log` |
+| 轮转日志 | `../../../logs/comfyui.log_*.log` |
+| user 日志 | `../../user/comfyui.log`、`../../user/comfyui_8189.log`（端口号随实例变） |
+| 前端根（Desktop） | 日志里 `web root:` 指向 `.venv/.../comfyui_frontend_package/static` |
 
-**`.comfyignore`**：只影响 Registry **发布 zip**（语法同 `.gitignore`；已跟踪文件也会被排除）。运行时需要的代码/资源勿写进去；`.codex/`、`.grok/`、`.github/`、`AGENTS.md` 等协作杂项必须排除。改 ignore 后需 **升 version 再发版** 才进新包。
+- **后端 / 节点导入 / HotReload**：看上表 server 日志。  
+- **JS 报错**：不在 server 日志；看浏览器 **F12 → Console**。  
+- 本机日志曾见 **`[LG_HotReload] 模块重载成功: ComfyUI-Aaalice-Nodes`**：**只重载 Python，不重载 JS**。改前端后须 **硬刷新 / 重启 Comfy**，勿只靠 HotReload。  
+- GUI 地址以日志 `To see the GUI go to: http://127.0.0.1:PORT` 为准（曾见 **8189**，勿写死 8188）。
 
 ---
 
-## 仓库与节点文件夹结构
+## 仓库结构
 
-布局参考常见包的习惯，再按本包规模收束：
-
-| 参考包 | 可借鉴点 | 本包取舍 |
-|--------|----------|----------|
-| [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) | 根入口聚合；`nodes/` 按主题分模块；`utility/` 放共享逻辑；`web/js/` 放前端 | 采用 **`nodes/` 按域分包**，不用把几十个类塞进单文件 |
-| [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) | `py/` **一节点一文件**；共享 `utils` / `server`；前端与后端按节点对应 | 采用 **默认一节点一模块**；HTTP 路由进 `server/`；复杂 UI 在 `js/<domain>/` 对齐 |
-| 官方扩展约定 | 根目录 `WEB_DIRECTORY`、`locales/`、`comfy_entrypoint` | 保持根目录可被 ComfyUI 直接加载 |
-
-### 目标树（规划）
-
-```
+```text
 ComfyUI-Aaalice-Nodes/
-├── __init__.py                 # 仅：WEB_DIRECTORY + comfy_entrypoint（禁止堆节点实现）
-├── pyproject.toml
-├── requirements.txt
+├── __init__.py          # WEB_DIRECTORY + comfy_entrypoint
+├── pyproject.toml / requirements.txt
 ├── AGENTS.md / README.md / README.zh-CN.md
-├── locales/                    # i18n（Comfy 自动扫描，见下文）
-│   ├── en/
-│   └── zh/
-├── js/                         # WEB_DIRECTORY；全部 .js 会被加载
-│   ├── extension.js            # 总入口：registerExtension、预加载 i18n
-│   ├── i18n.js                 # 自绘 UI 文案
-│   ├── lib/                    # 前端共享（dom、api 封装等）— 有需要再建
-│   ├── tools/                  # 与 nodes/tools 对应的节点 UI / hooks
-│   ├── prompt/
-│   ├── media/
-│   ├── control/                # 含纯前端 #20 组导航
-│   ├── gallery/
-│   └── krita/
-├── nodes/                      # 全部 V3 节点实现
-│   ├── __init__.py             # iter_node_classes()：聚合各域 NODE 列表
-│   ├── _lib/                   # 后端共享纯函数 / 类型 / 常量（禁止放 ComfyNode）
-│   │   └── …                   # 例：text.py、images.py、paths.py
-│   ├── tools/                  # #1–9（落盘域，非排期分组）
-│   │   ├── __init__.py         # 导出本域 node classes 列表
-│   │   ├── simple_string_split.py
-│   │   ├── simple_value_switch.py
-│   │   ├── enum_switch.py
-│   │   ├── simple_notify.py
-│   │   ├── workflow_description.py
-│   │   ├── vae_image_batch_fix.py
-│   │   ├── model_name_extractor.py
-│   │   ├── resolution_master_simplify.py
-│   │   └── simple_load_image.py
-│   ├── prompt/                 # #10–12
-│   │   ├── prompt_cleaning_maid.py
-│   │   ├── prompt_selector.py
-│   │   └── character_feature_swap.py
-│   ├── media/                  # #13–14、#23
-│   │   ├── simple_image_compare.py
-│   │   ├── simple_checkpoint_loader.py
-│   │   └── save_image_plus.py
-│   ├── control/                # #15–19（#20 无 Python 节点）
-│   │   ├── parameter_control_panel.py
-│   │   ├── parameter_break.py
-│   │   ├── group_is_enabled.py
-│   │   ├── group_mute_manager.py
-│   │   └── group_ignore_manager.py
-│   ├── gallery/                # #21–22
-│   │   ├── danbooru_gallery.py
-│   │   └── multi_character_editor.py
-│   └── krita/                  # #24–25
-│       └── fetch_from_krita.py # OpenInKrita 作兼容别名，同模块注册
-└── server/                     # 可选：aiohttp 路由（画廊检索、Krita 桥等）
-    ├── __init__.py             # 注册路由入口（被包加载时调用）
-    ├── gallery_routes.py       # 需要时再加
-    └── krita_routes.py
+├── docs/adr/            # 架构决策
+├── locales/{en,zh}/     # main, nodeDefs, settings, commands
+├── js/                  # WEB_DIRECTORY；**/*.js 都会被加载
+│   ├── extension.js · i18n.js
+│   ├── parameter_*.js   # 参数面板相关（根级，import 用 ../../scripts/）
+│   └── lib/             # theme.css、param_model 等共享
+├── nodes/               # V3 按域：tools / prompt / media / control / gallery / krita
+│   └── _lib/            # 纯逻辑，禁止 ComfyNode
+└── server/              # 可选 HTTP
 ```
 
-当前仓库只需存在**已用到的**路径；**禁止**为占位一次性创建全部空包。某域第一个节点落地时再建该域目录与 `__init__.py`。
+**按需建域**；禁止空壳占位。一节点一文件（例外：PCP+Break、Krita 别名对）。
 
-### 域 ↔ 条目 ↔ 菜单 category
+### 菜单 category
 
-> 排期以 README 的 **# 逐条**为准；下表只说明代码落盘域与菜单 `category`，不是实现批次。
+`Aaalice/<domain>`，domain ∈ tools|prompt|media|control|gallery|krita。禁止挂原版根分类。
 
-#### 右键菜单分类（硬性约定）
+| 域 | 条目（#） | category |
+|----|-----------|----------|
+| tools | 1,3–9（2 已砍） | `Aaalice/tools` |
+| prompt | 10–12 | `Aaalice/prompt` |
+| media | 13–14,23 | `Aaalice/media` |
+| control | 15–19（20 纯 JS） | `Aaalice/control` |
+| gallery | 21–22 | `Aaalice/gallery` |
+| krita | 24–25 | `Aaalice/krita` |
 
-本包节点在 ComfyUI **右键 → 添加节点** 菜单中必须挂在**独立顶级分类 `Aaalice` 下**，再按域分子类。  
-**禁止**混入 ComfyUI 原版分类（如 `image`、`sampling`、`conditioning`、`latent`、`utils`、`advanced` 等），也禁止把本包节点直接挂在这些根类或其子路径下。
+### 放置要点
 
-ComfyUI 用 `/` 分层。Schema 的 `category` 格式固定为：
+1. 根 `__init__.py` 不写业务节点  
+2. `nodes/<domain>/__init__.py` 导出 `NODE_CLASSES`  
+3. `nodes/_lib/` 可单测纯逻辑  
+4. 有 UI → `js/`（根级或 `js/<domain>/`）；`import { app } from "../../scripts/app.js"`（文件在 `js/` 根时）  
+5. `pyproject.toml` packages 含新域  
 
-```text
-Aaalice/<domain>
-```
+### 进度速查（路径）
 
-右键菜单呈现为：
+| # | 节点 | 后端 | 前端 |
+|--:|------|------|------|
+| 1 | SimpleStringSplit | `nodes/tools/simple_string_split.py` | — |
+| 2 | ~~SimpleValueSwitch~~ | 已砍 | — |
+| 15–16 | ParameterControlPanel / Break | `nodes/control/parameter_*.py` | `js/parameter_*.js` |
+| 3 | EnumSwitch（下一跳） | `nodes/tools/enum_switch.py` | 可能 `js/` |
+| 4–9 | tools 其余 | `nodes/tools/…` | 按需 |
+| 10–14,17–25 | 见 README 队列 | `nodes/<domain>/…` | 按需 |
 
-```text
-Aaalice                 ← 唯一顶级分类（本包专用）
- ├── tools
- ├── prompt
- ├── media
- ├── control
- ├── gallery
- └── krita
-      └── <节点显示名>
-```
+---
 
-| 规则 | 说明 |
+## 前端双模式 + 自绘 UI 要点（硬性）
+
+### 双模式
+
+| 模式 | 含义 |
 |------|------|
-| 顶级 | 必须是 **`Aaalice`**（拼写固定，勿改成 `Alice` / `aaalice` / `Aaalice Nodes` 等） |
-| 子类 | 第二段为域名，与 `nodes/<domain>/` 一致：`tools` / `prompt` / `media` / `control` / `gallery` / `krita` |
-| 深度 | 默认两级：`Aaalice/<domain>`；一般不需要三级，确有需要先问 |
-| 写法 | `io.Schema(category="Aaalice/tools")`（V3）；禁止只写 `tools`、`utils` 等无前缀路径 |
-| 标识 | `category` 路径用英文稳定键；用户可见节点名走 i18n，不靠把 `category` 写成中文 |
+| 经典 | Nodes 2.0 **关** |
+| Nodes 2.0 | Nodes 2.0 **开**（Vue 节点壳） |
 
-**禁止示例**（会混进原版或污染根菜单）：
+禁止只适配其一。有 UI 时两模式都要：添加、显示、改值、存盘、执行。
 
-- `utils`、`image`、`sampling`、`conditioning`
-- `tools`（缺少 `Aaalice/` 前缀）
-- `danbooru`、`custom` 等非本包约定前缀
-- `Aaalice` 单段无子类（应用 `Aaalice/<domain>`，勿把所有节点堆在顶级）
+### 自绘 UI 要显示出来（实战）
 
-**正确示例**：`Aaalice/tools`、`Aaalice/prompt`、`Aaalice/gallery`
+来源：官方 [JS overview](https://docs.comfy.org/custom-nodes/js/javascript_overview) / [objects](https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking)；节点面画布参考 [comfyui-quick-latent](https://github.com/Zhen-Bo/comfyui-quick-latent)。
 
-#### 域与 category 对照
+1. **`WEB_DIRECTORY = "./js"`**；Comfy 加载该目录下 **全部 `**/*.js`**。  
+2. 扩展用 `app.registerExtension`；`import { app } from "../../scripts/app.js"`（`js/` 根文件）。  
+3. **挂载钩子要冗余**：`beforeRegisterNodeDef`（改 `onNodeCreated`）+ **`nodeCreated`** + `loadedGraphNode` / `setup` 补挂。  
+4. **节点面优先 Canvas 模式**（quick-latent 同款，本包 PCP 已用）：  
+   - Schema 尽量不暴露内部字段；若有原生 widget，**隐藏**（`hidden=true`、`type="hidden"`、`computeSize→[0,-4]`）。  
+   - **`onDrawForeground(ctx)`** 画控件；**`onMouseDown` / `onMouseMove` / `onMouseUp`** 做 hit-test 与拖拽。  
+   - 文本编辑：短暂 DOM overlay（固定定位 + canvas 坐标变换），勿整面 `addDOMWidget`。  
+   - `computeSize` / `onResize` 保证最小高度随内容变。  
+5. **侧栏 / 复杂表单** 才用 DOM + `theme.css`（`registerSidebarTab`）。  
+6. **慎用 `addDOMWidget`**（本包已踩坑，FE ≥1.45）：  
+   - `addWidget` 仅在 **`node.graph` 已有** 时 `registerWidget`；graph 未就绪会“挂了但看不见”。  
+   - 禁止「先 `await` 再挂 DOM」；i18n 用 `.then(redraw)`。  
+   - 若仍用 DOM：必给 `getMinHeight` / `getHeight`。  
+7. **内部状态不要用 Schema 可见 STRING / forceInput**：  
+   - `converted-widget` 藏不住「参数 JSON」/`[]`。  
+   - **正确**：Schema 无该字段；`accept_all_inputs=True`；`node.properties` + `graphToPrompt` 注入 `inputs.parameters_json`。  
+8. 状态真源：`node.properties`；执行靠 prompt 注入。  
+9. **禁止中英硬拼同一条文案**；日志英文可。  
+10. 改 JS：**硬刷新 / 重启**；LG_HotReload **不重载前端**。删旧节点再添加。
 
-| 域包 `nodes/` | 条目 | 默认 `category`（Schema） | 前端 `js/` |
-|---------------|------|---------------------------|------------|
-| `tools` | #1–9 | `Aaalice/tools` | `js/tools/`（有 UI 时） |
-| `prompt` | #10–12 | `Aaalice/prompt` | `js/prompt/` |
-| `media` | #13–14、#23 | `Aaalice/media` | `js/media/` |
-| `control` | #15–19 | `Aaalice/control` | `js/control/`（#20 仅此） |
-| `gallery` | #21–22 | `Aaalice/gallery` | `js/gallery/` |
-| `krita` | #24–25 | `Aaalice/krita` | `js/krita/` |
+### 参数面板产品约定（#15–16）
 
-- 纯前端功能（#20 快速组导航）**不建** Python 节点类，只放 `js/control/`（或 `js/control/group_nav.js`），在 `extension.js` 或域入口中注册；若将来出现「纯前端也能进添加节点菜单」的入口，仍须落在 `Aaalice/...` 命名空间下，不得挂到原版分类。
+- **节点面（Canvas）**：只改值；分隔 = 分组标题；下拉点击循环选项  
+- **侧栏「参数面板」**：完全体（结构+配置+改值）；多实例 Tab 手动切换  
+- 参数 **隐藏稳定 id**；`_values` 以 id 为键；Break 按 id 重绑连线  
+- 可调参数 ≤32；空包合法  
+- 难逆产品/架构决策：`docs/adr/`
 
-### 放置规则
+### UI token（摘要）
 
-1. **根 `__init__.py`**：只做 `WEB_DIRECTORY`、`comfy_entrypoint`、必要时触发 `server` 路由注册；禁止在此实现节点逻辑。
-2. **一节点一文件（默认）**：文件名 = `snake_case(node_id)`，与类名/模块一一对应，便于 diff 与按条目标注进度。
-3. **允许同文件的例外**：强耦合对——`ParameterControlPanel` + `ParameterBreak`；`FetchFromKrita` + `OpenInKrita` 别名。除此以外勿合并无关节点。
-4. **`nodes/_lib/`**：可单测的纯逻辑、路径工具、API client；**不得**定义 `ComfyNode`，也不得在 import 时连 Comfy 图。
-5. **`nodes/<domain>/__init__.py`**：导出本域 `NODE_CLASSES: list[type]`（或等价），由 `nodes/__init__.py` 的 `iter_node_classes()` 按固定顺序拼接。
-6. **前端镜像**：有自定义 widget / 侧栏 / 菜单的节点，在 `js/<domain>/` 下建同主题文件；共享代码进 `js/lib/`，不要在多个节点文件复制。
-7. **`server/`**：仅当需要 `/api/...` 扩展时再引入；路由模块按域命名，在包加载时显式注册一次。
-8. **注册顺序**：与 README 条目顺序一致无硬性要求，但域聚合顺序建议 `tools → prompt → media → control → gallery → krita`，便于日志与排查。
-9. **`pyproject.toml`**：新域包落地时把包名加入 `[tool.setuptools] packages`（或改用 `find`）；`package-data` 已含 `js/**/*`、`locales/**/*`。
-10. **禁止**：在 `js/` 外再发明第二套自动加载前端目录；禁止把业务节点写进 `_lib` 或 `server`。
+**侧栏 DOM**（`js/lib/theme.css`）：**跟随 ComfyUI 自带主题**，映射 `--fg-color` / `--descrip-text` / `--comfy-menu-secondary-bg` / `--comfy-input-bg` / `--border-color` / `--p-primary-color` 等；**不要**写死紫色或 herdi 暖色。换亮/暗主题侧栏应跟着变。
 
-### 模块模板（落地新节点时）
+**节点 Canvas**（quick-latent 紫系，仅节点面，与侧栏无关）：
 
-```text
-# 后端
-nodes/<domain>/<snake_name>.py   → class Xxx(io.ComfyNode)
-nodes/<domain>/__init__.py       → 追加到本域列表
-nodes/__init__.py                → 已聚合域则无需改（域 __init__ 导出即可）
+| 用途 | 色 |
+|------|-----|
+| 控件底 | `#252538` |
+| 边框 | `#3f3b5a` |
+| 选中/滑条 | `#815fc8` |
+| 选中描边 | `rgba(229,219,255,.58)` |
+| 次要字 | `#918da3` / `#8d899f` |
+| 主值字 | `#e8e8f0` |
 
-# 文案
-locales/en/nodeDefs.json + locales/zh/nodeDefs.json
+---
 
-# 前端（仅当需要）
-js/<domain>/<snake_name>.js      → 由 extension 或侧车 registerExtension hooks
-```
+## 文档入口
 
-### 与进度清单的对应（速查）
-
-| # | 类 / 功能 | 后端路径 | 前端（若有） |
-|--:|-----------|----------|--------------|
-| 1 | `SimpleStringSplit` | `nodes/tools/simple_string_split.py` | — |
-| 2 | `SimpleValueSwitch` | `nodes/tools/simple_value_switch.py` | — |
-| 3 | `EnumSwitch` | `nodes/tools/enum_switch.py` | 可能 `js/tools/` |
-| 4 | `SimpleNotify` | `nodes/tools/simple_notify.py` | `js/tools/` |
-| 5 | `WorkflowDescription` | `nodes/tools/workflow_description.py` | `js/tools/` |
-| 6 | `VAEImageBatchFix` | `nodes/tools/vae_image_batch_fix.py` | — |
-| 7 | `ModelNameExtractor` | `nodes/tools/model_name_extractor.py` | — |
-| 8 | `ResolutionMasterSimplify` | `nodes/tools/resolution_master_simplify.py` | 可能 `js/tools/` |
-| 9 | `SimpleLoadImage` | `nodes/tools/simple_load_image.py` | 可能 `js/tools/` |
-| 10 | `PromptCleaningMaid` | `nodes/prompt/prompt_cleaning_maid.py` | — |
-| 11 | `PromptSelector` | `nodes/prompt/prompt_selector.py` | `js/prompt/` |
-| 12 | `CharacterFeatureSwapNode` | `nodes/prompt/character_feature_swap.py` | 可能 `js/prompt/` |
-| 13 | `SimpleImageCompare` | `nodes/media/simple_image_compare.py` | `js/media/` |
-| 14 | `SimpleCheckpointLoaderWithName` | `nodes/media/simple_checkpoint_loader.py` | 可能 `js/media/` |
-| 15–16 | Parameter 面板 / 展开 | `nodes/control/parameter_*.py` | `js/control/` |
-| 17–19 | Group 管理 | `nodes/control/group_*.py` | `js/control/` |
-| 20 | Quick Group Navigation | （无） | `js/control/` 纯前端 |
-| 21 | `DanbooruGalleryNode` | `nodes/gallery/danbooru_gallery.py` | `js/gallery/` + 可能 `server/` |
-| 22 | `MultiCharacterEditorNode` | `nodes/gallery/multi_character_editor.py` | `js/gallery/` |
-| 23 | `SaveImagePlus` | `nodes/media/save_image_plus.py` | 可能 `js/media/` |
-| 24–25 | Krita 获取 / 别名 | `nodes/krita/fetch_from_krita.py` | 可能 `js/krita/` + `server/` |
-
-改域划分或合并目录前须先问；实现条目时路径与上表不一致须在 PR/说明里写原因。
-
-## 文档
-
-以 [docs.comfy.org](https://docs.comfy.org/) / [llms.txt](https://docs.comfy.org/llms.txt) 与源码为准。
-
-**后端** · [overview](https://docs.comfy.org/custom-nodes/overview) · [walkthrough](https://docs.comfy.org/custom-nodes/walkthrough) · [V3 migration](https://docs.comfy.org/custom-nodes/v3_migration) · [install](https://docs.comfy.org/installation/install_custom_node) · [troubleshoot](https://docs.comfy.org/troubleshooting/custom-node-issues) · scaffold：`comfy node scaffold` / [cookiecutter](https://github.com/Comfy-Org/cookiecutter-comfy-extension)
-
-**前端扩展** · [JS overview](https://docs.comfy.org/custom-nodes/js/javascript_overview) · [hooks](https://docs.comfy.org/custom-nodes/js/javascript_hooks) · [objects](https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking) · [examples](https://docs.comfy.org/custom-nodes/js/javascript_examples) · [context menu](https://docs.comfy.org/custom-nodes/js/context-menu-migration) · [settings](https://docs.comfy.org/custom-nodes/js/javascript_settings) · [i18n](https://docs.comfy.org/custom-nodes/i18n)
-
-**示例** · [Vue basic](https://github.com/jtydhr88/ComfyUI_frontend_vue_basic) · [React template](https://github.com/Comfy-Org/ComfyUI-React-Extension-Template) · [i18n demo](https://github.com/comfyui-wiki/ComfyUI-i18n-demo)
-
-**其它** · [ComfyUI](https://github.com/Comfy-Org/ComfyUI) · [Registry](https://registry.comfy.org/) · 旧仓仅参考行为
+- 后端：[overview](https://docs.comfy.org/custom-nodes/overview) · [V3](https://docs.comfy.org/custom-nodes/v3_migration)  
+- 前端：[JS](https://docs.comfy.org/custom-nodes/js/javascript_overview) · [hooks](https://docs.comfy.org/custom-nodes/js/javascript_hooks) · [i18n](https://docs.comfy.org/custom-nodes/i18n) · [Nodes 2.0](https://docs.comfy.org/interface/nodes-2)  
+- [llms.txt](https://docs.comfy.org/llms.txt)
 
 ---
 
 ## 国际化（i18n）
 
-本包**仅支持两种语言**：
+仅 **en** + **zh**。目录 `locales/{en,zh}/{main,nodeDefs,settings,commands}.json`。Comfy 自动扫描，无需在 `__init__.py` 注册。
 
-| 语言 | 目录 | 说明 |
-|------|------|------|
-| English | `locales/en/` | 基准语言；Python / JS 中的 fallback 文案用英文 |
-| 简体中文 | `locales/zh/` | 完整中文覆盖 |
+| 层 | 内容 |
+|----|------|
+| 序列化 / schema id | 英文稳定键 |
+| `nodeDefs.json` | 显示名、tooltip、COMBO 展示 |
+| Schema display_* | 英文 fallback |
+| 自绘 DOM | `main.json` → `aaalice.*`，`js/i18n.js` 的 `t()` |
 
-不维护 `zh-TW`、`ja`、`ko` 等其它 locale。ComfyUI 选其它语言时，由前端回退到英文（`en`）。
-
-语言切换**完全跟随 ComfyUI 设置**（界面语言），本包不单独做语言开关、不缓存独立 locale。
-
-官方说明：[Custom Nodes i18n](https://docs.comfy.org/custom-nodes/i18n)。
-
-### 目录约定（已搭骨架）
-
-```
-locales/{en,zh}/
-  main.json / nodeDefs.json / settings.json / commands.json
-js/
-  extension.js · i18n.js · lib/ · <domain>/…
-```
-
-完整树见上文 [仓库与节点文件夹结构](#仓库与节点文件夹结构)。
-
-ComfyUI 启动时扫描 `locales/` 并经 `/api/i18n` 合并进前端；**无需**在 `__init__.py` 里注册。
-
-- 新节点落地时：**同步**更新 `en` 与 `zh` 的 `nodeDefs.json`，缺一侧视为未完成。
-- 注册 settings / commands 时同步写双份 `settings.json` / `commands.json`（id 中 `.` → `_`）。
-- `en` 为源语言：新增 key 先写 `en`，再补 `zh`。key 集合在 `en` / `zh` 间应对齐。
-- 自绘 UI 文案放 `main.json` 的 `aaalice.*` 命名空间，用 `js/i18n.js` 读取（见下）。
-
-### 稳定 ID vs 显示文案
-
-| 层 | 放什么 | 例 |
-|----|--------|----|
-| 代码 / 工作流序列化 | 稳定英文 ID，永不随语言变 | `node_id="SimpleStringSplit"`、输入 id `delimiter`、COMBO 值 `"uppercase"` |
-| `locales/*/nodeDefs.json` | 用户看到的显示名、tooltip、选项标签 | `"display_name": "简易字符串分隔"` |
-| Schema 里的 `display_name` / `description` / tooltip | **英文**，与 `locales/en` 一致，作无翻译时的 fallback | `display_name="Simple String Split"` |
-
-**禁止**：
-
-- 把中文写进 `node_id`、输入输出 id、COMBO **选项值**、API 路径/字段
-- 在 Python / JS 里用 `if locale == "zh"` 硬编码整套 UI 文案（应走 locales 或统一 i18n 辅助）
-- 只更新中文或只更新英文翻译文件
-- 为图省事在 schema 里只写中文显示名
-
-COMBO 等选项：**值用英文稳定键**，展示文案放在 `nodeDefs.json` 的 `inputs.<id>.options` 下。
-
-### nodeDefs.json 结构（摘要）
-
-键为节点的 **`node_id`**（与 `io.Schema(node_id=...)` / 类注册名一致）：
-
-```json
-{
-  "SimpleStringSplit": {
-    "display_name": "Simple String Split",
-    "description": "Split a string by delimiter.",
-    "inputs": {
-      "text": {
-        "name": "Text",
-        "tooltip": "Source string"
-      },
-      "delimiter": {
-        "name": "Delimiter",
-        "tooltip": "Separator string"
-      }
-    },
-    "outputs": {
-      "0": {
-        "name": "Parts",
-        "tooltip": "Split segments"
-      }
-    }
-  }
-}
-```
-
-注意：
-
-- **输出**用序号键 `"0"`、`"1"`…，不是输出 id 字符串
-- COMBO 选项展示：`inputs.<input_id>.options.<option_value>`
-- 每个已注册节点都应有对应条目；无用户文案的隐藏/内部节点可省略，但需在 PR/条目说明里写清
-
-### 设置与命令
-
-扩展 `settings` / `commands` 的文案：
-
-- 分类名 → `main.json` 的 `settingsCategories`
-- 设置项 → `settings.json`；key 为设置 `id` 中 `.` 换成 `_`  
-  例：`Aaalice.EnableFoo` → `Aaalice_EnableFoo`
-- 命令 → `commands.json`
-
-中英都要有；`name` / `tooltip` / `options` 与官方 i18n 文档一致。
-
-### 前端自定义 UI
-
-节点画布上由 **Comfy 渲染的** 标题、输入输出名、widget 标签：走 `locales/*/nodeDefs.json` 即可，随界面语言切换。
-
-**自绘 DOM / 侧栏 / 对话框 / toast** 等不走 nodeDefs 的文案：
-
-1. 字符串写入 `locales/en|zh/main.json` 的 `aaalice.*`（或子命名空间），**不要**在组件里写死单一语言长句
-2. 使用本包辅助模块（**仅 en/zh**，其它回退 en）：
+禁止中文当 COMBO **值** / 路径；禁止只更新一侧 locale。输出 nodeDefs 键为 `"0"`,`"1"`…
 
 ```javascript
-import { ensureI18nReady, t, tAsync, getLocale } from "./i18n.js";
-
+import { ensureI18nReady, t } from "./i18n.js";
 await ensureI18nReady();
-const label = t("aaalice.common.confirm", "Confirm");
-// 或：const label = await tAsync("aaalice.common.confirm", "Confirm");
+t("aaalice.common.confirm", "Confirm");
 ```
 
-3. 日志、异常类型名、开发者控制台信息可用英文；**用户可见**的 toast / dialog / 侧栏标题必须可切换
-4. 扩展入口已在 `setup` 中预加载目录；其它模块仍建议在首用前 `await ensureI18nReady()`
+---
 
-### 后端运行时消息
+## 检查清单（每节点 / 有 UI）
 
-- 抛给用户的失败信息：优先英文稳定信息，或中英均可理解的短句；若需完整本地化，经前端展示时再翻译，避免在 `execute` 里拼仅中文长文案却无法切换
-- 技术性 `raise` / 堆栈：英文即可
-- 禁止静默吞错；错误要可定位
+- [ ] `node_id` / 输入输出 id 英文；`category=Aaalice/<domain>`  
+- [ ] en+zh `nodeDefs`（及 settings/commands）对齐  
+- [ ] 经典 + Nodes 2.0 主路径  
+- [ ] 有 UI：`nodeCreated`（+ setup 补挂）；节点面 Canvas 或 DOM 均可见可点  
+- [ ] Canvas：隐藏原生 widget + `onDrawForeground` / 鼠标 hit；DOM：`getMinHeight` 且勿先 await  
+- [ ] 内部字段无用户引脚、无裸 `[]` 文本框；自绘文案单语 i18n  
+- [ ] 双语 README 进度已更新  
 
-### 实现检查清单（每个节点 / 有 UI 的条目）
-
-- [ ] Schema：`node_id` 与输入输出 id 为英文稳定键；`display_name` / description / tooltip 为英文 fallback
-- [ ] Schema：`category` 为 `Aaalice/<domain>`（独立顶级 `Aaalice` + 域子类）；未混入原版分类、无前缀路径
-- [ ] `locales/en/nodeDefs.json` 与 `locales/zh/nodeDefs.json` 已补全且 key 对齐
-- [ ] COMBO 选项值英文，展示名在 locales 的 `options` 中
-- [ ] 有 settings/commands 则双语文案齐全
-- [ ] 自定义前端文案可随 ComfyUI 语言在 en/zh 间切换
-- [ ] 语言 = English / 简体中文 下各看一眼主路径 UI
-- [ ] 右键菜单可在 **Aaalice → 对应域子类** 下找到该节点
-
-### 工作流中的文档步骤
-
-实现条目时，同步维护 **locales** 与 **双语 README**（`README.md` + `README.zh-CN.md`）状态。

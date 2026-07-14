@@ -2,7 +2,7 @@
 
 域包（仅落盘与菜单 category；排期见 README # 逐条。有节点再建，勿空壳堆砌）:
 
-  tools   — #1–9        category: Aaalice/tools
+  tools   — #1, #3–9    category: Aaalice/tools  （#2 已砍）
   prompt  — #10–12      category: Aaalice/prompt
   media   — #13–14,#23  category: Aaalice/media
   control — #15–19      category: Aaalice/control  （#20 纯 JS）

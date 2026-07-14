@@ -20,6 +20,39 @@
       "refresh": "Refresh",
       "enabled": "Enabled",
       "disabled": "Disabled"
+    },
+    "pcp": {
+      "sidebar": {
+        "title": "Parameter Panel",
+        "tooltip": "Edit Parameter Control Panel instances",
+        "empty": "No Parameter Control Panel nodes on the graph. Add one from Aaalice → control.",
+        "instance": "Panel",
+        "count": "Tunable",
+        "noParams": "Add a parameter to get started."
+      },
+      "node": {
+        "structureHint": "Edit structure in the sidebar tab “Parameter Panel”.",
+        "empty": "No parameters yet — open the sidebar tab “Parameter Panel” to add some."
+      },
+      "type": {
+        "slider": "Slider",
+        "switch": "Switch",
+        "string": "String",
+        "dropdown": "Dropdown",
+        "separator": "Separator"
+      },
+      "field": {
+        "name": "Name",
+        "value": "Value",
+        "options": "Options (one per line)"
+      },
+      "limit": {
+        "title": "Limit",
+        "detail": "At most 32 tunable parameters (separators free)."
+      },
+      "dropdown": {
+        "emptyOptions": "Dropdown needs at least one option."
+      }
     }
   }
 }

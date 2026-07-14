@@ -1,4 +1,4 @@
-"""Aaalice/tools domain nodes (#1–9)."""
+"""Aaalice/tools domain nodes (#1, #3–9; #2 dropped)."""
 
 from __future__ import annotations
 

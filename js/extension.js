@@ -1,17 +1,37 @@
 /**
- * ComfyUI-Aaalice-Nodes 前端扩展入口。
- * 后续节点 UI / 侧栏 / 命令在此包名下按需注册 hooks。
- *
- * i18n：节点定义文案由 `locales/` 自动加载；自绘 UI 用 `./i18n.js` 的 `t` / `tAsync`。
+ * ComfyUI-Aaalice-Nodes frontend entry.
+ * Comfy auto-loads every **/*.js under WEB_DIRECTORY; this file also pulls
+ * panel modules and injects theme CSS.
  */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady } from "./i18n.js";
+
+// Explicit imports (modules also self-register if loaded alone via **/*.js).
+import "./parameter_control_panel.js";
+import "./parameter_sidebar.js";
+import "./parameter_break.js";
+
+function injectTheme() {
+	const id = "aaalice-theme-css";
+	if (document.getElementById(id)) return;
+	// Prefer link; fallback path without import.meta (older embeds)
+	const link = document.createElement("link");
+	link.id = id;
+	link.rel = "stylesheet";
+	try {
+		link.href = new URL("./lib/theme.css", import.meta.url).href;
+	} catch {
+		link.href = "extensions/ComfyUI-Aaalice-Nodes/lib/theme.css";
+	}
+	document.head.appendChild(link);
+}
 
 app.registerExtension({
 	name: "ComfyUI.Aaalice.Nodes",
 
 	async setup() {
-		// 预加载本包 + 其它 custom node 的 locales，供自绘 UI 同步 `t()` 使用
+		injectTheme();
 		await ensureI18nReady();
+		console.log("[Aaalice] extension setup complete");
 	},
 });

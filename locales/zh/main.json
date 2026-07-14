@@ -20,6 +20,39 @@
       "refresh": "刷新",
       "enabled": "已启用",
       "disabled": "已禁用"
+    },
+    "pcp": {
+      "sidebar": {
+        "title": "参数面板",
+        "tooltip": "编辑图上的参数控制面板实例",
+        "empty": "图上还没有参数控制面板。请从 Aaalice → control 添加。",
+        "instance": "面板",
+        "count": "可调参数",
+        "noParams": "添加参数以开始。"
+      },
+      "node": {
+        "structureHint": "结构请在侧栏「参数面板」中编辑。",
+        "empty": "尚无参数 — 打开侧栏「参数面板」添加。"
+      },
+      "type": {
+        "slider": "滑条",
+        "switch": "开关",
+        "string": "字符串",
+        "dropdown": "下拉",
+        "separator": "分隔"
+      },
+      "field": {
+        "name": "名称",
+        "value": "值",
+        "options": "选项（每行一个）"
+      },
+      "limit": {
+        "title": "上限",
+        "detail": "可调参数最多 32 个（分隔不计入）。"
+      },
+      "dropdown": {
+        "emptyOptions": "下拉菜单至少需要一个选项。"
+      }
     }
   }
 }

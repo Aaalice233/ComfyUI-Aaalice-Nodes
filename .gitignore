@@ -37,3 +37,7 @@ Thumbs.db
 .env.*
 !.env.example
 *.local
+
+# Playwright MCP local captures
+.playwright-mcp/
+

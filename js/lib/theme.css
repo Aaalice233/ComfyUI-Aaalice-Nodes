@@ -1,0 +1,258 @@
+/* Parameter Panel sidebar — follow ComfyUI built-in sidebar / theme tokens.
+ * Node canvas purple palette lives in JS only (parameter_control_panel.js).
+ */
+
+.aaalice-pcp {
+	/* Map to Comfy / PrimeVue tokens so light & dark themes both work */
+	--aaalice-text: var(--fg-color, var(--p-text-color, inherit));
+	--aaalice-text-muted: var(--descrip-text, var(--p-text-muted-color, color-mix(in srgb, var(--fg-color) 55%, transparent)));
+	--aaalice-surface: var(--comfy-menu-secondary-bg, var(--p-content-background, transparent));
+	--aaalice-surface-2: var(--comfy-input-bg, var(--p-form-field-background, var(--comfy-menu-bg, transparent)));
+	--aaalice-border: var(--border-color, var(--p-content-border-color, rgba(128, 128, 128, 0.35)));
+	--aaalice-accent: var(--p-primary-color, var(--primary-color, #0b8ce9));
+	--aaalice-accent-text: var(--p-primary-contrast-color, var(--p-button-primary-color, #fff));
+	--aaalice-danger: var(--error-text, var(--p-red-400, #b45454));
+	--aaalice-radius: 8px;
+	--aaalice-radius-sm: 6px;
+	--aaalice-font: inherit;
+
+	box-sizing: border-box;
+	color: var(--aaalice-text);
+	background: transparent;
+	width: 100%;
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.aaalice-pcp *,
+.aaalice-pcp *::before,
+.aaalice-pcp *::after {
+	box-sizing: border-box;
+}
+
+.aaalice-pcp-card {
+	background: var(--aaalice-surface);
+	border: 1px solid var(--aaalice-border);
+	border-radius: var(--aaalice-radius);
+	padding: 10px 12px;
+}
+
+.aaalice-pcp-muted {
+	color: var(--aaalice-text-muted);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.aaalice-pcp-hint {
+	color: var(--aaalice-text-muted);
+	font-size: 11px;
+	margin: 6px 0 0;
+}
+
+.aaalice-pcp-section {
+	color: var(--aaalice-text-muted);
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 8px 4px 4px;
+	border-bottom: 1px solid var(--aaalice-border);
+	margin: 6px 0 8px;
+}
+
+.aaalice-pcp-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--aaalice-border);
+}
+
+.aaalice-pcp-row:last-child {
+	border-bottom: none;
+}
+
+.aaalice-pcp-label {
+	font-size: 12px;
+	color: var(--aaalice-text);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+}
+
+.aaalice-pcp-badge {
+	font-size: 10px;
+	color: var(--aaalice-text-muted);
+	background: var(--aaalice-surface-2);
+	border-radius: 999px;
+	padding: 2px 8px;
+	border: 1px solid var(--aaalice-border);
+}
+
+.aaalice-pcp input[type="text"],
+.aaalice-pcp input[type="number"],
+.aaalice-pcp select,
+.aaalice-pcp textarea {
+	width: 100%;
+	background: var(--aaalice-surface-2);
+	border: 1px solid var(--aaalice-border);
+	border-radius: var(--aaalice-radius-sm);
+	color: var(--input-text, var(--aaalice-text));
+	padding: 6px 10px;
+	font-size: 12px;
+	outline: none;
+	font-family: inherit;
+}
+
+.aaalice-pcp input[type="text"]:focus,
+.aaalice-pcp input[type="number"]:focus,
+.aaalice-pcp select:focus,
+.aaalice-pcp textarea:focus {
+	border-color: var(--aaalice-accent);
+}
+
+.aaalice-pcp input[type="range"] {
+	width: 100%;
+	accent-color: var(--aaalice-accent);
+}
+
+.aaalice-pcp-btn {
+	appearance: none;
+	border: none;
+	cursor: pointer;
+	background: var(--aaalice-accent);
+	color: var(--aaalice-accent-text);
+	border-radius: var(--aaalice-radius-sm);
+	padding: 6px 12px;
+	font-size: 12px;
+	line-height: 1.2;
+	font-family: inherit;
+}
+
+.aaalice-pcp-btn:hover {
+	filter: brightness(1.06);
+}
+
+.aaalice-pcp-btn.secondary {
+	background: var(--aaalice-surface-2);
+	color: var(--aaalice-text);
+	border: 1px solid var(--aaalice-border);
+}
+
+.aaalice-pcp-btn.danger {
+	background: transparent;
+	color: var(--aaalice-danger);
+	border: 1px solid color-mix(in srgb, var(--aaalice-danger) 45%, transparent);
+}
+
+.aaalice-pcp-btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.aaalice-pcp-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+.aaalice-pcp-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+
+.aaalice-pcp-tab {
+	background: var(--aaalice-surface-2);
+	color: var(--aaalice-text-muted);
+	border: 1px solid var(--aaalice-border);
+	border-radius: var(--aaalice-radius-sm);
+	padding: 5px 10px;
+	font-size: 11px;
+	cursor: pointer;
+	font-family: inherit;
+}
+
+.aaalice-pcp-tab:hover {
+	color: var(--aaalice-text);
+}
+
+.aaalice-pcp-tab.active {
+	background: var(--aaalice-accent);
+	color: var(--aaalice-accent-text);
+	border-color: transparent;
+}
+
+.aaalice-pcp-switch {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.aaalice-pcp-switch input {
+	width: auto;
+	accent-color: var(--aaalice-accent);
+}
+
+.aaalice-pcp-editor-block {
+	background: var(--aaalice-surface);
+	border: 1px solid var(--aaalice-border);
+	border-radius: var(--aaalice-radius);
+	padding: 10px;
+	margin-bottom: 8px;
+}
+
+.aaalice-pcp-editor-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.aaalice-pcp-grid2 {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.aaalice-pcp-field label {
+	display: block;
+	font-size: 11px;
+	color: var(--aaalice-text-muted);
+	margin-bottom: 4px;
+}
+
+.aaalice-pcp-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.aaalice-pcp-empty {
+	padding: 16px 12px;
+	text-align: center;
+	color: var(--aaalice-text-muted);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.aaalice-pcp-scroll {
+	max-height: calc(100vh - 180px);
+	overflow: auto;
+	padding-right: 4px;
+}
+
+.aaalice-pcp-node-root {
+	min-width: 220px;
+	max-width: 320px;
+}
+
+.aaalice-pcp-error {
+	color: var(--aaalice-danger);
+	font-size: 11px;
+	margin-top: 6px;
+}
