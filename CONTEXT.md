@@ -1,40 +1,39 @@
-# Aaalice Nodes — Parameter Panel Context
+# Aaalice Parameter and Operation Context
 
-Domain language for the parameter control surface (panel + break + pack). Implementation details live in code and ADRs, not here.
+Domain language for authoring reusable parameter sets and arranging workflow controls into an operating surface.
 
 ## Language
 
-**ParameterControlPanel (参数面板节点)**:
-A graph node that holds an ordered list of parameters and outputs a Param Pack.
-_Avoid_: settings page, global config server
-
-**Panel Instance (面板实例)**:
-One ParameterControlPanel node on the current graph.
-
-**Node Surface (节点面)**:
-The on-node UI for using parameters — change values only; separators render as read-only section titles.
-
-**Sidebar Editor (侧栏完全体)**:
-The permanent sidebar editor for structure, configuration, and values of panel instances.
+**ParameterPanel (参数面板)**:
+A graph node that owns one ordered parameter set and produces one Param Pack.
+_Avoid_: ParameterControlPanel, child-panel container
 
 **Parameter (参数)**:
-One list entry with a stable id, display name, type, value, and config. Tunable parameters count toward the break limit.
+One named, typed value with a stable identity, optional description, and configuration. A separator is presentation-only.
 
-**Parameter Id (参数 id)**:
-Hidden stable identity used as the Param Pack value key and for rebinding break links.
-_Avoid_: treating the display name as identity
+**Parameter Id (`parameter_id`)**:
+The stable identity of a Parameter within its owning ParameterPanel. Its name and position are not identity.
 
-**Parameter Name (参数名)**:
-Human-readable unique label within a panel (may be Chinese); used for display and break pin labels, not link identity.
-
-**Separator (分隔)**:
-Layout-only list entry; not included in the Param Pack; does not count toward the 32-slot limit.
+**Composite Parameter Identity (参数复合身份)**:
+The identity tuple `node_id + parameter_id`, used when a Parameter crosses graph-node boundaries.
 
 **Param Pack (参数包)**:
-Execution payload with ordered `_meta` and `_values` keyed by Parameter Id.
+The ordered parameter metadata and values produced by one ParameterPanel.
 
 **ParameterBreak (参数展开)**:
-Node that expands a Param Pack into up to 32 ordered outputs, rebinding links by Parameter Id when structure changes.
+A graph node that exposes a Param Pack as individual outputs while preserving Parameter identity.
 
-**Slot Order (输出槽序)**:
-Order of non-separator parameters in the list; maps to ParameterBreak output indices.
+**Operation Panel (操作面板)**:
+A workflow-level surface for operating registered graph content without changing graph topology or parameter definitions.
+
+**Operation Page (操作页面)**:
+A top-level view in the Operation Panel that contains ordered Sections.
+
+**Operation Section (操作分区)**:
+An ordered group of Operation Cards within one Operation Page.
+
+**Operation Card (操作卡片)**:
+The single Operation Panel representation of one registered graph node.
+
+**Page Value Preset (页面值预设)**:
+A reusable snapshot of writable control values from one Operation Page. It does not contain nodes, definitions, links, or layout.

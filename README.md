@@ -14,7 +14,7 @@ Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danboo
 |:------:|:--------:|:----:|:---------:|:-------:|
 | Reset in progress | **4 / 25** | #3 `EnumSwitch` | en + zh | [MIT](./LICENSE) |
 
-- **Not** a drop-in replacement for the legacy pack (names / APIs are not compatibility-by-default).
+- **Not** a drop-in replacement for the legacy pack. This package is in an unpublished refactor phase; workflow data and frontend protocols may change without migration until the first stable release.
 - UI language follows ComfyUI **Settings → Language**.
 - Every node is built for both classic node mode and **[Nodes 2.0](https://docs.comfy.org/interface/nodes-2)**. App Mode is currently out of scope.
 - Registry: [comfyui-aaalice-nodes](https://registry.comfy.org/nodes/comfyui-aaalice-nodes)  
@@ -26,9 +26,10 @@ Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danboo
 
 1. [Install](#install)
 2. [Languages (i18n)](#languages-i18n)
-3. [Reset checklist](#reset-checklist)
-4. [Contributing](#contributing)
-5. [License](#license)
+3. [Parameter Panel & Operation Panel](#parameter-panel--operation-panel)
+4. [Reset checklist](#reset-checklist)
+5. [Contributing](#contributing)
+6. [License](#license)
 
 ---
 
@@ -76,6 +77,36 @@ See [AGENTS.md · i18n](./AGENTS.md#国际化i18n) and [Custom Nodes i18n](https
 
 ---
 
+## Parameter Panel & Operation Panel
+
+### ParameterPanel and ParameterBreak
+
+Each `ParameterPanel` owns one ordered parameter set and emits one `Param Pack`. It accepts up to 32 tunable parameters, and an empty node produces a valid empty pack. The node title is its display name; titles are never used as an integration protocol.
+
+New nodes start with Steps, CFG, Sampler, Scheduler, Denoise, and Seed, with Seed placed last. Sampler and Scheduler choices follow the running ComfyUI installation. Seed supports fixed, increment, decrement, and randomize behavior after queueing.
+
+The canvas node only shows parameter names and value controls—there is no structural toolbar or lock. Right-click the node and choose **Edit Parameters…** to open the two-column editor for adding, configuring, reordering, copying, deleting, and documenting parameters. Descriptions appear as safe Markdown tooltips when the parameter name or `?` is hovered.
+
+Connect the single `Param Pack` output to one `ParameterBreak`. The Break exposes the tunable parameters as outputs and keeps existing links bound by stable parameter id when definitions are reordered or renamed.
+
+Basic flow:
+
+1. Add `ParameterPanel` and adjust its default sampling values.
+2. Right-click it and open **Edit Parameters…** when the parameter structure needs to change.
+3. Connect its `Param Pack` output to one `ParameterBreak`.
+4. Use the automatically registered card in the Operation Panel for day-to-day control.
+
+### Operation Panel
+
+The **Operation Panel** is a general operating surface, not a second parameter editor:
+
+- ParameterPanel nodes register automatically on the active page; right-click supported ordinary nodes to register them explicitly.
+- Pages contain ordered sections and each graph node appears as one card. Cards support ordering, hiding, sidebar-only aliases, and fullscreen row/column placement.
+- Fullscreen keeps the ComfyUI top bar and native queue controls available; the panel does not add a separate queue button.
+- Page Value Presets save writable values from the active page using explicit preset keys. They never create nodes or store definitions, links, or layout; mismatches are previewed before partial application.
+
+---
+
 ## Reset checklist
 
 **One active item at a time** by the **priority queue** below (not strict `#` order).  
@@ -96,8 +127,8 @@ See [AGENTS.md · i18n](./AGENTS.md#国际化i18n) and [Custom Nodes i18n](https
 |--:|----|------|
 | 0 | *(skeleton)* | Loadable package, domains, i18n, `WEB_DIRECTORY` |
 | 1 | `SimpleStringSplit` | Split string by delimiter → list |
-| 15 | `ParameterControlPanel` | Central dock: node values + permanent sidebar editor; Param Pack |
-| 16 | `ParameterBreak` | Expand pack (max 32); rebind links by parameter id |
+| 15 | `ParameterPanel` | Author one parameter set (max 32) and emit one Param Pack |
+| 16 | `ParameterBreak` | Expand one pack (max 32); rebind links by stable parameter id |
 
 ### Dropped
 

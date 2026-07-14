@@ -17,6 +17,7 @@
 重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。**当前条目与下一跳**见 [README](./README.md) / [README.zh-CN](./README.zh-CN.md)（仅排期，不含协作硬规则）。
 
 - 按 README **优先级队列**重写，禁止整包复制；**# 为稳定 id**；改范围先问
+- **当前节点包处于未发布的重构状态，无需保证向后兼容**；发布前可直接替换未发布的工作流结构、前端协议与节点行为，不保留迁移壳或旧数据兼容路径
 - **`__init__.py` 极薄**；节点在 `nodes/<domain>/`；依赖少且先征得同意
 - 禁止静默吞错 / 假成功
 - **标识符英文**；**用户文案 en+zh i18n**（跟 Comfy 界面语言）
@@ -100,7 +101,7 @@ ComfyUI-Aaalice-Nodes/
 4. 有 UI → `js/`（根级或 `js/<domain>/`）；`import { app } from "../../scripts/app.js"`（文件在 `js/` 根时）  
 5. `pyproject.toml` packages 含新域  
 
-## 前端与自绘 UI
+## 前端与 UI
 
 ### 双模式
 
@@ -111,49 +112,64 @@ ComfyUI-Aaalice-Nodes/
 
 禁止只适配其一。有 UI 时两模式都要：添加、显示、改值、存盘、执行。
 
-### 自绘 UI 挂载与交互
+### 渲染边界
 
-来源：官方 [JS overview](https://docs.comfy.org/custom-nodes/js/javascript_overview) / [objects](https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking)；节点面画布参考 [comfyui-quick-latent](https://github.com/Zhen-Bo/comfyui-quick-latent)。
+来源：官方 [JS overview](https://docs.comfy.org/custom-nodes/js/javascript_overview) / [objects](https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking)。
+
+| 表面 | 经典模式 | Nodes 2.0 | 本包规则 |
+|------|----------|-----------|----------|
+| 节点内交互控件 | LiteGraph 节点 + DOM widget | Vue 节点壳 + DOM widget | 同步 `addDOMWidget`，两模式共用一份 DOM |
+| 节点输出 socket | LiteGraph Canvas `NodeSlot.draw()` | Vue `SlotConnectionDot` | 修改 slot 数据，不用节点 DOM CSS 假装修复 |
+| 侧栏 / 弹窗 | DOM | DOM | `theme.css` 跟随 ComfyUI token |
+
+Canvas 钩子仅用于非交互装饰或明确的经典模式专用效果。`comfyui-quick-latent` 可作视觉参考，但其 Canvas 交互方案不能直接当作 Nodes 2.0 双模式实现。
+
+### 挂载与状态
 
 1. **`WEB_DIRECTORY = "./js"`**；Comfy 加载该目录下 **全部 `**/*.js`**。  
 2. 扩展用 `app.registerExtension`；`import { app } from "../../scripts/app.js"`（`js/` 根文件）。  
 3. **挂载钩子要覆盖完整生命周期**：`beforeRegisterNodeDef`（包装 `onNodeCreated`）+ **`nodeCreated`** + `loadedGraphNode` / `setup` 补挂。
-4. **有交互的节点面优先同步挂载 `addDOMWidget`**：经典模式和 Nodes 2.0 共用同一份 DOM；Canvas 钩子仅用于非交互装饰或明确的经典模式专用效果。
+4. **有交互的节点面同步挂载 `addDOMWidget`**：
    - Schema 尽量不暴露内部字段；若有遗留原生 widget，应移除或隐藏。
    - 在 `nodeCreated` / `onNodeCreated` 内同步调用 `addDOMWidget`，禁止先 `await`；i18n 用 `.then(redraw)`。
    - 必须提供 `getMinHeight` / `getHeight`，并随内容更新节点最小尺寸。
    - FE 1.45 的 DOM widget 会在已有 `node.graph` 时立即注册，否则由 `onAdded` 完成注册；不要自行绕过该生命周期。
 5. **侧栏 / 复杂表单** 使用 DOM + `theme.css`（`registerSidebarTab`）。
-6. **Canvas 自绘不作为双模式交互控件方案**：Nodes 2.0 使用 Vue 节点壳，不执行 LiteGraph 节点主体、widget 和节点级鼠标绘制链；照抄 quick-latent 的 `onDrawForeground` / `onMouseDown` 只覆盖经典模式。
-7. **内部状态不要用 Schema 可见 STRING / forceInput**：  
+6. **内部状态不要用 Schema 可见 STRING / forceInput**：
    - `converted-widget` 藏不住「参数 JSON」/`[]`。  
-   - **正确**：Schema 无该字段；`accept_all_inputs=True`；`node.properties` + `graphToPrompt` 注入 `inputs.parameters_json`。  
-8. 状态真源：`node.properties`；执行靠 prompt 注入。  
-9. **禁止中英硬拼同一条文案**；日志英文可。  
-10. 改 JS：**硬刷新 / 重启**；LG_HotReload **不重载前端**。删旧节点再添加。
+   - **正确**：Schema 无该字段；`accept_all_inputs=True`；`node.properties` + `graphToPrompt` 注入内部 prompt payload（参数节点当前为 `inputs.parameters_json`）。
+7. 状态真源：`node.properties`；执行靠 prompt 注入。
+8. **禁止中英硬拼同一条文案**；日志英文可。
+9. 改 JS：**硬刷新 / 重启**；LG_HotReload **不重载前端**。若序列化的 slot / widget 仍保留旧形态，删旧节点再添加。
+
+### 经典模式自定义 socket 踩坑
+
+- **现象**：`ParameterPanel` 的 `AAALICE_PARAM_PACK` 输出旁出现只有该节点才有的紫色小点；关闭 Nodes 2.0 后仍可复现。
+- **根因**：经典模式的输出 socket 由 LiteGraph Canvas `NodeSlot.draw()` 绘制，不属于 `.aaalice-pcp-node-root` DOM。`AAALICE_PARAM_PACK` 不是 ComfyUI 内置类型，未显式提供 slot 颜色时会走连接颜色表的默认紫色；因此修改 `theme.css`、DOM 伪元素或 Nodes 2.0 的 `SlotConnectionDot` 都不会解决经典模式的紫点。
+- **已踩过的错误方向**：只把 `shape` 改成 `HollowCircle` 仍会保留自定义类型的默认颜色，而且小尺寸下更像两个叠加标记；不要再用空心圆掩盖颜色来源。
+- **正确做法**：挂载 `ParameterPanel` 时为唯一输出设置原生圆形 `shape`，并显式设置 `color_off` / `color_on`：未连接取当前主题次级文字色，连接后取主题强调色。圆点外观可以保留，问题在默认紫色而不在圆形本身；保留原生 hit-test 与接线热区，禁止用透明色或 CSS 隐藏 socket。
+- **注册状态不是 Canvas 装饰**：Operation Panel 注册信息只存在工作流元数据和侧栏中，禁止再用 `onDrawForeground` 在节点右上角绘制紫点或其它状态点。
+- **排查顺序**：先确认复现模式，再检查 `node.outputs` 的 `type / shape / color_off / color_on` 与输出数量；不要看到点状图形就先归因于 Nodes 2.0 或 DOM 重影。
 
 ### 参数面板约定（#15–16）
 
-- **节点面（Canvas）**：只改值；分隔 = 分组标题；下拉点击循环选项  
-- **侧栏「参数面板」**：完全体（结构+配置+改值）；多实例 Tab 手动切换  
-- 参数 **隐藏稳定 id**；`_values` 以 id 为键；Break 按 id 重绑连线  
-- 可调参数 ≤32；空包合法  
+- `ParameterPanel` 是**单参数集节点**：一个节点管理 0–32 个可调参数并固定输出一个 `Param Pack`；禁止恢复多子面板、动态多输出或 `panel_id`
+- 新节点自带常用采样参数：Steps、CFG、Sampler、Scheduler、Denoise、Seed；Seed 固定放在默认模板最后，Sampler / Scheduler 跟随 ComfyUI 当前选项
+- **节点面只显示和调值**：直接从第一项参数开始，禁止恢复面板切换、加号、铅笔、锁定或更多按钮组成的顶栏
+- **结构编辑只走节点右键菜单**：宽屏双栏编辑器使用草稿，保存时统一校验、确认断线并原子应用；不提供锁定功能
+- 参数说明在名称与 `?` 悬浮时展示本地安全 Markdown tooltip；滑条手柄 hover / active / focus 必须有主题化高亮
+- 参数身份为 `node_id + parameter_id`；参数名和顺序只用于显示。Break 继续按 `parameter_id` 重绑连线
+- **Operation Panel 是通用操作侧栏**：ParameterPanel 新建时自动注册到活动页面，普通节点右键显式注册；标题只用于显示，不作为协议
+- Operation Panel 只负责轻量调值、模型选择、结果查看与工作流级布局；不创建 / 删除 / 连线节点，不修改参数定义，也不提供独立执行按钮
+- Operation Panel 使用页面 → 分区 → 卡片三级布局，支持排序、隐藏、侧栏别名和保留 Comfy 顶栏的全屏网格；一个节点只能出现一次
+- 页面值预设保存到 Comfy `user` 目录，只携带 adapter 暴露的可写值；不携带节点、定义、连线或布局
 - 难逆产品/架构决策：`docs/adr/`
 
 ### UI token（摘要）
 
 **侧栏 DOM**（`js/lib/theme.css`）：**跟随 ComfyUI 自带主题**，映射 `--fg-color` / `--descrip-text` / `--comfy-menu-secondary-bg` / `--comfy-input-bg` / `--border-color` / `--p-primary-color` 等；**不要**写死紫色或 herdi 暖色。换亮/暗主题侧栏应跟着变。
 
-**参数节点 DOM**（沿用 quick-latent 紫系，仅节点面，与侧栏无关）：
-
-| 用途 | 色 |
-|------|-----|
-| 控件底 | `#252538` |
-| 边框 | `#3f3b5a` |
-| 选中/滑条 | `#815fc8` |
-| 选中描边 | `rgba(229,219,255,.58)` |
-| 次要字 | `#918da3` / `#8d899f` |
-| 主值字 | `#e8e8f0` |
+**参数节点 DOM**：与侧栏一样跟随 ComfyUI 主题 token，禁止固定品牌紫色。控件背景、边框、文字分别映射 `--comfy-input-bg`、`--border-color`、`--fg-color`；选中态、滑条进度和焦点边框使用 `--p-primary-color` / `--primary-color`。Canvas socket 颜色不受这些 DOM token 直接控制，按上方“自定义 socket 踩坑”单独处理。
 
 ## 参考文档
 
@@ -187,5 +203,6 @@ t("aaalice.common.confirm", "Confirm");
 - [ ] 经典 + Nodes 2.0 主路径  
 - [ ] 有 UI：`nodeCreated`（+ setup 补挂）；经典与 Nodes 2.0 均可见可点
 - [ ] 双模式交互节点面：同步 `addDOMWidget` + `getMinHeight` / `getHeight`，勿先 await
+- [ ] 自定义输出类型：经典模式检查 socket `shape / color_off / color_on`，不得只看 DOM CSS
 - [ ] 内部字段无用户引脚、无裸 `[]` 文本框；自绘文案单语 i18n  
 - [ ] 双语 README 进度已更新  

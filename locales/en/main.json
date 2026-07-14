@@ -1,57 +1,56 @@
 {
-  "settingsCategories": {
-    "Aaalice": "Aaalice Nodes"
-  },
+  "settingsCategories": { "Aaalice": "Aaalice Nodes" },
   "aaalice": {
     "packageName": "Aaalice Nodes",
     "common": {
-      "confirm": "Confirm",
-      "cancel": "Cancel",
-      "close": "Close",
-      "loading": "Loading…",
-      "error": "Error",
-      "success": "Success",
-      "warning": "Warning",
-      "info": "Info",
-      "save": "Save",
-      "delete": "Delete",
-      "reset": "Reset",
-      "search": "Search",
-      "refresh": "Refresh",
-      "enabled": "Enabled",
-      "disabled": "Disabled"
+      "apply": "Apply", "cancel": "Cancel", "close": "Close", "confirm": "Confirm",
+      "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
+      "error": "Error", "info": "Info", "notice": "Notice", "save": "Save", "success": "Success"
+    },
+    "operation": {
+      "title": "Operation Panel", "tooltip": "Workflow operation controls",
+      "add": "Add to Operation Panel", "remove": "Remove from Operation Panel",
+      "removeConfirm": "Remove this node from Operation Panel?",
+      "empty": "Add a Parameter Panel or register another node from its context menu.",
+      "emptyPanel": "This parameter panel is empty.", "layout": "Layout",
+      "fullscreen": "Fullscreen", "exitFullscreen": "Exit fullscreen",
+      "page": "Page", "pageAdd": "Add page", "pageRename": "Rename page", "pageDelete": "Delete page",
+      "pageDeleteConfirm": "Delete page {name}? Its cards will move to another page.", "pageKeepOne": "At least one page is required.", "pageNameUnique": "Page names must be unique.",
+      "section": "Section", "sectionAdd": "Add section", "sectionRename": "Rename section", "sectionKeepOne": "At least one section is required.", "sectionNameUnique": "Section names must be unique within a page.",
+      "moveLeft": "Move left", "moveRight": "Move right", "moveUp": "Move up", "moveDown": "Move down",
+      "alias": "Alias", "presetKey": "Preset key", "order": "Order", "row": "Row", "column": "Column", "hidden": "Hidden",
+      "presets": "Presets",
+      "preset": {
+        "name": "Preset name", "save": "Save current page values", "load": "Load page values", "delete": "Delete page preset",
+        "saved": "Page values saved.", "applied": "Page values applied.", "deleted": "Preset deleted.", "empty": "No saved page presets.",
+        "deleteConfirm": "Delete preset {name}?", "noWritable": "This page has no writable cards.",
+        "keys": "Configure preset keys", "keysUnique": "Preset keys must be non-empty and unique on the page.",
+        "matchSummary": "{count} value(s) can be applied.", "missingCard": "missing card", "missingControl": "missing control",
+        "nodeTypeMismatch": "node type differs", "notInPreset": "not present in preset",
+        "invalidNumber": "Value must be numeric.", "invalidBoolean": "Value must be boolean.",
+        "invalidList": "Value must be a list.", "invalidOption": "Option is unavailable."
+      }
     },
     "pcp": {
-      "sidebar": {
-        "title": "Parameter Panel",
-        "tooltip": "Edit Parameter Control Panel instances",
-        "empty": "No Parameter Control Panel nodes on the graph. Add one from Aaalice → control.",
-        "instance": "Panel",
-        "count": "Tunable",
-        "noParams": "Add a parameter to get started."
+      "title": "Parameter Panel", "output": "Param Pack", "empty": "No parameters. Use the node context menu to edit.",
+      "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },
+      "confirm": { "parameterLinks": "Downstream links will be disconnected." },
+      "error": { "maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: HTTP {status}" },
+      "validation": {
+        "parameterIdsUnique": "Parameter ids must be unique.", "parameterNamesUnique": "Parameter names must be unique.",
+        "sliderRange": "{name}: invalid slider range.", "optionsRequired": "{name}: options are required."
       },
-      "node": {
-        "structureHint": "Edit structure in the sidebar tab “Parameter Panel”.",
-        "empty": "No parameters yet — open the sidebar tab “Parameter Panel” to add some."
-      },
-      "type": {
-        "slider": "Slider",
-        "switch": "Switch",
-        "string": "String",
-        "dropdown": "Dropdown",
-        "separator": "Separator"
+      "editor": {
+        "title": "Edit parameters", "menu": "Edit Parameters…", "add": "Add parameter",
+        "selectParameter": "Select a parameter to edit its settings.", "discard": "Discard unsaved parameter changes?"
       },
       "field": {
-        "name": "Name",
-        "value": "Value",
-        "options": "Options (one per line)"
+        "name": "Name", "description": "Description (Markdown)", "options": "Options (one per line)",
+        "source": "Source", "multiline": "Multiline", "seedBehavior": "After generate"
       },
-      "limit": {
-        "title": "Limit",
-        "detail": "At most 32 tunable parameters (separators free)."
-      },
-      "dropdown": {
-        "emptyOptions": "Dropdown needs at least one option."
+      "image": {
+        "title": "Choose image", "none": "Choose image", "existing": "Existing input image",
+        "useExisting": "Use input filename", "upload": "Upload new image"
       }
     }
   }

@@ -36,7 +36,7 @@ class ParameterBreak(io.ComfyNode):
             inputs=[
                 ParamPack.Input(
                     "parameters",
-                    tooltip="Param Pack from Parameter Control Panel",
+                    tooltip="Param Pack from Parameter Panel",
                 ),
             ],
             outputs=_break_outputs(),

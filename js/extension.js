@@ -7,7 +7,7 @@ import { app } from "../../scripts/app.js";
 import { ensureI18nReady } from "./i18n.js";
 
 // Explicit imports (modules also self-register when Comfy loads them directly).
-import "./parameter_control_panel.js";
+import "./parameter_panel.js";
 import "./parameter_sidebar.js";
 import "./parameter_break.js";
 
