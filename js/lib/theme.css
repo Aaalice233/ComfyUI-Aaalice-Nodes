@@ -25,7 +25,7 @@
 	--aaalice-range-progress: 0%;
 	box-sizing: border-box;
 	width: 100%;
-	padding: 7px calc(8px + var(--aaalice-output-column-width, 53px)) 10px 8px;
+	padding: 4px calc(8px + var(--aaalice-output-column-width, 53px)) 7px 8px;
 	color: var(--aaalice-node-value);
 	font: 12px/1.35 var(--comfy-font, Inter, system-ui, sans-serif);
 }
@@ -49,9 +49,9 @@
 .aaalice-pcp-node-switch:hover,
 .aaalice-pcp-node-value:hover { background: var(--aaalice-node-control-hover); }
 .aaalice-pcp-node-switch.active:hover { background: color-mix(in srgb, var(--aaalice-node-accent) 22%, transparent); }
-.aaalice-pcp-node-section { margin: 6px 0 3px; padding: 3px 2px 4px; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-node-border) 72%, transparent); color: var(--aaalice-node-muted); font-weight: 600; }
-.aaalice-pcp-node-row { padding: 3px 2px 6px; }
-.aaalice-pcp-node-root .aaalice-pcp-node-row { box-sizing: border-box; min-height: 62px; padding: 3px 0 5px; }
+.aaalice-pcp-node-section { box-sizing: border-box; min-height: 28px; margin: 2px 0; padding: 4px 2px; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-node-border) 72%, transparent); color: var(--aaalice-node-muted); font-weight: 600; }
+.aaalice-pcp-node-row { padding: 2px 2px 3px; }
+.aaalice-pcp-node-root .aaalice-pcp-node-row { box-sizing: border-box; min-height: 48px; padding: 2px 0 3px; }
 .aaalice-pcp-node-row-heading { display: flex; align-items: center; justify-content: space-between; min-height: 18px; gap: 5px; }
 .aaalice-pcp-node-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .aaalice-pcp-description-trigger { display: inline-flex; min-width: 0; align-items: center; gap: 5px; outline: none; cursor: help; }
@@ -211,6 +211,13 @@
 .aaalice-pcp-node-value { width: 100%; padding: 2px 8px; }
 .aaalice-pcp-node-root select.invalid { border-color: var(--aaalice-node-danger); color: var(--aaalice-node-danger); }
 
+/* The canvas layer paints the compact static surface; DOM remains the accessible hit target. */
+.aaalice-pcp-canvas-static .aaalice-pcp-node-name { color: transparent; }
+.aaalice-pcp-canvas-static input[type="range"] { opacity: 0; cursor: ew-resize; }
+.aaalice-pcp-canvas-static .aaalice-pcp-node-switch { opacity: 0; }
+.aaalice-pcp-canvas-static .aaalice-pcp-node-row { position: relative; }
+.aaalice-pcp-canvas-static .aaalice-pcp-node-row > :last-child { position: relative; z-index: 1; }
+
 .aaalice-modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; margin-top: 14px; }
 
 .aaalice-pcp-muted { color: var(--aaalice-muted); font-size: 12px; }
@@ -262,6 +269,14 @@
 .aaalice-editor-compact-list { overflow: auto; padding: 0 12px 12px 0; }
 .aaalice-editor-list-row { display: grid; min-height: 48px; grid-template-columns: 18px minmax(0, 1fr) 36px 36px; align-items: stretch; gap: 4px; margin-bottom: 6px; padding: 6px; border: 1px solid transparent; border-radius: var(--aa-ui-radius-md); background: color-mix(in srgb, var(--aaalice-surface) 58%, transparent); cursor: pointer; }
 .aaalice-editor-list-row:hover { border-color: var(--aaalice-border); background: var(--aaalice-surface); }
+.aaalice-editor-list-row:focus-within { border-color: var(--aaalice-accent); box-shadow: 0 0 0 2px var(--aa-ui-accent-soft); }
+.aaalice-editor-list-select { min-width: 0; overflow: hidden; padding: 2px 4px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.aaalice-editor-list-select strong,
+.aaalice-editor-list-select small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aaalice-editor-list-select small { color: var(--aaalice-muted); font-size: 10px; }
+.aaalice-editor-drag { display: grid; place-items: center; color: var(--aaalice-muted); }
+.aaalice-editor-mini { width: 32px; min-width: 32px; height: 32px; align-self: center; justify-self: center; }
+.aaalice-editor-node-context { color: var(--aaalice-muted); font-size: 11px; font-weight: 600; }
 .aaalice-editor-list-row.selected { border-color: color-mix(in srgb, var(--aaalice-accent) 55%, var(--aaalice-border)); background: color-mix(in srgb, var(--aaalice-accent) 10%, var(--aaalice-surface)); box-shadow: inset 3px 0 0 var(--aaalice-accent); }
 .aaalice-editor-list-row.drop-target { border-color: var(--aaalice-accent); }
 .aaalice-editor-drag { display: grid; align-self: stretch; place-items: center; color: var(--aaalice-muted); cursor: grab; text-align: center; }
@@ -300,12 +315,32 @@
 .aaalice-operation-row { display: grid; grid-template-columns: minmax(76px, .7fr) minmax(0, 1.3fr); align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-border) 60%, transparent); }
 .aaalice-operation-row:last-child { border-bottom: 0; }
 .aaalice-operation-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aaalice-operation-row input,
+.aaalice-operation-row select,
+.aaalice-operation-row textarea { min-width: 0; min-height: 34px; border: 1px solid var(--aaalice-border); border-radius: 8px; background: var(--aaalice-surface-2); color: var(--aaalice-text); font: inherit; }
+.aaalice-operation-row input:focus-visible,
+.aaalice-operation-row select:focus-visible,
+.aaalice-operation-row textarea:focus-visible { outline: 2px solid var(--aaalice-accent); outline-offset: 1px; }
 .aaalice-operation-slider { display: grid; grid-template-columns: minmax(0, 1fr) 70px; gap: 6px; }
 .aaalice-operation-seed { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 6px; }
 .aaalice-operation-image { display: flex; align-items: center; gap: 8px; }
 .aaalice-operation-image img { width: 54px; height: 54px; border-radius: 6px; object-fit: cover; }
 .aaalice-operation-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 7px; margin-top: 8px; }
 .aaalice-operation-results img { display: block; width: 100%; height: auto; border-radius: 7px; }
+.aaalice-shared-slider { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 7px; align-items: center; }
+.aaalice-shared-slider input[type="range"] { min-width: 0; accent-color: var(--aaalice-accent); }
+.aaalice-shared-slider input[type="number"] { min-width: 0; height: 34px; }
+.aaalice-shared-select-wrap { position: relative; min-width: 0; }
+.aaalice-shared-select-wrap select { width: 100%; min-height: 34px; padding-right: 28px; appearance: none; border: 1px solid var(--aaalice-border); border-radius: 8px; background: var(--aaalice-surface-2); color: var(--aaalice-text); font: inherit; }
+.aaalice-shared-select-wrap > .aa-ui-icon { position: absolute; top: 50%; right: 9px; width: 13px; height: 13px; pointer-events: none; color: var(--aaalice-muted); transform: translateY(-50%); transition: transform .14s ease, color .14s ease; }
+.aaalice-shared-select-wrap.is-open > .aa-ui-icon { color: var(--aaalice-accent); transform: translateY(-50%) rotate(180deg); }
+.aaalice-shared-switch { display: inline-grid; width: 44px; height: 24px; padding: 2px; place-items: center start; border: 1px solid var(--aaalice-border); border-radius: 999px; background: var(--aaalice-surface-2); color: var(--aaalice-text); cursor: pointer; }
+.aaalice-shared-switch-track { position: relative; display: block; width: 100%; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--aaalice-border) 80%, transparent); }
+.aaalice-shared-switch-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--aaalice-muted); transition: transform .14s ease, background .14s ease; }
+.aaalice-shared-switch.active { border-color: var(--aaalice-accent); background: var(--aaalice-accent-soft); }
+.aaalice-shared-switch.active .aaalice-shared-switch-track { background: var(--aaalice-accent); }
+.aaalice-shared-switch.active .aaalice-shared-switch-thumb { background: var(--aaalice-accent-text); transform: translateX(18px); }
+.aaalice-shared-switch:focus-visible { outline: 2px solid var(--aaalice-accent); outline-offset: 2px; }
 .aaalice-invalid-option,
 .aaalice-operation select.invalid { color: var(--aaalice-danger); border-color: var(--aaalice-danger); }
 .aaalice-layout-editor { display: grid; gap: 9px; padding: 11px 13px 13px; border-top: 1px dashed var(--aaalice-border); background: color-mix(in srgb, var(--aaalice-accent) 6%, var(--aaalice-surface-2)); }

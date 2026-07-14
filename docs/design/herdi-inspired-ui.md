@@ -78,12 +78,12 @@ const panel = card({
 - [`quick_latent.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/quick_latent.js)：隐藏原生 widget、集中维护节点状态和绘制参数控件。
 - [`size_input.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/size_input.js)：数字控件点击后创建临时输入框，负责定位、聚焦、Enter/blur/滚轮提交和 Escape 取消。
 
-本包只学习布局精髓，不复制其固定紫色、Canvas-only 交互或品牌资产。ParameterPanel 继续以 `addDOMWidget` 提供 Classic 与 Nodes 2.0 共用的 DOM 控件，原生 LiteGraph/Vue socket 负责真实连线和命中测试。
+本包只学习布局精髓，不复制其固定紫色、Canvas-only 交互或品牌资产。ParameterPanel 采用混合渲染：Canvas/native 层负责节点静态视觉、紧凑行几何和真实输出槽；DOM 层负责输入、焦点、键盘、临时数字编辑和无障碍。Operation Panel 与编辑弹窗继续使用 DOM 组件库。
 
 ### 节点布局与控件规则
 
-- 右侧输出列不占标题区域；参数行按固定基线排列，输出位置由 `slotMeta` 的稳定参数 id 驱动。未使用输出在 Classic 的绘制层和 Nodes 2.0 的 slot DOM 中隐藏，但不删除协议槽位。
-- 节点最小宽度约 370 graph units，控件内容为输出列留出约 53px；节点高度取控件内容和输出行的较大值，不能让 socket 被截断或覆盖。
+- 右侧输出列不占标题区域；参数行按统一布局引擎生成，控件矩形、命中矩形和输出位置共享同一条基线。未使用输出在原生测量、绘制和 Nodes 2.0 slot DOM 中隐藏，但不删除协议槽位。
+- 节点最小宽度约 370 graph units，控件内容为输出列留出约 53px；普通行约 48px、分隔区约 28px，节点高度取实际内容与输出行的较大值，不能让 socket 被截断或覆盖。
 - Slider 使用主题轨道、较大的手柄和紧凑数值 pill；拖动立即更新，点击数值 pill 才进入输入状态。Switch 使用带轨道与滑块的胶囊按钮，必须有 `aria-pressed`。
 - 少量 enum 使用分段按钮组，大量选项使用带主题箭头的 select；打开、关闭、Escape 和 change 时箭头状态同步。
 - Seed 保留完整数值区域，只使用一个锁图标；默认未锁定，锁定态使用危险色。控件不使用装饰性渐变，滑条进度色仅表示当前值。
@@ -91,7 +91,9 @@ const panel = card({
 
 ### 双模式边界
 
-DOM widget 负责标签、滑条、分段控件、inline editor 和无障碍状态；`node.outputs`、`shape`、`color_off`、`color_on` 以及原生 slot hit-test 负责真实输出。不要用 DOM 伪造 socket，也不要把 Quick Latent 的 Canvas 鼠标坐标算法直接移植到 Nodes 2.0。
+Canvas 静态层可绘制参数标签、滑条轨道/手柄和 Switch 外观，但不承担唯一的交互语义。DOM widget 以透明或轻量 overlay 形式提供 range、button、select、inline editor，并保留 `aria-label`、键盘焦点和 `aria-pressed`。`node.outputs`、`shape`、`color_off`、`color_on` 以及原生 slot hit-test 负责真实输出。不要用 DOM 伪造 socket，也不要把 Quick Latent 的 Canvas 鼠标坐标算法直接移植到 Nodes 2.0。
+
+布局模块必须输出稳定的 `computeParameterLayout(node)`、`getVisibleOutputIndices(node)`、`syncNativeOutputLayout(node, layout)` 和 `graphRectToViewport(node, rect)` 接口；临时数字编辑全局同一时间只允许一个实例，Enter/blur/滚轮提交，Escape 取消。
 
 ## 页面模式
 

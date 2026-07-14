@@ -62,7 +62,7 @@
       "editor": {
         "title": "编辑参数", "menu": "⚙️ 编辑参数…", "add": "添加参数",
         "selectParameter": "选择一个参数以编辑其设置。", "discard": "放弃尚未保存的参数修改？",
-        "emptyTitle": "尚未选择参数", "inspector": "参数设置",
+        "emptyTitle": "尚未选择参数", "inspector": "参数设置", "nodeFallback": "参数面板",
         "subtitle": "配置面板结构与参数默认值。",
         "renameHint": "双击重命名",
         "parameterCount": "{count} 个参数", "general": "基础信息", "valueRules": "取值规则",

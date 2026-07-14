@@ -29,12 +29,19 @@ import {
 	uniqueName,
 	validateParametersDraft,
 } from "./lib/param_model.js";
+import {
+	PARAMETER_NODE_LAYOUT,
+	computeParameterLayout,
+	drawParameterStaticLayer,
+	syncNativeOutputLayout,
+	withVisibleConcreteOutputs,
+} from "./lib/parameter_layout.js";
+import { createNumericEditor, createParameterControl } from "./lib/parameter_controls.js";
 
 const NODE = "ParameterPanel";
 const MAX_OUTPUTS = 32;
-const MIN_WIDTH = 370;
-const OUTPUT_COLUMN_WIDTH = 53;
-const NODE_ROW_HEIGHT = 62;
+const MIN_WIDTH = PARAMETER_NODE_LAYOUT.minWidth;
+const OUTPUT_COLUMN_WIDTH = PARAMETER_NODE_LAYOUT.outputColumn;
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -122,11 +129,7 @@ function outputColor(names, fallback) {
 }
 
 function visibleOutputCount(node, meta = storedSlotMeta(node)) {
-	let count = Math.min(meta.length, MAX_OUTPUTS);
-	for (let index = count; index < Math.min(node.outputs?.length || 0, MAX_OUTPUTS); index += 1) {
-		if (node.outputs[index]?.links?.length) count = index + 1;
-	}
-	return count;
+	return Math.min(meta.length, MAX_OUTPUTS);
 }
 
 function markVueOutputs(node) {
@@ -135,30 +138,12 @@ function markVueOutputs(node) {
 	for (const element of document.querySelectorAll("[data-node-id]")) {
 		if (element.getAttribute("data-node-id") !== id) continue;
 		const slots = element.querySelectorAll(".lg-slot--output");
-		for (let index = 0; index < slots.length; index += 1) slots[index].classList.toggle("aaalice-parameter-output-hidden", Boolean(node.outputs?.[index]?._aaaliceDisplayHidden));
-	}
-}
-
-function syncOutputPositions(node, meta) {
-	const slotHeight = Number(globalThis.LiteGraph?.NODE_SLOT_HEIGHT) || 20;
-	const slotStart = node.constructor?.slot_start_y || 0;
-	let outputIndex = 0;
-	let rowTop = slotStart + 8;
-	for (const parameter of ensureParameters(node)) {
-		if (parameter.param_type === "separator") {
-			rowTop += 30;
-			continue;
+		for (let index = 0; index < slots.length; index += 1) {
+			const hidden = Boolean(node.outputs?.[index]?._aaaliceDisplayHidden);
+			slots[index].hidden = hidden;
+			slots[index].setAttribute("aria-hidden", String(hidden));
+			slots[index].classList.toggle("aaalice-parameter-output-hidden", hidden);
 		}
-		const output = node.outputs?.[outputIndex];
-		const rowHeight = parameter.param_type === "string" && parameter.config?.multiline ? 96 : NODE_ROW_HEIGHT;
-		if (output && outputIndex < meta.length) {
-			output.pos = [node.size?.[0] || 0, Math.max(slotHeight / 2, rowTop + rowHeight / 2)];
-		}
-		rowTop += rowHeight;
-		outputIndex += 1;
-	}
-	for (let index = outputIndex; index < (node.outputs?.length || 0); index += 1) {
-		if (node.outputs[index]) delete node.outputs[index].pos;
 	}
 }
 
@@ -210,7 +195,8 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 		output.color_off = muted;
 		output.color_on = accent;
 	}
-	syncOutputPositions(node, meta);
+	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
+	node._aaaliceParameterLayout = layout;
 	markVueOutputs(node);
 	if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => markVueOutputs(node));
 	setTimeout(() => markVueOutputs(node), 0);
@@ -302,56 +288,8 @@ function attachDescription(trigger, description) {
 
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") hideTooltip(); });
 
-let activeInlineInput = null;
 function openInlineNumberInput(anchor, value, min, max, step, onCommit) {
-	if (activeInlineInput) return;
-	const rect = anchor.getBoundingClientRect();
-	const input = document.createElement("input");
-	input.className = "aaalice-pcp-inline-input";
-	input.type = "number";
-	input.inputMode = "decimal";
-	input.min = String(min);
-	input.max = String(max);
-	input.step = String(step || 1);
-	input.value = String(value);
-	Object.assign(input.style, {
-		position: "fixed",
-		left: `${rect.left}px`,
-		top: `${rect.top}px`,
-		width: `${rect.width}px`,
-		height: `${rect.height}px`,
-		zIndex: "10000",
-	});
-	document.body.append(input);
-	activeInlineInput = input;
-	setTimeout(() => { input.focus(); input.select(); }, 0);
-	let done = false;
-	const cleanup = () => {
-		window.removeEventListener("wheel", commitOnWheel, true);
-		input.remove();
-		if (activeInlineInput === input) activeInlineInput = null;
-	};
-	const commit = () => {
-		if (done) return;
-		done = true;
-		const numeric = Number(input.value);
-		const next = Number.isFinite(numeric) ? Math.min(max, Math.max(min, numeric)) : Number(value);
-		cleanup();
-		onCommit(next);
-	};
-	const cancel = () => {
-		if (done) return;
-		done = true;
-		cleanup();
-	};
-	const commitOnWheel = () => commit();
-	input.addEventListener("keydown", (event) => {
-		event.stopPropagation();
-		if (event.key === "Enter") commit();
-		else if (event.key === "Escape") cancel();
-	});
-	input.addEventListener("blur", commit);
-	window.addEventListener("wheel", commitOnWheel, true);
+	createNumericEditor(anchor, { value, min, max, step, onCommit });
 }
 
 function numericDisplay(label, parameter, config, onCommit) {
@@ -503,29 +441,27 @@ function valueControl(node, parameter) {
 		imageButton.addEventListener("click", async () => { if (await chooseImage(parameter)) persist(); });
 		return imageButton;
 	}
-	if (parameter.param_type === "taglist") {
-		const input = isolate(document.createElement("input"));
-		input.value = (parameter.value || []).join(", ");
-		input.addEventListener("change", () => { parameter.value = input.value.split(",").map((item) => item.trim()).filter(Boolean); persist(); });
-		return input;
-	}
-	const input = isolate(parameter.config?.multiline ? document.createElement("textarea") : document.createElement("input"));
-	input.value = parameter.value ?? "";
-	input.addEventListener("change", () => { parameter.value = input.value; persist(); });
-	return input;
+	return isolate(createParameterControl({ parameter, mode: "node", onChange: persist, labels: { input: displayName(parameter) } }));
 }
 
 function renderNode(node, root) {
 	root.replaceChildren();
 	const parameters = ensureParameters(node);
+	const layout = computeParameterLayout(node);
+	root.classList.toggle("aaalice-pcp-canvas-static", app.canvas?.vueNodesMode !== true);
 	root.style.setProperty("--aaalice-output-column-width", `${OUTPUT_COLUMN_WIDTH}px`);
+	root.style.setProperty("--aaalice-node-content-height", `${layout.height}px`);
 	for (const parameter of parameters) {
 		if (parameter.param_type === "separator") {
-			root.append(el("div", "aaalice-pcp-node-section", displayName(parameter)));
+			const section = el("div", "aaalice-pcp-node-section", displayName(parameter));
+			section.dataset.parameterId = parameter.id;
+			root.append(section);
 			continue;
 		}
 		const row = el("div", "aaalice-pcp-node-row");
 		row.dataset.parameterId = parameter.id;
+		const geometry = layout.rows.find((candidate) => candidate.id === parameter.id);
+		if (geometry) row.style.minHeight = `${geometry.height}px`;
 		const heading = el("div", "aaalice-pcp-node-row-heading");
 		const label = el("span", "aaalice-pcp-node-name", displayName(parameter));
 		if (parameter.description) {
@@ -543,11 +479,7 @@ function renderNode(node, root) {
 }
 
 function nodeHeight(node) {
-	return Math.max(66, 12 + ensureParameters(node).reduce((height, parameter) => {
-		if (parameter.param_type === "separator") return height + 30;
-		if (parameter.param_type === "string" && parameter.config?.multiline) return height + 96;
-		return height + NODE_ROW_HEIGHT;
-	}, 0));
+	return Math.max(66, computeParameterLayout(node).height);
 }
 
 function inspectorField(label, control) {
@@ -739,6 +671,7 @@ async function openParameterEditor(node) {
 	const headerIntro = el("div", "aaalice-parameter-editor-heading");
 	headerIntro.append(
 		dialogApi.heading,
+		el("span", "aaalice-editor-node-context", node.title || t("aaalice.pcp.editor.nodeFallback", "Parameter Panel")),
 		el("p", null, t("aaalice.pcp.editor.subtitle", "Configure the panel structure and default values.")),
 	);
 	dialogApi.header.replaceChildren(headerIntro, editor.count);
@@ -800,12 +733,12 @@ function setupParameterPanel(node, loaded = false) {
 	normalizeDynamicOptions(node.properties.parameters);
 	syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] ParameterPanel requires addDOMWidget");
-	const root = el("div", "aaalice-pcp aaalice-pcp-node-root");
+	const root = el("div", "aaalice-pcp aaalice-pcp-node-root aaalice-pcp-node-hybrid");
 	const height = () => nodeHeight(node);
 	const widget = node.addDOMWidget("aaalice_parameter_panel", "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
-		margin: 8,
+		margin: 0,
 		getMinHeight: height,
 		getHeight: height,
 		getValue: () => "",
@@ -821,20 +754,40 @@ function setupParameterPanel(node, loaded = false) {
 		};
 		const previousDrawSlots = node.drawSlots;
 		node.drawSlots = function (ctx, options) {
-			const concreteOutputs = this._concreteOutputs;
-			if (!Array.isArray(concreteOutputs)) return previousDrawSlots?.call(this, ctx, options);
-			this._concreteOutputs = concreteOutputs.filter((_, index) => !this.outputs?.[index]?._aaaliceDisplayHidden);
-			try {
-				return previousDrawSlots?.call(this, ctx, options);
-			} finally {
-				this._concreteOutputs = concreteOutputs;
-			}
+			return withVisibleConcreteOutputs(this, () => previousDrawSlots?.call(this, ctx, options));
+		};
+		const previousMeasureSlots = node._measureSlots;
+		if (typeof previousMeasureSlots === "function") {
+			node._measureSlots = function () {
+				return withVisibleConcreteOutputs(this, () => previousMeasureSlots.apply(this, arguments));
+			};
+		}
+		const previousArrangeWidgets = node._arrangeWidgets;
+		const placeWidget = (target) => {
+			const panelWidget = target.widgets?.find((candidate) => candidate.name === "aaalice_parameter_panel");
+			if (!panelWidget) return;
+			panelWidget.y = Number(target.constructor?.slot_start_y) || 4;
+			panelWidget.last_y = panelWidget.y;
+		};
+		node._arrangeWidgets = function () {
+			const value = typeof previousArrangeWidgets === "function"
+				? withVisibleConcreteOutputs(this, () => previousArrangeWidgets.apply(this, arguments))
+				: undefined;
+			placeWidget(this);
+			return value;
+		};
+		const previousDrawForeground = node.onDrawForeground;
+		node.onDrawForeground = function (ctx) {
+			previousDrawForeground?.apply(this, arguments);
+			drawParameterStaticLayer(ctx, this);
 		};
 	}
 	node._aaaliceParameterRedraw = () => {
 		renderNode(node, root);
 		const desired = height();
 		widget.computedHeight = desired;
+		root.style.minHeight = `${desired}px`;
+		widget.y = Number(node.constructor?.slot_start_y) || 4;
 		node.setSize([Math.max(node.size?.[0] || MIN_WIDTH, MIN_WIDTH), desired + 44]);
 		syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
 		node.setDirtyCanvas?.(true, true);

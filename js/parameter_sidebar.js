@@ -16,6 +16,7 @@ import {
 } from "./lib/param_model.js";
 import { deleteOperationPreset, loadOperationPresets, saveOperationPreset } from "./lib/operation_preset_store.js";
 import { badge, button, card, createDialog, el, emptyState, field as uiField, iconButton, sectionHeader, tabs as tabList } from "./lib/ui.js";
+import { createParameterControl, createSelectControl, createSwitchControl } from "./lib/parameter_controls.js";
 
 const SIDEBAR_ID = "aaalice-operation-panel";
 const adapters = new Map();
@@ -179,74 +180,14 @@ function supportedWidgets(node, entry = nodeEntry(node)) {
 }
 
 function parameterControl(parameter, node) {
-	const config = parameter.config || {};
 	const update = () => notifyParameterChanged(node, { structure: false });
-	if (parameter.param_type === "slider") {
-		const wrap = el("div", "aaalice-operation-slider");
-		const range = document.createElement("input");
-		range.type = "range";
-		range.min = String(config.min ?? 0);
-		range.max = String(config.max ?? 100);
-		range.step = String(config.step ?? 1);
-		range.value = String(parameter.value ?? 0);
-		const number = document.createElement("input");
-		number.type = "number";
-		number.value = range.value;
-		const set = (raw, commit = true) => {
-			const value = Number(raw);
-			if (!Number.isFinite(value)) return;
-			parameter.value = value;
-			range.value = number.value = String(value);
-			if (commit) update();
-		};
-		range.addEventListener("input", () => set(range.value, false));
-		range.addEventListener("change", update);
-		number.addEventListener("change", () => set(number.value));
-		wrap.append(range, number);
-		return wrap;
-	}
-	if (parameter.param_type === "seed") {
-		const input = document.createElement("input");
-		input.type = "number";
-		input.value = String(parameter.value ?? 0);
-		input.title = config.control_after_generate || "randomize";
-		input.addEventListener("change", () => { parameter.value = Math.max(0, Number(input.value) || 0); update(); });
-		return input;
-	}
-	if (parameter.param_type === "switch") {
-		const input = document.createElement("input");
-		input.type = "checkbox";
-		input.checked = Boolean(parameter.value);
-		input.addEventListener("change", () => { parameter.value = input.checked; update(); });
-		return input;
-	}
-	if (["dropdown", "enum"].includes(parameter.param_type)) {
-		const select = document.createElement("select");
-		const valid = (config.options || []).includes(parameter.value);
-		if (!valid && parameter.value != null) {
-			select.add(new Option(`${parameter.value} ⚠`, String(parameter.value), true, true));
-			select.classList.add("invalid");
-		}
-		for (const option of config.options || []) select.add(new Option(option, option, false, option === parameter.value));
-		select.addEventListener("change", () => { parameter.value = select.value; update(); });
-		return select;
-	}
-	if (parameter.param_type === "taglist") {
-		const input = document.createElement("input");
-		input.value = (parameter.value || []).join(", ");
-		input.addEventListener("change", () => { parameter.value = input.value.split(",").map((item) => item.trim()).filter(Boolean); update(); });
-		return input;
-	}
 	if (parameter.param_type === "image") {
 		const input = document.createElement("input");
 		input.value = parameter.value?.filename || "";
 		input.addEventListener("change", () => { parameter.value = input.value.trim() ? { filename: input.value.trim(), subfolder: "", type: "input" } : null; update(); });
 		return input;
 	}
-	const input = parameter.config?.multiline ? document.createElement("textarea") : document.createElement("input");
-	input.value = parameter.value ?? "";
-	input.addEventListener("change", () => { parameter.value = input.value; update(); });
-	return input;
+	return createParameterControl({ parameter, mode: "sidebar", onChange: update, labels: { input: displayName(parameter), select: displayName(parameter), switch: displayName(parameter) } });
 }
 
 function renderParameterPanel(container, item) {
@@ -285,14 +226,9 @@ function renderGeneric(container, item) {
 		let control;
 		const options = widget.options?.values || (Array.isArray(widget.options) ? widget.options : null);
 		if (options) {
-			control = document.createElement("select");
-			for (const option of options) control.add(new Option(String(option), String(option), false, String(option) === String(widget.value)));
-			control.addEventListener("change", () => setWidget(widget, control.value, item.node));
+			control = createSelectControl(options, widget.value, { ariaLabel: widget.label || widget.name, onChange: (value) => setWidget(widget, value, item.node) });
 		} else if (["toggle", "BOOLEAN"].includes(widget.type) || typeof widget.value === "boolean") {
-			control = document.createElement("input");
-			control.type = "checkbox";
-			control.checked = Boolean(widget.value);
-			control.addEventListener("change", () => setWidget(widget, control.checked, item.node));
+			control = createSwitchControl(widget.value, { ariaLabel: widget.label || widget.name, onChange: (value) => setWidget(widget, value, item.node) });
 		} else {
 			control = document.createElement("input");
 			control.type = typeof widget.value === "number" ? "number" : "text";
@@ -343,9 +279,7 @@ function presetControls(item) {
 function renderLayoutEditor(card, item, state) {
 	const editor = el("div", "aaalice-layout-editor");
 	const select = (label, values, current, onChange) => {
-		const input = document.createElement("select");
-		for (const value of values) input.add(new Option(value.label, value.value, false, value.value === current));
-		input.addEventListener("change", () => { onChange(input.value); markDirty(item.node); renderAll(); });
+		const input = createSelectControl(values, current, { ariaLabel: label, onChange: (value) => { onChange(value); markDirty(item.node); renderAll(); } });
 		editor.append(field(label, input));
 	};
 	select(t("aaalice.operation.page", "Page"), state.pages.map((page) => ({ label: page.name, value: page.id })), item.entry.page_id, (value) => {

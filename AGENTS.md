@@ -72,7 +72,7 @@ ComfyUI-Aaalice-Nodes/
 | 侧栏 / 弹窗 | DOM | DOM | 组件库 + ComfyUI theme token |
 
 - 禁止只适配一种模式；有 UI 时两种模式都要完成添加、显示、改值、存盘和执行。
-- Canvas 钩子只用于非交互装饰或明确的经典模式效果。
+- Canvas 钩子只用于静态视觉与布局反馈；交互语义、输入、焦点和无障碍必须由 DOM overlay 提供。
 - Quick Latent（[参考项目](https://github.com/Zhen-Bo/comfyui-quick-latent)）仅借鉴紧凑布局：[`quick_latent.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/quick_latent.js)、[`layout.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/layout.js)、[`size_input.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/size_input.js)。其固定紫色、Canvas-only 命中逻辑和品牌资产不得复制；本包继续用 DOM widget 同时覆盖 Classic 与 Nodes 2.0。
 - 参考官方 [JS overview](https://docs.comfy.org/custom-nodes/js/javascript_overview) / [objects](https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking)。
 
@@ -102,6 +102,8 @@ ComfyUI-Aaalice-Nodes/
 - 页面值预设存入 Comfy `user` 目录，只携带 adapter 暴露的可写值，不携带节点、定义、连线或布局。
 - 本包新增的节点右键菜单、子菜单和操作命令必须以 emoji 开头；emoji 必须写入 en/zh 本地化文案，不能只硬编码在单一语言或 fallback 中。
 - ParameterPanel 右侧输出列预留约 53px，节点最小宽度约 370 graph units；控件优先使用固定行高、较大命中区和原生 socket hit-test。数字默认显示为 pill，点击后使用临时 inline editor；slider / switch / segmented enum 的布局参考 Quick Latent，但颜色始终来自 ComfyUI token。
+- ParameterPanel 使用 `js/lib/parameter_layout.js` 统一生成行、控件矩形、输出位置和节点高度；Canvas/native 层只负责静态视觉与真实槽位，DOM overlay 负责输入、焦点、键盘和 aria，不得用 Canvas 替代可访问输入。
+- 隐藏输出必须通过原生 concrete slot/slot DOM 的可见映射参与测量、绘制和命中处理；保留 32 个固定协议槽，禁止只在绘制阶段隐藏造成空白高度。
 - 难逆产品与协议决策记录在 `docs/adr/`。
 
 ### 3.4 组件库与主题
@@ -117,7 +119,7 @@ ComfyUI-Aaalice-Nodes/
 ### 3.5 经典模式自定义 socket
 
 - ParameterPanel 输出使用 `AnyType`、原生圆形 `shape`，显式设置 `color_off` / `color_on`；未连接取次级文字色，连接后取主题强调色。
-- 禁止用透明色、DOM CSS 或空心圆掩盖 socket；必须保留原生 hit-test 与接线热区。
+- 禁止用透明色、DOM CSS 或空心圆伪造 socket；隐藏未使用槽时必须保留原生 hit-test 映射与接线热区。
 - Operation Panel 注册状态只存在工作流元数据和侧栏，禁止用 `onDrawForeground` 绘制状态点。
 - 排查顺序：先确认模式，再检查 `node.outputs` 的 `type / shape / color_off / color_on` 和输出数量。
 
@@ -143,7 +145,7 @@ t("aaalice.common.confirm", "Confirm");
 
 ## 5. 运行、调试与验证
 
-### 5.1 日志与刷新
+### 5.1 日志、进程与刷新
 
 路径均相对仓库根；Desktop 实际布局以日志为准。
 
@@ -153,6 +155,7 @@ t("aaalice.common.confirm", "Confirm");
 | 轮转日志 | `../../../logs/comfyui.log_*.log` |
 | user 日志 | `../../user/comfyui.log`、`../../user/comfyui_PORT.log` |
 | 前端根 | 日志中 `web root:` 指向的 `comfyui_frontend_package/static` |
+| Codex E2E 产物 | `../../../logs/codex-e2e-<timestamp>/` |
 
 - 后端、节点导入、HotReload 问题查看 server 日志；JS 报错查看浏览器 F12 Console。
 - GUI 地址以日志 `To see the GUI go to: http://127.0.0.1:PORT` 为准，禁止写死 8188 或 8189。
@@ -168,7 +171,22 @@ t("aaalice.common.confirm", "Confirm");
 - 不得用跳过、mock、降级或伪造截图制造“通过”；无法运行的检查必须在交付中明确说明。
 - Python 测试优先使用当前 ComfyUI 虚拟环境；仓库现有 unittest 可运行：`../../.venv/Scripts/python.exe -m unittest discover -s tests -v`。
 
-### 5.3 完成检查
+### 5.3 Codex Desktop 自动化测试流程（UI）
+
+这是本包针对 **Codex Desktop** 的自动化测试流程，不等同于 CI 或普通 Playwright 测试。Codex 内置 Browser 仅在桌面应用可用，使用前参考 [Codex Browser 文档](https://help.openai.com/en/articles/20001277-using-the-built-in-browser-in-the-chatgpt-desktop-app)。
+
+1. **启动隔离实例**：用 PowerShell（首行 `$ErrorActionPreference = 'Stop'`）启动当前 ComfyUI 的 `main.py`，指定 `--listen 127.0.0.1 --port <dedicated-port>`；若使用 `comfy` CLI，也必须保留可控的 PID、端口和日志。优先直接启动 `main.py`，避免 CLI 后台管理器隐藏进程关系。
+2. **等待就绪**：读取本轮 stdout/stderr，等待 `To see the GUI go to:` 或 `/system_stats` 返回 200；端口从本轮日志或动态分配结果取得，不能假定 8188/8189。
+3. **安全重启**：只终止本轮启动的 PID 树，禁止 `Stop-Process *python*`、关闭整个 Comfy Desktop 或影响用户已有实例。启动失败要保留原始错误并在有限次数内停止，不得无限重试。
+4. **连接 Browser**：先初始化 Codex Browser 运行时，再按日志地址选择本地页面；Browser 传输、发现或选择失败一次后立即停止，记录真实错误，不重置会话、不换入口连续重试。
+5. **操作与观察**：优先使用最新 DOM snapshot 中的唯一 role、label、`data-*` 定位 DOM 控件；Canvas 节点只能在确有必要时使用坐标操作。每次点击、输入或选择后读取针对性的 DOM 状态；视觉验收再截屏，不猜选择器、不用整页文本倾倒代替断言。
+6. **工作流隔离**：测试节点时新建空白工作流或新标签，不覆盖用户未保存的工作流；搜索并放置节点后，先截取初始节点图，再检查参数控件、输出槽对齐、节点高度和命中区域。
+7. **证据与判定**：每轮保存 `server.stdout.log`、`server.stderr.log`、截图和关键 Console 错误到 `../../../logs/codex-e2e-<timestamp>/`。`/object_info/<Node>` 只证明后端注册，不代表 UI 通过；UI 通过必须同时满足节点可创建、控件可见可操作、输出槽无截断、截图符合设计和无阻断性前端错误。
+8. **收尾**：测试完成后保留用户要求查看的 deliverable 页面，否则清理临时标签；不要把测试工作流、截图或日志写入仓库发布内容。
+
+本流程已在 2026-07-14 实际验证：重启 8189 实例、Browser 打开本地页面、新建工作流、搜索并放置 `ParameterPanel`、截图、读取 Console 和运行一次批量 `node --check` 均可完成。此次视觉断言失败（节点仍显示 32 个输出槽且缺少参数控件），应记录为产品失败而不是伪造通过。
+
+### 5.4 完成检查
 
 - [ ] `node_id` / 输入输出 id 为英文；`category=Aaalice/<domain>`
 - [ ] en + zh 的 nodeDefs、settings、commands 和自绘文案保持对齐
