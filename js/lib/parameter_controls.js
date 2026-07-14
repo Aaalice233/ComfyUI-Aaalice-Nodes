@@ -36,7 +36,8 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 		let target = anchor;
 		if (!target.isConnected && anchor.dataset?.parameterId) {
 			target = [...anchor.ownerDocument.querySelectorAll("[data-parameter-id]")]
-				.find((candidate) => candidate.dataset.parameterId === anchor.dataset.parameterId);
+				.find((candidate) => candidate.dataset.parameterId === anchor.dataset.parameterId
+					&& candidate.matches?.("button, input, select, textarea, [tabindex]"));
 		}
 		if (!target?.isConnected) return;
 		try { target.focus({ preventScroll: true }); } catch { target.focus(); }
