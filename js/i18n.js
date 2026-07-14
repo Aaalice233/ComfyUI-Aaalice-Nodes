@@ -1,7 +1,7 @@
 /**
  * 本包前端 i18n 辅助：供自绘 DOM / 侧栏 / toast 等读取 en|zh 文案。
  *
- * 节点标题、输入输出、官方 widget 文案由 ComfyUI 自动合并 `locales/*/nodeDefs.json`，
+ * 节点标题、输入输出、官方 widget 文案由 ComfyUI 自动合并各语言的 `nodeDefs.json`，
  * 一般无需本模块。本模块只覆盖**不走 nodeDefs** 的自定义 UI。
  *
  * 数据来源：后端 `/api/i18n`（扫描各 custom_nodes 的 `locales/`）。

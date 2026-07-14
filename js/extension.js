@@ -1,12 +1,12 @@
 /**
  * ComfyUI-Aaalice-Nodes frontend entry.
- * Comfy auto-loads every **/*.js under WEB_DIRECTORY; this file also pulls
+ * Comfy auto-loads every JavaScript file under WEB_DIRECTORY; this file also pulls
  * panel modules and injects theme CSS.
  */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady } from "./i18n.js";
 
-// Explicit imports (modules also self-register if loaded alone via **/*.js).
+// Explicit imports (modules also self-register when Comfy loads them directly).
 import "./parameter_control_panel.js";
 import "./parameter_sidebar.js";
 import "./parameter_break.js";

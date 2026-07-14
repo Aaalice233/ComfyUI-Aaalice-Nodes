@@ -118,16 +118,13 @@ ComfyUI-Aaalice-Nodes/
 1. **`WEB_DIRECTORY = "./js"`**；Comfy 加载该目录下 **全部 `**/*.js`**。  
 2. 扩展用 `app.registerExtension`；`import { app } from "../../scripts/app.js"`（`js/` 根文件）。  
 3. **挂载钩子要覆盖完整生命周期**：`beforeRegisterNodeDef`（包装 `onNodeCreated`）+ **`nodeCreated`** + `loadedGraphNode` / `setup` 补挂。
-4. **节点面优先 Canvas 模式**（quick-latent 同款，本包 PCP 已用）：  
-   - Schema 尽量不暴露内部字段；若有原生 widget，**隐藏**（`hidden=true`、`type="hidden"`、`computeSize→[0,-4]`）。  
-   - **`onDrawForeground(ctx)`** 画控件；**`onMouseDown` / `onMouseMove` / `onMouseUp`** 做 hit-test 与拖拽。  
-   - 文本编辑：短暂 DOM overlay（固定定位 + canvas 坐标变换），勿整面 `addDOMWidget`。  
-   - `computeSize` / `onResize` 保证最小高度随内容变。  
-5. **侧栏 / 复杂表单** 才用 DOM + `theme.css`（`registerSidebarTab`）。  
-6. **慎用 `addDOMWidget`**（本包已踩坑，FE ≥1.45）：  
-   - `addWidget` 仅在 **`node.graph` 已有** 时 `registerWidget`；graph 未就绪会“挂了但看不见”。  
-   - 禁止「先 `await` 再挂 DOM」；i18n 用 `.then(redraw)`。  
-   - 若仍用 DOM：必给 `getMinHeight` / `getHeight`。  
+4. **有交互的节点面优先同步挂载 `addDOMWidget`**：经典模式和 Nodes 2.0 共用同一份 DOM；Canvas 钩子仅用于非交互装饰或明确的经典模式专用效果。
+   - Schema 尽量不暴露内部字段；若有遗留原生 widget，应移除或隐藏。
+   - 在 `nodeCreated` / `onNodeCreated` 内同步调用 `addDOMWidget`，禁止先 `await`；i18n 用 `.then(redraw)`。
+   - 必须提供 `getMinHeight` / `getHeight`，并随内容更新节点最小尺寸。
+   - FE 1.45 的 DOM widget 会在已有 `node.graph` 时立即注册，否则由 `onAdded` 完成注册；不要自行绕过该生命周期。
+5. **侧栏 / 复杂表单** 使用 DOM + `theme.css`（`registerSidebarTab`）。
+6. **Canvas 自绘不作为双模式交互控件方案**：Nodes 2.0 使用 Vue 节点壳，不执行 LiteGraph 节点主体、widget 和节点级鼠标绘制链；照抄 quick-latent 的 `onDrawForeground` / `onMouseDown` 只覆盖经典模式。
 7. **内部状态不要用 Schema 可见 STRING / forceInput**：  
    - `converted-widget` 藏不住「参数 JSON」/`[]`。  
    - **正确**：Schema 无该字段；`accept_all_inputs=True`；`node.properties` + `graphToPrompt` 注入 `inputs.parameters_json`。  
@@ -147,7 +144,7 @@ ComfyUI-Aaalice-Nodes/
 
 **侧栏 DOM**（`js/lib/theme.css`）：**跟随 ComfyUI 自带主题**，映射 `--fg-color` / `--descrip-text` / `--comfy-menu-secondary-bg` / `--comfy-input-bg` / `--border-color` / `--p-primary-color` 等；**不要**写死紫色或 herdi 暖色。换亮/暗主题侧栏应跟着变。
 
-**节点 Canvas**（quick-latent 紫系，仅节点面，与侧栏无关）：
+**参数节点 DOM**（沿用 quick-latent 紫系，仅节点面，与侧栏无关）：
 
 | 用途 | 色 |
 |------|-----|
@@ -188,7 +185,7 @@ t("aaalice.common.confirm", "Confirm");
 - [ ] `node_id` / 输入输出 id 英文；`category=Aaalice/<domain>`  
 - [ ] en+zh `nodeDefs`（及 settings/commands）对齐  
 - [ ] 经典 + Nodes 2.0 主路径  
-- [ ] 有 UI：`nodeCreated`（+ setup 补挂）；节点面 Canvas 或 DOM 均可见可点  
-- [ ] Canvas：隐藏原生 widget + `onDrawForeground` / 鼠标 hit；DOM：`getMinHeight` 且勿先 await  
+- [ ] 有 UI：`nodeCreated`（+ setup 补挂）；经典与 Nodes 2.0 均可见可点
+- [ ] 双模式交互节点面：同步 `addDOMWidget` + `getMinHeight` / `getHeight`，勿先 await
 - [ ] 内部字段无用户引脚、无裸 `[]` 文本框；自绘文案单语 i18n  
 - [ ] 双语 README 进度已更新  
