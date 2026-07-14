@@ -16,8 +16,7 @@
 
 - **不是**旧包的直接替代品（节点名 / API **不默认兼容**）。
 - 显示语言跟随 ComfyUI **设置 → 语言**。
-- **双渲染兼容（硬性）**：全部节点须同时支持 **经典节点模式** 与 **[Nodes 2.0](https://docs.comfy.org/interface/nodes-2)**（开/关都能用）。App Mode 仍暂不考虑。
-- 重 UI 自绘气质参考 [herdi.ng/lp](https://www.herdi.ng/lp)（细则见 [AGENTS.md](./AGENTS.md)）。
+- 所有节点均同时面向经典节点模式与 **[Nodes 2.0](https://docs.comfy.org/interface/nodes-2)**；当前暂不考虑 App Mode。
 - Registry：[comfyui-aaalice-nodes](https://registry.comfy.org/nodes/comfyui-aaalice-nodes)  
   *（版本仍在扫描时，列表节点数可能为空）*
 
@@ -26,12 +25,10 @@
 ## 目录
 
 1. [安装](#安装)
-2. [仓库结构](#仓库结构)
-3. [语言（i18n）](#语言i18n)
-4. [重置清单](#重置清单)
-5. [实现工作流](#实现工作流)
-6. [开发](#开发)
-7. [许可](#许可)
+2. [语言（i18n）](#语言i18n)
+3. [重置清单](#重置清单)
+4. [参与贡献](#参与贡献)
+5. [许可](#许可)
 
 ---
 
@@ -58,36 +55,6 @@ pip install -r requirements.txt   # 当前可为空；有依赖时再装
 重启 ComfyUI。依赖以 `requirements.txt` / `pyproject.toml` 为准。
 
 > 需要完整旧功能时，请继续使用 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。
-
----
-
-## 仓库结构
-
-参考 [KJNodes](https://github.com/kijai/ComfyUI-KJNodes)、[rgthree-comfy](https://github.com/rgthree/rgthree-comfy)，按本包条目收束。细则见 [AGENTS.md](./AGENTS.md)。
-
-```text
-ComfyUI-Aaalice-Nodes/
-├── __init__.py                 # V3 入口 + WEB_DIRECTORY
-├── README.md / README.zh-CN.md # 双语文档（须同步）
-├── assets/                     # Registry / README 横幅（icon 仅给 Registry）
-├── locales/{en,zh}/            # Comfy i18n
-├── js/                         # 前端（与域对齐）
-├── nodes/                      # 按域分包的 V3 节点
-│   ├── tools/    #1, #3–9
-│   ├── prompt/   #10–12
-│   ├── media/    #13–14, #23
-│   ├── control/  #15–19
-│   ├── gallery/  #21–22
-│   └── krita/    #24–25
-└── server/                     # 可选 HTTP（按需）
-```
-
-| 约定 | 说明 |
-|------|------|
-| 默认一节点一文件 | `nodes/<domain>/<snake_case>.py` |
-| 域按需创建 | 该域第一个节点落地时再建包，不预建空壳 |
-| 菜单 | 仅 `category = "Aaalice/<domain>"`，禁止挂到原版分类 |
-| 前端 | 重 UI 脚本放在对应 `js/<domain>/` |
 
 ---
 
@@ -144,54 +111,33 @@ js/i18n.js   → 自绘 DOM（aaalice.*）
 |:--:|--:|----|----|-------------|
 | 1 | 3 | `EnumSwitch` | tools | 按枚举选通 |
 | 2 | 4 | `SimpleNotify` | tools | 执行时通知 |
-| 4 | 5 | `WorkflowDescription` | tools | 图上备注 UI |
-| 5 | 6 | `VAEImageBatchFix` | tools | VAE batch 形态修复 |
-| 6 | 7 | `ModelNameExtractor` | tools | 可读模型名 |
-| 7 | 8 | `ResolutionMasterSimplify` | tools | 分辨率 / 尺寸 |
-| 8 | 9 | `SimpleLoadImage` | tools | 本地图 → `IMAGE` / `MASK` |
-| 9 | 10 | `PromptCleaningMaid` | prompt | 标签清洗 / 去重 |
-| 10 | 11 | `PromptSelector` | prompt | 列表勾选提示词 |
-| 11 | 12 | `CharacterFeatureSwapNode` | prompt | 角色特征交换 |
-| 12 | 13 | `SimpleImageCompare` | media | 图像对比 UI |
-| 13 | 14 | `SimpleCheckpointLoaderWithName` | media | Checkpoint + 名称 / 预览 |
-| 14 | 17 | `GroupIsEnabled` | control | 组是否启用 → 布尔 |
-| 15 | 18 | `GroupMuteManager` | control | 批量组静音 |
-| 16 | 19 | `GroupIgnoreManager` | control | 批量组忽略 |
-| 17 | 20 | Quick Group Navigation | control | 快速组导航（纯 JS） |
-| 18 | 21 | `DanbooruGalleryNode` | gallery | 图站检索 / 标签 |
-| 19 | 22 | `MultiCharacterEditorNode` | gallery | 多角色提示词 |
-| 20 | 23 | `SaveImagePlus` | media | 增强保存 |
-| 21 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取 |
-| 21 | 25 | `OpenInKrita` | krita | #24 兼容别名 |
+| 3 | 5 | `WorkflowDescription` | tools | 图上备注 UI |
+| 4 | 6 | `VAEImageBatchFix` | tools | VAE batch 形态修复 |
+| 5 | 7 | `ModelNameExtractor` | tools | 可读模型名 |
+| 6 | 8 | `ResolutionMasterSimplify` | tools | 分辨率 / 尺寸 |
+| 7 | 9 | `SimpleLoadImage` | tools | 本地图 → `IMAGE` / `MASK` |
+| 8 | 10 | `PromptCleaningMaid` | prompt | 标签清洗 / 去重 |
+| 9 | 11 | `PromptSelector` | prompt | 列表勾选提示词 |
+| 10 | 12 | `CharacterFeatureSwapNode` | prompt | 角色特征交换 |
+| 11 | 13 | `SimpleImageCompare` | media | 图像对比 UI |
+| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | Checkpoint + 名称 / 预览 |
+| 13 | 17 | `GroupIsEnabled` | control | 组是否启用 → 布尔 |
+| 14 | 18 | `GroupMuteManager` | control | 批量组静音 |
+| 15 | 19 | `GroupIgnoreManager` | control | 批量组忽略 |
+| 16 | 20 | Quick Group Navigation | control | 快速组导航（纯 JS） |
+| 17 | 21 | `DanbooruGalleryNode` | gallery | 图站检索 / 标签 |
+| 18 | 22 | `MultiCharacterEditorNode` | gallery | 多角色提示词 |
+| 19 | 23 | `SaveImagePlus` | media | 增强保存 |
+| 20 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取 |
+| 20 | 25 | `OpenInKrita` | krita | #24 兼容别名 |
 
 旧仓仅作行为参考：[ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。落盘 / 双模式 / UI 方向见 [AGENTS.md](./AGENTS.md)。
 
 ---
 
-## 实现工作流
+## 参与贡献
 
-| 步骤 | 内容 |
-|:----:|------|
-| 1 | 定范围：I/O、与旧包差异 |
-| 2 | 读旧实现：只摘行为，禁止整文件复制 |
-| 3 | 重写：V3 schema；官方 `registerExtension`；**经典 + Nodes 2.0** |
-| 4 | 重 UI：DOM + hooks；必须用 `nodeCreated`（不能只靠 `beforeRegisterNodeDef`） |
-| 5 | i18n：`locales/en` + `locales/zh` |
-| 6 | 自测：加载 + 主路径；**经典与 Nodes 2.0 各一轮**；切换 en / zh |
-| 7 | 文档：**同一改动内**同步两份 README |
-| 8 | 提交：`type(scope): 中文描述` |
-
----
-
-## 开发
-
-完整约定见 [AGENTS.md](./AGENTS.md)（目录 · i18n · README 双语 · Registry · **经典 + Nodes 2.0** · UI 方向）。
-
-- 根 `__init__.py` 保持薄；节点在 `nodes/<domain>/`
-- 序列化键用英文；用户可见文案进 `locales/`
-- Schema 英文 fallback；`category` = `Aaalice/<domain>`
-- 全部节点：**经典模式与 Nodes 2.0 都要可用**；自绘优先 DOM / 官方 hooks，禁止 Canvas 手绘当唯一交互、禁止 LiteGraph 原型劫持主路径
-- 文档：`README.md` ↔ `README.zh-CN.md` 必须对齐
+协作者与 AI 助手规则统一见 [AGENTS.md](./AGENTS.md)；参数 UI 的架构决策见 [docs/adr](./docs/adr/)。
 
 ---
 

@@ -12,7 +12,7 @@
 
 实现时以本文件 + 当次指令为准；进度以 README 为准。
 
-## 项目与原则
+## 项目原则
 
 重置 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。**当前条目与下一跳**见 [README](./README.md) / [README.zh-CN](./README.zh-CN.md)（仅排期，不含协作硬规则）。
 
@@ -27,7 +27,7 @@
 - 提交：`type(scope): 中文描述`
 - 验证：加载 + 主路径；**经典 + Nodes 2.0**；en/zh
 
-### README 双语
+### 文档与双语
 
 | 文件 | 语言 |
 |------|------|
@@ -36,14 +36,16 @@
 
 两文件结构对齐；页顶互链；进度变更同一改动内双改。
 
-### Registry
+### 发布
 
 `PublisherId=aaalice`；包名 `comfyui-aaalice-nodes`。升 `version` → push `main` → Actions。Secret：`REGISTRY_ACCESS_TOKEN`。  
 `.comfyignore` 排除协作杂项（含 `AGENTS.md`、`.grok/` 等）；勿排除运行时代码。
 
-### 日志位置（相对本仓库根 `ComfyUI-Aaalice-Nodes/`）
+## 调试与日志
 
-本仓库在 `custom_nodes/` 下时，Comfy 安装根 ≈ `../../..`（即 `…/ComfyUI/ComfyUI` 的上一级 Desktop 布局以本机为准）。
+以下路径均相对仓库根 `ComfyUI-Aaalice-Nodes/`。
+
+本仓库在 `custom_nodes/` 下时，Comfy 安装根约为 `../../..`；Desktop 的实际布局以本机日志为准。
 
 | 用途 | 相对路径（相对本仓库） |
 |------|------------------------|
@@ -56,8 +58,6 @@
 - **JS 报错**：不在 server 日志；看浏览器 **F12 → Console**。  
 - 本机日志曾见 **`[LG_HotReload] 模块重载成功: ComfyUI-Aaalice-Nodes`**：**只重载 Python，不重载 JS**。改前端后须 **硬刷新 / 重启 Comfy**，勿只靠 HotReload。  
 - GUI 地址以日志 `To see the GUI go to: http://127.0.0.1:PORT` 为准（曾见 **8189**，勿写死 8188）。
-
----
 
 ## 仓库结构
 
@@ -77,7 +77,7 @@ ComfyUI-Aaalice-Nodes/
 └── server/              # 可选 HTTP
 ```
 
-**按需建域**；禁止空壳占位。一节点一文件（例外：PCP+Break、Krita 别名对）。
+**按需建域**；禁止空壳占位。默认一节点一文件；共享同一实现的别名节点可同文件。
 
 ### 菜单 category
 
@@ -100,20 +100,7 @@ ComfyUI-Aaalice-Nodes/
 4. 有 UI → `js/`（根级或 `js/<domain>/`）；`import { app } from "../../scripts/app.js"`（文件在 `js/` 根时）  
 5. `pyproject.toml` packages 含新域  
 
-### 进度速查（路径）
-
-| # | 节点 | 后端 | 前端 |
-|--:|------|------|------|
-| 1 | SimpleStringSplit | `nodes/tools/simple_string_split.py` | — |
-| 2 | ~~SimpleValueSwitch~~ | 已砍 | — |
-| 15–16 | ParameterControlPanel / Break | `nodes/control/parameter_*.py` | `js/parameter_*.js` |
-| 3 | EnumSwitch（下一跳） | `nodes/tools/enum_switch.py` | 可能 `js/` |
-| 4–9 | tools 其余 | `nodes/tools/…` | 按需 |
-| 10–14,17–25 | 见 README 队列 | `nodes/<domain>/…` | 按需 |
-
----
-
-## 前端双模式 + 自绘 UI 要点（硬性）
+## 前端与自绘 UI
 
 ### 双模式
 
@@ -124,13 +111,13 @@ ComfyUI-Aaalice-Nodes/
 
 禁止只适配其一。有 UI 时两模式都要：添加、显示、改值、存盘、执行。
 
-### 自绘 UI 要显示出来（实战）
+### 自绘 UI 挂载与交互
 
 来源：官方 [JS overview](https://docs.comfy.org/custom-nodes/js/javascript_overview) / [objects](https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking)；节点面画布参考 [comfyui-quick-latent](https://github.com/Zhen-Bo/comfyui-quick-latent)。
 
 1. **`WEB_DIRECTORY = "./js"`**；Comfy 加载该目录下 **全部 `**/*.js`**。  
 2. 扩展用 `app.registerExtension`；`import { app } from "../../scripts/app.js"`（`js/` 根文件）。  
-3. **挂载钩子要冗余**：`beforeRegisterNodeDef`（改 `onNodeCreated`）+ **`nodeCreated`** + `loadedGraphNode` / `setup` 补挂。  
+3. **挂载钩子要覆盖完整生命周期**：`beforeRegisterNodeDef`（包装 `onNodeCreated`）+ **`nodeCreated`** + `loadedGraphNode` / `setup` 补挂。
 4. **节点面优先 Canvas 模式**（quick-latent 同款，本包 PCP 已用）：  
    - Schema 尽量不暴露内部字段；若有原生 widget，**隐藏**（`hidden=true`、`type="hidden"`、`computeSize→[0,-4]`）。  
    - **`onDrawForeground(ctx)`** 画控件；**`onMouseDown` / `onMouseMove` / `onMouseUp`** 做 hit-test 与拖拽。  
@@ -148,7 +135,7 @@ ComfyUI-Aaalice-Nodes/
 9. **禁止中英硬拼同一条文案**；日志英文可。  
 10. 改 JS：**硬刷新 / 重启**；LG_HotReload **不重载前端**。删旧节点再添加。
 
-### 参数面板产品约定（#15–16）
+### 参数面板约定（#15–16）
 
 - **节点面（Canvas）**：只改值；分隔 = 分组标题；下拉点击循环选项  
 - **侧栏「参数面板」**：完全体（结构+配置+改值）；多实例 Tab 手动切换  
@@ -171,15 +158,11 @@ ComfyUI-Aaalice-Nodes/
 | 次要字 | `#918da3` / `#8d899f` |
 | 主值字 | `#e8e8f0` |
 
----
-
-## 文档入口
+## 参考文档
 
 - 后端：[overview](https://docs.comfy.org/custom-nodes/overview) · [V3](https://docs.comfy.org/custom-nodes/v3_migration)  
 - 前端：[JS](https://docs.comfy.org/custom-nodes/js/javascript_overview) · [hooks](https://docs.comfy.org/custom-nodes/js/javascript_hooks) · [i18n](https://docs.comfy.org/custom-nodes/i18n) · [Nodes 2.0](https://docs.comfy.org/interface/nodes-2)  
 - [llms.txt](https://docs.comfy.org/llms.txt)
-
----
 
 ## 国际化（i18n）
 
@@ -200,9 +183,7 @@ await ensureI18nReady();
 t("aaalice.common.confirm", "Confirm");
 ```
 
----
-
-## 检查清单（每节点 / 有 UI）
+## 完成检查
 
 - [ ] `node_id` / 输入输出 id 英文；`category=Aaalice/<domain>`  
 - [ ] en+zh `nodeDefs`（及 settings/commands）对齐  
@@ -211,4 +192,3 @@ t("aaalice.common.confirm", "Confirm");
 - [ ] Canvas：隐藏原生 widget + `onDrawForeground` / 鼠标 hit；DOM：`getMinHeight` 且勿先 await  
 - [ ] 内部字段无用户引脚、无裸 `[]` 文本框；自绘文案单语 i18n  
 - [ ] 双语 README 进度已更新  
-

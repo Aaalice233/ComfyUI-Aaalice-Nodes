@@ -16,8 +16,7 @@ Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danboo
 
 - **Not** a drop-in replacement for the legacy pack (names / APIs are not compatibility-by-default).
 - UI language follows ComfyUI **Settings → Language**.
-- **Dual UI compatibility (required):** every node must work in **classic** node mode **and** with **[Nodes 2.0](https://docs.comfy.org/interface/nodes-2)** enabled. App Mode is still out of scope.
-- Custom heavy UI aims for a calm dark aesthetic inspired by [herdi.ng/lp](https://www.herdi.ng/lp) (see [AGENTS.md](./AGENTS.md)).
+- Every node is built for both classic node mode and **[Nodes 2.0](https://docs.comfy.org/interface/nodes-2)**. App Mode is currently out of scope.
 - Registry: [comfyui-aaalice-nodes](https://registry.comfy.org/nodes/comfyui-aaalice-nodes)  
   *(node count may stay empty while a version is still scanning)*
 
@@ -26,12 +25,10 @@ Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danboo
 ## Table of contents
 
 1. [Install](#install)
-2. [Repository layout](#repository-layout)
-3. [Languages (i18n)](#languages-i18n)
-4. [Reset checklist](#reset-checklist)
-5. [Implementation workflow](#implementation-workflow)
-6. [Development](#development)
-7. [License](#license)
+2. [Languages (i18n)](#languages-i18n)
+3. [Reset checklist](#reset-checklist)
+4. [Contributing](#contributing)
+5. [License](#license)
 
 ---
 
@@ -58,36 +55,6 @@ pip install -r requirements.txt   # often empty; install when deps appear
 Restart ComfyUI. Dependencies: `requirements.txt` / `pyproject.toml`.
 
 > Need full legacy behavior? Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery).
-
----
-
-## Repository layout
-
-Inspired by [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) and [rgthree-comfy](https://github.com/rgthree/rgthree-comfy); scoped to this pack. Details: [AGENTS.md](./AGENTS.md).
-
-```text
-ComfyUI-Aaalice-Nodes/
-├── __init__.py                 # V3 entrypoint + WEB_DIRECTORY
-├── README.md / README.zh-CN.md # bilingual docs (keep in sync)
-├── assets/                     # Registry / README banner (icon for Registry only)
-├── locales/{en,zh}/            # Comfy i18n
-├── js/                         # frontend (mirrors domains)
-├── nodes/                      # V3 nodes by domain
-│   ├── tools/    #1, #3–9
-│   ├── prompt/   #10–12
-│   ├── media/    #13–14, #23
-│   ├── control/  #15–19
-│   ├── gallery/  #21–22
-│   └── krita/    #24–25
-└── server/                     # optional HTTP (on demand)
-```
-
-| Rule | Detail |
-|------|--------|
-| One node per file | `nodes/<domain>/<snake_case>.py` |
-| Domains on demand | create package with the first node; no empty stubs |
-| Menu | `category = "Aaalice/<domain>"` only — never stock Comfy roots |
-| Frontend | heavy UI under matching `js/<domain>/` |
 
 ---
 
@@ -168,30 +135,9 @@ Legacy reference only: [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/
 
 ---
 
-## Implementation workflow
+## Contributing
 
-| Step | Action |
-|:----:|--------|
-| 1 | Scope I/O and deltas vs legacy |
-| 2 | Read legacy for behavior only — no whole-file copy |
-| 3 | Rewrite (V3 schema; official `registerExtension`; **classic + Nodes 2.0 UI**) |
-| 4 | Heavy self-drawn UI: DOM + hooks; use `nodeCreated` (not only `beforeRegisterNodeDef`) |
-| 5 | i18n: `locales/en` + `locales/zh` |
-| 6 | Test load + main path; **classic and Nodes 2.0**; switch en / zh |
-| 7 | Update **both** READMEs in the same change |
-| 8 | Commit: `type(scope): 中文描述` |
-
----
-
-## Development
-
-Full rules: [AGENTS.md](./AGENTS.md) (layout · i18n · bilingual README · Registry · **classic + Nodes 2.0** · UI direction).
-
-- Thin root `__init__.py`; nodes under `nodes/<domain>/`
-- English serialization ids; user-visible text in `locales/`
-- Schema English fallbacks; `category` = `Aaalice/<domain>`
-- All nodes: work in **classic mode and Nodes 2.0**; prefer DOM / official hooks over Canvas paint & prototype hijacks
-- Docs: keep `README.md` ↔ `README.zh-CN.md` aligned
+Contributor and AI-assistant rules live in [AGENTS.md](./AGENTS.md). Architectural decisions for the parameter UI live in [docs/adr](./docs/adr/).
 
 ---
 
