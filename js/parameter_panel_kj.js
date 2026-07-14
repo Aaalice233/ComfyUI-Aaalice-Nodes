@@ -72,7 +72,7 @@ function panelTitle(panel) {
 }
 
 function desiredSetName(panel, parameter) {
-	const parameterName = String(parameter?.name || parameter?.id || "parameter").trim() || "parameter";
+	const parameterName = String(displayName(parameter, parameter?.id || "parameter")).trim() || "parameter";
 	return `${panelTitle(panel)}_${parameterName}`;
 }
 

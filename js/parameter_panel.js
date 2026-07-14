@@ -296,6 +296,7 @@ function openInlineNumberInput(anchor, value, min, max, step, onCommit) {
 function numericDisplay(label, parameter, config, onCommit) {
 	const value = isolate(el("button", "aaalice-pcp-value-display", String(parameter.value ?? 0)));
 	value.type = "button";
+	value.dataset.parameterId = String(parameter.id || "");
 	value.setAttribute("aria-label", t("aaalice.pcp.inline.editValue", "Edit value"));
 	value.addEventListener("click", () => openInlineNumberInput(
 		value,

@@ -32,6 +32,15 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	anchor.ownerDocument.body.append(input);
 	let done = false;
 	const cleanup = () => { window.removeEventListener("wheel", commitOnWheel, true); input.remove(); };
+	const restoreFocus = () => {
+		let target = anchor;
+		if (!target.isConnected && anchor.dataset?.parameterId) {
+			target = [...anchor.ownerDocument.querySelectorAll("[data-parameter-id]")]
+				.find((candidate) => candidate.dataset.parameterId === anchor.dataset.parameterId);
+		}
+		if (!target?.isConnected) return;
+		try { target.focus({ preventScroll: true }); } catch { target.focus(); }
+	};
 	const commit = () => {
 		if (done) return;
 		done = true;
@@ -39,8 +48,9 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 		const next = Number.isFinite(raw) ? Math.min(max, Math.max(min, raw)) : Number(value);
 		cleanup();
 		onCommit?.(next);
+		restoreFocus();
 	};
-	const cancel = () => { if (!done) { done = true; cleanup(); } };
+	const cancel = () => { if (!done) { done = true; cleanup(); restoreFocus(); } };
 	const commitOnWheel = () => commit();
 	input.addEventListener("keydown", (event) => {
 		event.stopPropagation();
