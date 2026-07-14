@@ -142,6 +142,29 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 		output._aaaliceRawIndex = index;
 		delete output.pos;
 	}
+	// Nodes 2.0 draws and measures concrete slot instances rather than the
+	// public `node.outputs` objects. Keep the copied presentation fields in sync
+	// after every parameter rename, theme refresh, or output reorder; otherwise
+	// labels/colors can remain stale until the node is recreated.
+	const allConcrete = node._aaaliceAllConcreteOutputs;
+	if (Array.isArray(allConcrete)) {
+		for (let rawIndex = 0; rawIndex < allConcrete.length; rawIndex += 1) {
+			const concrete = allConcrete[rawIndex];
+			const output = node.outputs?.[rawIndex];
+			if (!concrete || !output) continue;
+			concrete._aaaliceRawIndex = rawIndex;
+			for (const key of [
+				"name", "label", "localized_name", "type", "shape",
+				"color_off", "color_on", "_aaaliceDisplayHidden",
+				"_aaaliceProtocolName", "_aaaliceParamId",
+			]) {
+				if (output[key] === undefined) delete concrete[key];
+				else concrete[key] = output[key];
+			}
+			if (output.pos) concrete.pos = [...output.pos];
+			else delete concrete.pos;
+		}
+	}
 	return layout;
 }
 
