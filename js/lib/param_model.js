@@ -107,7 +107,7 @@ export function createParameter(paramType, partial = {}) {
 	if (paramType === "seed") {
 		config.min ??= 0;
 		config.max ??= SEED_MAX;
-		config.control_after_generate ??= "fixed";
+		config.control_after_generate ??= "randomize";
 	}
 	if (["dropdown", "enum"].includes(paramType)) {
 		if (config.source) config.options = dynamicOptions(config.source);
@@ -140,12 +140,12 @@ function builtin(id, fallback, paramType, value, config = {}) {
 
 export function createSamplerTemplateParameters() {
 	return [
-		builtin("steps", "Steps", "slider", 20, { min: 1, max: 10000, step: 1 }),
-		builtin("cfg", "CFG", "slider", 8, { min: 0, max: 100, step: 0.1 }),
-		builtin("sampler", "Sampler", "dropdown", sourceOptions.sampler[0], { source: "sampler", options: [...sourceOptions.sampler] }),
-		builtin("scheduler", "Scheduler", "dropdown", sourceOptions.scheduler[0], { source: "scheduler", options: [...sourceOptions.scheduler] }),
+		builtin("steps", "Steps", "slider", 30, { min: 1, max: 100, step: 1 }),
+		builtin("cfg", "CFG", "slider", 5, { min: 0, max: 20, step: 0.1 }),
+		builtin("sampler", "Sampler", "dropdown", "euler", { source: "sampler", options: [...sourceOptions.sampler] }),
+		builtin("scheduler", "Scheduler", "dropdown", "normal", { source: "scheduler", options: [...sourceOptions.scheduler] }),
 		builtin("denoise", "Denoise", "slider", 1, { min: 0, max: 1, step: 0.01 }),
-		builtin("seed", "Seed", "seed", 0, { min: 0, max: SEED_MAX, control_after_generate: "fixed" }),
+		builtin("seed", "Seed", "seed", 0, { min: 0, max: SEED_MAX, control_after_generate: "randomize" }),
 	];
 }
 
@@ -240,7 +240,7 @@ export function applySeedAfterQueue(node) {
 	let changed = false;
 	for (const parameter of ensureParameters(node)) {
 		if (parameter.param_type !== "seed") continue;
-		const behavior = parameter.config?.control_after_generate || "fixed";
+		const behavior = parameter.config?.control_after_generate || "randomize";
 		const current = Number(parameter.value) || 0;
 		if (behavior === "increment") parameter.value = Math.min(SEED_MAX, current + 1);
 		else if (behavior === "decrement") parameter.value = Math.max(0, current - 1);

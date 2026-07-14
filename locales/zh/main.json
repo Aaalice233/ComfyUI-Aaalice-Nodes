@@ -9,10 +9,12 @@
     },
     "operation": {
       "title": "操作面板", "tooltip": "工作流通用操作控件",
+      "subtitle": "在统一操作面中调整当前工作流。", "pagesAria": "操作页面",
       "add": "加入操作面板", "remove": "从操作面板移除",
       "removeConfirm": "从操作面板移除这个节点？",
-      "empty": "添加参数面板，或通过右键菜单注册其它节点。",
+      "emptyTitle": "当前页面还没有内容", "empty": "添加参数面板，或通过右键菜单注册其它节点。",
       "emptyPanel": "这个参数面板目前为空。", "layout": "布局",
+      "layoutHint": "布局模式只调整页面组织，不会修改工作流节点或连线。",
       "fullscreen": "全屏", "exitFullscreen": "退出全屏",
       "page": "页面", "pageAdd": "添加页面", "pageRename": "重命名页面", "pageDelete": "删除页面",
       "pageDeleteConfirm": "删除页面“{name}”？其中的卡片会移动到其它页面。", "pageKeepOne": "至少需要保留一个页面。", "pageNameUnique": "页面名称不能重复。",
@@ -34,15 +36,25 @@
     "pcp": {
       "title": "参数面板", "output": "参数包", "empty": "暂无参数，请通过节点右键菜单编辑。",
       "builtin": { "seed": "种子", "steps": "步数", "cfg": "CFG", "sampler": "采样器", "scheduler": "调度器", "denoise": "降噪幅度" },
+	  "seedMode": { "locked": "种子已锁定；点击解锁", "unlocked": "种子未锁定；点击锁定" },
       "confirm": { "parameterLinks": "将断开受影响的参数下游连线。" },
-      "error": { "maxParameters": "最多只能添加 {count} 个可调参数。", "imageUpload": "图像上传失败：HTTP {status}" },
+      "error": {
+        "maxParameters": "最多只能添加 {count} 个可调参数。", "imageUpload": "图像上传失败：HTTP {status}",
+        "workflowSaveUnavailable": "当前 ComfyUI 无法调用工作流保存功能。",
+        "workflowSaveFailed": "参数已应用，但工作流自动保存失败：{reason}"
+      },
       "validation": {
         "parameterIdsUnique": "参数 id 不能重复。", "parameterNamesUnique": "参数名称不能重复。",
         "sliderRange": "{name}：滑条范围无效。", "optionsRequired": "{name}：至少需要一个选项。"
       },
       "editor": {
-        "title": "编辑参数", "menu": "编辑参数…", "add": "添加参数",
-        "selectParameter": "选择一个参数以编辑其设置。", "discard": "放弃尚未保存的参数修改？"
+        "title": "编辑参数", "menu": "⚙️ 编辑参数…", "add": "添加参数",
+        "selectParameter": "选择一个参数以编辑其设置。", "discard": "放弃尚未保存的参数修改？",
+        "emptyTitle": "尚未选择参数", "inspector": "参数设置",
+        "subtitle": "配置面板结构与参数默认值。",
+        "renameHint": "双击重命名",
+        "parameterCount": "{count} 个参数", "general": "基础信息", "valueRules": "取值规则",
+        "optionsBehavior": "选项与行为"
       },
       "field": {
         "name": "名称", "description": "说明（Markdown）", "options": "选项（每行一个）",

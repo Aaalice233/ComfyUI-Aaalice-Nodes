@@ -11,26 +11,27 @@ import "./parameter_panel.js";
 import "./parameter_sidebar.js";
 import "./parameter_break.js";
 
-function injectTheme() {
-	const id = "aaalice-theme-css";
-	if (document.getElementById(id)) return;
-	// Prefer link; fallback path without import.meta (older embeds)
-	const link = document.createElement("link");
-	link.id = id;
-	link.rel = "stylesheet";
-	try {
-		link.href = new URL("./lib/theme.css", import.meta.url).href;
-	} catch {
-		link.href = "extensions/ComfyUI-Aaalice-Nodes/lib/theme.css";
+function injectStyles() {
+	for (const filename of ["ui.css", "theme.css"]) {
+		const id = `aaalice-${filename.replace(".css", "")}-css`;
+		if (document.getElementById(id)) continue;
+		const link = document.createElement("link");
+		link.id = id;
+		link.rel = "stylesheet";
+		try {
+			link.href = new URL(`./lib/${filename}`, import.meta.url).href;
+		} catch {
+			link.href = `extensions/ComfyUI-Aaalice-Nodes/lib/${filename}`;
+		}
+		document.head.appendChild(link);
 	}
-	document.head.appendChild(link);
 }
 
 app.registerExtension({
 	name: "ComfyUI.Aaalice.Nodes",
 
 	async setup() {
-		injectTheme();
+		injectStyles();
 		await ensureI18nReady();
 		console.log("[Aaalice] extension setup complete");
 	},

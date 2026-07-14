@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { renderSafeMarkdown } from "./lib/safe_markdown.js";
+import { badge, button, card, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
 	EVENT_PARAMETER_CHANGED,
 	MAX_TUNABLE,
@@ -26,18 +27,6 @@ import {
 
 const NODE = "ParameterPanel";
 const MIN_WIDTH = 310;
-
-function el(tag, className, text) {
-	const element = document.createElement(tag);
-	if (className) element.className = className;
-	if (text != null) element.textContent = text;
-	return element;
-}
-
-function isolate(element) {
-	for (const eventName of ["pointerdown", "mousedown", "wheel"]) element.addEventListener(eventName, (event) => event.stopPropagation());
-	return element;
-}
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -67,10 +56,18 @@ function markGraphChange(node, before) {
 	}
 }
 
-function formField(label, control) {
-	const field = el("label", "aaalice-form-field");
-	field.append(el("span", null, label), control);
-	return field;
+async function saveActiveWorkflow() {
+	const command = app.extensionManager?.command;
+	if (typeof command?.execute !== "function" || (typeof command.isRegistered === "function" && !command.isRegistered("Comfy.SaveWorkflow"))) {
+		throw new Error(t("aaalice.pcp.error.workflowSaveUnavailable", "ComfyUI workflow save is unavailable."));
+	}
+	let failure = null;
+	try {
+		await command.execute("Comfy.SaveWorkflow", { errorHandler: (error) => { failure = error; } });
+	} catch (error) {
+		failure = error;
+	}
+	if (failure) throw failure;
 }
 
 function selectInput(options, value) {
@@ -105,14 +102,18 @@ function parameterLinkCount(node, parameterId) {
 
 async function chooseImage(parameter) {
 	return new Promise((resolve) => {
-		const overlay = el("div", "aaalice-modal-backdrop");
-		const dialog = el("div", "aaalice-modal");
 		const body = el("div", "aaalice-modal-body");
-		const close = (value) => { overlay.remove(); resolve(value); };
+		const dialogApi = createDialog({
+			title: t("aaalice.pcp.image.title", "Choose image"),
+			body,
+			size: "sm",
+			onRequestClose: () => { resolve(false); return true; },
+		});
+		const close = (value) => { resolve(value); dialogApi.close(value); };
 		const filename = document.createElement("input");
 		filename.type = "text";
 		filename.value = parameter.value?.filename || "";
-		const existing = el("button", "aaalice-pcp-btn secondary", t("aaalice.pcp.image.useExisting", "Use input filename"));
+		const existing = button({ label: t("aaalice.pcp.image.useExisting", "Use input filename"), variant: "secondary" });
 		existing.addEventListener("click", () => {
 			if (!filename.value.trim()) return;
 			parameter.value = { filename: filename.value.trim(), subfolder: "", type: "input" };
@@ -135,10 +136,7 @@ async function chooseImage(parameter) {
 			parameter.value = await response.json();
 			close(true);
 		});
-		body.append(formField(t("aaalice.pcp.image.existing", "Existing input image"), filename), existing, formField(t("aaalice.pcp.image.upload", "Upload new image"), upload));
-		dialog.append(el("div", "aaalice-modal-title", t("aaalice.pcp.image.title", "Choose image")), body);
-		overlay.append(dialog);
-		document.body.append(overlay);
+		body.append(field({ label: t("aaalice.pcp.image.existing", "Existing input image"), control: filename }), existing, field({ label: t("aaalice.pcp.image.upload", "Upload new image"), control: upload }));
 	});
 }
 
@@ -172,10 +170,11 @@ function showTooltip(trigger, description) {
 }
 
 function attachDescription(trigger, description) {
+	const resolveDescription = () => typeof description === "function" ? description() : description;
 	trigger.tabIndex = 0;
-	trigger.addEventListener("mouseenter", () => showTooltip(trigger, description));
+	trigger.addEventListener("mouseenter", () => showTooltip(trigger, resolveDescription()));
 	trigger.addEventListener("mouseleave", hideTooltip);
-	trigger.addEventListener("focus", () => showTooltip(trigger, description));
+	trigger.addEventListener("focus", () => showTooltip(trigger, resolveDescription()));
 	trigger.addEventListener("blur", hideTooltip);
 }
 
@@ -216,6 +215,50 @@ function valueControl(node, parameter) {
 		wrap.append(range, number);
 		return wrap;
 	}
+	if (parameter.param_type === "seed") {
+		const wrap = el("div", "aaalice-pcp-node-seed");
+		const input = isolate(document.createElement("input"));
+		input.type = "number";
+		input.min = String(config.min ?? 0);
+		input.max = String(config.max ?? Number.MAX_SAFE_INTEGER);
+		input.value = String(parameter.value ?? 0);
+		const modeLabel = () => parameter.config?.control_after_generate === "randomize"
+			? t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock")
+			: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock");
+		const modeButton = isolate(iconButton({
+			iconName: "lock",
+			label: modeLabel(),
+			variant: "ghost",
+			className: "aaalice-pcp-seed-mode",
+		}));
+		modeButton.removeAttribute("title");
+		const updateMode = () => {
+			const locked = parameter.config?.control_after_generate !== "randomize";
+			modeButton.replaceChildren(icon("lock"));
+			modeButton.classList.toggle("is-locked", locked);
+			modeButton.setAttribute("aria-label", modeLabel());
+			modeButton.setAttribute("aria-pressed", String(locked));
+		};
+		modeButton.addEventListener("click", () => {
+			parameter.config ||= {};
+			parameter.config.control_after_generate = parameter.config.control_after_generate === "randomize" ? "fixed" : "randomize";
+			updateMode();
+			hideTooltip();
+			persist();
+		});
+		attachDescription(modeButton, modeLabel);
+		input.addEventListener("change", () => {
+			const min = Number(input.min);
+			const max = Number(input.max);
+			const value = Number(input.value);
+			parameter.value = Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
+			input.value = String(parameter.value);
+			persist();
+		});
+		updateMode();
+		wrap.append(input, modeButton);
+		return wrap;
+	}
 	if (parameter.param_type === "switch") {
 		const button = isolate(el("button", `aaalice-pcp-node-switch${parameter.value ? " active" : ""}`, parameter.value ? t("aaalice.common.enabled", "Enabled") : t("aaalice.common.disabled", "Disabled")));
 		button.type = "button";
@@ -224,14 +267,23 @@ function valueControl(node, parameter) {
 	}
 	if (["dropdown", "enum"].includes(parameter.param_type)) {
 		const select = isolate(document.createElement("select"));
+		const selectWrap = el("div", "aaalice-pcp-select-wrap");
 		const valid = (config.options || []).includes(parameter.value);
 		if (!valid && parameter.value != null) {
 			select.add(new Option(`${parameter.value} ⚠`, parameter.value, true, true));
 			select.classList.add("invalid");
 		}
 		for (const option of config.options || []) select.add(new Option(option, option, false, option === parameter.value));
-		select.addEventListener("change", () => { parameter.value = select.value; persist(); });
-		return select;
+		const setSelectOpen = (open) => selectWrap.classList.toggle("is-open", open);
+		select.addEventListener("pointerdown", () => setSelectOpen(!selectWrap.classList.contains("is-open")));
+		select.addEventListener("keydown", (event) => {
+			if (event.key === "Escape") setSelectOpen(false);
+			else if (event.key === "Enter" || event.key === " " || (event.altKey && event.key === "ArrowDown")) setSelectOpen(!selectWrap.classList.contains("is-open"));
+		});
+		select.addEventListener("blur", () => setSelectOpen(false));
+		select.addEventListener("change", () => { setSelectOpen(false); parameter.value = select.value; persist(); });
+		selectWrap.append(select, icon("moveDown"));
+		return selectWrap;
 	}
 	if (parameter.param_type === "image") {
 		const button = isolate(el("button", "aaalice-pcp-node-value", parameter.value?.filename || t("aaalice.pcp.image.none", "Choose image")));
@@ -267,7 +319,9 @@ function renderNode(node, root) {
 		heading.append(label);
 		if (parameter.description) {
 			const trigger = el("span", "aaalice-pcp-description-trigger");
-			trigger.append(label, el("span", "aaalice-pcp-question", "?"));
+			const help = el("span", "aaalice-pcp-question");
+			help.append(icon("note"));
+			trigger.append(label, help);
 			heading.append(trigger);
 			attachDescription(trigger, parameter.description);
 		}
@@ -278,38 +332,36 @@ function renderNode(node, root) {
 }
 
 function nodeHeight(node) {
-	return Math.max(58, 12 + ensureParameters(node).reduce((height, parameter) => height + (parameter.param_type === "separator" ? 30 : 58), 0));
+	return Math.max(66, 12 + ensureParameters(node).reduce((height, parameter) => {
+		if (parameter.param_type === "separator") return height + 30;
+		if (parameter.param_type === "string" && parameter.config?.multiline) return height + 96;
+		return height + 66;
+	}, 0));
 }
 
 function inspectorField(label, control) {
-	return formField(label, control);
+	return field({ label, control });
 }
 
 function renderInspector(editor, parameter, rerender) {
 	const pane = editor.inspector;
 	pane.replaceChildren();
 	if (!parameter) {
-		pane.append(el("div", "aaalice-editor-empty", t("aaalice.pcp.editor.selectParameter", "Select a parameter to edit its settings.")));
+		pane.append(emptyState({
+			title: t("aaalice.pcp.editor.emptyTitle", "No parameter selected"),
+			description: t("aaalice.pcp.editor.selectParameter", "Select a parameter to edit its settings."),
+			iconName: "settings",
+			className: "aaalice-editor-empty",
+		}));
 		return;
 	}
-	const header = el("div", "aaalice-editor-inspector-head");
-	header.append(el("span", "aaalice-pcp-badge", parameter.param_type));
-	pane.append(header);
-	const name = document.createElement("input");
-	name.value = displayName(parameter);
-	name.addEventListener("input", () => {
-		setCustomName(parameter, name.value);
-		editor.dirty = true;
-		const listName = editor.list.querySelector(`[data-id="${CSS.escape(parameter.id)}"] strong`);
-		if (listName) listName.textContent = name.value;
-		editor.updateValidation?.();
-	});
-	pane.append(inspectorField(t("aaalice.pcp.field.name", "Name"), name));
 	const description = document.createElement("textarea");
 	description.rows = 5;
 	description.value = parameter.description || "";
 	description.addEventListener("input", () => { parameter.description = description.value; editor.dirty = true; editor.updateValidation?.(); });
-	pane.append(inspectorField(t("aaalice.pcp.field.description", "Description (Markdown)"), description));
+	const generalBody = el("div", "aaalice-editor-field-stack");
+	generalBody.append(inspectorField(t("aaalice.pcp.field.description", "Description (Markdown)"), description));
+	pane.append(card({ title: t("aaalice.pcp.editor.general", "General"), meta: badge(parameter.param_type, { tone: "accent" }), body: generalBody, className: "aaalice-editor-group" }));
 	if (["slider", "seed"].includes(parameter.param_type)) {
 		const grid = el("div", "aaalice-pcp-grid2");
 		for (const key of ["min", "max", ...(parameter.param_type === "slider" ? ["step"] : [])]) {
@@ -319,37 +371,43 @@ function renderInspector(editor, parameter, rerender) {
 			input.addEventListener("input", () => { parameter.config[key] = Number(input.value); editor.dirty = true; editor.updateValidation?.(); });
 			grid.append(inspectorField(key, input));
 		}
-		pane.append(grid);
-	}
-	if (parameter.param_type === "seed") {
-		const behavior = selectInput(["fixed", "increment", "decrement", "randomize"], parameter.config?.control_after_generate || "fixed");
-		behavior.addEventListener("change", () => { parameter.config.control_after_generate = behavior.value; editor.dirty = true; editor.updateValidation?.(); });
-		pane.append(inspectorField(t("aaalice.pcp.field.seedBehavior", "After generate"), behavior));
+		const behaviorBody = el("div", "aaalice-editor-field-stack");
+		behaviorBody.append(grid);
+		if (parameter.param_type === "seed") {
+			const behavior = selectInput(["fixed", "increment", "decrement", "randomize"], parameter.config?.control_after_generate || "randomize");
+			behavior.addEventListener("change", () => { parameter.config.control_after_generate = behavior.value; editor.dirty = true; editor.updateValidation?.(); });
+			behaviorBody.append(inspectorField(t("aaalice.pcp.field.seedBehavior", "After generate"), behavior));
+		}
+		pane.append(card({ title: t("aaalice.pcp.editor.valueRules", "Value rules"), body: behaviorBody, className: "aaalice-editor-group" }));
 	}
 	if (["dropdown", "enum"].includes(parameter.param_type)) {
 		const source = selectInput(["custom", "sampler", "scheduler", "checkpoint", "lora", "controlnet", "upscale_model"], parameter.config?.source || "custom");
 		const options = document.createElement("textarea");
 		options.rows = 7;
 		options.value = (parameter.config?.options || []).join("\n");
-		options.disabled = source.value !== "custom";
+		const optionsField = inspectorField(t("aaalice.pcp.field.options", "Options (one per line)"), options);
+		const syncOptionsField = () => { optionsField.hidden = source.value !== "custom"; };
+		syncOptionsField();
 		source.addEventListener("change", () => {
 			if (source.value === "custom") delete parameter.config.source;
 			else parameter.config.source = source.value;
 			normalizeDynamicOptions([parameter]);
-			options.disabled = source.value !== "custom";
 			options.value = (parameter.config.options || []).join("\n");
+			syncOptionsField();
 			editor.dirty = true;
 			editor.updateValidation?.();
 		});
 		options.addEventListener("input", () => { parameter.config.options = options.value.split("\n").map((item) => item.trim()).filter(Boolean); editor.dirty = true; editor.updateValidation?.(); });
-		pane.append(inspectorField(t("aaalice.pcp.field.source", "Source"), source), inspectorField(t("aaalice.pcp.field.options", "Options (one per line)"), options));
+		const optionsBody = el("div", "aaalice-editor-field-stack");
+		optionsBody.append(inspectorField(t("aaalice.pcp.field.source", "Source"), source), optionsField);
+		pane.append(card({ title: t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), body: optionsBody, className: "aaalice-editor-group" }));
 	}
 	if (parameter.param_type === "string") {
 		const multiline = document.createElement("input");
 		multiline.type = "checkbox";
 		multiline.checked = Boolean(parameter.config?.multiline);
 		multiline.addEventListener("change", () => { parameter.config.multiline = multiline.checked; editor.dirty = true; editor.updateValidation?.(); });
-		pane.append(inspectorField(t("aaalice.pcp.field.multiline", "Multiline"), multiline));
+		pane.append(card({ title: t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), body: inspectorField(t("aaalice.pcp.field.multiline", "Multiline"), multiline), className: "aaalice-editor-group" }));
 	}
 }
 
@@ -363,9 +421,37 @@ function renderEditorList(editor, rerender) {
 		const text = el("button", "aaalice-editor-list-select");
 		text.type = "button";
 		text.append(el("strong", null, displayName(parameter)), el("small", null, parameter.param_type));
-		text.addEventListener("click", () => { editor.selectedId = parameter.id; rerender(); });
-		const duplicate = el("button", "aaalice-editor-mini", "⧉");
-		duplicate.title = t("aaalice.common.copy", "Copy");
+		text.title = t("aaalice.pcp.editor.renameHint", "Double-click to rename");
+		text.addEventListener("dblclick", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			const input = document.createElement("input");
+			input.type = "text";
+			input.className = "aaalice-editor-rename-input";
+			input.value = displayName(parameter);
+			let finished = false;
+			const finish = (commit) => {
+				if (finished) return;
+				finished = true;
+				const nextName = input.value.trim();
+				if (commit && nextName && nextName !== displayName(parameter)) {
+					setCustomName(parameter, nextName);
+					editor.dirty = true;
+				}
+				rerender();
+			};
+			input.addEventListener("click", (inputEvent) => inputEvent.stopPropagation());
+			input.addEventListener("dblclick", (inputEvent) => inputEvent.stopPropagation());
+			input.addEventListener("keydown", (inputEvent) => {
+				if (inputEvent.key === "Enter") finish(true);
+				else if (inputEvent.key === "Escape") finish(false);
+			});
+			input.addEventListener("blur", () => finish(true));
+			text.replaceChildren(input);
+			input.focus();
+			input.select();
+		});
+		const duplicate = iconButton({ iconName: "copy", label: t("aaalice.common.copy", "Copy"), variant: "ghost", className: "aaalice-editor-mini" });
 		duplicate.addEventListener("click", () => {
 			const copy = cloneData(parameter);
 			copy.id = newParamId();
@@ -375,8 +461,7 @@ function renderEditorList(editor, rerender) {
 			editor.dirty = true;
 			rerender();
 		});
-		const remove = el("button", "aaalice-editor-mini danger", "×");
-		remove.title = t("aaalice.common.delete", "Delete");
+		const remove = iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", className: "aaalice-editor-mini danger" });
 		remove.addEventListener("click", () => {
 			const index = editor.parameters.indexOf(parameter);
 			editor.parameters.splice(index, 1);
@@ -385,6 +470,13 @@ function renderEditorList(editor, rerender) {
 			rerender();
 		});
 		row.addEventListener("dragstart", (event) => event.dataTransfer?.setData("text/plain", parameter.id));
+		row.addEventListener("click", (event) => {
+			if (event.target.closest(".aaalice-editor-mini")) return;
+			editor.selectedId = parameter.id;
+			for (const candidate of editor.list.children) candidate.classList.toggle("selected", candidate.dataset.id === parameter.id);
+			renderInspector(editor, parameter, rerender);
+			editor.updateValidation?.();
+		});
 		row.addEventListener("dragover", (event) => { event.preventDefault(); row.classList.add("drop-target"); });
 		row.addEventListener("dragleave", () => row.classList.remove("drop-target"));
 		row.addEventListener("drop", (event) => {
@@ -407,35 +499,42 @@ function renderEditorList(editor, rerender) {
 async function openParameterEditor(node) {
 	const original = ensureParameters(node);
 	const editor = { parameters: cloneData(original), selectedId: original[0]?.id || null, dirty: false, list: null, inspector: null };
-	const overlay = el("div", "aaalice-modal-backdrop");
-	const dialog = el("div", "aaalice-modal aaalice-parameter-editor");
-	const titleInput = document.createElement("input");
-	titleInput.className = "aaalice-editor-title-input";
-	const titleAtOpen = node.getTitle?.() || node.title || node.type || t("aaalice.pcp.title", "Parameter Panel");
-	titleInput.value = titleAtOpen;
-	const header = el("div", "aaalice-parameter-editor-header");
-	header.append(el("span", null, t("aaalice.pcp.editor.title", "Edit parameters")), titleInput);
 	const workspace = el("div", "aaalice-parameter-editor-workspace");
 	const rail = el("aside", "aaalice-parameter-editor-rail");
 	const addBar = el("div", "aaalice-editor-add");
 	const type = selectInput(["slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist", "separator"], "slider");
-	const add = el("button", "aaalice-pcp-btn", t("aaalice.pcp.editor.add", "Add parameter"));
+	const add = button({ label: t("aaalice.pcp.editor.add", "Add parameter"), iconName: "add" });
 	editor.list = el("div", "aaalice-editor-compact-list");
 	addBar.append(type, add);
 	rail.append(editor.list, addBar);
 	editor.inspector = el("main", "aaalice-parameter-editor-inspector");
 	workspace.append(rail, editor.inspector);
-	const errors = el("div", "aaalice-pcp-error");
+	const errors = el("div", { className: "aaalice-pcp-error", attrs: { role: "status", "aria-live": "polite" } });
 	const footer = el("div", "aaalice-parameter-editor-footer");
-	const cancel = el("button", "aaalice-pcp-btn secondary", t("aaalice.common.cancel", "Cancel"));
-	const save = el("button", "aaalice-pcp-btn", t("aaalice.common.save", "Save"));
+	const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary" });
+	const save = button({ label: t("aaalice.common.save", "Save") });
 	footer.append(errors, cancel, save);
-	dialog.append(header, workspace, footer);
-	overlay.append(dialog);
-	document.body.append(overlay);
+	let dialogApi;
+	const requestDiscard = async () => !editor.dirty || confirmAction(t("aaalice.pcp.editor.discard", "Discard unsaved parameter changes?"));
+	dialogApi = createDialog({
+		title: t("aaalice.pcp.editor.title", "Edit parameters"),
+		body: workspace,
+		footer,
+		size: "lg",
+		className: "aaalice-parameter-editor",
+		onRequestClose: requestDiscard,
+	});
+	editor.count = badge("", { tone: "neutral", className: "aaalice-editor-count" });
+	const headerIntro = el("div", "aaalice-parameter-editor-heading");
+	headerIntro.append(
+		dialogApi.heading,
+		el("p", null, t("aaalice.pcp.editor.subtitle", "Configure the panel structure and default values.")),
+	);
+	dialogApi.header.replaceChildren(headerIntro, editor.count);
 	const rerender = (list = true) => {
 		if (list) renderEditorList(editor, rerender);
 		renderInspector(editor, editor.parameters.find((item) => item.id === editor.selectedId), rerender);
+		editor.count.textContent = message("aaalice.pcp.editor.parameterCount", "{count} parameters", { count: editor.parameters.length });
 		editor.updateValidation();
 	};
 	editor.updateValidation = () => {
@@ -454,16 +553,7 @@ async function openParameterEditor(node) {
 		editor.dirty = true;
 		rerender();
 	});
-	titleInput.addEventListener("input", () => { editor.dirty = true; });
-	const close = async (force = false) => {
-		if (!force && editor.dirty && !(await confirmAction(t("aaalice.pcp.editor.discard", "Discard unsaved parameter changes?")))) return;
-		document.removeEventListener("keydown", onKey);
-		overlay.remove();
-	};
-	const onKey = (event) => { if (event.key === "Escape") close(); };
-	document.addEventListener("keydown", onKey);
-	overlay.addEventListener("pointerdown", (event) => { if (event.target === overlay) close(); });
-	cancel.addEventListener("click", () => close());
+	cancel.addEventListener("click", () => dialogApi.requestClose());
 	save.addEventListener("click", async () => {
 		const validation = validateParametersDraft(editor.parameters);
 		if (validation.length) return;
@@ -475,12 +565,14 @@ async function openParameterEditor(node) {
 		}
 		markGraphChange(node, true);
 		node.properties.parameters = editor.parameters;
-		const nextTitle = titleInput.value.trim();
-		if (!nextTitle) delete node.title;
-		else if (nextTitle !== titleAtOpen) node.title = nextTitle;
 		notifyParameterChanged(node, { structure: true });
 		markGraphChange(node, false);
-		await close(true);
+		try {
+			await saveActiveWorkflow();
+		} catch (error) {
+			toast("error", message("aaalice.pcp.error.workflowSaveFailed", "Parameters were applied, but workflow save failed: {reason}", { reason: error?.message || String(error) }));
+		}
+		dialogApi.close(true);
 	});
 	rerender();
 }
@@ -580,7 +672,7 @@ app.registerExtension({
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	getNodeMenuItems(node) {
 		if (!isParameterPanel(node)) return [];
-		return [{ content: t("aaalice.pcp.editor.menu", "Edit Parameters…"), callback: () => openParameterEditor(node).catch((error) => toast("error", error.message || String(error))) }];
+		return [{ content: t("aaalice.pcp.editor.menu", "⚙️ Edit Parameters…"), callback: () => openParameterEditor(node).catch((error) => toast("error", error.message || String(error))) }];
 	},
 	nodeCreated(node) { if (isParameterPanel(node)) setupParameterPanel(node, false); },
 	loadedGraphNode(node) { if (isParameterPanel(node)) setupParameterPanel(node, true); },

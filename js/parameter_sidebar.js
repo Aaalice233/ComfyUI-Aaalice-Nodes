@@ -15,19 +15,13 @@ import {
 	notifyParameterListChanged,
 } from "./lib/param_model.js";
 import { deleteOperationPreset, loadOperationPresets, saveOperationPreset } from "./lib/operation_preset_store.js";
+import { badge, button, card, createDialog, el, emptyState, field as uiField, iconButton, sectionHeader, tabs as tabList } from "./lib/ui.js";
 
 const SIDEBAR_ID = "aaalice-operation-panel";
 const adapters = new Map();
 let sidebarRoot = null;
 let fullscreenRoot = null;
 let layoutMode = false;
-
-function el(tag, className, text) {
-	const element = document.createElement(tag);
-	if (className) element.className = className;
-	if (text != null) element.textContent = text;
-	return element;
-}
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -51,16 +45,20 @@ async function promptText(title, value = "") {
 
 function modal(title, render) {
 	return new Promise((resolve) => {
-		const overlay = el("div", "aaalice-modal-backdrop");
-		const dialog = el("div", "aaalice-modal wide");
 		const body = el("div", "aaalice-modal-body");
-		const close = (value) => { document.removeEventListener("keydown", keydown); overlay.remove(); resolve(value); };
-		const keydown = (event) => { if (event.key === "Escape") close(null); };
-		document.addEventListener("keydown", keydown);
-		overlay.addEventListener("pointerdown", (event) => { if (event.target === overlay) close(null); });
-		dialog.append(el("div", "aaalice-modal-title", title), body);
-		overlay.append(dialog);
-		document.body.append(overlay);
+		let settled = false;
+		const dialogApi = createDialog({
+			title,
+			body,
+			size: "md",
+			onRequestClose: () => { if (!settled) { settled = true; resolve(null); } return true; },
+		});
+		const close = (value) => {
+			if (settled) return;
+			settled = true;
+			dialogApi.close(value);
+			resolve(value);
+		};
 		render(body, close);
 	});
 }
@@ -162,9 +160,7 @@ async function removeNode(node) {
 }
 
 function field(label, input) {
-	const wrapper = el("label", "aaalice-form-field");
-	wrapper.append(el("span", null, label), input);
-	return wrapper;
+	return uiField({ label, control: input });
 }
 
 function setWidget(widget, value, node) {
@@ -213,7 +209,7 @@ function parameterControl(parameter, node) {
 		const input = document.createElement("input");
 		input.type = "number";
 		input.value = String(parameter.value ?? 0);
-		input.title = config.control_after_generate || "fixed";
+		input.title = config.control_after_generate || "randomize";
 		input.addEventListener("change", () => { parameter.value = Math.max(0, Number(input.value) || 0); update(); });
 		return input;
 	}
@@ -265,7 +261,7 @@ function renderParameterPanel(container, item) {
 		row.append(label, parameterControl(parameter, item.node));
 		container.append(row);
 	}
-	if (!ensureParameters(item.node).length) container.append(el("div", "aaalice-pcp-empty", t("aaalice.operation.emptyPanel", "This parameter panel is empty.")));
+	if (!ensureParameters(item.node).length) container.append(emptyState({ description: t("aaalice.operation.emptyPanel", "This parameter panel is empty."), iconName: "settings" }));
 }
 
 function renderNodeResults(container, node) {
@@ -380,22 +376,23 @@ function renderLayoutEditor(card, item, state) {
 }
 
 function renderCard(item, fullscreen, state) {
-	const card = el("article", `aaalice-operation-card${item.entry.hidden ? " hidden-card" : ""}`);
-	if (fullscreen) {
-		if (Number(item.entry.row) > 0) card.style.gridRow = String(Number(item.entry.row));
-		if (Number(item.entry.col) > 0) card.style.gridColumn = String(Number(item.entry.col));
-	}
-	const header = el("header", "aaalice-operation-card-head");
-	header.append(el("strong", null, cardTitle(item)), el("span", "aaalice-pcp-badge", `#${item.node.id}`));
-	card.append(header);
+	const body = el("div");
 	if (!item.entry.hidden || layoutMode) {
-		const body = el("div", "aaalice-operation-card-body");
 		if (isParameterPanel(item.node)) renderParameterPanel(body, item);
 		else renderGeneric(body, item);
-		card.append(body);
 	}
-	if (layoutMode) renderLayoutEditor(card, item, state);
-	return card;
+	const cardElement = card({
+		title: cardTitle(item),
+		meta: badge(`#${item.node.id}`),
+		body: (!item.entry.hidden || layoutMode) ? body : null,
+		className: `aaalice-operation-card${item.entry.hidden ? " hidden-card" : ""}`,
+	});
+	if (fullscreen) {
+		if (Number(item.entry.row) > 0) cardElement.style.gridRow = String(Number(item.entry.row));
+		if (Number(item.entry.col) > 0) cardElement.style.gridColumn = String(Number(item.entry.col));
+	}
+	if (layoutMode) renderLayoutEditor(cardElement, item, state);
+	return cardElement;
 }
 
 function slug(value) {
@@ -424,8 +421,8 @@ async function ensurePresetKeys(items) {
 			body.append(field(cardTitle(item), input));
 		}
 		const footer = el("div", "aaalice-modal-actions");
-		const cancel = el("button", "aaalice-pcp-btn secondary", t("aaalice.common.cancel", "Cancel"));
-		const save = el("button", "aaalice-pcp-btn", t("aaalice.common.save", "Save"));
+		const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary" });
+		const save = button({ label: t("aaalice.common.save", "Save") });
 		cancel.addEventListener("click", () => close(false));
 		save.addEventListener("click", () => {
 			const keys = inputs.map(({ input }) => input.value.trim());
@@ -469,9 +466,8 @@ async function choosePreset(title) {
 	}
 	return modal(title, (body, close) => {
 		for (const preset of store.presets) {
-			const button = el("button", "aaalice-pcp-btn secondary aaalice-choice-btn", preset.name);
-			button.addEventListener("click", () => close(preset));
-			body.append(button);
+			const choice = button({ label: preset.name, variant: "secondary", className: "aaalice-choice-btn", onClick: () => close(preset) });
+			body.append(choice);
 		}
 	});
 }
@@ -548,9 +544,8 @@ async function presetMenu() {
 			["load", t("aaalice.operation.preset.load", "Load page values")],
 			["delete", t("aaalice.operation.preset.delete", "Delete page preset")],
 		]) {
-			const button = el("button", "aaalice-pcp-btn secondary aaalice-choice-btn", label);
-			button.addEventListener("click", () => close(value));
-			body.append(button);
+			const choice = button({ label, variant: "secondary", className: "aaalice-choice-btn", onClick: () => close(value) });
+			body.append(choice);
 		}
 	});
 	if (action === "save") await savePagePreset();
@@ -639,29 +634,35 @@ function renderOperation(root, fullscreen = false) {
 	const state = operationState(app.graph, true);
 	const page = activePage(state);
 	const toolbar = el("div", "aaalice-operation-toolbar");
-	toolbar.append(el("strong", null, t("aaalice.operation.title", "Operation Panel")));
-	const presets = el("button", "aaalice-pcp-btn secondary", t("aaalice.operation.presets", "Presets"));
+	const heading = el("div", "aaalice-operation-heading");
+	heading.append(
+		el("strong", null, t("aaalice.operation.title", "Operation Panel")),
+		el("span", null, t("aaalice.operation.subtitle", "Tune the workflow without leaving its operating surface.")),
+	);
+	const actions = el("div", "aaalice-operation-actions");
+	const presets = button({ label: t("aaalice.operation.presets", "Presets"), iconName: "presets", variant: "secondary", size: "sm" });
 	presets.addEventListener("click", () => presetMenu().catch((error) => toast("error", error.message || String(error))));
-	const layout = el("button", `aaalice-pcp-btn secondary${layoutMode ? " active" : ""}`, t("aaalice.operation.layout", "Layout"));
+	const layout = button({ label: t("aaalice.operation.layout", "Layout"), iconName: "layout", variant: "secondary", size: "sm", active: layoutMode });
+	layout.setAttribute("aria-pressed", String(layoutMode));
 	layout.addEventListener("click", () => { layoutMode = !layoutMode; renderAll(); });
-	const full = el("button", "aaalice-pcp-btn secondary", fullscreen ? t("aaalice.operation.exitFullscreen", "Exit fullscreen") : t("aaalice.operation.fullscreen", "Fullscreen"));
+	const full = button({ label: fullscreen ? t("aaalice.operation.exitFullscreen", "Exit fullscreen") : t("aaalice.operation.fullscreen", "Fullscreen"), iconName: "fullscreen", variant: "secondary", size: "sm" });
 	full.addEventListener("click", () => fullscreen ? exitFullscreen() : enterFullscreen());
-	toolbar.append(presets, layout, full);
+	actions.append(presets, layout, full);
+	toolbar.append(heading, actions);
 	root.append(toolbar);
-	const tabs = el("nav", "aaalice-operation-pages");
-	for (const candidate of [...state.pages].sort((a, b) => Number(a.order) - Number(b.order))) {
-		const tab = el("button", `aaalice-operation-page-tab${candidate.id === page.id ? " active" : ""}`, candidate.name);
-		tab.addEventListener("click", () => { state.active_page_id = candidate.id; markDirty(); renderAll(); });
-		tabs.append(tab);
-	}
+	const orderedPages = [...state.pages].sort((a, b) => Number(a.order) - Number(b.order));
+	const pages = tabList(orderedPages.map((candidate) => ({ id: candidate.id, label: candidate.name })), {
+		activeId: page.id,
+		ariaLabel: t("aaalice.operation.pagesAria", "Operation pages"),
+		className: "aaalice-operation-pages",
+		onSelect: (id) => { state.active_page_id = id; markDirty(); renderAll(); },
+	});
 	if (layoutMode) {
-		const add = el("button", "aaalice-operation-page-add", "+");
-		add.title = t("aaalice.operation.pageAdd", "Add page");
-		add.addEventListener("click", addPage);
-		tabs.append(add);
+		pages.append(iconButton({ iconName: "add", label: t("aaalice.operation.pageAdd", "Add page"), variant: "ghost", onClick: addPage }));
 	}
-	root.append(tabs);
+	root.append(pages);
 	if (layoutMode) {
+		root.append(el("div", "aaalice-operation-layout-banner", t("aaalice.operation.layoutHint", "Layout mode changes page organization only; workflow nodes and links stay untouched.")));
 		const pageTools = el("div", "aaalice-operation-page-tools");
 		for (const [label, action] of [
 			[t("aaalice.operation.pageRename", "Rename page"), () => renamePage(page)],
@@ -670,36 +671,33 @@ function renderOperation(root, fullscreen = false) {
 			[t("aaalice.operation.pageDelete", "Delete page"), () => deletePage(page)],
 			[t("aaalice.operation.sectionAdd", "Add section"), () => addSection(page)],
 		]) {
-			const button = el("button", "aaalice-pcp-btn secondary", label);
-			button.addEventListener("click", action);
-			pageTools.append(button);
+			pageTools.append(button({ label, variant: "secondary", size: "sm", onClick: action }));
 		}
 		root.append(pageTools);
 	}
 	const items = collectItems(page.id);
 	if (!items.length) {
-		root.append(el("div", "aaalice-pcp-empty", t("aaalice.operation.empty", "Add a Parameter Panel or register another node from its context menu.")));
+		root.append(emptyState({
+			title: t("aaalice.operation.emptyTitle", "Nothing on this page yet"),
+			description: t("aaalice.operation.empty", "Add a Parameter Panel or register another node from its context menu."),
+			iconName: "layout",
+		}));
 		return;
 	}
 	for (const section of [...page.sections].sort((a, b) => Number(a.order) - Number(b.order))) {
 		const sectionItems = items.filter((item) => item.entry.section_id === section.id && (!item.entry.hidden || layoutMode));
 		if (!sectionItems.length && !layoutMode) continue;
 		const wrapper = el("section", "aaalice-operation-section");
-		const heading = el("div", "aaalice-operation-section-head");
-		heading.append(el("h3", null, section.name));
+		const sectionActions = [];
 		if (layoutMode) {
-			const up = el("button", "aaalice-editor-mini", "↑");
-			up.title = t("aaalice.operation.moveUp", "Move up");
-			up.addEventListener("click", () => moveOrdered(page.sections, section, -1));
-			const down = el("button", "aaalice-editor-mini", "↓");
-			down.title = t("aaalice.operation.moveDown", "Move down");
-			down.addEventListener("click", () => moveOrdered(page.sections, section, 1));
-			const rename = el("button", "aaalice-editor-mini", "✎");
-			rename.addEventListener("click", () => renameSection(page, section));
-			const remove = el("button", "aaalice-editor-mini danger", "×");
-			remove.addEventListener("click", () => deleteSection(page, section));
-			heading.append(up, down, rename, remove);
+			sectionActions.push(
+				iconButton({ iconName: "moveUp", label: t("aaalice.operation.moveUp", "Move up"), variant: "ghost", onClick: () => moveOrdered(page.sections, section, -1) }),
+				iconButton({ iconName: "moveDown", label: t("aaalice.operation.moveDown", "Move down"), variant: "ghost", onClick: () => moveOrdered(page.sections, section, 1) }),
+				iconButton({ iconName: "edit", label: t("aaalice.operation.sectionRename", "Rename section"), variant: "ghost", onClick: () => renameSection(page, section) }),
+				iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "danger", onClick: () => deleteSection(page, section) }),
+			);
 		}
+		const heading = sectionHeader(section.name, { eyebrow: t("aaalice.operation.section", "Section"), actions: sectionActions, className: "aaalice-operation-section-head" });
 		wrapper.append(heading);
 		const cards = el("div", fullscreen ? "aaalice-operation-grid" : "aaalice-operation-stack");
 		for (const item of sectionItems) cards.append(renderCard(item, fullscreen, state));

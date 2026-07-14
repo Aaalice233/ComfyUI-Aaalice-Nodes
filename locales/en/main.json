@@ -9,10 +9,12 @@
     },
     "operation": {
       "title": "Operation Panel", "tooltip": "Workflow operation controls",
+      "subtitle": "Tune the workflow without leaving its operating surface.", "pagesAria": "Operation pages",
       "add": "Add to Operation Panel", "remove": "Remove from Operation Panel",
       "removeConfirm": "Remove this node from Operation Panel?",
-      "empty": "Add a Parameter Panel or register another node from its context menu.",
+      "emptyTitle": "Nothing on this page yet", "empty": "Add a Parameter Panel or register another node from its context menu.",
       "emptyPanel": "This parameter panel is empty.", "layout": "Layout",
+      "layoutHint": "Layout mode changes page organization only; workflow nodes and links stay untouched.",
       "fullscreen": "Fullscreen", "exitFullscreen": "Exit fullscreen",
       "page": "Page", "pageAdd": "Add page", "pageRename": "Rename page", "pageDelete": "Delete page",
       "pageDeleteConfirm": "Delete page {name}? Its cards will move to another page.", "pageKeepOne": "At least one page is required.", "pageNameUnique": "Page names must be unique.",
@@ -34,15 +36,25 @@
     "pcp": {
       "title": "Parameter Panel", "output": "Param Pack", "empty": "No parameters. Use the node context menu to edit.",
       "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },
+	  "seedMode": { "locked": "Seed locked; click to unlock", "unlocked": "Seed unlocked; click to lock" },
       "confirm": { "parameterLinks": "Downstream links will be disconnected." },
-      "error": { "maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: HTTP {status}" },
+      "error": {
+        "maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: HTTP {status}",
+        "workflowSaveUnavailable": "ComfyUI workflow save is unavailable.",
+        "workflowSaveFailed": "Parameters were applied, but workflow save failed: {reason}"
+      },
       "validation": {
         "parameterIdsUnique": "Parameter ids must be unique.", "parameterNamesUnique": "Parameter names must be unique.",
         "sliderRange": "{name}: invalid slider range.", "optionsRequired": "{name}: options are required."
       },
       "editor": {
-        "title": "Edit parameters", "menu": "Edit Parameters…", "add": "Add parameter",
-        "selectParameter": "Select a parameter to edit its settings.", "discard": "Discard unsaved parameter changes?"
+        "title": "Edit parameters", "menu": "⚙️ Edit Parameters…", "add": "Add parameter",
+        "selectParameter": "Select a parameter to edit its settings.", "discard": "Discard unsaved parameter changes?",
+        "emptyTitle": "No parameter selected", "inspector": "Parameter settings",
+        "subtitle": "Configure the panel structure and default values.",
+        "renameHint": "Double-click to rename",
+        "parameterCount": "{count} parameters", "general": "General", "valueRules": "Value rules",
+        "optionsBehavior": "Options and behavior"
       },
       "field": {
         "name": "Name", "description": "Description (Markdown)", "options": "Options (one per line)",
