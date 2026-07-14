@@ -79,21 +79,22 @@ See [AGENTS.md · i18n](./AGENTS.md#国际化i18n) and [Custom Nodes i18n](https
 
 ## Parameter Panel & Operation Panel
 
-### ParameterPanel and ParameterBreak
+### ParameterPanel direct outputs
 
-Each `ParameterPanel` owns one ordered parameter set and emits one `Param Pack`. It accepts up to 32 tunable parameters, and an empty node produces a valid empty pack. The node title is its display name; titles are never used as an integration protocol.
+Each `ParameterPanel` owns one ordered parameter set and exposes up to 32 direct `AnyType` outputs. The first output belongs to the first tunable parameter, separators do not consume an output, and unused output rows stay hidden. The node title is its display name and the source of the optional KJ Set name prefix.
 
 New nodes start with Steps, CFG, Sampler, Scheduler, Denoise, and Seed, with Seed placed last. Sampler and Scheduler choices follow the running ComfyUI installation. Seed supports fixed, increment, decrement, and randomize behavior after queueing.
 
-The canvas node only shows parameter names and value controls—there is no structural toolbar or lock. Right-click the node and choose **Edit Parameters…** to open the two-column editor for adding, configuring, reordering, copying, deleting, and documenting parameters. Descriptions appear as safe Markdown tooltips when the parameter name or `?` is hovered.
+The canvas node only shows parameter names and value controls—there is no structural toolbar or lock. Right-click the node and choose **Edit Parameters…** to open the two-column editor for adding, configuring, reordering, copying, deleting, and documenting parameters. Descriptions appear as safe Markdown tooltips from the parameter name and note icon.
 
-Connect the single `Param Pack` output to one `ParameterBreak`. The Break exposes the tunable parameters as outputs and keeps existing links bound by stable parameter id when definitions are reordered or renamed.
+Connect workflow nodes directly to the matching output on the right side of `ParameterPanel`. Output links are rebound by stable parameter id when definitions are reordered or renamed; deleting a connected parameter still asks for confirmation. The node context menu can optionally create/reuse KJ Set nodes for all current parameters and refresh their names automatically.
+KJ names use `<node title>_<parameter name>` (falling back to `ParameterPanel_<parameter name>` when the title is empty); existing Get links follow KJ’s rename behavior.
 
 Basic flow:
 
 1. Add `ParameterPanel` and adjust its default sampling values.
 2. Right-click it and open **Edit Parameters…** when the parameter structure needs to change.
-3. Connect its `Param Pack` output to one `ParameterBreak`.
+3. Connect downstream nodes directly to the right-side parameter outputs, or choose **🔗 Create and link KJ Set nodes for all parameters** when KJ Set/Get is available.
 4. Use the automatically registered card in the Operation Panel for day-to-day control.
 
 ### Operation Panel
@@ -112,7 +113,7 @@ The **Operation Panel** is a general operating surface, not a second parameter e
 **One active item at a time** by the **priority queue** below (not strict `#` order).  
 `#` is a **stable id** — do not renumber when priority changes.
 
-**Dependencies (do not renumber):** #16 ships with / needs #15 · #3 needs #15–16 · #25 ships with #24.
+**Dependencies (do not renumber):** #3 needs #15 · #25 ships with #24.
 
 | | Meaning |
 |:---:|---------|
@@ -127,8 +128,7 @@ The **Operation Panel** is a general operating surface, not a second parameter e
 |--:|----|------|
 | 0 | *(skeleton)* | Loadable package, domains, i18n, `WEB_DIRECTORY` |
 | 1 | `SimpleStringSplit` | Split string by delimiter → list |
-| 15 | `ParameterPanel` | Author one parameter set (max 32) and emit one Param Pack |
-| 16 | `ParameterBreak` | Expand one pack (max 32); rebind links by stable parameter id |
+| 15 | `ParameterPanel` | Author one parameter set (max 32) with direct outputs; #16 is merged here |
 
 ### Dropped
 

@@ -1,4 +1,4 @@
-"""Pure helpers for ParameterPanel payloads and Param Packs."""
+"""Pure helpers for ParameterPanel parameter payloads and direct outputs."""
 
 from __future__ import annotations
 
@@ -186,17 +186,17 @@ def build_param_pack(
     return {"_meta": meta, "_values": values}
 
 
-def pack_to_break_outputs(pack: dict[str, Any] | None) -> tuple[Any, ...]:
+def pack_to_outputs(pack: dict[str, Any] | None) -> tuple[Any, ...]:
     outputs: list[Any] = [None] * MAX_TUNABLE_PARAMS
     if not pack:
         return tuple(outputs)
     meta = pack.get("_meta") or []
     values = pack.get("_values") or {}
     if not isinstance(meta, list) or not isinstance(values, dict):
-        raise ValueError("Param Pack must contain _meta list and _values dict")
+        raise ValueError("ParameterPanel payload must contain _meta list and _values dict")
     if len(meta) > MAX_TUNABLE_PARAMS:
         raise ValueError(
-            f"Param Pack has {len(meta)} outputs; maximum is {MAX_TUNABLE_PARAMS}"
+            f"ParameterPanel has {len(meta)} outputs; maximum is {MAX_TUNABLE_PARAMS}"
         )
     for index, entry in enumerate(meta):
         if not isinstance(entry, dict) or "id" not in entry:

@@ -79,21 +79,22 @@ js/i18n.js   → 自绘 DOM（aaalice.*）
 
 ## Parameter Panel 与 Operation Panel
 
-### ParameterPanel 与 ParameterBreak
+### ParameterPanel 直接输出
 
-每个 `ParameterPanel` 只管理一组有序参数并输出一个 `Param Pack`。节点最多包含 32 个可调参数，空参数节点会输出合法空包。节点标题就是面板显示名，但标题永远不参与识别协议。
+每个 `ParameterPanel` 只管理一组有序参数，并直接提供最多 32 个 `AnyType` 输出。第一个输出对应第一个可调参数，separator 不占输出，未使用的输出行保持隐藏。节点标题是面板显示名，也是可选 KJ Set 名称的前缀来源。
 
 新节点默认依次包含 Steps、CFG、Sampler、Scheduler、Denoise、Seed，种子固定放在最后。Sampler 和 Scheduler 选项跟随当前 ComfyUI；Seed 排队后支持 fixed、increment、decrement、randomize 四种行为。
 
-画布节点只显示参数名称和调值控件，没有结构工具栏和锁定功能。右键节点选择 **编辑参数…**，即可在双栏编辑器中新增、配置、重排、复制、删除参数和编写说明。有说明的参数会在名称旁显示 `?`，悬浮名称或 `?` 时展示安全 Markdown 提示。
+画布节点只显示参数名称和调值控件，没有结构工具栏和锁定功能。右键节点选择 **编辑参数…**，即可在双栏编辑器中新增、配置、重排、复制、删除参数和编写说明。有说明的参数会在名称旁显示备注图标，悬浮名称或图标时展示安全 Markdown 提示。
 
-将唯一的 `Param Pack` 输出连接到一个 `ParameterBreak`。Break 会把可调参数展开为输出；参数重排或重命名后，已有连线仍按稳定参数 id 绑定。
+将下游节点直接连接到 `ParameterPanel` 右侧对应参数引脚。参数重排或重命名后，已有连线仍按稳定参数 id 重绑；删除已连线参数前仍会要求确认。节点右键菜单在检测到 KJ Set/Get 后，可一键为当前参数创建或复用 KJ Set，并自动刷新名称。
+KJ 名称统一为“节点标题_参数名称”；节点标题为空时回退为“ParameterPanel_参数名称”，已有 Get 连线由 KJ 的重命名逻辑跟随更新。
 
 基本流程：
 
 1. 添加 `ParameterPanel`，直接调整默认采样参数。
 2. 需要修改结构时，右键节点并打开 **编辑参数…**。
-3. 将它的 `Param Pack` 输出连接到一个 `ParameterBreak`。
+3. 将下游节点直接连接到右侧参数引脚；安装 KJ Set/Get 时，也可选择 **🔗 为所有参数创建并连接 KJ Set**。
 4. 在 Operation Panel 中使用自动注册的卡片进行日常调值。
 
 ### Operation Panel
@@ -112,7 +113,7 @@ js/i18n.js   → 自绘 DOM（aaalice.*）
 **按下方优先级队列一次一项**（不再死板按 # 递增）。  
 `#` 是**稳定编号**，插队时不重编号。
 
-**硬依赖（不改序号）：** #16 随 / 依赖 #15 · #3 依赖 #15–16 · #25 随 #24 落地。
+**硬依赖（不改序号）：** #3 依赖 #15 · #25 随 #24 落地。
 
 | | 含义 |
 |:---:|------|
@@ -127,8 +128,7 @@ js/i18n.js   → 自绘 DOM（aaalice.*）
 |--:|----|------|
 | 0 | *（骨架）* | 可加载包、域布局、i18n、`WEB_DIRECTORY` |
 | 1 | `SimpleStringSplit` | 按分隔符拆分字符串 → 列表 |
-| 15 | `ParameterPanel` | 创作一组参数（最多 32 个）并输出一个参数包 |
-| 16 | `ParameterBreak` | 展开单个参数包（最多 32）；按稳定参数 id 重绑连线 |
+| 15 | `ParameterPanel` | 创作一组参数（最多 32 个）并直接输出；#16 已并入本节点 |
 
 ### 已砍
 

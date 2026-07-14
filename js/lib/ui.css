@@ -13,6 +13,7 @@
 	--aa-ui-accent: var(--p-primary-color, var(--primary-color, #0b8ce9));
 	--aa-ui-accent-soft: color-mix(in srgb, var(--aa-ui-accent) 13%, transparent);
 	--aa-ui-accent-text: var(--p-primary-contrast-color, #fff);
+	--aa-ui-focus: var(--aa-ui-accent);
 	--aa-ui-danger: var(--error-text, var(--p-red-400, #d66d75));
 	--aa-ui-radius-sm: 6px;
 	--aa-ui-radius-md: 10px;

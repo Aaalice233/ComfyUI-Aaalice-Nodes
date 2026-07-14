@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from .parameter_break import ParameterBreak
 from .parameter_panel import ParameterPanel
 
 NODE_CLASSES = [
     ParameterPanel,
-    ParameterBreak,
 ]
 
-__all__ = ["NODE_CLASSES", "ParameterPanel", "ParameterBreak"]
+__all__ = ["NODE_CLASSES", "ParameterPanel"]

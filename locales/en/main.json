@@ -34,10 +34,22 @@
       }
     },
     "pcp": {
-      "title": "Parameter Panel", "output": "Param Pack", "empty": "No parameters. Use the node context menu to edit.",
+      "title": "Parameter Panel", "output": "Direct parameter output", "empty": "No parameters. Use the node context menu to edit.",
       "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },
+	  "types": { "slider": "Slider", "seed": "Seed", "switch": "Switch", "string": "String", "dropdown": "Dropdown", "enum": "Enum", "image": "Image", "taglist": "Tag list", "separator": "Separator" },
 	  "seedMode": { "locked": "Seed locked; click to unlock", "unlocked": "Seed unlocked; click to lock" },
       "confirm": { "parameterLinks": "Downstream links will be disconnected." },
+      "kj": {
+        "menu": "🔗 Create and link KJ Set nodes for all parameters",
+        "noParameters": "No tunable parameters are available.",
+        "linkFailed": "Some KJ Set nodes could not be linked: {reason}",
+        "createFailed": "Unable to create a KJ Set node.",
+        "connectFailed": "The KJ Set node could not be connected.",
+        "graphUnavailable": "The current graph is unavailable.",
+        "created": "KJ Set nodes ready: {count} created."
+      },
+      "inline": { "editValue": "Edit value" },
+      "output": { "unused": "Unused output" },
       "error": {
         "maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: HTTP {status}",
         "workflowSaveUnavailable": "ComfyUI workflow save is unavailable.",

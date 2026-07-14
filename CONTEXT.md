@@ -5,7 +5,7 @@ Domain language for authoring reusable parameter sets and arranging workflow con
 ## Language
 
 **ParameterPanel (参数面板)**:
-A graph node that owns one ordered parameter set and produces one Param Pack.
+A graph node that owns one ordered parameter set and exposes up to 32 direct AnyType outputs.
 _Avoid_: ParameterControlPanel, child-panel container
 
 **Parameter (参数)**:
@@ -17,11 +17,8 @@ The stable identity of a Parameter within its owning ParameterPanel. Its name an
 **Composite Parameter Identity (参数复合身份)**:
 The identity tuple `node_id + parameter_id`, used when a Parameter crosses graph-node boundaries.
 
-**Param Pack (参数包)**:
-The ordered parameter metadata and values produced by one ParameterPanel.
-
-**ParameterBreak (参数展开)**:
-A graph node that exposes a Param Pack as individual outputs while preserving Parameter identity.
+**Direct parameter output (参数直接输出)**:
+The output at position `output_1` … `output_32` carries the current tunable parameter value. `slotMeta` keeps each output bound to a stable Parameter Id when parameters are reordered.
 
 **Operation Panel (操作面板)**:
 A workflow-level surface for operating registered graph content without changing graph topology or parameter definitions.

@@ -73,7 +73,7 @@ ComfyUI-Aaalice-Nodes/
 
 - 禁止只适配一种模式；有 UI 时两种模式都要完成添加、显示、改值、存盘和执行。
 - Canvas 钩子只用于非交互装饰或明确的经典模式效果。
-- `comfyui-quick-latent` 只能作视觉参考，其 Canvas 交互不能直接作为双模式方案。
+- Quick Latent（[参考项目](https://github.com/Zhen-Bo/comfyui-quick-latent)）仅借鉴紧凑布局：[`quick_latent.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/quick_latent.js)、[`layout.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/layout.js)、[`size_input.js`](https://raw.githubusercontent.com/Zhen-Bo/comfyui-quick-latent/master/js/size_input.js)。其固定紫色、Canvas-only 命中逻辑和品牌资产不得复制；本包继续用 DOM widget 同时覆盖 Classic 与 Nodes 2.0。
 - 参考官方 [JS overview](https://docs.comfy.org/custom-nodes/js/javascript_overview) / [objects](https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking)。
 
 ### 3.2 JS 挂载、状态与序列化
@@ -90,16 +90,18 @@ ComfyUI-Aaalice-Nodes/
 
 ### 3.3 ParameterPanel 与 Operation Panel（#15–16）
 
-- `ParameterPanel` 是单参数集节点：管理 0–32 个参数，固定输出一个 `Param Pack`；禁止恢复多子面板、动态多输出或 `panel_id`。
+- `ParameterPanel` 是唯一参数节点：管理 0–32 个参数，直接提供固定 `output_1`…`output_32` AnyType 输出；separator 和未使用槽位隐藏。节点包尚未发布，`ParameterBreak`、`AAALICE_PARAM_PACK` 和旧协议不保留兼容层。
 - 默认参数依次为 Steps、CFG、Sampler、Scheduler、Denoise、Seed；Seed 固定在最后，Sampler / Scheduler 跟随 ComfyUI 当前选项。
-- 节点面只显示参数和值控件；禁止恢复结构工具栏、锁定、加号、铅笔或更多按钮。
+- 节点面只显示参数和值控件；禁止恢复结构工具栏、节点级锁定、加号、铅笔或更多按钮；Seed 行允许保留单独的锁定行为按钮。
 - 结构编辑只走节点右键菜单；双栏编辑器使用草稿，保存时统一校验、确认断线并原子应用。
 - 参数说明使用本地安全 Markdown tooltip；滑条手柄 hover / active / focus 必须有主题化反馈。
-- 参数身份为 `node_id + parameter_id`；参数名和顺序只用于显示，Break 按 `parameter_id` 重绑。
+- 参数身份为 `node_id + parameter_id`；参数名和顺序只用于显示，`slotMeta` 按 `parameter_id` 重绑直接输出。编辑器不设置面板标题，节点标题是唯一显示名和 KJ Set 前缀来源；参数名在左侧列表双击修改。
 - Operation Panel 是通用操作侧栏：ParameterPanel 自动注册，普通节点通过右键菜单显式注册；标题不参与协议。
 - Operation Panel 只负责调值、模型选择、结果查看和工作流级布局；不创建、删除、连线节点，不改参数定义，不提供独立执行按钮。
 - 页面使用“页面 → 分区 → 卡片”结构；一个节点只能出现一次，可排序、隐藏、设置侧栏别名和全屏网格位置。
 - 页面值预设存入 Comfy `user` 目录，只携带 adapter 暴露的可写值，不携带节点、定义、连线或布局。
+- 本包新增的节点右键菜单、子菜单和操作命令必须以 emoji 开头；emoji 必须写入 en/zh 本地化文案，不能只硬编码在单一语言或 fallback 中。
+- ParameterPanel 右侧输出列预留约 53px，节点最小宽度约 370 graph units；控件优先使用固定行高、较大命中区和原生 socket hit-test。数字默认显示为 pill，点击后使用临时 inline editor；slider / switch / segmented enum 的布局参考 Quick Latent，但颜色始终来自 ComfyUI token。
 - 难逆产品与协议决策记录在 `docs/adr/`。
 
 ### 3.4 组件库与主题
@@ -114,8 +116,7 @@ ComfyUI-Aaalice-Nodes/
 
 ### 3.5 经典模式自定义 socket
 
-- `AAALICE_PARAM_PACK` 是自定义类型；未显式提供颜色时，经典模式会从连接颜色表取得默认紫色。
-- 正确做法：唯一输出使用原生圆形 `shape`，显式设置 `color_off` / `color_on`；未连接取次级文字色，连接后取主题强调色。
+- ParameterPanel 输出使用 `AnyType`、原生圆形 `shape`，显式设置 `color_off` / `color_on`；未连接取次级文字色，连接后取主题强调色。
 - 禁止用透明色、DOM CSS 或空心圆掩盖 socket；必须保留原生 hit-test 与接线热区。
 - Operation Panel 注册状态只存在工作流元数据和侧栏，禁止用 `onDrawForeground` 绘制状态点。
 - 排查顺序：先确认模式，再检查 `node.outputs` 的 `type / shape / color_off / color_on` 和输出数量。

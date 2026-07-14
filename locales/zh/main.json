@@ -34,10 +34,22 @@
       }
     },
     "pcp": {
-      "title": "参数面板", "output": "参数包", "empty": "暂无参数，请通过节点右键菜单编辑。",
+      "title": "参数面板", "output": "参数直接输出", "empty": "暂无参数，请通过节点右键菜单编辑。",
       "builtin": { "seed": "种子", "steps": "步数", "cfg": "CFG", "sampler": "采样器", "scheduler": "调度器", "denoise": "降噪幅度" },
+	  "types": { "slider": "滑条", "seed": "种子", "switch": "开关", "string": "文本", "dropdown": "下拉框", "enum": "枚举", "image": "图像", "taglist": "标签列表", "separator": "分隔线" },
 	  "seedMode": { "locked": "种子已锁定；点击解锁", "unlocked": "种子未锁定；点击锁定" },
       "confirm": { "parameterLinks": "将断开受影响的参数下游连线。" },
+      "kj": {
+        "menu": "🔗 为所有参数创建并连接 KJ Set",
+        "noParameters": "当前没有可调参数。",
+        "linkFailed": "部分 KJ Set 无法连接：{reason}",
+        "createFailed": "无法创建 KJ Set 节点。",
+        "connectFailed": "KJ Set 节点连接失败。",
+        "graphUnavailable": "当前工作流画布不可用。",
+        "created": "KJ Set 节点已就绪：新建 {count} 个。"
+      },
+      "inline": { "editValue": "编辑数值" },
+      "output": { "unused": "未使用输出" },
       "error": {
         "maxParameters": "最多只能添加 {count} 个可调参数。", "imageUpload": "图像上传失败：HTTP {status}",
         "workflowSaveUnavailable": "当前 ComfyUI 无法调用工作流保存功能。",

@@ -2,7 +2,7 @@
 
 Status: Accepted.
 
-The multi-child-panel container reduced node count but made one graph node own unrelated execution, editing, dynamic-output, and link-rebinding concerns. We instead use one ParameterPanel per parameter set with one Param Pack output. Its canvas surface is value-only and deliberately has no structural toolbar; a right-click editor owns atomic definition changes.
+The multi-child-panel container reduced node count but made one graph node own unrelated execution, editing, dynamic-output, and link-rebinding concerns. We instead use one ParameterPanel per parameter set with direct outputs. Its canvas surface is value-only and deliberately has no structural toolbar; a right-click editor owns atomic definition changes.
 
 Multiple panels are composed in the workflow-level Operation Panel as Pages, Sections, and Cards. ParameterPanel nodes register automatically, ordinary nodes register explicitly, and node titles remain display text rather than an integration protocol. Page Value Presets store only adapter-exposed values, never nodes, parameter definitions, links, or layout. This preserves graph semantics while providing a WebUI-like operating surface.
 
