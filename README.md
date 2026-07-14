@@ -85,7 +85,7 @@ Each `ParameterPanel` owns one ordered parameter set and exposes up to 32 direct
 
 New nodes start with Steps, CFG, Sampler, Scheduler, Denoise, and Seed, with Seed placed last. Sampler and Scheduler choices follow the running ComfyUI installation. Seed supports fixed, increment, decrement, and randomize behavior after queueing.
 
-The canvas node only shows parameter names and value controls—there is no structural toolbar or lock. Right-click the node and choose **Edit Parameters…** to open the two-column editor for adding, configuring, reordering, copying, deleting, and documenting parameters. Descriptions appear as safe Markdown tooltips from the parameter name and note icon.
+The canvas node only shows parameter names and value controls—there is no structural toolbar; only the Seed row keeps its lock behavior control. Right-click the node and choose **Edit Parameters…** to open the two-column editor for adding, configuring, reordering, copying, deleting, and documenting parameters. Descriptions appear as safe Markdown tooltips from the parameter name and note icon.
 
 Connect workflow nodes directly to the matching output on the right side of `ParameterPanel`. Output links are rebound by stable parameter id when definitions are reordered or renamed; deleting a connected parameter still asks for confirmation. The node context menu can optionally create/reuse KJ Set nodes for all current parameters and refresh their names automatically.
 KJ names use `<node title>_<parameter name>` (falling back to `ParameterPanel_<parameter name>` when the title is empty); existing Get links follow KJ’s rename behavior.
