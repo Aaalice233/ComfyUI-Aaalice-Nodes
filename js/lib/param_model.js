@@ -10,8 +10,19 @@ export const OPERATION_PROPERTY = "aaalice_operation_panel";
 
 const TUNABLE = new Set(["slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist"]);
 const sourceOptions = {
-	sampler: ["euler"],
-	scheduler: ["normal"],
+	// Keep the panel useful while /object_info is still loading. The live node
+	// definitions replace these values as soon as ComfyUI responds.
+	sampler: [
+		"euler", "euler_cfg_pp", "euler_ancestral", "euler_ancestral_cfg_pp", "heun", "heunpp2",
+		"exp_heun_2_x0", "exp_heun_2_x0_sde", "dpm_2", "dpm_2_ancestral", "lms", "dpm_fast",
+		"dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_2s_ancestral_cfg_pp", "dpmpp_sde", "dpmpp_sde_gpu",
+		"dpmpp_2m", "dpmpp_2m_cfg_pp", "dpmpp_2m_sde", "dpmpp_2m_sde_gpu", "dpmpp_2m_sde_heun",
+		"dpmpp_2m_sde_heun_gpu", "dpmpp_3m_sde", "dpmpp_3m_sde_gpu", "ddpm", "lcm", "ipndm",
+		"ipndm_v", "deis", "res_multistep", "res_multistep_cfg_pp", "res_multistep_ancestral",
+		"res_multistep_ancestral_cfg_pp", "gradient_estimation", "gradient_estimation_cfg_pp", "er_sde",
+		"seeds_2", "seeds_3", "sa_solver", "sa_solver_pece", "ddim", "uni_pc", "uni_pc_bh2",
+	],
+	scheduler: ["simple", "sgm_uniform", "karras", "exponential", "ddim_uniform", "beta", "normal", "linear_quadratic", "kl_optimal"],
 	checkpoint: [],
 	lora: [],
 	controlnet: [],
@@ -68,7 +79,14 @@ export function refreshComfyOptions(nodeDefs) {
 		if (Array.isArray(entry?.options)) return entry.options.map(String);
 		return [];
 	};
-	const required = (nodeName) => nodeDefs?.[nodeName]?.input?.required || nodeDefs?.[nodeName]?.inputs?.required || {};
+	const required = (nodeName) => {
+		const definition = nodeDefs?.[nodeName];
+		return definition?.input?.required
+			|| definition?.inputs?.required
+			|| definition?.input?.required_inputs
+			|| definition?.inputs?.required_inputs
+			|| {};
+	};
 	for (const [source, nodeName, inputName] of [
 		["sampler", "KSampler", "sampler_name"],
 		["scheduler", "KSampler", "scheduler"],

@@ -161,6 +161,7 @@ t("aaalice.common.confirm", "Confirm");
 - GUI 地址以日志 `To see the GUI go to: http://127.0.0.1:PORT` 为准，禁止写死 8188 或 8189。
 - LG_HotReload 只重载 Python，不重载 JS；改前端后必须硬刷新或重启 ComfyUI。
 - 序列化的 slot / widget 若仍保留旧形态，删除旧节点后重新添加。
+- 节点的前端结构、输出槽或 widget 协议发生变化时，热重载/硬刷新有时仍会保留旧节点实例；Codex 或人工回归应删除画布上的旧节点并重新创建，再判断实际效果。
 
 ### 5.2 验证节奏
 

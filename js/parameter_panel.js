@@ -42,6 +42,7 @@ const NODE = "ParameterPanel";
 const MAX_OUTPUTS = 32;
 const MIN_WIDTH = PARAMETER_NODE_LAYOUT.minWidth;
 const OUTPUT_COLUMN_WIDTH = PARAMETER_NODE_LAYOUT.outputColumn;
+const mountedParameterPanels = new Set();
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -748,6 +749,7 @@ async function openParameterEditor(node) {
 function setupParameterPanel(node, loaded = false) {
 	if (!isParameterPanel(node)) return;
 	registerParameterPanelKj(node);
+	mountedParameterPanels.add(node);
 	if (node._aaaliceParameterPanelMounted) {
 		syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
 		return;
@@ -853,6 +855,7 @@ function setupParameterPanel(node, loaded = false) {
 	};
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
+		mountedParameterPanels.delete(this);
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onChange);
 		if (this._aaaliceCompactResizeTimer) clearTimeout(this._aaaliceCompactResizeTimer);
 		return previousRemoved?.apply(this, arguments);
@@ -898,6 +901,26 @@ function installPromptHook() {
 	};
 }
 
+async function loadComfyNodeDefs() {
+	try {
+		const fromApi = await api.getNodeDefs?.();
+		if (fromApi && typeof fromApi === "object" && Object.keys(fromApi).length) return fromApi;
+	} catch {
+		// Older ComfyUI builds expose the same endpoint without the convenience method.
+	}
+	const response = await api.fetchApi("/object_info");
+	if (!response?.ok) throw new Error(`object_info request failed (${response?.status || "unknown"})`);
+	return response.json();
+}
+
+function refreshMountedDynamicOptions() {
+	for (const node of mountedParameterPanels) {
+		if (!isParameterPanel(node)) continue;
+		normalizeDynamicOptions(ensureParameters(node));
+		node._aaaliceParameterRedraw?.();
+	}
+}
+
 function hookPrototype(nodeType) {
 	if (!nodeType || nodeType.__aaaliceParameterPanel) return;
 	nodeType.__aaaliceParameterPanel = true;
@@ -912,7 +935,10 @@ function hookPrototype(nodeType) {
 app.registerExtension({
 	name: "ComfyUI.Aaalice.ParameterPanel",
 	async init() {
-		try { refreshComfyOptions(await api.getNodeDefs?.()); }
+		try {
+			refreshComfyOptions(await loadComfyNodeDefs());
+			refreshMountedDynamicOptions();
+		}
 		catch (error) { console.warn("[Aaalice] Failed to load dynamic parameter options", error); }
 		await ensureI18nReady();
 	},
