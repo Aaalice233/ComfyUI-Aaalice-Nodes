@@ -19,6 +19,10 @@ const ICON_PATHS = {
 	settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4",
 };
 
+export function hasIcon(name) {
+	return Object.prototype.hasOwnProperty.call(ICON_PATHS, name);
+}
+
 function appendChildren(element, children) {
 	for (const child of children.flat(Infinity)) {
 		if (child == null || child === false) continue;
@@ -55,8 +59,8 @@ export function isolate(element) {
 }
 
 export function icon(name, { label = null, className = "" } = {}) {
+	if (!hasIcon(name)) throw new Error(`[Aaalice] Unknown icon: ${name}`);
 	const pathData = ICON_PATHS[name];
-	if (!pathData) throw new Error(`[Aaalice] Unknown icon: ${name}`);
 	const svg = document.createElementNS(SVG_NS, "svg");
 	svg.setAttribute("viewBox", "0 0 24 24");
 	svg.setAttribute("class", `aa-ui-icon${className ? ` ${className}` : ""}`);

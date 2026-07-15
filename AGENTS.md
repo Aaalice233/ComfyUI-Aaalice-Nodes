@@ -63,6 +63,7 @@ ComfyUI-Aaalice-Nodes/
 - 有交互的节点面同步调用 `addDOMWidget`，不得先 `await`；异步 i18n 就绪后只刷新文案和绘制。
 - DOM widget 必须提供 `getMinHeight` / `getHeight`，并随内容更新节点最小尺寸。
 - 在已有 `node.graph` 时立即注册，否则由 `onAdded` 完成；不得绕过 ComfyUI 生命周期。
+- Sidebar、dialog 等宿主 `render` 回调出错时，必须清理部分挂载、记录原始错误并显示可见错误状态；不得向宿主重新抛出而触发重复渲染。
 
 ### 4.2 渲染边界
 
@@ -103,6 +104,7 @@ ComfyUI-Aaalice-Nodes/
 - 复杂布局存在两个以上合理方案，或仅靠文字难以判断空间关系时，修改正式代码前主动制作同内容、可切换的临时 HTML 演示；确认方案后再实现，原型默认不进入仓库。
 - 小范围颜色、间距、字号和单控件调整不制作 HTML 演示；用户已明确实现方向时直接落地。
 - 禁止重复实现 button、field、empty state、context menu 或 dialog；业务卡片与页面导航仍复用基础组件语义。
+- 静态 `iconName` 与 `icon("…")` 必须存在于 `js/lib/ui.js` 的共享图标表；新增或改名后必须通过图标契约测试。
 - 颜色来自 ComfyUI token：`--fg-color`、`--descrip-text`、`--comfy-menu-secondary-bg`、`--comfy-input-bg`、`--border-color`、`--p-primary-color` 等。
 - 禁止写死品牌色或只适用于暗色主题的正文色；明暗主题切换必须同步。
 - 仅支持 en + zh：`locales/{en,zh}/{main,nodeDefs,settings,commands}.json`。

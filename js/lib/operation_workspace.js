@@ -47,6 +47,7 @@ export function createOperationWorkspace({ sidebarId, label, onViewportChange })
 	let collapseFrame = 0;
 	let viewportFrame = 0;
 	let boundsObserver = null;
+	let viewportObserver = null;
 	let lastViewport = { width: 0, height: 0 };
 
 	function restoreSidebarHost() {
@@ -121,6 +122,8 @@ export function createOperationWorkspace({ sidebarId, label, onViewportChange })
 		boundsObserver = globalThis.ResizeObserver ? new ResizeObserver(schedulePosition) : null;
 		for (const element of observed) boundsObserver?.observe(element);
 		window.addEventListener("resize", schedulePosition);
+		viewportObserver = globalThis.ResizeObserver ? new ResizeObserver(scheduleViewportMeasure) : null;
+		viewportObserver?.observe(scroll);
 	}
 
 	function mount(container) {
@@ -167,7 +170,9 @@ export function createOperationWorkspace({ sidebarId, label, onViewportChange })
 
 	function unmount() {
 		boundsObserver?.disconnect();
+		viewportObserver?.disconnect();
 		boundsObserver = null;
+		viewportObserver = null;
 		window.removeEventListener("resize", schedulePosition);
 		for (const frame of [positionFrame, collapseFrame, viewportFrame]) if (frame) cancelAnimationFrame(frame);
 		positionFrame = 0;
@@ -186,5 +191,5 @@ export function createOperationWorkspace({ sidebarId, label, onViewportChange })
 		lastViewport = { width: 0, height: 0 };
 	}
 
-	return { mount, unmount, setEmpty, setEditing, get elements() { return { root, toolbar, scroll, canvas }; } };
+	return { mount, unmount, setEmpty, setEditing, schedulePosition, get elements() { return { root, toolbar, scroll, canvas }; } };
 }

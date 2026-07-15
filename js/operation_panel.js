@@ -325,7 +325,7 @@ function renderToolbar(toolbar, state, page) {
 	}
 	const actions = el("div", "aaalice-operation-toolbar-actions");
 	const presetLabel = t("aaalice.operation.presets", "Presets");
-	actions.append(button({ label: presetLabel, ariaLabel: presetLabel, title: presetLabel, iconName: "tune", variant: "secondary", size: "sm", onClick: presetMenu }));
+	actions.append(button({ label: presetLabel, ariaLabel: presetLabel, title: presetLabel, iconName: "presets", variant: "secondary", size: "sm", onClick: presetMenu }));
 	if (editor.editing) {
 		const design = createSelectControl([
 			{ label: t("aaalice.operation.design1440", "1440 × 900 minimum"), value: "1440x900" },
@@ -389,6 +389,7 @@ function renderWorkspace() {
 	if (app.graph && consumeOperationResetVersion(app.graph) != null) {
 		toast("info", t("aaalice.operation.layoutReset", "Operation Panel uses a new layout format. The previous layout was not migrated."));
 	}
+	workspace.schedulePosition();
 }
 
 function slug(value) {
@@ -550,9 +551,14 @@ function registerSidebar() {
 		render(container) {
 			try { mountWorkspace(container); }
 			catch (error) {
-				console.error(error);
+				unmountWorkspace();
+				console.error("[Aaalice] Operation Panel failed to mount", error);
 				toast("error", error.message || String(error));
-				throw error;
+				container.replaceChildren(emptyState({
+					title: t("aaalice.operation.title", "Operation Panel"),
+					description: error.message || String(error),
+					iconName: "layout",
+				}));
 			}
 		},
 		destroy: unmountWorkspace,
