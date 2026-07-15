@@ -31,17 +31,33 @@ A workflow-level surface for operating registered graph content without changing
 _Avoid_: Parameter editor, execution panel
 
 **Operation Page (操作页面)**:
-A top-level operating view that contains ordered Operation Sections.
+A named top-level operating view with its own design size and ordered root Modules. A single unnamed page hides page navigation.
 _Avoid_: Tab preset, workflow page
 
-**Operation Section (操作分区)**:
-An ordered group of Operation Cards within one Operation Page.
-_Avoid_: Parameter group, node group
+**Operation Module (操作模块)**:
+A stable item owned by an Operation Page. Root Modules are placed by Anchor Frames; Node Cards inside a Group or Carousel are child Modules with automatic layout.
+_Avoid_: Section, grid cell
 
-**Operation Card (操作卡片)**:
-The single Operation Panel representation of one registered graph node.
+**Root Module (根模块)**:
+An Operation Module placed directly on an Operation Page rather than inside a Group Card or Carousel Group.
+_Avoid_: Top-level card, grid item
+
+**Node Card (节点卡片)**:
+The single Operation Panel representation of one explicitly registered graph node or Subgraph.
 _Avoid_: Node copy, panel instance
 
-**Page Value Preset (页面值预设)**:
-A reusable snapshot of writable values from one Operation Page; it does not contain graph structure or panel layout.
+**Group Card (组合卡片)**:
+A shared surface that arranges multiple Node Cards compactly without nested containers.
+_Avoid_: Section, Subgraph
+
+**Carousel Group (轮播组合)**:
+A single anchored module that shows one Node Card or Group Card at a time and reserves the tallest slide height.
+_Avoid_: Page tab, nested carousel
+
+**Anchor Frame (锚点框架)**:
+The saved anchor, offsets, alignment, and width that resolve a Root Module against its Page design size; height remains content-driven.
+_Avoid_: fixed grid cell, responsive breakpoint
+
+**Value Preset (参数值预设)**:
+A reusable snapshot of writable values from an Operation Page or selected Root Modules and their descendants; it does not contain graph structure or panel layout.
 _Avoid_: Workflow preset, layout preset

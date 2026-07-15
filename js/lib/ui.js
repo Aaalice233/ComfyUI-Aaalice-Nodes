@@ -3,19 +3,18 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 const ICON_PATHS = {
 	add: "M12 5v14M5 12h14",
+	chevronLeft: "m15 18-6-6 6-6",
+	chevronRight: "m9 18 6-6-6-6",
 	close: "m6 6 12 12M18 6 6 18",
 	copy: "M8 8h11v11H8zM5 16H4V5h11v1",
 	delete: "M4 7h16M9 11v5m6-5v5M8 7l1-3h6l1 3m2 0-1 13H7L6 7",
 	edit: "m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Zm10-12 3 3",
-	fullscreen: "M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
 	unlock: "M17 11V8a5 5 0 0 0-9.6-2M5 11h14v10H5z",
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	layout: "M4 5h16v5H4zM4 14h7v5H4zm11 0h5v5h-5z",
+	done: "m5 12 4 4L19 6",
 	moveDown: "m7 10 5 5 5-5",
-	moveLeft: "m14 7-5 5 5 5",
-	moveRight: "m10 7 5 5-5 5",
-	moveUp: "m7 14 5-5 5 5",
 	presets: "M4 6h16M4 12h16M4 18h10M7 4v4m10 2v4m-7 2v4",
 	settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4",
 };
@@ -117,46 +116,6 @@ export function badge(text, { tone = "neutral", className = "" } = {}) {
 	return el("span", `aa-ui-badge aa-ui-badge--${tone}${className ? ` ${className}` : ""}`, text);
 }
 
-export function sectionHeader(title, { eyebrow = null, actions = [], className = "" } = {}) {
-	const root = el("div", `aa-ui-section-header${className ? ` ${className}` : ""}`);
-	const copy = el("div", "aa-ui-section-header__copy");
-	if (eyebrow) copy.append(el("span", "aa-ui-eyebrow", eyebrow));
-	copy.append(el("h3", null, title));
-	root.append(copy);
-	if (actions.length) root.append(el("div", { className: "aa-ui-section-header__actions", children: actions }));
-	return root;
-}
-
-export function card({ title = null, meta = null, body = null, footer = null, className = "" } = {}) {
-	const root = el("article", `aa-ui-card${className ? ` ${className}` : ""}`);
-	if (title != null || meta != null) {
-		const header = el("header", "aa-ui-card__header");
-		header.append(title instanceof Node ? title : el("strong", null, title));
-		if (meta != null) header.append(meta instanceof Node ? meta : badge(meta));
-		root.append(header);
-	}
-	if (body != null) root.append(el("div", { className: "aa-ui-card__body", children: [body] }));
-	if (footer != null) root.append(el("footer", { className: "aa-ui-card__footer", children: [footer] }));
-	return root;
-}
-
-export function tabs(items, { activeId, onSelect, ariaLabel, className = "" } = {}) {
-	const nav = el("nav", {
-		className: `aa-ui-tabs${className ? ` ${className}` : ""}`,
-		attrs: { role: "tablist", "aria-label": ariaLabel },
-	});
-	for (const item of items) {
-		const active = item.id === activeId;
-		const tab = button({ label: item.label, variant: "ghost", size: "sm", active, className: "aa-ui-tab" });
-		tab.setAttribute("role", "tab");
-		tab.setAttribute("aria-selected", String(active));
-		tab.dataset.id = item.id;
-		tab.addEventListener("click", () => onSelect?.(item.id, item));
-		nav.append(tab);
-	}
-	return nav;
-}
-
 export function emptyState({ title = null, description, iconName = null, actions = [], className = "" }) {
 	const root = el("div", `aa-ui-empty${className ? ` ${className}` : ""}`);
 	if (iconName) root.append(el("div", { className: "aa-ui-empty__icon", children: [icon(iconName)] }));
@@ -164,6 +123,52 @@ export function emptyState({ title = null, description, iconName = null, actions
 	root.append(el("p", null, description));
 	if (actions.length) root.append(el("div", { className: "aa-ui-empty__actions", children: actions }));
 	return root;
+}
+
+export function contextMenu(event, items) {
+	event.preventDefault();
+	event.stopPropagation();
+	document.querySelectorAll(".aa-ui-context-menu").forEach((menu) => menu.remove());
+	const menu = el("div", { className: "aa-ui-context-menu aaalice-pcp", attrs: { role: "menu" } });
+	const close = () => {
+		menu.remove();
+		document.removeEventListener("pointerdown", outside, true);
+		document.removeEventListener("keydown", keydown, true);
+	};
+	const outside = (pointerEvent) => { if (!menu.contains(pointerEvent.target)) close(); };
+	const keydown = (keyEvent) => { if (keyEvent.key === "Escape") close(); };
+	for (const item of items) {
+		if (item === "separator") {
+			menu.append(el("div", "aa-ui-context-menu__separator"));
+			continue;
+		}
+		if (item.children?.length) {
+			const group = el("div", "aa-ui-context-menu__group");
+			group.append(el("span", "aa-ui-context-menu__label", item.label));
+			for (const child of item.children) {
+				const choice = button({ label: child.label, variant: "ghost", size: "sm", disabled: child.disabled, className: "aa-ui-context-menu__item" });
+				choice.setAttribute("role", "menuitem");
+				choice.addEventListener("click", () => { close(); child.action?.(); });
+				group.append(choice);
+			}
+			menu.append(group);
+			continue;
+		}
+		const choice = button({ label: item.label, variant: item.danger ? "danger" : "ghost", size: "sm", disabled: item.disabled, className: "aa-ui-context-menu__item" });
+		choice.setAttribute("role", "menuitem");
+		choice.addEventListener("click", () => { close(); item.action?.(); });
+		menu.append(choice);
+	}
+	document.body.append(menu);
+	const margin = 8;
+	const bounds = menu.getBoundingClientRect();
+	menu.style.left = `${Math.max(margin, Math.min(event.clientX, innerWidth - bounds.width - margin))}px`;
+	menu.style.top = `${Math.max(margin, Math.min(event.clientY, innerHeight - bounds.height - margin))}px`;
+	setTimeout(() => {
+		document.addEventListener("pointerdown", outside, true);
+		document.addEventListener("keydown", keydown, true);
+	}, 0);
+	return { menu, close };
 }
 
 function focusableElements(root) {

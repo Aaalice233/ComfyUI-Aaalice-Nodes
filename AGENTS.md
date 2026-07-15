@@ -76,7 +76,7 @@ ComfyUI-Aaalice-Nodes/
 
 - 内部状态真源使用 `node.properties` 或命名空间化的 workflow properties。
 - 内部 payload 不得暴露为 Schema STRING / forceInput；执行时由 `graphToPrompt` 注入。
-- 页面值预设存入 Comfy `user` 目录，只包含 adapter 暴露的可写值。
+- Value Preset 存入 Comfy `user` 目录，只包含当前页面或所选 Root Modules 范围内由 adapter 暴露的可写值。
 - 任何状态变更都要检查保存、加载、复制节点、撤销/重做和执行路径。
 
 ## 5. ParameterPanel 与 Operation Panel
@@ -87,15 +87,17 @@ ComfyUI-Aaalice-Nodes/
 - 参数结构只从右键编辑器修改；保存时统一校验、确认断线并原子应用。
 - 节点面只显示值控件；Seed 可保留独立锁定按钮，禁止恢复节点级结构工具栏。
 - `js/lib/parameter_layout.js` 是参数行、控件矩形、输出位置和节点高度的唯一布局来源。
-- Operation Panel 只负责调值、结果查看与工作流级布局；不创建、删除、连线节点，不修改参数定义，不提供独立执行按钮。
-- 页面结构固定为 Page → Section → Card；同一节点只能出现一次。
+- Operation Panel 只负责调值、结果查看与工作流级布局；不创建、删除、连线工作流节点，不修改参数定义，不提供独立执行按钮。
+- 页面结构固定为 Operation Panel → Page → Module；顶层 Module 使用锚点框架，卡片内部自动排版，同一节点或 Subgraph 只能出现一次。
+- 节点与 Subgraph 只能从其右键菜单主动加入；模块只在面板编辑模式移除，移除模块或页面不得删除工作流节点。
+- Group 只包含 Node Card；Carousel 只包含 Node Card 或一层 Group，禁止任意容器嵌套。
 - 本包新增的节点菜单、子菜单和命令以 emoji 开头，emoji 必须进入 en/zh 本地化文案。
-- 产品边界以 [`CONTEXT.md`](CONTEXT.md) 和 accepted ADR 为准；视觉规则见 [`docs/design/herdi-inspired-ui.md`](docs/design/herdi-inspired-ui.md)。
+- 产品边界以 [`CONTEXT.md`](CONTEXT.md) 和 accepted ADR 为准；视觉规则见 [`docs/design/`](docs/design/)。
 
 ## 6. 组件、主题与 i18n
 
 - 新 DOM 页面优先复用 `js/lib/ui.js` + `js/lib/ui.css`；业务布局放在 `js/lib/theme.css`。
-- 禁止重复实现 button、field、card、tabs、empty state 或 dialog。
+- 禁止重复实现 button、field、empty state、context menu 或 dialog；业务卡片与页面导航仍复用基础组件语义。
 - 颜色来自 ComfyUI token：`--fg-color`、`--descrip-text`、`--comfy-menu-secondary-bg`、`--comfy-input-bg`、`--border-color`、`--p-primary-color` 等。
 - 禁止写死品牌色或只适用于暗色主题的正文色；明暗主题切换必须同步。
 - 仅支持 en + zh：`locales/{en,zh}/{main,nodeDefs,settings,commands}.json`。

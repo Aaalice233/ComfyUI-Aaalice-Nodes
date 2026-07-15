@@ -39,13 +39,12 @@ cd ComfyUI-Aaalice-Nodes
 pip install -r requirements.txt
 ```
 
-To update a manual Git installation:
+## Updating and troubleshooting
 
-```bash
-git pull
-```
-
-Restart ComfyUI after Python changes. After frontend updates, hard-refresh the browser; if a node still keeps an old socket or widget structure, delete that node and create it again.
+- Registry installations should be updated through ComfyUI Manager.
+- Manual Git installations can be updated with `git pull` from this repository directory.
+- Restart ComfyUI after Python updates and hard-refresh the browser after frontend updates.
+- If an existing node keeps an old socket or widget structure after a structural update, remove that node instance and create it again.
 
 ## Included nodes
 
@@ -54,7 +53,7 @@ Restart ComfyUI after Python changes. After frontend updates, hard-refresh the b
 | `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose up to 32 direct outputs. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 
-## ParameterPanel
+## Using ParameterPanel
 
 New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`. Sampler and scheduler options follow the current ComfyUI installation.
 
@@ -66,22 +65,29 @@ New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`
 
 Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not consume outputs.
 
-## Operation Panel
+## Building an Operation Panel
 
-The optional **Operation Panel** is a workflow-level surface for frequently adjusted values and node results.
+The optional **Operation Panel** is a workflow-level surface for frequently adjusted values and node results:
 
-- `ParameterPanel` nodes register automatically; supported ordinary nodes can be added from their context menu.
-- Pages contain ordered sections and cards. Cards can be reordered, hidden, given a sidebar alias, or positioned in the fullscreen grid.
-- Page presets store writable values only. They never create nodes, change links, or alter parameter definitions.
+1. Right-click a workflow node or ComfyUI Subgraph and choose **🎛️ Add to Operation Panel**.
+2. Open **Operation Panel** from the ComfyUI sidebar. Click the same sidebar entry again to return to the graph.
+3. Choose **Edit layout** to add pages or text, move cards, select multiple cards, group them, or build a carousel.
+
+- Nodes are never added automatically. Removal is available only in the panel's layout editor and never deletes the workflow node.
+- The expanded panel covers the node workspace while keeping ComfyUI's top bar and sidebars available.
+- Use separate pages for surfaces such as text-to-image, image-to-image, and upscaling. Add headings and safe Markdown, then anchor cards to the design canvas.
+- Layout editing supports multi-selection, snapping, alignment, distribution, equal widths, four card styles, shared groups, and carousels. Narrow workspaces scroll instead of rearranging the authored layout.
+- Presets store writable values from the current page or selected modules. They never store layout, create nodes, change links, or alter parameter definitions.
 - The panel has no separate execution button and keeps ComfyUI's native queue controls.
 
 ## SimpleStringSplit
 
 Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
 
-## Known limitations
+## Compatibility and limitations
 
 - This preview has no compatibility layer for workflows created with the legacy package.
+- Operation Panel now uses the v3 layout; earlier Operation Panel layouts are reset rather than migrated.
 - App Mode is not supported.
 - Structural frontend updates can require recreating existing node instances after refresh.
 

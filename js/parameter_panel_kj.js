@@ -56,7 +56,7 @@ function hasRegisteredType(registered, name) {
 	return typeof registered?.has === "function" ? registered.has(name) : Boolean(registered?.[name]);
 }
 
-export function isKjReady() {
+function isKjReady() {
 	const { liteGraph, registered } = kjNodeTypes();
 	return typeof liteGraph?.createNode === "function"
 		&& hasRegisteredType(registered, KJ_SET_NODE)
@@ -110,7 +110,7 @@ function renameKjSet(setNode, nextName) {
 	return { changed: finalName !== previousWidgetName, name: finalName };
 }
 
-export function refreshKjSetNames(panel) {
+function refreshKjSetNames(panel) {
 	if (!panel?.graph || !isKjReady()) return { updated: 0, errors: [] };
 	let updated = 0;
 	const errors = [];
@@ -214,7 +214,7 @@ export function registerParameterPanelKj(panel) {
 	scheduleRefresh(panel);
 }
 
-export function createLinkedKjSets(panel) {
+function createLinkedKjSets(panel) {
 	if (!panel?.graph) throw new Error(message("aaalice.pcp.kj.graphUnavailable", "The current graph is unavailable."));
 	if (!isKjReady()) return { created: 0, updated: 0, errors: [] };
 	const meta = panelMeta(panel);
@@ -303,12 +303,3 @@ export function parameterPanelKjMenuItem(panel) {
 		},
 	};
 }
-
-app.registerExtension({
-	name: "ComfyUI.Aaalice.ParameterPanelKJ",
-	nodeCreated(node) { if (isParameterPanel(node)) registerParameterPanelKj(node); },
-	loadedGraphNode(node) { if (isParameterPanel(node)) registerParameterPanelKj(node); },
-	async setup() {
-		for (const node of app.graph?._nodes || []) if (isParameterPanel(node)) registerParameterPanelKj(node);
-	},
-});

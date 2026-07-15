@@ -2,7 +2,7 @@
 import { api } from "../../../scripts/api.js";
 
 const FILE = "aaalice-operation-presets.json";
-const VERSION = 2;
+const VERSION = 3;
 
 function endpoint(query = "") {
 	return `/userdata/${encodeURIComponent(FILE)}${query}`;

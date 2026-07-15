@@ -1033,12 +1033,6 @@ function installPromptHook() {
 }
 
 async function loadComfyNodeDefs() {
-	try {
-		const fromApi = await api.getNodeDefs?.();
-		if (fromApi && typeof fromApi === "object" && Object.keys(fromApi).length) return fromApi;
-	} catch {
-		// Older ComfyUI builds expose the same endpoint without the convenience method.
-	}
 	const response = await api.fetchApi("/object_info");
 	if (!response?.ok) throw new Error(`object_info request failed (${response?.status || "unknown"})`);
 	return response.json();

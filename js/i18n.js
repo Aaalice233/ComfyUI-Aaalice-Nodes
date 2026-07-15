@@ -24,7 +24,7 @@ let loadPromise = null;
  * @param {unknown} raw
  * @returns {"en" | "zh"}
  */
-export function resolveLocale(raw) {
+function resolveLocale(raw) {
 	if (typeof raw !== "string" || !raw) {
 		return FALLBACK_LOCALE;
 	}
@@ -45,25 +45,8 @@ export function resolveLocale(raw) {
  * 读取当前 ComfyUI 界面语言并归一到 en|zh。
  * @returns {"en" | "zh"}
  */
-export function getLocale() {
-	try {
-		const em = app.extensionManager;
-		if (em?.setting?.get) {
-			return resolveLocale(em.setting.get("Comfy.Locale"));
-		}
-	} catch {
-		// ignore and try legacy path
-	}
-	try {
-		// 部分旧前端仍走 app.ui.settings
-		const legacy = app.ui?.settings?.getSettingValue?.("Comfy.Locale");
-		if (legacy != null) {
-			return resolveLocale(legacy);
-		}
-	} catch {
-		// ignore
-	}
-	return FALLBACK_LOCALE;
+function getLocale() {
+	return resolveLocale(app.extensionManager?.setting?.get?.("Comfy.Locale"));
 }
 
 /**

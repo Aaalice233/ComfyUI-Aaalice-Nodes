@@ -5,19 +5,28 @@
 从仓库根目录运行：
 
 ```powershell
-node --check js/extension.js
-node --check js/i18n.js
-node --check js/lib/parameter_controls.js
-node --check js/lib/parameter_layout.js
-node --check js/lib/param_model.js
-node --check js/parameter_panel.js
-node --check js/parameter_panel_kj.js
-node --check js/parameter_sidebar.js
+$ErrorActionPreference = 'Stop'
+
+$jsFiles = rg --files js tests -g '*.js'
+foreach ($file in $jsFiles) {
+    node --check $file
+    if ($LASTEXITCODE -ne 0) { throw "node --check failed: $file" }
+}
+
+npm test
 ../../.venv/Scripts/python.exe -m unittest discover -s tests -v
+ruff check .
+
+Get-ChildItem locales -Recurse -Filter '*.json' | ForEach-Object {
+    Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json | Out-Null
+}
+
 git diff --check
 ```
 
-JSON locale 必须使用真实解析器读取，不能只检查括号或文本差异。公共模块、协议或核心流程变更后扩大测试范围；纯文档修改不要求运行后端测试。
+上述命令应逐项检查退出码；PowerShell 不会因为所有 native command 返回非零而自动停止。JSON locale 必须使用真实解析器读取，不能只检查括号或文本差异。公共模块、协议或核心流程变更后扩大测试范围；纯文档修改不要求运行后端测试。
+
+文档变更还需检查 Markdown 相对链接、双语 README 标题结构、ADR 状态链和 `AGENTS.md` 行数。链接到历史 ADR 的内容允许描述旧设计，但 active 文档不得把 superseded 结构写成当前规则。
 
 ## 日志位置
 
@@ -51,6 +60,12 @@ ParameterPanel 前端改动至少覆盖：
 | 输出显示、拖线与连接态颜色 | ✓ | ✓ |
 | 保存并重新加载工作流 | ✓ | ✓ |
 | Operation Panel 同步值 | ✓ | ✓ |
+| Operation Panel 展开/收起且保留顶栏、侧栏 | ✓ | ✓ |
+| 节点与 Subgraph 右键加入、面板内移除 | ✓ | ✓ |
+| 页面新增、命名、排序、删除、默认页与撤销 | ✓ | ✓ |
+| 多选、拖动、宽度、组合、轮播、解组与撤销 | ✓ | ✓ |
+| 轮播最高高度、箭头、键盘、横向滚动与触控 | ✓ | ✓ |
+| 1440/1920/current 设计尺寸与窄窗口横向滚动 | ✓ | ✓ |
 
 涉及特定控件时增加键盘、focus、hover、暗色/亮色主题和窄宽度检查。
 

@@ -1,14 +1,8 @@
-/**
- * ComfyUI-Aaalice-Nodes frontend entry.
- * Comfy auto-loads every JavaScript file under WEB_DIRECTORY; this file also pulls
- * panel modules and injects theme CSS.
- */
+/** Package frontend entry: imports business registrations and injects shared CSS. */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady } from "./i18n.js";
 
-// Explicit imports (modules also self-register when Comfy loads them directly).
 import "./parameter_panel.js";
-import "./parameter_panel_kj.js";
 import "./parameter_sidebar.js";
 
 function injectStyles() {

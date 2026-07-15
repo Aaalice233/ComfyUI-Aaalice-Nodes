@@ -1,28 +1,66 @@
-/** Workflow-scoped Operation Panel with pages, sections, cards and page value presets. */
+/** Anchored, workflow-scoped Operation Panel workspace. */
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import {
 	EVENT_OPERATION_CHANGED,
 	EVENT_PARAMETER_LIST,
-	OPERATION_PROPERTY,
 	cloneData,
 	displayName,
 	ensureParameters,
 	isParameterPanel,
-	newStableId,
 	notifyParameterChanged,
 	notifyParameterListChanged,
 } from "./lib/param_model.js";
 import { deleteOperationPreset, loadOperationPresets, saveOperationPreset } from "./lib/operation_preset_store.js";
-import { badge, button, card, createDialog, el, emptyState, field as uiField, iconButton, sectionHeader, tabs as tabList } from "./lib/ui.js";
 import { createParameterControl, createSelectControl, createSwitchControl } from "./lib/parameter_controls.js";
+import { renderSafeMarkdown } from "./lib/safe_markdown.js";
+import {
+	OPERATION_ANCHORS,
+	OPERATION_DESIGN_PRESETS,
+	distributeRects,
+	findNearestFreeRect,
+	frameFromRect,
+	inferAnchor,
+	rectsOverlap,
+	resolveFrame,
+	snapValue,
+} from "./lib/operation_layout.js";
+import {
+	MODULE_STYLES,
+	createContainerModule,
+	createContentModule,
+	createNodeModule,
+	createOperationPage,
+	findPage,
+	moduleDescendants,
+	operationState,
+	removeModule,
+	validateContainerDepth,
+} from "./lib/operation_state.js";
+import { getNodeAdapter, installOperationPanelApi } from "./lib/operation_registry.js";
+import { button, contextMenu, createDialog, el, emptyState, iconButton } from "./lib/ui.js";
 
 const SIDEBAR_ID = "aaalice-operation-panel";
-const adapters = new Map();
-let sidebarRoot = null;
-let fullscreenRoot = null;
-let layoutMode = false;
+const WORKSPACE_SELECTOR = `[data-aaalice-operation-workspace="${SIDEBAR_ID}"]`;
+const DEFAULT_CARD_SIZE = Object.freeze({ width: 360, height: 240 });
+const GRID = 8;
+
+let sidebarContainer = null;
+let workspaceRoot = null;
+let workspacePositionCleanup = null;
+let canvasElement = null;
+let activePageId = null;
+let editMode = false;
+let selection = new Set();
+let selectionAnchorId = null;
+let renderQueued = false;
+const measuredHeights = new Map();
+const carouselPages = new Map();
+const adapterCleanups = new Set();
+const viewCleanups = new Set();
+const resetNotices = new WeakSet();
+const pendingCollisionPages = new Set();
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -34,148 +72,193 @@ function toast(severity, detail) {
 	app.extensionManager?.toast?.add?.({ severity, summary: t("aaalice.packageName", "Aaalice Nodes"), detail, life: 4500 });
 }
 
-async function confirmAction(text) {
-	if (app.extensionManager?.dialog?.confirm) return Boolean(await app.extensionManager.dialog.confirm({ title: t("aaalice.common.confirm", "Confirm"), message: text }));
-	return globalThis.confirm(text);
-}
-
 async function promptText(title, value = "") {
 	if (app.extensionManager?.dialog?.prompt) return app.extensionManager.dialog.prompt({ title, message: title, defaultValue: String(value) });
 	return globalThis.prompt(title, String(value));
+}
+
+async function confirmAction(text) {
+	if (app.extensionManager?.dialog?.confirm) return Boolean(await app.extensionManager.dialog.confirm({ title: t("aaalice.common.confirm", "Confirm"), message: text }));
+	return globalThis.confirm(text);
 }
 
 function modal(title, render) {
 	return new Promise((resolve) => {
 		const body = el("div", "aaalice-modal-body");
 		let settled = false;
-		const dialogApi = createDialog({
+		const dialog = createDialog({
 			title,
 			body,
-			size: "md",
-			onRequestClose: () => { if (!settled) { settled = true; resolve(null); } return true; },
+			onRequestClose: () => {
+				if (!settled) {
+					settled = true;
+					resolve(null);
+				}
+				return true;
+			},
 		});
 		const close = (value) => {
 			if (settled) return;
 			settled = true;
-			dialogApi.close(value);
+			dialog.close(value);
 			resolve(value);
 		};
 		render(body, close);
 	});
 }
 
-function defaultState() {
-	return {
-		version: 2,
-		active_page_id: "page_main",
-		pages: [{ id: "page_main", name: t("aaalice.operation.defaultPage", "Main"), order: 0, sections: [{ id: "section_general", name: t("aaalice.operation.defaultSection", "General"), order: 0 }] }],
-		nodes: {},
-	};
+function graphNodes() {
+	return new Map((app.graph?._nodes || []).map((node) => [String(node.id), node]));
 }
 
-function operationState(graph = app.graph, create = false) {
-	if (!graph) return null;
-	graph.extra ||= {};
-	let state = graph.extra[OPERATION_PROPERTY];
-	if (state?.version !== 2) {
-		if (!create) return null;
-		state = defaultState();
-		graph.extra[OPERATION_PROPERTY] = state;
-	}
-	state.pages ||= [];
-	state.nodes ||= {};
-	if (!state.pages.length) state.pages = defaultState().pages;
-	if (!state.pages.some((page) => page.id === state.active_page_id)) state.active_page_id = state.pages[0].id;
-	for (const page of state.pages) {
-		page.sections ||= [];
-		if (!page.sections.length) page.sections.push({ id: newStableId("section"), name: t("aaalice.operation.defaultSection", "General"), order: 0 });
-	}
-	return state;
+function isSubgraphNode(node) {
+	return Boolean(node?.isSubgraphNode?.());
 }
 
-function activePage(state = operationState(app.graph, true)) {
-	return state.pages.find((page) => page.id === state.active_page_id) || state.pages[0];
+function currentState(create = true) {
+	return operationState(app.graph, create);
 }
 
-function nodeEntry(node, create = false) {
-	const state = operationState(node?.graph, create);
-	if (!state || node?.id == null) return null;
-	let entry = state.nodes[String(node.id)];
-	if (!entry && create) {
-		const page = activePage(state);
-		entry = {
-			enabled: true,
-			page_id: page.id,
-			section_id: page.sections[0].id,
-			order: Object.values(state.nodes).filter((item) => item.page_id === page.id).length,
-			hidden: false,
-			label_override: "",
-			row: 0,
-			col: 0,
-			preset_key: "",
-		};
-		state.nodes[String(node.id)] = entry;
-	}
-	return entry || null;
+function currentPage(state = currentState()) {
+	if (!activePageId || !state.pages.some((page) => page.id === activePageId)) activePageId = state.default_page_id;
+	return findPage(state, activePageId);
 }
 
-function markDirty(node = null) {
-	(node?.graph || app.graph)?.setDirtyCanvas?.(true, true);
+function notifyChanged() {
+	app.graph?.setDirtyCanvas?.(true, true);
 	window.dispatchEvent(new CustomEvent(EVENT_OPERATION_CHANGED));
 }
 
-function cardTitle(item) {
-	return item.entry.label_override || item.node.getTitle?.() || item.node.title || item.node.type || message("aaalice.operation.nodeFallback", "Node {id}", { id: item.node.id });
-}
-
-function collectItems(pageId = null) {
-	const state = operationState(app.graph, true);
-	const nodes = new Map((app.graph?._nodes || []).map((node) => [String(node.id), node]));
-	return Object.entries(state.nodes)
-		.map(([id, entry]) => ({ node: nodes.get(id), entry }))
-		.filter((item) => item.node && item.entry.enabled && (!pageId || item.entry.page_id === pageId))
-		.sort((a, b) => Number(a.entry.order || 0) - Number(b.entry.order || 0));
-}
-
-function registerNode(node, automatic = false) {
-	const entry = nodeEntry(node, true);
-	if (!entry) return false;
-	entry.enabled = true;
-	if (automatic && !entry.page_id) {
-		const page = activePage();
-		entry.page_id = page.id;
-		entry.section_id = page.sections[0].id;
+function commitMutation(mutator) {
+	const graph = app.graph;
+	if (!graph) return;
+	graph.beforeChange?.();
+	try {
+		mutator(currentState());
+		notifyChanged();
+	} finally {
+		graph.afterChange?.();
 	}
-	markDirty(node);
 	renderAll();
+}
+
+function scheduleRender() {
+	if (renderQueued) return;
+	renderQueued = true;
+	requestAnimationFrame(() => {
+		renderQueued = false;
+		renderAll();
+	});
+}
+
+function cleanupAdapters() {
+	for (const cleanup of adapterCleanups) {
+		try { cleanup(); } catch (error) { console.error("[Aaalice] Operation adapter cleanup failed", error); }
+	}
+	adapterCleanups.clear();
+	for (const cleanup of viewCleanups) cleanup();
+	viewCleanups.clear();
+}
+
+function pageViewport(page) {
+	return { width: Number(page.design?.width) || 1440, height: Number(page.design?.height) || 900 };
+}
+
+function moduleHeight(moduleId) {
+	return measuredHeights.get(moduleId) || DEFAULT_CARD_SIZE.height;
+}
+
+function moduleRect(page, module) {
+	return resolveFrame(module.frame, pageViewport(page), moduleHeight(module.id));
+}
+
+function occupiedRects(page, excluded = new Set()) {
+	return page.root_ids
+		.filter((id) => !excluded.has(id) && page.modules[id])
+		.map((id) => ({ id, ...moduleRect(page, page.modules[id]) }));
+}
+
+function resolveRootCollisions(page, priorityIds = []) {
+	const viewport = pageViewport(page);
+	const priority = new Set(priorityIds);
+	const ordered = [...page.root_ids.filter((id) => priority.has(id)), ...page.root_ids.filter((id) => !priority.has(id))];
+	const occupied = [];
+	for (const id of ordered) {
+		const module = page.modules[id];
+		if (!module) continue;
+		const rect = moduleRect(page, module);
+		const free = findNearestFreeRect(rect, occupied, viewport.width, GRID);
+		if (free.x !== rect.x || free.y !== rect.y) module.frame = frameFromRect(free, inferAnchor(free, viewport), viewport);
+		occupied.push({ id, ...free });
+	}
+}
+
+function pageHasOverlap(page) {
+	const rects = page.root_ids.filter((id) => page.modules[id]).map((id) => moduleRect(page, page.modules[id]));
+	return rects.some((rect, index) => rects.slice(index + 1).some((other) => rectsOverlap(rect, other)));
+}
+
+function scheduleCollisionReflow(pageId) {
+	if (pendingCollisionPages.has(pageId)) return;
+	pendingCollisionPages.add(pageId);
+	requestAnimationFrame(() => {
+		pendingCollisionPages.delete(pageId);
+		const state = currentState(false);
+		const page = state?.pages.find((candidate) => candidate.id === pageId);
+		if (page && pageHasOverlap(page)) commitMutation(() => resolveRootCollisions(page, page.root_ids));
+	});
+}
+
+function nodeModuleLocation(nodeId, state = currentState(false)) {
+	if (!state) return null;
+	for (const page of state.pages) {
+		for (const module of Object.values(page.modules)) if (module.type === "node" && module.node_id === String(nodeId)) return { page, module };
+	}
+	return null;
+}
+
+function addNodeToPanel(node) {
+	if (!node?.graph || nodeModuleLocation(node.id)) return false;
+	commitMutation((state) => {
+		const page = currentPage(state);
+		const viewport = pageViewport(page);
+		const rect = findNearestFreeRect(
+			{ x: 24, y: 24, width: Math.max(DEFAULT_CARD_SIZE.width, Number(getNodeAdapter(node.comfyClass || node.type)?.minWidth) || 0), height: DEFAULT_CARD_SIZE.height },
+			occupiedRects(page),
+			viewport.width,
+			GRID,
+		);
+		const module = createNodeModule(node.id, frameFromRect(rect, inferAnchor(rect, viewport), viewport));
+		module.adapter = isSubgraphNode(node)
+			? "comfy-subgraph"
+			: isParameterPanel(node)
+				? "aaalice-parameter-panel"
+				: getNodeAdapter(node.comfyClass || node.type)
+					? String(node.comfyClass || node.type)
+					: "comfy-widgets";
+		page.modules[module.id] = module;
+		page.root_ids.push(module.id);
+		selection = new Set([module.id]);
+		activePageId = page.id;
+	});
 	return true;
-}
-
-async function removeNode(node) {
-	const entry = nodeEntry(node);
-	if (!entry?.enabled) return;
-	if (!(await confirmAction(t("aaalice.operation.removeConfirm", "Remove this node from Operation Panel?")))) return;
-	entry.enabled = false;
-	markDirty(node);
-	renderAll();
-}
-
-function field(label, input) {
-	return uiField({ label, control: input });
 }
 
 function setWidget(widget, value, node) {
 	widget.value = value;
 	widget.callback?.(value, app.canvas, node, app.canvas?.graph_mouse);
-	markDirty(node);
+	node.graph?.setDirtyCanvas?.(true, true);
 }
 
-function supportedWidgets(node, entry = nodeEntry(node)) {
-	const filter = entry?.widgets;
+function supportedWidgets(node, module) {
+	const filter = module?.widgets;
 	return (node.widgets || []).filter((widget) => {
 		if (!widget?.name || widget.serialize === false || widget.type === "button") return false;
 		if (Array.isArray(filter) && !filter.includes(widget.name)) return false;
-		return ["number", "slider", "toggle", "combo", "text", "string", "converted-widget", "BOOLEAN", "INT", "FLOAT", "STRING", "COMBO"].includes(widget.type) || widget.options?.values;
+		if (widget.computedDisabled) return false;
+		return isSubgraphNode(node)
+			|| ["number", "slider", "toggle", "combo", "text", "string", "converted-widget", "BOOLEAN", "INT", "FLOAT", "STRING", "COMBO"].includes(widget.type)
+			|| widget.options?.values;
 	});
 }
 
@@ -184,25 +267,29 @@ function parameterControl(parameter, node) {
 	if (parameter.param_type === "image") {
 		const input = document.createElement("input");
 		input.value = parameter.value?.filename || "";
-		input.addEventListener("change", () => { parameter.value = input.value.trim() ? { filename: input.value.trim(), subfolder: "", type: "input" } : null; update(); });
+		input.addEventListener("change", () => {
+			parameter.value = input.value.trim() ? { filename: input.value.trim(), subfolder: "", type: "input" } : null;
+			update();
+		});
 		return input;
 	}
 	return createParameterControl({ parameter, mode: "sidebar", onChange: update, labels: { input: displayName(parameter), select: displayName(parameter), switch: displayName(parameter) } });
 }
 
-function renderParameterPanel(container, item) {
-	for (const parameter of ensureParameters(item.node)) {
+function renderParameterPanel(container, node) {
+	const parameters = ensureParameters(node);
+	for (const parameter of parameters) {
 		if (parameter.param_type === "separator") {
-			container.append(el("div", "aaalice-pcp-section", displayName(parameter)));
+			container.append(el("div", "aaalice-operation-section-label", displayName(parameter)));
 			continue;
 		}
 		const row = el("label", "aaalice-operation-row");
 		const label = el("span", "aaalice-operation-label", displayName(parameter));
 		if (parameter.description) label.title = parameter.description;
-		row.append(label, parameterControl(parameter, item.node));
+		row.append(label, parameterControl(parameter, node));
 		container.append(row);
 	}
-	if (!ensureParameters(item.node).length) container.append(emptyState({ description: t("aaalice.operation.emptyPanel", "This parameter panel is empty."), iconName: "settings" }));
+	if (!parameters.length) container.append(emptyState({ description: t("aaalice.operation.emptyPanel", "This parameter panel is empty."), iconName: "settings" }));
 }
 
 function renderNodeResults(container, node) {
@@ -217,34 +304,86 @@ function renderNodeResults(container, node) {
 	container.append(results);
 }
 
-function renderGeneric(container, item) {
-	const adapter = adapters.get(item.node.comfyClass || item.node.type);
-	if (adapter) adapter.render(container, item, { app, markDirty, t });
-	else for (const widget of supportedWidgets(item.node, item.entry)) {
+function renderGenericControls(container, node, module) {
+	for (const widget of supportedWidgets(node, module)) {
 		const row = el("label", "aaalice-operation-row");
 		row.append(el("span", "aaalice-operation-label", widget.label || widget.name));
-		let control;
 		const options = widget.options?.values || (Array.isArray(widget.options) ? widget.options : null);
-		if (options) {
-			control = createSelectControl(options, widget.value, { ariaLabel: widget.label || widget.name, onChange: (value) => setWidget(widget, value, item.node) });
-		} else if (["toggle", "BOOLEAN"].includes(widget.type) || typeof widget.value === "boolean") {
-			control = createSwitchControl(widget.value, { ariaLabel: widget.label || widget.name, onChange: (value) => setWidget(widget, value, item.node) });
-		} else {
+		let control;
+		if (options) control = createSelectControl(options, widget.value, { ariaLabel: widget.label || widget.name, onChange: (value) => setWidget(widget, value, node) });
+		else if (["toggle", "BOOLEAN"].includes(widget.type) || typeof widget.value === "boolean") control = createSwitchControl(widget.value, { ariaLabel: widget.label || widget.name, onChange: (value) => setWidget(widget, value, node) });
+		else {
 			control = document.createElement("input");
 			control.type = typeof widget.value === "number" ? "number" : "text";
 			control.value = widget.value ?? "";
-			control.addEventListener("change", () => setWidget(widget, control.type === "number" ? Number(control.value) : control.value, item.node));
+			control.addEventListener("change", () => setWidget(widget, control.type === "number" ? Number(control.value) : control.value, node));
 		}
 		row.append(control);
 		container.append(row);
 	}
-	renderNodeResults(container, item.node);
 }
 
-function presetControls(item) {
-	const adapter = adapters.get(item.node.comfyClass || item.node.type);
-	if (adapter?.getPresetControls) return adapter.getPresetControls(item, { app, t }) || [];
-	if (isParameterPanel(item.node)) return ensureParameters(item.node)
+function renderGeneric(container, node, module) {
+	renderGenericControls(container, node, module);
+	renderNodeResults(container, node);
+}
+
+function renderAdapter(container, node, module) {
+	const adapter = getNodeAdapter(node.comfyClass || node.type);
+	if (!adapter || ![adapter.render, adapter.renderControls, adapter.renderResults].some((renderer) => typeof renderer === "function")) return false;
+	const controller = new AbortController();
+	const context = {
+		container,
+		node,
+		module,
+		components: globalThis.aaaliceOperationPanel?.v1?.components,
+		signal: controller.signal,
+		app,
+		t,
+		markDirty: () => { node.graph?.setDirtyCanvas?.(true, true); scheduleRender(); },
+	};
+	const cleanups = [];
+	try {
+		if (adapter.render) cleanups.push(adapter.render(context));
+		else {
+			if (adapter.renderControls) cleanups.push(adapter.renderControls(context));
+			else renderGenericControls(container, node, module);
+			if (adapter.renderResults) cleanups.push(adapter.renderResults(context));
+			else renderNodeResults(container, node);
+		}
+		adapterCleanups.add(() => {
+			controller.abort();
+			for (const cleanup of cleanups) if (typeof cleanup === "function") cleanup();
+		});
+		return true;
+	} catch (error) {
+		controller.abort();
+		for (const cleanup of cleanups) {
+			try { if (typeof cleanup === "function") cleanup(); }
+			catch (cleanupError) { console.error("[Aaalice] Operation adapter cleanup failed after render error", cleanupError); }
+		}
+		console.error(`[Aaalice] Operation adapter render failed for ${node.type}`, error);
+		container.append(el("div", "aaalice-operation-error", message("aaalice.operation.adapterError", "Adapter error: {error}", { error: error.message || error })));
+		return true;
+	}
+}
+
+function cardTitle(node, module) {
+	const adapterTitle = getNodeAdapter(node.comfyClass || node.type)?.title;
+	return module.label_override
+		|| (typeof adapterTitle === "function" ? adapterTitle({ node, module, app, t }) : adapterTitle)
+		|| (isSubgraphNode(node) ? node.subgraph?.name : null)
+		|| node.getTitle?.()
+		|| node.title
+		|| node.type
+		|| message("aaalice.operation.nodeFallback", "Node {id}", { id: node.id });
+}
+
+function presetControls(node, module) {
+	const adapter = getNodeAdapter(node.comfyClass || node.type);
+	const controls = adapter?.getPresetControls?.({ node, module, app, t });
+	if (controls) return validatePresetControls(controls, node);
+	if (isParameterPanel(node)) return validatePresetControls(ensureParameters(node)
 		.filter((parameter) => parameter.param_type !== "separator")
 		.map((parameter) => ({
 			key: parameter.id,
@@ -258,8 +397,8 @@ function presetControls(item) {
 				return null;
 			},
 			write: (value) => { parameter.value = cloneData(value); },
-		}));
-	return supportedWidgets(item.node, item.entry).map((widget) => ({
+		})), node);
+	return validatePresetControls(supportedWidgets(node, module).map((widget) => ({
 		key: widget.name,
 		label: widget.label || widget.name,
 		read: () => cloneData(widget.value),
@@ -269,150 +408,743 @@ function presetControls(item) {
 			if (typeof widget.value === "number" && !Number.isFinite(Number(value))) return t("aaalice.operation.preset.invalidNumber", "Value must be numeric.");
 			return null;
 		},
-		write: (value) => {
-			widget.value = cloneData(value);
-			widget.callback?.(widget.value, app.canvas, item.node, app.canvas?.graph_mouse);
-		},
-	}));
+		write: (value) => setWidget(widget, cloneData(value), node),
+	})), node);
 }
 
-function renderLayoutEditor(card, item, state) {
-	const editor = el("div", "aaalice-layout-editor");
-	const select = (label, values, current, onChange) => {
-		const input = createSelectControl(values, current, { ariaLabel: label, onChange: (value) => { onChange(value); markDirty(item.node); renderAll(); } });
-		editor.append(field(label, input));
+function validatePresetControls(controls, node) {
+	if (!Array.isArray(controls)) throw new Error(`Operation adapter preset controls for ${node.type} must be an array`);
+	const keys = new Set();
+	for (const control of controls) {
+		if (!control?.key || typeof control.read !== "function" || typeof control.write !== "function") throw new Error(`Operation adapter preset control for ${node.type} needs key, read and write`);
+		if (keys.has(control.key)) throw new Error(`Operation adapter ${node.type} has duplicate preset key: ${control.key}`);
+		keys.add(control.key);
+	}
+	return controls;
+}
+
+function renderNodeBody(container, node, module) {
+	if (renderAdapter(container, node, module)) return;
+	if (isParameterPanel(node)) renderParameterPanel(container, node);
+	else renderGeneric(container, node, module);
+}
+
+function moduleName(page, module) {
+	if (module.type === "node") {
+		const node = graphNodes().get(module.node_id);
+		return node ? cardTitle(node, module) : t("aaalice.operation.missingNode", "Missing node");
+	}
+	if (module.title) return module.title;
+	if (module.type === "heading") return String(module.content || t("aaalice.operation.heading", "Heading")).split("\n")[0];
+	if (module.type === "markdown") return t("aaalice.operation.markdown", "Markdown");
+	return module.type === "group" ? t("aaalice.operation.group", "Group") : t("aaalice.operation.carousel", "Carousel");
+}
+
+function renderNodeModule(module) {
+	const node = graphNodes().get(module.node_id);
+	const body = el("div", "aaalice-operation-card-body");
+	if (!node) body.append(emptyState({ description: t("aaalice.operation.missingNode", "The workflow node no longer exists."), iconName: "close" }));
+	else renderNodeBody(body, node, module);
+	const root = el("article", `aaalice-operation-card aaalice-operation-style-${module.style}`);
+	const header = el("header", "aaalice-operation-card-header");
+	header.append(el("strong", null, node ? cardTitle(node, module) : t("aaalice.operation.missingNode", "Missing node")));
+	if (node) header.append(el("span", "aaalice-operation-node-id", isSubgraphNode(node) ? t("aaalice.operation.subgraph", "Subgraph") : `#${node.id}`));
+	root.append(header, body);
+	return root;
+}
+
+function renderContentModule(module) {
+	if (module.type === "heading") {
+		const [title, ...description] = String(module.content || "").split("\n");
+		const root = el("header", `aaalice-operation-heading-module aaalice-operation-style-${module.style}`);
+		root.append(el("h2", null, title || t("aaalice.operation.heading", "Heading")));
+		if (description.length) root.append(el("p", null, description.join("\n")));
+		return root;
+	}
+	const root = el("article", `aaalice-operation-markdown aaalice-operation-style-${module.style}`);
+	root.append(renderSafeMarkdown(module.content || ""));
+	return root;
+}
+
+function renderGroup(page, module) {
+	const root = el("section", `aaalice-operation-group aaalice-operation-style-${module.style}`);
+	if (module.title) root.append(el("h3", "aaalice-operation-container-title", module.title));
+	const body = el("div", "aaalice-operation-group-body");
+	for (const childId of module.children) {
+		const child = page.modules[childId];
+		if (!child) continue;
+		const childElement = renderModuleContent(page, child);
+		childElement.classList.add("aaalice-operation-group-item");
+		body.append(childElement);
+	}
+	root.append(body);
+	return root;
+}
+
+function renderCarousel(page, module) {
+	const root = el("section", `aaalice-operation-carousel aaalice-operation-style-${module.style}`);
+	const active = module.children.includes(carouselPages.get(module.id))
+		? carouselPages.get(module.id)
+		: module.default_child_id || module.children[0];
+	carouselPages.set(module.id, active);
+	const nav = el("div", "aaalice-operation-carousel-nav");
+	const move = (delta) => {
+		const index = module.children.indexOf(carouselPages.get(module.id));
+		carouselPages.set(module.id, module.children[(index + delta + module.children.length) % module.children.length]);
+		renderAll();
 	};
-	select(t("aaalice.operation.page", "Page"), state.pages.map((page) => ({ label: page.name, value: page.id })), item.entry.page_id, (value) => {
-		item.entry.page_id = value;
-		item.entry.section_id = state.pages.find((page) => page.id === value).sections[0].id;
-	});
-	const page = state.pages.find((candidate) => candidate.id === item.entry.page_id) || activePage(state);
-	select(t("aaalice.operation.section", "Section"), page.sections.map((section) => ({ label: section.name, value: section.id })), item.entry.section_id, (value) => { item.entry.section_id = value; });
-	for (const [label, key, type] of [
-		[t("aaalice.operation.alias", "Alias"), "label_override", "text"],
-		[t("aaalice.operation.presetKey", "Preset key"), "preset_key", "text"],
-		[t("aaalice.operation.order", "Order"), "order", "number"],
-		[t("aaalice.operation.row", "Row"), "row", "number"],
-		[t("aaalice.operation.column", "Column"), "col", "number"],
-	]) {
-		const input = document.createElement("input");
-		input.type = type;
-		input.value = item.entry[key] ?? "";
-		input.addEventListener("change", () => { item.entry[key] = type === "number" ? Number(input.value) : input.value.trim(); markDirty(item.node); renderAll(); });
-		editor.append(field(label, input));
+	nav.append(iconButton({ iconName: "chevronLeft", label: t("aaalice.operation.previous", "Previous"), variant: "ghost", onClick: () => move(-1) }));
+	const dots = el("div", { className: "aaalice-operation-carousel-dots", attrs: { role: "tablist" } });
+	for (const childId of module.children) {
+		const child = page.modules[childId];
+		if (!child) continue;
+		const activeDot = childId === active;
+		const dot = button({ label: moduleName(page, child), variant: "ghost", size: "sm", className: `aaalice-operation-carousel-dot${activeDot ? " is-active" : ""}` });
+		dot.setAttribute("role", "tab");
+		dot.setAttribute("aria-selected", String(activeDot));
+		dot.addEventListener("click", () => { carouselPages.set(module.id, childId); renderAll(); });
+		dots.append(dot);
 	}
-	const hidden = document.createElement("input");
-	hidden.type = "checkbox";
-	hidden.checked = Boolean(item.entry.hidden);
-	hidden.addEventListener("change", () => { item.entry.hidden = hidden.checked; markDirty(item.node); renderAll(); });
-	editor.append(field(t("aaalice.operation.hidden", "Hidden"), hidden));
-	card.append(editor);
+	nav.append(dots, iconButton({ iconName: "chevronRight", label: t("aaalice.operation.next", "Next"), variant: "ghost", onClick: () => move(1) }));
+	const slides = el("div", "aaalice-operation-carousel-slides");
+	for (const childId of module.children) {
+		const child = page.modules[childId];
+		if (!child) continue;
+		const slide = el("div", `aaalice-operation-carousel-slide${childId === active ? " is-active" : ""}`);
+		slide.dataset.childId = childId;
+		slide.append(renderModuleContent(page, child));
+		slides.append(slide);
+	}
+	let wheelX = 0;
+	slides.addEventListener("wheel", (event) => {
+		if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) || Math.abs(event.deltaX) < 8) return;
+		event.preventDefault();
+		wheelX += event.deltaX;
+		if (Math.abs(wheelX) >= 48) {
+			move(wheelX > 0 ? 1 : -1);
+			wheelX = 0;
+		}
+	}, { passive: false });
+	let touchStartX = null;
+	slides.addEventListener("pointerdown", (event) => { if (event.pointerType === "touch") touchStartX = event.clientX; });
+	slides.addEventListener("pointerup", (event) => {
+		if (touchStartX == null || event.pointerType !== "touch") return;
+		const distance = event.clientX - touchStartX;
+		touchStartX = null;
+		if (Math.abs(distance) >= 48) move(distance < 0 ? 1 : -1);
+	});
+	root.addEventListener("keydown", (event) => {
+		if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+			event.preventDefault();
+			move(event.key === "ArrowLeft" ? -1 : 1);
+		}
+	});
+	root.tabIndex = 0;
+	root.append(nav, slides);
+	requestAnimationFrame(() => {
+		const height = Math.max(0, ...[...slides.children].map((slide) => slide.scrollHeight));
+		if (height) slides.style.height = `${height}px`;
+	});
+	return root;
 }
 
-function renderCard(item, fullscreen, state) {
-	const body = el("div");
-	if (!item.entry.hidden || layoutMode) {
-		if (isParameterPanel(item.node)) renderParameterPanel(body, item);
-		else renderGeneric(body, item);
+function renderModuleContent(page, module) {
+	if (module.type === "node") return renderNodeModule(module);
+	if (["heading", "markdown"].includes(module.type)) return renderContentModule(module);
+	if (module.type === "group") return renderGroup(page, module);
+	return renderCarousel(page, module);
+}
+
+function selectModule(page, moduleId, event) {
+	const roots = page.root_ids;
+	if (event.shiftKey && selectionAnchorId && roots.includes(selectionAnchorId)) {
+		const start = roots.indexOf(selectionAnchorId);
+		const end = roots.indexOf(moduleId);
+		selection = new Set(roots.slice(Math.min(start, end), Math.max(start, end) + 1));
+	} else if (event.ctrlKey || event.metaKey) {
+		if (selection.has(moduleId)) selection.delete(moduleId);
+		else selection.add(moduleId);
+		selectionAnchorId = moduleId;
+	} else {
+		selection = new Set([moduleId]);
+		selectionAnchorId = moduleId;
 	}
-	const cardElement = card({
-		title: cardTitle(item),
-		meta: badge(`#${item.node.id}`),
-		body: (!item.entry.hidden || layoutMode) ? body : null,
-		className: `aaalice-operation-card${item.entry.hidden ? " hidden-card" : ""}`,
+}
+
+function selectedRootIds(page, fallbackId = null) {
+	const selected = page.root_ids.filter((id) => selection.has(id));
+	if (!selected.length && fallbackId && page.root_ids.includes(fallbackId)) return [fallbackId];
+	return selected;
+}
+
+function beginMove(event, page, module, element) {
+	if (!editMode || event.button !== 0 || event.target.closest("button, input, select, textarea, .aaalice-operation-resize")) return;
+	event.preventDefault();
+	selectModule(page, module.id, event);
+	const ids = selectedRootIds(page, module.id);
+	const elements = new Map(ids.map((id) => [id, canvasElement?.querySelector(`[data-module-id="${CSS.escape(id)}"]`)]));
+	const start = { x: event.clientX, y: event.clientY };
+	let moved = false;
+	const pointerMove = (moveEvent) => {
+		const dx = moveEvent.clientX - start.x;
+		const dy = moveEvent.clientY - start.y;
+		moved ||= Math.abs(dx) > 2 || Math.abs(dy) > 2;
+		for (const target of elements.values()) if (target) target.style.transform = `translate(${dx}px, ${dy}px)`;
+		const anchor = inferAnchor({ ...moduleRect(page, module), x: moduleRect(page, module).x + dx, y: moduleRect(page, module).y + dy }, pageViewport(page));
+		canvasElement?.setAttribute("data-anchor-preview", anchor);
+	};
+	const pointerUp = (upEvent) => {
+		document.removeEventListener("pointermove", pointerMove);
+		document.removeEventListener("pointerup", pointerUp);
+		canvasElement?.removeAttribute("data-anchor-preview");
+		for (const target of elements.values()) if (target) target.style.transform = "";
+		if (!moved) {
+			renderAll();
+			return;
+		}
+		const dx = upEvent.clientX - start.x;
+		const dy = upEvent.clientY - start.y;
+		commitMutation(() => moveModules(page, ids, dx, dy, upEvent.altKey));
+	};
+	document.addEventListener("pointermove", pointerMove);
+	document.addEventListener("pointerup", pointerUp, { once: true });
+}
+
+function moveModules(page, ids, dx, dy, disableSnap) {
+	const viewport = pageViewport(page);
+	const idSet = new Set(ids);
+	const movedRects = [];
+	for (const id of ids) {
+		const module = page.modules[id];
+		if (!module) continue;
+		const before = moduleRect(page, module);
+		const rect = { ...before, x: before.x + dx, y: before.y + dy };
+		if (!disableSnap) {
+			rect.x = snapValue(rect.x, GRID);
+			rect.y = snapValue(rect.y, GRID);
+		}
+		module.frame = frameFromRect(rect, inferAnchor(rect, viewport), viewport);
+		movedRects.push({ id, ...rect });
+	}
+	const occupied = [...movedRects];
+	for (const id of page.root_ids) {
+		if (idSet.has(id) || !page.modules[id]) continue;
+		const module = page.modules[id];
+		const rect = moduleRect(page, module);
+		const free = findNearestFreeRect(rect, occupied, viewport.width, GRID);
+		if (free.x !== rect.x || free.y !== rect.y) module.frame = frameFromRect(free, inferAnchor(free, viewport), viewport);
+		occupied.push({ id, ...free });
+	}
+}
+
+function beginResize(event, page, module) {
+	event.preventDefault();
+	event.stopPropagation();
+	const startX = event.clientX;
+	const startWidth = moduleRect(page, module).width;
+	const target = event.currentTarget.closest("[data-module-id]");
+	const pointerMove = (moveEvent) => { target.style.width = `${Math.max(240, startWidth + moveEvent.clientX - startX)}px`; };
+	const pointerUp = (upEvent) => {
+		document.removeEventListener("pointermove", pointerMove);
+		document.removeEventListener("pointerup", pointerUp);
+		const width = Math.max(240, snapValue(startWidth + upEvent.clientX - startX, GRID));
+		commitMutation(() => {
+			const viewport = pageViewport(page);
+			const rect = { ...moduleRect(page, module), width };
+			module.frame = frameFromRect(rect, module.frame.anchor, viewport);
+			resolveRootCollisions(page, [module.id]);
+		});
+	};
+	document.addEventListener("pointermove", pointerMove);
+	document.addEventListener("pointerup", pointerUp, { once: true });
+}
+
+function setFrames(page, ids, transform) {
+	const viewport = pageViewport(page);
+	const rects = ids.map((id) => moduleRect(page, page.modules[id]));
+	const next = transform(rects);
+	ids.forEach((id, index) => { page.modules[id].frame = frameFromRect(next[index], inferAnchor(next[index], viewport), viewport); });
+}
+
+function alignSelection(page, kind) {
+	const ids = selectedRootIds(page);
+	if (ids.length < 2) return;
+	commitMutation(() => {
+		setFrames(page, ids, (rects) => {
+			const reference = rects[0];
+			return rects.map((rect) => {
+				if (kind === "left") return { ...rect, x: reference.x };
+				if (kind === "right") return { ...rect, x: reference.x + reference.width - rect.width };
+				if (kind === "top") return { ...rect, y: reference.y };
+				if (kind === "bottom") return { ...rect, y: reference.y + reference.height - rect.height };
+				return rect;
+			});
+		});
+		resolveRootCollisions(page, ids);
 	});
-	if (fullscreen) {
-		if (Number(item.entry.row) > 0) cardElement.style.gridRow = String(Number(item.entry.row));
-		if (Number(item.entry.col) > 0) cardElement.style.gridColumn = String(Number(item.entry.col));
+}
+
+function distributeSelection(page, axis) {
+	const ids = selectedRootIds(page);
+	if (ids.length < 3) return;
+	commitMutation(() => {
+		setFrames(page, ids, (rects) => distributeRects(rects, axis));
+		resolveRootCollisions(page, ids);
+	});
+}
+
+function equalWidth(page) {
+	const ids = selectedRootIds(page);
+	if (ids.length < 2) return;
+	const width = moduleRect(page, page.modules[ids[0]]).width;
+	commitMutation(() => {
+		const viewport = pageViewport(page);
+		for (const id of ids) {
+			const module = page.modules[id];
+			const rect = { ...moduleRect(page, module), width };
+			module.frame = frameFromRect(rect, module.frame.anchor, viewport);
+		}
+		resolveRootCollisions(page, ids);
+	});
+}
+
+function reorderPage(state, page, delta) {
+	const ordered = [...state.pages].sort((a, b) => a.order - b.order);
+	const index = ordered.findIndex((candidate) => candidate.id === page.id);
+	const target = index + delta;
+	if (index < 0 || target < 0 || target >= ordered.length) return;
+	commitMutation(() => {
+		[ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+		ordered.forEach((candidate, order) => { candidate.order = order; });
+	});
+}
+
+function groupSelection(page, type) {
+	const ids = selectedRootIds(page);
+	if (!validateContainerDepth(page, type, ids)) {
+		toast("warn", type === "group"
+			? t("aaalice.operation.groupInvalid", "Select at least two ungrouped cards. Groups cannot be nested.")
+			: t("aaalice.operation.carouselInvalid", "Select at least two cards or groups. Carousels cannot be nested."));
+		return;
 	}
-	if (layoutMode) renderLayoutEditor(cardElement, item, state);
-	return cardElement;
+	const viewport = pageViewport(page);
+	const rects = ids.map((id) => moduleRect(page, page.modules[id]));
+	const bounds = {
+		x: Math.min(...rects.map((rect) => rect.x)),
+		y: Math.min(...rects.map((rect) => rect.y)),
+		width: Math.max(...rects.map((rect) => rect.x + rect.width)) - Math.min(...rects.map((rect) => rect.x)),
+		height: Math.max(...rects.map((rect) => rect.y + rect.height)) - Math.min(...rects.map((rect) => rect.y)),
+	};
+	commitMutation(() => {
+		const container = createContainerModule(type, ids, frameFromRect(bounds, inferAnchor(bounds, viewport), viewport));
+		page.modules[container.id] = container;
+		for (const id of ids) page.modules[id].parent_id = container.id;
+		const firstIndex = Math.min(...ids.map((id) => page.root_ids.indexOf(id)));
+		page.root_ids = page.root_ids.filter((id) => !ids.includes(id));
+		page.root_ids.splice(firstIndex, 0, container.id);
+		resolveRootCollisions(page, [container.id]);
+		selection = new Set([container.id]);
+		selectionAnchorId = container.id;
+	});
+}
+
+function ungroup(page, module) {
+	if (!["group", "carousel"].includes(module.type)) return;
+	const base = moduleRect(page, module);
+	const viewport = pageViewport(page);
+	commitMutation(() => {
+		const rootIndex = page.root_ids.indexOf(module.id);
+		const children = [...module.children];
+		page.root_ids = page.root_ids.filter((id) => id !== module.id);
+		children.forEach((id, index) => {
+			const child = page.modules[id];
+			child.parent_id = null;
+			const rect = { x: base.x + index * 24, y: base.y + index * 24, width: child.frame.width, height: moduleHeight(id) };
+			child.frame = frameFromRect(rect, inferAnchor(rect, viewport), viewport);
+		});
+		page.root_ids.splice(Math.max(0, rootIndex), 0, ...children);
+		delete page.modules[module.id];
+		resolveRootCollisions(page, children);
+		selection = new Set(children);
+	});
+}
+
+function setAnchor(page, ids, anchor) {
+	const viewport = pageViewport(page);
+	commitMutation(() => {
+		for (const id of ids) {
+			const module = page.modules[id];
+			if (module) module.frame = frameFromRect(moduleRect(page, module), anchor, viewport);
+		}
+	});
+}
+
+function moveToPage(page, ids, targetPage) {
+	if (page.id === targetPage.id) return;
+	commitMutation(() => {
+		for (const id of ids) {
+			const descendants = moduleDescendants(page, id);
+			for (const descendant of descendants) targetPage.modules[descendant] = page.modules[descendant];
+			targetPage.modules[id].parent_id = null;
+			targetPage.root_ids.push(id);
+			for (const descendant of descendants) delete page.modules[descendant];
+		}
+		page.root_ids = page.root_ids.filter((id) => !ids.includes(id));
+		resolveRootCollisions(targetPage, ids);
+		selection.clear();
+	});
+}
+
+function removeSelected(page, ids) {
+	commitMutation(() => {
+		for (const id of ids) removeModule(page, id);
+		selection.clear();
+	});
+}
+
+async function renameModule(module) {
+	const property = module.type === "node" ? "label_override" : module.type === "heading" ? "content" : "title";
+	const value = await promptText(t("aaalice.operation.rename", "Rename"), module[property] || "");
+	if (value == null) return;
+	commitMutation(() => { module[property] = String(value).trim(); });
+}
+
+async function editContent(module) {
+	const title = module.type === "heading" ? t("aaalice.operation.editHeading", "Edit heading") : t("aaalice.operation.editMarkdown", "Edit Markdown");
+	const value = await modal(title, (body, close) => {
+		const input = document.createElement("textarea");
+		input.className = "aaalice-operation-content-editor";
+		input.value = module.content || "";
+		const actions = el("div", "aaalice-modal-actions");
+		actions.append(
+			button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary", onClick: () => close(null) }),
+			button({ label: t("aaalice.common.save", "Save"), onClick: () => close(input.value) }),
+		);
+		body.append(input, actions);
+	});
+	if (value == null) return;
+	commitMutation(() => { module.content = value; });
+}
+
+function moduleMenu(event, page, module) {
+	if (!editMode) return;
+	if (!selection.has(module.id)) selection = new Set([module.id]);
+	const ids = selectedRootIds(page, module.id);
+	const items = [
+		{ label: t("aaalice.operation.rename", "Rename"), action: () => renameModule(module) },
+		...(["heading", "markdown"].includes(module.type) ? [{ label: t("aaalice.operation.editContent", "Edit content"), action: () => editContent(module) }] : []),
+		"separator",
+		{ label: t("aaalice.operation.group", "Group"), disabled: ids.length < 2, action: () => groupSelection(page, "group") },
+		{ label: t("aaalice.operation.carousel", "Group as carousel"), disabled: ids.length < 2, action: () => groupSelection(page, "carousel") },
+		{ label: t("aaalice.operation.ungroup", "Ungroup"), disabled: ids.length !== 1 || !["group", "carousel"].includes(module.type), action: () => ungroup(page, module) },
+		...(module.type === "carousel" ? [{
+			label: t("aaalice.operation.defaultCarouselPage", "Use current slide as default"),
+			disabled: !carouselPages.get(module.id) || carouselPages.get(module.id) === module.default_child_id,
+			action: () => commitMutation(() => { module.default_child_id = carouselPages.get(module.id); }),
+		}] : []),
+		"separator",
+		{ label: t("aaalice.operation.align", "Align"), children: [
+			{ label: t("aaalice.operation.alignLeft", "Left"), disabled: ids.length < 2, action: () => alignSelection(page, "left") },
+			{ label: t("aaalice.operation.alignRight", "Right"), disabled: ids.length < 2, action: () => alignSelection(page, "right") },
+			{ label: t("aaalice.operation.alignTop", "Top"), disabled: ids.length < 2, action: () => alignSelection(page, "top") },
+			{ label: t("aaalice.operation.alignBottom", "Bottom"), disabled: ids.length < 2, action: () => alignSelection(page, "bottom") },
+		] },
+		{ label: t("aaalice.operation.distribute", "Distribute"), children: [
+			{ label: t("aaalice.operation.horizontal", "Horizontally"), disabled: ids.length < 3, action: () => distributeSelection(page, "x") },
+			{ label: t("aaalice.operation.vertical", "Vertically"), disabled: ids.length < 3, action: () => distributeSelection(page, "y") },
+		] },
+		{ label: t("aaalice.operation.equalWidth", "Equal width"), disabled: ids.length < 2, action: () => equalWidth(page) },
+		{ label: t("aaalice.operation.style", "Style"), children: MODULE_STYLES.map((style) => ({ label: t(`aaalice.operation.style_${style}`, style), action: () => commitMutation(() => { for (const id of ids) page.modules[id].style = style; }) })) },
+		{ label: t("aaalice.operation.anchor", "Anchor"), children: Object.keys(OPERATION_ANCHORS).map((anchor) => ({ label: t(`aaalice.operation.anchor_${anchor}`, anchor), action: () => setAnchor(page, ids, anchor) })) },
+		...(currentState().pages.length > 1 ? [{ label: t("aaalice.operation.moveToPage", "Move to page"), children: currentState().pages.filter((candidate) => candidate.id !== page.id).map((candidate) => ({ label: candidate.name, action: () => moveToPage(page, ids, candidate) })) }] : []),
+		"separator",
+		{ label: t("aaalice.operation.remove", "Remove from Operation Panel"), danger: true, action: () => removeSelected(page, ids) },
+	];
+	contextMenu(event, items);
+}
+
+function renderRootModule(page, module) {
+	const wrapper = el("div", `aaalice-operation-module${selection.has(module.id) ? " is-selected" : ""}${editMode ? " is-editing" : ""}`);
+	wrapper.dataset.moduleId = module.id;
+	const rect = moduleRect(page, module);
+	wrapper.style.left = `${rect.x}px`;
+	wrapper.style.top = `${rect.y}px`;
+	wrapper.style.width = `${rect.width}px`;
+	wrapper.append(renderModuleContent(page, module));
+	if (editMode) {
+		wrapper.append(el("div", "aaalice-operation-drag-surface"));
+		const resize = el("button", { className: "aaalice-operation-resize", attrs: { type: "button", "aria-label": t("aaalice.operation.resize", "Resize width") } });
+		resize.addEventListener("pointerdown", (event) => beginResize(event, page, module));
+		wrapper.append(resize);
+	}
+	wrapper.addEventListener("pointerdown", (event) => beginMove(event, page, module, wrapper));
+	wrapper.addEventListener("contextmenu", (event) => moduleMenu(event, page, module));
+	wrapper.addEventListener("dblclick", () => { if (editMode && ["heading", "markdown"].includes(module.type)) editContent(module); });
+	const measure = () => {
+		const height = Math.ceil(wrapper.scrollHeight);
+		if (height && measuredHeights.get(module.id) !== height) {
+			measuredHeights.set(module.id, height);
+			scheduleCollisionReflow(page.id);
+			scheduleRender();
+		}
+	};
+	if (globalThis.ResizeObserver) {
+		const observer = new ResizeObserver(measure);
+		observer.observe(wrapper);
+		viewCleanups.add(() => observer.disconnect());
+	} else requestAnimationFrame(measure);
+	return wrapper;
+}
+
+function pageNameUnique(state, name, exceptId = null) {
+	const key = String(name).trim().toLocaleLowerCase();
+	return key && !state.pages.some((page) => page.id !== exceptId && page.name.trim().toLocaleLowerCase() === key);
+}
+
+async function addPage() {
+	const state = currentState();
+	let currentName = currentPage(state).name;
+	if (state.pages.length === 1 && !currentName) {
+		currentName = await promptText(t("aaalice.operation.nameCurrentPage", "Name the current page"), "");
+		if (!currentName?.trim()) return;
+	}
+	const name = await promptText(t("aaalice.operation.nameNewPage", "Name the new page"), "");
+	if (!name?.trim()) return;
+	if (!pageNameUnique(state, name)) return toast("warn", t("aaalice.operation.pageNameUnique", "Page names must be unique."));
+	commitMutation(() => {
+		if (state.pages.length === 1) state.pages[0].name = currentName.trim();
+		const page = createOperationPage(name);
+		page.order = state.pages.length;
+		state.pages.push(page);
+		activePageId = page.id;
+		selection.clear();
+	});
+}
+
+async function renamePage(page) {
+	const state = currentState();
+	const name = await promptText(t("aaalice.operation.renamePage", "Rename page"), page.name);
+	if (!name?.trim()) return;
+	if (!pageNameUnique(state, name, page.id)) return toast("warn", t("aaalice.operation.pageNameUnique", "Page names must be unique."));
+	commitMutation(() => { page.name = name.trim(); });
+}
+
+async function deletePage(page) {
+	const state = currentState();
+	if (state.pages.length === 1) return toast("warn", t("aaalice.operation.pageKeepOne", "At least one page is required."));
+	if (!(await confirmAction(message("aaalice.operation.pageDeleteConfirm", "Delete page {name}? Its modules will be removed from Operation Panel.", { name: page.name })))) return;
+	commitMutation(() => {
+		state.pages = state.pages.filter((candidate) => candidate.id !== page.id);
+		if (state.default_page_id === page.id) state.default_page_id = state.pages[0].id;
+		activePageId = state.default_page_id;
+		selection.clear();
+	});
+}
+
+function pageMenu(event, page) {
+	if (!editMode) return;
+	const state = currentState();
+	contextMenu(event, [
+		{ label: t("aaalice.operation.renamePage", "Rename page"), action: () => renamePage(page) },
+		{ label: t("aaalice.operation.defaultPageAction", "Set as default page"), disabled: state.default_page_id === page.id, action: () => commitMutation(() => { state.default_page_id = page.id; }) },
+		{ label: t("aaalice.operation.movePageLeft", "Move page left"), disabled: [...state.pages].sort((a, b) => a.order - b.order)[0]?.id === page.id, action: () => reorderPage(state, page, -1) },
+		{ label: t("aaalice.operation.movePageRight", "Move page right"), disabled: [...state.pages].sort((a, b) => a.order - b.order).at(-1)?.id === page.id, action: () => reorderPage(state, page, 1) },
+		"separator",
+		{ label: t("aaalice.operation.deletePage", "Delete page"), danger: true, disabled: state.pages.length === 1, action: () => deletePage(page) },
+	]);
+}
+
+async function addContentModule(page, type, point = { x: 24, y: 24 }) {
+	const content = await modal(type === "heading" ? t("aaalice.operation.editHeading", "Edit heading") : t("aaalice.operation.editMarkdown", "Edit Markdown"), (body, close) => {
+			const input = document.createElement("textarea");
+			input.className = "aaalice-operation-content-editor";
+			input.value = type === "heading" ? t("aaalice.operation.heading", "Heading") : "";
+			input.placeholder = type === "heading" ? t("aaalice.operation.headingHint", "First line is the title; following lines are the description.") : t("aaalice.operation.markdownHint", "Safe Markdown; HTML is ignored.");
+			const actions = el("div", "aaalice-modal-actions");
+			actions.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary", onClick: () => close(null) }), button({ label: t("aaalice.common.save", "Save"), onClick: () => close(input.value) }));
+			body.append(input, actions);
+		});
+	if (content == null) return;
+	const viewport = pageViewport(page);
+	const preferred = { x: point.x, y: point.y, width: type === "heading" ? 560 : 440, height: type === "heading" ? 96 : 220 };
+	const rect = findNearestFreeRect(preferred, occupiedRects(page), viewport.width, GRID);
+	commitMutation(() => {
+		const module = createContentModule(type, content, frameFromRect(rect, inferAnchor(rect, viewport), viewport));
+		page.modules[module.id] = module;
+		page.root_ids.push(module.id);
+		selection = new Set([module.id]);
+	});
+}
+
+function canvasMenu(event, page) {
+	if (!editMode || event.target.closest("[data-module-id]")) return;
+	const bounds = canvasElement.getBoundingClientRect();
+	const point = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+	contextMenu(event, [
+		{ label: t("aaalice.operation.addHeading", "Add heading"), action: () => addContentModule(page, "heading", point) },
+		{ label: t("aaalice.operation.addMarkdown", "Add Markdown"), action: () => addContentModule(page, "markdown", point) },
+	]);
+}
+
+function setDesign(page, value) {
+	const preset = OPERATION_DESIGN_PRESETS[value];
+	const hostRect = workspaceRoot?.getBoundingClientRect();
+	commitMutation(() => {
+		page.design = value === "current"
+			? { preset: "current", width: Math.max(960, Math.round(hostRect?.width || 1440)), height: Math.max(640, Math.round(hostRect?.height || 900)) }
+			: { preset: value, ...preset };
+		resolveRootCollisions(page, page.root_ids);
+	});
+}
+
+function renderToolbar(root, state, page) {
+	const toolbar = el("header", "aaalice-operation-toolbar");
+	const pageArea = el("div", "aaalice-operation-page-area");
+	if (state.pages.length > 1) {
+		const nav = el("nav", { className: "aaalice-operation-page-tabs", attrs: { role: "tablist", "aria-label": t("aaalice.operation.pagesAria", "Operation pages") } });
+		for (const candidate of [...state.pages].sort((a, b) => a.order - b.order)) {
+			const active = candidate.id === page.id;
+			const tab = button({ label: candidate.name, variant: "ghost", size: "sm", className: `aaalice-operation-page-tab${active ? " is-active" : ""}` });
+			tab.setAttribute("role", "tab");
+			tab.setAttribute("aria-selected", String(active));
+			tab.addEventListener("click", () => { activePageId = candidate.id; selection.clear(); renderAll(); });
+			tab.addEventListener("contextmenu", (event) => pageMenu(event, candidate));
+			nav.append(tab);
+		}
+		pageArea.append(nav);
+	} else pageArea.append(el("strong", "aaalice-operation-single-page", page.name || t("aaalice.operation.title", "Operation Panel")));
+	const actions = el("div", "aaalice-operation-toolbar-actions");
+	const presets = button({ label: t("aaalice.operation.presets", "Presets"), iconName: "presets", variant: "secondary", size: "sm", onClick: () => presetMenu().catch((error) => toast("error", error.message || String(error))) });
+	actions.append(presets);
+	if (editMode) {
+		const design = createSelectControl([
+			{ label: "1440 × 900", value: "1440x900" },
+			{ label: "1920 × 1080", value: "1920x1080" },
+			{ label: t("aaalice.operation.currentWindow", "Current window"), value: "current" },
+		], page.design?.preset || "1440x900", { ariaLabel: t("aaalice.operation.designSize", "Design size"), onChange: (value) => setDesign(page, value) });
+		design.classList.add("aaalice-operation-design-select");
+		actions.append(design, button({ label: t("aaalice.operation.addPage", "Add page"), iconName: "add", variant: "secondary", size: "sm", onClick: addPage }));
+	}
+	actions.append(button({
+		label: editMode ? t("aaalice.operation.finishEditing", "Done") : t("aaalice.operation.editLayout", "Edit layout"),
+		iconName: editMode ? "done" : "edit",
+		variant: editMode ? "primary" : "secondary",
+		size: "sm",
+		onClick: () => { editMode = !editMode; selection.clear(); renderAll(); },
+	}));
+	toolbar.append(pageArea, actions);
+	root.append(toolbar);
+}
+
+function renderWorkspace() {
+	if (!workspaceRoot) return;
+	cleanupAdapters();
+	workspaceRoot.replaceChildren();
+	const state = currentState();
+	const page = currentPage(state);
+	workspaceRoot.className = `aaalice-operation-workspace aaalice-operation aaalice-pcp${editMode ? " is-editing" : ""}`;
+	renderToolbar(workspaceRoot, state, page);
+	const scroll = el("div", "aaalice-operation-scroll");
+	canvasElement = el("main", { className: "aaalice-operation-canvas", attrs: { "aria-label": page.name || t("aaalice.operation.title", "Operation Panel") } });
+	const viewport = pageViewport(page);
+	canvasElement.style.width = `${viewport.width}px`;
+	canvasElement.style.setProperty("--aaalice-operation-column-width", `${viewport.width / 12}px`);
+	const contentBottom = Math.max(viewport.height, ...page.root_ids.map((id) => {
+		const module = page.modules[id];
+		if (!module) return 0;
+		const rect = moduleRect(page, module);
+		return rect.y + rect.height + 24;
+	}));
+	canvasElement.style.height = `${contentBottom}px`;
+	canvasElement.addEventListener("contextmenu", (event) => canvasMenu(event, page));
+	canvasElement.addEventListener("pointerdown", (event) => {
+		if (editMode && event.target === canvasElement) {
+			selection.clear();
+			renderAll();
+		}
+	});
+	for (const id of page.root_ids) if (page.modules[id]) canvasElement.append(renderRootModule(page, page.modules[id]));
+	if (!page.root_ids.length) canvasElement.append(emptyState({
+		title: t("aaalice.operation.emptyTitle", "This page is empty"),
+		description: editMode
+			? t("aaalice.operation.emptyEdit", "Right-click the canvas to add text, or right-click a workflow node to add its controls.")
+			: t("aaalice.operation.empty", "Right-click a workflow node and choose Add to Operation Panel."),
+		iconName: "layout",
+		className: "aaalice-operation-empty",
+	}));
+	scroll.append(canvasElement);
+	workspaceRoot.append(scroll);
+	if (state.reset_from_version != null && app.graph && !resetNotices.has(app.graph)) {
+		resetNotices.add(app.graph);
+		toast("info", t("aaalice.operation.layoutReset", "Operation Panel uses a new layout format. The previous layout was not migrated."));
+	}
 }
 
 function slug(value) {
 	return String(value || "card").trim().toLocaleLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || "card";
 }
 
-async function ensurePresetKeys(items) {
-	const writable = items.filter((item) => presetControls(item).length);
-	if (!writable.length) return [];
-	const suggested = new Map(writable.map((item) => [item, item.entry.preset_key || ""]));
-	const used = new Set([...suggested.values()].filter(Boolean).map((value) => value.toLocaleLowerCase()));
-	for (const item of writable) if (!suggested.get(item)) {
-		const base = slug(cardTitle(item));
-		let candidate = base;
-		for (let index = 2; used.has(candidate.toLocaleLowerCase()); index += 1) candidate = `${base}-${index}`;
-		suggested.set(item, candidate);
-		used.add(candidate.toLocaleLowerCase());
-	}
-	const accepted = await modal(t("aaalice.operation.preset.keys", "Configure preset keys"), (body, close) => {
-		const inputs = [];
-		const errors = el("div", "aaalice-pcp-error");
-		for (const item of writable) {
-			const input = document.createElement("input");
-			input.value = suggested.get(item);
-			inputs.push({ item, input });
-			body.append(field(cardTitle(item), input));
-		}
-		const footer = el("div", "aaalice-modal-actions");
-		const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary" });
-		const save = button({ label: t("aaalice.common.save", "Save") });
-		cancel.addEventListener("click", () => close(false));
-		save.addEventListener("click", () => {
-			const keys = inputs.map(({ input }) => input.value.trim());
-			if (keys.some((key) => !key) || new Set(keys.map((key) => key.toLocaleLowerCase())).size !== keys.length) {
-				errors.textContent = t("aaalice.operation.preset.keysUnique", "Preset keys must be non-empty and unique on the page.");
-				return;
-			}
-			for (const { item, input } of inputs) item.entry.preset_key = input.value.trim();
-			close(true);
-		});
-		footer.append(cancel, save);
-		body.append(errors, footer);
-	});
-	if (!accepted) return null;
-	markDirty();
-	return writable;
+function nodeModulesInScope(page) {
+	const roots = selectedRootIds(page);
+	const ids = roots.length ? roots.flatMap((id) => moduleDescendants(page, id)) : page.root_ids.flatMap((id) => moduleDescendants(page, id));
+	return [...new Set(ids)].map((id) => page.modules[id]).filter((module) => module?.type === "node");
 }
 
-async function savePagePreset() {
-	const state = operationState(app.graph, true);
-	const page = activePage(state);
-	const items = await ensurePresetKeys(collectItems(page.id));
-	if (!items) return;
-	if (!items.length) return toast("warn", t("aaalice.operation.preset.noWritable", "This page has no writable cards."));
-	const name = await promptText(t("aaalice.operation.preset.name", "Preset name"), page.name);
+function presetItems(page) {
+	const nodes = graphNodes();
+	return nodeModulesInScope(page)
+		.map((module) => ({ module, node: nodes.get(module.node_id) }))
+		.filter((item) => item.node && presetControls(item.node, item.module).length);
+}
+
+async function ensurePresetKeys(items) {
+	const used = new Set(items.map((item) => item.module.preset_key).filter(Boolean).map((key) => key.toLocaleLowerCase()));
+	const assignments = [];
+	for (const item of items) if (!item.module.preset_key) {
+		const base = slug(cardTitle(item.node, item.module));
+		let candidate = base;
+		for (let index = 2; used.has(candidate.toLocaleLowerCase()); index += 1) candidate = `${base}-${index}`;
+		assignments.push([item.module, candidate]);
+		used.add(candidate.toLocaleLowerCase());
+	}
+	if (assignments.length) commitMutation(() => { for (const [module, key] of assignments) module.preset_key = key; });
+	const duplicates = items.map((item) => item.module.preset_key.toLocaleLowerCase()).filter((key, index, keys) => keys.indexOf(key) !== index);
+	if (duplicates.length) throw new Error(t("aaalice.operation.preset.keysUnique", "Preset keys must be unique within the selected scope."));
+	return items;
+}
+
+async function savePreset() {
+	const page = currentPage();
+	const items = await ensurePresetKeys(presetItems(page));
+	if (!items.length) return toast("warn", t("aaalice.operation.preset.noWritable", "The selected scope has no writable controls."));
+	const name = await promptText(t("aaalice.operation.preset.name", "Preset name"), page.name || t("aaalice.operation.title", "Operation Panel"));
 	if (!name?.trim()) return;
-	const cards = items.map((item) => ({
-		key: item.entry.preset_key,
-		node_type: item.node.comfyClass || item.node.type,
-		controls: Object.fromEntries(presetControls(item).map((control) => [control.key, cloneData(control.read())])),
+	const cards = items.map(({ node, module }) => ({
+		key: module.preset_key,
+		node_type: node.comfyClass || node.type,
+		controls: Object.fromEntries(presetControls(node, module).map((control) => [control.key, cloneData(control.read())])),
 	}));
 	await saveOperationPreset({ name: name.trim(), cards });
-	toast("success", t("aaalice.operation.preset.saved", "Page values saved."));
+	notifyChanged();
+	toast("success", t("aaalice.operation.preset.saved", "Values saved."));
 }
 
 async function choosePreset(title) {
 	const store = await loadOperationPresets();
 	if (!store.presets.length) {
-		toast("info", t("aaalice.operation.preset.empty", "No saved page presets."));
+		toast("info", t("aaalice.operation.preset.empty", "No saved presets."));
 		return null;
 	}
 	return modal(title, (body, close) => {
-		for (const preset of store.presets) {
-			const choice = button({ label: preset.name, variant: "secondary", className: "aaalice-choice-btn", onClick: () => close(preset) });
-			body.append(choice);
-		}
+		for (const preset of store.presets) body.append(button({ label: preset.name, variant: "secondary", className: "aaalice-choice-btn", onClick: () => close(preset) }));
 	});
 }
 
-async function loadPagePreset() {
-	const preset = await choosePreset(t("aaalice.operation.preset.load", "Load page values"));
+async function loadPreset() {
+	const preset = await choosePreset(t("aaalice.operation.preset.load", "Load values"));
 	if (!preset) return;
-	const state = operationState(app.graph, true);
-	const items = await ensurePresetKeys(collectItems(activePage(state).id));
-	if (!items) return;
-	const byKey = new Map(items.map((item) => [item.entry.preset_key.toLocaleLowerCase(), item]));
+	const items = await ensurePresetKeys(presetItems(currentPage()));
+	const byKey = new Map(items.map((item) => [item.module.preset_key.toLocaleLowerCase(), item]));
 	const changes = [];
 	const differences = [];
 	for (const card of preset.cards || []) {
@@ -421,12 +1153,11 @@ async function loadPagePreset() {
 			differences.push(`${card.key}: ${t("aaalice.operation.preset.missingCard", "missing card")}`);
 			continue;
 		}
-		const nodeType = item.node.comfyClass || item.node.type;
-		if (card.node_type && card.node_type !== nodeType) {
+		if (card.node_type && card.node_type !== (item.node.comfyClass || item.node.type)) {
 			differences.push(`${card.key}: ${t("aaalice.operation.preset.nodeTypeMismatch", "node type differs")}`);
 			continue;
 		}
-		const controls = new Map(presetControls(item).map((control) => [control.key, control]));
+		const controls = new Map(presetControls(item.node, item.module).map((control) => [control.key, control]));
 		for (const [key, value] of Object.entries(card.controls || {})) {
 			const control = controls.get(key);
 			if (!control) {
@@ -435,12 +1166,8 @@ async function loadPagePreset() {
 			}
 			const error = control.validate?.(value);
 			if (error) differences.push(`${card.key}.${key}: ${error}`);
-			else changes.push({ item, control, value: cloneData(value), previous: cloneData(control.read()) });
+			else changes.push({ ...item, control, value: cloneData(value), previous: cloneData(control.read()) });
 		}
-	}
-	const presetKeys = new Set((preset.cards || []).map((card) => String(card.key).toLocaleLowerCase()));
-	for (const item of items) if (!presetKeys.has(item.entry.preset_key.toLocaleLowerCase())) {
-		differences.push(`${item.entry.preset_key}: ${t("aaalice.operation.preset.notInPreset", "not present in preset")}`);
 	}
 	const summary = [message("aaalice.operation.preset.matchSummary", "{count} value(s) can be applied.", { count: changes.length }), ...differences].join("\n");
 	if (!changes.length || !(await confirmAction(summary))) return;
@@ -456,16 +1183,14 @@ async function loadPagePreset() {
 		}
 		throw error;
 	}
-	for (const node of new Set(changes.map((change) => change.item.node))) {
-		if (isParameterPanel(node)) notifyParameterChanged(node, { structure: false });
-		else markDirty(node);
-	}
+	for (const node of new Set(changes.map((change) => change.node))) if (isParameterPanel(node)) notifyParameterChanged(node, { structure: false });
+	app.graph?.setDirtyCanvas?.(true, true);
 	renderAll();
-	toast("success", t("aaalice.operation.preset.applied", "Page values applied."));
+	toast("success", t("aaalice.operation.preset.applied", "Values applied."));
 }
 
-async function deletePagePreset() {
-	const preset = await choosePreset(t("aaalice.operation.preset.delete", "Delete page preset"));
+async function deletePreset() {
+	const preset = await choosePreset(t("aaalice.operation.preset.delete", "Delete preset"));
 	if (!preset || !(await confirmAction(message("aaalice.operation.preset.deleteConfirm", "Delete preset {name}?", { name: preset.name })))) return;
 	await deleteOperationPreset(preset.name);
 	toast("success", t("aaalice.operation.preset.deleted", "Preset deleted."));
@@ -474,201 +1199,84 @@ async function deletePagePreset() {
 async function presetMenu() {
 	const action = await modal(t("aaalice.operation.presets", "Presets"), (body, close) => {
 		for (const [value, label] of [
-			["save", t("aaalice.operation.preset.save", "Save current page values")],
-			["load", t("aaalice.operation.preset.load", "Load page values")],
-			["delete", t("aaalice.operation.preset.delete", "Delete page preset")],
-		]) {
-			const choice = button({ label, variant: "secondary", className: "aaalice-choice-btn", onClick: () => close(value) });
-			body.append(choice);
-		}
+			["save", selection.size ? t("aaalice.operation.preset.saveSelection", "Save selected values") : t("aaalice.operation.preset.savePage", "Save page values")],
+			["load", t("aaalice.operation.preset.load", "Load values")],
+			["delete", t("aaalice.operation.preset.delete", "Delete preset")],
+		]) body.append(button({ label, variant: "secondary", className: "aaalice-choice-btn", onClick: () => close(value) }));
 	});
-	if (action === "save") await savePagePreset();
-	else if (action === "load") await loadPagePreset();
-	else if (action === "delete") await deletePagePreset();
+	if (action === "save") await savePreset();
+	else if (action === "load") await loadPreset();
+	else if (action === "delete") await deletePreset();
 }
 
-async function addPage() {
-	const state = operationState(app.graph, true);
-	const name = await promptText(t("aaalice.operation.pageAdd", "New page name"), t("aaalice.operation.defaultPage", "Main"));
-	if (!name?.trim()) return;
-	if (state.pages.some((page) => page.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return toast("warn", t("aaalice.operation.pageNameUnique", "Page names must be unique."));
-	const page = { id: newStableId("page"), name: name.trim(), order: state.pages.length, sections: [{ id: newStableId("section"), name: t("aaalice.operation.defaultSection", "General"), order: 0 }] };
-	state.pages.push(page);
-	state.active_page_id = page.id;
-	markDirty();
-	renderAll();
+function positionWorkspace() {
+	if (!workspaceRoot?.isConnected) return;
+	const toolbar = document.querySelector('[data-testid="side-toolbar"], .side-tool-bar-container');
+	const graphPanel = document.querySelector(".graph-canvas-panel");
+	const toolbarRect = toolbar?.getBoundingClientRect();
+	const graphRect = graphPanel?.getBoundingClientRect();
+	const sidebarOnLeft = !toolbarRect || toolbarRect.left < innerWidth / 2;
+	workspaceRoot.style.left = `${sidebarOnLeft ? Math.max(0, toolbarRect?.right || 0) : 0}px`;
+	workspaceRoot.style.right = `${sidebarOnLeft ? 0 : Math.max(0, innerWidth - toolbarRect.left)}px`;
+	workspaceRoot.style.top = `${Math.max(0, graphRect?.top || 0)}px`;
+	workspaceRoot.style.bottom = `${Math.max(0, innerHeight - (graphRect?.bottom || innerHeight))}px`;
 }
 
-async function renamePage(page) {
-	const name = await promptText(t("aaalice.operation.pageRename", "Rename page"), page.name);
-	if (!name?.trim()) return;
-	const state = operationState(app.graph, true);
-	if (state.pages.some((candidate) => candidate.id !== page.id && candidate.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return toast("warn", t("aaalice.operation.pageNameUnique", "Page names must be unique."));
-	page.name = name.trim();
-	markDirty();
-	renderAll();
+function observeWorkspaceBounds() {
+	workspacePositionCleanup?.();
+	const observed = [
+		document.querySelector('[data-testid="side-toolbar"], .side-tool-bar-container'),
+		document.querySelector(".graph-canvas-panel"),
+	].filter(Boolean);
+	const observer = globalThis.ResizeObserver ? new ResizeObserver(positionWorkspace) : null;
+	for (const element of observed) observer?.observe(element);
+	window.addEventListener("resize", positionWorkspace);
+	workspacePositionCleanup = () => {
+		observer?.disconnect();
+		window.removeEventListener("resize", positionWorkspace);
+		workspacePositionCleanup = null;
+	};
 }
 
-function moveOrdered(items, item, delta) {
-	const ordered = [...items].sort((a, b) => Number(a.order) - Number(b.order));
-	const index = ordered.findIndex((candidate) => candidate.id === item.id);
-	const target = index + delta;
-	if (index < 0 || target < 0 || target >= ordered.length) return;
-	[ordered[index], ordered[target]] = [ordered[target], ordered[index]];
-	ordered.forEach((candidate, order) => { candidate.order = order; });
-	markDirty();
-	renderAll();
-}
-
-async function deletePage(page) {
-	const state = operationState(app.graph, true);
-	if (state.pages.length === 1) return toast("warn", t("aaalice.operation.pageKeepOne", "At least one page is required."));
-	if (!(await confirmAction(message("aaalice.operation.pageDeleteConfirm", "Delete page {name}? Its cards will move to another page.", { name: page.name })))) return;
-	const target = state.pages.find((candidate) => candidate.id === "page_main" && candidate.id !== page.id) || state.pages.find((candidate) => candidate.id !== page.id);
-	for (const entry of Object.values(state.nodes)) if (entry.page_id === page.id) {
-		entry.page_id = target.id;
-		entry.section_id = target.sections[0].id;
-	}
-	state.pages = state.pages.filter((candidate) => candidate.id !== page.id);
-	state.active_page_id = target.id;
-	markDirty();
-	renderAll();
-}
-
-async function addSection(page) {
-	const name = await promptText(t("aaalice.operation.sectionAdd", "New section name"), t("aaalice.operation.defaultSection", "General"));
-	if (!name?.trim()) return;
-	if (page.sections.some((section) => section.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return toast("warn", t("aaalice.operation.sectionNameUnique", "Section names must be unique within a page."));
-	page.sections.push({ id: newStableId("section"), name: name.trim(), order: page.sections.length });
-	markDirty();
-	renderAll();
-}
-
-async function renameSection(page, section) {
-	const name = await promptText(t("aaalice.operation.sectionRename", "Rename section"), section.name);
-	if (!name?.trim()) return;
-	if (page.sections.some((candidate) => candidate.id !== section.id && candidate.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase())) return toast("warn", t("aaalice.operation.sectionNameUnique", "Section names must be unique within a page."));
-	section.name = name.trim();
-	markDirty();
-	renderAll();
-}
-
-async function deleteSection(page, section) {
-	if (page.sections.length === 1) return toast("warn", t("aaalice.operation.sectionKeepOne", "At least one section is required."));
-	const target = page.sections.find((candidate) => candidate.id !== section.id);
-	for (const entry of Object.values(operationState(app.graph, true).nodes)) if (entry.page_id === page.id && entry.section_id === section.id) entry.section_id = target.id;
-	page.sections = page.sections.filter((candidate) => candidate.id !== section.id);
-	markDirty();
-	renderAll();
-}
-
-function renderOperation(root, fullscreen = false) {
-	root.replaceChildren();
-	root.className = `aaalice-pcp aaalice-operation${fullscreen ? " fullscreen-content" : ""}`;
-	const state = operationState(app.graph, true);
-	const page = activePage(state);
-	const toolbar = el("div", "aaalice-operation-toolbar");
-	const heading = el("div", "aaalice-operation-heading");
-	heading.append(
-		el("strong", null, t("aaalice.operation.title", "Operation Panel")),
-		el("span", null, t("aaalice.operation.subtitle", "Tune the workflow without leaving its operating surface.")),
-	);
-	const actions = el("div", "aaalice-operation-actions");
-	const presets = button({ label: t("aaalice.operation.presets", "Presets"), iconName: "presets", variant: "secondary", size: "sm" });
-	presets.addEventListener("click", () => presetMenu().catch((error) => toast("error", error.message || String(error))));
-	const layout = button({ label: t("aaalice.operation.layout", "Layout"), iconName: "layout", variant: "secondary", size: "sm", active: layoutMode });
-	layout.setAttribute("aria-pressed", String(layoutMode));
-	layout.addEventListener("click", () => { layoutMode = !layoutMode; renderAll(); });
-	const full = button({ label: fullscreen ? t("aaalice.operation.exitFullscreen", "Exit fullscreen") : t("aaalice.operation.fullscreen", "Fullscreen"), iconName: "fullscreen", variant: "secondary", size: "sm" });
-	full.addEventListener("click", () => fullscreen ? exitFullscreen() : enterFullscreen());
-	actions.append(presets, layout, full);
-	toolbar.append(heading, actions);
-	root.append(toolbar);
-	const orderedPages = [...state.pages].sort((a, b) => Number(a.order) - Number(b.order));
-	const pages = tabList(orderedPages.map((candidate) => ({ id: candidate.id, label: candidate.name })), {
-		activeId: page.id,
-		ariaLabel: t("aaalice.operation.pagesAria", "Operation pages"),
-		className: "aaalice-operation-pages",
-		onSelect: (id) => { state.active_page_id = id; markDirty(); renderAll(); },
-	});
-	if (layoutMode) {
-		pages.append(iconButton({ iconName: "add", label: t("aaalice.operation.pageAdd", "Add page"), variant: "ghost", onClick: addPage }));
-	}
-	root.append(pages);
-	if (layoutMode) {
-		root.append(el("div", "aaalice-operation-layout-banner", t("aaalice.operation.layoutHint", "Layout mode changes page organization only; workflow nodes and links stay untouched.")));
-		const pageTools = el("div", "aaalice-operation-page-tools");
-		for (const [label, action] of [
-			[t("aaalice.operation.pageRename", "Rename page"), () => renamePage(page)],
-			[t("aaalice.operation.moveLeft", "Move left"), () => moveOrdered(state.pages, page, -1)],
-			[t("aaalice.operation.moveRight", "Move right"), () => moveOrdered(state.pages, page, 1)],
-			[t("aaalice.operation.pageDelete", "Delete page"), () => deletePage(page)],
-			[t("aaalice.operation.sectionAdd", "Add section"), () => addSection(page)],
-		]) {
-			pageTools.append(button({ label, variant: "secondary", size: "sm", onClick: action }));
-		}
-		root.append(pageTools);
-	}
-	const items = collectItems(page.id);
-	if (!items.length) {
-		root.append(emptyState({
-			title: t("aaalice.operation.emptyTitle", "Nothing on this page yet"),
-			description: t("aaalice.operation.empty", "Add a Parameter Panel or register another node from its context menu."),
-			iconName: "layout",
-		}));
+function mountWorkspace() {
+	// Vue may call a custom sidebar's render callback more than once without a matching destroy.
+	// Keep one body-level portal so Splitter rerenders cannot resize or orphan the workspace.
+	if (workspaceRoot?.isConnected) {
+		if (sidebarContainer) sidebarContainer.hidden = true;
+		positionWorkspace();
+		renderWorkspace();
 		return;
 	}
-	for (const section of [...page.sections].sort((a, b) => Number(a.order) - Number(b.order))) {
-		const sectionItems = items.filter((item) => item.entry.section_id === section.id && (!item.entry.hidden || layoutMode));
-		if (!sectionItems.length && !layoutMode) continue;
-		const wrapper = el("section", "aaalice-operation-section");
-		const sectionActions = [];
-		if (layoutMode) {
-			sectionActions.push(
-				iconButton({ iconName: "moveUp", label: t("aaalice.operation.moveUp", "Move up"), variant: "ghost", onClick: () => moveOrdered(page.sections, section, -1) }),
-				iconButton({ iconName: "moveDown", label: t("aaalice.operation.moveDown", "Move down"), variant: "ghost", onClick: () => moveOrdered(page.sections, section, 1) }),
-				iconButton({ iconName: "edit", label: t("aaalice.operation.sectionRename", "Rename section"), variant: "ghost", onClick: () => renameSection(page, section) }),
-				iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "danger", onClick: () => deleteSection(page, section) }),
-			);
-		}
-		const heading = sectionHeader(section.name, { eyebrow: t("aaalice.operation.section", "Section"), actions: sectionActions, className: "aaalice-operation-section-head" });
-		wrapper.append(heading);
-		const cards = el("div", fullscreen ? "aaalice-operation-grid" : "aaalice-operation-stack");
-		for (const item of sectionItems) cards.append(renderCard(item, fullscreen, state));
-		wrapper.append(cards);
-		root.append(wrapper);
-	}
+	document.querySelectorAll(WORKSPACE_SELECTOR).forEach((element) => element.remove());
+	workspaceRoot = el("section", {
+		className: "aaalice-operation-workspace",
+		attrs: {
+			role: "region",
+			"aria-label": t("aaalice.operation.title", "Operation Panel"),
+			"data-aaalice-operation-workspace": SIDEBAR_ID,
+		},
+	});
+	document.body.append(workspaceRoot);
+	if (sidebarContainer) sidebarContainer.hidden = true;
+	positionWorkspace();
+	observeWorkspaceBounds();
+	renderWorkspace();
+}
+
+function unmountWorkspace() {
+	cleanupAdapters();
+	workspacePositionCleanup?.();
+	if (sidebarContainer) sidebarContainer.hidden = false;
+	document.querySelectorAll(WORKSPACE_SELECTOR).forEach((element) => element.remove());
+	workspaceRoot = null;
+	canvasElement = null;
+	selection.clear();
+	editMode = false;
 }
 
 function renderAll() {
-	if (sidebarRoot) renderOperation(sidebarRoot, false);
-	if (fullscreenRoot) renderOperation(fullscreenRoot, true);
+	if (workspaceRoot) renderWorkspace();
 }
-
-function enterFullscreen() {
-	if (fullscreenRoot) return;
-	const overlay = el("div", {
-		className: "aaalice-operation-fullscreen",
-		attrs: { role: "region", "aria-label": t("aaalice.operation.title", "Operation Panel") },
-	});
-	fullscreenRoot = el("div");
-	overlay.append(fullscreenRoot);
-	// ComfyUI's sidebar shell can establish a fixed-position containing block.
-	// Mount beside body so fullscreen is viewport-bound instead of sidebar-bound.
-	document.documentElement.append(overlay);
-	document.documentElement.classList.add("aaalice-operation-fullscreen-open");
-	renderOperation(fullscreenRoot, true);
-	document.addEventListener("keydown", fullscreenKey);
-}
-
-function exitFullscreen() {
-	fullscreenRoot?.parentElement?.remove();
-	fullscreenRoot = null;
-	document.documentElement.classList.remove("aaalice-operation-fullscreen-open");
-	document.removeEventListener("keydown", fullscreenKey);
-}
-
-function fullscreenKey(event) { if (event.key === "Escape") exitFullscreen(); }
 
 function registerSidebar() {
 	const manager = app.extensionManager;
@@ -680,64 +1288,50 @@ function registerSidebar() {
 		tooltip: t("aaalice.operation.tooltip", "Workflow operation controls"),
 		type: "custom",
 		render(container) {
-			sidebarRoot = container;
-			container.style.height = "100%";
-			container.style.overflow = "auto";
-			renderOperation(container, false);
+			sidebarContainer = container;
+			try { mountWorkspace(); }
+			catch (error) {
+				console.error(error);
+				toast("error", error.message || String(error));
+				throw error;
+			}
 		},
-		destroy() { sidebarRoot = null; },
+		destroy() {
+			unmountWorkspace();
+			sidebarContainer = null;
+		},
 	});
 }
-
-globalThis.aaaliceOperationPanel = Object.freeze({
-	registerAdapter(nodeType, adapter) {
-		if (!nodeType || typeof adapter?.render !== "function") throw new Error("Operation adapter needs nodeType and render()");
-		if (adapter.getPresetControls && typeof adapter.getPresetControls !== "function") throw new Error("getPresetControls must be a function");
-		adapters.set(nodeType, adapter);
-		renderAll();
-	},
-});
 
 app.registerExtension({
 	name: "ComfyUI.Aaalice.OperationPanel",
 	async init() { await ensureI18nReady(); },
 	getNodeMenuItems(node) {
-		if (!node || node.isVirtualNode) return [];
-		const registered = Boolean(nodeEntry(node)?.enabled);
-		const localized = registered
-			? t("aaalice.operation.remove", "🎛️ Remove from Operation Panel")
-			: t("aaalice.operation.add", "🎛️ Add to Operation Panel");
-		return [{
-			content: localized.startsWith("🎛️") ? localized : `🎛️ ${localized}`,
-			callback: () => (registered ? removeNode(node) : registerNode(node)),
-		}];
-	},
-	nodeCreated(node) { if (isParameterPanel(node)) setTimeout(() => registerNode(node, true), 0); },
-	loadedGraphNode(node) {
-		if (isParameterPanel(node)) {
-			const existing = nodeEntry(node);
-			if (!existing) setTimeout(() => registerNode(node, true), 0);
-		}
+		if (!node || !(app.graph?._nodes || []).includes(node) || (node.isVirtualNode && !isSubgraphNode(node)) || nodeModuleLocation(node.id)) return [];
+		const localized = t("aaalice.operation.add", "🎛️ Add to Operation Panel");
+		return [{ content: localized.startsWith("🎛️") ? localized : `🎛️ ${localized}`, callback: () => addNodeToPanel(node) }];
 	},
 	async setup() {
+		installOperationPanelApi(renderAll);
 		registerSidebar();
-		window.addEventListener(EVENT_OPERATION_CHANGED, renderAll);
-		window.addEventListener(EVENT_PARAMETER_LIST, renderAll);
-		for (const eventName of ["executed", "execution_success", "execution_error"]) api.addEventListener?.(eventName, renderAll);
+		window.addEventListener(EVENT_OPERATION_CHANGED, scheduleRender);
+		window.addEventListener(EVENT_PARAMETER_LIST, scheduleRender);
+		for (const eventName of ["executed", "execution_success", "execution_error"]) api.addEventListener?.(eventName, scheduleRender);
 		const graph = app.graph;
-		if (graph) {
+		if (graph && !graph.__aaaliceOperationPatched) {
+			graph.__aaaliceOperationPatched = true;
 			const add = graph.add;
-			graph.add = function (node) {
+			graph.add = function () {
 				const result = add.apply(this, arguments);
-				setTimeout(() => {
-					if (isParameterPanel(node) && !nodeEntry(node)) registerNode(node, true);
-					notifyParameterListChanged();
-				}, 0);
+				setTimeout(notifyParameterListChanged, 0);
 				return result;
 			};
 			const remove = graph.remove;
-			graph.remove = function () { const result = remove.apply(this, arguments); setTimeout(notifyParameterListChanged, 0); return result; };
+			graph.remove = function () {
+				const result = remove.apply(this, arguments);
+				setTimeout(notifyParameterListChanged, 0);
+				return result;
+			};
 		}
-		for (const node of graph?._nodes || []) if (isParameterPanel(node) && !nodeEntry(node)) registerNode(node, true);
 	},
 });

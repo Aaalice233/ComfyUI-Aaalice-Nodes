@@ -17,6 +17,7 @@ docs/
 .github/
 .gitignore
 .comfyignore
+package.json
 
 # —— 测试与缓存 ——
 tests/

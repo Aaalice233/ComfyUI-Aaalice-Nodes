@@ -13,9 +13,11 @@
 1. 确认工作区只包含本次发布内容，测试和构建产物未被跟踪。
 2. 更新 `pyproject.toml` version，并确认 packages 覆盖全部已实现节点域。
 3. 同步 English / 简体中文 README、locale 和公开限制。
-4. 检查 `.comfyignore`：排除协作文件、测试、缓存和本地产物，但保留运行时代码、assets、README 与 LICENSE。
-5. 运行 [`testing.md`](testing.md) 中与改动风险匹配的检查。
-6. 验证干净安装至少能导入节点、打开 UI 并执行最小工作流。
+4. 检查 `docs/`、ADR 状态链、开发规范与当前实现一致；内部设计和测试记录不复制进用户 README。
+5. 检查 `.comfyignore`：排除 `docs/`、协作文件、测试、缓存和本地产物，但保留运行时代码、locales、assets、双语 README 与 LICENSE。
+6. 运行 [`testing.md`](testing.md) 中与改动风险匹配的检查。
+7. 检查最终 Registry 包内容，确认没有误排运行时代码或误带协作资料。
+8. 验证干净安装至少能导入节点、打开 UI 并执行最小工作流。
 
 ## 发布
 

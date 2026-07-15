@@ -1,6 +1,6 @@
-# 项目文档
+# 开发文档
 
-本目录只存放项目的持久技术文档。用户安装与使用说明位于根目录 [README](../README.md) / [中文 README](../README.zh-CN.md)，开发硬规则位于 [AGENTS.md](../AGENTS.md)，领域词汇位于 [CONTEXT.md](../CONTEXT.md)。
+本目录只存放项目的持久技术文档，并通过 `.comfyignore` 排除在 Registry 安装包之外。用户安装与使用说明位于根目录 [README](../README.md) / [中文 README](../README.zh-CN.md)，开发硬规则位于 [AGENTS.md](../AGENTS.md)，领域词汇位于 [CONTEXT.md](../CONTEXT.md)。
 
 ## 架构决策
 
@@ -8,11 +8,14 @@
 
 ## 设计规范
 
-- [Herdi-inspired UI](design/herdi-inspired-ui.md)：主题 token、组件库、ParameterPanel 节点面与 Operation Panel 的视觉和交互规则。
+- [UI 设计系统](design/ui-system.md)：共同设计语言、主题 token、尺度、基础组件与状态规则。
+- [ParameterPanel](design/parameter-panel.md)：节点面、参数控件、结构编辑器与双模式渲染。
+- [Operation Panel](design/operation-panel.md)：页面、锚点、编辑模式、组合、轮播与空间利用。
 
 ## 开发说明
 
 - [Architecture](development/architecture.md)：当前节点、模块边界、数据流和状态真源。
+- [Operation Panel adapter API](development/operation-panel-adapters.md)：第三方节点卡片的版本化扩展接口。
 - [Testing](development/testing.md)：静态检查、后端测试、双模式 GUI 回归和证据要求。
 - [Release](development/release.md)：Registry 发布前检查与 GitHub Actions 流程。
 
@@ -20,5 +23,5 @@
 
 - 一次性调查记录、聊天结论、截图和本机故障笔记不进入仓库。
 - 面向普通用户的行为写入双语 README，不在开发文档重复维护。
-- 硬性规则写入 AGENTS.md；本目录解释结构、原因和可重复操作。
+- 硬性规则写入 AGENTS.md；本目录解释结构、设计和可重复操作。
 - 通用工具教程只有在本项目确实依赖该流程时才保留。

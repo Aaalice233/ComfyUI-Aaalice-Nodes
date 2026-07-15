@@ -10,11 +10,12 @@ ADR 只记录难逆、令人意外且存在真实方案取舍的决策。状态�
 
 - [ADR 0002：稳定参数身份与直接输出重绑](0002-parameter-stable-id-direct-output-rebind.md)
 - [ADR 0003：工作流序列化是参数状态真源](0003-workflow-serialization-source-of-truth.md)
-- [ADR 0005：单 ParameterPanel 与分页 Operation Panel](0005-single-parameter-panel-and-operation-pages.md)
+- [ADR 0006：锚点式模块化 Operation Panel](0006-anchored-modular-operation-panel.md)
 
 ## 历史决策
 
 - [ADR 0001：节点值面与常驻侧栏编辑器](0001-dual-surface-parameter-ui.md) → 被 ADR 0004 替代
 - [ADR 0004：节点内结构编辑与通用 Operation Panel](0004-node-authoring-and-operation-panel.md) → 被 ADR 0005 替代
+- [ADR 0005：单 ParameterPanel 与分页 Operation Panel](0005-single-parameter-panel-and-operation-pages.md) → 被 ADR 0006 替代
 
 不要删除 superseded ADR；它们解释了当前设计为何不是早期方案。

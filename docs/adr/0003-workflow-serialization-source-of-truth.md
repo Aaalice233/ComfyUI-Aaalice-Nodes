@@ -6,4 +6,4 @@ The legacy design kept parameter state in process-global server memory synced ov
 
 The ordered parameter definitions and values live in ParameterPanel node properties. Prompt serialization injects one parameter payload only for execution; the backend builds the 32 direct outputs from that payload. No process-global service state participates.
 
-Operation Panel pages, sections, registration, and layout are namespaced workflow properties because they describe this workflow's operating surface. Page Value Presets live separately in ComfyUI's `user` storage and are import material, never the live workflow source of truth.
+Operation Panel pages, modules, and anchor frames are namespaced workflow properties because they describe this workflow's operating surface. Value Presets live separately in ComfyUI's `user` storage and are import material, never the live workflow source of truth.

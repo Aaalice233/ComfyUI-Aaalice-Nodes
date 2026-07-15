@@ -1,6 +1,6 @@
 """SimpleStringSplit — split a string by delimiter into a list of parts.
 
-Behavior (aligned with old SimpleStringSplit, rewritten for V3):
+Behavior:
 - Split on the chosen delimiter
 - Strip whitespace on each part
 - Drop empty parts (consecutive / leading / trailing delimiters)

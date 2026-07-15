@@ -2,11 +2,10 @@
 import { t } from "../i18n.js";
 
 export const MAX_TUNABLE = 32;
-export const SEED_MAX = 0xffffffffffffffff;
+const SEED_MAX = 0xffffffffffffffff;
 export const EVENT_PARAMETER_CHANGED = "aaalice-parameter-panel-changed";
 export const EVENT_PARAMETER_LIST = "aaalice-parameter-panel-list-changed";
 export const EVENT_OPERATION_CHANGED = "aaalice-operation-panel-changed";
-export const OPERATION_PROPERTY = "aaalice_operation_panel";
 
 const TUNABLE = new Set(["slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist"]);
 const sourceOptions = {
@@ -29,7 +28,7 @@ const sourceOptions = {
 	upscale_model: [],
 };
 
-export function newStableId(prefix) {
+function newStableId(prefix) {
 	if (globalThis.crypto?.randomUUID) return `${prefix}_${globalThis.crypto.randomUUID()}`;
 	return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -100,11 +99,11 @@ export function refreshComfyOptions(nodeDefs) {
 	}
 }
 
-export function dynamicOptions(source) {
+function dynamicOptions(source) {
 	return [...(sourceOptions[source] || [])];
 }
 
-export function defaultValueForType(paramType, config = {}) {
+function defaultValueForType(paramType, config = {}) {
 	if (paramType === "slider") return Number(config.default ?? config.min ?? 0);
 	if (paramType === "seed") return Number(config.default ?? 0);
 	if (paramType === "switch") return Boolean(config.default ?? false);
@@ -156,7 +155,7 @@ function builtin(id, fallback, paramType, value, config = {}) {
 	});
 }
 
-export function createSamplerTemplateParameters() {
+function createSamplerTemplateParameters() {
 	return [
 		builtin("steps", "Steps", "slider", 30, { min: 1, max: 100, step: 1 }),
 		builtin("cfg", "CFG", "slider", 5, { min: 0, max: 20, step: 0.1 }),

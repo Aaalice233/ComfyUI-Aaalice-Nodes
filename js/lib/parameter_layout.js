@@ -58,7 +58,7 @@ function controlRect(width, rowTop, parameter, outputWidth) {
 	};
 }
 
-export function getVisibleOutputIndices(node) {
+function getVisibleOutputIndices(node) {
 	const parameters = ensureParameters(node);
 	const visible = [];
 	for (const parameter of parameters) if (isTunable(parameter)) visible.push(visible.length);

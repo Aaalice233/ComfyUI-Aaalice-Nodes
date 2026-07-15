@@ -8,6 +8,6 @@ ParameterControlPanel is now a multi-child-panel authoring container. Its node s
 
 The sidebar becomes a general **Operation Panel** for lightweight operation of explicitly registered workflow content. Registration is workflow metadata created from a node context-menu command. It does not overload node titles: titles remain free to communicate graph intent and graph readability does not become an integration protocol.
 
-Each registered parameter child panel is an independent layout item. Ordinary nodes are adapted from supported widgets; complex nodes may provide a dedicated adapter. Operation Panel can organize, alias, hide, and place items, including a fullscreen grid, but it cannot edit parameter definitions or graph topology and does not duplicate ComfyUI's execution controls.
+Each registered parameter child panel is an independent layout item. Ordinary nodes are adapted from supported widgets; complex nodes may provide a dedicated adapter. Operation Panel can organize, alias, hide, and place items in a workspace overlay that preserves ComfyUI navigation, but it cannot edit parameter definitions or graph topology and does not duplicate ComfyUI's execution controls.
 
 This decision superseded ADR 0001. It was made before the first Registry release, so the new model replaced the old single-panel shape without a compatibility layer.
