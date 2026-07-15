@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+	commandBarInsets,
 	distributeRects,
 	findNearestFreeRect,
 	frameFromRect,
@@ -45,4 +46,20 @@ test("distribution preserves first and last bounds", () => {
 		{ x: 400, y: 0, width: 100, height: 50 },
 	]);
 	assert.deepEqual(result.map((item) => item.x), [0, 200, 400]);
+});
+
+test("command bar occupies only the gap between native toolbar groups", () => {
+	assert.deepEqual(commandBarInsets(
+		{ left: 58, right: 1920 },
+		{ right: 184 },
+		{ left: 1260 },
+	), { left: 138, right: 672, width: 1052 });
+});
+
+test("command bar insets stay inside the workspace when native groups collide", () => {
+	assert.deepEqual(commandBarInsets(
+		{ left: 58, right: 720 },
+		{ right: 360 },
+		{ left: 340 },
+	), { left: 314, right: 392, width: 0 });
 });

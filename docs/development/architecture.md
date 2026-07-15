@@ -62,12 +62,13 @@ extension.js
   │    ├─ ParameterPanel DOM widget / editor / graphToPrompt
   │    └─ parameter_panel_kj.js（可选集成，不单独注册扩展）
   └─ parameter_sidebar.js
-       ├─ Operation Panel sidebar entry + workspace overlay
+       ├─ Operation Panel sidebar toggle + single workspace portal
+       ├─ native toolbar backdrop / unified command bar
        ├─ Page / Module layout editor
        └─ Operation adapter API installation
 ```
 
-ParameterPanel 在 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描中幂等挂载。Operation Panel 通过 ComfyUI sidebar API 注册入口，展开时把固定定位的工作区挂到 `document.body`，收起时卸载该工作区；它不通过压缩原图区域制造第二种紧凑模式。
+ParameterPanel 在 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描中幂等挂载。Operation Panel 通过 ComfyUI sidebar API 注册入口，但 sidebar render container 只承担原生 toggle 生命周期。展开时隐藏该 tab 对应的 `SplitterPanel` 和相邻 gutter，把一层背景及唯一工作区 portal 挂到 `document.body`；背景位于原生顶部工具之下，页面与编辑命令只占用原生面包屑和右侧 actionbar 之间的空间。收起时必须同时卸载 portal、背景并恢复 Splitter 元素，不能留下紧凑侧栏版本或第二套布局外壳。
 
 参数变化通过命名事件通知节点面和 Operation Panel 重绘。Operation Panel 对普通节点使用受支持 widget 的通用 adapter，对 ParameterPanel 使用稳定参数身份，对 Subgraph 使用其公开 widgets；第三方 adapter 只覆盖卡片渲染和 preset 项。
 

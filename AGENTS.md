@@ -88,6 +88,8 @@ ComfyUI-Aaalice-Nodes/
 - 节点面只显示值控件；Seed 可保留独立锁定按钮，禁止恢复节点级结构工具栏。
 - `js/lib/parameter_layout.js` 是参数行、控件矩形、输出位置和节点高度的唯一布局来源。
 - Operation Panel 只负责调值、结果查看与工作流级布局；不创建、删除、连线工作流节点，不修改参数定义，不提供独立执行按钮。
+- Operation Panel 的 sidebar tab 只作为展开/收起入口；激活时折叠其原生内容面板，只保留单一工作区 portal，关闭时必须恢复 Splitter 状态。
+- 页面、预设和编辑入口使用统一命令栏，只占原生面包屑与 actionbar 之间的空间；不得复制、覆盖或提升 ComfyUI 原生运行工具。
 - 页面结构固定为 Operation Panel → Page → Module；顶层 Module 使用锚点框架，卡片内部自动排版，同一节点或 Subgraph 只能出现一次。
 - 节点与 Subgraph 只能从其右键菜单主动加入；模块只在面板编辑模式移除，移除模块或页面不得删除工作流节点。
 - Group 只包含 Node Card；Carousel 只包含 Node Card 或一层 Group，禁止任意容器嵌套。
@@ -97,6 +99,8 @@ ComfyUI-Aaalice-Nodes/
 ## 6. 组件、主题与 i18n
 
 - 新 DOM 页面优先复用 `js/lib/ui.js` + `js/lib/ui.css`；业务布局放在 `js/lib/theme.css`。
+- 复杂布局存在两个以上合理方案，或仅靠文字难以判断空间关系时，修改正式代码前主动制作同内容、可切换的临时 HTML 演示；确认方案后再实现，原型默认不进入仓库。
+- 小范围颜色、间距、字号和单控件调整不制作 HTML 演示；用户已明确实现方向时直接落地。
 - 禁止重复实现 button、field、empty state、context menu 或 dialog；业务卡片与页面导航仍复用基础组件语义。
 - 颜色来自 ComfyUI token：`--fg-color`、`--descrip-text`、`--comfy-menu-secondary-bg`、`--comfy-input-bg`、`--border-color`、`--p-primary-color` 等。
 - 禁止写死品牌色或只适用于暗色主题的正文色；明暗主题切换必须同步。

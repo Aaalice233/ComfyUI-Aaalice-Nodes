@@ -18,6 +18,7 @@ import { renderSafeMarkdown } from "./lib/safe_markdown.js";
 import {
 	OPERATION_ANCHORS,
 	OPERATION_DESIGN_PRESETS,
+	commandBarInsets,
 	distributeRects,
 	findNearestFreeRect,
 	frameFromRect,
@@ -43,12 +44,16 @@ import { button, contextMenu, createDialog, el, emptyState, iconButton } from ".
 
 const SIDEBAR_ID = "aaalice-operation-panel";
 const WORKSPACE_SELECTOR = `[data-aaalice-operation-workspace="${SIDEBAR_ID}"]`;
+const BACKDROP_SELECTOR = `[data-aaalice-operation-backdrop="${SIDEBAR_ID}"]`;
 const DEFAULT_CARD_SIZE = Object.freeze({ width: 360, height: 240 });
 const GRID = 8;
 
 let sidebarContainer = null;
 let workspaceRoot = null;
+let workspaceBackdrop = null;
 let workspacePositionCleanup = null;
+let workspacePositionFrame = 0;
+let sidebarCollapseFrame = 0;
 let canvasElement = null;
 let activePageId = null;
 let editMode = false;
@@ -59,6 +64,7 @@ const measuredHeights = new Map();
 const carouselPages = new Map();
 const adapterCleanups = new Set();
 const viewCleanups = new Set();
+const collapsedSidebarElements = new Set();
 const resetNotices = new WeakSet();
 const pendingCollisionPages = new Set();
 
@@ -1012,9 +1018,10 @@ function renderToolbar(root, state, page) {
 			nav.append(tab);
 		}
 		pageArea.append(nav);
-	} else pageArea.append(el("strong", "aaalice-operation-single-page", page.name || t("aaalice.operation.title", "Operation Panel")));
+	}
 	const actions = el("div", "aaalice-operation-toolbar-actions");
-	const presets = button({ label: t("aaalice.operation.presets", "Presets"), iconName: "presets", variant: "secondary", size: "sm", onClick: () => presetMenu().catch((error) => toast("error", error.message || String(error))) });
+	const presetsLabel = t("aaalice.operation.presets", "Presets");
+	const presets = button({ label: presetsLabel, ariaLabel: presetsLabel, title: presetsLabel, iconName: "presets", variant: "secondary", size: "sm", onClick: () => presetMenu().catch((error) => toast("error", error.message || String(error))) });
 	actions.append(presets);
 	if (editMode) {
 		const design = createSelectControl([
@@ -1023,10 +1030,14 @@ function renderToolbar(root, state, page) {
 			{ label: t("aaalice.operation.currentWindow", "Current window"), value: "current" },
 		], page.design?.preset || "1440x900", { ariaLabel: t("aaalice.operation.designSize", "Design size"), onChange: (value) => setDesign(page, value) });
 		design.classList.add("aaalice-operation-design-select");
-		actions.append(design, button({ label: t("aaalice.operation.addPage", "Add page"), iconName: "add", variant: "secondary", size: "sm", onClick: addPage }));
+		const addPageLabel = t("aaalice.operation.addPage", "Add page");
+		actions.append(design, button({ label: addPageLabel, ariaLabel: addPageLabel, title: addPageLabel, iconName: "add", variant: "secondary", size: "sm", onClick: addPage }));
 	}
+	const editLabel = editMode ? t("aaalice.operation.finishEditing", "Done") : t("aaalice.operation.editLayout", "Edit layout");
 	actions.append(button({
-		label: editMode ? t("aaalice.operation.finishEditing", "Done") : t("aaalice.operation.editLayout", "Edit layout"),
+		label: editLabel,
+		ariaLabel: editLabel,
+		title: editLabel,
 		iconName: editMode ? "done" : "edit",
 		variant: editMode ? "primary" : "secondary",
 		size: "sm",
@@ -1064,20 +1075,22 @@ function renderWorkspace() {
 		}
 	});
 	for (const id of page.root_ids) if (page.modules[id]) canvasElement.append(renderRootModule(page, page.modules[id]));
-	if (!page.root_ids.length) canvasElement.append(emptyState({
+	const empty = !page.root_ids.length ? emptyState({
 		title: t("aaalice.operation.emptyTitle", "This page is empty"),
 		description: editMode
 			? t("aaalice.operation.emptyEdit", "Right-click the canvas to add text, or right-click a workflow node to add its controls.")
 			: t("aaalice.operation.empty", "Right-click a workflow node and choose Add to Operation Panel."),
 		iconName: "layout",
 		className: "aaalice-operation-empty",
-	}));
+	}) : null;
 	scroll.append(canvasElement);
 	workspaceRoot.append(scroll);
+	if (empty) workspaceRoot.append(empty);
 	if (state.reset_from_version != null && app.graph && !resetNotices.has(app.graph)) {
 		resetNotices.add(app.graph);
 		toast("info", t("aaalice.operation.layoutReset", "Operation Panel uses a new layout format. The previous layout was not migrated."));
 	}
+	positionWorkspace();
 }
 
 function slug(value) {
@@ -1209,45 +1222,132 @@ async function presetMenu() {
 	else if (action === "delete") await deletePreset();
 }
 
+function sideToolbar() {
+	return document.querySelector('[data-testid="side-toolbar"]') || document.querySelector("nav.side-tool-bar-container");
+}
+
+function nativeToolbarParts(graphPanel) {
+	const verticalSplitter = graphPanel?.parentElement;
+	const centerPanel = verticalSplitter?.parentElement;
+	const actionbar = centerPanel?.querySelector(".actionbar-container");
+	const trailing = actionbar?.parentElement?.parentElement;
+	const topRow = trailing?.parentElement;
+	const leading = topRow?.firstElementChild?.firstElementChild;
+	return { actionbar, centerPanel, leading, trailing };
+}
+
+function setPortalBounds(element, bounds) {
+	if (!element) return;
+	element.style.left = `${bounds.left}px`;
+	element.style.right = `${Math.max(0, innerWidth - bounds.right)}px`;
+	element.style.top = `${bounds.top}px`;
+	element.style.bottom = `${Math.max(0, innerHeight - bounds.bottom)}px`;
+}
+
+function nativeLeadingRect(element) {
+	if (!element) return null;
+	const controls = [...element.querySelectorAll("button, a, [role='button']")]
+		.filter((control) => control.getClientRects().length)
+		.map((control) => control.getBoundingClientRect());
+	if (!controls.length) return null;
+	return { right: Math.max(...controls.map((rect) => rect.right)) };
+}
+
 function positionWorkspace() {
 	if (!workspaceRoot?.isConnected) return;
-	const toolbar = document.querySelector('[data-testid="side-toolbar"], .side-tool-bar-container');
+	const toolbar = sideToolbar();
 	const graphPanel = document.querySelector(".graph-canvas-panel");
 	const toolbarRect = toolbar?.getBoundingClientRect();
 	const graphRect = graphPanel?.getBoundingClientRect();
 	const sidebarOnLeft = !toolbarRect || toolbarRect.left < innerWidth / 2;
-	workspaceRoot.style.left = `${sidebarOnLeft ? Math.max(0, toolbarRect?.right || 0) : 0}px`;
-	workspaceRoot.style.right = `${sidebarOnLeft ? 0 : Math.max(0, innerWidth - toolbarRect.left)}px`;
-	workspaceRoot.style.top = `${Math.max(0, graphRect?.top || 0)}px`;
-	workspaceRoot.style.bottom = `${Math.max(0, innerHeight - (graphRect?.bottom || innerHeight))}px`;
+	const bounds = {
+		left: sidebarOnLeft ? Math.max(0, toolbarRect?.right || 0) : 0,
+		right: sidebarOnLeft ? innerWidth : Math.max(0, toolbarRect?.left || innerWidth),
+		top: Math.max(0, toolbarRect?.top ?? graphRect?.top ?? 0),
+		bottom: Math.max(0, graphRect?.bottom || innerHeight),
+	};
+	setPortalBounds(workspaceBackdrop, bounds);
+	setPortalBounds(workspaceRoot, bounds);
+	workspaceRoot.style.setProperty("--aaalice-operation-native-chrome-height", `${Math.max(0, (graphRect?.top || 0) - bounds.top)}px`);
+	const { leading, trailing } = nativeToolbarParts(graphPanel);
+	const leadingRect = nativeLeadingRect(leading);
+	const trailingRect = trailing?.getClientRects().length ? trailing.getBoundingClientRect() : null;
+	const insets = commandBarInsets(bounds, leadingRect, trailingRect);
+	workspaceRoot.style.setProperty("--aaalice-operation-command-left", `${insets.left}px`);
+	workspaceRoot.style.setProperty("--aaalice-operation-command-right", `${insets.right}px`);
+	workspaceRoot.classList.toggle("is-command-compact", insets.width < 620);
+	workspaceRoot.classList.toggle("is-command-hidden", insets.width < 180);
+}
+
+function scheduleWorkspacePosition() {
+	if (workspacePositionFrame) cancelAnimationFrame(workspacePositionFrame);
+	workspacePositionFrame = requestAnimationFrame(() => {
+		workspacePositionFrame = 0;
+		positionWorkspace();
+	});
 }
 
 function observeWorkspaceBounds() {
 	workspacePositionCleanup?.();
-	const observed = [
-		document.querySelector('[data-testid="side-toolbar"], .side-tool-bar-container'),
-		document.querySelector(".graph-canvas-panel"),
-	].filter(Boolean);
-	const observer = globalThis.ResizeObserver ? new ResizeObserver(positionWorkspace) : null;
+	const graphPanel = document.querySelector(".graph-canvas-panel");
+	const native = nativeToolbarParts(graphPanel);
+	const observed = [sideToolbar(), graphPanel, native.leading, native.trailing].filter(Boolean);
+	const observer = globalThis.ResizeObserver ? new ResizeObserver(scheduleWorkspacePosition) : null;
 	for (const element of observed) observer?.observe(element);
-	window.addEventListener("resize", positionWorkspace);
+	window.addEventListener("resize", scheduleWorkspacePosition);
 	workspacePositionCleanup = () => {
 		observer?.disconnect();
-		window.removeEventListener("resize", positionWorkspace);
+		window.removeEventListener("resize", scheduleWorkspacePosition);
+		if (workspacePositionFrame) cancelAnimationFrame(workspacePositionFrame);
+		workspacePositionFrame = 0;
 		workspacePositionCleanup = null;
 	};
 }
 
+function restoreSidebarHost() {
+	for (const element of collapsedSidebarElements) element.classList.remove("aaalice-operation-sidebar-collapsed");
+	collapsedSidebarElements.clear();
+}
+
+function collapseSidebarHost() {
+	restoreSidebarHost();
+	const host = sidebarContainer?.closest?.(".side-bar-panel")
+		|| [...document.querySelectorAll(".side-bar-panel")].find((element) => element.getClientRects().length);
+	if (!host) return;
+	const candidates = [host, host.previousElementSibling, host.nextElementSibling];
+	for (const element of candidates) {
+		if (!(element instanceof HTMLElement)) continue;
+		if (element !== host && !element.classList.contains("p-splitter-gutter")) continue;
+		element.classList.add("aaalice-operation-sidebar-collapsed");
+		collapsedSidebarElements.add(element);
+	}
+}
+
+function scheduleSidebarHostCollapse() {
+	if (sidebarCollapseFrame) cancelAnimationFrame(sidebarCollapseFrame);
+	sidebarCollapseFrame = requestAnimationFrame(() => {
+		sidebarCollapseFrame = 0;
+		collapseSidebarHost();
+		scheduleWorkspacePosition();
+	});
+}
+
 function mountWorkspace() {
-	// Vue may call a custom sidebar's render callback more than once without a matching destroy.
-	// Keep one body-level portal so Splitter rerenders cannot resize or orphan the workspace.
+	// The sidebar tab remains the native toggle, but its SplitterPanel must not
+	// reserve a second layout shell while the body-level workspace is visible.
+	collapseSidebarHost();
+	scheduleSidebarHostCollapse();
+	if (sidebarContainer) sidebarContainer.hidden = true;
 	if (workspaceRoot?.isConnected) {
-		if (sidebarContainer) sidebarContainer.hidden = true;
-		positionWorkspace();
 		renderWorkspace();
+		scheduleWorkspacePosition();
 		return;
 	}
-	document.querySelectorAll(WORKSPACE_SELECTOR).forEach((element) => element.remove());
+	document.querySelectorAll(`${WORKSPACE_SELECTOR}, ${BACKDROP_SELECTOR}`).forEach((element) => element.remove());
+	workspaceBackdrop = el("div", {
+		className: "aaalice-operation-backdrop aaalice-pcp",
+		attrs: { "aria-hidden": "true", "data-aaalice-operation-backdrop": SIDEBAR_ID },
+	});
 	workspaceRoot = el("section", {
 		className: "aaalice-operation-workspace",
 		attrs: {
@@ -1256,19 +1356,22 @@ function mountWorkspace() {
 			"data-aaalice-operation-workspace": SIDEBAR_ID,
 		},
 	});
-	document.body.append(workspaceRoot);
-	if (sidebarContainer) sidebarContainer.hidden = true;
-	positionWorkspace();
-	observeWorkspaceBounds();
+	document.body.append(workspaceBackdrop, workspaceRoot);
 	renderWorkspace();
+	observeWorkspaceBounds();
+	scheduleWorkspacePosition();
 }
 
 function unmountWorkspace() {
 	cleanupAdapters();
 	workspacePositionCleanup?.();
+	if (sidebarCollapseFrame) cancelAnimationFrame(sidebarCollapseFrame);
+	sidebarCollapseFrame = 0;
+	restoreSidebarHost();
 	if (sidebarContainer) sidebarContainer.hidden = false;
-	document.querySelectorAll(WORKSPACE_SELECTOR).forEach((element) => element.remove());
+	document.querySelectorAll(`${WORKSPACE_SELECTOR}, ${BACKDROP_SELECTOR}`).forEach((element) => element.remove());
 	workspaceRoot = null;
+	workspaceBackdrop = null;
 	canvasElement = null;
 	selection.clear();
 	editMode = false;

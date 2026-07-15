@@ -461,6 +461,13 @@
 .aaalice-editor-save-status.is-dirty::before { background: var(--aaalice-accent); opacity: 1; }
 .aaalice-parameter-editor-footer .aaalice-pcp-error { margin: 0; font-size: 11px; }
 
+.aaalice-operation-backdrop {
+	position: fixed;
+	z-index: 998;
+	background: var(--aa-ui-canvas, var(--comfy-menu-bg));
+	pointer-events: none;
+}
+.aaalice-operation-sidebar-collapsed { display: none !important; }
 .aaalice-operation-workspace {
 	position: fixed;
 	z-index: 1000;
@@ -471,33 +478,41 @@
 	display: grid;
 	min-width: 0;
 	min-height: 0;
-	grid-template-rows: auto minmax(0, 1fr);
-	background: var(--aa-ui-canvas);
+	grid-template-rows: var(--aaalice-operation-native-chrome-height, 0) minmax(0, 1fr);
+	background: transparent;
 	color: var(--aaalice-text);
 	isolation: isolate;
+	pointer-events: none;
 }
 .aaalice-operation-toolbar {
+	position: absolute;
 	z-index: 4;
+	top: 0;
+	right: var(--aaalice-operation-command-right, 12px);
+	left: var(--aaalice-operation-command-left, 12px);
 	display: flex;
-	min-height: 50px;
+	height: var(--aaalice-operation-native-chrome-height, 56px);
+	min-width: 0;
 	align-items: center;
 	justify-content: space-between;
-	gap: 16px;
-	padding: 8px 14px;
-	border-bottom: 1px solid var(--aaalice-border);
-	background: color-mix(in srgb, var(--aaalice-surface) 96%, transparent);
-	backdrop-filter: blur(12px);
+	gap: 12px;
+	overflow: hidden;
+	padding: 5px 0;
+	pointer-events: auto;
 }
 .aaalice-operation-page-area { display: flex; min-width: 0; flex: 1; align-items: center; }
-.aaalice-operation-single-page { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .aaalice-operation-page-tabs { display: flex; min-width: 0; overflow-x: auto; align-self: stretch; gap: 16px; scrollbar-width: thin; }
 .aaalice-operation-page-tab { position: relative; flex: 0 0 auto; border: 0; border-radius: 0; color: var(--aaalice-muted); }
 .aaalice-operation-page-tab::after { position: absolute; right: 4px; bottom: -8px; left: 4px; height: 2px; background: transparent; content: ""; }
 .aaalice-operation-page-tab.is-active { color: var(--aaalice-text); }
 .aaalice-operation-page-tab.is-active::after { background: var(--aaalice-accent); }
-.aaalice-operation-toolbar-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
+.aaalice-operation-toolbar-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; padding-left: 10px; border-left: 1px solid var(--aaalice-border); }
 .aaalice-operation-design-select { width: 142px; min-height: 30px !important; padding-block: 4px !important; font-size: 12px !important; }
-.aaalice-operation-scroll { min-width: 0; min-height: 0; overflow: auto; background: var(--aa-ui-canvas); scrollbar-gutter: stable; }
+.aaalice-operation-workspace.is-command-compact .aaalice-operation-toolbar { gap: 6px; }
+.aaalice-operation-workspace.is-command-compact .aaalice-operation-toolbar-actions .aa-ui-button__label { display: none; }
+.aaalice-operation-workspace.is-command-compact .aaalice-operation-design-select { width: 112px; }
+.aaalice-operation-workspace.is-command-hidden .aaalice-operation-toolbar { display: none; }
+.aaalice-operation-scroll { min-width: 0; min-height: 0; overflow: auto; grid-row: 2; grid-column: 1; border-top: 1px solid var(--aaalice-border); background: var(--aa-ui-canvas); scrollbar-gutter: stable; pointer-events: auto; }
 .aaalice-operation-canvas {
 	position: relative;
 	background-color: var(--aa-ui-canvas);
@@ -550,7 +565,7 @@
 .aaalice-operation-carousel-slides { position: relative; min-height: 80px; transition: height .16s ease; }
 .aaalice-operation-carousel-slide { position: absolute; inset: 0; visibility: hidden; opacity: 0; pointer-events: none; }
 .aaalice-operation-carousel-slide.is-active { position: relative; visibility: visible; opacity: 1; pointer-events: auto; }
-.aaalice-operation-empty { position: absolute; inset: 0; min-height: 420px; place-content: center; pointer-events: none; }
+.aaalice-operation-empty { position: relative; z-index: 3; min-width: 0; min-height: 0; grid-row: 2; grid-column: 1; place-content: center; pointer-events: none; }
 .aaalice-operation-content-editor { min-height: min(52vh, 520px) !important; resize: vertical; }
 .aaalice-operation-error { padding: 10px; border: 1px solid var(--aaalice-danger); border-radius: 6px; color: var(--aaalice-danger); white-space: pre-wrap; }
 .aaalice-operation-row { display: grid; grid-template-columns: minmax(76px, .7fr) minmax(0, 1.3fr); align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-border) 60%, transparent); }

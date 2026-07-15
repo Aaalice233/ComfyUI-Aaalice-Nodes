@@ -123,3 +123,22 @@ export function distributeRects(rects, axis = "x") {
 	}
 	return ordered.sort((a, b) => a.index - b.index).map((item) => item.rect);
 }
+
+export function commandBarInsets(workspace, leadingObstacle, trailingObstacle, gap = 12) {
+	const spacing = Math.max(0, Number(gap) || 0);
+	const workspaceLeft = Number(workspace?.left) || 0;
+	const workspaceRight = Math.max(workspaceLeft, Number(workspace?.right) || 0);
+	const leadingRight = Number(leadingObstacle?.right);
+	const trailingLeft = Number(trailingObstacle?.left);
+	const contentLeft = Number.isFinite(leadingRight)
+		? Math.max(workspaceLeft + spacing, leadingRight + spacing)
+		: workspaceLeft + spacing;
+	const contentRight = Number.isFinite(trailingLeft)
+		? Math.min(workspaceRight - spacing, trailingLeft - spacing)
+		: workspaceRight - spacing;
+	return {
+		left: Math.max(spacing, contentLeft - workspaceLeft),
+		right: Math.max(spacing, workspaceRight - contentRight),
+		width: Math.max(0, contentRight - contentLeft),
+	};
+}
