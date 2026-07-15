@@ -647,10 +647,16 @@ function renderAll() {
 
 function enterFullscreen() {
 	if (fullscreenRoot) return;
-	const overlay = el("div", "aaalice-operation-fullscreen");
+	const overlay = el("div", {
+		className: "aaalice-operation-fullscreen",
+		attrs: { role: "region", "aria-label": t("aaalice.operation.title", "Operation Panel") },
+	});
 	fullscreenRoot = el("div");
 	overlay.append(fullscreenRoot);
-	document.body.append(overlay);
+	// ComfyUI's sidebar shell can establish a fixed-position containing block.
+	// Mount beside body so fullscreen is viewport-bound instead of sidebar-bound.
+	document.documentElement.append(overlay);
+	document.documentElement.classList.add("aaalice-operation-fullscreen-open");
 	renderOperation(fullscreenRoot, true);
 	document.addEventListener("keydown", fullscreenKey);
 }
@@ -658,6 +664,7 @@ function enterFullscreen() {
 function exitFullscreen() {
 	fullscreenRoot?.parentElement?.remove();
 	fullscreenRoot = null;
+	document.documentElement.classList.remove("aaalice-operation-fullscreen-open");
 	document.removeEventListener("keydown", fullscreenKey);
 }
 
@@ -697,8 +704,11 @@ app.registerExtension({
 	getNodeMenuItems(node) {
 		if (!node || node.isVirtualNode) return [];
 		const registered = Boolean(nodeEntry(node)?.enabled);
+		const localized = registered
+			? t("aaalice.operation.remove", "🎛️ Remove from Operation Panel")
+			: t("aaalice.operation.add", "🎛️ Add to Operation Panel");
 		return [{
-			content: registered ? t("aaalice.operation.remove", "Remove from Operation Panel") : t("aaalice.operation.add", "Add to Operation Panel"),
+			content: localized.startsWith("🎛️") ? localized : `🎛️ ${localized}`,
 			callback: () => (registered ? removeNode(node) : registerNode(node)),
 		}];
 	},

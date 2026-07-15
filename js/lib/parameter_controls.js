@@ -21,7 +21,33 @@ function numericInput(parameter, onChange, ariaLabel = "") {
 export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_SAFE_INTEGER, step = 1, onCommit }) {
 	if (!anchor || anchor.ownerDocument?.querySelector(".aaalice-parameter-inline-editor")) return null;
 	const rect = anchor.getBoundingClientRect();
-	const input = document.createElement("input");
+	const view = anchor.ownerDocument.defaultView || window;
+	const root = anchor.closest(".aaalice-pcp-node-root");
+	const anchorStyle = view.getComputedStyle(anchor);
+	let editorBackground = anchorStyle.backgroundColor;
+	let editorColor = anchorStyle.color;
+	let editorAccent = anchorStyle.borderTopColor;
+	let editorAccentSoft = "transparent";
+	if (root) {
+		const probe = anchor.ownerDocument.createElement("span");
+		Object.assign(probe.style, {
+			position: "fixed",
+			visibility: "hidden",
+			pointerEvents: "none",
+			background: "var(--aaalice-node-editor)",
+			color: "var(--aaalice-node-value)",
+			border: "1px solid var(--aaalice-node-accent)",
+			outline: "1px solid var(--aaalice-node-accent-soft)",
+		});
+		root.append(probe);
+		const resolved = view.getComputedStyle(probe);
+		editorBackground = resolved.backgroundColor;
+		editorColor = resolved.color;
+		editorAccent = resolved.borderTopColor;
+		editorAccentSoft = resolved.outlineColor;
+		probe.remove();
+	}
+	const input = anchor.ownerDocument.createElement("input");
 	input.className = "aaalice-parameter-inline-editor aaalice-pcp-inline-input";
 	input.type = "number";
 	input.inputMode = "decimal";
@@ -29,10 +55,19 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	input.max = String(max);
 	input.step = String(step);
 	input.value = String(value);
+	input.style.setProperty("--aaalice-inline-editor-bg", editorBackground);
+	input.style.setProperty("--aaalice-inline-editor-color", editorColor);
+	input.style.setProperty("--aaalice-inline-editor-accent", editorAccent);
+	input.style.setProperty("--aaalice-inline-editor-accent-soft", editorAccentSoft);
 	Object.assign(input.style, { position: "fixed", left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px`, zIndex: "10000" });
+	anchor.classList.add("is-editing");
 	anchor.ownerDocument.body.append(input);
 	let done = false;
-	const cleanup = () => { window.removeEventListener("wheel", commitOnWheel, true); input.remove(); };
+	const cleanup = () => {
+		view.removeEventListener("wheel", commitOnWheel, true);
+		anchor.classList.remove("is-editing");
+		input.remove();
+	};
 	const restoreFocus = () => {
 		let target = anchor;
 		if (!target.isConnected && anchor.dataset?.parameterId) {
@@ -61,9 +96,30 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 		else if (event.key === "Escape") cancel();
 	});
 	input.addEventListener("blur", commit);
-	window.addEventListener("wheel", commitOnWheel, true);
+	view.addEventListener("wheel", commitOnWheel, true);
 	setTimeout(() => { input.focus(); input.select(); }, 0);
 	return input;
+}
+
+function numericPill(parameter, onChange, ariaLabel = "") {
+	const config = parameter.config || {};
+	const pill = el("button", "aaalice-shared-number-pill", String(parameter.value ?? 0));
+	pill.type = "button";
+	pill.dataset.parameterId = String(parameter.id || "");
+	pill.dataset.aaaliceValuePill = "true";
+	if (ariaLabel) pill.setAttribute("aria-label", ariaLabel);
+	pill.addEventListener("click", () => createNumericEditor(pill, {
+		value: parameter.value ?? 0,
+		min: Number(config.min ?? 0),
+		max: Number(config.max ?? Number.MAX_SAFE_INTEGER),
+		step: Number(config.step ?? 1),
+		onCommit: (value) => {
+			parameter.value = value;
+			pill.textContent = String(value);
+			onChange?.(value);
+		},
+	}));
+	return pill;
 }
 
 export function createSelectControl(options = [], value, { onChange, ariaLabel = "" } = {}) {
@@ -113,10 +169,12 @@ export function createParameterControl({ parameter, mode = "sidebar", onChange, 
 	if (!parameter) return document.createElement("span");
 	const config = parameter.config || {};
 	const parameterLabel = labels.input || labels.select || labels.switch || parameter.name || parameter.id || "Parameter";
-	if (parameter.param_type === "seed") return numericInput(parameter, onChange, parameterLabel);
+	if (parameter.param_type === "seed") return mode === "node"
+		? numericInput(parameter, onChange, parameterLabel)
+		: numericPill(parameter, onChange, parameterLabel);
 	if (parameter.param_type === "slider") {
 		if (mode === "node") return numericInput(parameter, onChange, parameterLabel);
-		const wrap = el("div", `aaalice-shared-slider${parameter.param_type === "seed" ? " seed" : ""}`);
+		const wrap = el("div", "aaalice-shared-slider");
 		const range = document.createElement("input");
 		range.type = "range";
 		range.min = String(config.min ?? 0);
@@ -124,8 +182,8 @@ export function createParameterControl({ parameter, mode = "sidebar", onChange, 
 		range.step = String(config.step ?? 1);
 		range.value = String(parameter.value ?? 0);
 		range.setAttribute("aria-label", parameterLabel);
-		const number = numericInput(parameter, (value) => { range.value = String(value); onChange?.(value); }, parameterLabel);
-		range.addEventListener("input", () => { parameter.value = Number(range.value); number.value = range.value; onChange?.(parameter.value); });
+		const number = numericPill(parameter, (value) => { range.value = String(value); onChange?.(value); }, parameterLabel);
+		range.addEventListener("input", () => { parameter.value = Number(range.value); number.textContent = range.value; onChange?.(parameter.value); });
 		wrap.append(range, number);
 		return wrap;
 	}
@@ -139,8 +197,4 @@ export function createParameterControl({ parameter, mode = "sidebar", onChange, 
 		onChange?.(parameter.value);
 	});
 	return input;
-}
-
-export function createSharedSelectArrow() {
-	return icon("moveDown");
 }

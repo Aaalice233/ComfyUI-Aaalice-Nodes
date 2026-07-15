@@ -83,18 +83,21 @@ const panel = card({
 
 ### 节点布局与控件规则
 
-- 右侧输出列不占标题区域；参数行按统一布局引擎生成，控件矩形、命中矩形和输出位置共享同一条基线。未使用输出在原生测量、绘制和 Nodes 2.0 slot DOM 中隐藏，但不删除协议槽位。
-- 节点最小宽度约 370 graph units，控件内容为输出列留出约 53px；普通参数行使用约 64px（标签行 + 34–36px 控件 + 间隙），多行文本和分隔区按内容增加高度，节点高度取实际内容与输出行的较大值，不能让 socket 被截断或覆盖。
-- Slider 使用主题轨道、较大的手柄和紧凑数值 pill；拖动立即更新，点击数值 pill 才进入输入状态。Switch 使用带轨道与滑块的胶囊按钮，必须有 `aria-pressed`。
+- 右侧输出列不占标题区域；参数行与顶部紧凑输出栈由同一布局引擎生成，但使用各自的垂直节奏。参数控件保持统一行基线，输出按固定 slot 步长从顶部连续排列。未使用输出在原生测量、绘制和 Nodes 2.0 slot DOM 中隐藏，但不删除协议槽位。
+- 节点最小宽度约 370 graph units，控件内容为输出列留出约 53px，并在控件与输出文本之间保留明确 gutter；普通参数行使用约 58px（标签/数值行 + 32px 控件 + 间隙），多行文本和分隔区按内容增加高度，节点高度取实际内容与输出行的较大值，不能让 socket 被截断或覆盖。
+- Slider 的名称与数值位于同一行，主题轨道在下方占满可用宽度；拖动立即更新，点击数值才创建临时输入框。Switch 使用带轨道与滑块的胶囊按钮，必须有 `aria-pressed`。
 - 少量 enum 使用分段按钮组，大量选项使用带主题箭头的 select；打开、关闭、Escape 和 change 时箭头状态同步。
-- Seed 保留完整数值区域，只使用一个锁图标；默认未锁定，锁定态使用危险色。控件不使用装饰性渐变，滑条进度色仅表示当前值。
+- Seed 保留完整数值区域，锁定按钮作为输入框尾部控件内嵌：未锁定使用开锁图标与主题强调色，锁定使用闭锁图标与危险色；两者共享输入框外轮廓并保留独立命中区。控件不使用装饰性渐变，滑条进度色仅表示当前值。
+- 可输入字段使用由 `--comfy-input-bg`、前景色和边框色派生的内嵌表面，通过轻微明暗差、实线轮廓和克制内阴影与节点底板分层；只读数值与滑条底板保持扁平，避免过度框选。挂载到页面根部的临时数字编辑器必须复制节点已解析的主题色，使用不透明的高对比编辑表面，并隐藏原生微调箭头与底层静态数值。
 - 所有交互控件增大垂直高度和命中区，hover/focus/active 只做短反馈，并遵守 `prefers-reduced-motion`。
 
 ### 双模式边界
 
-Canvas 静态层可绘制参数标签、滑条轨道/手柄和 Switch 外观，但不承担唯一的交互语义。DOM widget 以透明或轻量 overlay 形式提供 range、button、select、inline editor，并保留 `aria-label`、键盘焦点和 `aria-pressed`。`node.outputs`、`shape`、`color_off`、`color_on` 以及原生 slot hit-test 负责真实输出。不要用 DOM 伪造 socket，也不要把 Quick Latent 的 Canvas 鼠标坐标算法直接移植到 Nodes 2.0。
+Canvas 静态层只负责统一面板表面、输出列分区和布局反馈；标签、range、Switch、segmented、select、数值按钮与 inline editor 使用同一套真实 DOM 行布局，避免双坐标系造成遮挡，并确保 hover、focus 与下拉箭头状态完整。DOM 必须保留 `aria-label`、键盘焦点和 `aria-pressed`。`node.outputs`、`shape`、`color_off`、`color_on` 以及原生 slot hit-test 负责真实输出。不要用 DOM 伪造 socket，也不要把 Quick Latent 的 Canvas 鼠标坐标算法直接移植到 Nodes 2.0。
 
-布局模块必须输出稳定的 `computeParameterLayout(node)`、`getVisibleOutputIndices(node)`、`syncNativeOutputLayout(node, layout)` 和 `graphRectToViewport(node, rect)` 接口；临时数字编辑全局同一时间只允许一个实例，Enter/blur/滚轮提交，Escape 取消。
+Nodes 2.0 的原生输出槽容器覆盖在 DOM widget 右侧，槽位 `top` 使用布局引擎提供的紧凑输出栈坐标；未使用槽仍保留在协议数组中，但在 Vue slot DOM 中隐藏。由于切换模式和节点重建会重新挂载 Vue DOM，使用幂等 `MutationObserver` 在真实挂载事件后恢复槽位 class 与坐标，不使用持续轮询。输出文本允许在预留 gutter 内向左扩展，以避免中文名称被框架默认 `pl-6` 截成单字。
+
+布局模块必须输出稳定的 `computeParameterLayout(node)`、`getVisibleOutputIndices(node)` 和 `syncNativeOutputLayout(node, layout)` 接口；临时数字编辑全局同一时间只允许一个实例，Enter/blur/滚轮提交，Escape 取消。
 
 ## 页面模式
 

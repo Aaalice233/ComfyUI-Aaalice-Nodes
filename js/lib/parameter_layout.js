@@ -5,34 +5,54 @@ import { app } from "../../../scripts/app.js";
 export const PARAMETER_NODE_LAYOUT = Object.freeze({
 	minWidth: 370,
 	outputColumn: 53,
-	bodyPadding: 8,
-	// Every parameter row contains a label line and a 34–36px control.
-	// Keeping the geometry large enough for both is what prevents select/slider
-	// overlays from spilling into the next row at normal canvas zoom.
-	rowHeight: 64,
-	sectionHeight: 28,
-	controlHeight: 34,
-	rowGap: 4,
+	outputColumnMax: 116,
+	outputSlotHeight: 24,
+	outputSlotStep: 24,
+	bodyPadding: 4,
+	// Quick Latent keeps a predictable label/control rhythm. The DOM overlay
+	// still receives a 32px hit target, while the canvas surface stays compact.
+	rowHeight: 48,
+	sectionHeight: 22,
+	controlHeight: 32,
+	rowGap: 2,
 	minHitSize: 32,
 });
 
 function rowHeight(parameter) {
 	return parameter.param_type === "string" && parameter.config?.multiline
-		? Math.max(80, PARAMETER_NODE_LAYOUT.rowHeight + 32)
+		? Math.max(70, PARAMETER_NODE_LAYOUT.rowHeight + 22)
 		: PARAMETER_NODE_LAYOUT.rowHeight;
 }
 
-function controlRect(width, rowTop, parameter) {
+function estimatedOutputLabelWidth(name) {
+	let width = 0;
+	for (const character of Array.from(String(name || ""))) {
+		width += /[\u2e80-\u9fff\uf900-\ufaff\uff01-\uff60]/u.test(character) ? 12 : 7;
+	}
+	return width;
+}
+
+function outputColumnWidth(parameters) {
+	const labelWidth = parameters
+		.filter(isTunable)
+		.reduce((maximum, parameter) => Math.max(maximum, estimatedOutputLabelWidth(displayName(parameter))), 0);
+	return Math.min(
+		PARAMETER_NODE_LAYOUT.outputColumnMax,
+		Math.max(PARAMETER_NODE_LAYOUT.outputColumn, Math.ceil(labelWidth + 22)),
+	);
+}
+
+function controlRect(width, rowTop, parameter, outputWidth) {
 	const left = PARAMETER_NODE_LAYOUT.bodyPadding;
-	const right = Math.max(left + 120, width - PARAMETER_NODE_LAYOUT.outputColumn - PARAMETER_NODE_LAYOUT.bodyPadding);
+	const right = Math.max(left + 120, width - outputWidth - PARAMETER_NODE_LAYOUT.bodyPadding - 6);
 	const height = parameter.param_type === "string" && parameter.config?.multiline
-		? 64
+		? 56
 		: PARAMETER_NODE_LAYOUT.controlHeight;
 	return {
 		left,
-		// The label occupies the first line; controls sit below it instead of
-		// sharing the same vertical center as the label.
-		top: rowTop + 24,
+		// Keep the control directly below the compact label line while preserving
+		// the 32px accessible hit target.
+		top: rowTop + 15,
 		width: Math.max(80, right - left),
 		height,
 	};
@@ -49,6 +69,7 @@ export function computeParameterLayout(node) {
 	const width = Math.max(PARAMETER_NODE_LAYOUT.minWidth, Number(node.size?.[0]) || PARAMETER_NODE_LAYOUT.minWidth);
 	const contentTop = Number(node.constructor?.slot_start_y) || 0;
 	const parameters = ensureParameters(node);
+	const outputWidth = outputColumnWidth(parameters);
 	const rows = [];
 	let cursor = PARAMETER_NODE_LAYOUT.bodyPadding;
 	let outputIndex = 0;
@@ -65,17 +86,19 @@ export function computeParameterLayout(node) {
 			continue;
 		}
 		const height = rowHeight(parameter);
-		const control = controlRect(width, cursor, parameter);
+		const control = controlRect(width, cursor, parameter, outputWidth);
 		const label = {
 			left: control.left,
-			top: cursor + 5,
+			top: cursor + 1,
 			width: control.width,
-			height: 18,
+			height: 15,
 		};
 		const output = {
 			index: outputIndex,
 			left: width - 1,
-			top: cursor + height / 2,
+			top: PARAMETER_NODE_LAYOUT.bodyPadding
+				+ PARAMETER_NODE_LAYOUT.outputSlotHeight / 2
+				+ outputIndex * PARAMETER_NODE_LAYOUT.outputSlotStep,
 		};
 		rows.push({
 			kind: "parameter",
@@ -94,8 +117,17 @@ export function computeParameterLayout(node) {
 		cursor += height + PARAMETER_NODE_LAYOUT.rowGap;
 		outputIndex += 1;
 	}
-	const contentHeight = Math.max(PARAMETER_NODE_LAYOUT.rowHeight, cursor + PARAMETER_NODE_LAYOUT.bodyPadding);
 	const meta = tunableMeta(parameters).slice(0, 32);
+	const outputStackHeight = meta.length
+		? PARAMETER_NODE_LAYOUT.bodyPadding * 2
+			+ PARAMETER_NODE_LAYOUT.outputSlotHeight
+			+ (meta.length - 1) * PARAMETER_NODE_LAYOUT.outputSlotStep
+		: PARAMETER_NODE_LAYOUT.rowHeight;
+	const contentHeight = Math.max(
+		PARAMETER_NODE_LAYOUT.rowHeight,
+		cursor + PARAMETER_NODE_LAYOUT.bodyPadding,
+		outputStackHeight,
+	);
 	return {
 		width,
 		height: contentHeight,
@@ -104,7 +136,7 @@ export function computeParameterLayout(node) {
 		parameters,
 		meta,
 		visibleOutputIndices: getVisibleOutputIndices(node),
-		outputColumn: { left: width - PARAMETER_NODE_LAYOUT.outputColumn, width: PARAMETER_NODE_LAYOUT.outputColumn },
+		outputColumn: { left: width - outputWidth, width: outputWidth },
 	};
 }
 
@@ -131,7 +163,11 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 		if (row.kind !== "parameter") continue;
 		const output = node.outputs?.[row.index];
 		if (!output) continue;
-		output.pos = [layout.width, layout.contentTop + row.output.top];
+		// Keep the same native right-edge geometry as LiteGraph/Quick Latent.
+		// The previous x=width put the circle center on the node boundary, which
+		// made the painted socket look detached and narrowed the real hit target.
+		const slotOffset = (Number(globalThis.LiteGraph?.NODE_SLOT_HEIGHT) || 20) * 0.5;
+		output.pos = [layout.width + 1 - slotOffset, layout.contentTop + row.output.top];
 		output._aaaliceDisplayHidden = !layout.visibleOutputIndices.includes(row.index);
 		output._aaaliceRawIndex = row.index;
 	}
@@ -154,7 +190,7 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 			if (!concrete || !output) continue;
 			concrete._aaaliceRawIndex = rawIndex;
 			for (const key of [
-				"name", "label", "localized_name", "type", "shape",
+				"name", "label", "localized_name", "type", "shape", "color",
 				"color_off", "color_on", "_aaaliceDisplayHidden",
 				"_aaaliceProtocolName", "_aaaliceParamId",
 			]) {
@@ -181,70 +217,57 @@ export function withVisibleConcreteOutputs(node, callback) {
 	}
 }
 
-export function graphRectToViewport(node, rect) {
-	const canvas = app?.canvas || globalThis.LiteGraph?.active_canvas;
-	const element = canvas?.canvas || canvas?.el;
-	const bounds = element?.getBoundingClientRect?.();
-	const scale = Number(canvas?.ds?.scale) || 1;
-	const offset = canvas?.ds?.offset || [0, 0];
-	if (!bounds || !node?.pos) return rect;
-	return {
-		left: bounds.left + (node.pos[0] + offset[0] + rect.left) * scale,
-		top: bounds.top + (node.pos[1] + offset[1] + rect.top) * scale,
-		width: rect.width * scale,
-		height: rect.height * scale,
-	};
-}
-
 export function drawParameterStaticLayer(ctx, node, layout = node._aaaliceParameterLayout || computeParameterLayout(node)) {
 	if (!ctx || node?.flags?.collapsed || app.canvas?.vueNodesMode === true) return;
 	const styles = typeof getComputedStyle === "function" ? getComputedStyle(document.documentElement) : null;
-	const text = styles?.getPropertyValue("--fg-color").trim() || "#eee";
-	const muted = styles?.getPropertyValue("--descrip-text").trim() || "#999";
-	const accent = styles?.getPropertyValue("--p-primary-color").trim() || "#6aaeff";
-	const control = styles?.getPropertyValue("--comfy-input-bg").trim() || "#202024";
+	const border = styles?.getPropertyValue("--border-color").trim() || "#4d496a";
 	ctx.save();
 	ctx.translate(0, layout.contentTop);
-	ctx.font = "600 12px sans-serif";
-	ctx.textBaseline = "middle";
-	for (const row of layout.rows) {
-		if (row.kind === "separator") {
-			ctx.fillStyle = muted;
-			ctx.fillText(row.name, row.label?.left || 8, row.top + row.height / 2);
-			continue;
-		}
-		ctx.fillStyle = text;
-		ctx.fillText(row.name, row.label.left, row.label.top + row.label.height / 2);
-		const parameter = row.parameter;
-		if (parameter.param_type === "slider") {
-			const min = Number(parameter.config?.min ?? 0);
-			const max = Number(parameter.config?.max ?? 100);
-			const value = Number(parameter.value ?? min);
-			const ratio = max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
-			const left = row.control.left;
-			const right = row.control.left + row.control.width - 64;
-			const y = row.control.top + row.control.height / 2;
-			ctx.strokeStyle = muted;
-			ctx.lineWidth = 4;
-			ctx.lineCap = "round";
-			ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
-			ctx.strokeStyle = accent;
-			ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(left + (right - left) * ratio, y); ctx.stroke();
-			ctx.fillStyle = accent;
-			ctx.beginPath(); ctx.arc(left + (right - left) * ratio, y, 7, 0, Math.PI * 2); ctx.fill();
-		}
-		if (parameter.param_type === "switch") {
-			const left = row.control.left;
-			const top = row.control.top + 7;
-			const width = 44;
-			ctx.fillStyle = parameter.value ? accent : control;
-			ctx.beginPath();
-			if (typeof ctx.roundRect === "function") ctx.roundRect(left, top, width, 20, 10);
-			else ctx.rect(left, top, width, 20);
-			ctx.fill();
-			ctx.fillStyle = text;
-			ctx.beginPath(); ctx.arc(left + (parameter.value ? 34 : 10), top + 10, 7, 0, Math.PI * 2); ctx.fill();
-		}
-	}
+	// Reserve a quiet output rail like Quick Latent without painting fake
+	// sockets; native LiteGraph/Nodes 2.0 slots remain the hit targets.
+	ctx.globalAlpha = 0.34;
+	ctx.strokeStyle = border;
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+	ctx.moveTo(layout.outputColumn.left - 7, 4);
+	ctx.lineTo(layout.outputColumn.left - 7, Math.max(4, layout.height - 7));
+	ctx.stroke();
+	ctx.restore();
+}
+
+/** Paint the themed body before native slots and DOM widgets are drawn. */
+export function drawParameterNodeSurface(ctx, node, layout = node._aaaliceParameterLayout || computeParameterLayout(node)) {
+	if (!ctx || node?.flags?.collapsed || app.canvas?.vueNodesMode === true) return;
+	const styles = typeof getComputedStyle === "function" ? getComputedStyle(document.documentElement) : null;
+	const surface = styles?.getPropertyValue("--comfy-menu-secondary-bg").trim() || styles?.getPropertyValue("--comfy-menu-bg").trim() || "#252525";
+	const raised = styles?.getPropertyValue("--comfy-input-bg").trim() || "#1d1d1d";
+	const border = styles?.getPropertyValue("--border-color").trim() || "#4b4b4b";
+	const titleHeight = Number(node.constructor?.title_height) || 24;
+	const width = Number(node.size?.[0]) || PARAMETER_NODE_LAYOUT.minWidth;
+	const height = Number(node.size?.[1]) || layout.height + titleHeight;
+	ctx.save();
+	// One continuous panel keeps the native title, controls and output rail in
+	// the same visual hierarchy instead of looking like stacked HTML fields.
+	ctx.globalAlpha = 0.98;
+	ctx.fillStyle = surface;
+	ctx.beginPath();
+	if (typeof ctx.roundRect === "function") ctx.roundRect(0, 0, width, height, 8);
+	else ctx.rect(0, 0, width, height);
+	ctx.fill();
+	ctx.globalAlpha = 0.26;
+	ctx.fillStyle = raised;
+	ctx.fillRect(0, 0, width, titleHeight);
+	ctx.globalAlpha = 0.22;
+	ctx.fillRect(layout.outputColumn.left - 7, titleHeight, Math.max(0, width - layout.outputColumn.left + 7), Math.max(0, height - titleHeight));
+	ctx.globalAlpha = 0.55;
+	ctx.strokeStyle = border;
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+	if (typeof ctx.roundRect === "function") ctx.roundRect(0.5, 0.5, Math.max(0, width - 1), Math.max(0, height - 1), 8);
+	else ctx.rect(0.5, 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
+	ctx.stroke();
+	ctx.globalAlpha = 0.34;
+	ctx.fillStyle = raised;
+	ctx.fillRect(0, titleHeight, width, 1);
 	ctx.restore();
 }

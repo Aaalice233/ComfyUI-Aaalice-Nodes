@@ -9,6 +9,7 @@ const ICON_PATHS = {
 	edit: "m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Zm10-12 3 3",
 	fullscreen: "M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
+	unlock: "M17 11V8a5 5 0 0 0-9.6-2M5 11h14v10H5z",
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	layout: "M4 5h16v5H4zM4 14h7v5H4zm11 0h5v5h-5z",
 	moveDown: "m7 10 5 5 5-5",

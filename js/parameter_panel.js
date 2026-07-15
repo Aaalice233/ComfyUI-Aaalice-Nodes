@@ -32,6 +32,7 @@ import {
 import {
 	PARAMETER_NODE_LAYOUT,
 	computeParameterLayout,
+	drawParameterNodeSurface,
 	drawParameterStaticLayer,
 	syncNativeOutputLayout,
 	withVisibleConcreteOutputs,
@@ -39,10 +40,10 @@ import {
 import { createNumericEditor, createParameterControl } from "./lib/parameter_controls.js";
 
 const NODE = "ParameterPanel";
-const MAX_OUTPUTS = 32;
 const MIN_WIDTH = PARAMETER_NODE_LAYOUT.minWidth;
-const OUTPUT_COLUMN_WIDTH = PARAMETER_NODE_LAYOUT.outputColumn;
 const mountedParameterPanels = new Set();
+let vueOutputObserver = null;
+let vueOutputFrame = 0;
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -130,7 +131,34 @@ function outputColor(names, fallback) {
 }
 
 function visibleOutputCount(node, meta = storedSlotMeta(node)) {
-	return Math.min(meta.length, MAX_OUTPUTS);
+	return Math.min(meta.length, MAX_TUNABLE);
+}
+
+function parameterPanelMenuItems(node) {
+	if (!isParameterPanel(node)) return [];
+	const items = [{
+		content: t("aaalice.pcp.editor.menu", "⚙️ Edit Parameters…"),
+		callback: () => openParameterEditor(node).catch((error) => toast("error", error.message || String(error))),
+	}];
+	const kjItem = parameterPanelKjMenuItem(node);
+	if (kjItem) items.push(kjItem);
+	return items;
+}
+
+function ensureParameterPanelMenu(node) {
+	if (node._aaaliceParameterMenuPatched) return;
+	node._aaaliceParameterMenuPatched = true;
+	const previous = node.getExtraMenuOptions;
+	node.getExtraMenuOptions = function (canvas, options = []) {
+		const result = previous?.apply(this, arguments);
+		const target = Array.isArray(result) ? result : options;
+		if (Array.isArray(target)) {
+			for (const item of parameterPanelMenuItems(this)) {
+				if (!target.some((candidate) => candidate?.content === item.content)) target.push(item);
+			}
+		}
+		return result;
+	};
 }
 
 function markVueOutputs(node) {
@@ -138,23 +166,59 @@ function markVueOutputs(node) {
 	const id = String(node.id);
 	for (const element of document.querySelectorAll("[data-node-id]")) {
 		if (element.getAttribute("data-node-id") !== id) continue;
-		const slots = element.querySelectorAll(".lg-slot--output");
+		const layout = node._aaaliceParameterLayout || computeParameterLayout(node);
+		const rows = new Map(layout.rows.filter((row) => row.kind === "parameter").map((row) => [row.index, row]));
+		const slots = [...element.querySelectorAll(".lg-slot--output")];
+		if (!slots.length) continue;
+		element.classList.add("aaalice-parameter-panel-node");
+		element.style.setProperty("--aaalice-parameter-content-height", `${layout.height}px`);
+		element.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
+		element.style.setProperty("--aaalice-output-slot-height", `${PARAMETER_NODE_LAYOUT.outputSlotHeight}px`);
+		const outputColumn = slots[0]?.parentElement;
+		const slotLayer = outputColumn?.parentElement;
+		const body = slotLayer?.parentElement;
+		const widgets = body?.querySelector?.(".lg-node-widgets");
+		outputColumn?.classList.add("aaalice-parameter-output-column");
+		slotLayer?.classList.add("aaalice-parameter-slot-layer");
+		body?.classList.add("aaalice-parameter-node-body");
+		widgets?.classList.add("aaalice-parameter-widget-layer");
+		let changed = false;
 		for (let index = 0; index < slots.length; index += 1) {
-			const hidden = Boolean(node.outputs?.[index]?._aaaliceDisplayHidden);
-			slots[index].hidden = hidden;
-			slots[index].setAttribute("aria-hidden", String(hidden));
-			slots[index].classList.toggle("aaalice-parameter-output-hidden", hidden);
+			const slot = slots[index];
+			const row = rows.get(index);
+			const hidden = !row || Boolean(node.outputs?.[index]?._aaaliceDisplayHidden);
+			if (slot.hidden !== hidden || slot.classList.contains("aaalice-parameter-output-hidden") !== hidden) changed = true;
+			slot.hidden = hidden;
+			slot.setAttribute("aria-hidden", String(hidden));
+			slot.classList.toggle("aaalice-parameter-output-hidden", hidden);
+			slot.style.setProperty("--aaalice-output-top", `${Math.max(0, Number(row?.output?.top || 0) - PARAMETER_NODE_LAYOUT.outputSlotHeight / 2)}px`);
 		}
+		if (changed && typeof requestAnimationFrame === "function") requestAnimationFrame(() => {
+			applyCompactNodeSize(node);
+			node.setDirtyCanvas?.(true, true);
+		});
 	}
 }
 
+function ensureVueOutputObserver() {
+	if (vueOutputObserver || typeof MutationObserver === "undefined" || !document.body) return;
+	vueOutputObserver = new MutationObserver(() => {
+		if (vueOutputFrame) return;
+		vueOutputFrame = requestAnimationFrame(() => {
+			vueOutputFrame = 0;
+			for (const panel of mountedParameterPanels) if (panel?.graph) markVueOutputs(panel);
+		});
+	});
+	vueOutputObserver.observe(document.body, { childList: true, subtree: true });
+}
+
 function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) {
-	const meta = nextMeta.slice(0, MAX_OUTPUTS);
+	const meta = nextMeta.slice(0, MAX_TUNABLE);
 	const previous = storedSlotMeta(node);
 	const orderChanged = previous.length !== meta.length || previous.some((item, index) => item?.id !== meta[index]?.id);
 	const linksById = new Map();
 	if (orderChanged) {
-		for (let index = 0; index < Math.min(previous.length, MAX_OUTPUTS); index += 1) {
+		for (let index = 0; index < Math.min(previous.length, MAX_TUNABLE); index += 1) {
 			const id = previous[index]?.id;
 			const links = node.outputs?.[index]?.links;
 			if (id && links?.length) linksById.set(id, [...links]);
@@ -193,8 +257,11 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 		output.localized_name = output.label;
 		output.type = "*";
 		output.shape = globalThis.LiteGraph?.CIRCLE_SHAPE ?? 1;
+		// Unconnected sockets stay quiet like Quick Latent; native rendering uses
+		// color_on after a real link is present, preserving the hit-test semantics.
 		output.color_off = muted;
 		output.color_on = accent;
+		output.color = muted;
 	}
 	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
 	node._aaaliceParameterLayout = layout;
@@ -310,7 +377,7 @@ function numericDisplay(label, parameter, config, onCommit) {
 	return value;
 }
 
-function valueControl(node, parameter) {
+function valueControl(node, parameter, heading = null) {
 	const config = parameter.config || {};
 	const persist = () => notifyParameterChanged(node, { structure: false });
 	if (parameter.param_type === "slider") {
@@ -328,6 +395,7 @@ function valueControl(node, parameter) {
 			updateProgress();
 			persist();
 		});
+		display.classList.add("aaalice-pcp-slider-value");
 		const updateProgress = () => {
 			const min = Number(range.min);
 			const max = Number(range.max);
@@ -341,7 +409,9 @@ function valueControl(node, parameter) {
 		});
 		range.addEventListener("change", persist);
 		updateProgress();
-		wrap.append(range, display);
+		if (heading) heading.append(display);
+		else wrap.append(display);
+		wrap.append(range);
 		return wrap;
 	}
 	if (parameter.param_type === "seed") {
@@ -351,7 +421,7 @@ function valueControl(node, parameter) {
 			? t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock")
 			: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock");
 		const modeButton = isolate(iconButton({
-			iconName: "lock",
+			iconName: "unlock",
 			label: modeLabel(),
 			variant: "ghost",
 			className: "aaalice-pcp-seed-mode",
@@ -359,8 +429,10 @@ function valueControl(node, parameter) {
 		modeButton.removeAttribute("title");
 		const updateMode = () => {
 			const locked = parameter.config?.control_after_generate !== "randomize";
-			modeButton.replaceChildren(icon("lock"));
+			modeButton.replaceChildren(icon(locked ? "lock" : "unlock"));
+			wrap.classList.toggle("is-locked", locked);
 			modeButton.classList.toggle("is-locked", locked);
+			modeButton.classList.toggle("is-unlocked", !locked);
 			modeButton.setAttribute("aria-label", `${displayName(parameter)}: ${modeLabel()}`);
 			modeButton.setAttribute("aria-pressed", String(locked));
 		};
@@ -456,7 +528,7 @@ function renderNode(node, root) {
 	const parameters = ensureParameters(node);
 	const layout = computeParameterLayout(node);
 	root.classList.toggle("aaalice-pcp-canvas-static", app.canvas?.vueNodesMode !== true);
-	root.style.setProperty("--aaalice-output-column-width", `${OUTPUT_COLUMN_WIDTH}px`);
+	root.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
 	root.style.setProperty("--aaalice-node-content-height", `${layout.height}px`);
 	for (const parameter of parameters) {
 		if (parameter.param_type === "separator") {
@@ -479,7 +551,7 @@ function renderNode(node, root) {
 			heading.append(trigger);
 			attachDescription(trigger, parameter.description);
 		} else heading.append(label);
-		row.append(heading, valueControl(node, parameter));
+		row.append(heading, valueControl(node, parameter, heading));
 		root.append(row);
 	}
 	if (!parameters.length) root.append(el("div", "aaalice-pcp-empty", t("aaalice.pcp.empty", "No parameters. Use the node context menu to edit.")));
@@ -617,8 +689,15 @@ function renderEditorList(editor, rerender) {
 			input.addEventListener("click", (inputEvent) => inputEvent.stopPropagation());
 			input.addEventListener("dblclick", (inputEvent) => inputEvent.stopPropagation());
 			input.addEventListener("keydown", (inputEvent) => {
-				if (inputEvent.key === "Enter") finish(true);
-				else if (inputEvent.key === "Escape") finish(false);
+				if (inputEvent.key === "Enter") {
+					inputEvent.preventDefault();
+					inputEvent.stopPropagation();
+					finish(true);
+				} else if (inputEvent.key === "Escape") {
+					inputEvent.preventDefault();
+					inputEvent.stopPropagation();
+					finish(false);
+				}
 			});
 			input.addEventListener("blur", () => finish(true));
 			text.replaceChildren(input);
@@ -754,7 +833,9 @@ async function openParameterEditor(node) {
 
 function setupParameterPanel(node, loaded = false) {
 	if (!isParameterPanel(node)) return;
+	ensureVueOutputObserver();
 	registerParameterPanelKj(node);
+	ensureParameterPanelMenu(node);
 	mountedParameterPanels.add(node);
 	if (node._aaaliceParameterPanelMounted) {
 		syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
@@ -825,6 +906,11 @@ function setupParameterPanel(node, loaded = false) {
 			return value;
 		};
 		const previousDrawForeground = node.onDrawForeground;
+		const previousDrawBackground = node.onDrawBackground;
+		node.onDrawBackground = function (ctx) {
+			previousDrawBackground?.apply(this, arguments);
+			drawParameterNodeSurface(ctx, this);
+		};
 		node.onDrawForeground = function (ctx) {
 			previousDrawForeground?.apply(this, arguments);
 			drawParameterStaticLayer(ctx, this);
@@ -949,13 +1035,6 @@ app.registerExtension({
 		await ensureI18nReady();
 	},
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
-	getNodeMenuItems(node) {
-		if (!isParameterPanel(node)) return [];
-		const items = [{ content: t("aaalice.pcp.editor.menu", "⚙️ Edit Parameters…"), callback: () => openParameterEditor(node).catch((error) => toast("error", error.message || String(error))) }];
-		const kjItem = parameterPanelKjMenuItem(node);
-		if (kjItem) items.push(kjItem);
-		return items;
-	},
 	nodeCreated(node) {
 		if (!isParameterPanel(node)) return;
 		setupParameterPanel(node, false);

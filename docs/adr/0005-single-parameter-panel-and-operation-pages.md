@@ -6,4 +6,4 @@ The multi-child-panel container reduced node count but made one graph node own u
 
 Multiple panels are composed in the workflow-level Operation Panel as Pages, Sections, and Cards. ParameterPanel nodes register automatically, ordinary nodes register explicitly, and node titles remain display text rather than an integration protocol. Page Value Presets store only adapter-exposed values, never nodes, parameter definitions, links, or layout. This preserves graph semantics while providing a WebUI-like operating surface.
 
-The package is still unpublished, so this decision replaces the previous node type, workflow payload, and Operation Panel schema without a compatibility layer.
+This decision was made before the first Registry release, so it replaced the previous node type, workflow payload, and Operation Panel schema without a compatibility layer.

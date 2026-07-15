@@ -238,10 +238,6 @@ export function isParameterPanel(node) {
 	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes("ParameterPanel");
 }
 
-export function listParameterPanels(app) {
-	return (app?.graph?._nodes || []).filter(isParameterPanel);
-}
-
 export function notifyParameterChanged(node, detail = {}) {
 	ensureParameters(node);
 	node.graph?.setDirtyCanvas?.(true, true);

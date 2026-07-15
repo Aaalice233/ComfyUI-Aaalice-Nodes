@@ -10,4 +10,4 @@ The sidebar becomes a general **Operation Panel** for lightweight operation of e
 
 Each registered parameter child panel is an independent layout item. Ordinary nodes are adapted from supported widgets; complex nodes may provide a dedicated adapter. Operation Panel can organize, alias, hide, and place items, including a fullscreen grid, but it cannot edit parameter definitions or graph topology and does not duplicate ComfyUI's execution controls.
 
-This decision supersedes ADR 0001. The package is still in an unpublished refactor phase, so the new model replaces the old single-panel shape without a compatibility layer.
+This decision superseded ADR 0001. It was made before the first Registry release, so the new model replaced the old single-panel shape without a compatibility layer.

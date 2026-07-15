@@ -11,9 +11,6 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
-/** 本包支持的语言码（与 locales/ 目录一致） */
-export const SUPPORTED_LOCALES = Object.freeze(["en", "zh"]);
-
 const FALLBACK_LOCALE = "en";
 
 /** @type {Record<string, Record<string, unknown>> | null} */
@@ -121,14 +118,6 @@ export function ensureI18nReady() {
 }
 
 /**
- * 丢弃缓存，下次 `ensureI18nReady` 会重新请求（热更 locales 后可用）。
- */
-export function invalidateI18nCache() {
-	catalog = null;
-	loadPromise = null;
-}
-
-/**
  * 同步翻译。须先 `await ensureI18nReady()`，否则在缓存未就绪时只会走 fallback。
  *
  * key 对应 `locales/{lang}/main.json` 合并后的路径，例如：
@@ -153,39 +142,3 @@ export function t(key, fallback = "") {
 	return fallback || key;
 }
 
-/**
- * 异步翻译：先确保目录已加载。
- * @param {string} key
- * @param {string} [fallback=""]
- * @returns {Promise<string>}
- */
-export async function tAsync(key, fallback = "") {
-	await ensureI18nReady();
-	return t(key, fallback);
-}
-
-/**
- * 取嵌套对象（非仅字符串），例如整段 `aaalice.common`。
- * @param {string} key
- * @returns {unknown}
- */
-export function tObject(key) {
-	const locale = getLocale();
-	for (const bag of [catalog?.[locale], catalog?.[FALLBACK_LOCALE]]) {
-		if (bag == null) continue;
-		const parts = key.split(".");
-		let cur = bag;
-		let ok = true;
-		for (const part of parts) {
-			if (cur == null || typeof cur !== "object") {
-				ok = false;
-				break;
-			}
-			cur = /** @type {Record<string, unknown>} */ (cur)[part];
-		}
-		if (ok && cur !== undefined) {
-			return cur;
-		}
-	}
-	return undefined;
-}

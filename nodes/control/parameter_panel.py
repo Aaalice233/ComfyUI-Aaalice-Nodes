@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from comfy_api.latest import io
 
-from .._lib.param_pack import (
+from .._lib.parameter_values import (
     MAX_TUNABLE_PARAMS,
-    build_param_pack,
-    pack_to_outputs,
+    parameters_to_outputs,
     parse_parameters_json,
 )
 
@@ -80,9 +79,9 @@ class ParameterPanel(io.ComfyNode):
         validate_dynamic_values: bool = True,
         **_kwargs,
     ) -> io.NodeOutput:
-        pack = build_param_pack(
+        outputs = parameters_to_outputs(
             parse_parameters_json(parameters_json),
             image_resolver=_resolve_image,
             validate_dynamic_values=bool(validate_dynamic_values),
         )
-        return io.NodeOutput(*pack_to_outputs(pack))
+        return io.NodeOutput(*outputs)

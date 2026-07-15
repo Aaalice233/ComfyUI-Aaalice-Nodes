@@ -8,170 +8,87 @@
 
 # ComfyUI-Aaalice-Nodes
 
-Reset of [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery): rewrite by agreed scope, align with the current ComfyUI frontend and extension APIs, simplify selectively.
+Compact parameter controls and workflow utilities for ComfyUI.
 
-| Status | Progress | Next | Languages | License |
-|:------:|:--------:|:----:|:---------:|:-------:|
-| Reset in progress | **4 / 25** | #3 `EnumSwitch` | en + zh | [MIT](./LICENSE) |
+> This package is a published preview. Workflows and behavior may change before the first stable release, and the package does not migrate data from ComfyUI-Danbooru-Gallery.
 
-- **Not** a drop-in replacement for the legacy pack. This package is in an unpublished refactor phase; workflow data and frontend protocols may change without migration until the first stable release.
-- UI language follows ComfyUI **Settings → Language**.
-- Every node is built for both classic node mode and **[Nodes 2.0](https://docs.comfy.org/interface/nodes-2)**. App Mode is currently out of scope.
-- Registry: [comfyui-aaalice-nodes](https://registry.comfy.org/nodes/comfyui-aaalice-nodes)  
-  *(node count may stay empty while a version is still scanning)*
+## Requirements
 
----
+- A current ComfyUI installation with V3 custom-node support.
+- Classic canvas or Nodes 2.0. App Mode is not currently supported.
+- English and Simplified Chinese UI are included; other locales fall back to English.
 
-## Table of contents
+## Installation
 
-1. [Install](#install)
-2. [Languages (i18n)](#languages-i18n)
-3. [Parameter Panel & Operation Panel](#parameter-panel--operation-panel)
-4. [Reset checklist](#reset-checklist)
-5. [Contributing](#contributing)
-6. [License](#license)
+### ComfyUI Manager (recommended)
 
----
+1. Open **ComfyUI Manager** and go to the custom-node management page.
+2. Search for `ComfyUI-Aaalice-Nodes` or the Registry package id `comfyui-aaalice-nodes`.
+3. Select **Install**, then restart ComfyUI and refresh the browser.
 
-## Install
+Manager installs the published [`comfyui-aaalice-nodes`](https://registry.comfy.org/nodes/comfyui-aaalice-nodes) package and its declared dependencies. Use Manager for normal installation and updates.
 
-### Manager / Extensions
+### Manual Git installation
 
-1. Open ComfyUI → Manager / Extensions.
-2. Search **`ComfyUI-Aaalice-Nodes`** or **`comfyui-aaalice-nodes`**.
-3. Install → **restart ComfyUI**.
-4. Right-click canvas → **Aaalice → tools / …**
-
-If the pack is missing from the list, the Registry version may still be pending scan. See [publishing](https://docs.comfy.org/registry/publishing) and `.github/workflows/publish.yml`.
-
-### Git (manual)
+Use Git when you need the latest development revision or a specific commit. Clone the repository into `ComfyUI/custom_nodes`, install dependencies with the Python environment used by ComfyUI, and restart:
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes.git
 cd ComfyUI-Aaalice-Nodes
-pip install -r requirements.txt   # often empty; install when deps appear
+pip install -r requirements.txt
 ```
 
-Restart ComfyUI. Dependencies: `requirements.txt` / `pyproject.toml`.
+To update a manual Git installation:
 
-> Need full legacy behavior? Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery).
-
----
-
-## Languages (i18n)
-
-| Locale | Role |
-|--------|------|
-| `en` | Source / fallback |
-| `zh` | Full Simplified Chinese |
-
-No other locales. Unlisted UI languages fall back to English. Workflow JSON keeps English ids.
-
-```text
-locales/en|zh/{ main, nodeDefs, settings, commands }.json
-js/i18n.js   → custom DOM strings (aaalice.*)
+```bash
+git pull
 ```
 
-See [AGENTS.md · i18n](./AGENTS.md#国际化i18n) and [Custom Nodes i18n](https://docs.comfy.org/custom-nodes/i18n).
+Restart ComfyUI after Python changes. After frontend updates, hard-refresh the browser; if a node still keeps an old socket or widget structure, delete that node and create it again.
 
----
+## Included nodes
 
-## Parameter Panel & Operation Panel
+| Node | Category | Purpose |
+|---|---|---|
+| `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose up to 32 direct outputs. |
+| `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 
-### ParameterPanel direct outputs
+## ParameterPanel
 
-Each `ParameterPanel` owns one ordered parameter set and exposes up to 32 direct `AnyType` outputs. The first output belongs to the first tunable parameter, separators do not consume an output, and unused output rows stay hidden. The node title is its display name and the source of the optional KJ Set name prefix.
+New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`. Sampler and scheduler options follow the current ComfyUI installation.
 
-New nodes start with Steps, CFG, Sampler, Scheduler, Denoise, and Seed, with Seed placed last. Sampler and Scheduler choices follow the running ComfyUI installation. Seed supports fixed, increment, decrement, and randomize behavior after queueing.
+- Change values directly on the node.
+- Right-click the node and choose **⚙️ Edit Parameters…** to add, rename, reorder, copy, delete, or document parameters.
+- Connect each visible output directly to the matching downstream input. Links stay with the same parameter when it is renamed or reordered.
+- Seed supports fixed, increment, decrement, and randomize behavior. The inline lock button switches between fixed and randomize for quick use.
+- If KJ Set/Get is installed, **🔗 Create and link KJ Set nodes for all parameters** is available from the node menu.
 
-The canvas node only shows parameter names and value controls—there is no structural toolbar; only the Seed row keeps its lock behavior control. Right-click the node and choose **Edit Parameters…** to open the two-column editor for adding, configuring, reordering, copying, deleting, and documenting parameters. Descriptions appear as safe Markdown tooltips from the parameter name and note icon.
+Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not consume outputs.
 
-Connect workflow nodes directly to the matching output on the right side of `ParameterPanel`. Output links are rebound by stable parameter id when definitions are reordered or renamed; deleting a connected parameter still asks for confirmation. The node context menu can optionally create/reuse KJ Set nodes for all current parameters and refresh their names automatically.
-KJ names use `<node title>_<parameter name>` (falling back to `ParameterPanel_<parameter name>` when the title is empty); existing Get links follow KJ’s rename behavior.
+## Operation Panel
 
-Basic flow:
+The optional **Operation Panel** is a workflow-level surface for frequently adjusted values and node results.
 
-1. Add `ParameterPanel` and adjust its default sampling values.
-2. Right-click it and open **Edit Parameters…** when the parameter structure needs to change.
-3. Connect downstream nodes directly to the right-side parameter outputs, or choose **🔗 Create and link KJ Set nodes for all parameters** when KJ Set/Get is available.
-4. Use the automatically registered card in the Operation Panel for day-to-day control.
+- `ParameterPanel` nodes register automatically; supported ordinary nodes can be added from their context menu.
+- Pages contain ordered sections and cards. Cards can be reordered, hidden, given a sidebar alias, or positioned in the fullscreen grid.
+- Page presets store writable values only. They never create nodes, change links, or alter parameter definitions.
+- The panel has no separate execution button and keeps ComfyUI's native queue controls.
 
-### Operation Panel
+## SimpleStringSplit
 
-The **Operation Panel** is a general operating surface, not a second parameter editor:
+Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
 
-- ParameterPanel nodes register automatically on the active page; right-click supported ordinary nodes to register them explicitly.
-- Pages contain ordered sections and each graph node appears as one card. Cards support ordering, hiding, sidebar-only aliases, and fullscreen row/column placement.
-- Fullscreen keeps the ComfyUI top bar and native queue controls available; the panel does not add a separate queue button.
-- Page Value Presets save writable values from the active page using explicit preset keys. They never create nodes or store definitions, links, or layout; mismatches are previewed before partial application.
+## Known limitations
 
----
+- This preview has no compatibility layer for workflows created with the legacy package.
+- App Mode is not supported.
+- Structural frontend updates can require recreating existing node instances after refresh.
 
-## Reset checklist
+Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) installed separately if you still need its original nodes.
 
-**One active item at a time** by the **priority queue** below (not strict `#` order).  
-`#` is a **stable id** — do not renumber when priority changes.
+## Feedback and license
 
-**Dependencies (do not renumber):** #3 needs #15 · #25 ships with #24.
-
-| | Meaning |
-|:---:|---------|
-| ⬜ | Not started |
-| 🔄 | In progress |
-| ✅ | Done |
-| ⏸ | Blocked |
-
-### Done
-
-| # | Id | Role |
-|--:|----|------|
-| 0 | *(skeleton)* | Loadable package, domains, i18n, `WEB_DIRECTORY` |
-| 1 | `SimpleStringSplit` | Split string by delimiter → list |
-| 15 | `ParameterPanel` | Author one parameter set (max 32) with direct outputs; #16 is merged here |
-
-### Dropped
-
-| # | Id | Note |
-|--:|----|------|
-| 2 | `SimpleValueSwitch` | Out of scope — not useful enough to reset |
-
-### Priority queue
-
-| Order | # | Id | Domain | Role / notes |
-|:-----:|--:|----|--------|--------------|
-| 1 | 3 | `EnumSwitch` | tools | Route by enum |
-| 2 | 4 | `SimpleNotify` | tools | Notify on execute |
-| 3 | 5 | `WorkflowDescription` | tools | On-graph notes UI |
-| 4 | 6 | `VAEImageBatchFix` | tools | VAE batch shape fix |
-| 5 | 7 | `ModelNameExtractor` | tools | Readable model name |
-| 6 | 8 | `ResolutionMasterSimplify` | tools | Size / resolution helper |
-| 7 | 9 | `SimpleLoadImage` | tools | Load local image → `IMAGE` / `MASK` |
-| 8 | 10 | `PromptCleaningMaid` | prompt | Clean / dedupe tags |
-| 9 | 11 | `PromptSelector` | prompt | Checklist prompts |
-| 10 | 12 | `CharacterFeatureSwapNode` | prompt | Swap character features |
-| 11 | 13 | `SimpleImageCompare` | media | Image compare UI |
-| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | Checkpoint + name / preview |
-| 13 | 17 | `GroupIsEnabled` | control | Group enabled → bool |
-| 14 | 18 | `GroupMuteManager` | control | Batch mute groups |
-| 15 | 19 | `GroupIgnoreManager` | control | Batch ignore groups |
-| 16 | 20 | Quick Group Navigation | control | Floating nav (JS only) |
-| 17 | 21 | `DanbooruGalleryNode` | gallery | Gallery search / tags |
-| 18 | 22 | `MultiCharacterEditorNode` | gallery | Multi-character prompts |
-| 19 | 23 | `SaveImagePlus` | media | Enhanced save |
-| 20 | 24 | `FetchFromKrita` | krita | Pull from Krita |
-| 20 | 25 | `OpenInKrita` | krita | Alias of #24 |
-
-Legacy reference only: [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery). Code paths / dual UI / visual direction: [AGENTS.md](./AGENTS.md).
-
----
-
-## Contributing
-
-Contributor and AI-assistant rules live in [AGENTS.md](./AGENTS.md). Architectural decisions for the parameter UI live in [docs/adr](./docs/adr/).
-
----
-
-## License
+Report bugs and feature requests in [GitHub Issues](https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes/issues).
 
 [MIT](./LICENSE) · Copyright (c) 2026 Aaalice233
