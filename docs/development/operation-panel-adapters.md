@@ -31,6 +31,7 @@ const dispose = api.registerNodeAdapter("ExampleNode", {
     input.addEventListener("change", update);
     context.container.append(context.components.field({
       label: context.t("example.operation.prompt", "Prompt"),
+      description: context.t("example.operation.promptHint", "Prompt sent to the node"),
       control: input,
     }));
     return () => input.removeEventListener("change", update);
@@ -73,7 +74,7 @@ Renderer 可以返回清理函数。使用事件监听、观察器、计时器�
 
 ## 公共组件
 
-- `components.field({ label, control })`：生成 Operation Panel 参数行。
+- `components.field({ label, control, description? })`：生成与 ParameterPanel 节点一致的紧凑字段；说明存在时作为标签 tooltip。
 - `components.text(value, className?)`：生成纯文本段落。
 - `components.image(source, alt?)`：生成图片并保留 alt。
 - `components.markdown(value)`：使用安全 Markdown 渲染；任意 HTML 不会执行。

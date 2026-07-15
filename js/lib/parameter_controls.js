@@ -74,7 +74,7 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 			const candidates = [...anchor.ownerDocument.querySelectorAll("[data-parameter-id]")]
 				.filter((candidate) => candidate.dataset.parameterId === anchor.dataset.parameterId
 					&& candidate.matches?.("button, input, select, textarea, [tabindex]"));
-			target = candidates.find((candidate) => candidate.dataset.aaaliceValuePill === "true") || candidates[0];
+			target = candidates.find((candidate) => candidate.dataset.aaaliceValueField === "true") || candidates[0];
 		}
 		if (!target?.isConnected) return;
 		try { target.focus({ preventScroll: true }); } catch { target.focus(); }
@@ -101,25 +101,25 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	return input;
 }
 
-function numericPill(parameter, onChange, ariaLabel = "") {
+function numericField(parameter, onChange, ariaLabel = "") {
 	const config = parameter.config || {};
-	const pill = el("button", "aaalice-shared-number-pill", String(parameter.value ?? 0));
-	pill.type = "button";
-	pill.dataset.parameterId = String(parameter.id || "");
-	pill.dataset.aaaliceValuePill = "true";
-	if (ariaLabel) pill.setAttribute("aria-label", ariaLabel);
-	pill.addEventListener("click", () => createNumericEditor(pill, {
+	const field = el("button", "aaalice-shared-number-field", String(parameter.value ?? 0));
+	field.type = "button";
+	field.dataset.parameterId = String(parameter.id || "");
+	field.dataset.aaaliceValueField = "true";
+	if (ariaLabel) field.setAttribute("aria-label", ariaLabel);
+	field.addEventListener("click", () => createNumericEditor(field, {
 		value: parameter.value ?? 0,
 		min: Number(config.min ?? 0),
 		max: Number(config.max ?? Number.MAX_SAFE_INTEGER),
 		step: Number(config.step ?? 1),
 		onCommit: (value) => {
 			parameter.value = value;
-			pill.textContent = String(value);
+			field.textContent = String(value);
 			onChange?.(value);
 		},
 	}));
-	return pill;
+	return field;
 }
 
 export function createSelectControl(options = [], value, { onChange, ariaLabel = "" } = {}) {
@@ -171,7 +171,7 @@ export function createParameterControl({ parameter, mode = "sidebar", onChange, 
 	const parameterLabel = labels.input || labels.select || labels.switch || parameter.name || parameter.id || "Parameter";
 	if (parameter.param_type === "seed") return mode === "node"
 		? numericInput(parameter, onChange, parameterLabel)
-		: numericPill(parameter, onChange, parameterLabel);
+		: numericField(parameter, onChange, parameterLabel);
 	if (parameter.param_type === "slider") {
 		if (mode === "node") return numericInput(parameter, onChange, parameterLabel);
 		const wrap = el("div", "aaalice-shared-slider");
@@ -182,7 +182,7 @@ export function createParameterControl({ parameter, mode = "sidebar", onChange, 
 		range.step = String(config.step ?? 1);
 		range.value = String(parameter.value ?? 0);
 		range.setAttribute("aria-label", parameterLabel);
-		const number = numericPill(parameter, (value) => { range.value = String(value); onChange?.(value); }, parameterLabel);
+		const number = numericField(parameter, (value) => { range.value = String(value); onChange?.(value); }, parameterLabel);
 		range.addEventListener("input", () => { parameter.value = Number(range.value); number.textContent = range.value; onChange?.(parameter.value); });
 		wrap.append(range, number);
 		return wrap;

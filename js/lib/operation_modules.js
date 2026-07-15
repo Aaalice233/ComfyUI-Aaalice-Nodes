@@ -3,7 +3,7 @@ import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { cloneData, displayName, ensureParameters, isParameterPanel, notifyParameterChanged } from "./param_model.js";
 import { createParameterControl, createSelectControl, createSwitchControl } from "./parameter_controls.js";
-import { getNodeAdapter } from "./operation_registry.js";
+import { createOperationField, getNodeAdapter } from "./operation_registry.js";
 import { renderSafeMarkdown } from "./safe_markdown.js";
 import { button, el, emptyState, iconButton } from "./ui.js";
 
@@ -19,6 +19,10 @@ export function graphNodes() {
 
 export function isSubgraphNode(node) {
 	return Boolean(node?.isSubgraphNode?.());
+}
+
+function moduleSurface(tagName, kind, module) {
+	return el(tagName, `aaalice-operation-surface aaalice-operation-${kind} aaalice-operation-style-${module.style}`);
 }
 
 export function createOperationModuleRenderer({ onRender }) {
@@ -74,11 +78,11 @@ export function createOperationModuleRenderer({ onRender }) {
 				container.append(el("div", "aaalice-operation-section-label", displayName(parameter)));
 				continue;
 			}
-			const row = el("label", "aaalice-operation-row");
-			const label = el("span", "aaalice-operation-label", displayName(parameter));
-			if (parameter.description) label.title = parameter.description;
-			row.append(label, parameterControl(parameter, node));
-			container.append(row);
+			container.append(createOperationField({
+				label: displayName(parameter),
+				description: parameter.description,
+				control: parameterControl(parameter, node),
+			}));
 		}
 		if (!parameters.length) container.append(emptyState({ description: t("aaalice.operation.emptyPanel", "This parameter panel is empty."), iconName: "settings" }));
 	}
@@ -97,8 +101,6 @@ export function createOperationModuleRenderer({ onRender }) {
 
 	function renderGenericControls(container, node, module) {
 		for (const widget of supportedWidgets(node, module)) {
-			const row = el("label", "aaalice-operation-row");
-			row.append(el("span", "aaalice-operation-label", widget.label || widget.name));
 			const options = widget.options?.values || (Array.isArray(widget.options) ? widget.options : null);
 			let control;
 			if (options) control = createSelectControl(options, widget.value, { ariaLabel: widget.label || widget.name, onChange: (value) => setWidget(widget, value, node) });
@@ -109,8 +111,7 @@ export function createOperationModuleRenderer({ onRender }) {
 				control.value = widget.value ?? "";
 				control.addEventListener("change", () => setWidget(widget, control.type === "number" ? Number(control.value) : control.value, node));
 			}
-			row.append(control);
-			container.append(row);
+			container.append(createOperationField({ label: widget.label || widget.name, control }));
 		}
 	}
 
@@ -236,7 +237,7 @@ export function createOperationModuleRenderer({ onRender }) {
 		const body = el("div", "aaalice-operation-card-body");
 		if (!node) body.append(emptyState({ description: t("aaalice.operation.missingNode", "The workflow node no longer exists."), iconName: "close" }));
 		else renderNodeBody(body, node, module);
-		const root = el("article", `aaalice-operation-card aaalice-operation-style-${module.style}`);
+		const root = moduleSurface("article", "card", module);
 		const header = el("header", "aaalice-operation-card-header");
 		header.append(el("strong", null, node ? cardTitle(node, module) : t("aaalice.operation.missingNode", "Missing node")));
 		if (node) header.append(el("span", "aaalice-operation-node-id", isSubgraphNode(node) ? t("aaalice.operation.subgraph", "Subgraph") : `#${node.id}`));
@@ -252,13 +253,13 @@ export function createOperationModuleRenderer({ onRender }) {
 			if (description.length) root.append(el("p", null, description.join("\n")));
 			return root;
 		}
-		const root = el("article", `aaalice-operation-markdown aaalice-operation-style-${module.style}`);
+		const root = moduleSurface("article", "markdown", module);
 		root.append(renderSafeMarkdown(module.content || ""));
 		return root;
 	}
 
 	function renderGroup(page, module) {
-		const root = el("section", `aaalice-operation-group aaalice-operation-style-${module.style}`);
+		const root = moduleSurface("section", "group", module);
 		if (module.title) root.append(el("h3", "aaalice-operation-container-title", module.title));
 		const body = el("div", "aaalice-operation-group-body");
 		for (const childId of module.children) {
@@ -273,7 +274,7 @@ export function createOperationModuleRenderer({ onRender }) {
 	}
 
 	function renderCarousel(page, module) {
-		const root = el("section", `aaalice-operation-carousel aaalice-operation-style-${module.style}`);
+		const root = moduleSurface("section", "carousel", module);
 		const active = module.children.includes(carouselPages.get(module.id)) ? carouselPages.get(module.id) : module.default_child_id || module.children[0];
 		carouselPages.set(module.id, active);
 		const nav = el("div", "aaalice-operation-carousel-nav");

@@ -17,21 +17,39 @@
    scoped override keeps only ParameterPanel's transparent wrapper inert. */
 .dom-widget:has(> .aaalice-pcp-node-root) { pointer-events: none !important; }
 .aaalice-pcp-node-root { pointer-events: none; }
+.aaalice-pcp-node-root,
+.aaalice-operation {
+	/* Node widgets and Operation modules deliberately share one compact visual vocabulary. */
+	--aaalice-compact-control: var(--comfy-input-bg, var(--p-form-field-background, #202024));
+	--aaalice-compact-control-hover: color-mix(in srgb, var(--aaalice-compact-control) 88%, var(--aaalice-text));
+	--aaalice-compact-border: var(--border-color, var(--p-content-border-color, #48484e));
+	--aaalice-compact-recess: var(--comfy-menu-bg, var(--p-surface-950, #111));
+	--aaalice-compact-field: color-mix(in srgb, var(--aaalice-compact-control) 68%, var(--aaalice-compact-recess));
+	--aaalice-compact-field-hover: color-mix(in srgb, var(--aaalice-compact-field) 94%, var(--aaalice-compact-value));
+	--aaalice-compact-editor: color-mix(in srgb, var(--aaalice-compact-field) 84%, var(--aaalice-compact-value));
+	--aaalice-compact-field-border: color-mix(in srgb, var(--aaalice-compact-border) 82%, var(--aaalice-compact-value));
+	--aaalice-compact-field-shadow: inset 0 1px 0 color-mix(in srgb, var(--aaalice-compact-value) 8%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--aaalice-compact-recess) 68%, transparent);
+	--aaalice-compact-accent: var(--p-primary-color, var(--primary-color, #0b8ce9));
+	--aaalice-compact-accent-soft: color-mix(in srgb, var(--aaalice-compact-accent) 16%, transparent);
+	--aaalice-compact-muted: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
+	--aaalice-compact-value: var(--fg-color, var(--p-text-color, #e5e7eb));
+	--aaalice-compact-danger: var(--error-text, var(--p-red-400, #d66d75));
+}
 .aaalice-pcp-node-root {
-	--aaalice-node-control: var(--comfy-input-bg, var(--p-form-field-background, #202024));
-	--aaalice-node-control-hover: color-mix(in srgb, var(--aaalice-node-control) 88%, var(--aaalice-text));
-	--aaalice-node-border: var(--border-color, var(--p-content-border-color, #48484e));
-	--aaalice-node-recess: var(--comfy-menu-bg, var(--p-surface-950, #111));
-	--aaalice-node-field: color-mix(in srgb, var(--aaalice-node-control) 68%, var(--aaalice-node-recess));
-	--aaalice-node-field-hover: color-mix(in srgb, var(--aaalice-node-field) 94%, var(--aaalice-node-value));
-	--aaalice-node-editor: color-mix(in srgb, var(--aaalice-node-field) 84%, var(--aaalice-node-value));
-	--aaalice-node-field-border: color-mix(in srgb, var(--aaalice-node-border) 82%, var(--aaalice-node-value));
-	--aaalice-node-field-shadow: inset 0 1px 0 color-mix(in srgb, var(--aaalice-node-value) 8%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--aaalice-node-recess) 68%, transparent);
-	--aaalice-node-accent: var(--p-primary-color, var(--primary-color, #0b8ce9));
-	--aaalice-node-accent-soft: color-mix(in srgb, var(--aaalice-node-accent) 16%, transparent);
-	--aaalice-node-muted: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
-	--aaalice-node-value: var(--fg-color, var(--p-text-color, #e5e7eb));
-	--aaalice-node-danger: var(--error-text, var(--p-red-400, #d66d75));
+	--aaalice-node-control: var(--aaalice-compact-control);
+	--aaalice-node-control-hover: var(--aaalice-compact-control-hover);
+	--aaalice-node-border: var(--aaalice-compact-border);
+	--aaalice-node-recess: var(--aaalice-compact-recess);
+	--aaalice-node-field: var(--aaalice-compact-field);
+	--aaalice-node-field-hover: var(--aaalice-compact-field-hover);
+	--aaalice-node-editor: var(--aaalice-compact-editor);
+	--aaalice-node-field-border: var(--aaalice-compact-field-border);
+	--aaalice-node-field-shadow: var(--aaalice-compact-field-shadow);
+	--aaalice-node-accent: var(--aaalice-compact-accent);
+	--aaalice-node-accent-soft: var(--aaalice-compact-accent-soft);
+	--aaalice-node-muted: var(--aaalice-compact-muted);
+	--aaalice-node-value: var(--aaalice-compact-value);
+	--aaalice-node-danger: var(--aaalice-compact-danger);
 	--aaalice-range-progress: 0%;
 	box-sizing: border-box;
 	width: 100%;
@@ -542,18 +560,24 @@
 .aaalice-operation-module.is-editing > :not(.aaalice-operation-drag-surface, .aaalice-operation-resize) { pointer-events: none; }
 .aaalice-operation-drag-surface { position: absolute; z-index: 5; inset: 0; }
 .aaalice-operation-resize { position: absolute; z-index: 7; right: -6px; bottom: -6px; width: 16px; height: 16px; padding: 0; border: 2px solid var(--aaalice-surface); border-radius: 3px; background: var(--aaalice-accent); cursor: ew-resize; }
-.aaalice-operation-card,
-.aaalice-operation-group,
-.aaalice-operation-carousel,
-.aaalice-operation-markdown { min-width: 0; overflow: hidden; border: 1px solid var(--aaalice-border); border-radius: 10px; background: var(--aaalice-surface); box-shadow: 0 7px 20px rgb(0 0 0 / .12); }
-.aaalice-operation-card-header { display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--aaalice-border); }
-.aaalice-operation-card-header strong { min-width: 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.aaalice-operation-node-id { flex: 0 0 auto; color: var(--aaalice-muted); font-size: 10px; }
-.aaalice-operation-card-body { padding: 9px 12px 11px; }
-.aaalice-operation-section-label { margin: 8px 0 3px; color: var(--aaalice-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.aaalice-operation-style-compact .aaalice-operation-card-header { min-height: 34px; padding: 6px 9px; }
-.aaalice-operation-style-compact .aaalice-operation-card-body { padding: 6px 9px 8px; }
-.aaalice-operation-style-emphasis { border-color: color-mix(in srgb, var(--aaalice-accent) 62%, var(--aaalice-border)); box-shadow: 0 0 0 1px var(--aa-ui-accent-soft), 0 10px 28px rgb(0 0 0 / .15); }
+.aaalice-operation-surface {
+	min-width: 0;
+	overflow: hidden;
+	border: 1px solid var(--aaalice-compact-border);
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--aaalice-surface) 94%, var(--aaalice-compact-control));
+	box-shadow: 0 4px 14px rgb(0 0 0 / .14);
+}
+.aaalice-operation-card-header { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-compact-border) 72%, transparent); background: color-mix(in srgb, var(--aaalice-compact-control) 34%, transparent); }
+.aaalice-operation-card-header strong { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.aaalice-operation-node-id { flex: 0 0 auto; color: var(--aaalice-compact-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.aaalice-operation-card-body { display: grid; min-width: 0; gap: 2px; padding: 6px 10px 8px; }
+.aaalice-operation-section-label { min-height: 22px; margin: 1px 0; padding: 2px; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-compact-border) 72%, transparent); color: var(--aaalice-compact-muted); font-size: 11px; font-weight: 600; }
+.aaalice-operation-style-compact .aaalice-operation-card-header { min-height: 32px; padding: 4px 8px; }
+.aaalice-operation-style-compact .aaalice-operation-card-body { gap: 1px; padding: 4px 8px 6px; }
+.aaalice-operation-style-compact .aaalice-operation-field { min-height: 42px; grid-template-rows: 12px 28px; }
+.aaalice-operation-style-compact .aaalice-operation-field :is(input, select, textarea, .aaalice-shared-number-field) { min-height: 28px; height: 28px; }
+.aaalice-operation-style-emphasis { border-color: color-mix(in srgb, var(--aaalice-compact-accent) 72%, var(--aaalice-compact-border)); box-shadow: 0 0 0 1px var(--aaalice-compact-accent-soft), 0 5px 18px rgb(0 0 0 / .16); }
 .aaalice-operation-style-borderless { border-color: transparent; background: transparent; box-shadow: none; }
 .aaalice-operation-heading-module { padding: 4px 2px 8px; }
 .aaalice-operation-heading-module h2 { margin: 0; font-size: 22px; line-height: 1.25; }
@@ -561,12 +585,12 @@
 .aaalice-operation-markdown { padding: 12px 14px; line-height: 1.6; }
 .aaalice-operation-markdown > :first-child { margin-top: 0; }
 .aaalice-operation-markdown > :last-child { margin-bottom: 0; }
-.aaalice-operation-group { padding: 10px; }
-.aaalice-operation-container-title { margin: 0 2px 9px; font-size: 13px; }
+.aaalice-operation-group { padding: 8px; }
+.aaalice-operation-container-title { margin: 1px 2px 7px; font-size: 12px; font-weight: 650; }
 .aaalice-operation-group-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; gap: 8px; }
 .aaalice-operation-group-item { border-radius: 6px; box-shadow: none; }
-.aaalice-operation-group-item.aaalice-operation-card { border-color: color-mix(in srgb, var(--aaalice-border) 65%, transparent); background: color-mix(in srgb, var(--aaalice-surface-2) 45%, var(--aaalice-surface)); }
-.aaalice-operation-carousel { padding: 8px; }
+.aaalice-operation-group-item.aaalice-operation-card { border-color: color-mix(in srgb, var(--aaalice-compact-border) 62%, transparent); background: color-mix(in srgb, var(--aaalice-compact-control) 24%, transparent); }
+.aaalice-operation-carousel { padding: 7px; }
 .aaalice-operation-carousel-nav { display: flex; min-height: 34px; align-items: center; justify-content: center; gap: 4px; }
 .aaalice-operation-carousel-dots { display: flex; min-width: 0; overflow-x: auto; align-items: center; justify-content: center; gap: 5px; padding: 2px; scrollbar-width: none; }
 .aaalice-operation-carousel-dot { width: 8px; min-width: 8px; min-height: 8px; overflow: hidden; padding: 0; border-radius: 999px; background: var(--aaalice-border); color: transparent; transition: width .16s ease, padding .16s ease, color .16s ease; }
@@ -578,44 +602,49 @@
 .aaalice-operation-empty { position: relative; z-index: 3; min-width: 0; min-height: 0; grid-row: 2; grid-column: 1; place-content: center; pointer-events: none; }
 .aaalice-operation-content-editor { min-height: min(52vh, 520px) !important; resize: vertical; }
 .aaalice-operation-error { padding: 10px; border: 1px solid var(--aaalice-danger); border-radius: 6px; color: var(--aaalice-danger); white-space: pre-wrap; }
-.aaalice-operation-row { display: grid; grid-template-columns: minmax(76px, .7fr) minmax(0, 1.3fr); align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--aaalice-border) 60%, transparent); }
-.aaalice-operation-row:last-child { border-bottom: 0; }
-.aaalice-operation-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aaalice-operation-row input,
-.aaalice-operation-row select,
-.aaalice-operation-row textarea { min-width: 0; min-height: 34px; border: 1px solid var(--aaalice-border); border-radius: 8px; background: var(--aaalice-surface-2); color: var(--aaalice-text); font: inherit; }
-.aaalice-operation-row input:focus-visible,
-.aaalice-operation-row select:focus-visible,
-.aaalice-operation-row textarea:focus-visible { outline: 2px solid var(--aaalice-accent); outline-offset: 1px; }
+.aaalice-operation-field { display: grid; min-width: 0; min-height: 48px; padding: 1px 0; grid-template-rows: 14px minmax(32px, auto); align-content: start; border-radius: 7px; transition: background .12s ease; }
+.aaalice-operation-field:hover { background: color-mix(in srgb, var(--aaalice-compact-value) 4%, transparent); }
+.aaalice-operation-field-heading { display: flex; min-width: 0; min-height: 14px; align-items: center; justify-content: space-between; gap: 5px; }
+.aaalice-operation-label { min-width: 0; overflow: hidden; color: var(--aaalice-compact-muted); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.aaalice-operation-field > :not(.aaalice-operation-field-heading) { width: 100%; min-width: 0; }
+.aaalice-operation .aaalice-operation-field :is(input, select, textarea) { min-width: 0; min-height: 32px; height: 32px; padding: 4px 9px; border: 1px solid var(--aaalice-compact-field-border); border-radius: 8px; background: var(--aaalice-compact-field); box-shadow: var(--aaalice-compact-field-shadow); color: var(--aaalice-compact-value); font: inherit; }
+.aaalice-operation .aaalice-operation-field textarea { height: auto; min-height: 56px; padding-block: 7px; resize: vertical; }
+.aaalice-operation .aaalice-operation-field :is(input, select, textarea):hover { background: var(--aaalice-compact-field-hover); }
+.aaalice-operation .aaalice-operation-field :is(input, select, textarea):focus-visible { border-color: color-mix(in srgb, var(--aaalice-compact-accent) 70%, var(--aaalice-compact-border)); outline: 1px solid color-mix(in srgb, var(--aaalice-compact-accent) 24%, transparent); outline-offset: 0; box-shadow: var(--aaalice-compact-field-shadow); }
 .aaalice-operation-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 7px; margin-top: 8px; }
 .aaalice-operation-results img { display: block; width: 100%; height: auto; border-radius: 7px; }
-.aaalice-shared-slider { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 7px; align-items: center; }
-.aaalice-shared-slider input[type="range"] { min-width: 0; accent-color: var(--aaalice-accent); }
-.aaalice-shared-number-pill {
+.aaalice-shared-slider { display: grid; min-width: 0; height: 32px; padding-left: 6px; grid-template-columns: minmax(0, 1fr) 68px; align-items: center; gap: 7px; border-radius: 7px; background: color-mix(in srgb, var(--aaalice-compact-control) 58%, transparent); }
+.aaalice-operation .aaalice-operation-field .aaalice-shared-slider input[type="range"] { min-width: 0; height: 32px; padding: 0; border: 0; background: transparent; box-shadow: none; accent-color: var(--aaalice-compact-accent); }
+.aaalice-shared-number-field {
 	min-width: 0;
-	min-height: 34px;
+	height: 32px;
 	padding: 4px 9px;
-	border: 1px solid var(--aaalice-border);
+	border: 1px solid var(--aaalice-compact-field-border);
 	border-radius: 8px;
-	background: var(--aaalice-surface-2);
-	color: var(--aaalice-text);
+	background: var(--aaalice-compact-field);
+	box-shadow: var(--aaalice-compact-field-shadow);
+	color: var(--aaalice-compact-value);
 	font: 600 12px/1 var(--comfy-font, Inter, system-ui, sans-serif);
 	text-align: right;
 	cursor: text;
 }
-.aaalice-shared-number-pill:hover { border-color: color-mix(in srgb, var(--aaalice-accent) 48%, var(--aaalice-border)); }
-.aaalice-shared-number-pill:focus-visible { outline: 2px solid var(--aaalice-accent); outline-offset: 1px; }
+.aaalice-shared-number-field:hover { border-color: color-mix(in srgb, var(--aaalice-compact-accent) 48%, var(--aaalice-compact-border)); background: var(--aaalice-compact-field-hover); }
+.aaalice-shared-number-field:focus-visible { outline: 1px solid var(--aaalice-compact-accent); outline-offset: 1px; }
 .aaalice-shared-select-wrap { position: relative; min-width: 0; }
-.aaalice-shared-select-wrap select { width: 100%; min-height: 34px; padding-right: 28px; appearance: none; border: 1px solid var(--aaalice-border); border-radius: 8px; background: var(--aaalice-surface-2); color: var(--aaalice-text); font: inherit; }
+.aaalice-shared-select-wrap select { width: 100%; min-height: 32px; padding-right: 28px; appearance: none; border: 1px solid var(--aaalice-compact-field-border); border-radius: 8px; background: var(--aaalice-compact-field); color: var(--aaalice-compact-value); font: inherit; }
 .aaalice-shared-select-wrap > .aa-ui-icon { position: absolute; top: 50%; right: 9px; width: 13px; height: 13px; pointer-events: none; color: var(--aaalice-muted); transform: translateY(-50%); transition: transform .14s ease, color .14s ease; }
-.aaalice-shared-select-wrap.is-open > .aa-ui-icon { color: var(--aaalice-accent); transform: translateY(-50%) rotate(180deg); }
-.aaalice-shared-switch { display: inline-grid; width: 44px; height: 24px; padding: 2px; place-items: center start; border: 1px solid var(--aaalice-border); border-radius: 999px; background: var(--aaalice-surface-2); color: var(--aaalice-text); cursor: pointer; }
-.aaalice-shared-switch-track { position: relative; display: block; width: 100%; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--aaalice-border) 80%, transparent); }
-.aaalice-shared-switch-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--aaalice-muted); transition: transform .14s ease, background .14s ease; }
-.aaalice-shared-switch.active { border-color: var(--aaalice-accent); background: var(--aaalice-accent-soft); }
-.aaalice-shared-switch.active .aaalice-shared-switch-track { background: var(--aaalice-accent); }
+.aaalice-shared-select-wrap.is-open > .aa-ui-icon { color: var(--aaalice-compact-accent); transform: translateY(-50%) rotate(180deg); }
+.aaalice-shared-switch { display: inline-grid; width: 44px !important; height: 24px; padding: 2px; place-items: center start; border: 1px solid var(--aaalice-compact-field-border); border-radius: 999px; background: var(--aaalice-compact-field); color: var(--aaalice-compact-value); cursor: pointer; }
+.aaalice-shared-switch-track { position: relative; display: block; width: 100%; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--aaalice-compact-border) 80%, transparent); }
+.aaalice-shared-switch-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--aaalice-compact-muted); transition: transform .14s ease, background .14s ease; }
+.aaalice-shared-switch.active { border-color: var(--aaalice-compact-accent); background: var(--aaalice-compact-accent-soft); }
+.aaalice-shared-switch.active .aaalice-shared-switch-track { background: var(--aaalice-compact-accent); }
 .aaalice-shared-switch.active .aaalice-shared-switch-thumb { background: var(--aaalice-accent-text); transform: translateX(18px); }
-.aaalice-shared-switch:focus-visible { outline: 2px solid var(--aaalice-accent); outline-offset: 2px; }
+.aaalice-shared-switch:focus-visible { outline: 2px solid var(--aaalice-compact-accent); outline-offset: 2px; }
+.aaalice-operation .aaalice-operation-field input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: var(--aaalice-compact-border); }
+.aaalice-operation .aaalice-operation-field input[type="range"]::-webkit-slider-thumb { width: 12px; height: 12px; margin-top: -4px; border: 2px solid var(--aaalice-compact-control); background: var(--aaalice-compact-accent); }
+.aaalice-operation .aaalice-operation-field input[type="range"]::-moz-range-track { height: 4px; background: var(--aaalice-compact-border); }
+.aaalice-operation .aaalice-operation-field input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px solid var(--aaalice-compact-control); background: var(--aaalice-compact-accent); }
 .aaalice-operation select.invalid { color: var(--aaalice-danger); border-color: var(--aaalice-danger); }
 
 /* ParameterPanel keeps stable output ids while unused rows remain visually hidden. */

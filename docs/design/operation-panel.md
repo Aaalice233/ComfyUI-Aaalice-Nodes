@@ -57,6 +57,14 @@ Operation Panel 是工作流作者搭建的 WebUI 风格操作界面，用于集
 
 Group 只包含 Node Cards。Carousel 的 slide 只能是 Node Card 或一层 Group Card，禁止继续嵌套。
 
+### 卡片与字段
+
+- Node Card 与 ParameterPanel 节点共享同一套紧凑视觉 token：控件表面、边框、强调色、正文色和弱化文字不得分别维护。
+- 字段统一采用“标签在上、控件在下”的 48px 基础节奏；标签为 11px 半粗弱化文字，输入、选择和数值字段高 32px。
+- Node Card 标题栏高 36px，正文使用 10px 水平内边距；默认样式即为紧凑的节点式卡片，`compact` 只进一步压缩到 32px 标题栏和 28px 控件。
+- 内置节点、Subgraph 通用控件和第三方 adapter 的 `components.field()` 必须经过同一个字段构造器，禁止各自复制标签与控件布局。
+- Node Card、Group、Carousel 和 Markdown 共用 Module Surface 原语；样式变体只修改该表面，不为每种 Module 复制外壳规则。
+
 ## 轮播
 
 - 高度取所有 slides 中最高内容，切换时下方布局不跳动。
@@ -68,7 +76,7 @@ Group 只包含 Node Cards。Carousel 的 slide 只能是 Node Card 或一层 Gr
 ## 视觉与状态
 
 - 卡片只提供普通、紧凑、重点和无边框四种样式，不开放任意颜色、阴影或圆角。
-- 普通组合使用共享表面；内部卡片取消重复外框。
+- 普通组合使用共享表面；内部卡片降低边框与底色层级，不增加阴影。
 - 选中、隐藏、错误和禁用同时使用轮廓、透明度或图标表达，不能只依赖颜色。
 - 普通按钮使用小圆角矩形；胶囊只保留给短标签和轮播圆点展开态。
 - 标题、说明、参数和结果建立清晰字重与间距层级，避免把每一块都做成独立卡片。

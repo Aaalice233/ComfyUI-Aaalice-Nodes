@@ -2,16 +2,26 @@
 import { renderSafeMarkdown } from "./safe_markdown.js";
 
 const adapters = new Map();
+
+export function createOperationField({ label, control, description = "" }) {
+	const field = document.createElement("label");
+	field.className = "aaalice-operation-field";
+	const heading = document.createElement("span");
+	heading.className = "aaalice-operation-field-heading";
+	const copy = document.createElement("span");
+	copy.className = "aaalice-operation-label";
+	copy.textContent = String(label || "");
+	if (description) {
+		copy.title = String(description);
+		field.dataset.hasDescription = "true";
+	}
+	heading.append(copy);
+	field.append(heading, control);
+	return field;
+}
+
 const components = Object.freeze({
-	field({ label, control }) {
-		const row = document.createElement("label");
-		row.className = "aaalice-operation-row";
-		const copy = document.createElement("span");
-		copy.className = "aaalice-operation-label";
-		copy.textContent = String(label || "");
-		row.append(copy, control);
-		return row;
-	},
+	field: createOperationField,
 	text(value, className = "") {
 		const element = document.createElement("p");
 		element.className = className;
