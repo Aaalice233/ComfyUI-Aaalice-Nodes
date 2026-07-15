@@ -1,8 +1,9 @@
 /** Versioned workflow state for the modular Operation Panel. */
-import { normalizeFrame } from "./operation_layout.js";
+import { OPERATION_DESIGN_PRESETS, normalizeFrame } from "./operation_layout.js";
 
 export const OPERATION_VERSION = 3;
 const OPERATION_PROPERTY = "aaalice_operation_panel";
+const resetVersions = new WeakMap();
 export const MODULE_STYLES = Object.freeze(["default", "compact", "emphasis", "borderless"]);
 const MODULE_TYPES = Object.freeze(["node", "group", "carousel", "heading", "markdown"]);
 
@@ -41,9 +42,10 @@ function normalizePage(page, index) {
 	page.id = String(page.id || newStableId("page"));
 	page.name = String(page.name || "").trim();
 	page.order = Number.isFinite(Number(page.order)) ? Number(page.order) : index;
-	page.design ||= { preset: "1440x900", width: 1440, height: 900 };
-	page.design.width = Math.max(960, Number(page.design.width) || 1440);
-	page.design.height = Math.max(640, Number(page.design.height) || 900);
+	const preset = page.design?.preset;
+	page.design = preset === "current"
+		? { preset: "current" }
+		: { preset: OPERATION_DESIGN_PRESETS[preset] ? preset : "1440x900", ...(OPERATION_DESIGN_PRESETS[preset] || OPERATION_DESIGN_PRESETS["1440x900"]) };
 	page.modules ||= {};
 	for (const [id, module] of Object.entries(page.modules)) {
 		const normalized = normalizeModule(module, id);
@@ -66,12 +68,19 @@ export function operationState(graph, create = false) {
 		const previousVersion = state?.version ?? null;
 		state = createOperationState();
 		graph.extra[OPERATION_PROPERTY] = state;
-		if (previousVersion != null) state.reset_from_version = previousVersion;
+		if (previousVersion != null) resetVersions.set(graph, previousVersion);
 	}
+	delete state.reset_from_version;
 	state.pages = Array.isArray(state.pages) && state.pages.length ? state.pages : createOperationState().pages;
 	state.pages.forEach(normalizePage);
 	if (!state.pages.some((page) => page.id === state.default_page_id)) state.default_page_id = state.pages[0].id;
 	return state;
+}
+
+export function consumeOperationResetVersion(graph) {
+	const version = resetVersions.get(graph) ?? null;
+	resetVersions.delete(graph);
+	return version;
 }
 
 export function findPage(state, pageId) {

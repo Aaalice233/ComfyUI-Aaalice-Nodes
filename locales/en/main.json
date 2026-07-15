@@ -18,7 +18,7 @@
       "renamePage": "Rename page", "deletePage": "Delete page", "defaultPageAction": "Set as default page",
       "pageDeleteConfirm": "Delete page {name}? Its modules will be removed from Operation Panel.",
       "pageKeepOne": "At least one page is required.", "pageNameUnique": "Page names must be unique.",
-      "designSize": "Design size", "currentWindow": "Current window", "layoutReset": "Operation Panel uses a new layout format. The previous layout was not migrated.",
+      "designSize": "Design size", "design1440": "1440 × 900 minimum", "design1920": "1920 × 1080 minimum", "currentWindow": "Adaptive window", "layoutReset": "Operation Panel uses a new layout format. The previous layout was not migrated.",
       "heading": "Heading", "markdown": "Markdown", "addHeading": "Add heading", "addMarkdown": "Add Markdown",
       "editHeading": "Edit heading", "editMarkdown": "Edit Markdown", "headingHint": "First line is the title; following lines are the description.",
       "markdownHint": "Safe Markdown; HTML is ignored.", "editContent": "Edit content", "rename": "Rename",

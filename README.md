@@ -75,8 +75,8 @@ The optional **Operation Panel** is a workflow-level surface for frequently adju
 
 - Nodes are never added automatically. Removal is available only in the panel's layout editor and never deletes the workflow node.
 - The expanded panel covers the node workspace while keeping ComfyUI's top bar and sidebars available.
-- Use separate pages for surfaces such as text-to-image, image-to-image, and upscaling. Add headings and safe Markdown, then anchor cards to the design canvas.
-- Layout editing supports multi-selection, snapping, alignment, distribution, equal widths, four card styles, shared groups, and carousels. Narrow workspaces scroll instead of rearranging the authored layout.
+- Use separate pages for surfaces such as text-to-image, image-to-image, and upscaling. Add headings and safe Markdown, then anchor cards to a minimum design baseline or an adaptive window.
+- Layout editing supports multi-selection, snapping, alignment, distribution, equal widths, four card styles, shared groups, and carousels. Wider workspaces expand the anchored layout; narrow workspaces scroll instead of rearranging it.
 - Presets store writable values from the current page or selected modules. They never store layout, create nodes, change links, or alter parameter definitions.
 - The panel has no separate execution button and keeps ComfyUI's native queue controls.
 

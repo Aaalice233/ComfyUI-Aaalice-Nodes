@@ -9,7 +9,7 @@
 | `SimpleStringSplit` | `nodes/tools/simple_string_split.py` | 无专用前端 | `Aaalice/tools` |
 | `ParameterPanel` | `nodes/control/parameter_panel.py` | `js/parameter_panel.js` | `Aaalice/control` |
 
-`js/parameter_sidebar.js` 提供 Operation Panel，`js/parameter_panel_kj.js` 提供可选 KJ Set/Get 集成；它们不是独立后端节点。
+`js/operation_panel.js` 提供 Operation Panel，`js/parameter_panel_kj.js` 提供可选 KJ Set/Get 集成；它们不是独立后端节点。
 
 未来域只有出现真实节点时才建立并注册，不在聚合器或文档中保留空规划槽位。
 
@@ -44,12 +44,15 @@ ParameterPanel.execute()
 | `js/lib/parameter_layout.js` | 参数行、节点高度、真实输出映射和静态绘制 |
 | `js/lib/parameter_controls.js` | 节点面与侧栏共享的输入控件 |
 | `js/lib/operation_state.js` | v3 Page / Module 状态、容器深度与原子删除 |
-| `js/lib/operation_layout.js` | 锚点换算、吸附、智能锚点、碰撞落位与分布 |
+| `js/lib/operation_layout.js` | 设计基准、运行时 viewport、锚点换算、吸附与碰撞几何 |
 | `js/lib/operation_registry.js` | `aaaliceOperationPanel.v1` adapter 注册与公共渲染组件 |
 | `js/lib/operation_preset_store.js` | v3 Value Preset 的 user-data 读写 |
+| `js/lib/operation_workspace.js` | 唯一 portal、原生侧栏恢复、统一命令栏避让与 viewport 观测 |
+| `js/lib/operation_modules.js` | Node / Group / Carousel / 内容模块渲染与 adapter 清理 |
+| `js/lib/operation_editor.js` | 选择、拖动、宽度、锚点、组合和编辑上下文菜单 |
 | `js/lib/safe_markdown.js` | Heading、说明与 Markdown Module 共用的安全渲染 |
 | `js/parameter_panel.js` | ParameterPanel 挂载、结构编辑、序列化与节点菜单 |
-| `js/parameter_sidebar.js` | Operation Panel 覆盖工作区、页面、模块编辑、预设与 Subgraph 卡片 |
+| `js/operation_panel.js` | Operation Panel 状态协调、页面、预设和扩展生命周期入口 |
 | `js/parameter_panel_kj.js` | 可选 KJ Set/Get 创建、连线和命名同步 |
 
 `js/lib/ui.js` + `ui.css` 是无业务状态的 DOM 组件层；`theme.css` 只负责业务布局与主题映射。
@@ -61,14 +64,16 @@ extension.js
   ├─ parameter_panel.js
   │    ├─ ParameterPanel DOM widget / editor / graphToPrompt
   │    └─ parameter_panel_kj.js（可选集成，不单独注册扩展）
-  └─ parameter_sidebar.js
-       ├─ Operation Panel sidebar toggle + single workspace portal
-       ├─ native toolbar backdrop / unified command bar
-       ├─ Page / Module layout editor
+  └─ operation_panel.js
+       ├─ operation_workspace.js（sidebar toggle + single portal + viewport）
+       ├─ operation_modules.js（卡片与 adapter）
+       ├─ operation_editor.js（Page / Module 布局编辑）
        └─ Operation adapter API installation
 ```
 
-ParameterPanel 在 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描中幂等挂载。Operation Panel 通过 ComfyUI sidebar API 注册入口，但 sidebar render container 只承担原生 toggle 生命周期。展开时隐藏该 tab 对应的 `SplitterPanel` 和相邻 gutter，把一层背景及唯一工作区 portal 挂到 `document.body`；背景位于原生顶部工具之下，页面与编辑命令只占用原生面包屑和右侧 actionbar 之间的空间。收起时必须同时卸载 portal、背景并恢复 Splitter 元素，不能留下紧凑侧栏版本或第二套布局外壳。
+ParameterPanel 在 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描中幂等挂载。Operation Panel 通过 ComfyUI sidebar API 注册入口，但 sidebar render container 只承担原生 toggle 生命周期。展开时隐藏该 tab 对应的 `SplitterPanel` 和相邻 gutter，把一层背景及唯一工作区 portal 挂到 `document.body`；背景位于原生顶部工具之下，页面与编辑命令只占用原生面包屑和右侧 actionbar 之间的空间。Workspace 在一次展开期间保留同一个滚动容器，由单个 `ResizeObserver` 提供 available viewport。收起时必须同时卸载 portal、背景、observer 并恢复 Splitter 元素，不能留下紧凑侧栏版本或第二套布局外壳。
+
+固定 Page design 是最小 baseline；运行时锚点 viewport 取 baseline 与滚动区可见尺寸的较大值。“自适应窗口”以 `960×640` 为安全下限并持续跟随可见区域。浏览器 resize 只重新解析 Anchor Frame；碰撞时扩大临时画布并滚动，不写回 workflow。节点新增、加载、配置完成和移除通过 ComfyUI extension/node 生命周期通知重绘，不永久覆写 `graph.add/remove`。
 
 参数变化通过命名事件通知节点面和 Operation Panel 重绘。Operation Panel 对普通节点使用受支持 widget 的通用 adapter，对 ParameterPanel 使用稳定参数身份，对 Subgraph 使用其公开 widgets；第三方 adapter 只覆盖卡片渲染和 preset 项。
 
@@ -90,7 +95,7 @@ v3 workflow state 的稳定关系为：
 ```text
 Operation Panel
   └─ Page[]
-       ├─ design size + default page identity
+       ├─ design baseline / adaptive mode + default page identity
        ├─ Root Module[]（使用 Anchor Frame）
        └─ child Module[]（由 Group / Carousel 自动排版）
 ```

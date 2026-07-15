@@ -31,7 +31,7 @@ A workflow-level surface for operating registered graph content without changing
 _Avoid_: Parameter editor, execution panel
 
 **Operation Page (操作页面)**:
-A named top-level operating view with its own design size and ordered root Modules. A single unnamed page hides page navigation.
+A named top-level operating view with its own design baseline or adaptive-window mode and ordered root Modules. A single unnamed page hides page navigation.
 _Avoid_: Tab preset, workflow page
 
 **Operation Module (操作模块)**:
@@ -55,7 +55,7 @@ A single anchored module that shows one Node Card or Group Card at a time and re
 _Avoid_: Page tab, nested carousel
 
 **Anchor Frame (锚点框架)**:
-The saved anchor, offsets, alignment, and width that resolve a Root Module against its Page design size; height remains content-driven.
+The saved anchor, offsets, alignment, and width that resolve a Root Module against the Page runtime viewport. Fixed design sizes are minimum baselines; height remains content-driven.
 _Avoid_: fixed grid cell, responsive breakpoint
 
 **Value Preset (参数值预设)**:

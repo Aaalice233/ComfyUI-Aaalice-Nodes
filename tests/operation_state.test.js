@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
 	OPERATION_VERSION,
+	consumeOperationResetVersion,
 	createContainerModule,
 	createNodeModule,
 	createOperationState,
@@ -16,8 +17,23 @@ test("v3 is the only accepted workflow layout format", () => {
 	const graph = { extra: { aaalice_operation_panel: { version: 2, pages: [{ id: "old" }] } } };
 	const state = operationState(graph, true);
 	assert.equal(state.version, OPERATION_VERSION);
-	assert.equal(state.reset_from_version, 2);
+	assert.equal(consumeOperationResetVersion(graph), 2);
+	assert.equal("reset_from_version" in state, false);
 	assert.notEqual(state.pages[0].id, "old");
+});
+
+test("page design modes normalize without snapshotting the current window", () => {
+	const graph = { extra: { aaalice_operation_panel: {
+		version: OPERATION_VERSION,
+		default_page_id: "fixed",
+		pages: [
+			{ id: "fixed", design: { preset: "1920x1080", width: 123, height: 456 }, modules: {}, root_ids: [] },
+			{ id: "current", design: { preset: "current", width: 2560, height: 1440 }, modules: {}, root_ids: [] },
+		],
+	} } };
+	const state = operationState(graph, true);
+	assert.deepEqual(state.pages[0].design, { preset: "1920x1080", width: 1920, height: 1080 });
+	assert.deepEqual(state.pages[1].design, { preset: "current" });
 });
 
 test("removing a container removes its descendants but never graph nodes", () => {

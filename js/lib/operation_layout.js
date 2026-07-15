@@ -5,6 +5,8 @@ export const OPERATION_DESIGN_PRESETS = Object.freeze({
 	"1920x1080": Object.freeze({ width: 1920, height: 1080 }),
 });
 
+const OPERATION_MIN_VIEWPORT = Object.freeze({ width: 960, height: 640 });
+
 export const OPERATION_ANCHORS = Object.freeze({
 	"top-left": Object.freeze({ x: 0, y: 0, alignX: 0, alignY: 0 }),
 	"top-center": Object.freeze({ x: 0.5, y: 0, alignX: 0.5, alignY: 0 }),
@@ -49,6 +51,67 @@ export function resolveFrame(frame, viewport, measuredHeight = 0) {
 		width,
 		height: measuredHeight,
 	};
+}
+
+export function resolveLayoutViewport(design = {}, available = {}) {
+	const availableWidth = Math.max(0, Number(available.width) || 0);
+	const availableHeight = Math.max(0, Number(available.height) || 0);
+	if (design.preset === "current") {
+		return {
+			width: Math.max(OPERATION_MIN_VIEWPORT.width, availableWidth),
+			height: Math.max(OPERATION_MIN_VIEWPORT.height, availableHeight),
+		};
+	}
+	const preset = OPERATION_DESIGN_PRESETS[design.preset] || OPERATION_DESIGN_PRESETS["1440x900"];
+	return {
+		width: Math.max(preset.width, availableWidth),
+		height: Math.max(preset.height, availableHeight),
+	};
+}
+
+function overlapAmount(a, b, axis, gap = 8) {
+	const start = axis === "x" ? "x" : "y";
+	const size = axis === "x" ? "width" : "height";
+	return Math.max(0, Math.min(a[start] + a[size], b[start] + b[size]) - Math.max(a[start], b[start]) + gap);
+}
+
+/**
+ * Grow only the transient viewport when responsive anchors would collide.
+ * Frames remain untouched, so a browser resize never dirties the workflow.
+ */
+export function expandViewportForFrames(viewport, items, step = 8) {
+	const candidate = {
+		width: Math.max(1, Number(viewport?.width) || 1),
+		height: Math.max(1, Number(viewport?.height) || 1),
+	};
+	const entries = (items || []).filter((item) => item?.frame);
+	for (let iteration = 0; iteration < 32; iteration += 1) {
+		const rects = entries.map((item) => ({
+			item,
+			anchor: OPERATION_ANCHORS[normalizeFrame(item.frame).anchor],
+			rect: resolveFrame(item.frame, candidate, Number(item.height) || 0),
+		}));
+		let growWidth = 0;
+		let growHeight = 0;
+		for (let left = 0; left < rects.length; left += 1) {
+			for (let right = left + 1; right < rects.length; right += 1) {
+				const a = rects[left];
+				const b = rects[right];
+				if (!rectsOverlap(a.rect, b.rect)) continue;
+				const anchorDeltaX = Math.abs(a.anchor.x - b.anchor.x);
+				const anchorDeltaY = Math.abs(a.anchor.y - b.anchor.y);
+				if (anchorDeltaX > 0) {
+					growWidth = Math.max(growWidth, overlapAmount(a.rect, b.rect, "x") / anchorDeltaX);
+				} else if (anchorDeltaY > 0) {
+					growHeight = Math.max(growHeight, overlapAmount(a.rect, b.rect, "y") / anchorDeltaY);
+				}
+			}
+		}
+		if (!growWidth && !growHeight) return candidate;
+		candidate.width += growWidth ? Math.max(step, snapValue(growWidth, step)) : 0;
+		candidate.height += growHeight ? Math.max(step, snapValue(growHeight, step)) : 0;
+	}
+	return candidate;
 }
 
 export function frameFromRect(rect, anchor, viewport) {

@@ -91,6 +91,7 @@ ComfyUI-Aaalice-Nodes/
 - Operation Panel 的 sidebar tab 只作为展开/收起入口；激活时折叠其原生内容面板，只保留单一工作区 portal，关闭时必须恢复 Splitter 状态。
 - 页面、预设和编辑入口使用统一命令栏，只占原生面包屑与 actionbar 之间的空间；不得复制、覆盖或提升 ComfyUI 原生运行工具。
 - 页面结构固定为 Operation Panel → Page → Module；顶层 Module 使用锚点框架，卡片内部自动排版，同一节点或 Subgraph 只能出现一次。
+- 固定设计尺寸只是最小基准；实际锚点 viewport 取基准与可见工作区的较大值，“自适应窗口”不序列化窗口尺寸。窗口变化不得写回布局状态。
 - 节点与 Subgraph 只能从其右键菜单主动加入；模块只在面板编辑模式移除，移除模块或页面不得删除工作流节点。
 - Group 只包含 Node Card；Carousel 只包含 Node Card 或一层 Group，禁止任意容器嵌套。
 - 本包新增的节点菜单、子菜单和命令以 emoji 开头，emoji 必须进入 en/zh 本地化文案。
@@ -125,8 +126,10 @@ ComfyUI-Aaalice-Nodes/
 - JS 至少运行 `node --check`；JSON 使用真实解析器校验；提交前运行 `git diff --check`。
 - 前端改动后必须硬刷新；涉及节点结构、slot 或 widget 协议时删除旧节点并重新创建。
 - UI 通过必须同时满足节点可创建、控件可操作、输出无截断、无阻断性 Console 错误；`/object_info` 只证明后端注册。
+- GUI 自动验收只能使用 Codex 内置浏览器；禁止自行启动 Chrome / Edge、连接 CDP、引入 Playwright / Selenium，或搭建隔离浏览器与临时 GUI 测试框架。
+- Codex 内置浏览器不可用或无法稳定连接时，立即停止 GUI 自动化，清理本轮临时资源并交由用户手测；静态检查和现有单元测试仍需正常执行。
 - 自动化失败必须保留原始错误。环境无法验证时说明已完成检查和剩余风险，不得伪造通过。
-- 完整日志路径、隔离实例和 Codex Desktop E2E 流程见 [`docs/development/testing.md`](docs/development/testing.md)。
+- 完整日志路径和 Codex 内置浏览器验收流程见 [`docs/development/testing.md`](docs/development/testing.md)。
 
 ## 9. 发布
 

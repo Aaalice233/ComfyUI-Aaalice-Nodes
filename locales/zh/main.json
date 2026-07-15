@@ -18,7 +18,7 @@
       "renamePage": "重命名页面", "deletePage": "删除页面", "defaultPageAction": "设为默认页面",
       "pageDeleteConfirm": "删除页面“{name}”？其中的模块将从操作面板移除。",
       "pageKeepOne": "至少需要保留一个页面。", "pageNameUnique": "页面名称不能重复。",
-      "designSize": "设计尺寸", "currentWindow": "当前窗口", "layoutReset": "操作面板已使用新的布局格式，旧布局不会迁移。",
+      "designSize": "设计尺寸", "design1440": "1440 × 900 最小", "design1920": "1920 × 1080 最小", "currentWindow": "自适应窗口", "layoutReset": "操作面板已使用新的布局格式，旧布局不会迁移。",
       "heading": "标题", "markdown": "Markdown", "addHeading": "添加标题", "addMarkdown": "添加 Markdown",
       "editHeading": "编辑标题", "editMarkdown": "编辑 Markdown", "headingHint": "第一行是标题，后续行是简短说明。",
       "markdownHint": "支持安全 Markdown，不解析任意 HTML。", "editContent": "编辑内容", "rename": "重命名",
