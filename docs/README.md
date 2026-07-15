@@ -4,19 +4,17 @@
 
 ## 架构决策
 
-[`adr/`](adr/) 记录难以逆转、存在真实取舍且仅看代码无法解释的决策。当前决策索引见 [ADR README](adr/README.md)。被替代的 ADR 保留历史，但必须明确链接后继决策。
+[`adr/`](adr/) 记录难逆、存在真实取舍且仅看代码无法解释的决策。当前索引见 [ADR README](adr/README.md)。
 
 ## 设计规范
 
-- [UI 设计系统](design/ui-system.md)：共同设计语言、主题 token、尺度、基础组件与状态规则。
+- [UI 设计系统](design/ui-system.md)：主题 token、共享组件、状态与可访问性规则。
 - [ParameterPanel](design/parameter-panel.md)：节点面、参数控件、结构编辑器与双模式渲染。
-- [Operation Panel](design/operation-panel.md)：页面、锚点、编辑模式、组合、轮播与空间利用。
 
 ## 开发说明
 
-- [Architecture](development/architecture.md)：当前节点、模块边界、数据流和状态真源。
-- [Operation Panel adapter API](development/operation-panel-adapters.md)：第三方节点卡片的版本化扩展接口。
-- [Testing](development/testing.md)：静态检查、后端测试、双模式 GUI 回归和证据要求。
+- [Architecture](development/architecture.md)：节点、前端模块、数据流和状态真源。
+- [Testing](development/testing.md)：静态检查、后端测试和双模式 GUI 回归。
 - [Release](development/release.md)：Registry 发布前检查与 GitHub Actions 流程。
 
 ## 收录原则
@@ -24,4 +22,4 @@
 - 一次性调查记录、聊天结论、截图和本机故障笔记不进入仓库。
 - 面向普通用户的行为写入双语 README，不在开发文档重复维护。
 - 硬性规则写入 AGENTS.md；本目录解释结构、设计和可重复操作。
-- 通用工具教程只有在本项目确实依赖该流程时才保留。
+- 已删除且未发布的开发中功能不保留迁移说明或历史文档。

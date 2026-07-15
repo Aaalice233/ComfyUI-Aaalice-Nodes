@@ -520,7 +520,7 @@ function valueControl(node, parameter, heading = null) {
 		imageButton.addEventListener("click", async () => { if (await chooseImage(parameter)) persist(); });
 		return imageButton;
 	}
-	return isolate(createParameterControl({ parameter, mode: "node", onChange: persist, labels: { input: displayName(parameter) } }));
+	return isolate(createParameterControl({ parameter, onChange: persist, labels: { input: displayName(parameter) } }));
 }
 
 function renderNode(node, root) {
@@ -817,7 +817,7 @@ async function openParameterEditor(node) {
 		className: "aaalice-parameter-editor",
 		onRequestClose: requestDiscard,
 	});
-	editor.count = badge("", { tone: "neutral", className: "aaalice-editor-count" });
+	editor.count = badge("", { className: "aaalice-editor-count" });
 	dialogApi.header.replaceChildren(dialogApi.heading, editor.count);
 	const rerender = (list = true) => {
 		if (list) renderEditorList(editor, rerender);

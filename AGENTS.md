@@ -6,7 +6,8 @@
 
 本项目选择性重写 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)，只实现已确认的节点和前端能力。
 
-- 当前已发布到 ComfyUI Registry，但仍处于预览期；breaking change 必须同步版本和双语 README，不为尚未发布的开发中间态保留兼容壳。
+- 当前已发布到 ComfyUI Registry，但仍处于预览期；已发布行为发生 breaking change 时必须同步版本和双语 README。
+- 尚未发布的节点或前端能力可以直接删除、重构或更改协议；不得为开发中间态保留迁移器、兼容壳、废弃别名或历史文档。
 - 标识符使用英文；用户可见文案必须提供 en + zh，并跟随 ComfyUI 界面语言。
 - 节点必须同时支持经典模式和 Nodes 2.0；暂不支持 App Mode。
 - 新增依赖前必须征得同意；禁止静默吞错、伪造成功或用降级掩盖根因。
@@ -27,7 +28,7 @@
 - 文档入口见 [`docs/README.md`](docs/README.md)。
 - 两份 README 结构必须对齐，页顶互链；用户行为或公开限制变化时双语同步。
 - `README.md` 使用 English 并作为 `pyproject.toml` 的 Registry readme；`README.zh-CN.md` 使用简体中文。
-- ADR 必须标明 `Accepted`、`Superseded` 或 `Rejected`；被替代的 ADR 保留历史并链接后继决策。
+- ADR 必须标明 `Accepted`、`Superseded` 或 `Rejected`；已发布决策被替代时保留历史并链接后继决策，未发布中间态删除后不保留 ADR。
 - 不保留与本项目无关的通用工具笔记、一次性调查报告或测试截图。
 
 ## 3. 仓库与后端
@@ -63,7 +64,7 @@ ComfyUI-Aaalice-Nodes/
 - 有交互的节点面同步调用 `addDOMWidget`，不得先 `await`；异步 i18n 就绪后只刷新文案和绘制。
 - DOM widget 必须提供 `getMinHeight` / `getHeight`，并随内容更新节点最小尺寸。
 - 在已有 `node.graph` 时立即注册，否则由 `onAdded` 完成；不得绕过 ComfyUI 生命周期。
-- Sidebar、dialog 等宿主 `render` 回调出错时，必须清理部分挂载、记录原始错误并显示可见错误状态；不得向宿主重新抛出而触发重复渲染。
+- Dialog 等宿主挂载出错时，必须清理部分挂载、记录原始错误并显示可见错误状态。
 
 ### 4.2 渲染边界
 
@@ -75,12 +76,11 @@ ComfyUI-Aaalice-Nodes/
 
 ### 4.3 状态与序列化
 
-- 内部状态真源使用 `node.properties` 或命名空间化的 workflow properties。
+- 参数定义与值的状态真源使用 `node.properties`。
 - 内部 payload 不得暴露为 Schema STRING / forceInput；执行时由 `graphToPrompt` 注入。
-- Value Preset 存入 Comfy `user` 目录，只包含当前页面或所选 Root Modules 范围内由 adapter 暴露的可写值。
 - 任何状态变更都要检查保存、加载、复制节点、撤销/重做和执行路径。
 
-## 5. ParameterPanel 与 Operation Panel
+## 5. ParameterPanel
 
 - `ParameterPanel` 是唯一参数节点；管理 0–32 个参数，固定提供 `output_1`…`output_32` 直接输出。
 - separator 和未使用输出隐藏但不删除协议槽位。
@@ -88,26 +88,19 @@ ComfyUI-Aaalice-Nodes/
 - 参数结构只从右键编辑器修改；保存时统一校验、确认断线并原子应用。
 - 节点面只显示值控件；Seed 可保留独立锁定按钮，禁止恢复节点级结构工具栏。
 - `js/lib/parameter_layout.js` 是参数行、控件矩形、输出位置和节点高度的唯一布局来源。
-- Operation Panel 只负责调值、结果查看与工作流级布局；不创建、删除、连线工作流节点，不修改参数定义，不提供独立执行按钮。
-- Operation Panel 的 sidebar tab 只作为展开/收起入口；激活时折叠其原生内容面板，只保留单一工作区 portal，关闭时必须恢复 Splitter 状态。
-- 页面、预设和编辑入口使用统一命令栏，只占原生面包屑与 actionbar 之间的空间；不得复制、覆盖或提升 ComfyUI 原生运行工具。
-- 页面结构固定为 Operation Panel → Page → Module；顶层 Module 使用锚点框架，卡片内部自动排版，同一节点或 Subgraph 只能出现一次。
-- 固定设计尺寸只是最小基准；实际锚点 viewport 取基准与可见工作区的较大值，“自适应窗口”不序列化窗口尺寸。窗口变化不得写回布局状态。
-- 节点与 Subgraph 只能从其右键菜单主动加入；模块只在面板编辑模式移除，移除模块或页面不得删除工作流节点。
-- Group 只包含 Node Card；Carousel 只包含 Node Card 或一层 Group，禁止任意容器嵌套。
-- 本包新增的节点菜单、子菜单和命令以 emoji 开头，emoji 必须进入 en/zh 本地化文案。
+- 本包新增的节点菜单以 emoji 开头，emoji 必须进入 en/zh 本地化文案。
 - 产品边界以 [`CONTEXT.md`](CONTEXT.md) 和 accepted ADR 为准；视觉规则见 [`docs/design/`](docs/design/)。
 
 ## 6. 组件、主题与 i18n
 
-- 新 DOM 页面优先复用 `js/lib/ui.js` + `js/lib/ui.css`；业务布局放在 `js/lib/theme.css`。
+- 新 DOM 界面优先复用 `js/lib/ui.js` + `js/lib/ui.css`；业务布局放在 `js/lib/theme.css`。
 - 复杂布局存在两个以上合理方案，或仅靠文字难以判断空间关系时，修改正式代码前主动制作同内容、可切换的临时 HTML 演示；确认方案后再实现，原型默认不进入仓库。
 - 小范围颜色、间距、字号和单控件调整不制作 HTML 演示；用户已明确实现方向时直接落地。
-- 禁止重复实现 button、field、empty state、context menu 或 dialog；业务卡片与页面导航仍复用基础组件语义。
+- 禁止重复实现 button、field、empty state 或 dialog。
 - 静态 `iconName` 与 `icon("…")` 必须存在于 `js/lib/ui.js` 的共享图标表；新增或改名后必须通过图标契约测试。
 - 颜色来自 ComfyUI token：`--fg-color`、`--descrip-text`、`--comfy-menu-secondary-bg`、`--comfy-input-bg`、`--border-color`、`--p-primary-color` 等。
 - 禁止写死品牌色或只适用于暗色主题的正文色；明暗主题切换必须同步。
-- 仅支持 en + zh：`locales/{en,zh}/{main,nodeDefs,settings,commands}.json`。
+- 仅支持 en + zh：`locales/{en,zh}/main.json` 与 `nodeDefs.json`；没有内容的 locale 文件不得保留。
 - `nodeDefs.json` 管节点定义；自绘 DOM 使用 `main.json` 和 `js/i18n.js`。
 - 序列化 id、COMBO 值和路径使用稳定英文；禁止中文作为协议值。
 - 修改用户文案时同步两种语言；输出键使用字符串序号 `"0"`、`"1"`……

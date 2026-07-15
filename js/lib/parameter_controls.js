@@ -1,4 +1,4 @@
-/** Shared DOM controls used by the node, editor and Operation Panel. */
+/** Shared DOM controls used by ParameterPanel's node surface and editor. */
 import { el, icon } from "./ui.js";
 
 function numericInput(parameter, onChange, ariaLabel = "") {
@@ -101,28 +101,7 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	return input;
 }
 
-function numericField(parameter, onChange, ariaLabel = "") {
-	const config = parameter.config || {};
-	const field = el("button", "aaalice-shared-number-field", String(parameter.value ?? 0));
-	field.type = "button";
-	field.dataset.parameterId = String(parameter.id || "");
-	field.dataset.aaaliceValueField = "true";
-	if (ariaLabel) field.setAttribute("aria-label", ariaLabel);
-	field.addEventListener("click", () => createNumericEditor(field, {
-		value: parameter.value ?? 0,
-		min: Number(config.min ?? 0),
-		max: Number(config.max ?? Number.MAX_SAFE_INTEGER),
-		step: Number(config.step ?? 1),
-		onCommit: (value) => {
-			parameter.value = value;
-			field.textContent = String(value);
-			onChange?.(value);
-		},
-	}));
-	return field;
-}
-
-export function createSelectControl(options = [], value, { onChange, ariaLabel = "" } = {}) {
+function createSelectControl(options = [], value, { onChange, ariaLabel = "" } = {}) {
 	const select = document.createElement("select");
 	if (ariaLabel) select.setAttribute("aria-label", ariaLabel);
 	for (const option of options) {
@@ -150,7 +129,7 @@ export function createSelectControl(options = [], value, { onChange, ariaLabel =
 	return wrap;
 }
 
-export function createSwitchControl(value, { onChange, ariaLabel = "" } = {}) {
+function createSwitchControl(value, { onChange, ariaLabel = "" } = {}) {
 	const control = el("button", `aaalice-shared-switch${value ? " active" : ""}`);
 	control.type = "button";
 	control.setAttribute("aria-pressed", String(Boolean(value)));
@@ -165,28 +144,11 @@ export function createSwitchControl(value, { onChange, ariaLabel = "" } = {}) {
 	return control;
 }
 
-export function createParameterControl({ parameter, mode = "sidebar", onChange, labels = {} } = {}) {
+export function createParameterControl({ parameter, onChange, labels = {} } = {}) {
 	if (!parameter) return document.createElement("span");
 	const config = parameter.config || {};
 	const parameterLabel = labels.input || labels.select || labels.switch || parameter.name || parameter.id || "Parameter";
-	if (parameter.param_type === "seed") return mode === "node"
-		? numericInput(parameter, onChange, parameterLabel)
-		: numericField(parameter, onChange, parameterLabel);
-	if (parameter.param_type === "slider") {
-		if (mode === "node") return numericInput(parameter, onChange, parameterLabel);
-		const wrap = el("div", "aaalice-shared-slider");
-		const range = document.createElement("input");
-		range.type = "range";
-		range.min = String(config.min ?? 0);
-		range.max = String(config.max ?? 100);
-		range.step = String(config.step ?? 1);
-		range.value = String(parameter.value ?? 0);
-		range.setAttribute("aria-label", parameterLabel);
-		const number = numericField(parameter, (value) => { range.value = String(value); onChange?.(value); }, parameterLabel);
-		range.addEventListener("input", () => { parameter.value = Number(range.value); number.textContent = range.value; onChange?.(parameter.value); });
-		wrap.append(range, number);
-		return wrap;
-	}
+	if (parameter.param_type === "seed" || parameter.param_type === "slider") return numericInput(parameter, onChange, parameterLabel);
 	if (parameter.param_type === "switch") return createSwitchControl(parameter.value, { onChange: (value) => { parameter.value = value; onChange?.(value); }, ariaLabel: labels.switch || parameter.name });
 	if (["dropdown", "enum"].includes(parameter.param_type)) return createSelectControl(config.options || [], parameter.value, { onChange: (value) => { parameter.value = value; onChange?.(value); }, ariaLabel: labels.select || parameter.name });
 	const input = parameter.config?.multiline ? document.createElement("textarea") : document.createElement("input");
