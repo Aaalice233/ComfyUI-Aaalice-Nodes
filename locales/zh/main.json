@@ -63,15 +63,20 @@
       "editor": {
         "title": "编辑参数", "menu": "⚙️ 编辑参数…", "add": "添加参数",
         "selectParameter": "选择一个参数以编辑其设置。", "discard": "放弃尚未保存的参数修改？",
-        "emptyTitle": "尚未选择参数", "nodeFallback": "参数面板",
-        "subtitle": "配置面板结构与参数默认值。",
+        "emptyTitle": "尚未选择参数",
         "renameHint": "双击重命名",
+        "parameters": "参数", "reorderHint": "拖拽排序 · 双击重命名", "parameterType": "参数类型",
+        "unsaved": "有尚未保存的修改", "noChanges": "暂无待保存修改",
         "parameterCount": "{count} 个参数", "general": "基础信息", "valueRules": "取值规则",
         "optionsBehavior": "选项与行为"
       },
       "field": {
-        "name": "名称", "description": "说明（Markdown）", "options": "选项（每行一个）",
-        "source": "选项来源", "multiline": "多行文本", "seedBehavior": "生成后行为"
+        "name": "名称", "description": "参数说明", "descriptionPlaceholder": "支持 Markdown", "options": "选项（每行一个）",
+        "source": "选项来源", "multiline": "多行文本", "seedBehavior": "生成后行为",
+        "minimum": "最小值", "maximum": "最大值", "step": "步长"
+      },
+      "seedBehavior": {
+        "fixed": "保持固定", "increment": "每次递增", "decrement": "每次递减", "randomize": "每次随机"
       },
       "image": {
         "title": "选择图像", "none": "选择图像", "existing": "已有 input 图像",

@@ -236,6 +236,19 @@ export function drawParameterStaticLayer(ctx, node, layout = node._aaaliceParame
 }
 
 /** Paint the themed body before native slots and DOM widgets are drawn. */
+function traceBottomRoundedRect(ctx, x, y, width, height, radius) {
+	const safeWidth = Math.max(0, width);
+	const safeHeight = Math.max(0, height);
+	const safeRadius = Math.max(0, Math.min(radius, safeWidth / 2, safeHeight / 2));
+	ctx.moveTo(x, y);
+	ctx.lineTo(x + safeWidth, y);
+	ctx.lineTo(x + safeWidth, y + safeHeight - safeRadius);
+	ctx.quadraticCurveTo(x + safeWidth, y + safeHeight, x + safeWidth - safeRadius, y + safeHeight);
+	ctx.lineTo(x + safeRadius, y + safeHeight);
+	ctx.quadraticCurveTo(x, y + safeHeight, x, y + safeHeight - safeRadius);
+	ctx.closePath();
+}
+
 export function drawParameterNodeSurface(ctx, node, layout = node._aaaliceParameterLayout || computeParameterLayout(node)) {
 	if (!ctx || node?.flags?.collapsed || app.canvas?.vueNodesMode === true) return;
 	const styles = typeof getComputedStyle === "function" ? getComputedStyle(document.documentElement) : null;
@@ -251,8 +264,7 @@ export function drawParameterNodeSurface(ctx, node, layout = node._aaaliceParame
 	ctx.globalAlpha = 0.98;
 	ctx.fillStyle = surface;
 	ctx.beginPath();
-	if (typeof ctx.roundRect === "function") ctx.roundRect(0, 0, width, height, 8);
-	else ctx.rect(0, 0, width, height);
+	traceBottomRoundedRect(ctx, 0, 0, width, height, 8);
 	ctx.fill();
 	ctx.globalAlpha = 0.26;
 	ctx.fillStyle = raised;
@@ -263,8 +275,7 @@ export function drawParameterNodeSurface(ctx, node, layout = node._aaaliceParame
 	ctx.strokeStyle = border;
 	ctx.lineWidth = 1;
 	ctx.beginPath();
-	if (typeof ctx.roundRect === "function") ctx.roundRect(0.5, 0.5, Math.max(0, width - 1), Math.max(0, height - 1), 8);
-	else ctx.rect(0.5, 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
+	traceBottomRoundedRect(ctx, 0.5, 0.5, width - 1, height - 1, 8);
 	ctx.stroke();
 	ctx.globalAlpha = 0.34;
 	ctx.fillStyle = raised;

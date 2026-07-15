@@ -63,15 +63,20 @@
       "editor": {
         "title": "Edit parameters", "menu": "⚙️ Edit Parameters…", "add": "Add parameter",
         "selectParameter": "Select a parameter to edit its settings.", "discard": "Discard unsaved parameter changes?",
-        "emptyTitle": "No parameter selected", "nodeFallback": "Parameter Panel",
-        "subtitle": "Configure the panel structure and default values.",
+        "emptyTitle": "No parameter selected",
         "renameHint": "Double-click to rename",
+        "parameters": "Parameters", "reorderHint": "Drag to reorder · Double-click to rename", "parameterType": "Parameter type",
+        "unsaved": "Unsaved changes", "noChanges": "No pending changes",
         "parameterCount": "{count} parameters", "general": "General", "valueRules": "Value rules",
         "optionsBehavior": "Options and behavior"
       },
       "field": {
-        "name": "Name", "description": "Description (Markdown)", "options": "Options (one per line)",
-        "source": "Source", "multiline": "Multiline", "seedBehavior": "After generate"
+        "name": "Name", "description": "Parameter description", "descriptionPlaceholder": "Markdown supported", "options": "Options (one per line)",
+        "source": "Source", "multiline": "Multiline", "seedBehavior": "After generate",
+        "minimum": "Minimum", "maximum": "Maximum", "step": "Step"
+      },
+      "seedBehavior": {
+        "fixed": "Keep fixed", "increment": "Increment", "decrement": "Decrement", "randomize": "Randomize"
       },
       "image": {
         "title": "Choose image", "none": "Choose image", "existing": "Existing input image",

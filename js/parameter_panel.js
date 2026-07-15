@@ -3,7 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { renderSafeMarkdown } from "./lib/safe_markdown.js";
-import { badge, button, card, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { badge, button, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
 	parameterPanelKjMenuItem,
 	registerParameterPanelKj,
@@ -589,6 +589,15 @@ function inspectorField(label, control) {
 	return field({ label, control });
 }
 
+function inspectorSection(title, body, className = "") {
+	const section = el("section", {
+		className: `aaalice-editor-section${className ? ` ${className}` : ""}`,
+		attrs: { "aria-label": title },
+	});
+	section.append(body);
+	return section;
+}
+
 function renderInspector(editor, parameter, rerender) {
 	const pane = editor.inspector;
 	pane.replaceChildren();
@@ -601,30 +610,48 @@ function renderInspector(editor, parameter, rerender) {
 		}));
 		return;
 	}
+	const inspectorGrid = el("div", "aaalice-editor-inspector-grid");
+	pane.append(inspectorGrid);
 	const description = document.createElement("textarea");
-	description.rows = 5;
+	description.className = "aaalice-editor-description";
+	description.placeholder = t("aaalice.pcp.field.descriptionPlaceholder", "Markdown supported");
+	description.rows = 4;
 	description.value = parameter.description || "";
 	description.addEventListener("input", () => { parameter.description = description.value; editor.dirty = true; editor.updateValidation?.(); });
 	const generalBody = el("div", "aaalice-editor-field-stack");
-	generalBody.append(inspectorField(t("aaalice.pcp.field.description", "Description (Markdown)"), description));
-	pane.append(card({ title: t("aaalice.pcp.editor.general", "General"), meta: badge(parameterTypeLabel(parameter.param_type), { tone: "accent" }), body: generalBody, className: "aaalice-editor-group" }));
+	const descriptionField = inspectorField(t("aaalice.pcp.field.description", "Parameter description"), description);
+	descriptionField.classList.add("aaalice-editor-description-field");
+	generalBody.append(descriptionField);
+	inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.general", "General"), generalBody, "aaalice-editor-section--description"));
 	if (["slider", "seed"].includes(parameter.param_type)) {
-		const grid = el("div", "aaalice-pcp-grid2");
-		for (const key of ["min", "max", ...(parameter.param_type === "slider" ? ["step"] : [])]) {
+		const ruleKeys = ["min", "max", ...(parameter.param_type === "slider" ? ["step"] : [])];
+		const ruleLabels = {
+			min: t("aaalice.pcp.field.minimum", "Minimum"),
+			max: t("aaalice.pcp.field.maximum", "Maximum"),
+			step: t("aaalice.pcp.field.step", "Step"),
+		};
+		const grid = el("div", `aaalice-editor-rules-grid aaalice-editor-rules-grid--${ruleKeys.length}`);
+		for (const key of ruleKeys) {
 			const input = document.createElement("input");
 			input.type = "number";
+			input.className = "aaalice-editor-number-input";
 			input.value = String(parameter.config?.[key] ?? (key === "max" ? 100 : key === "step" ? 1 : 0));
 			input.addEventListener("input", () => { parameter.config[key] = Number(input.value); editor.dirty = true; editor.updateValidation?.(); });
-			grid.append(inspectorField(key, input));
+			grid.append(inspectorField(ruleLabels[key], input));
 		}
-		const behaviorBody = el("div", "aaalice-editor-field-stack");
+		const behaviorBody = el("div", "aaalice-editor-field-stack aaalice-editor-rules-body");
 		behaviorBody.append(grid);
 		if (parameter.param_type === "seed") {
-			const behavior = selectInput(["fixed", "increment", "decrement", "randomize"], parameter.config?.control_after_generate || "randomize");
+			const behavior = selectInput([
+				{ value: "fixed", label: t("aaalice.pcp.seedBehavior.fixed", "Keep fixed") },
+				{ value: "increment", label: t("aaalice.pcp.seedBehavior.increment", "Increment") },
+				{ value: "decrement", label: t("aaalice.pcp.seedBehavior.decrement", "Decrement") },
+				{ value: "randomize", label: t("aaalice.pcp.seedBehavior.randomize", "Randomize") },
+			], parameter.config?.control_after_generate || "randomize");
 			behavior.addEventListener("change", () => { parameter.config.control_after_generate = behavior.value; editor.dirty = true; editor.updateValidation?.(); });
 			behaviorBody.append(inspectorField(t("aaalice.pcp.field.seedBehavior", "After generate"), behavior));
 		}
-		pane.append(card({ title: t("aaalice.pcp.editor.valueRules", "Value rules"), body: behaviorBody, className: "aaalice-editor-group" }));
+		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.valueRules", "Value rules"), behaviorBody));
 	}
 	if (["dropdown", "enum"].includes(parameter.param_type)) {
 		const source = selectInput(["custom", "sampler", "scheduler", "checkpoint", "lora", "controlnet", "upscale_model"], parameter.config?.source || "custom");
@@ -646,14 +673,14 @@ function renderInspector(editor, parameter, rerender) {
 		options.addEventListener("input", () => { parameter.config.options = options.value.split("\n").map((item) => item.trim()).filter(Boolean); editor.dirty = true; editor.updateValidation?.(); });
 		const optionsBody = el("div", "aaalice-editor-field-stack");
 		optionsBody.append(inspectorField(t("aaalice.pcp.field.source", "Source"), source), optionsField);
-		pane.append(card({ title: t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), body: optionsBody, className: "aaalice-editor-group" }));
+		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), optionsBody));
 	}
 	if (parameter.param_type === "string") {
 		const multiline = document.createElement("input");
 		multiline.type = "checkbox";
 		multiline.checked = Boolean(parameter.config?.multiline);
 		multiline.addEventListener("change", () => { parameter.config.multiline = multiline.checked; editor.dirty = true; editor.updateValidation?.(); });
-		pane.append(card({ title: t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), body: inspectorField(t("aaalice.pcp.field.multiline", "Multiline"), multiline), className: "aaalice-editor-group" }));
+		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), inspectorField(t("aaalice.pcp.field.multiline", "Multiline"), multiline)));
 	}
 }
 
@@ -754,19 +781,32 @@ async function openParameterEditor(node) {
 	const editor = { parameters: cloneData(original), selectedId: original[0]?.id || null, dirty: false, list: null, inspector: null };
 	const workspace = el("div", "aaalice-parameter-editor-workspace");
 	const rail = el("aside", "aaalice-parameter-editor-rail");
+	const railHeader = el("header", "aaalice-editor-rail-header");
+	const railHeading = el("div", "aaalice-editor-rail-heading");
+	railHeading.append(
+		el("strong", null, t("aaalice.pcp.editor.parameters", "Parameters")),
+		el("span", null, t("aaalice.pcp.editor.reorderHint", "Drag to reorder · Double-click to rename")),
+	);
+	railHeader.append(railHeading);
 	const addBar = el("div", "aaalice-editor-add");
+	const addControl = el("div", "aaalice-editor-add-control");
 	const type = selectInput(parameterTypeOptions(), "slider");
-	const add = button({ label: t("aaalice.pcp.editor.add", "Add parameter"), iconName: "add" });
+	type.setAttribute("aria-label", t("aaalice.pcp.editor.parameterType", "Parameter type"));
+	const add = iconButton({ iconName: "add", label: t("aaalice.pcp.editor.add", "Add parameter"), variant: "primary", className: "aaalice-editor-add-button" });
 	editor.list = el("div", "aaalice-editor-compact-list");
-	addBar.append(type, add);
-	rail.append(editor.list, addBar);
+	addControl.append(type, add);
+	addBar.append(addControl);
+	rail.append(railHeader, addBar, editor.list);
 	editor.inspector = el("main", "aaalice-parameter-editor-inspector");
 	workspace.append(rail, editor.inspector);
 	const errors = el("div", { className: "aaalice-pcp-error", attrs: { role: "status", "aria-live": "polite" } });
+	editor.status = el("span", "aaalice-editor-save-status");
+	const footerFeedback = el("div", "aaalice-editor-footer-feedback");
+	footerFeedback.append(editor.status, errors);
 	const footer = el("div", "aaalice-parameter-editor-footer");
 	const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary" });
 	const save = button({ label: t("aaalice.common.save", "Save") });
-	footer.append(errors, cancel, save);
+	footer.append(footerFeedback, cancel, save);
 	let dialogApi;
 	const requestDiscard = async () => !editor.dirty || confirmAction(t("aaalice.pcp.editor.discard", "Discard unsaved parameter changes?"));
 	dialogApi = createDialog({
@@ -778,13 +818,7 @@ async function openParameterEditor(node) {
 		onRequestClose: requestDiscard,
 	});
 	editor.count = badge("", { tone: "neutral", className: "aaalice-editor-count" });
-	const headerIntro = el("div", "aaalice-parameter-editor-heading");
-	headerIntro.append(
-		dialogApi.heading,
-		el("span", "aaalice-editor-node-context", node.title || t("aaalice.pcp.editor.nodeFallback", "Parameter Panel")),
-		el("p", null, t("aaalice.pcp.editor.subtitle", "Configure the panel structure and default values.")),
-	);
-	dialogApi.header.replaceChildren(headerIntro, editor.count);
+	dialogApi.header.replaceChildren(dialogApi.heading, editor.count);
 	const rerender = (list = true) => {
 		if (list) renderEditorList(editor, rerender);
 		renderInspector(editor, editor.parameters.find((item) => item.id === editor.selectedId), rerender);
@@ -794,6 +828,11 @@ async function openParameterEditor(node) {
 	editor.updateValidation = () => {
 		const validation = validateParametersDraft(editor.parameters);
 		errors.textContent = validation.join(" · ");
+		errors.hidden = !validation.length;
+		editor.status.textContent = editor.dirty
+			? t("aaalice.pcp.editor.unsaved", "Unsaved changes")
+			: t("aaalice.pcp.editor.noChanges", "No pending changes");
+		editor.status.classList.toggle("is-dirty", editor.dirty);
 		save.disabled = Boolean(validation.length);
 	};
 	add.addEventListener("click", () => {
