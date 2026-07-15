@@ -105,7 +105,7 @@ export function createOperationWorkspace({ sidebarId, label, onViewportChange })
 		const insets = commandBarInsets(bounds, leadingRect, trailingRect);
 		root.style.setProperty("--aaalice-operation-command-left", `${insets.left}px`);
 		root.style.setProperty("--aaalice-operation-command-right", `${insets.right}px`);
-		root.classList.toggle("is-command-compact", insets.width < 620);
+		root.classList.toggle("is-command-compact", insets.width < 520);
 		root.classList.toggle("is-command-hidden", insets.width < 180);
 		scheduleViewportMeasure();
 	}

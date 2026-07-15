@@ -495,22 +495,32 @@
 	min-width: 0;
 	align-items: center;
 	justify-content: space-between;
-	gap: 12px;
+	gap: 8px;
 	overflow: hidden;
-	padding: 5px 0;
+	padding: 7px 0;
 	pointer-events: auto;
 }
-.aaalice-operation-page-area { display: flex; min-width: 0; flex: 1; align-items: center; }
-.aaalice-operation-page-tabs { display: flex; min-width: 0; overflow-x: auto; align-self: stretch; gap: 16px; scrollbar-width: thin; }
-.aaalice-operation-page-tab { position: relative; flex: 0 0 auto; border: 0; border-radius: 0; color: var(--aaalice-muted); }
-.aaalice-operation-page-tab::after { position: absolute; right: 4px; bottom: -8px; left: 4px; height: 2px; background: transparent; content: ""; }
-.aaalice-operation-page-tab.is-active { color: var(--aaalice-text); }
-.aaalice-operation-page-tab.is-active::after { background: var(--aaalice-accent); }
-.aaalice-operation-toolbar-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; padding-left: 10px; border-left: 1px solid var(--aaalice-border); }
-.aaalice-operation-design-select { width: 142px; min-height: 30px !important; padding-block: 4px !important; font-size: 12px !important; }
+.aaalice-operation-page-area { display: flex; min-width: 0; height: 42px; flex: 1; align-items: center; gap: 2px; overflow: hidden; padding: 3px; border-radius: 6px; background: color-mix(in srgb, var(--aaalice-surface) 52%, transparent); }
+.aaalice-operation-page-area:empty { height: 0; padding: 0; background: transparent; }
+.aaalice-operation-page-area.is-add-only { flex: 0 0 auto; }
+.aaalice-operation-page-tabs { display: flex; min-width: 0; height: 100%; overflow-x: auto; align-items: center; gap: 2px; scrollbar-width: none; }
+.aaalice-operation-page-tabs::-webkit-scrollbar { display: none; }
+.aaalice-operation-page-tab { position: relative; height: 36px; min-height: 36px; flex: 0 0 auto; padding: 4px 13px 4px 11px; border: 0; border-left: 2px solid transparent; border-radius: 3px; color: var(--aaalice-muted); }
+.aaalice-operation-page-tab.is-active { border-left-color: var(--aaalice-accent); background: var(--aaalice-surface-2); color: var(--aaalice-text); font-weight: 650; }
+.aaalice-operation-page-add { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 4px; }
+.aaalice-operation-toolbar-actions { display: flex; height: 42px; flex: 0 0 auto; align-items: center; gap: 6px; }
+.aaalice-operation-design-control { display: flex; height: 100%; align-items: center; gap: 8px; }
+.aaalice-operation-design-label { color: var(--aaalice-muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.aaalice-operation-design-select { width: 132px; min-height: 30px !important; padding-block: 4px !important; border-radius: 5px !important; background-color: transparent !important; box-shadow: none !important; font-size: 12px !important; }
+.aaalice-operation-toolbar-separator { width: 1px; height: 24px; margin: 0 4px; background: var(--aaalice-border); }
+.aaalice-operation-toolbar-button.aa-ui-button--secondary { border-color: transparent; background: transparent; }
+.aaalice-operation-toolbar-button.aa-ui-button--secondary:hover:not(:disabled) { border-color: var(--aaalice-border); }
+.aaalice-operation-toolbar-done { min-width: 72px; border-radius: 5px; }
 .aaalice-operation-workspace.is-command-compact .aaalice-operation-toolbar { gap: 6px; }
 .aaalice-operation-workspace.is-command-compact .aaalice-operation-toolbar-actions .aa-ui-button__label { display: none; }
-.aaalice-operation-workspace.is-command-compact .aaalice-operation-design-select { width: 112px; }
+.aaalice-operation-workspace.is-command-compact .aaalice-operation-design-label { display: none; }
+.aaalice-operation-workspace.is-command-compact .aaalice-operation-design-select { width: 108px; }
+.aaalice-operation-workspace.is-command-compact .aaalice-operation-toolbar-done { min-width: 30px; }
 .aaalice-operation-workspace.is-command-hidden .aaalice-operation-toolbar { display: none; }
 .aaalice-operation-scroll { min-width: 0; min-height: 0; overflow: auto; grid-row: 2; grid-column: 1; border-top: 1px solid var(--aaalice-border); background: var(--aa-ui-canvas); scrollbar-gutter: stable; pointer-events: auto; }
 .aaalice-operation-canvas {

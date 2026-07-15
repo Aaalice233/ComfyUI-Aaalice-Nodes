@@ -32,7 +32,7 @@ import { getNodeAdapter, installOperationPanelApi } from "./lib/operation_regist
 import { createOperationEditor } from "./lib/operation_editor.js";
 import { createOperationModuleRenderer, graphNodes, isSubgraphNode } from "./lib/operation_modules.js";
 import { createOperationWorkspace } from "./lib/operation_workspace.js";
-import { button, contextMenu, createDialog, el, emptyState } from "./lib/ui.js";
+import { button, contextMenu, createDialog, el, emptyState, iconButton } from "./lib/ui.js";
 
 const SIDEBAR_ID = "aaalice-operation-panel";
 const DEFAULT_CARD_SIZE = Object.freeze({ width: 360, height: 240 });
@@ -310,7 +310,8 @@ function setDesign(page, value) {
 function renderToolbar(toolbar, state, page) {
 	toolbar.replaceChildren();
 	const pageArea = el("div", "aaalice-operation-page-area");
-	if (state.pages.length > 1) {
+	const showPageTabs = state.pages.length > 1;
+	if (showPageTabs) {
 		const nav = el("nav", { className: "aaalice-operation-page-tabs", attrs: { role: "tablist", "aria-label": t("aaalice.operation.pagesAria", "Operation pages") } });
 		for (const candidate of [...state.pages].sort((a, b) => a.order - b.order)) {
 			const active = candidate.id === page.id;
@@ -323,9 +324,12 @@ function renderToolbar(toolbar, state, page) {
 		}
 		pageArea.append(nav);
 	}
+	if (editor.editing) {
+		const addPageLabel = t("aaalice.operation.addPage", "Add page");
+		pageArea.append(iconButton({ iconName: "add", label: addPageLabel, variant: "ghost", size: "icon", className: "aaalice-operation-page-add", onClick: addPage }));
+		if (!showPageTabs) pageArea.classList.add("is-add-only");
+	}
 	const actions = el("div", "aaalice-operation-toolbar-actions");
-	const presetLabel = t("aaalice.operation.presets", "Presets");
-	actions.append(button({ label: presetLabel, ariaLabel: presetLabel, title: presetLabel, iconName: "presets", variant: "secondary", size: "sm", onClick: presetMenu }));
 	if (editor.editing) {
 		const design = createSelectControl([
 			{ label: t("aaalice.operation.design1440", "1440 × 900 minimum"), value: "1440x900" },
@@ -333,9 +337,12 @@ function renderToolbar(toolbar, state, page) {
 			{ label: t("aaalice.operation.currentWindow", "Adaptive window"), value: "current" },
 		], page.design?.preset || "1440x900", { ariaLabel: t("aaalice.operation.designSize", "Design size"), onChange: (value) => setDesign(page, value) });
 		design.classList.add("aaalice-operation-design-select");
-		const addPageLabel = t("aaalice.operation.addPage", "Add page");
-		actions.append(design, button({ label: addPageLabel, ariaLabel: addPageLabel, title: addPageLabel, iconName: "add", variant: "secondary", size: "sm", onClick: addPage }));
+		const designControl = el("label", "aaalice-operation-design-control");
+		designControl.append(el("span", "aaalice-operation-design-label", t("aaalice.operation.designSize", "Design size")), design);
+		actions.append(designControl, el("span", { className: "aaalice-operation-toolbar-separator", attrs: { "aria-hidden": "true" } }));
 	}
+	const presetLabel = t("aaalice.operation.presets", "Presets");
+	actions.append(button({ label: presetLabel, ariaLabel: presetLabel, title: presetLabel, iconName: "presets", variant: "secondary", size: "sm", className: "aaalice-operation-toolbar-button", onClick: presetMenu }));
 	const editLabel = editor.editing ? t("aaalice.operation.finishEditing", "Done") : t("aaalice.operation.editLayout", "Edit layout");
 	actions.append(button({
 		label: editLabel,
@@ -344,6 +351,7 @@ function renderToolbar(toolbar, state, page) {
 		iconName: editor.editing ? "done" : "edit",
 		variant: editor.editing ? "primary" : "secondary",
 		size: "sm",
+		className: `aaalice-operation-toolbar-button${editor.editing ? " aaalice-operation-toolbar-done" : ""}`,
 		onClick: () => { editor.setEditing(!editor.editing); renderAll(); },
 	}));
 	toolbar.append(pageArea, actions);
