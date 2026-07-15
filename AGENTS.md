@@ -94,6 +94,7 @@ ComfyUI-Aaalice-Nodes/
 ## 6. 组件、主题与 i18n
 
 - 新 DOM 界面优先复用 `js/lib/ui.js` + `js/lib/ui.css`；业务布局放在 `js/lib/theme.css`。
+- 项目 toast 必须使用 ComfyUI 原生 `app.extensionManager.toast`；允许无状态薄封装统一参数和文案，禁止自建 toast DOM、队列、容器或通知系统。
 - 复杂布局存在两个以上合理方案，或仅靠文字难以判断空间关系时，修改正式代码前主动制作同内容、可切换的临时 HTML 演示；确认方案后再实现，原型默认不进入仓库。
 - 小范围颜色、间距、字号和单控件调整不制作 HTML 演示；用户已明确实现方向时直接落地。
 - 禁止重复实现 button、field、empty state 或 dialog。

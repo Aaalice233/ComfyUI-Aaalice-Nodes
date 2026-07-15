@@ -24,9 +24,7 @@
       "inline": { "editValue": "Edit value" },
       "output": { "unused": "Unused output" },
       "error": {
-        "maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: HTTP {status}",
-        "workflowSaveUnavailable": "ComfyUI workflow save is unavailable.",
-        "workflowSaveFailed": "Parameters were applied, but workflow save failed: {reason}"
+        "maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: HTTP {status}"
       },
       "validation": {
         "parameterIdsUnique": "Parameter ids must be unique.", "parameterNamesUnique": "Parameter names must be unique.",
@@ -38,7 +36,7 @@
         "emptyTitle": "No parameter selected",
         "renameHint": "Double-click to rename",
         "parameters": "Parameters", "reorderHint": "Drag to reorder · Double-click to rename", "parameterType": "Parameter type",
-        "unsaved": "Unsaved changes", "noChanges": "No pending changes",
+		"unsaved": "Unsaved changes", "noChanges": "No pending changes", "saveWorkflowReminder": "Save the workflow to keep these parameter changes; otherwise they will be lost.",
         "parameterCount": "{count} parameters", "general": "General", "valueRules": "Value rules",
         "optionsBehavior": "Options and behavior"
       },

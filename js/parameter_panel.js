@@ -73,20 +73,6 @@ function markGraphChange(node, before) {
 	}
 }
 
-async function saveActiveWorkflow() {
-	const command = app.extensionManager?.command;
-	if (typeof command?.execute !== "function" || (typeof command.isRegistered === "function" && !command.isRegistered("Comfy.SaveWorkflow"))) {
-		throw new Error(t("aaalice.pcp.error.workflowSaveUnavailable", "ComfyUI workflow save is unavailable."));
-	}
-	let failure = null;
-	try {
-		await command.execute("Comfy.SaveWorkflow", { errorHandler: (error) => { failure = error; } });
-	} catch (error) {
-		failure = error;
-	}
-	if (failure) throw failure;
-}
-
 function parameterTypeLabel(value) {
 	return t(`aaalice.pcp.types.${value}`, value);
 }
@@ -860,11 +846,7 @@ async function openParameterEditor(node) {
 		node.properties.parameters = editor.parameters;
 		notifyParameterChanged(node, { structure: true });
 		markGraphChange(node, false);
-		try {
-			await saveActiveWorkflow();
-		} catch (error) {
-			toast("error", message("aaalice.pcp.error.workflowSaveFailed", "Parameters were applied, but workflow save failed: {reason}", { reason: error?.message || String(error) }));
-		}
+		toast("warn", t("aaalice.pcp.editor.saveWorkflowReminder", "Save the workflow to keep these parameter changes; otherwise they will be lost."));
 		dialogApi.close(true);
 	});
 	rerender();
