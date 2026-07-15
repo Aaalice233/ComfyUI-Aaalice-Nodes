@@ -6,6 +6,33 @@
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
       "error": "Error", "notice": "Notice", "save": "Save"
     },
+    "receiver": {
+      "binding": { "none": "No parameter panel bound", "bound": "Bound: {title}" },
+      "status": {
+        "unbound": "Not bound", "synced": "Synced", "needsSync": "Needs sync",
+        "sourceMissing": "Source panel missing", "kjMissing": "KJNodes unavailable"
+      },
+      "menu": {
+        "bind": "🔗 Bind Parameter Panel…", "sync": "🔄 Sync from Parameter Panel",
+        "locate": "🎯 Locate Parameter Panel", "detach": "✂️ Detach",
+        "noPanels": "No Parameter Panels in this graph"
+      },
+      "confirm": {
+        "createSets": "Create {count} missing KJ Set node(s)?",
+        "removeImpact": "Removed parameters affect receiver links / additional Get consumers (receiver / extra Get):",
+        "detach": "Detach this receiver? {count} managed or downstream connection(s) are affected."
+      },
+      "toast": {
+        "kjMissing": "KJNodes is required to bind or sync a Parameter Receiver.",
+        "syncFailed": "Parameter Receiver sync failed: {reason}",
+        "synced": "Parameter Receiver synchronized: {count} parameter(s).",
+        "sourceMissing": "The bound Parameter Panel no longer exists."
+      },
+      "error": {
+        "getApi": "KJ GetNode naming API is unavailable.", "createGet": "Unable to create a KJ Get node.",
+        "missingSet": "A required KJ Set node is missing."
+      }
+    },
     "pcp": {
       "empty": "No parameters. Use the node context menu to edit.",
       "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },

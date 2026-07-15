@@ -969,6 +969,7 @@ function setupParameterPanel(node, loaded = false) {
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		mountedParameterPanels.delete(this);
+		window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_CHANGED, { detail: { nodeId: this.id, node: this, removed: true } }));
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onChange);
 		if (this._aaaliceCompactResizeTimer) clearTimeout(this._aaaliceCompactResizeTimer);
 		return previousRemoved?.apply(this, arguments);

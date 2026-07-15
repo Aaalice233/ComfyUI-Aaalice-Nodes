@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { ensureI18nReady } from "./i18n.js";
 
 import "./parameter_panel.js";
+import "./parameter_receiver.js";
 
 function injectStyles() {
 	for (const filename of ["ui.css", "theme.css"]) {

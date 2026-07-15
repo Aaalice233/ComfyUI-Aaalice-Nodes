@@ -51,6 +51,7 @@ pip install -r requirements.txt
 | Node | Category | Purpose |
 |---|---|---|
 | `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose up to 32 direct outputs. |
+| `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 
 ## Using ParameterPanel
@@ -65,6 +66,17 @@ New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`
 
 Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not consume outputs.
 
+## Using ParameterReceiver
+
+`ParameterReceiver` requires KJNodes Set/Get support for binding and synchronization. Create the receiver in the same graph as its source panel, then right-click it and choose **🔗 Bind Parameter Panel…**.
+
+- The first bind reuses existing KJ Set nodes and asks before creating missing ones. Matching collapsed Get nodes are arranged to the receiver's left.
+- Parameter renames and panel-title changes refresh labels automatically. Adding, deleting, or reordering parameters changes the footer to **Needs sync**; use **🔄 Sync from Parameter Panel** to apply structural changes.
+- **🎯 Locate Parameter Panel** centers the bound source. **✂️ Detach** removes receiver-only managed Gets after confirming affected links.
+- If the source panel is deleted, the receiver keeps its saved slot and link snapshot and reports **Source panel missing**. It can then be explicitly rebound.
+
+KJNodes is optional for the package as a whole. Without it, ParameterReceiver workflows still load, but bind and sync report an error instead of simulating routing.
+
 ## SimpleStringSplit
 
 Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
@@ -74,6 +86,7 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 - This preview has no compatibility layer for workflows created with the legacy package.
 - App Mode is not supported.
 - Structural frontend updates can require recreating existing node instances after refresh.
+- ParameterReceiver only binds a ParameterPanel in the current graph; it does not search inside subgraphs.
 
 Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) installed separately if you still need its original nodes.
 

@@ -46,5 +46,11 @@
       "30": { "name": "输出 31", "tooltip": "参数槽 31" },
       "31": { "name": "输出 32", "tooltip": "参数槽 32" }
     }
+  },
+  "ParameterReceiver": {
+    "display_name": "参数接收器",
+    "description": "绑定参数面板，将对应的 KJ Get 值收束为一个紧凑的透传节点。",
+    "inputs": {},
+    "outputs": {}
   }
 }

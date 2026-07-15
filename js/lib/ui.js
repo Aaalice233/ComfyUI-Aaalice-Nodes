@@ -10,6 +10,10 @@ const ICON_PATHS = {
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	moveDown: "m7 10 5 5 5-5",
 	settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4",
+	statusCheck: "m5 12 4 4L19 6",
+	statusError: "M7 7l10 10M17 7 7 17",
+	statusIdle: "M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+	statusWarning: "M12 9v4m0 4h.01M10.3 4.8 3.2 17a2 2 0 0 0 1.7 3h14.2a2 2 0 0 0 1.7-3L13.7 4.8a2 2 0 0 0-3.4 0Z",
 };
 
 export function hasIcon(name) {

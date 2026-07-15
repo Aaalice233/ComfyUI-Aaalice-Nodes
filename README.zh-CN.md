@@ -51,6 +51,7 @@ pip install -r requirements.txt
 | 节点 | 分类 | 用途 |
 |---|---|---|
 | `ParameterPanel` | `Aaalice/control` | 管理一组参数并直接输出最多 32 路值。 |
+| `ParameterReceiver` | `Aaalice/control` | 绑定 ParameterPanel，将对应的 KJ Get 收束到一个紧凑输出节点。 |
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
 
 ## 使用 ParameterPanel
@@ -65,6 +66,17 @@ pip install -r requirements.txt
 
 删除已有连线的参数时需要确认，因为对应连线必须断开。一个面板最多包含 32 个会产生值的参数；分隔项不占输出。
 
+## 使用 ParameterReceiver
+
+`ParameterReceiver` 的绑定与同步需要 KJNodes 的 Set/Get 支持。请在源面板所在的同一张图中创建接收器，然后右键选择 **🔗 绑定参数面板…**。
+
+- 首次绑定会复用已有 KJ Set，并在补齐缺失 Set 前询问确认；对应的折叠 Get 会排列在接收器左侧。
+- 参数改名和面板标题变化会自动刷新。参数新增、删除或重排后，底部状态变为 **需要同步**；使用 **🔄 从参数面板同步** 应用结构变化。
+- **🎯 定位参数面板** 会居中显示源面板；**✂️ 解除绑定** 会在确认受影响连线后清理仅由接收器使用的 Get。
+- 源面板被删除时，接收器保留已保存的槽位与连线快照，并显示 **源面板不存在**，之后可以显式重新绑定。
+
+KJNodes 对整个包是可选依赖。未安装时，包含 ParameterReceiver 的工作流仍可加载，但绑定和同步会明确报错，不会模拟路由。
+
 ## SimpleStringSplit
 
 输入文本并选择 `,` 或 `|` 作为分隔符。节点会清理每段首尾空白、丢弃空段，并以字符串列表输出剩余内容。
@@ -74,6 +86,7 @@ pip install -r requirements.txt
 - 预览版不兼容旧包创建的工作流数据。
 - 暂不支持 App Mode。
 - 前端结构变更后，已有节点实例可能需要在刷新后重新创建。
+- ParameterReceiver 只绑定当前图中的 ParameterPanel，不会跨子图搜索。
 
 如果仍需旧节点，请单独保留 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。
 

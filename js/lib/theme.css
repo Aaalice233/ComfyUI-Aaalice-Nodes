@@ -365,23 +365,31 @@
 .aaalice-parameter-tooltip {
 	--aaalice-tooltip-bg: var(--comfy-menu-secondary-bg, var(--p-content-background, #222));
 	--aaalice-tooltip-text: var(--fg-color, var(--p-text-color, #e5e7eb));
+	--aaalice-tooltip-muted: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
 	--aaalice-tooltip-border: var(--border-color, var(--p-content-border-color, #444));
 	position: fixed;
 	z-index: 10100;
 	width: max-content;
-	max-width: min(340px, calc(100vw - 20px));
-	padding: 9px 11px;
-	border: 1px solid var(--aaalice-tooltip-border);
-	border-radius: 7px;
-	background: var(--aaalice-tooltip-bg);
-	box-shadow: 0 8px 28px rgb(0 0 0 / .34);
+	max-width: min(224px, calc(100vw - 20px));
+	padding: 12px 14px;
+	border: 1px solid color-mix(in srgb, var(--aaalice-tooltip-border) 82%, transparent);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--aaalice-tooltip-bg) 82%, var(--comfy-input-bg, #18181b));
+	box-shadow: 0 10px 24px rgb(0 0 0 / .28);
 	color: var(--aaalice-tooltip-text);
-	font: 12px/1.45 var(--comfy-font, Inter, system-ui, sans-serif);
+	font: 12px/1.55 var(--comfy-font, Inter, system-ui, sans-serif);
+	overflow-wrap: anywhere;
 	pointer-events: none;
 }
 .aaalice-parameter-tooltip p,
 .aaalice-parameter-tooltip ul,
-.aaalice-parameter-tooltip pre { margin: 0 0 6px; }
+.aaalice-parameter-tooltip pre { margin: 0 0 9px; }
+.aaalice-parameter-tooltip h3,
+.aaalice-parameter-tooltip h4,
+.aaalice-parameter-tooltip h5 { margin: 0 0 8px; color: var(--aaalice-tooltip-text); font-size: 13px; line-height: 1.4; font-weight: 650; }
+.aaalice-parameter-tooltip p { color: var(--aaalice-tooltip-muted); }
+.aaalice-parameter-tooltip strong { color: var(--aaalice-tooltip-text); font-weight: 650; }
+.aaalice-parameter-tooltip ul { padding-left: 17px; }
 .aaalice-parameter-tooltip :last-child { margin-bottom: 0; }
 .aaalice-parameter-tooltip code { padding: 1px 4px; border-radius: 3px; background: color-mix(in srgb, var(--aaalice-tooltip-text) 10%, transparent); }
 .aaalice-parameter-tooltip a { color: var(--p-primary-color, var(--primary-color, #0b8ce9)); }
@@ -538,6 +546,98 @@
 	white-space: nowrap;
 }
 .aaalice-parameter-panel-node .aaalice-parameter-widget-layer {
+	position: relative;
+	z-index: 1;
+	width: 100%;
+}
+
+/* ParameterReceiver follows the selected compact native-slot design. */
+.aaalice-receiver-root {
+	position: relative;
+	width: 100%;
+	min-width: 240px;
+	min-height: var(--aaalice-receiver-height, 90px);
+	overflow: hidden;
+	pointer-events: none;
+}
+.aaalice-receiver-binding {
+	position: absolute;
+	top: 0;
+	right: 10px;
+	left: 10px;
+	height: 32px;
+	overflow: hidden;
+	border-bottom: 1px solid color-mix(in srgb, var(--border-color, #444) 54%, transparent);
+	color: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
+	font-size: 12px;
+	font-weight: 550;
+	line-height: 32px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.aaalice-receiver-status {
+	position: absolute;
+	top: var(--aaalice-receiver-footer-top, 60px);
+	right: 10px;
+	left: 10px;
+	display: flex;
+	height: 30px;
+	align-items: center;
+	gap: 7px;
+	border-top: 1px solid color-mix(in srgb, var(--border-color, #444) 54%, transparent);
+	color: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
+	font-size: 12px;
+	font-weight: 600;
+}
+.aaalice-receiver-status__mark {
+	display: inline-grid;
+	width: 16px;
+	height: 16px;
+	place-items: center;
+	font-size: 11px;
+	line-height: 1;
+}
+.aaalice-receiver-status__mark .aa-ui-icon { width: 11px; height: 11px; }
+.aaalice-receiver-status.is-success { color: var(--p-green-400, var(--success-text, #62b77b)); }
+.aaalice-receiver-status.is-warning { color: var(--p-orange-400, var(--warning-text, #d6a756)); }
+.aaalice-receiver-status.is-error,
+.aaalice-receiver-status.is-missing { color: var(--error-text, var(--p-red-400, #d66d75)); }
+.aaalice-receiver-status.is-unbound { color: var(--descrip-text, var(--p-text-muted-color, #9ca3af)); }
+.aaalice-receiver-slot-hidden { display: none !important; }
+.aaalice-parameter-receiver-node .aaalice-receiver-node-body {
+	position: relative;
+	min-height: var(--aaalice-receiver-content-height, 90px);
+}
+.aaalice-parameter-receiver-node .aaalice-receiver-slot-layer {
+	position: absolute;
+	z-index: 3;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: var(--aaalice-receiver-content-height, 90px);
+	pointer-events: none;
+}
+.aaalice-parameter-receiver-node .aaalice-receiver-input-column,
+.aaalice-parameter-receiver-node .aaalice-receiver-output-column {
+	position: absolute;
+	top: 0;
+	width: 50%;
+	height: 100%;
+}
+.aaalice-parameter-receiver-node .aaalice-receiver-input-column { left: 0; }
+.aaalice-parameter-receiver-node .aaalice-receiver-output-column { right: 0; }
+.aaalice-parameter-receiver-node .aaalice-receiver-input-column > .lg-slot--input,
+.aaalice-parameter-receiver-node .aaalice-receiver-output-column > .lg-slot--output {
+	box-sizing: border-box;
+	position: absolute;
+	top: var(--aaalice-receiver-slot-top, 32px);
+	width: 100%;
+	height: var(--aaalice-receiver-slot-height, 30px);
+	pointer-events: auto;
+}
+.aaalice-parameter-receiver-node .aaalice-receiver-input-column > .lg-slot--input { left: 0; }
+.aaalice-parameter-receiver-node .aaalice-receiver-output-column > .lg-slot--output { right: 0; }
+.aaalice-parameter-receiver-node .aaalice-receiver-widget-layer {
 	position: relative;
 	z-index: 1;
 	width: 100%;

@@ -98,6 +98,7 @@ ComfyUI-Aaalice-Nodes/
 - 复杂布局存在两个以上合理方案，或仅靠文字难以判断空间关系时，修改正式代码前主动制作同内容、可切换的临时 HTML 演示；确认方案后再实现，原型默认不进入仓库。
 - 小范围颜色、间距、字号和单控件调整不制作 HTML 演示；用户已明确实现方向时直接落地。
 - 禁止重复实现 button、field、empty state 或 dialog。
+- Toast 必须调用 ComfyUI 自带的 `app.extensionManager.toast.add`；允许复用只做参数转发与统一文案的薄封装，禁止实现自定义 toast 容器、队列或动画系统。
 - 静态 `iconName` 与 `icon("…")` 必须存在于 `js/lib/ui.js` 的共享图标表；新增或改名后必须通过图标契约测试。
 - 颜色来自 ComfyUI token：`--fg-color`、`--descrip-text`、`--comfy-menu-secondary-bg`、`--comfy-input-bg`、`--border-color`、`--p-primary-color` 等。
 - 禁止写死品牌色或只适用于暗色主题的正文色；明暗主题切换必须同步。

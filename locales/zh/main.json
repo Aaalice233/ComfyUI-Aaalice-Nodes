@@ -6,6 +6,33 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
+    "receiver": {
+      "binding": { "none": "未绑定参数面板", "bound": "已绑定：{title}" },
+      "status": {
+        "unbound": "尚未绑定", "synced": "已同步", "needsSync": "需要同步",
+        "sourceMissing": "源面板不存在", "kjMissing": "KJNodes 不可用"
+      },
+      "menu": {
+        "bind": "🔗 绑定参数面板…", "sync": "🔄 从参数面板同步",
+        "locate": "🎯 定位参数面板", "detach": "✂️ 解除绑定",
+        "noPanels": "当前图中没有参数面板"
+      },
+      "confirm": {
+        "createSets": "缺少 {count} 个 KJ Set，是否补齐？",
+        "removeImpact": "被移除的参数会影响接收器连线 / Get 的额外消费者（接收器 / 额外 Get）：",
+        "detach": "确定解除绑定吗？将影响 {count} 条托管或下游连线。"
+      },
+      "toast": {
+        "kjMissing": "绑定或同步参数接收器需要安装并启用 KJNodes。",
+        "syncFailed": "参数接收器同步失败：{reason}",
+        "synced": "参数接收器已同步：{count} 个参数。",
+        "sourceMissing": "已绑定的参数面板不存在。"
+      },
+      "error": {
+        "getApi": "KJ GetNode 命名接口不可用。", "createGet": "无法创建 KJ Get 节点。",
+        "missingSet": "缺少必要的 KJ Set 节点。"
+      }
+    },
     "pcp": {
       "empty": "暂无参数，请通过节点右键菜单编辑。",
       "builtin": { "seed": "种子", "steps": "步数", "cfg": "CFG", "sampler": "采样器", "scheduler": "调度器", "denoise": "降噪幅度" },

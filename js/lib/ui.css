@@ -1,6 +1,7 @@
 /* Shared Aaalice UI primitives. Colors always resolve through ComfyUI theme tokens. */
 .aaalice-pcp,
 .aaalice-pcp-node-root,
+.aaalice-receiver-root,
 .aa-ui-dialog {
 	--aa-ui-text: var(--fg-color, var(--p-text-color, #e5e7eb));
 	--aa-ui-muted: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
@@ -24,7 +25,7 @@
 	font: 13px/1.45 var(--comfy-font, Inter, system-ui, sans-serif);
 }
 
-.aaalice-pcp *, .aaalice-pcp-node-root *, .aa-ui-dialog *, .aa-ui-dialog-backdrop * { box-sizing: border-box; }
+.aaalice-pcp *, .aaalice-pcp-node-root *, .aaalice-receiver-root *, .aa-ui-dialog *, .aa-ui-dialog-backdrop * { box-sizing: border-box; }
 
 .aa-ui-icon { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
 

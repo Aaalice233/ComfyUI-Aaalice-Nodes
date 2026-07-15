@@ -46,5 +46,11 @@
       "30": { "name": "Output 31", "tooltip": "Parameter slot 31" },
       "31": { "name": "Output 32", "tooltip": "Parameter slot 32" }
     }
+  },
+  "ParameterReceiver": {
+    "display_name": "Parameter Receiver",
+    "description": "Bind a Parameter Panel and collect its KJ Get values in one compact pass-through node.",
+    "inputs": {},
+    "outputs": {}
   }
 }

@@ -12,6 +12,7 @@ import {
 const MAX = 32;
 const KJ_SET_NODE = "SetNode";
 const KJ_GET_NODE = "GetNode";
+export const EVENT_PARAMETER_KJ_CHANGED = "aaalice-parameter-panel-kj-changed";
 const graphWatchers = new WeakMap();
 const nodeWatchGraphs = new WeakMap();
 
@@ -21,7 +22,7 @@ function message(key, fallback, values = {}) {
 	return result;
 }
 
-function toast(severity, detail) {
+export function nativeToast(severity, detail) {
 	app.extensionManager?.toast?.add?.({
 		severity,
 		summary: t(`aaalice.common.${severity === "error" ? "error" : "notice"}`, severity === "error" ? "Error" : "Notice"),
@@ -30,7 +31,7 @@ function toast(severity, detail) {
 	});
 }
 
-function getGraphLink(graph, linkId) {
+export function getGraphLink(graph, linkId) {
 	if (linkId == null || !graph) return null;
 	if (typeof graph.getLink === "function") return graph.getLink(linkId);
 	const links = graph.links;
@@ -40,7 +41,7 @@ function getGraphLink(graph, linkId) {
 	return links?.[linkId] || internalLinks?.[linkId] || null;
 }
 
-function getGraphNode(graph, nodeId) {
+export function getGraphNode(graph, nodeId) {
 	if (typeof graph?.getNodeById === "function") return graph.getNodeById(nodeId);
 	if (typeof graph?._nodes_by_id?.get === "function") return graph._nodes_by_id.get(nodeId) || null;
 	return graph?._nodes_by_id?.[nodeId] || null;
@@ -56,27 +57,27 @@ function hasRegisteredType(registered, name) {
 	return typeof registered?.has === "function" ? registered.has(name) : Boolean(registered?.[name]);
 }
 
-function isKjReady() {
+export function isKjReady() {
 	const { liteGraph, registered } = kjNodeTypes();
 	return typeof liteGraph?.createNode === "function"
 		&& hasRegisteredType(registered, KJ_SET_NODE)
 		&& hasRegisteredType(registered, KJ_GET_NODE);
 }
 
-function panelMeta(panel) {
+export function panelMeta(panel) {
 	return tunableMeta(ensureParameters(panel)).slice(0, MAX);
 }
 
-function panelTitle(panel) {
+export function panelTitle(panel) {
 	return String(panel?.title || "").trim() || "ParameterPanel";
 }
 
-function desiredSetName(panel, parameter) {
+export function desiredSetName(panel, parameter) {
 	const parameterName = String(displayName(parameter, parameter?.id || "parameter")).trim() || "parameter";
 	return `${panelTitle(panel)}_${parameterName}`;
 }
 
-function directSetNodes(panel, outputIndex) {
+export function directSetNodes(panel, outputIndex) {
 	const graph = panel?.graph;
 	const output = panel?.outputs?.[outputIndex];
 	if (!graph || !output?.links?.length) return [];
@@ -93,7 +94,7 @@ function directSetNodes(panel, outputIndex) {
 	return result;
 }
 
-function renameKjSet(setNode, nextName) {
+export function renameKjSet(setNode, nextName) {
 	const widget = setNode?.widgets?.[0];
 	if (!setNode?.graph || !widget || typeof setNode.validateName !== "function") {
 		throw new Error("KJ SetNode is missing its naming API.");
@@ -124,6 +125,9 @@ function refreshKjSetNames(panel) {
 			}
 		}
 	}
+	window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_KJ_CHANGED, {
+		detail: { nodeId: panel.id, node: panel, updated, errors },
+	}));
 	return { updated, errors };
 }
 
@@ -145,10 +149,6 @@ function installGraphWatcher(panel) {
 	let state = graphWatchers.get(graph);
 	if (state) {
 		state.nodes.add(panel);
-		if (graph.onTrigger !== state.handler) {
-			state.previous = graph.onTrigger;
-			graph.onTrigger = state.handler;
-		}
 		return;
 	}
 	state = { nodes: new Set([panel]), previous: graph.onTrigger, handler: null };
@@ -214,17 +214,18 @@ export function registerParameterPanelKj(panel) {
 	scheduleRefresh(panel);
 }
 
-function createLinkedKjSets(panel) {
+export function createLinkedKjSets(panel, { changeBoundary = true } = {}) {
 	if (!panel?.graph) throw new Error(message("aaalice.pcp.kj.graphUnavailable", "The current graph is unavailable."));
-	if (!isKjReady()) return { created: 0, updated: 0, errors: [] };
+	if (!isKjReady()) return { created: 0, createdNodes: [], updated: 0, errors: [] };
 	const meta = panelMeta(panel);
-	if (!meta.length) return { created: 0, updated: 0, errors: [] };
+	if (!meta.length) return { created: 0, createdNodes: [], updated: 0, errors: [] };
 	const graph = panel.graph;
 	const { liteGraph } = kjNodeTypes();
 	let created = 0;
+	const createdNodes = [];
 	let updated = 0;
 	const errors = [];
-	graph.beforeChange?.();
+	if (changeBoundary) graph.beforeChange?.();
 	try {
 		for (let index = 0; index < meta.length; index += 1) {
 			let sets = directSetNodes(panel, index);
@@ -257,6 +258,7 @@ function createLinkedKjSets(panel) {
 					continue;
 				}
 				created += 1;
+				createdNodes.push(setNode);
 			}
 			for (const setNode of sets) {
 				try {
@@ -268,11 +270,11 @@ function createLinkedKjSets(panel) {
 			}
 		}
 	} finally {
-		graph.afterChange?.();
+		if (changeBoundary) graph.afterChange?.();
 		graph.setDirtyCanvas?.(true, true);
 		app.canvas?.setDirty?.(true, true);
 	}
-	return { created, updated, errors };
+	return { created, createdNodes, updated, errors };
 }
 
 export function parameterPanelKjMenuItem(panel) {
@@ -282,21 +284,21 @@ export function parameterPanelKjMenuItem(panel) {
 		callback: () => {
 			const meta = panelMeta(panel);
 			if (!meta.length) {
-				toast("info", message("aaalice.pcp.kj.noParameters", "No tunable parameters are available."));
+				nativeToast("info", message("aaalice.pcp.kj.noParameters", "No tunable parameters are available."));
 				return;
 			}
 			try {
 				const result = createLinkedKjSets(panel);
 				if (result.errors.length) {
-					toast("error", message("aaalice.pcp.kj.linkFailed", "Some KJ Set nodes could not be linked: {reason}", {
+					nativeToast("error", message("aaalice.pcp.kj.linkFailed", "Some KJ Set nodes could not be linked: {reason}", {
 						reason: result.errors[0]?.message || String(result.errors[0]),
 					}));
 				} else {
-					toast("success", message("aaalice.pcp.kj.created", "KJ Set nodes ready: {count} created.", { count: result.created }));
+					nativeToast("success", message("aaalice.pcp.kj.created", "KJ Set nodes ready: {count} created.", { count: result.created }));
 				}
 			} catch (error) {
 				console.error("[Aaalice] Failed to create linked KJ SetNodes", error);
-				toast("error", message("aaalice.pcp.kj.linkFailed", "Some KJ Set nodes could not be linked: {reason}", {
+				nativeToast("error", message("aaalice.pcp.kj.linkFailed", "Some KJ Set nodes could not be linked: {reason}", {
 					reason: error?.message || String(error),
 				}));
 			}
