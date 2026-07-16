@@ -603,7 +603,7 @@
 .aaalice-receiver-status.is-error,
 .aaalice-receiver-status.is-missing { color: var(--error-text, var(--p-red-400, #d66d75)); }
 .aaalice-receiver-status.is-unbound { color: var(--descrip-text, var(--p-text-muted-color, #9ca3af)); }
-.aaalice-receiver-slot-hidden { display: none !important; }
+.aaalice-parameter-receiver-node [data-aaalice-receiver-hidden="true"] { display: none !important; }
 .aaalice-parameter-receiver-node .aaalice-receiver-node-body {
 	position: relative;
 	min-height: var(--aaalice-receiver-content-height, 90px);

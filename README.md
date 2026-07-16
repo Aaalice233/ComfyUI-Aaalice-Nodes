@@ -62,7 +62,7 @@ New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`
 - Right-click the node and choose **⚙️ Edit Parameters…** to add, rename, reorder, copy, delete, or document parameters.
 - Connect each visible output directly to the matching downstream input. Links stay with the same parameter when it is renamed or reordered.
 - Seed supports fixed, increment, decrement, and randomize behavior. The inline lock button switches between fixed and randomize for quick use.
-- If KJ Set/Get is installed, **🔗 Create and link KJ Set nodes for all parameters** is available from the node menu.
+- If KJ Set/Get is installed, **🔗 Create and link KJ Set nodes for all parameters** is available from the node menu. Newly created collapsed Set nodes are arranged in a compact column to the panel's right.
 
 Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not consume outputs.
 

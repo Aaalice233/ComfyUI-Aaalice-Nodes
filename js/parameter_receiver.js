@@ -189,7 +189,9 @@ function markVueReceiverSlots(receiver) {
 				if (slot.hidden !== hidden) changed = true;
 				slot.hidden = hidden;
 				slot.setAttribute("aria-hidden", String(hidden));
-				slot.classList.toggle("aaalice-receiver-slot-hidden", hidden);
+				// Vue rewrites its reactive slot classes while a link is dragged. Keep
+				// visibility on an extension-owned attribute that survives that patch.
+				slot.setAttribute("data-aaalice-receiver-hidden", String(hidden));
 				slot.style.setProperty("--aaalice-receiver-slot-top", `${RECEIVER_LAYOUT.headerHeight + index * RECEIVER_LAYOUT.rowHeight}px`);
 			}
 		}

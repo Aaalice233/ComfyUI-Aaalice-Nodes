@@ -8,6 +8,8 @@ import {
 	isParameterPanel,
 	tunableMeta,
 } from "./lib/param_model.js";
+import { computeParameterLayout } from "./lib/parameter_layout.js";
+import { computeLinkedSetPosition } from "./lib/kj_set_layout.js";
 
 const MAX = 32;
 const KJ_SET_NODE = "SetNode";
@@ -235,15 +237,12 @@ export function createLinkedKjSets(panel, { changeBoundary = true } = {}) {
 					errors.push(new Error(message("aaalice.pcp.kj.createFailed", "Unable to create a KJ Set node.")));
 					continue;
 				}
-				const panelWidth = Number(panel.size?.[0]) || 370;
-				const rowGap = Math.max(Number(setNode.size?.[1]) || 60, 60) + 24;
-				setNode.pos = [
-					(Number(panel.pos?.[0]) || 0) + panelWidth + 48,
-					(Number(panel.pos?.[1]) || 0) + index * rowGap,
-				];
-				graph.add(setNode);
 				setNode.flags ||= {};
 				setNode.flags.collapsed = true;
+				const layout = computeParameterLayout(panel);
+				const collapsedHeight = Number(liteGraph.NODE_TITLE_HEIGHT) || 30;
+				setNode.pos = computeLinkedSetPosition(panel, layout, index, collapsedHeight);
+				graph.add(setNode);
 				try {
 					panel.connect(index, setNode, 0);
 				} catch (error) {
