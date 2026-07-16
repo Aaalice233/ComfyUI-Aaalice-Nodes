@@ -1,6 +1,5 @@
 {
   "aaalice": {
-    "packageName": "Aaalice 节点",
     "common": {
       "cancel": "取消", "confirm": "确认",
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",

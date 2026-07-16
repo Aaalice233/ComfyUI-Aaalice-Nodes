@@ -31,6 +31,5 @@ async def comfy_entrypoint() -> AaaliceNodesExtension:
 
 __all__ = [
     "WEB_DIRECTORY",
-    "AaaliceNodesExtension",
     "comfy_entrypoint",
 ]

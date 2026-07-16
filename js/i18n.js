@@ -105,7 +105,6 @@ export function ensureI18nReady() {
  *
  * key 对应 `locales/{lang}/main.json` 合并后的路径，例如：
  * - `aaalice.common.confirm`
- * - `aaalice.packageName`
  *
  * 查找顺序：当前语言 → `en` → `fallback` 参数 → key 本身。
  *

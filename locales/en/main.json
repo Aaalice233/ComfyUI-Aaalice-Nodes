@@ -1,6 +1,5 @@
 {
   "aaalice": {
-    "packageName": "Aaalice Nodes",
     "common": {
       "cancel": "Cancel", "confirm": "Confirm",
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",

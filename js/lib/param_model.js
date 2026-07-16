@@ -4,7 +4,6 @@ import { t } from "../i18n.js";
 export const MAX_TUNABLE = 32;
 const SEED_MAX = 0xffffffffffffffff;
 export const EVENT_PARAMETER_CHANGED = "aaalice-parameter-panel-changed";
-export const EVENT_PARAMETER_LIST = "aaalice-parameter-panel-list-changed";
 
 const TUNABLE = new Set(["slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist"]);
 const sourceOptions = {
@@ -240,10 +239,6 @@ export function notifyParameterChanged(node, detail = {}) {
 	ensureParameters(node);
 	node.graph?.setDirtyCanvas?.(true, true);
 	window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_CHANGED, { detail: { nodeId: node.id, node, ...detail } }));
-}
-
-export function notifyParameterListChanged() {
-	window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_LIST));
 }
 
 export function applySeedAfterQueue(node) {

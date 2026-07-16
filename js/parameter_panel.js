@@ -22,7 +22,6 @@ import {
 	newParamId,
 	normalizeDynamicOptions,
 	notifyParameterChanged,
-	notifyParameterListChanged,
 	refreshComfyOptions,
 	setCustomName,
 	tunableMeta,
@@ -985,7 +984,6 @@ function setupParameterPanel(node, loaded = false) {
 		return value;
 	};
 	node._aaaliceParameterRedraw();
-	notifyParameterListChanged();
 }
 
 function installPromptHook() {

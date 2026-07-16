@@ -27,6 +27,5 @@ app.registerExtension({
 	async setup() {
 		injectStyles();
 		await ensureI18nReady();
-		console.log("[Aaalice] extension setup complete");
 	},
 });
