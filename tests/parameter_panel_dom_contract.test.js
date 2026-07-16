@@ -89,3 +89,20 @@ test("image parameters expose upload feedback, a cover thumbnail and a full prev
 	assert.match(themeSource, /\.aaalice-pcp-node-image-clear:hover:not\(:disabled\)\s*\{[^}]*transform:\s*translateY\(-50%\)/s);
 	assert.match(themeSource, /\.aaalice-pcp-image-preview img\s*\{[^}]*object-fit:\s*contain/s);
 });
+
+test("image parameters upload dropped image files through the existing upload path", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /async function uploadImageFile/);
+	assert.match(panelSource, /api\.fetchApi\("\/upload\/image"/);
+	assert.match(panelSource, /function attachImageDropTarget/);
+	assert.match(panelSource, /addEventListener\("dragenter"/);
+	assert.match(panelSource, /addEventListener\("dragover"/);
+	assert.match(panelSource, /addEventListener\("dragleave"/);
+	assert.match(panelSource, /addEventListener\("drop"/);
+	assert.match(panelSource, /event\.stopPropagation\(\)/);
+	assert.match(panelSource, /event\.dataTransfer\.dropEffect = "copy"/);
+	assert.match(panelSource, /files\.find\(isImageFile\)/);
+	assert.match(themeSource, /\.aaalice-pcp-node-image\.is-drop-target\s*\{/);
+});

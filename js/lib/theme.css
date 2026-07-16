@@ -356,6 +356,12 @@
 }
 .aaalice-pcp-node-image.has-image:hover::before,
 .aaalice-pcp-node-image.has-image:focus-visible::before { background: color-mix(in srgb, var(--aa-ui-canvas) 48%, transparent); }
+.aaalice-pcp-node-image.is-drop-target {
+	border-color: var(--aaalice-node-accent);
+	background-color: var(--aaalice-node-accent-soft);
+	box-shadow: inset 0 0 0 2px var(--aaalice-node-accent), 0 0 0 2px color-mix(in srgb, var(--aaalice-node-accent) 18%, transparent);
+}
+.aaalice-pcp-node-image.has-image.is-drop-target::before { background: color-mix(in srgb, var(--aaalice-node-accent) 28%, var(--aa-ui-canvas)); }
 .aaalice-pcp-node-image-label { position: relative; z-index: 1; display: block; overflow: hidden; text-overflow: ellipsis; }
 .aaalice-pcp-node-root .aaalice-pcp-node-image-clear {
 	position: absolute;

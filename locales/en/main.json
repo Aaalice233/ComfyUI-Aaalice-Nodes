@@ -139,7 +139,7 @@
       "inline": { "editValue": "Edit value" },
       "error": {
 		"maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: {reason}",
-		"imageUploadResponse": "The server response did not include an image filename."
+		"imageUploadResponse": "The server response did not include an image filename.", "imageFileType": "Choose an image file."
       },
       "validation": {
         "parameterIdsUnique": "Parameter ids must be unique.", "parameterNamesUnique": "Parameter names must be unique.",
@@ -165,7 +165,7 @@
         "fixed": "Keep fixed", "increment": "Increment", "decrement": "Decrement", "randomize": "Randomize"
       },
       "image": {
-		"none": "Choose image", "uploaded": "Image uploaded: {filename}", "clear": "Clear selected image"
+		"none": "Choose image", "drop": "Drop image here", "uploaded": "Image uploaded: {filename}", "clear": "Clear selected image"
       }
     }
   }

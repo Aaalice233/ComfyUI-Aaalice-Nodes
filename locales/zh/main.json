@@ -139,7 +139,7 @@
       "inline": { "editValue": "编辑数值" },
       "error": {
 		"maxParameters": "最多只能添加 {count} 个可调参数。", "imageUpload": "图像上传失败：{reason}",
-		"imageUploadResponse": "服务器响应中没有图像文件名。"
+		"imageUploadResponse": "服务器响应中没有图像文件名。", "imageFileType": "请选择图像文件。"
       },
       "validation": {
         "parameterIdsUnique": "参数 id 不能重复。", "parameterNamesUnique": "参数名称不能重复。",
@@ -165,7 +165,7 @@
         "fixed": "保持固定", "increment": "每次递增", "decrement": "每次递减", "randomize": "每次随机"
       },
       "image": {
-		"none": "选择图像", "uploaded": "图像上传成功：{filename}", "clear": "清空已选择图像"
+		"none": "选择图像", "drop": "松开以选择图像", "uploaded": "图像上传成功：{filename}", "clear": "清空已选择图像"
       }
     }
   }

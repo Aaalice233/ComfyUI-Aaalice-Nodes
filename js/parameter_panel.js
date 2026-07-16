@@ -242,29 +242,76 @@ function parameterLinkCount(node, parameterId) {
 	return index < 0 ? 0 : (node.outputs?.[index]?.links?.length || 0);
 }
 
+function isImageFile(file) {
+	return file instanceof File && (!file.type || file.type.startsWith("image/"));
+}
+
+async function uploadImageFile(file, parameter, onSelected) {
+	if (!isImageFile(file)) {
+		toast("error", t("aaalice.pcp.error.imageFileType", "Choose an image file."));
+		return;
+	}
+	try {
+		const data = new FormData();
+		data.append("image", file);
+		data.append("type", "input");
+		const response = await api.fetchApi("/upload/image", { method: "POST", body: data });
+		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+		const reference = normalizeImageReference(await response.json());
+		if (!reference) throw new Error(t("aaalice.pcp.error.imageUploadResponse", "The server response did not include an image filename."));
+		parameter.value = reference;
+		toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename }));
+		onSelected();
+	} catch (error) {
+		toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: {reason}", { reason: error?.message || String(error) }));
+	}
+}
+
 function chooseImage(parameter, onSelected) {
 	const upload = document.createElement("input");
 	upload.type = "file";
 	upload.accept = "image/*";
-	upload.addEventListener("change", async () => {
+	upload.addEventListener("change", () => {
 		const file = upload.files?.[0];
 		if (!file) return;
-		try {
-			const data = new FormData();
-			data.append("image", file);
-			data.append("type", "input");
-			const response = await api.fetchApi("/upload/image", { method: "POST", body: data });
-			if (!response.ok) throw new Error(`HTTP ${response.status}`);
-			const reference = normalizeImageReference(await response.json());
-			if (!reference) throw new Error(t("aaalice.pcp.error.imageUploadResponse", "The server response did not include an image filename."));
-			parameter.value = reference;
-			toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename }));
-			onSelected();
-		} catch (error) {
-			toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: {reason}", { reason: error?.message || String(error) }));
-		}
+		void uploadImageFile(file, parameter, onSelected);
 	});
 	upload.click();
+}
+
+function attachImageDropTarget(button, label, parameter, onSelected, defaultLabel) {
+	const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+	const setActive = (active) => {
+		button.classList.toggle("is-drop-target", active);
+		label.textContent = active ? t("aaalice.pcp.image.drop", "Drop image here") : defaultLabel;
+	};
+	button.addEventListener("dragenter", (event) => {
+		if (!hasFiles(event)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		hideImagePreview();
+		setActive(true);
+	});
+	button.addEventListener("dragover", (event) => {
+		if (!hasFiles(event)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+		setActive(true);
+	});
+	button.addEventListener("dragleave", (event) => {
+		if (button.contains(event.relatedTarget)) return;
+		setActive(false);
+	});
+	button.addEventListener("drop", (event) => {
+		if (!hasFiles(event)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		setActive(false);
+		const files = Array.from(event.dataTransfer?.files || []);
+		const file = files.find(isImageFile) || files[0];
+		if (file) void uploadImageFile(file, parameter, onSelected);
+	});
 }
 
 let imagePreview = null;
@@ -533,7 +580,9 @@ function valueControl(node, parameter, heading = null) {
 		const imageButton = isolate(el("button", "aaalice-pcp-node-value aaalice-pcp-node-image"));
 		imageButton.type = "button";
 		imageButton.setAttribute("aria-label", displayName(parameter));
-		imageButton.append(el("span", "aaalice-pcp-node-image-label", reference?.filename || t("aaalice.pcp.image.none", "Choose image")));
+		const defaultLabel = reference?.filename || t("aaalice.pcp.image.none", "Choose image");
+		const imageLabel = el("span", "aaalice-pcp-node-image-label", defaultLabel);
+		imageButton.append(imageLabel);
 		const path = imageReferenceViewPath(reference);
 		if (path) {
 			imageButton.classList.add("has-image");
@@ -547,6 +596,7 @@ function valueControl(node, parameter, heading = null) {
 			});
 		}
 		imageButton.addEventListener("click", () => chooseImage(parameter, persist));
+		attachImageDropTarget(imageButton, imageLabel, parameter, persist, defaultLabel);
 		imageControl.append(imageButton);
 		if (reference) {
 			const clearButton = isolate(iconButton({
