@@ -88,7 +88,8 @@
       },
       "validation": {
         "parameterIdsUnique": "Parameter ids must be unique.", "parameterNamesUnique": "Parameter names must be unique.",
-        "sliderRange": "{name}: invalid slider range.", "optionsRequired": "{name}: options are required."
+        "sliderRange": "{name}: invalid slider range.", "optionsRequired": "{name}: options are required.",
+        "optionsUnique": "{name}: options must be unique."
       },
       "editor": {
         "title": "Edit parameters", "menu": "⚙️ Edit Parameters…", "add": "Add parameter",

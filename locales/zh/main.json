@@ -88,7 +88,8 @@
       },
       "validation": {
         "parameterIdsUnique": "参数 id 不能重复。", "parameterNamesUnique": "参数名称不能重复。",
-        "sliderRange": "{name}：滑条范围无效。", "optionsRequired": "{name}：至少需要一个选项。"
+        "sliderRange": "{name}：滑条范围无效。", "optionsRequired": "{name}：至少需要一个选项。",
+        "optionsUnique": "{name}：选项不能重复。"
       },
       "editor": {
         "title": "编辑参数", "menu": "⚙️ 编辑参数…", "add": "添加参数",

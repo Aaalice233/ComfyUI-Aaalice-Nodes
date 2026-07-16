@@ -1,5 +1,6 @@
 /** ParameterPanel domain model. node.properties.parameters is the source of truth. */
 import { t } from "../i18n.js";
+import { hasDuplicateOptions } from "./parameter_options.js";
 
 export const MAX_TUNABLE = 32;
 const SEED_MAX = 0xffffffffffffffff;
@@ -217,6 +218,10 @@ export function validateParametersDraft(parameters) {
 		if (["dropdown", "enum"].includes(parameter.param_type)
 			&& (!Array.isArray(parameter.config?.options) || !parameter.config.options.length)) {
 			errors.push(message("aaalice.pcp.validation.optionsRequired", "{name}: options are required.", { name }));
+		}
+		if (["dropdown", "enum"].includes(parameter.param_type)
+			&& hasDuplicateOptions(parameter.config?.options)) {
+			errors.push(message("aaalice.pcp.validation.optionsUnique", "{name}: options must be unique.", { name }));
 		}
 	}
 	return [...new Set(errors)];
