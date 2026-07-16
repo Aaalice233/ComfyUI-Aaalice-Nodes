@@ -14,7 +14,7 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 | Status | Progress | Next |
 |:---:|:---:|:---:|
-| Reset in progress | **4 / 25** | #3 `EnumSwitch` |
+| Reset in progress | **3 / 23 nodes** | #3 `EnumSwitch` |
 
 ## Requirements
 
@@ -59,15 +59,14 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 
 <details>
-<summary><strong>Reset checklist and priority queue</strong></summary>
+<summary><strong>Node reset checklist and schedule</strong></summary>
 
-Stable ids are inherited from the reset plan and are not renumbered when priorities change. One queue item is implemented at a time. `ParameterReceiver` now fulfills #16, which was previously named `ParameterBreak`.
+Stable ids are inherited from the reset plan and are not renumbered when priorities change. The schedule counts nodes only and follows dependencies and reuse between nodes. One node is implemented at a time. The package skeleton and non-node frontend extensions do not count toward node progress. `ParameterReceiver` now fulfills #16, which was previously named `ParameterBreak`.
 
 ### Completed
 
 | # | Current implementation | Purpose |
 |---:|---|---|
-| 0 | Package skeleton | Loadable V3 package, domains, i18n, and `WEB_DIRECTORY`. |
 | 1 | `SimpleStringSplit` | Split text into a cleaned string list. |
 | 15 | `ParameterPanel` | Author and directly output up to 32 parameters. |
 | 16 | `ParameterReceiver` | Receive the panel's KJ Get values through stable pass-through slots. |
@@ -78,31 +77,36 @@ Stable ids are inherited from the reset plan and are not renumbered when priorit
 |---:|---|---|
 | 2 | `SimpleValueSwitch` | Out of scope; not useful enough to reset. |
 
-### Priority queue
+### Node schedule
 
 | Order | # | Legacy id | Domain | Purpose |
 |---:|---:|---|---|---|
 | 1 | 3 | `EnumSwitch` | tools | Route by enum. |
 | 2 | 4 | `SimpleNotify` | tools | Notify when executed. |
 | 3 | 5 | `WorkflowDescription` | tools | On-graph workflow notes. |
-| 4 | 6 | `VAEImageBatchFix` | tools | Correct VAE batch shapes. |
-| 5 | 7 | `ModelNameExtractor` | tools | Extract a readable model name. |
-| 6 | 8 | `ResolutionMasterSimplify` | tools | Resolution and size helper. |
-| 7 | 9 | `SimpleLoadImage` | tools | Load a local image and mask. |
-| 8 | 10 | `PromptCleaningMaid` | prompt | Clean and deduplicate tags. |
-| 9 | 11 | `PromptSelector` | prompt | Select prompts from a checklist. |
-| 10 | 12 | `CharacterFeatureSwapNode` | prompt | Swap character features. |
-| 11 | 13 | `SimpleImageCompare` | media | Compare images interactively. |
-| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | Load a checkpoint with its name and preview. |
-| 13 | 17 | `GroupIsEnabled` | control | Report whether a group is enabled. |
-| 14 | 18 | `GroupMuteManager` | control | Batch mute workflow groups. |
-| 15 | 19 | `GroupIgnoreManager` | control | Batch ignore workflow groups. |
-| 16 | 20 | Quick Group Navigation | control | Navigate workflow groups from a floating UI. |
-| 17 | 21 | `DanbooruGalleryNode` | gallery | Search gallery images and tags. |
-| 18 | 22 | `MultiCharacterEditorNode` | gallery | Edit multi-character prompts. |
-| 19 | 23 | `SaveImagePlus` | media | Save images with additional controls. |
-| 20 | 24 | `FetchFromKrita` | krita | Pull content from Krita. |
-| 21 | 25 | `OpenInKrita` | krita | Open content in Krita; ships with #24. |
+| 4 | 17 | `GroupIsEnabled` | control | Report whether a group is enabled. |
+| 5 | 18 | `GroupMuteManager` | control | Batch mute workflow groups. |
+| 6 | 19 | `GroupIgnoreManager` | control | Batch ignore workflow groups. |
+| 7 | 10 | `PromptCleaningMaid` | prompt | Clean and deduplicate tags. |
+| 8 | 11 | `PromptSelector` | prompt | Select prompts from a checklist. |
+| 9 | 12 | `CharacterFeatureSwapNode` | prompt | Swap character features. |
+| 10 | 21 | `DanbooruGalleryNode` | gallery | Search gallery images and tags. |
+| 11 | 22 | `MultiCharacterEditorNode` | gallery | Edit multi-character prompts. |
+| 12 | 7 | `ModelNameExtractor` | tools | Extract a readable model name. |
+| 13 | 14 | `SimpleCheckpointLoaderWithName` | media | Load a checkpoint with its name and preview. |
+| 14 | 8 | `ResolutionMasterSimplify` | tools | Resolution and size helper. |
+| 15 | 24 | `FetchFromKrita` | krita | Pull content from Krita. |
+| 16 | 25 | `OpenInKrita` | krita | Open content in Krita; implemented together with #24. |
+| 17 | 9 | `SimpleLoadImage` | tools | Load a local image and mask. |
+| 18 | 6 | `VAEImageBatchFix` | tools | Correct VAE batch shapes. |
+| 19 | 13 | `SimpleImageCompare` | media | Compare images interactively. |
+| 20 | 23 | `SaveImagePlus` | media | Save images with additional controls. |
+
+### Non-node schedule
+
+| # | Frontend extension | Prerequisite nodes | Purpose |
+|---:|---|---|---|
+| 20 | Quick Group Navigation | #17–#19 group-management nodes | Navigate workflow groups from a floating UI. |
 
 </details>
 

@@ -14,7 +14,7 @@
 
 | 状态 | 进度 | 下一项 |
 |:---:|:---:|:---:|
-| 重置进行中 | **4 / 25** | #3 `EnumSwitch` |
+| 重置进行中 | **3 / 23 个节点** | #3 `EnumSwitch` |
 
 ## 环境要求
 
@@ -59,15 +59,14 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
 
 <details>
-<summary><strong>重置清单与优先级队列</strong></summary>
+<summary><strong>节点重置清单与排期</strong></summary>
 
-稳定编号继承自重置计划，调整优先级时不重编号；每次只实现队列中的一项。`ParameterReceiver` 现承接 #16 的职责，该节点原名为 `ParameterBreak`。
+稳定编号继承自重置计划，调整优先级时不重编号；排期只统计节点，并按节点之间的依赖和复用关系排序，每次只实现一个节点。包骨架和非节点前端扩展不计入节点进度。`ParameterReceiver` 现承接 #16 的职责，该节点原名为 `ParameterBreak`。
 
 ### 已完成
 
 | # | 当前实现 | 用途 |
 |---:|---|---|
-| 0 | 包骨架 | 可加载的 V3 包、节点域、i18n 与 `WEB_DIRECTORY`。 |
 | 1 | `SimpleStringSplit` | 将文本拆分为清理后的字符串列表。 |
 | 15 | `ParameterPanel` | 创作并直接输出最多 32 个参数。 |
 | 16 | `ParameterReceiver` | 通过稳定的透传槽接收面板对应的 KJ Get 值。 |
@@ -78,31 +77,36 @@ pip install -r requirements.txt
 |---:|---|---|
 | 2 | `SimpleValueSwitch` | 不在范围内，实用价值不足，不重写。 |
 
-### 优先级队列
+### 节点排期
 
 | 顺序 | # | 旧节点 ID | 域 | 用途 |
 |---:|---:|---|---|---|
 | 1 | 3 | `EnumSwitch` | tools | 按枚举选通。 |
 | 2 | 4 | `SimpleNotify` | tools | 执行时发送通知。 |
 | 3 | 5 | `WorkflowDescription` | tools | 在工作流画布上添加说明。 |
-| 4 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
-| 5 | 7 | `ModelNameExtractor` | tools | 提取可读模型名。 |
-| 6 | 8 | `ResolutionMasterSimplify` | tools | 分辨率与尺寸辅助。 |
-| 7 | 9 | `SimpleLoadImage` | tools | 加载本地图像和遮罩。 |
-| 8 | 10 | `PromptCleaningMaid` | prompt | 清洗并去重标签。 |
-| 9 | 11 | `PromptSelector` | prompt | 从清单中选择提示词。 |
-| 10 | 12 | `CharacterFeatureSwapNode` | prompt | 交换角色特征。 |
-| 11 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
-| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | 加载模型并输出名称与预览。 |
-| 13 | 17 | `GroupIsEnabled` | control | 输出组是否启用。 |
-| 14 | 18 | `GroupMuteManager` | control | 批量静音工作流组。 |
-| 15 | 19 | `GroupIgnoreManager` | control | 批量忽略工作流组。 |
-| 16 | 20 | Quick Group Navigation | control | 通过浮动界面快速导航工作流组。 |
-| 17 | 21 | `DanbooruGalleryNode` | gallery | 搜索图库图像与标签。 |
-| 18 | 22 | `MultiCharacterEditorNode` | gallery | 编辑多角色提示词。 |
-| 19 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
-| 20 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
-| 21 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容；随 #24 一起实现。 |
+| 4 | 17 | `GroupIsEnabled` | control | 输出组是否启用。 |
+| 5 | 18 | `GroupMuteManager` | control | 批量静音工作流组。 |
+| 6 | 19 | `GroupIgnoreManager` | control | 批量忽略工作流组。 |
+| 7 | 10 | `PromptCleaningMaid` | prompt | 清洗并去重标签。 |
+| 8 | 11 | `PromptSelector` | prompt | 从清单中选择提示词。 |
+| 9 | 12 | `CharacterFeatureSwapNode` | prompt | 交换角色特征。 |
+| 10 | 21 | `DanbooruGalleryNode` | gallery | 搜索图库图像与标签。 |
+| 11 | 22 | `MultiCharacterEditorNode` | gallery | 编辑多角色提示词。 |
+| 12 | 7 | `ModelNameExtractor` | tools | 提取可读模型名。 |
+| 13 | 14 | `SimpleCheckpointLoaderWithName` | media | 加载模型并输出名称与预览。 |
+| 14 | 8 | `ResolutionMasterSimplify` | tools | 分辨率与尺寸辅助。 |
+| 15 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
+| 16 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容；与 #24 配套实现。 |
+| 17 | 9 | `SimpleLoadImage` | tools | 加载本地图像和遮罩。 |
+| 18 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
+| 19 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
+| 20 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
+
+### 非节点排期
+
+| # | 前端扩展 | 前置节点 | 用途 |
+|---:|---|---|---|
+| 20 | Quick Group Navigation | #17–#19 组管理节点 | 通过浮动界面快速导航工作流组。 |
 
 </details>
 
