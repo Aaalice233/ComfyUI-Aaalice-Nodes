@@ -12,8 +12,9 @@
 | `EnumSwitch` | `Aaalice/tools` | 按精确字符串 lazy 选通一个同类型分支 | 分支编辑、面板选项绑定、显式同步和动态分支输入 |
 | `SimpleStringSplit` | `Aaalice/tools` | 拆分字符串、清理空白并移除空段 | 无业务前端 |
 | `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
+| `PromptCleaningMaid` | `Aaalice/prompt` | 原样透传，或按显式格式清理自然语言、规范化并去重标签列表 | 模式切换、详细设置和内部配置注入 |
 
-根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入错误保留原始异常。当前 Python 域为 `nodes/control`、`nodes/tools` 与无 ComfyUI 运行时依赖的 `nodes/_lib`。
+根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入错误保留原始异常。当前 Python 域为 `nodes/control`、`nodes/tools`、`nodes/prompt` 与无 ComfyUI 运行时依赖的 `nodes/_lib`。
 
 ## 后端边界
 
@@ -23,6 +24,7 @@
 - `nodes/tools/enum_switch.py` 声明 selector、最多 32 个 lazy MatchType 分支和一个同类型输出；`nodes/_lib/enum_switch.py` 校验 routes payload 并选择精确协议输入。
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
+- `PromptCleaningMaid` 使用单一 STRING 输入输出；`nodes/_lib/prompt_cleaning.py` 持有配置验证、自然语言清理、顶层标签扫描和稳定去重。结构异常的标签列表原样输出并记录 warning；识别到已支持的顶层分区控制词时无损旁路，不猜测或修复其语法。
 
 后端 32 路 Schema 是执行和校验上限，不是前端槽数组真源。ParameterPanel 的返回值仍填满有界输出协议；画布只物化当前参数对应的连续槽。
 
@@ -36,10 +38,11 @@
 | 枚举选通 | `js/enum_switch.js` | 分支编辑、选项绑定、同步提示、保线和 routes payload 注入 |
 | 组管理 | `js/quick_group_manager.js` | 全局图事件、DOM、颜色范围、排序和原子模式事务 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
+| 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
 | DOM 与媒体辅助 | `js/lib/{dom_widget_resize,parameter_controls,image_reference,safe_markdown,simple_notify_runtime}.js` | 缩放命中、无状态控件、图像引用、安全 Markdown 和提醒运行时 |
-| 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务组件、主题 token 与节点专用布局 |
+| 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
 
 共享 `js/lib` 模块不得自行注册扩展或拥有工作流状态。业务入口负责生命周期和画布事务，纯模型保持无 DOM、无 ComfyUI 运行时依赖。
 
@@ -51,6 +54,7 @@
 | ParameterReceiver | `node.properties.receiverBinding` | 面板名称、参数类型、同步状态、Get 连线 | 面板标题、槽索引、Get 显示名 |
 | EnumSwitch | `node.properties.enumSwitch` | 分支标签、源选项 diff、routes payload | Branch Key、槽位置、DOM 顺序 |
 | QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
+| PromptCleaningMaid | `node.properties.promptCleaningMaidState` | 当前模式控件、设置状态、执行配置 JSON | DOM 控件副本、自动识别的 Prompt 类型 |
 
 Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序位置不是身份；结构变化按稳定身份保存并恢复连线。
 
@@ -85,6 +89,13 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 2. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化。
 3. 环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
 4. 通过预检后，在一个图变更边界内提交全部模式；其它 Manager 只刷新显示。
+
+### PromptCleaningMaid
+
+1. 用户显式选择关闭、自然语言或标签列表模式；关闭模式原样透传，两种清理模式分别保存设置。
+2. Switcher、设置 Toggle 与恢复默认都在图变更边界中即时写入 `node.properties`。
+3. `graphToPrompt` 注入规范化 `config_json`，使配置参与后端执行与缓存。
+4. 关闭模式不修改文本；自然语言模式只清理空白；标签模式只按顶层分隔符规范化和稳定去重。已支持的顶层分区控制词触发整段原样旁路，其余 Prompt 方言不解释。
 
 ## Classic、Nodes 2.0 与尺寸
 

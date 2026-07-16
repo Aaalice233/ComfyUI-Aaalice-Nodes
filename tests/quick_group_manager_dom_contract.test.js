@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../js/quick_group_manager.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../js/lib/theme.css", import.meta.url), "utf8");
+const ui = readFileSync(new URL("../js/lib/ui.js", import.meta.url), "utf8");
 
 test("mounts a synchronous non-serializing DOM widget across node lifecycles", () => {
 	assert.match(source, /addDOMWidget\(WIDGET/);
@@ -29,7 +30,7 @@ test("keeps the compact header single-line without redundant visible labels", ()
 	assert.match(styles, /\.aaalice-qgm-toolbar[\s\S]*white-space:\s*nowrap/);
 	assert.doesNotMatch(source, /aaalice-qgm-title/);
 	assert.doesNotMatch(source, /关闭方式|颜色过滤/);
-	assert.match(source, /role:\s*"radiogroup"/);
+	assert.match(ui, /role:\s*"radiogroup"/);
 	assert.match(source, /role:\s*"switch"/);
 	assert.match(source, /"aria-checked":\s*status === GROUP_STATE\.MIXED \? "mixed"/);
 });
@@ -74,9 +75,9 @@ test("provides filtered drag ordering, keyboard ordering and accessible popovers
 	assert.match(source, /dragstart/);
 	assert.match(source, /Alt\+Arrow/);
 	assert.match(source, /event\.altKey/);
-	assert.match(source, /aria-modal/);
-	assert.match(source, /event\.key === "Escape"/);
-	assert.match(source, /previousFocus\?\.focus/);
+	assert.match(ui, /aria-modal/);
+	assert.match(ui, /event\.key === "Escape"/);
+	assert.match(ui, /previousFocus\?\.focus/);
 });
 
 test("preflights cascade before writing node modes in one graph boundary", () => {

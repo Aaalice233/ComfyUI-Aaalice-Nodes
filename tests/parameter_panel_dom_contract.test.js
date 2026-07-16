@@ -71,7 +71,7 @@ test("parameter panel keeps native resize corners and a stable minimum width", (
 test("image parameters expose upload feedback, a cover thumbnail and a full preview", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
-	const chooserSource = panelSource.match(/function chooseImage[\s\S]+?\n}\n\nlet imagePreview/)?.[0] || "";
+	const chooserSource = panelSource.match(/function chooseImage[\s\S]+?\r?\n}\r?\n\r?\nlet imagePreview/)?.[0] || "";
 
 	assert.match(panelSource, /aaalice\.pcp\.image\.uploaded/);
 	assert.match(chooserSource, /upload\.type = "file"/);

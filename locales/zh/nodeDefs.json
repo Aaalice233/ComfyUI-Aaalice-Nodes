@@ -73,6 +73,12 @@
     "inputs": {},
     "outputs": {}
   },
+  "PromptCleaningMaid": {
+    "display_name": "🧹 提示词清洁",
+    "description": "原样透传提示词，或保守清理自然语言和扁平标签列表，同时保留已识别的分区语法。",
+    "inputs": { "text": { "name": "文本", "tooltip": "需要清理的提示词文本。" } },
+    "outputs": { "0": { "name": "文本", "tooltip": "清理后的提示词文本。" } }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ 快速组管理器",
     "description": "按颜色范围快速启用、静音或绕过可视组，并配置排序与联动规则。",

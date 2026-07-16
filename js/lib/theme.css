@@ -873,6 +873,30 @@
 .aaalice-receiver-status-action.is-error,
 .aaalice-receiver-status-action.is-missing { color: var(--error-text, var(--p-red-400, #d66d75)); }
 .aaalice-receiver-status-action.is-unbound { color: var(--descrip-text, var(--p-text-muted-color, #9ca3af)); }
+.aaalice-prompt-cleaner { display: grid; width: 100%; min-height: 44px; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; gap: 8px; padding: 6px 8px; color: var(--aa-ui-text); pointer-events: none; }
+.aaalice-prompt-cleaner > * { pointer-events: auto; }
+.aaalice-prompt-cleaner.is-resizing, .aaalice-prompt-cleaner.is-resizing * { pointer-events: none !important; }
+.aaalice-prompt-cleaner-segmented {
+	--aa-prompt-mode-color: var(--aa-ui-muted);
+	--aa-ui-focus: var(--aa-prompt-mode-color);
+	width: 100%;
+	border-color: color-mix(in srgb, var(--aa-prompt-mode-color) 42%, var(--aa-ui-border));
+	background: color-mix(in srgb, var(--aa-prompt-mode-color) 7%, var(--aa-ui-control));
+	transition: border-color .14s ease, background-color .14s ease;
+}
+.aaalice-prompt-cleaner-segmented[data-value="natural_language"] { --aa-prompt-mode-color: var(--aa-ui-accent); }
+.aaalice-prompt-cleaner-segmented[data-value="tag_list"] { --aa-prompt-mode-color: var(--aa-ui-warning); }
+.aaalice-prompt-cleaner-segmented .aa-ui-segmented__thumb {
+	border-color: color-mix(in srgb, var(--aa-prompt-mode-color) 66%, transparent);
+	background: color-mix(in srgb, var(--aa-prompt-mode-color) 18%, var(--aa-ui-surface));
+}
+.aaalice-prompt-cleaner-settings-button { position: relative; width: 32px !important; height: 32px !important; }
+.aaalice-prompt-cleaner-settings-button.has-custom-settings::after { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border: 1px solid var(--aa-ui-surface); border-radius: 50%; background: var(--aa-ui-muted); content: ""; }
+.aaalice-prompt-cleaner-popover-title { display: block; margin: 1px 2px 9px; font-size: 12px; }
+.aaalice-prompt-cleaner-settings-list { display: grid; gap: 3px; }
+.aaalice-prompt-cleaner-setting { display: grid; min-height: 34px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 4px 5px; border-radius: 7px; background: color-mix(in srgb, var(--aa-ui-control) 62%, transparent); }
+.aaalice-prompt-cleaner-setting.is-dependent { padding-left: 17px; color: var(--aa-ui-muted); }
+.aaalice-prompt-cleaner-popover-footer { display: flex; justify-content: flex-end; margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--aa-ui-border-soft); }
 .aaalice-parameter-receiver-node .aaalice-receiver-node-body {
 	position: relative;
 	min-height: var(--aaalice-receiver-content-height, 90px);

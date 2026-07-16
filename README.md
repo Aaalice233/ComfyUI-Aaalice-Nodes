@@ -56,6 +56,7 @@ pip install -r requirements.txt
 | `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
+| `PromptCleaningMaid` | `Aaalice/prompt` | Quickly disable cleaning, safely clean natural-language prompts, or normalize and deduplicate flat tag lists. |
 
 <details>
 <summary><strong>EnumSwitch — lazy enum routing</strong></summary>
@@ -121,6 +122,15 @@ The node controls only groups in its current graph. A grouped subgraph node can 
 Connect any value to receive one alert when execution reaches the node, then continue with the unchanged value. Desktop notifications and the bundled sound can be enabled independently, and sound volume is configurable. Use **🔔 Enable and Test Alerts** from the node menu to request browser permission and test the enabled channels.
 
 The alert confirms only that execution reached this node. It does not wait for other parallel branches or for the queue to become empty. Browser/API restrictions can prevent desktop notifications or audio; headless API and CLI runs have no frontend alert surface.
+
+</details>
+
+<details>
+<summary><strong>PromptCleaningMaid — format-aware prompt cleaning</strong></summary>
+
+Connect prompt text, then use the compact switcher to choose **Off**, **Natural language**, or **Tag list**. Off mode is an exact pass-through for quickly disabling every cleaning effect; switching modes preserves both cleaning configurations. Natural-language mode is the safe default and only cleans enabled outer, line-end, and blank-line whitespace. Tag-list mode recognizes top-level English/Chinese commas and line breaks, preserves nested syntax, and can trim, remove empty entries, and stably deduplicate tags. Inputs containing the recognized top-level partition controls `BREAK`, `AND`, `ADDCOL`, `ADDROW`, `ADDBASE`, or `ADDCOMM` are passed through byte-for-byte instead of being normalized or deduplicated.
+
+The settings button opens mode-specific toggles and marks the node when defaults have been customized. The node never removes LoRA tags, completes weights, repairs brackets, or auto-detects prompt formats. It preserves the recognized partition controls above without interpreting or repairing their syntax; unknown third-party control words are not auto-detected. Malformed tag-list structure is returned unchanged.
 
 </details>
 

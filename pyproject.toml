@@ -23,7 +23,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["nodes", "nodes.tools", "nodes.control", "nodes._lib"]
+packages = ["nodes", "nodes.tools", "nodes.control", "nodes.prompt", "nodes._lib"]
 
 [tool.setuptools.package-data]
 "*" = ["js/**/*", "locales/**/*"]

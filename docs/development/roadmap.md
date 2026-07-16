@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 进度：`6 / 20` 个节点
-- 下一项：#10 `PromptCleaningMaid`
+- 进度：`7 / 20` 个节点
+- 下一项：#11 `PromptSelector`
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
 - `ParameterReceiver` 承接 #16 的职责，旧名称为 `ParameterBreak`。
@@ -17,6 +17,7 @@
 | 1 | `SimpleStringSplit` | tools | 将文本拆分为清理后的字符串 list。 |
 | 3 | `EnumSwitch` | tools | 按精确字符串 key 惰性选通同类型分支。 |
 | 4 | `SimpleNotify` | tools | 在透明透传执行点提醒一次。 |
+| 10 | `PromptCleaningMaid` | prompt | 原样透传，或按显式格式保守清理自然语言、规范化并去重标签列表。 |
 | 15 | `ParameterPanel` | control | 创作并直接输出最多 32 个参数。 |
 | 16 | `ParameterReceiver` | control | 按当前绑定动态接收并透传面板对应的 KJ Get。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
@@ -34,20 +35,19 @@
 
 | 顺序 | # | 旧节点 ID | 领域 | 目标职责 |
 |---:|---:|---|---|---|
-| 1 | 10 | `PromptCleaningMaid` | prompt | 清洗并去重标签。 |
-| 2 | 11 | `PromptSelector` | prompt | 从清单选择提示词。 |
-| 3 | 12 | `CharacterFeatureSwapNode` | prompt | 交换角色特征。 |
-| 4 | 21 | `DanbooruGalleryNode` | gallery | 搜索图库图像与标签。 |
-| 5 | 22 | `MultiCharacterEditorNode` | gallery | 编辑多角色提示词。 |
-| 6 | 7 | `ModelNameExtractor` | tools | 提取可读模型名。 |
-| 7 | 14 | `SimpleCheckpointLoaderWithName` | media | 加载模型并输出名称与预览。 |
-| 8 | 8 | `ResolutionMasterSimplify` | tools | 提供分辨率与尺寸辅助。 |
-| 9 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
-| 10 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容，与 #24 配套实现。 |
-| 11 | 9 | `SimpleLoadImage` | tools | 加载本地图像和 mask。 |
-| 12 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
-| 13 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
-| 14 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
+| 1 | 11 | `PromptSelector` | prompt | 从清单选择提示词。 |
+| 2 | 12 | `CharacterFeatureSwapNode` | prompt | 交换角色特征。 |
+| 3 | 21 | `DanbooruGalleryNode` | gallery | 搜索图库图像与标签。 |
+| 4 | 22 | `MultiCharacterEditorNode` | gallery | 编辑多角色提示词。 |
+| 5 | 7 | `ModelNameExtractor` | tools | 提取可读模型名。 |
+| 6 | 14 | `SimpleCheckpointLoaderWithName` | media | 加载模型并输出名称与预览。 |
+| 7 | 8 | `ResolutionMasterSimplify` | tools | 提供分辨率与尺寸辅助。 |
+| 8 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
+| 9 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容，与 #24 配套实现。 |
+| 10 | 9 | `SimpleLoadImage` | tools | 加载本地图像和 mask。 |
+| 11 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
+| 12 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
+| 13 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
 
 ## 非节点队列
 

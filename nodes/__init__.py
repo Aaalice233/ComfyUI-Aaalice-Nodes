@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 _DOMAIN_MODULES = (
     "tools",
     "control",
+    "prompt",
 )
 
 

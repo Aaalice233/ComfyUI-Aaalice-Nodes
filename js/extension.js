@@ -6,6 +6,7 @@ import "./parameter_panel.js";
 import "./parameter_receiver.js";
 import "./enum_switch.js";
 import "./simple_notify.js";
+import "./prompt_cleaning_maid.js";
 
 function injectStyles() {
 	for (const filename of ["ui.css", "theme.css"]) {

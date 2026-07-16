@@ -2,7 +2,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
-import { button, el, emptyState, icon, iconButton, isolate } from "./lib/ui.js";
+import { button, createAnchoredPopover, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
 import {
 	GROUP_STATE,
 	classifyGroupNodes,
@@ -91,41 +91,14 @@ function closePopover(node) {
 
 function createPopover(node, anchor, className, ariaLabel) {
 	closePopover(node);
-	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
-	const root = isolate(el("section", { className: `aaalice-qgm-popover ${className}`, attrs: { role: "dialog", "aria-modal": "false", "aria-label": ariaLabel, tabindex: -1 } }));
-	document.body.append(root);
-	const rect = anchor.getBoundingClientRect();
 	const width = className.includes("rules") ? 440 : 280;
-	root.style.width = `${width}px`;
-	root.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width))}px`;
-	root.style.top = `${Math.min(window.innerHeight - 80, rect.bottom + 6)}px`;
-	let closed = false;
-	const close = () => {
-		if (closed) return;
-		closed = true;
-		document.removeEventListener("pointerdown", outside, true);
-		document.removeEventListener("keydown", keydown, true);
-		root.remove();
-		if (node._aaaliceQuickPopover?.root === root) node._aaaliceQuickPopover = null;
-		previousFocus?.focus?.({ preventScroll: true });
+	const popup = createAnchoredPopover({ anchor, ariaLabel, className: `aaalice-qgm-popover ${className}`, width });
+	const sharedClose = popup.close;
+	popup.close = () => {
+		sharedClose();
+		if (node._aaaliceQuickPopover?.root === popup.root) node._aaaliceQuickPopover = null;
 	};
-	const outside = (event) => { if (!root.contains(event.target) && event.target !== anchor) close(); };
-	const keydown = (event) => {
-		if (event.key === "Escape") { event.preventDefault(); close(); return; }
-		if (event.key !== "Tab") return;
-		const focusable = [...root.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')];
-		if (!focusable.length) return;
-		const first = focusable[0];
-		const last = focusable.at(-1);
-		if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-		else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-	};
-	setTimeout(() => {
-		document.addEventListener("pointerdown", outside, true);
-		document.addEventListener("keydown", keydown, true);
-		(root.querySelector("input, button, select") || root).focus();
-	}, 0);
-	node._aaaliceQuickPopover = { root, close };
+	node._aaaliceQuickPopover = popup;
 	return node._aaaliceQuickPopover;
 }
 
@@ -294,17 +267,19 @@ function moveGroup(node, sourceId, targetId) {
 }
 
 function modeSwitcher(node, state) {
-	const segmented = el("div", { className: `aaalice-qgm-segmented is-${state.offMode}`, attrs: { role: "radiogroup", "aria-label": t("aaalice.quickGroup.mode.aria", "Disabled group mode") } });
-	segmented.append(el("span", { className: "aaalice-qgm-segmented-thumb", attrs: { "aria-hidden": "true" } }));
-	for (const [value, label] of [["mute", t("aaalice.quickGroup.mode.mute", "Mute")], ["bypass", t("aaalice.quickGroup.mode.bypass", "Bypass")]]) {
-		const choice = el("button", { className: state.offMode === value ? "is-active" : "", attrs: { type: "button", role: "radio", "aria-checked": state.offMode === value, "data-off-mode": value }, text: label });
-		choice.addEventListener("click", () => switchOffMode(node, value));
-		segmented.append(choice);
-	}
-	return segmented;
+	return segmentedControl({
+		value: state.offMode,
+		options: [["mute", t("aaalice.quickGroup.mode.mute", "Mute")], ["bypass", t("aaalice.quickGroup.mode.bypass", "Bypass")]].map(([value, label]) => ({ value, label })),
+		ariaLabel: t("aaalice.quickGroup.mode.aria", "Disabled group mode"),
+		onChange: (value) => switchOffMode(node, value),
+		className: `aaalice-qgm-segmented is-${state.offMode}`,
+		thumbClassName: "aaalice-qgm-segmented-thumb",
+		dataAttribute: "offMode",
+	});
 }
 
 function syncModeSwitcher(segmented, state) {
+	segmented.setValue?.(state.offMode);
 	segmented.classList.toggle("is-mute", state.offMode === "mute");
 	segmented.classList.toggle("is-bypass", state.offMode === "bypass");
 	segmented.setAttribute("aria-label", t("aaalice.quickGroup.mode.aria", "Disabled group mode"));

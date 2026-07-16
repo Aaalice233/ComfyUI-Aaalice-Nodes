@@ -99,6 +99,7 @@ ComfyUI-Aaalice-Nodes/
 - 节点底部出现与 slot 栈高度相近的空白、向上缩小时立即被弹开，优先判定为 LiteGraph 将 slot 区与 DOM widget 最小高度串联相加；先核对当前版本 `computeSize()`、`_arrangeWidgets()` 和 widget 挂载顺序，不得用延迟 `setSize()`、隐藏槽、重复 `arrange()` 或更多命中补丁掩盖布局职责错误。
 - 自定义布局必须在 `onResize` 生命周期内从新尺寸重新计算 DOM 几何、真实 slot 坐标和 Nodes 2.0 slot 标记，并请求画布重绘；只让容器 CSS 自适应会使引脚停留在旧位置。
 - 依赖 CSS transition 或 animation 连续性的交互控件必须保留动画元素的 DOM identity，只同步 class、style 和 aria 状态；禁止在状态切换时通过 `replaceChildren`、`innerHTML` 或整体重建替换动画元素，否则过渡会失效或中断。
+- 约 2–4 个平级互斥选项优先使用分段 Switcher，不改成下拉菜单；不同档位必须由 ComfyUI 主题 token 派生不同状态色，并由同一个稳定 thumb 平移表达切换。切换时只更新 data/class、ARIA 和 transform，且在 `prefers-reduced-motion` 下关闭动效。
 
 ### 4.3 原生槽与双模式
 

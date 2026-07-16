@@ -33,6 +33,20 @@
         "invalid": "联动规则无效。"
       }
     },
+    "promptCleaner": {
+      "mode": { "aria": "提示词格式", "off": "关闭", "naturalLanguage": "自然语言", "tagList": "标签列表" },
+      "settings": {
+        "aria": "提示词清理设置", "disabled": "提示词清理已关闭", "reset": "恢复默认",
+        "trimOuterWhitespace": "清理首尾空白",
+        "trimLineEndWhitespace": "清理每行末尾空格",
+        "collapseBlankLines": "压缩连续空行",
+        "trimTagWhitespace": "清理标签首尾空白",
+        "removeEmptyTags": "移除空标签",
+        "deduplicateTags": "移除重复标签",
+        "ignoreCase": "忽略大小写",
+        "underscoreEqualsSpace": "下划线等同空格"
+      }
+    },
     "simpleNotify": {
       "defaultMessage": "执行已到达简易通知节点。",
       "menu": { "test": "🔔 启用并测试提醒" },

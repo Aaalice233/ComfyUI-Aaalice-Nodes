@@ -52,8 +52,13 @@
 | `badge()` | 类型或短元数据，不单独承担关键状态 |
 | `emptyState()` | 解释空状态原因和下一步 |
 | `createDialog()` | 统一 Escape、背景关闭、焦点圈定与恢复 |
+| `segmentedControl()` | 约 2–4 个平级互斥模式的稳定滑块、档位主题色、radiogroup 与方向键切换 |
+| `toggleSwitch()` | 单一布尔设置的 switch、disabled 和 aria 状态 |
+| `createAnchoredPopover()` | 锚定按钮的非模态浮层、外部关闭、焦点圈定与恢复 |
 
 业务模块可以增加布局 class，但不得重复实现这些基础视觉和交互语义。
+
+少量互斥单选优先使用分段 Switcher，不使用下拉菜单。各档位从 ComfyUI token 派生不同状态色，并复用同一个 thumb 做平移动画；状态同步只能更新 data/class、ARIA 与 transform，不能重建 thumb。`prefers-reduced-motion: reduce` 下必须关闭动画。
 
 ## 状态与反馈
 

@@ -13,7 +13,7 @@ const ICON_PATHS = {
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	moveDown: "m7 10 5 5 5-5",
 	refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
-	settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4",
+	settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.73v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.73l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
 	statusCheck: "m5 12 4 4L19 6",
 	statusError: "M7 7l10 10M17 7 7 17",
 	statusIdle: "M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
@@ -106,6 +106,67 @@ export function iconButton({ iconName, label, ...options }) {
 	return button({ ...options, iconName, ariaLabel: label, title: options.title || label, size: options.size || "icon" });
 }
 
+export function segmentedControl({ value, options = [], ariaLabel, onChange = null, className = "", thumbClassName = "", dataAttribute = "value" } = {}) {
+	const root = el("div", { className: `aa-ui-segmented${className ? ` ${className}` : ""}`, attrs: { role: "radiogroup", "aria-label": ariaLabel } });
+	root.style.setProperty("--aa-ui-segment-count", String(Math.max(1, options.length)));
+	root.append(el("span", { className: `aa-ui-segmented__thumb${thumbClassName ? ` ${thumbClassName}` : ""}`, attrs: { "aria-hidden": "true" } }));
+	const choices = [];
+	const setValue = (next, emit = false) => {
+		value = options.some((option) => option.value === next) ? next : options[0]?.value;
+		const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
+		root.dataset.value = value || "";
+		root.dataset.index = String(activeIndex);
+		root.style.setProperty("--aa-ui-segment-index", String(activeIndex));
+		for (const choice of choices) {
+			const active = choice.dataset[dataAttribute] === value;
+			choice.classList.toggle("is-active", active);
+			choice.setAttribute("aria-checked", String(active));
+		}
+		if (emit) onChange?.(value);
+	};
+	for (const option of options) {
+		const choice = el("button", { attrs: { type: "button", role: "radio", "aria-checked": false }, text: option.label });
+		choice.dataset[dataAttribute] = option.value;
+		choice.addEventListener("click", () => setValue(option.value, true));
+		choice.addEventListener("keydown", (event) => {
+			if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+			event.preventDefault();
+			const index = options.findIndex((item) => item.value === value);
+			const offset = event.key === "ArrowRight" ? 1 : -1;
+			const nextIndex = (index + offset + options.length) % options.length;
+			setValue(options[nextIndex].value, true);
+			choices[nextIndex]?.focus();
+		});
+		choices.push(choice);
+		root.append(choice);
+	}
+	root.setValue = (next) => setValue(next, false);
+	root.setLabel = (label) => root.setAttribute("aria-label", label);
+	setValue(value, false);
+	return root;
+}
+
+export function toggleSwitch({ checked = false, label, disabled = false, onChange = null, className = "" } = {}) {
+	const root = el("button", { className: `aa-ui-toggle${className ? ` ${className}` : ""}`, attrs: { type: "button", role: "switch", "aria-label": label } });
+	root.append(el("span", { className: "aa-ui-toggle__track", attrs: { "aria-hidden": "true" }, children: [el("span", "aa-ui-toggle__thumb")] }));
+	const sync = () => {
+		root.classList.toggle("is-on", checked);
+		root.setAttribute("aria-checked", String(checked));
+		root.disabled = disabled;
+	};
+	root.addEventListener("click", () => {
+		if (disabled) return;
+		checked = !checked;
+		sync();
+		onChange?.(checked);
+	});
+	root.setChecked = (next) => { checked = Boolean(next); sync(); };
+	root.setDisabled = (next) => { disabled = Boolean(next); sync(); };
+	root.setLabel = (next) => root.setAttribute("aria-label", next);
+	sync();
+	return root;
+}
+
 export function field({ label, control, hint = null, error = null, inline = false, className = "" }) {
 	const wrapper = el("label", `aa-ui-field${inline ? " aa-ui-field--inline" : ""}${error ? " has-error" : ""}${className ? ` ${className}` : ""}`);
 	control?.classList?.add("aa-ui-control");
@@ -133,6 +194,43 @@ export function emptyState({ title = null, description, iconName = null, actions
 function focusableElements(root) {
 	return [...root.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
 		.filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
+}
+
+export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300 } = {}) {
+	if (!(anchor instanceof HTMLElement)) throw new Error("[Aaalice] Popover anchor is unavailable");
+	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
+	const root = isolate(el("section", { className: `aa-ui-popover${className ? ` ${className}` : ""}`, attrs: { role: "dialog", "aria-modal": "false", "aria-label": ariaLabel, tabindex: -1 } }));
+	document.body.append(root);
+	root.style.width = `${width}px`;
+	const rect = anchor.getBoundingClientRect();
+	root.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width))}px`;
+	root.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, rect.bottom + 6))}px`;
+	let closed = false;
+	const close = () => {
+		if (closed) return;
+		closed = true;
+		document.removeEventListener("pointerdown", outside, true);
+		document.removeEventListener("keydown", keydown, true);
+		root.remove();
+		previousFocus?.focus?.({ preventScroll: true });
+	};
+	const outside = (event) => { if (!root.contains(event.target) && event.target !== anchor) close(); };
+	const keydown = (event) => {
+		if (event.key === "Escape") { event.preventDefault(); close(); return; }
+		if (event.key !== "Tab") return;
+		const focusable = focusableElements(root);
+		if (!focusable.length) { event.preventDefault(); root.focus(); return; }
+		const first = focusable[0];
+		const last = focusable.at(-1);
+		if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+		else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+	};
+	setTimeout(() => {
+		document.addEventListener("pointerdown", outside, true);
+		document.addEventListener("keydown", keydown, true);
+		(focusableElements(root)[0] || root).focus();
+	});
+	return { root, close };
 }
 
 export function createDialog({
