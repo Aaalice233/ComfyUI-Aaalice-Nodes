@@ -51,6 +51,8 @@ test("uses a three-position animated switcher with distinct theme-token colors",
 test("commits immediate changes and keeps resize minimum content-derived", () => {
 	assert.match(source, /beforeChange/);
 	assert.match(source, /afterChange/);
+	assert.match(source, /installDomWidgetResizePassthrough\(node, root\)/);
+	assert.match(styles, /\.dom-widget:has\(> \.aaalice-prompt-cleaner\)[\s\S]*pointer-events:\s*none\s*!important/);
 	assert.match(source, /Math\.max\(DEFAULT_WIDTH, Number\(computed\[0\]\)/);
 	assert.doesNotMatch(source, /this\.size/);
 	assert.match(styles, /aaalice-prompt-cleaner-settings-button[\s\S]*32px/);

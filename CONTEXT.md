@@ -48,6 +48,10 @@
 
 ## 通用边界
 
+- **Node Color（节点颜色）**：用户通过 ComfyUI 为单个节点选择的原生外观颜色，负责节点标题和主体的基础色。它不是警告、错误或业务模式状态。
+
+- **Node Accent（节点强调色）**：从 Node Color 和当前主题对比色派生、用于节点内普通交互控件激活态的颜色。未选择 Node Color 时回退到 ComfyUI 主题强调色；语义状态色不属于 Node Accent。
+
 - **Classic**：由 LiteGraph 原生节点和 slot 负责主要画布渲染的 ComfyUI 节点模式。
 
 - **Nodes 2.0**：由 Vue 节点组件参与节点和 slot 渲染的 ComfyUI 节点模式。

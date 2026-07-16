@@ -36,16 +36,22 @@ test("keeps the compact header single-line without redundant visible labels", ()
 });
 
 test("keeps manual node sizing after the initial default size", () => {
-	assert.match(source, /TITLE_ACTIONS_WIDTH\s*=\s*200/);
-	assert.match(source, /DEFAULT_HEIGHT\s*=\s*190/);
+	assert.match(source, /MIN_WIDTH\s*=\s*340/);
+	assert.match(source, /DEFAULT_HEIGHT\s*=\s*142/);
 	assert.match(source, /function scheduleInitialSize/);
 	assert.match(source, /_aaaliceQuickConfigured/);
-	assert.match(source, /function enforceMinimumWidth/);
+	assert.match(source, /function minimumBodyHeight/);
+	assert.match(source, /GROUP_ROW_HEIGHT\s*=\s*42/);
+	assert.match(source, /function enforceMinimumSize/);
+	assert.match(source, /getMinHeight:\s*\(\)\s*=>\s*minimumBodyHeight\(node\)/);
+	assert.match(source, /minimumBodyHeight\(this\)/);
+	assert.doesNotMatch(source, /Math\.max\(Number\(computed\[1\]\)\s*\|\|\s*0, minimumBodyHeight\(this\)\)/);
 	assert.match(source, /node\.computeSize\s*=\s*function/);
-	assert.match(source, /Number\(computed\[0\]\)[\s\S]*TITLE_ACTIONS_WIDTH/);
-	assert.match(source, /Number\(computed\[1\]\)\s*\|\|\s*MIN_BODY_HEIGHT/);
+	assert.match(source, /Math\.max\([\s\S]*Number\(computed\[0\]\)[\s\S]*MIN_WIDTH/);
 	assert.match(source, /app\.canvas\?\.resizing_node === this/);
 	assert.match(source, /function beginResizePassthrough/);
+	assert.match(source, /function beginPlacementPassthrough/);
+	assert.match(source, /_aaaliceQuickPlacementCleanup/);
 	assert.match(source, /node\.getWidgetOnPos\s*=/);
 	assert.match(source, /findResizeDirection\?\.\(x, y\)/);
 	assert.match(source, /app\.canvas\?\.pointer\?\.isDown/);
@@ -53,9 +59,20 @@ test("keeps manual node sizing after the initial default size", () => {
 	assert.doesNotMatch(renderBody, /setSize/);
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*height:\s*100%/);
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*border-radius:\s*0 0 10px 10px/);
-	assert.match(styles, /\.aaalice-qgm-list[\s\S]*margin:\s*8px/);
+	assert.match(styles, /\.aaalice-qgm-toolbar[\s\S]*height:\s*30px[\s\S]*min-height:\s*30px/);
+	assert.match(styles, /\.aaalice-qgm-list[\s\S]*margin:\s*6px 6px 4px/);
+	assert.match(styles, /\.aaalice-qgm-list[\s\S]*overflow:\s*hidden/);
 	assert.match(styles, /\.aaalice-qgm-empty[\s\S]*height:\s*100%[\s\S]*align-content:\s*center/);
 	assert.match(styles, /\.aaalice-qgm\.is-resizing[\s\S]*pointer-events:\s*none/);
+	assert.match(styles, /\.aaalice-qgm\.is-placing[\s\S]*pointer-events:\s*none/);
+});
+
+test("uses the selected filter color and omits group-row color swatches", () => {
+	assert.match(source, /--qgm-filter-color/);
+	assert.match(styles, /\.aaalice-qgm-filter-button\.is-active[\s\S]*--qgm-filter-color/);
+	const rowBody = source.slice(source.indexOf("function groupRow"), source.indexOf("function render(node)"));
+	assert.doesNotMatch(rowBody, /aaalice-qgm-color/);
+	assert.doesNotMatch(source, /stale \? el\("span", "aaalice-qgm-warning", "!"\) : null/);
 });
 
 test("animates and color-codes the mute/bypass mode switcher", () => {

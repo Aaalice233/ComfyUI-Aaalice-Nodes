@@ -19,6 +19,10 @@
 	--aa-ui-accent: var(--p-primary-color, var(--primary-color, #0b8ce9));
 	--aa-ui-accent-soft: color-mix(in srgb, var(--aa-ui-accent) 13%, transparent);
 	--aa-ui-accent-text: var(--p-primary-contrast-color, #fff);
+	--aa-ui-node-color: var(--aa-ui-accent);
+	--aa-ui-node-accent: var(--aa-ui-accent);
+	--aa-ui-node-accent-soft: color-mix(in srgb, var(--aa-ui-node-accent) 18%, transparent);
+	--aa-ui-node-accent-contrast: var(--aa-ui-control);
 	--aa-ui-focus: var(--aa-ui-accent);
 	--aa-ui-danger: var(--error-text, var(--p-red-400, #d66d75));
 	--aa-ui-warning: var(--warning-text, var(--p-amber-400, #d6a84f));

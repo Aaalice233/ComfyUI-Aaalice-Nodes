@@ -63,7 +63,7 @@
 ```text
 ComfyUI-Aaalice-Nodes/
 ├── __init__.py
-├── nodes/{control,tools,_lib}/
+├── nodes/{control,prompt,tools,_lib}/
 ├── js/{lib,assets}/
 ├── locales/{en,zh}/
 ├── tests/
@@ -73,7 +73,7 @@ ComfyUI-Aaalice-Nodes/
 - 根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`，不放业务节点。
 - V3 节点默认一节点一文件；`nodes/<domain>/__init__.py` 导出 `NODE_CLASSES`，只注册已实现的域。
 - 新增域时同步 `nodes/__init__.py` 与 `pyproject.toml` packages。
-- category 使用 `Aaalice/<domain>`；当前域为 `Aaalice/tools` 与 `Aaalice/control`。
+- category 使用 `Aaalice/<domain>`；当前域为 `Aaalice/control`、`Aaalice/prompt` 与 `Aaalice/tools`。
 - `nodes/_lib/` 只放不依赖运行中 ComfyUI 的纯逻辑，并可直接单测。
 - 运行时错误保留原始原因与参数上下文；不得把导入错误伪装成未实现。
 - 模块关系与状态真源见 [`architecture.md`](docs/development/architecture.md)。
@@ -122,6 +122,9 @@ ComfyUI-Aaalice-Nodes/
 ## 6. UI、主题与本地化
 
 - 新 DOM 界面复用 `js/lib/ui.js` + `ui.css`；业务布局放在 `js/lib/theme.css`，不重复实现 button、field、empty state 或 dialog。
+- 节点标题、背景、外轮廓和圆角由 ComfyUI 原生层负责；节点 DOM 根必须透明，不重复绘制整块背景、外边框或顶部圆角。
+- 普通节点内激活态通过 `js/lib/node_accent.js` 和 `--aa-ui-node-*` token 跟随当前节点颜色；关闭态保持中性，警告、危险、筛选颜色和多档业务状态不得被节点色覆盖。
+- 节点颜色同步只走创建、加载、配置、业务重绘和 ComfyUI 官方 `setColorOption()` 生命周期；禁止为颜色或主题同步增加持续轮询。
 - Toast 只用 `app.extensionManager.toast.add`；可有无状态参数封装，禁止自建容器、队列或动画系统。
 - 静态 `iconName` 与 `icon("…")` 必须存在于共享图标表，并通过图标契约测试。
 - 颜色来自 ComfyUI token；禁止写死品牌色或只适用于暗色主题的正文色。
@@ -142,6 +145,7 @@ ComfyUI-Aaalice-Nodes/
 ## 8. 验证
 
 - 验证按风险升级：静态检查 → 受影响单测 → 全量检查 → 必要的 Classic / Nodes 2.0 GUI 主路径。
+- 仅涉及视觉样式或布局、且不改变交互与协议的修改，完成后直接交给用户刷新验证；除非用户明确要求，不启动独立 ComfyUI 实例，不进行浏览器自动化或自动化测试。
 - 具体命令、隔离实例、端口、日志、浏览器和回归矩阵只以 [`testing.md`](docs/development/testing.md) 为准。
 - GUI 自动验收只使用 Codex 内置浏览器；禁止自行启动 Chrome / Edge、连接 CDP 或引入 Playwright / Selenium。
 - 用户常用实例默认占用 `127.0.0.1:8188`。独立测试实例默认从 `8189` 开始选择空闲端口，并隔离 user directory、数据库和日志；禁止停止、复用或干扰用户实例。
@@ -166,4 +170,4 @@ ComfyUI-Aaalice-Nodes/
 - [ ] Classic 与 Nodes 2.0 主路径已验证或明确说明缺口
 - [ ] 真实 slot、序列化真源和内部 payload 边界未破坏
 - [ ] 文档位置正确，链接和 ADR 状态有效，`AGENTS.md` 少于 500 行
-- [ ] 相关测试、语法、JSON、lint 和 `git diff --check` 已通过
+- [ ] 已完成风险匹配的检查；纯样式交给用户刷新验证时已明确说明未运行自动化测试

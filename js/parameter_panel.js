@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { imageReferenceViewPath, normalizeImageReference } from "./lib/image_reference.js";
+import { bindNodeAccent } from "./lib/node_accent.js";
 import { renderSafeMarkdown } from "./lib/safe_markdown.js";
 import {
 	cleanupDomWidgetResizePassthrough,
@@ -37,7 +38,6 @@ import {
 import {
 	PARAMETER_NODE_LAYOUT,
 	computeParameterLayout,
-	drawParameterNodeSurface,
 	drawParameterStaticLayer,
 	syncNativeOutputLayout,
 } from "./lib/parameter_layout.js";
@@ -913,6 +913,7 @@ function setupParameterPanel(node, loaded = false) {
 	ensureParameterPanelMenu(node);
 	mountedParameterPanels.add(node);
 	if (node._aaaliceParameterPanelMounted) {
+		node._aaaliceParameterAccent?.sync();
 		syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
 		return;
 	}
@@ -927,6 +928,7 @@ function setupParameterPanel(node, loaded = false) {
 	node.widgets_up = true;
 	node.widgets_start_y = Number(node.constructor?.slot_start_y) || 4;
 	const root = el("div", "aaalice-pcp aaalice-pcp-node-root aaalice-pcp-node-hybrid");
+	node._aaaliceParameterAccent = bindNodeAccent(node, root);
 	const height = () => nodeHeight(node);
 	const widget = node.addDOMWidget("aaalice_parameter_panel", "custom", root, {
 		serialize: false,
@@ -957,17 +959,13 @@ function setupParameterPanel(node, loaded = false) {
 			};
 		}
 		const previousDrawForeground = node.onDrawForeground;
-		const previousDrawBackground = node.onDrawBackground;
-		node.onDrawBackground = function (ctx) {
-			previousDrawBackground?.apply(this, arguments);
-			drawParameterNodeSurface(ctx, this);
-		};
 		node.onDrawForeground = function (ctx) {
 			previousDrawForeground?.apply(this, arguments);
 			drawParameterStaticLayer(ctx, this);
 		};
 	}
 	node._aaaliceParameterRedraw = () => {
+		node._aaaliceParameterAccent?.sync();
 		renderNode(node, root);
 		const desired = height();
 		root.style.minHeight = `${desired}px`;
@@ -994,6 +992,8 @@ function setupParameterPanel(node, loaded = false) {
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		mountedParameterPanels.delete(this);
+		this._aaaliceParameterAccent?.dispose();
+		this._aaaliceParameterAccent = null;
 		cleanupDomWidgetResizePassthrough(this);
 		disconnectSegmentObservers(root);
 		window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_CHANGED, { detail: { nodeId: this.id, node: this, removed: true } }));
@@ -1004,6 +1004,7 @@ function setupParameterPanel(node, loaded = false) {
 	node.onConfigure = function () {
 		const value = previousConfigure?.apply(this, arguments);
 		ensureParameters(this);
+		this._aaaliceParameterAccent?.sync();
 		setTimeout(() => {
 			syncPanelOutputs(this, tunableMeta(ensureParameters(this)));
 			this._aaaliceParameterRedraw?.();

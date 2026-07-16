@@ -2,6 +2,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
+import { bindNodeAccent } from "./lib/node_accent.js";
 import { button, createAnchoredPopover, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
 import {
 	GROUP_STATE,
@@ -22,9 +23,12 @@ const NODE = "QuickGroupManager";
 const PROPERTY = "quickGroupManagerState";
 const WIDGET = "aaalice_quick_group_manager";
 const TOOLBAR_WIDGET = "aaalice_quick_group_manager_toolbar";
-const TITLE_ACTIONS_WIDTH = 200;
-const DEFAULT_HEIGHT = 190;
+const MIN_WIDTH = 340;
+const DEFAULT_HEIGHT = 142;
 const MIN_BODY_HEIGHT = 82;
+const GROUP_ROW_HEIGHT = 42;
+const GROUP_ROW_GAP = 2;
+const GROUP_LIST_VERTICAL_MARGIN = 10;
 const mountedManagers = new Set();
 let graphListenerInstalled = false;
 let refreshFrame = 0;
@@ -99,7 +103,14 @@ function createPopover(node, anchor, className, ariaLabel) {
 		if (node._aaaliceQuickPopover?.root === popup.root) node._aaaliceQuickPopover = null;
 	};
 	node._aaaliceQuickPopover = popup;
+	node._aaaliceQuickAccent?.sync(popup.root);
 	return node._aaaliceQuickPopover;
+}
+
+function minimumBodyHeight(node) {
+	const count = orderedVisibleGroups(groupsFor(node), stateFor(node)).length;
+	if (!count) return MIN_BODY_HEIGHT;
+	return Math.max(MIN_BODY_HEIGHT, (count * GROUP_ROW_HEIGHT) + (Math.max(0, count - 1) * GROUP_ROW_GAP) + GROUP_LIST_VERTICAL_MARGIN);
 }
 
 function filterSummary(state) {
@@ -124,7 +135,8 @@ function openFilter(node, anchor) {
 			const selected = draft.mode === "selected" && draft.colors.includes(color);
 			const stale = !liveColors.includes(color);
 			const choice = el("button", { className: `aaalice-qgm-color-choice${selected ? " is-active" : ""}${stale ? " is-stale" : ""}`, attrs: { type: "button", "aria-pressed": selected, title: stale ? t("aaalice.quickGroup.filter.missing", "No current group uses this color") : color } });
-			choice.append(el("span", { className: "aaalice-qgm-color", attrs: { style: `--group-color:${color}` } }), el("span", null, color), stale ? el("span", "aaalice-qgm-warning", "!") : null);
+			choice.append(el("span", { className: "aaalice-qgm-color", attrs: { style: `--group-color:${color}` } }), el("span", null, color));
+			if (stale) choice.append(el("span", "aaalice-qgm-warning", "!"));
 			choice.addEventListener("click", () => { draft.mode = "selected"; draft.colors = draft.colors.includes(color) ? draft.colors.filter((value) => value !== color) : [...draft.colors, color]; redraw(); });
 			grid.append(choice);
 		}
@@ -309,7 +321,12 @@ function syncToolbar(node, state) {
 	const filter = actions.querySelector(".aaalice-qgm-filter-button");
 	if (filter) {
 		const label = `${t("aaalice.quickGroup.filter.aria", "Choose group colors")} · ${filterSummary(state)}`;
+		const selectedColors = state.filter.colors.map(normalizeColor).filter(Boolean);
+		const primaryColor = selectedColors[0] || (state.filter.includeUncolored ? "var(--aa-ui-muted)" : null);
 		filter.classList.toggle("is-active", state.filter.mode === "selected");
+		filter.classList.toggle("is-multi", state.filter.mode === "selected" && selectedColors.length + Number(state.filter.includeUncolored) > 1);
+		if (state.filter.mode === "selected" && primaryColor) filter.style.setProperty("--qgm-filter-color", primaryColor);
+		else filter.style.removeProperty("--qgm-filter-color");
 		filter.setAttribute("aria-label", label);
 		filter.title = label;
 		node._aaaliceQuickFilterButton = filter;
@@ -340,7 +357,6 @@ function groupRow(node, group, visibleGroups) {
 	row.addEventListener("dragover", (event) => { event.preventDefault(); row.classList.add("is-drop-target"); });
 	row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
 	row.addEventListener("drop", (event) => { event.preventDefault(); row.classList.remove("is-drop-target"); const source = event.dataTransfer?.getData("text/plain"); if (source) moveGroup(node, source, id); });
-	const swatch = el("span", { className: `aaalice-qgm-color${normalizeColor(group.color) ? "" : " is-uncolored"}`, attrs: { style: `--group-color:${normalizeColor(group.color) || "transparent"}`, title: normalizeColor(group.color) || t("aaalice.quickGroup.filter.uncolored", "No color") } });
 	const name = el("span", { className: "aaalice-qgm-name", attrs: { title: groupLabel(group) }, text: groupLabel(group) });
 	const count = ruleCount(state.rules, id);
 	const link = iconButton({ iconName: "link", label: message("aaalice.quickGroup.rules.edit", "Edit linkage for {group}", { group: groupLabel(group) }), variant: "ghost", className: `aaalice-qgm-link${count ? " has-rules" : ""}` });
@@ -349,7 +365,7 @@ function groupRow(node, group, visibleGroups) {
 	const enabled = status === GROUP_STATE.ENABLED;
 	const toggle = el("button", { className: `aaalice-qgm-switch${enabled ? " is-on" : ""}${status === GROUP_STATE.MIXED ? " is-mixed" : ""}`, attrs: { type: "button", role: "switch", "aria-checked": status === GROUP_STATE.MIXED ? "mixed" : enabled, disabled: status === GROUP_STATE.EMPTY, title: status === GROUP_STATE.EMPTY ? t("aaalice.quickGroup.emptyGroup", "This group has no nodes") : null, "aria-label": message("aaalice.quickGroup.toggle", "Toggle {group}", { group: groupLabel(group) }) }, children: [el("span", "aaalice-qgm-switch-thumb")] });
 	toggle.addEventListener("click", () => applyGroupAction(node, id, enabled ? "disable" : "enable"));
-	row.append(drag, swatch, name, link, toggle);
+	row.append(drag, name, link, toggle);
 	return row;
 }
 
@@ -357,6 +373,7 @@ function render(node) {
 	const root = node._aaaliceQuickRoot;
 	const toolbar = node._aaaliceQuickToolbar;
 	if (!root || !toolbar) return;
+	node._aaaliceQuickAccent?.sync();
 	closePopover(node);
 	const groups = groupsFor(node);
 	const state = stateFor(node);
@@ -367,6 +384,7 @@ function render(node) {
 	if (visibleGroups.length) for (const group of visibleGroups) list.append(groupRow(node, group, visibleGroups));
 	else list.append(emptyState({ description: groups.length ? t("aaalice.quickGroup.noFilteredGroups", "No groups match the selected colors.") : t("aaalice.quickGroup.noGroups", "No visual groups are available in this graph."), iconName: "filter", className: "aaalice-qgm-empty" }));
 	root.replaceChildren(list);
+	enforceMinimumSize(node);
 	node.graph?.setDirtyCanvas?.(true, true);
 }
 
@@ -392,11 +410,13 @@ function scheduleInitialSize(node) {
 	});
 }
 
-function enforceMinimumWidth(node) {
+function enforceMinimumSize(node) {
 	const width = Number(node.size?.[0]);
-	const minimumWidth = Number(node.computeSize?.()[0]);
-	if (!Number.isFinite(width) || !Number.isFinite(minimumWidth) || width >= minimumWidth) return;
-	node.setSize?.([minimumWidth, Number(node.size?.[1]) || DEFAULT_HEIGHT]);
+	const height = Number(node.size?.[1]);
+	const [minimumWidth, minimumHeight] = node.computeSize?.() || [MIN_WIDTH, MIN_BODY_HEIGHT];
+	if (![width, height, minimumWidth, minimumHeight].every(Number.isFinite)) return;
+	if (width >= minimumWidth && height >= minimumHeight) return;
+	node.setSize?.([Math.max(width, minimumWidth), Math.max(height, minimumHeight)]);
 }
 
 function beginResizePassthrough(node) {
@@ -415,8 +435,28 @@ function beginResizePassthrough(node) {
 	document.addEventListener("pointercancel", cleanup, true);
 }
 
+function beginPlacementPassthrough(node) {
+	if (node._aaaliceQuickPlacementCleanup) return;
+	node._aaaliceQuickToolbar?.classList.add("is-placing");
+	node._aaaliceQuickRoot?.classList.add("is-placing");
+	const cleanup = () => {
+		document.removeEventListener("pointerup", cleanup, true);
+		document.removeEventListener("pointercancel", cleanup, true);
+		node._aaaliceQuickToolbar?.classList.remove("is-placing");
+		node._aaaliceQuickRoot?.classList.remove("is-placing");
+		node._aaaliceQuickPlacementCleanup = null;
+	};
+	node._aaaliceQuickPlacementCleanup = cleanup;
+	document.addEventListener("pointerup", cleanup, true);
+	document.addEventListener("pointercancel", cleanup, true);
+}
+
 function setupManager(node, { initializeSize = false } = {}) {
-	if (!isManager(node) || node._aaaliceQuickMounted) return;
+	if (!isManager(node)) return;
+	if (node._aaaliceQuickMounted) {
+		node._aaaliceQuickAccent?.sync();
+		return;
+	}
 	node._aaaliceQuickMounted = true;
 	mountedManagers.add(node);
 	installGraphListener();
@@ -437,20 +477,25 @@ function setupManager(node, { initializeSize = false } = {}) {
 	toolbarWidget.computedHeight = 0;
 	const root = isolate(el("div", "aaalice-qgm aaalice-qgm-body aaalice-pcp"));
 	node._aaaliceQuickRoot = root;
+	node._aaaliceQuickAccent = bindNodeAccent(node, () => [toolbar, root]);
 	node.addDOMWidget(WIDGET, "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,
-		getMinHeight: () => MIN_BODY_HEIGHT,
+		getMinHeight: () => minimumBodyHeight(node),
 		getValue: () => "",
 		setValue: () => {},
 	});
 	const previousComputeSize = node.computeSize;
 	node.computeSize = function () {
 		const computed = previousComputeSize?.apply(this, arguments) || [0, MIN_BODY_HEIGHT];
-		// The native minimum already accounts for the localized title. Reserve
-		// only the fixed controls sharing that same title row.
-		return [Math.ceil((Number(computed[0]) || 0) + TITLE_ACTIONS_WIDTH), Number(computed[1]) || MIN_BODY_HEIGHT];
+		// The fixed toolbar and localized title share one row. Use a content-sized
+		// floor instead of inheriting LiteGraph's DOM-widget height calculation,
+		// which already includes the body widget and leaves duplicate space below it.
+		return [
+			Math.max(Math.ceil(Number(computed[0]) || 0), MIN_WIDTH),
+			minimumBodyHeight(this),
+		];
 	};
 	const previousGetWidgetOnPos = node.getWidgetOnPos;
 	node.getWidgetOnPos = function (x, y) {
@@ -480,8 +525,9 @@ function setupManager(node, { initializeSize = false } = {}) {
 		const result = previousConfigure?.apply(this, arguments);
 		this._aaaliceQuickConfigured = true;
 		this.properties[PROPERTY] = normalizeQuickGroupState(this.properties?.[PROPERTY]);
+		this._aaaliceQuickAccent?.sync();
 		requestAnimationFrame(() => {
-			enforceMinimumWidth(this);
+			enforceMinimumSize(this);
 			placeToolbarWidget(this);
 			render(this);
 		});
@@ -491,14 +537,20 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node.onRemoved = function () {
 		mountedManagers.delete(this);
 		closePopover(this);
+		this._aaaliceQuickAccent?.dispose();
+		this._aaaliceQuickAccent = null;
 		if (this._aaaliceQuickInitialSizeFrame) cancelAnimationFrame(this._aaaliceQuickInitialSizeFrame);
 		this._aaaliceQuickResizeCleanup?.();
+		this._aaaliceQuickPlacementCleanup?.();
 		this._aaaliceQuickToolbar?.remove?.();
 		this._aaaliceQuickRoot?.remove?.();
 		return previousRemoved?.apply(this, arguments);
 	};
-	if (initializeSize) scheduleInitialSize(node);
-	enforceMinimumWidth(node);
+	if (initializeSize) {
+		beginPlacementPassthrough(node);
+		scheduleInitialSize(node);
+	}
+	enforceMinimumSize(node);
 	placeToolbarWidget(node);
 	render(node);
 }

@@ -25,7 +25,7 @@
 
 | 文档 | 内容 |
 |---|---|
-| [UI 设计系统](design/ui-system.md) | 主题 token、共享组件、尺度、状态和可访问性 |
+| [UI 设计系统](design/ui-system.md) | 原生节点分层、节点颜色、主题 token、共享组件、尺度、状态和可访问性 |
 | [参数系统](design/parameter-system.md) | ParameterPanel、ParameterReceiver、结构编辑器和双模式布局 |
 | [QuickGroupManager](design/quick-group-manager.md) | 顶栏、组列表、过滤、排序、联动和自适应尺寸 |
 
@@ -41,3 +41,18 @@
 - 架构文档描述当前实现；历史取舍进入 ADR；视觉和交互细节进入 `design/`。
 - 一次性调查、聊天结论、本机故障记录、测试截图和未发布的废弃中间态不进入仓库。
 - 新增、重命名或删除专题文档时，同步本页、`AGENTS.md` 的上下文入口及所有相对链接。
+
+## 变更应该写到哪里
+
+| 变化 | 必须更新 | 不应复制到 |
+|---|---|---|
+| 已发布功能、用法或公开限制 | 双语 README；必要时同步 locale | `AGENTS.md` 的实现规则 |
+| 当前模块、状态真源或生命周期 | `development/architecture.md` | README 的用户教程 |
+| 视觉语言、组件、布局或可访问性 | `design/ui-system.md` 和对应业务设计文档 | ADR 或路线图 |
+| 节点完成状态、下一项或排期 | `development/roadmap.md` | README |
+| 测试、隔离实例或人工验收步骤 | `development/testing.md` | `AGENTS.md` 的长命令 |
+| 发布步骤和 Registry 检查 | `development/release.md` | 设计文档 |
+| 难逆且存在真实取舍的架构决定 | 新增或更新 ADR，并维护 ADR 索引 | 当前架构说明中的历史调查 |
+| 新术语或统一称呼 | `CONTEXT.md` | 实现路径和字段说明 |
+
+一次变更可能同时影响多个职责。例如节点配色行为改变时，用户可见结果进入双语 README，跨节点视觉规则进入 `design/ui-system.md`，同步入口和模块边界进入架构文档；不要把同一段实现细节复制到每个文件。

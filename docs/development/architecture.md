@@ -41,7 +41,7 @@
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
-| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,parameter_controls,image_reference,safe_markdown,simple_notify_runtime}.js` | 缩放命中、无状态控件、图像引用、安全 Markdown 和提醒运行时 |
+| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,parameter_controls,image_reference,safe_markdown,simple_notify_runtime}.js` | 缩放命中、节点强调色同步、无状态控件、图像引用、安全 Markdown 和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
 
 共享 `js/lib` 模块不得自行注册扩展或拥有工作流状态。业务入口负责生命周期和画布事务，纯模型保持无 DOM、无 ComfyUI 运行时依赖。
@@ -90,6 +90,13 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 3. 环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
 4. 通过预检后，在一个图变更边界内提交全部模式；其它 Manager 只刷新显示。
 
+### 节点强调色
+
+1. `js/lib/node_accent.js` 从节点当前 `color` / `bgcolor` 解析 Node Color，并把派生 token 写入业务 DOM 根。
+2. ParameterPanel 与 QuickGroupManager 在创建、加载、配置和业务重绘时同步初始颜色；ComfyUI 官方 `setColorOption()` 改色入口负责即时更新。
+3. 共享层只提供 Node Color、Node Accent、柔色和对比色，不持有工作流状态，也不轮询节点。
+4. 业务 CSS 决定哪些普通激活态消费 Node Accent；警告、危险、筛选颜色和多档业务状态继续使用 ComfyUI 语义 token。
+
 ### PromptCleaningMaid
 
 1. 用户显式选择关闭、自然语言或标签列表模式；关闭模式原样透传，两种清理模式分别保存设置。
@@ -104,7 +111,8 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 - Nodes 2.0 concrete slot 对象在原生槽变化后同步名称、类型、颜色和位置；不得恢复隐藏槽数组。
 - DOM widget 通过 `getMinHeight()` 声明内容下限。Classic 内容增长可以走 LiteGraph grow-only 路径；Nodes 2.0 尺寸由 DOM 测量持有。
 - 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角；`computeSize()` 不得把当前节点尺寸当成最小值。
-- QuickGroupManager 没有协议槽，列表使用剩余高度内部滚动；`graphChanged` 不得替换为状态轮询。
+- QuickGroupManager 没有协议槽，最小高度由当前可见组数量决定且列表不使用内部滚动；`graphChanged` 不得替换为状态轮询。
+- 节点 DOM 根不覆盖原生背景、外边框或圆角；Classic 使用 LiteGraph `bgcolor`，Nodes 2.0 保留原生容器轮廓。
 
 ## 可选依赖与公开边界
 

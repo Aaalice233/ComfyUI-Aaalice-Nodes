@@ -18,6 +18,11 @@ Compact parameter controls and workflow utilities for ComfyUI.
 - Classic canvas or Nodes 2.0. App Mode is not currently supported.
 - English and Simplified Chinese UI are included; other locales fall back to English.
 
+## Interface behavior
+
+- Node surfaces preserve ComfyUI's native background, outline, and rounded corners in both Classic and Nodes 2.0.
+- Ordinary active controls, including sliders and boolean switches, adapt to the node's selected color. Neutral, warning, error, filtering, and multi-mode states keep their own meaning instead of being recolored indiscriminately.
+
 ## Installation
 
 ### ComfyUI Manager (recommended)
@@ -106,7 +111,7 @@ KJNodes is optional for the package as a whole. Without it, ParameterReceiver wo
 
 QuickGroupManager does not run as part of workflow execution and has no input or output sockets. It discovers visual groups in its current graph and gives every managed group one enabled switch. The node-wide **Mute / Bypass** switch determines how an off group is represented.
 
-- Use the filter icon to manage all groups, multiple group colors, or uncolored groups. Multiple managers may use independent color scopes.
+- Use the filter icon to manage all groups, multiple group colors, or uncolored groups. Its active color reflects the current filter, while group rows stay compact without repeated color swatches. Multiple managers may use independent color scopes.
 - Drag group rows to reorder them; filtered lists remain sortable and each manager saves its own order.
 - Open the link icon on a row to configure what other groups should do when that group is enabled or disabled. Rules may target other colors and cascade only within the manager that initiated the change.
 - Switching Mute / Bypass converts currently disabled groups in that manager's active color scope as one undoable change.
