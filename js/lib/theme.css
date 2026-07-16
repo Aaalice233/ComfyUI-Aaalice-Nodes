@@ -295,8 +295,8 @@
 .aaalice-pcp-node-switch.active .aaalice-pcp-switch-track { background: var(--aaalice-node-accent); }
 .aaalice-pcp-node-switch.active .aaalice-pcp-switch-thumb { background: var(--aaalice-accent-text); transform: translateX(14px); }
 .aaalice-pcp-switch-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aaalice-pcp-segmented { display: grid; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; padding: 2px; border: 1px solid var(--aaalice-node-border); border-radius: 9px; background: color-mix(in srgb, var(--aaalice-node-control) 84%, var(--aaalice-node-border)); }
-.aaalice-pcp-segment { min-width: 0; height: 30px; overflow: hidden; padding: 3px 6px; border: 0; border-radius: 7px; background: transparent; color: var(--aaalice-node-muted); font: inherit; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.aaalice-pcp-segmented { box-sizing: border-box; display: grid; min-width: 0; height: 32px; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; padding: 2px; border: 1px solid var(--aaalice-node-border); border-radius: 9px; background: color-mix(in srgb, var(--aaalice-node-control) 84%, var(--aaalice-node-border)); }
+.aaalice-pcp-segment { box-sizing: border-box; min-width: 0; height: 100%; overflow: hidden; padding: 3px 6px; border: 0; border-radius: 7px; background: transparent; color: var(--aaalice-node-muted); font: inherit; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .aaalice-pcp-segment:hover { color: var(--aaalice-node-value); background: color-mix(in srgb, var(--aaalice-node-value) 8%, transparent); }
 .aaalice-pcp-segment.active { background: var(--aaalice-node-accent); color: var(--aaalice-accent-text); }
 .aaalice-pcp-segment:focus-visible { outline: 2px solid var(--aaalice-node-accent); outline-offset: -1px; }
