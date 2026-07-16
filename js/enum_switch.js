@@ -18,11 +18,9 @@ import {
 	isParameterPanel,
 } from "./lib/param_model.js";
 import { getGraphLink, getGraphNode } from "./parameter_panel_kj.js";
+import { reshapeEnumBranchInputs, syncEnumConcreteInputs } from "./lib/enum_switch_layout.js";
 
 const NODE = "EnumSwitch";
-const mountedSwitches = new Set();
-let vueObserver = null;
-let vueFrame = 0;
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -165,86 +163,33 @@ function applyRoutes(node, nextRoutes) {
 		markGraphChange(node, false);
 	}
 	render(node);
-}
-
-function visibleInputNames(node) {
-	return new Set(["selector", ...state(node).routes.map((_route, index) => `branch_${index + 1}`)]);
-}
-
-function withVisibleInputs(node, callback) {
-	const visible = visibleInputNames(node);
-	const saved = [];
-	for (const key of ["inputs", "_concreteInputs"]) {
-		if (!Array.isArray(node?.[key])) continue;
-		saved.push([key, node[key]]);
-		node[key] = node[key].filter((slot) => visible.has(slot?._aaaliceProtocolName || slot?.name));
-	}
-	try { return callback(); }
-	finally { for (const [key, value] of saved) node[key] = value; }
-}
-
-function syncConcreteInputs(node) {
-	if (!Array.isArray(node?._concreteInputs)) return;
-	if (!Array.isArray(node._aaaliceAllEnumInputs) || node._concreteInputs.length >= (node.inputs?.length || 0)) {
-		node._aaaliceAllEnumInputs = node._concreteInputs.slice();
-	}
-	const byName = new Map((node.inputs || []).map((slot) => [slot._aaaliceProtocolName || slot.name, slot]));
-	for (const concrete of node._aaaliceAllEnumInputs || []) {
-		concrete._aaaliceProtocolName ||= concrete.name;
-		const source = byName.get(concrete._aaaliceProtocolName);
-		if (!source) continue;
-		for (const field of ["label", "localized_name", "type", "shape", "color", "color_off", "color_on", "_aaaliceDisplayHidden"]) {
-			if (source[field] === undefined) delete concrete[field];
-			else concrete[field] = source[field];
-		}
-	}
-	const visible = visibleInputNames(node);
-	node._concreteInputs = (node._aaaliceAllEnumInputs || []).filter((slot) => visible.has(slot._aaaliceProtocolName || slot.name));
+	fitEnumStructure(node);
 }
 
 function syncSlots(node) {
 	const routes = state(node).routes;
+	reshapeEnumBranchInputs(node, routes.length);
 	for (const input of node.inputs || []) input._aaaliceProtocolName ||= input.name;
-	for (let index = 0; index < MAX_ENUM_BRANCHES; index += 1) {
+	for (let index = 0; index < routes.length; index += 1) {
 		const input = node.inputs?.find((slot) => (slot._aaaliceProtocolName || slot.name) === `branch_${index + 1}`);
 		if (!input) continue;
 		const route = routes[index];
 		input.label = route?.key || "";
 		input.localized_name = input.label;
-		input._aaaliceDisplayHidden = !route;
+		input.lazy = true;
 	}
-	syncConcreteInputs(node);
-	markVueSlots(node);
+	syncEnumConcreteInputs(node);
 	node.setDirtyCanvas?.(true, true);
 }
 
-function markVueSlots(node) {
-	if (typeof document === "undefined") return;
-	const visible = visibleInputNames(node);
-	for (const element of document.querySelectorAll("[data-node-id]")) {
-		if (element.getAttribute("data-node-id") !== String(node.id)) continue;
-		element.classList.add("aaalice-enum-switch-node");
-		const slots = [...element.querySelectorAll(".lg-slot--input")];
-		for (let index = 0; index < slots.length; index += 1) {
-			const protocol = node.inputs?.[index]?._aaaliceProtocolName || node.inputs?.[index]?.name;
-			const hidden = protocol?.startsWith("branch_") && !visible.has(protocol);
-			slots[index].hidden = Boolean(hidden);
-			slots[index].setAttribute("aria-hidden", String(Boolean(hidden)));
-			slots[index].setAttribute("data-aaalice-enum-hidden", String(Boolean(hidden)));
-		}
-	}
-}
-
-function ensureVueObserver() {
-	if (vueObserver || typeof MutationObserver === "undefined" || !document.body) return;
-	vueObserver = new MutationObserver(() => {
-		if (vueFrame) return;
-		vueFrame = requestAnimationFrame(() => {
-			vueFrame = 0;
-			for (const node of mountedSwitches) if (node?.graph) markVueSlots(node);
-		});
-	});
-	vueObserver.observe(document.body, { childList: true, subtree: true });
+function fitEnumStructure(node, initial = false) {
+	const minimum = node.computeSize?.();
+	if (!Array.isArray(minimum)) return;
+	const current = Array.isArray(node.size) ? node.size : minimum;
+	node.setSize?.([
+		Math.max(220, initial ? minimum[0] : Number(current[0]) || minimum[0]),
+		initial ? minimum[1] : Math.max(Number(current[1]) || 0, minimum[1]),
+	]);
 }
 
 async function synchronize(node) {
@@ -290,8 +235,6 @@ function render(node) {
 	const widget = node.widgets?.find((item) => item.name === "aaalice_enum_status");
 	if (widget) widget.computedHeight = 0;
 	syncSlots(node);
-	const size = withVisibleInputs(node, () => node.computeSize?.());
-	if (Array.isArray(size)) node.setSize?.([Math.max(220, Number(node.size?.[0]) || size[0]), size[1]]);
 	node.setDirtyCanvas?.(true, true);
 }
 
@@ -424,10 +367,9 @@ function menuItems(node) {
 	return items;
 }
 
-function setupEnumSwitch(node) {
+function setupEnumSwitch(node, loaded = false) {
 	if (!node || node._aaaliceEnumSwitchSetup) return;
 	node._aaaliceEnumSwitchSetup = true;
-	mountedSwitches.add(node);
 	state(node);
 	const root = isolate(el("div", "aaalice-enum-status"));
 	node._aaaliceEnumRoot = root;
@@ -485,7 +427,6 @@ function setupEnumSwitch(node) {
 	window.addEventListener(EVENT_PARAMETER_CHANGED, panelChange);
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
-		mountedSwitches.delete(this);
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, panelChange);
 		return previousRemoved?.apply(this, arguments);
 	};
@@ -499,25 +440,16 @@ function setupEnumSwitch(node) {
 	};
 	if (!node._aaaliceEnumSlotPatch) {
 		node._aaaliceEnumSlotPatch = true;
-		const previousCompute = node.computeSize;
-		node.computeSize = function () { return withVisibleInputs(this, () => previousCompute?.apply(this, arguments)); };
-		const previousDrawSlots = node.drawSlots;
-		node.drawSlots = function () { return withVisibleInputs(this, () => previousDrawSlots?.apply(this, arguments)); };
-		const previousMeasureSlots = node._measureSlots;
-		if (typeof previousMeasureSlots === "function") node._measureSlots = function () { return withVisibleInputs(this, () => previousMeasureSlots.apply(this, arguments)); };
-		const previousGetSlotInPosition = node.getSlotInPosition;
-		if (typeof previousGetSlotInPosition === "function") node.getSlotInPosition = function () {
-			return withVisibleInputs(this, () => previousGetSlotInPosition.apply(this, arguments));
-		};
 		const previousConcrete = node._setConcreteSlots;
 		if (typeof previousConcrete === "function") node._setConcreteSlots = function () {
 			const result = previousConcrete.apply(this, arguments);
-			syncConcreteInputs(this);
+			syncEnumConcreteInputs(this);
 			return result;
 		};
 	}
 	placeStatusWidget(node);
 	render(node);
+	if (!loaded) fitEnumStructure(node, true);
 }
 
 function installPromptHook() {
@@ -554,11 +486,10 @@ app.registerExtension({
 	name: "ComfyUI.Aaalice.EnumSwitch",
 	async init() { await ensureI18nReady(); },
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
-	nodeCreated(node) { if (isEnumSwitch(node)) setupEnumSwitch(node); },
-	loadedGraphNode(node) { if (isEnumSwitch(node)) setupEnumSwitch(node); },
+	nodeCreated(node) { if (isEnumSwitch(node)) setupEnumSwitch(node, false); },
+	loadedGraphNode(node) { if (isEnumSwitch(node)) setupEnumSwitch(node, true); },
 	setup() {
 		installPromptHook();
-		ensureVueObserver();
-		for (const node of app.graph?._nodes || []) if (isEnumSwitch(node)) setupEnumSwitch(node);
+		for (const node of app.graph?._nodes || []) if (isEnumSwitch(node)) setupEnumSwitch(node, true);
 	},
 });

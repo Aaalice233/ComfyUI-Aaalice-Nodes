@@ -57,7 +57,7 @@ Assert-NativeSuccess 'git diff --check'
 文档变更另查：
 
 - Markdown 相对链接指向的文件是否存在。
-- English / 简体中文 README 标题结构、进度和节点清单是否对齐。
+- English / 简体中文 README 标题结构、节点清单、用法和公开限制是否对齐。
 - ADR 状态和索引是否一致。
 - `AGENTS.md` 是否少于 500 行。
 - README 是否只保留用户信息，完整排期是否只存在于 `roadmap.md`。

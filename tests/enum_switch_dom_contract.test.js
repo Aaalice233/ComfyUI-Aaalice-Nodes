@@ -22,8 +22,8 @@ test("classic and Nodes 2.0 lifecycle paths are both installed", () => {
 	assert.match(source, /beforeRegisterNodeDef/);
 	assert.match(source, /nodeCreated/);
 	assert.match(source, /loadedGraphNode/);
-	assert.match(source, /MutationObserver/);
-	assert.match(source, /getSlotInPosition/);
+	assert.match(source, /reshapeEnumBranchInputs/);
+	assert.doesNotMatch(source, /withVisibleInputs|getSlotInPosition|data-aaalice-enum-hidden|markVueSlots|MutationObserver/);
 });
 
 test("shared dialogs mount immediately without a second open call", () => {

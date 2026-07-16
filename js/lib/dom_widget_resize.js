@@ -41,3 +41,11 @@ export function installDomWidgetResizePassthrough(node, ...elements) {
 export function cleanupDomWidgetResizePassthrough(node) {
 	node?._aaaliceDomWidgetResizeCleanup?.();
 }
+
+export function growClassicDomWidgetNode(node) {
+	// Nodes 2.0 measures and owns the DOM node size. Calling LiteGraph's
+	// grow/arrange path there writes the stale canvas size back during resize.
+	if (globalThis.LiteGraph?.vueNodesMode === true || app.canvas?.vueNodesMode === true) return;
+	node?.expandToFitContent?.();
+	if (node?.graph) node.arrange?.();
+}

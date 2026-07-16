@@ -49,7 +49,7 @@ test("reconcile preserves stable ids for unchanged keys", () => {
 	assert.deepEqual(result.removed, []);
 });
 
-test("prompt payload maps stable routes onto fixed protocol slots", () => {
+test("prompt payload maps stable routes onto the materialized protocol prefix", () => {
 	const payload = enumPromptPayload({ routes: [{ id: "x", key: "draft" }, { id: "y", key: "final" }] });
 	assert.deepEqual(payload.routes, [
 		{ id: "x", key: "draft", input: "branch_1" },

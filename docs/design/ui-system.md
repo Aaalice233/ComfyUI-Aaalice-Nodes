@@ -1,6 +1,6 @@
 # UI 设计系统
 
-本规范定义 Aaalice 前端界面的共同视觉语言、组件边界和可访问性要求。ParameterPanel 的专用规则见 [ParameterPanel](parameter-panel.md)。
+本规范定义 Aaalice 前端界面的共同视觉语言、组件边界和可访问性要求。参数系统与组管理器的业务设计分别见 [参数系统](parameter-system.md) 和 [QuickGroupManager](quick-group-manager.md)。
 
 ## 设计原则
 
@@ -13,7 +13,7 @@
 
 ## Token
 
-基础 token 定义在 `js/lib/ui.css`。先映射 ComfyUI token，再提供中性 fallback。
+共享 token 与无业务组件样式定义在 `js/lib/ui.css`；节点专用 token 和布局定义在 `js/lib/theme.css`。两者都先映射 ComfyUI token，再提供中性 fallback。
 
 | 语义 | Aaalice token | ComfyUI 来源 |
 |---|---|---|

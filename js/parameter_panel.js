@@ -4,7 +4,11 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { imageReferenceViewPath, normalizeImageReference } from "./lib/image_reference.js";
 import { renderSafeMarkdown } from "./lib/safe_markdown.js";
-import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import {
+	cleanupDomWidgetResizePassthrough,
+	growClassicDomWidgetNode,
+	installDomWidgetResizePassthrough,
+} from "./lib/dom_widget_resize.js";
 import { badge, button, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
 	parameterPanelKjMenuItem,
@@ -36,8 +40,8 @@ import {
 	drawParameterNodeSurface,
 	drawParameterStaticLayer,
 	syncNativeOutputLayout,
-	withVisibleConcreteOutputs,
 } from "./lib/parameter_layout.js";
+import { reshapeParameterOutputs } from "./lib/dynamic_slots.js";
 import { createNumericEditor, createParameterControl } from "./lib/parameter_controls.js";
 
 const NODE = "ParameterPanel";
@@ -117,10 +121,6 @@ function outputColor(names, fallback) {
 	return names.map((name) => styles.getPropertyValue(name).trim()).find(Boolean) || fallback;
 }
 
-function visibleOutputCount(node, meta = storedSlotMeta(node)) {
-	return Math.min(meta.length, MAX_TUNABLE);
-}
-
 function parameterPanelMenuItems(node) {
 	if (!isParameterPanel(node)) return [];
 	const items = [{
@@ -169,21 +169,11 @@ function markVueOutputs(node) {
 		slotLayer?.classList.add("aaalice-parameter-slot-layer");
 		body?.classList.add("aaalice-parameter-node-body");
 		widgets?.classList.add("aaalice-parameter-widget-layer");
-		let changed = false;
 		for (let index = 0; index < slots.length; index += 1) {
 			const slot = slots[index];
 			const row = rows.get(index);
-			const hidden = !row || Boolean(node.outputs?.[index]?._aaaliceDisplayHidden);
-			if (slot.hidden !== hidden || slot.classList.contains("aaalice-parameter-output-hidden") !== hidden) changed = true;
-			slot.hidden = hidden;
-			slot.setAttribute("aria-hidden", String(hidden));
-			slot.classList.toggle("aaalice-parameter-output-hidden", hidden);
 			slot.style.setProperty("--aaalice-output-top", `${Math.max(0, Number(row?.output?.top || 0) - PARAMETER_NODE_LAYOUT.outputSlotHeight / 2)}px`);
 		}
-		if (changed && typeof requestAnimationFrame === "function") requestAnimationFrame(() => {
-			applyCompactNodeSize(node);
-			node.setDirtyCanvas?.(true, true);
-		});
 	}
 }
 
@@ -202,11 +192,14 @@ function ensureVueOutputObserver() {
 function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) {
 	const meta = nextMeta.slice(0, MAX_TUNABLE);
 	const previous = storedSlotMeta(node);
+	const shapeChanged = (node.outputs?.length || 0) !== meta.length;
 	const orderChanged = previous.length !== meta.length || previous.some((item, index) => item?.id !== meta[index]?.id);
+	const structureChanged = shapeChanged || orderChanged;
 	const linksById = new Map();
-	if (orderChanged) {
-		for (let index = 0; index < Math.min(previous.length, MAX_TUNABLE); index += 1) {
-			const id = previous[index]?.id;
+	if (structureChanged) {
+		const previousMapping = previous.length ? previous : meta;
+		for (let index = 0; index < Math.min(node.outputs?.length || 0, MAX_TUNABLE); index += 1) {
+			const id = previousMapping[index]?.id;
 			const links = node.outputs?.[index]?.links;
 			if (id && links?.length) linksById.set(id, [...links]);
 		}
@@ -214,9 +207,17 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	node.properties ||= {};
 	node.properties.slotMeta = meta.map((item, order) => ({ id: item.id, name: item.name, order }));
 	const slotById = new Map(meta.map((item, index) => [item.id, index]));
-	if (orderChanged) {
+	if (structureChanged) {
 		node._aaaliceApplyingOutputMeta = true;
 		try {
+			for (let index = (node.outputs?.length || 0) - 1; index >= 0; index -= 1) {
+				for (const linkId of [...(node.outputs?.[index]?.links || [])]) {
+					const link = graphLink(node, linkId);
+					const target = link && graphNode(node, link.target_id);
+					target?.disconnectInput?.(link.target_slot);
+				}
+			}
+			reshapeParameterOutputs(node, meta.length);
 			for (const [id, linkIds] of linksById) {
 				for (const linkId of linkIds) {
 					const link = graphLink(node, linkId);
@@ -232,15 +233,13 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	}
 	const muted = outputColor(["--descrip-text", "--p-text-muted-color"], globalThis.LiteGraph?.NODE_TEXT_COLOR || "#999");
 	const accent = outputColor(["--p-primary-color", "--primary-color"], muted);
-	const displayCount = visibleOutputCount(node, meta);
 	for (let index = 0; index < (node.outputs?.length || 0); index += 1) {
 		const output = node.outputs[index];
 		if (!output) continue;
 		output._aaaliceProtocolName ||= `output_${index + 1}`;
-		output._aaaliceDisplayHidden = index >= displayCount;
 		output._aaaliceParamId = meta[index]?.id;
 		output.name = output._aaaliceProtocolName;
-		output.label = meta[index]?.name || t("aaalice.pcp.output.unused", "Unused");
+		output.label = meta[index]?.name || "";
 		output.localized_name = output.label;
 		output.type = "*";
 		output.shape = globalThis.LiteGraph?.CIRCLE_SHAPE ?? 1;
@@ -646,25 +645,6 @@ function panelNodeSize(node) {
 	return Math.max(72, widgetStart + nodeHeight(node) + 12);
 }
 
-function applyCompactNodeSize(node) {
-	if (!node) return;
-	const width = Math.max(MIN_WIDTH, Number(node.size?.[0]) || MIN_WIDTH);
-	const target = panelNodeSize(node);
-	if (Math.abs(Number(node.size?.[1]) - target) > 1) node.setSize?.([width, target]);
-}
-
-function scheduleCompactNodeSize(node) {
-	if (node._aaaliceCompactResizeTimer) clearTimeout(node._aaaliceCompactResizeTimer);
-	node._aaaliceCompactResizeTimer = setTimeout(() => {
-		node._aaaliceCompactResizeTimer = null;
-		if (!node.graph) return;
-		applyCompactNodeSize(node);
-		node.arrange?.();
-		applyCompactNodeSize(node);
-		node.setDirtyCanvas?.(true, true);
-	}, 500);
-}
-
 function inspectorField(label, control) {
 	return field({ label, control });
 }
@@ -961,6 +941,11 @@ function setupParameterPanel(node, loaded = false) {
 	normalizeDynamicOptions(node.properties.parameters);
 	syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] ParameterPanel requires addDOMWidget");
+	// The controls and native outputs intentionally share the same vertical
+	// region. Tell LiteGraph before adding the widget so its own measurement
+	// takes max(slot height, widget height) instead of stacking both heights.
+	node.widgets_up = true;
+	node.widgets_start_y = Number(node.constructor?.slot_start_y) || 4;
 	const root = el("div", "aaalice-pcp aaalice-pcp-node-root aaalice-pcp-node-hybrid");
 	const height = () => nodeHeight(node);
 	const widget = node.addDOMWidget("aaalice_parameter_panel", "custom", root, {
@@ -968,7 +953,6 @@ function setupParameterPanel(node, loaded = false) {
 		hideOnZoom: false,
 		margin: 0,
 		getMinHeight: height,
-		getHeight: height,
 		getValue: () => "",
 		setValue: () => {},
 	});
@@ -984,16 +968,6 @@ function setupParameterPanel(node, loaded = false) {
 			syncParameterResizeLayout(this, root);
 			return result;
 		};
-		const previousDrawSlots = node.drawSlots;
-		node.drawSlots = function (ctx, options) {
-			return withVisibleConcreteOutputs(this, () => previousDrawSlots?.call(this, ctx, options));
-		};
-		const previousMeasureSlots = node._measureSlots;
-		if (typeof previousMeasureSlots === "function") {
-			node._measureSlots = function () {
-				return withVisibleConcreteOutputs(this, () => previousMeasureSlots.apply(this, arguments));
-			};
-		}
 		const previousSetConcreteSlots = node._setConcreteSlots;
 		if (typeof previousSetConcreteSlots === "function") {
 			node._setConcreteSlots = function () {
@@ -1002,31 +976,6 @@ function setupParameterPanel(node, loaded = false) {
 				return value;
 			};
 		}
-		const previousArrangeWidgets = node._arrangeWidgets;
-		const placeWidget = (target) => {
-			const panelWidget = target.widgets?.find((candidate) => candidate.name === "aaalice_parameter_panel");
-			if (!panelWidget) return;
-			panelWidget.y = Number(target.constructor?.slot_start_y) || 4;
-			panelWidget.last_y = panelWidget.y;
-		};
-		node._arrangeWidgets = function () {
-			const value = typeof previousArrangeWidgets === "function"
-				? withVisibleConcreteOutputs(this, () => previousArrangeWidgets.apply(this, arguments))
-				: undefined;
-			placeWidget(this);
-			// LiteGraph grows the node when a widget is measured below the slots.
-			// Keep that fallback from reintroducing the hidden-output height after
-			// the native layout pass has completed.
-			if (this.graph) applyCompactNodeSize(this);
-			return value;
-		};
-		const previousArrange = node.arrange;
-		node.arrange = function () {
-			const value = withVisibleConcreteOutputs(this, () => previousArrange?.apply(this, arguments));
-			placeWidget(this);
-			applyCompactNodeSize(this);
-			return value;
-		};
 		const previousDrawForeground = node.onDrawForeground;
 		const previousDrawBackground = node.onDrawBackground;
 		node.onDrawBackground = function (ctx) {
@@ -1041,16 +990,10 @@ function setupParameterPanel(node, loaded = false) {
 	node._aaaliceParameterRedraw = () => {
 		renderNode(node, root);
 		const desired = height();
-		widget.computedHeight = desired;
 		root.style.minHeight = `${desired}px`;
 		widget.y = Number(node.constructor?.slot_start_y) || 4;
-		applyCompactNodeSize(node);
 		syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
-		if (node.graph) {
-			node.arrange?.();
-			applyCompactNodeSize(node);
-		}
-		scheduleCompactNodeSize(node);
+		growClassicDomWidgetNode(node);
 		node.setDirtyCanvas?.(true, true);
 	};
 	const onChange = (event) => {
@@ -1075,7 +1018,6 @@ function setupParameterPanel(node, loaded = false) {
 		disconnectSegmentObservers(root);
 		window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_CHANGED, { detail: { nodeId: this.id, node: this, removed: true } }));
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onChange);
-		if (this._aaaliceCompactResizeTimer) clearTimeout(this._aaaliceCompactResizeTimer);
 		return previousRemoved?.apply(this, arguments);
 	};
 	const previousConfigure = node.onConfigure;
@@ -1088,6 +1030,7 @@ function setupParameterPanel(node, loaded = false) {
 		}, 0);
 		return value;
 	};
+	if (!loaded) node.setSize?.(node.computeSize());
 	node._aaaliceParameterRedraw();
 }
 

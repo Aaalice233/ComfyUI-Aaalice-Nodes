@@ -1,4 +1,4 @@
-"""ParameterReceiver — fixed-slot pass-through for ParameterPanel Get nodes."""
+"""ParameterReceiver — bounded pass-through for ParameterPanel Get nodes."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ class ParameterReceiver(io.ComfyNode):
             category="Aaalice/control",
             description=(
                 "Bind a Parameter Panel and expose its KJ Get values as one compact, "
-                "fixed-slot pass-through node."
+                "dynamically sized pass-through node."
             ),
             inputs=_receiver_inputs(),
             outputs=_receiver_outputs(),

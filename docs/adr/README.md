@@ -8,8 +8,12 @@ ADR 只记录难逆、令人意外且存在真实方案取舍的当前或已发�
 
 ## 当前有效
 
-- [ADR 0002：稳定参数身份与直接输出重绑](0002-parameter-stable-id-direct-output-rebind.md)
 - [ADR 0003：工作流序列化是参数状态真源](0003-workflow-serialization-source-of-truth.md)
 - [ADR 0004：ParameterReceiver 使用可见 Get 与显式结构同步](0004-parameter-receiver-explicit-get-sync.md)
+- [ADR 0006：业务可变槽使用动态原生槽](0006-dynamic-native-business-slots.md)
+
+## 已替代
+
+- [ADR 0002：稳定参数身份与直接输出重绑](0002-parameter-stable-id-direct-output-rebind.md) — Superseded by ADR 0006
 
 未发布的开发中间态在删除后不保留 ADR。

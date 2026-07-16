@@ -22,7 +22,7 @@
   },
   "EnumSwitch": {
     "display_name": "枚举切换",
-    "description": "根据精确匹配的字符串值，仅执行并输出对应分支。",
+    "description": "根据精确匹配的字符串值，仅物化、执行并输出当前对应分支。",
     "inputs": {
       "selector": { "name": "选择器", "tooltip": "连接用于匹配分支的字符串值。" }
     },
@@ -30,7 +30,7 @@
   },
   "ParameterPanel": {
     "display_name": "参数面板",
-    "description": "编辑一组参数并直接输出最多 32 路值；参数结构通过节点右键菜单编辑。",
+    "description": "编辑一组参数并按实际数量物化最多 32 路直接输出；参数结构通过节点右键菜单编辑。",
     "inputs": {},
     "outputs": {
       "0": { "name": "输出 1", "tooltip": "参数槽 1" },
@@ -69,7 +69,7 @@
   },
   "ParameterReceiver": {
     "display_name": "参数接收器",
-    "description": "绑定参数面板，将对应的 KJ Get 值收束为一个紧凑的透传节点。",
+    "description": "绑定参数面板，仅按实际 KJ Get 数量创建动态原生槽并透传对应值。",
     "inputs": {},
     "outputs": {}
   },

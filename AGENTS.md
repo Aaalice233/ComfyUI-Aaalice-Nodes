@@ -21,7 +21,7 @@
 
 | 位置 | 职责 | 不应包含 |
 |---|---|---|
-| `README.md` / `README.zh-CN.md` | 用户安装、功能、用法、公开限制、简短预览进度 | 开发排期、测试记录、协作规则 |
+| `README.md` / `README.zh-CN.md` | 用户安装、已发布功能、用法和公开限制 | 开发进度、下一项、完整排期、测试记录、协作规则 |
 | `AGENTS.md` | 开发硬规则、架构边界、验收门槛 | 长命令、教程、调查过程 |
 | `CONTEXT.md` | 项目领域词汇和统一称呼 | 文件路径、字段名、实现方案 |
 | `docs/adr/` | 难逆且存在真实取舍的架构决策 | 操作步骤、视觉细节 |
@@ -30,7 +30,7 @@
 
 - 文档入口见 [`docs/README.md`](docs/README.md)。
 - `README.md` 为 English Registry README；`README.zh-CN.md` 为简体中文。两份结构必须对齐、页顶互链。
-- 节点重置或增删时：README 更新进度、下一项、已注册节点和用户说明；[`roadmap.md`](docs/development/roadmap.md) 更新完整编号与排期。
+- 节点重置或增删时：README 只更新已发布节点、用户用法和公开限制；[`roadmap.md`](docs/development/roadmap.md) 独立维护进度、下一项、稳定编号和排期。
 - ADR 状态只用 `Accepted`、`Superseded by ADR NNNN` 或 `Rejected`。已发布决策被替代时保留历史并链接后继；未发布中间态删除后不保留 ADR。
 - 一次性调查、聊天结论、本机故障笔记和测试截图不进入仓库。
 
@@ -52,8 +52,9 @@
 | 测试、调试、GUI 验收或发布前检查 | @docs/development/testing.md |
 | 发布、版本和 Registry | @docs/development/release.md |
 | 前端视觉、组件、主题或可访问性 | @docs/design/ui-system.md |
-| ParameterPanel / ParameterReceiver 交互与布局 | @docs/design/parameter-panel.md |
-| 参数身份、序列化真源或接收器同步协议 | @docs/adr/README.md、@docs/adr/0002-parameter-stable-id-direct-output-rebind.md、@docs/adr/0003-workflow-serialization-source-of-truth.md、@docs/adr/0004-parameter-receiver-explicit-get-sync.md |
+| ParameterPanel / ParameterReceiver 交互与布局 | @docs/design/parameter-system.md |
+| QuickGroupManager 交互与布局 | @docs/design/quick-group-manager.md |
+| 参数身份、序列化真源、接收器同步或动态槽协议 | @docs/adr/README.md、@docs/adr/0002-parameter-stable-id-direct-output-rebind.md、@docs/adr/0003-workflow-serialization-source-of-truth.md、@docs/adr/0004-parameter-receiver-explicit-get-sync.md、@docs/adr/0006-dynamic-native-business-slots.md |
 
 新增专题文档时，若其内容会影响实现或验收，必须同时补到本节。README 面向用户，不作为默认开发上下文注入。
 
@@ -93,6 +94,9 @@ ComfyUI-Aaalice-Nodes/
 - DOM widget 提供稳定高度，并随内容更新节点最小尺寸。
 - 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角的绘制与命中；不能只依赖 CSS `pointer-events`，还要确保 widget 命中检测不会先于 `findResizeDirection()` 吞掉缩放操作，并在拖拽期间停用覆盖层交互。
 - 节点 `computeSize()` 必须返回由内容和设计约束决定的稳定最小尺寸；禁止把 `node.size` 当前宽高作为最小值，否则节点拉大后将无法重新缩小。
+- DOM widget 只通过 `getMinHeight()` 声明内容下限。Classic 内容变化可使用 LiteGraph 的 `expandToFitContent()` / `arrange()` grow-only 路径；Nodes 2.0 由 DOM 测量和 ResizeObserver 持有尺寸真源，禁止从扩展再次调用这两个 LiteGraph 尺寸路径。禁止缓存“用户高度”后在重绘、延迟回调或 `arrange()` 后反复 `setSize()`，否则会与原生拖拽形成尺寸反馈回路。
+- DOM widget 与原生 slot 共用垂直区域时，必须在挂载 widget 前使用 LiteGraph 的 `widgets_up` / `widgets_start_y` 叠放语义，使最小高度取两者较大值；禁止先让原生布局把两段高度相加，再劫持 `_arrangeWidgets()` 或 `arrange()` 事后改坐标。
+- 节点底部出现与 slot 栈高度相近的空白、向上缩小时立即被弹开，优先判定为 LiteGraph 将 slot 区与 DOM widget 最小高度串联相加；先核对当前版本 `computeSize()`、`_arrangeWidgets()` 和 widget 挂载顺序，不得用延迟 `setSize()`、隐藏槽、重复 `arrange()` 或更多命中补丁掩盖布局职责错误。
 - 自定义布局必须在 `onResize` 生命周期内从新尺寸重新计算 DOM 几何、真实 slot 坐标和 Nodes 2.0 slot 标记，并请求画布重绘；只让容器 CSS 自适应会使引脚停留在旧位置。
 - 依赖 CSS transition 或 animation 连续性的交互控件必须保留动画元素的 DOM identity，只同步 class、style 和 aria 状态；禁止在状态切换时通过 `replaceChildren`、`innerHTML` 或整体重建替换动画元素，否则过渡会失效或中断。
 
@@ -100,17 +104,16 @@ ComfyUI-Aaalice-Nodes/
 
 - Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责交互、焦点、键盘和 aria。
 - Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
-- 隐藏协议槽必须保留稳定数组位置用于序列化，但不得参与可见槽的测量、绘制或 pointer hit-test；Classic 公共槽数组和 Nodes 2.0 concrete 槽数组必须使用同一可见性真源。
-- 隐藏槽命中过滤不能只覆盖 `getSlotInPosition()`、`getInputOnPos()` 或 `getOutputOnPos()`；必须检查当前 ComfyUI 的真实拉线起点。Classic 的 `LGraphCanvas._processNodeClick()` 会直接遍历 `node.inputs` / `node.outputs`，该路径也必须使用相同的临时可见槽过滤，并在操作后恢复完整协议数组。
+- 业务数量可变的槽不得用固定数组加隐藏标记模拟。ParameterPanel、ParameterReceiver 与 EnumSwitch 必须按当前状态使用原生 `addInput()` / `removeInput()` 与 `addOutput()` / `removeOutput()` 物化连续真实槽；后端可保留最多 32 路的有界 Schema。
 - Nodes 2.0 重挂使用幂等 `MutationObserver`，禁止持续轮询。
 
 ## 5. 领域不变量
 
-- `ParameterPanel` 是唯一参数创作节点，管理 0–32 个参数并固定提供 `output_1`…`output_32`。
-- Separator 和未使用输出只隐藏，不删除协议槽位；参数身份由面板身份与稳定 Parameter Id 共同确定。
+- `ParameterPanel` 是唯一参数创作节点，管理 0–32 个参数；前端只物化产生值的参数对应的连续输出。
+- Separator 不创建画布槽；后端未使用的有界协议位置不进入前端槽数组。参数身份由面板身份与稳定 Parameter Id 共同确定。
 - 参数结构只通过右键编辑器原子修改；删除已连接参数前必须确认。
-- `ParameterReceiver` 通过可见 KJ Get 和真实 slot 工作；缺少 KJNodes 时明确失败，不模拟成功。
-- `EnumSwitch` 使用固定 lazy MatchType 分支；未知 selector 或未连接目标分支必须显式失败。
+- `ParameterReceiver` 通过可见 KJ Get 和按绑定数量动态物化的真实 slot 工作；缺少 KJNodes 时明确失败，不模拟成功。
+- `EnumSwitch` 按当前 route 数量物化连续 lazy MatchType 分支；未知 selector 或未连接目标分支必须显式失败。
 - `SimpleNotify` 只表示执行到达，不表示并行分支完成或队列清空；通知副作用只发生在前端。
 - 产品术语以 [`CONTEXT.md`](CONTEXT.md) 为准，协议决策以 accepted ADR 为准。
 

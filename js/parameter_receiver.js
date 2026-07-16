@@ -1,7 +1,11 @@
 /** ParameterReceiver binding, synchronization, compact UI and lifecycle. */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
-import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import {
+	cleanupDomWidgetResizePassthrough,
+	growClassicDomWidgetNode,
+	installDomWidgetResizePassthrough,
+} from "./lib/dom_widget_resize.js";
 import { button, createDialog, el, iconButton } from "./lib/ui.js";
 import {
 	EVENT_PARAMETER_CHANGED,
@@ -20,8 +24,8 @@ import {
 import {
 	RECEIVER_LAYOUT,
 	computeReceiverLayout,
+	reshapeReceiverSlots,
 	syncReceiverLayout,
-	withVisibleReceiverSlots,
 } from "./lib/receiver_layout.js";
 import {
 	EVENT_PARAMETER_KJ_CHANGED,
@@ -50,20 +54,6 @@ function message(key, fallback, values = {}) {
 
 function isReceiver(node) {
 	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE);
-}
-
-function installReceiverCanvasSlotHitTest(canvas = app.canvas) {
-	if (!canvas || canvas._aaaliceReceiverSlotHitTestInstalled) return;
-	const previous = canvas._processNodeClick;
-	if (typeof previous !== "function") return;
-	canvas._aaaliceReceiverSlotHitTestInstalled = true;
-	// Classic starts links by iterating node.inputs/outputs directly, bypassing
-	// the public slot hit-test methods patched on the receiver instance.
-	canvas._processNodeClick = function (_event, _ctrlOrMeta, node) {
-		return isReceiver(node)
-			? withVisibleReceiverSlots(node, () => previous.apply(this, arguments))
-			: previous.apply(this, arguments);
-	};
 }
 
 function binding(node) {
@@ -135,7 +125,8 @@ function statusFor(receiver) {
 
 function syncSlotPresentation(receiver) {
 	const current = binding(receiver);
-	for (let index = 0; index < 32; index += 1) {
+	reshapeReceiverSlots(receiver, current.slots.length);
+	for (let index = 0; index < current.slots.length; index += 1) {
 		const slot = current.slots[index];
 		const getNode = slot && managedGet(receiver, slot, index);
 		const type = getNode?.outputs?.[0]?.type || "*";
@@ -151,42 +142,23 @@ function syncSlotPresentation(receiver) {
 }
 
 function receiverNodeSize(receiver) {
-	const layout = computeReceiverLayout(receiver, binding(receiver).slots.length);
+	const layout = computeReceiverLayout(receiver, receiver.inputs?.length || 0);
 	return Math.max(72, layout.contentTop + layout.height + 12);
 }
 
-function applyCompactReceiverSize(receiver) {
-	if (!receiver) return;
-	const width = Math.max(RECEIVER_LAYOUT.minWidth, Number(receiver.size?.[0]) || RECEIVER_LAYOUT.minWidth);
-	const target = receiverNodeSize(receiver);
-	if (Math.abs(Number(receiver.size?.[1]) - target) > 1) receiver.setSize?.([width, target]);
-}
-
 function syncReceiverResizeLayout(receiver) {
-	syncReceiverLayout(receiver, binding(receiver).slots.length);
+	syncReceiverLayout(receiver, receiver.inputs?.length || 0);
 	markVueReceiverSlots(receiver);
 	receiver.setDirtyCanvas?.(true, true);
-}
-
-function scheduleCompactReceiverSize(receiver) {
-	if (receiver._aaaliceReceiverResizeTimer) clearTimeout(receiver._aaaliceReceiverResizeTimer);
-	receiver._aaaliceReceiverResizeTimer = setTimeout(() => {
-		receiver._aaaliceReceiverResizeTimer = null;
-		if (!receiver.graph) return;
-		applyCompactReceiverSize(receiver);
-		receiver.arrange?.();
-		applyCompactReceiverSize(receiver);
-		receiver.setDirtyCanvas?.(true, true);
-	}, 500);
 }
 
 function markVueReceiverSlots(receiver) {
 	if (typeof document === "undefined") return;
 	const id = String(receiver.id);
-	const visibleCount = binding(receiver).slots.length;
+	const slotCount = receiver.inputs?.length || 0;
 	for (const element of document.querySelectorAll("[data-node-id]")) {
 		if (element.getAttribute("data-node-id") !== id) continue;
-		const layout = receiver._aaaliceReceiverLayout || computeReceiverLayout(receiver, visibleCount);
+		const layout = receiver._aaaliceReceiverLayout || computeReceiverLayout(receiver, slotCount);
 		const inputSlots = [...element.querySelectorAll(".lg-slot--input")];
 		const outputSlots = [...element.querySelectorAll(".lg-slot--output")];
 		const inputColumn = inputSlots[0]?.parentElement;
@@ -202,24 +174,12 @@ function markVueReceiverSlots(receiver) {
 		slotLayer?.classList.add("aaalice-receiver-slot-layer");
 		body?.classList.add("aaalice-receiver-node-body");
 		widgets?.classList.add("aaalice-receiver-widget-layer");
-		let changed = false;
 		for (const slots of [inputSlots, outputSlots]) {
 			for (let index = 0; index < slots.length; index += 1) {
 				const slot = slots[index];
-				const hidden = index >= visibleCount;
-				if (slot.hidden !== hidden) changed = true;
-				slot.hidden = hidden;
-				slot.setAttribute("aria-hidden", String(hidden));
-				// Vue rewrites its reactive slot classes while a link is dragged. Keep
-				// visibility on an extension-owned attribute that survives that patch.
-				slot.setAttribute("data-aaalice-receiver-hidden", String(hidden));
 				slot.style.setProperty("--aaalice-receiver-slot-top", `${RECEIVER_LAYOUT.headerHeight + index * RECEIVER_LAYOUT.rowHeight}px`);
 			}
 		}
-		if (changed && typeof requestAnimationFrame === "function") requestAnimationFrame(() => {
-			applyCompactReceiverSize(receiver);
-			receiver.setDirtyCanvas?.(true, true);
-		});
 	}
 }
 
@@ -239,6 +199,7 @@ function render(receiver) {
 	const root = receiver._aaaliceReceiverRoot;
 	if (!root) return;
 	const current = binding(receiver);
+	reshapeReceiverSlots(receiver, current.slots.length);
 	const source = current.panelNodeId == null
 		? t("aaalice.receiver.binding.none", "No parameter panel bound")
 		: message("aaalice.receiver.binding.bound", "Bound: {title}", { title: current.panelTitle || "ParameterPanel" });
@@ -264,13 +225,11 @@ function render(receiver) {
 	root.style.setProperty("--aaalice-receiver-height", `${layout.height}px`);
 	const widget = receiver.widgets?.find((item) => item.name === "aaalice_parameter_receiver");
 	if (widget) {
-		widget.computedHeight = layout.height;
 		widget.y = layout.contentTop;
 	}
 	root.style.minHeight = `${layout.height}px`;
 	markVueReceiverSlots(receiver);
-	applyCompactReceiverSize(receiver);
-	scheduleCompactReceiverSize(receiver);
+	growClassicDomWidgetNode(receiver);
 	receiver.setDirtyCanvas?.(true, true);
 }
 
@@ -425,6 +384,7 @@ async function synchronize(receiver, panel) {
 		}
 		for (let index = 0; index < 32; index += 1) receiver.disconnectInput?.(index);
 		for (let index = 0; index < 32; index += 1) receiver.disconnectOutput?.(index);
+		reshapeReceiverSlots(receiver, reconciliation.ordered.length);
 		for (let index = 0; index < reconciliation.ordered.length; index += 1) {
 			const slot = reconciliation.ordered[index];
 			const getNode = getGraphNode(graph, slot.getNodeId);
@@ -454,6 +414,7 @@ async function synchronize(receiver, panel) {
 			receiver.disconnectInput?.(index);
 			receiver.disconnectOutput?.(index);
 		}
+		reshapeReceiverSlots(receiver, current.slots.length);
 		for (const connection of inputSnapshot) if (connection.source?.graph === graph) connection.source.connect(connection.sourceSlot, receiver, connection.targetSlot);
 		for (const connection of outputSnapshot) if (connection.target?.graph === graph) {
 			const oldIndex = current.slots.findIndex((slot) => slot.parameterId === connection.parameterId);
@@ -536,20 +497,23 @@ function refreshNames(receiver, panel) {
 	render(receiver);
 }
 
-function setupReceiver(receiver) {
+function setupReceiver(receiver, loaded = false) {
 	if (!isReceiver(receiver) || receiver._aaaliceReceiverMounted) return;
-	installReceiverCanvasSlotHitTest();
 	receiver._aaaliceReceiverMounted = true;
 	mountedReceivers.add(receiver);
 	ensureVueReceiverObserver();
 	binding(receiver);
+	reshapeReceiverSlots(receiver, binding(receiver).slots.length);
 	if (typeof receiver.addDOMWidget !== "function") throw new Error("[Aaalice] ParameterReceiver requires addDOMWidget");
+	// Receiver labels and native slots occupy the same rows. Use LiteGraph's
+	// overlay layout mode so their minimum heights are not added together.
+	receiver.widgets_up = true;
+	receiver.widgets_start_y = Number(receiver.constructor?.slot_start_y) || 4;
 	const root = el("div", "aaalice-pcp aaalice-pcp-node-root aaalice-receiver-root");
 	receiver._aaaliceReceiverRoot = root;
 	const widget = receiver.addDOMWidget("aaalice_parameter_receiver", "custom", root, {
 		serialize: false, hideOnZoom: false, margin: 0,
-		getMinHeight: () => computeReceiverLayout(receiver, binding(receiver).slots.length).height,
-		getHeight: () => computeReceiverLayout(receiver, binding(receiver).slots.length).height,
+		getMinHeight: () => computeReceiverLayout(receiver, receiver.inputs?.length || 0).height,
 		getValue: () => "", setValue: () => {},
 	});
 	installDomWidgetResizePassthrough(receiver, root);
@@ -568,48 +532,16 @@ function setupReceiver(receiver) {
 		syncReceiverResizeLayout(this);
 		return result;
 	};
-	for (const method of ["drawSlots", "_measureSlots", "arrange"]) {
-		const previous = receiver[method];
-		if (typeof previous !== "function") continue;
-		receiver[method] = function () { return withVisibleReceiverSlots(this, () => previous.apply(this, arguments)); };
-	}
-	for (const method of ["getSlotInPosition", "getInputOnPos", "getOutputOnPos"]) {
-		const previous = receiver[method];
-		if (typeof previous !== "function") continue;
-		receiver[method] = function () { return withVisibleReceiverSlots(this, () => previous.apply(this, arguments)); };
-	}
 	const previousConcrete = receiver._setConcreteSlots;
 	if (typeof previousConcrete === "function") receiver._setConcreteSlots = function () {
 		const result = previousConcrete.apply(this, arguments);
 		syncSlotPresentation(this);
 		return result;
 	};
-	const placeWidget = (target) => {
-		const receiverWidget = target.widgets?.find((candidate) => candidate.name === "aaalice_parameter_receiver");
-		if (!receiverWidget) return;
-		receiverWidget.y = Number(target.constructor?.slot_start_y) || 4;
-		receiverWidget.last_y = receiverWidget.y;
-	};
-	const previousArrangeWidgets = receiver._arrangeWidgets;
-	receiver._arrangeWidgets = function () {
-		const result = typeof previousArrangeWidgets === "function"
-			? withVisibleReceiverSlots(this, () => previousArrangeWidgets.apply(this, arguments))
-			: undefined;
-		placeWidget(this);
-		if (this.graph) applyCompactReceiverSize(this);
-		return result;
-	};
-	const previousArrange = receiver.arrange;
-	receiver.arrange = function () {
-		const result = withVisibleReceiverSlots(this, () => previousArrange?.apply(this, arguments));
-		placeWidget(this);
-		applyCompactReceiverSize(this);
-		return result;
-	};
 	const previousConnections = receiver.onConnectionsChange;
 	receiver.onConnectionsChange = function () {
 		const result = previousConnections?.apply(this, arguments);
-		setTimeout(() => render(this), 0);
+		if (!this._aaaliceReshapingReceiverSlots) setTimeout(() => render(this), 0);
 		return result;
 	};
 	const previousClone = receiver.clone;
@@ -637,7 +569,6 @@ function setupReceiver(receiver) {
 	receiver.onRemoved = function () {
 		mountedReceivers.delete(this);
 		cleanupDomWidgetResizePassthrough(this);
-		if (this._aaaliceReceiverResizeTimer) clearTimeout(this._aaaliceReceiverResizeTimer);
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onPanelChange);
 		window.removeEventListener(EVENT_PARAMETER_KJ_CHANGED, onPanelChange);
 		return previousRemoved?.apply(this, arguments);
@@ -650,6 +581,7 @@ function setupReceiver(receiver) {
 		return result;
 	};
 	widget.y = Number(receiver.constructor?.slot_start_y) || 4;
+	if (!loaded) receiver.setSize?.(receiver.computeSize());
 	render(receiver);
 }
 
@@ -659,7 +591,7 @@ function hookPrototype(nodeType) {
 	const previous = nodeType.prototype.onNodeCreated;
 	nodeType.prototype.onNodeCreated = function () {
 		const result = previous?.apply(this, arguments);
-		setupReceiver(this);
+		setupReceiver(this, false);
 		return result;
 	};
 }
@@ -668,10 +600,9 @@ app.registerExtension({
 	name: "ComfyUI.Aaalice.ParameterReceiver",
 	async init() { await ensureI18nReady(); },
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
-	nodeCreated(node) { if (isReceiver(node)) setupReceiver(node); },
-	loadedGraphNode(node) { if (isReceiver(node)) setupReceiver(node); },
+	nodeCreated(node) { if (isReceiver(node)) setupReceiver(node, false); },
+	loadedGraphNode(node) { if (isReceiver(node)) setupReceiver(node, true); },
 	setup() {
-		installReceiverCanvasSlotHitTest();
-		for (const node of app.graph?._nodes || []) if (isReceiver(node)) setupReceiver(node);
+		for (const node of app.graph?._nodes || []) if (isReceiver(node)) setupReceiver(node, true);
 	},
 });

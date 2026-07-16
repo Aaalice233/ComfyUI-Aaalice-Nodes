@@ -22,7 +22,7 @@
   },
   "EnumSwitch": {
     "display_name": "Enum Switch",
-    "description": "Select one lazy branch by an exact string value.",
+    "description": "Select one lazy branch by an exact string value using only the current native branch inputs.",
     "inputs": {
       "selector": { "name": "Selector", "tooltip": "Connect the string value used to select a matching branch." }
     },
@@ -30,7 +30,7 @@
   },
   "ParameterPanel": {
     "display_name": "Parameter Panel",
-    "description": "Edit one parameter set and emit up to 32 direct values; edit structure from the node context menu.",
+    "description": "Edit one parameter set and materialize up to 32 active direct outputs; edit structure from the node context menu.",
     "inputs": {},
     "outputs": {
       "0": { "name": "Output 1", "tooltip": "Parameter slot 1" },
@@ -69,7 +69,7 @@
   },
   "ParameterReceiver": {
     "display_name": "Parameter Receiver",
-    "description": "Bind a Parameter Panel and collect its KJ Get values in one compact pass-through node.",
+    "description": "Bind a Parameter Panel and expose only its actual KJ Get values as dynamic native slots.",
     "inputs": {},
     "outputs": {}
   },

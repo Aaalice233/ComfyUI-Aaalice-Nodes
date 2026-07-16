@@ -2,8 +2,6 @@
 # 语法同 .gitignore；已被 git 跟踪的路径也会被排除
 
 # —— 协作 / AI / 本地工具（曾误打进 0.1.x zip 触发扫描）——
-.codex/
-.grok/
 .claude/
 .omc/
 .cursor/

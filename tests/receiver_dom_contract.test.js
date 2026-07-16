@@ -6,11 +6,16 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("receiver hidden slots use a Vue-stable DOM attribute", () => {
+test("receiver materializes only the slots in its binding", () => {
 	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "receiver_layout.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
-	assert.match(receiverSource, /data-aaalice-receiver-hidden/);
-	assert.match(themeSource, /\[data-aaalice-receiver-hidden="true"\]\s*\{\s*display:\s*none\s*!important;/);
+	assert.match(receiverSource, /reshapeReceiverSlots\(receiver, current\.slots\.length\)/);
+	assert.match(layoutSource, /export function reshapeReceiverSlots/);
+	assert.match(layoutSource, /node\.removeInput\(node\.inputs\.length - 1\)/);
+	assert.match(layoutSource, /node\.addOutput\(`output_\$\{index \+ 1\}`/);
+	assert.doesNotMatch(receiverSource, /data-aaalice-receiver-hidden|withVisibleReceiverSlots|installReceiverCanvasSlotHitTest|_aaaliceDisplayHidden|_aaaliceRawIndex|_aaaliceVisibleReceiverSlots/);
+	assert.doesNotMatch(themeSource, /data-aaalice-receiver-hidden/);
 });
 
 test("receiver uses a compact actionable status icon", () => {
@@ -30,17 +35,22 @@ test("receiver keeps native resize corners and can shrink after growing", () => 
 	assert.match(receiverSource, /receiver\.computeSize = function \(\) \{\s*return \[RECEIVER_LAYOUT\.minWidth, receiverNodeSize\(this\)\];/s);
 	assert.match(receiverSource, /function syncReceiverResizeLayout/);
 	assert.match(receiverSource, /receiver\.onResize = function \(\)[\s\S]*syncReceiverResizeLayout\(this\)/);
-	assert.match(receiverSource, /syncReceiverLayout\(receiver, binding\(receiver\)\.slots\.length\)/);
+	assert.match(receiverSource, /syncReceiverLayout\(receiver, receiver\.inputs\?\.length \|\| 0\)/);
 	assert.doesNotMatch(receiverSource, /Math\.max\(RECEIVER_LAYOUT\.minWidth, Number\(this\.size/);
+	assert.match(receiverSource, /growClassicDomWidgetNode\(receiver\)/);
+	assert.match(receiverSource, /receiver\.widgets_up = true/);
+	assert.match(receiverSource, /receiver\.widgets_start_y = Number\(receiver\.constructor\?\.slot_start_y\) \|\| 4/);
+	assert.doesNotMatch(receiverSource, /receiver\._arrangeWidgets = function|receiver\.arrange = function/);
+	assert.doesNotMatch(receiverSource, /receiver\.expandToFitContent\?\.\(\)/);
+	assert.doesNotMatch(receiverSource, /applyCompactReceiverSize|scheduleCompactReceiverSize|_aaaliceReceiverManualHeight|getHeight:/);
 });
 
-test("receiver hidden protocol slots cannot capture pointer hit tests", () => {
+test("receiver does not keep protocol-only slots in the canvas arrays", () => {
 	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
 	const layoutSource = readFileSync(join(ROOT, "js", "lib", "receiver_layout.js"), "utf8");
-	assert.match(receiverSource, /function installReceiverCanvasSlotHitTest/);
-	assert.match(receiverSource, /canvas\._processNodeClick = function \([^)]*node\)[\s\S]*withVisibleReceiverSlots\(node/);
-	assert.match(receiverSource, /installReceiverCanvasSlotHitTest\(\);/);
-	assert.match(receiverSource, /\["getSlotInPosition", "getInputOnPos", "getOutputOnPos"\]/);
-	assert.match(layoutSource, /\["inputs", "outputs", "_concreteInputs", "_concreteOutputs"\]/);
-	assert.doesNotMatch(layoutSource, /hasConcrete/);
+	assert.match(receiverSource, /reshapeReceiverSlots\(receiver, reconciliation\.ordered\.length\)/);
+	assert.match(receiverSource, /reshapeReceiverSlots\(receiver, current\.slots\.length\)/);
+	assert.match(receiverSource, /getMinHeight:\s*\(\) => computeReceiverLayout\(receiver, receiver\.inputs\?\.length \|\| 0\)\.height/);
+	assert.doesNotMatch(receiverSource, /_processNodeClick|getInputPos", "getOutputPos|-1e6/);
+	assert.doesNotMatch(layoutSource, /_aaaliceAllReceiver|withVisibleReceiverSlots/);
 });

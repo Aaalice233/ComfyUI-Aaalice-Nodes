@@ -12,10 +12,6 @@
 
 > 当前为已发布的预览版。首次稳定发布前，工作流格式和节点行为仍可能调整；本包不会迁移 ComfyUI-Danbooru-Gallery 的旧数据。
 
-| 状态 | 进度 | 下一项 |
-|:---:|:---:|:---:|
-| 重置进行中 | **6 / 20 个节点** | #10 `PromptCleaningMaid` |
-
 ## 环境要求
 
 - 支持 V3 自定义节点的较新 ComfyUI。
@@ -54,7 +50,7 @@ pip install -r requirements.txt
 
 | 节点 | 分类 | 用途 |
 |---|---|---|
-| `ParameterPanel` | `Aaalice/control` | 管理一组参数并直接输出最多 32 路值。 |
+| `ParameterPanel` | `Aaalice/control` | 管理一组参数，并只物化当前有效的直接输出。 |
 | `ParameterReceiver` | `Aaalice/control` | 绑定 ParameterPanel，将对应的 KJ Get 收束到一个紧凑输出节点。 |
 | `QuickGroupManager` | `Aaalice/control` | 按颜色范围启用、静音或绕过可视组，并配置排序与联动规则。 |
 | `EnumSwitch` | `Aaalice/tools` | 根据精确匹配的字符串，只执行并输出对应分支。 |
@@ -65,6 +61,7 @@ pip install -r requirements.txt
 <summary><strong>EnumSwitch — 惰性枚举选通</strong></summary>
 
 - `selector` 精确匹配 1–32 个分支 key；未匹配或目标分支未连接时明确报错。
+- 只按当前分支数量物化原生输入，未使用的协议输入不会影响节点尺寸或命中。
 - 只执行选中的 lazy 分支，所有分支共享同一个连接类型。
 - 独立使用时，右键选择 **⚙️ 编辑分支…** 管理分支。
 - 直接连接 ParameterPanel 或 ParameterReceiver 的枚举/下拉输出时会自动识别；选项变化后通过警告图标显式同步，并保留未变化分支的连线。
@@ -83,7 +80,7 @@ pip install -r requirements.txt
 - Seed 支持 fixed、increment、decrement、randomize；节点内的锁定按钮用于在 fixed 与 randomize 之间快速切换。
 - 安装 KJ Set/Get 后，节点菜单会提供 **🔗 为所有参数创建并连接 KJ Set**；新建的折叠 Set 会在面板右侧紧凑排列。
 
-删除已有连线的参数时需要确认，因为对应连线必须断开。一个面板最多包含 32 个会产生值的参数；分隔项不占输出。
+删除已有连线的参数时需要确认，因为对应连线必须断开。一个面板最多包含 32 个会产生值的参数；分隔项不占输出。只有会产生值的参数才创建原生输出槽，因此未使用的协议输出不会干扰缩放、命中或最小高度。
 
 </details>
 
@@ -94,6 +91,7 @@ pip install -r requirements.txt
 
 - 首次绑定会复用已有 KJ Set，并在补齐缺失 Set 前询问确认；对应的折叠 Get 会排列在接收器左侧。
 - 参数改名和面板标题变化会自动刷新。参数新增、删除或重排后，底部状态变为 **需要同步**；使用 **🔄 从参数面板同步** 应用结构变化。
+- 接收器只创建绑定中实际存在的原生输入/输出槽，不再让隐藏协议引脚占用缩放角或拉线命中区。
 - **🎯 定位参数面板** 会居中显示源面板；**✂️ 解除绑定** 会在确认受影响连线后清理仅由接收器使用的 Get。
 - 源面板被删除时，接收器保留已保存的槽位与连线快照，并显示 **源面板不存在**，之后可以显式重新绑定。
 

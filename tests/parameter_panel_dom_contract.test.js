@@ -53,10 +53,19 @@ test("parameter panel keeps native resize corners and a stable minimum width", (
 	assert.match(panelSource, /function syncParameterResizeLayout/);
 	assert.match(panelSource, /node\.onResize = function \(\)[\s\S]*syncParameterResizeLayout\(this, root\)/);
 	assert.match(panelSource, /syncNativeOutputLayout\(node, computeParameterLayout\(node\)\)/);
+	assert.match(panelSource, /reshapeParameterOutputs\(node, meta\.length\)/);
+	assert.doesNotMatch(panelSource, /withVisibleConcreteOutputs|aaalice-parameter-output-hidden|_aaaliceDisplayHidden|_aaaliceRawIndex/);
+	assert.doesNotMatch(themeSource, /aaalice-parameter-output-hidden/);
 	assert.match(resizeSource, /node\.getWidgetOnPos = function/);
 	assert.match(resizeSource, /findResizeDirection\?\.\(x, y\)/);
 	assert.match(resizeSource, /app\.canvas\?\.pointer\?\.isDown/);
 	assert.match(themeSource, /\.aaalice-pcp-node-root\.is-resizing[\s\S]*pointer-events:\s*none\s*!important/);
+	assert.match(panelSource, /growClassicDomWidgetNode\(node\)/);
+	assert.match(panelSource, /node\.widgets_up = true/);
+	assert.match(panelSource, /node\.widgets_start_y = Number\(node\.constructor\?\.slot_start_y\) \|\| 4/);
+	assert.doesNotMatch(panelSource, /node\._arrangeWidgets = function|node\.arrange = function/);
+	assert.doesNotMatch(panelSource, /node\.expandToFitContent\?\.\(\)/);
+	assert.doesNotMatch(panelSource, /applyCompactNodeSize|scheduleCompactNodeSize|_aaaliceParameterManualHeight|getHeight:/);
 });
 
 test("image parameters expose upload feedback, a cover thumbnail and a full preview", () => {

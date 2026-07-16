@@ -1,76 +1,103 @@
 # 架构
 
-## 当前范围
+本文描述当前实现的模块边界、状态真源和运行时数据流。历史取舍见 `docs/adr/`，交互与视觉细节见 `docs/design/`。
 
-仓库注册六个 V3 节点：
+## 已注册节点
 
-- `ParameterPanel`（`Aaalice/control`）：拥有一组有序参数并提供 32 个稳定直接输出。
-- `ParameterReceiver`（`Aaalice/control`）：提供 32 路固定可选输入与输出，绑定面板后逐路透传对应 Get 值。
-- `QuickGroupManager`（`Aaalice/control`）：在前端按颜色范围管理当前图中的可视组模式、顺序和联动。
-- `EnumSwitch`（`Aaalice/tools`）：按精确字符串 key 惰性选通 1–32 路同类型输入。
-- `SimpleStringSplit`（`Aaalice/tools`）：按逗号或竖线拆分字符串并移除空段。
-- `SimpleNotify`（`Aaalice/tools`）：执行到达时按独立开关提醒，并原样透传同类型值。
+| 节点 | Category | 执行职责 | 前端职责 |
+|---|---|---|---|
+| `ParameterPanel` | `Aaalice/control` | 根据本次 prompt payload 输出最多 32 个参数值 | 参数创作、控件、动态原生输出、结构编辑和 Seed 更新 |
+| `ParameterReceiver` | `Aaalice/control` | 有界 AnyType 逐路透传 | 绑定面板、管理可见 Get、显式同步和动态输入输出 |
+| `QuickGroupManager` | `Aaalice/control` | 无 Prompt I/O 和执行副作用 | 发现、过滤、排序并原子切换当前图的可视组 |
+| `EnumSwitch` | `Aaalice/tools` | 按精确字符串 lazy 选通一个同类型分支 | 分支编辑、面板选项绑定、显式同步和动态分支输入 |
+| `SimpleStringSplit` | `Aaalice/tools` | 拆分字符串、清理空白并移除空段 | 无业务前端 |
+| `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
 
-根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入失败必须保留原始异常。
+根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入错误保留原始异常。当前 Python 域为 `nodes/control`、`nodes/tools` 与无 ComfyUI 运行时依赖的 `nodes/_lib`。
 
 ## 后端边界
 
-`nodes/control/parameter_panel.py` 定义 ParameterPanel schema，并把前端注入的参数 payload 转换为 32 路直接输出。解析、校验和类型转换位于 `nodes/_lib/parameter_values.py`，不依赖运行中的 ComfyUI，可直接单测。
+- `nodes/control/parameter_panel.py` 声明最多 32 路输出，把前端注入的参数 payload 转换为有界值序列；解析和类型转换位于 `nodes/_lib/parameter_values.py`。
+- `nodes/control/parameter_receiver.py` 声明最多 32 路可选 AnyType 输入输出；`nodes/_lib/receiver_values.py` 只按协议顺序透传，不保存绑定状态。
+- `nodes/control/quick_group_manager.py` 只注册无输入输出的 V3 节点；组发现和模式变化不进入后端。
+- `nodes/tools/enum_switch.py` 声明 selector、最多 32 个 lazy MatchType 分支和一个同类型输出；`nodes/_lib/enum_switch.py` 校验 routes payload 并选择精确协议输入。
+- `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
+- `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
 
-`nodes/control/parameter_receiver.py` 定义固定的 32 路可选 AnyType 输入和输出。`nodes/_lib/receiver_values.py` 只按协议顺序透传值；KJ Set/Get 的发现、创建和同步全部属于前端图操作，不进入后端状态。
-
-`nodes/control/quick_group_manager.py` 只注册无输入输出、无执行副作用的 V3 节点。组发现、模式变更、过滤、排序和联动全部属于前端画布操作，不进入 Prompt 执行图。
-
-`nodes/tools/enum_switch.py` 定义 selector、32 个固定 lazy `MatchType` 分支与同类型输出。`nodes/_lib/enum_switch.py` 负责解析路由 payload、校验稳定 route id 与唯一 key，并返回精确匹配的协议输入；未知 selector 和未连接目标分支均显式失败。
-
-参数定义和当前值的唯一真源是 `node.properties.parameters`。后端不保存进程全局参数状态；执行时由前端 `graphToPrompt` 注入内部 payload。Separator 和未使用位置仍保留协议槽位，但返回填充值且不在界面显示。
-
-`SimpleStringSplit` 是独立的纯后端工具节点，不依赖 ParameterPanel 前端。
-
-`SimpleNotify` 使用成对的 V3 MatchType 输入输出，并沿用 ComfyUI 默认的逐项 list 映射，使原生 widget 保持标量。映射产生的提醒 payload 会合并到一次节点执行结果中，前端只消费第一项，因此每个 prompt、每个节点实例只提醒一次。它是强制重执行的 output node；后端只返回透传值与提醒 payload，浏览器通知和音频副作用由发起执行的前端处理。
+后端 32 路 Schema 是执行和校验上限，不是前端槽数组真源。ParameterPanel 的返回值仍填满有界输出协议；画布只物化当前参数对应的连续槽。
 
 ## 前端模块
 
-| 模块 | 职责 |
-|---|---|
-| `js/extension.js` | 包入口、共享 CSS 与 i18n 初始化 |
-| `js/parameter_panel.js` | 生命周期挂载、DOM 控件、结构编辑器、prompt 注入和队列后 Seed 行为 |
-| `js/parameter_panel_kj.js` | 可选 KJ Set/Get 节点发现、创建和连线 |
-| `js/parameter_receiver.js` | 接收器生命周期、绑定菜单、显式同步、Get 所有权和状态显示 |
-| `js/quick_group_manager.js` | 组管理器生命周期、DOM、颜色范围、排序和原子组模式事务 |
-| `js/enum_switch.js` | 分支编辑、面板枚举绑定、同步提示、真实槽位保线和 prompt 注入 |
-| `js/simple_notify.js` | 执行结果提醒、浏览器权限入口和节点右键测试操作 |
-| `js/lib/simple_notify_runtime.js` | 可单测的桌面通知、提示音和错误分类 |
-| `js/lib/param_model.js` | 参数模型、默认值、校验、动态选项和变更事件 |
-| `js/lib/enum_switch_model.js` | EnumSwitch 状态归一化、路由校验、差异计算和同步合并 |
-| `js/lib/parameter_layout.js` | 参数行、节点高度、真实输出位置和双模式 slot 同步 |
-| `js/lib/receiver_model.js` | 接收器绑定归一化和按 Parameter Id 的结构差异计算 |
-| `js/lib/receiver_layout.js` | 接收器输入/输出行、状态区高度和双模式真实 slot 同步 |
-| `js/lib/quick_group_manager_model.js` | 组管理状态归一化、过滤排序、联动规划与冲突检测 |
-| `js/lib/parameter_controls.js` | 节点面与编辑器复用的无状态控件 |
-| `js/lib/ui.js` / `ui.css` | 无业务状态的 DOM 组件和基础视觉 |
-| `js/lib/theme.css` | ParameterPanel 节点面与编辑器布局 |
+| 模块组 | 文件 | 职责 |
+|---|---|---|
+| 包入口 | `js/extension.js`、`js/i18n.js` | 加载共享样式、业务扩展和双语资源 |
+| 参数面板 | `js/parameter_panel.js`、`js/parameter_panel_kj.js` | 生命周期、控件、结构编辑、prompt 注入、Seed 行为和 KJ Set |
+| 参数接收器 | `js/parameter_receiver.js` | Receiver Binding、Get 所有权、显式同步、菜单和状态显示 |
+| 枚举选通 | `js/enum_switch.js` | 分支编辑、选项绑定、同步提示、保线和 routes payload 注入 |
+| 组管理 | `js/quick_group_manager.js` | 全局图事件、DOM、颜色范围、排序和原子模式事务 |
+| 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
+| 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
+| 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
+| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,parameter_controls,image_reference,safe_markdown,simple_notify_runtime}.js` | 缩放命中、无状态控件、图像引用、安全 Markdown 和提醒运行时 |
+| 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务组件、主题 token 与节点专用布局 |
 
-共享模块不得自行注册扩展或拥有工作流状态。
+共享 `js/lib` 模块不得自行注册扩展或拥有工作流状态。业务入口负责生命周期和画布事务，纯模型保持无 DOM、无 ComfyUI 运行时依赖。
+
+## 状态真源
+
+| 功能 | 持久真源 | 实时派生数据 | 不得成为真源 |
+|---|---|---|---|
+| ParameterPanel | `node.properties.parameters` | 参数 meta、slot 布局、prompt payload | 服务端进程全局状态、DOM 控件值副本 |
+| ParameterReceiver | `node.properties.receiverBinding` | 面板名称、参数类型、同步状态、Get 连线 | 面板标题、槽索引、Get 显示名 |
+| EnumSwitch | `node.properties.enumSwitch` | 分支标签、源选项 diff、routes payload | Branch Key、槽位置、DOM 顺序 |
+| QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
+
+Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序位置不是身份；结构变化按稳定身份保存并恢复连线。
 
 ## 生命周期与数据流
 
-ParameterPanel 在 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描中幂等挂载。DOM widget 同步创建；i18n 就绪后只更新文案和重绘，不能延迟首次挂载。
+交互节点覆盖 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描，并幂等挂载。DOM widget 同步创建；异步 i18n 就绪后只更新文案和重绘。
 
-参数结构只由右键编辑器修改。保存时先统一校验，再确认受影响连线，并在一个图变更边界内原子应用。参数身份由稳定 id 决定；名称和顺序只影响显示。
+### ParameterPanel
 
-执行前，`graphToPrompt` 从每个 ParameterPanel 的 properties 生成内部 payload。执行成功后按 Seed 配置进行 fixed、increment、decrement 或 randomize 更新，并通知节点面重绘。
+1. 结构编辑器统一校验草稿并确认受影响连线。
+2. 一个图变更边界内更新 `node.properties.parameters`，按 Parameter Id 重塑并重连真实输出。
+3. `graphToPrompt` 为本次执行注入参数 payload。
+4. 执行成功后按 fixed、increment、decrement 或 randomize 更新 Seed，并通知依赖节点刷新。
 
-ParameterReceiver 的唯一状态真源是 `node.properties.receiverBinding`。身份由面板节点 id 与参数 id 共同决定。名称与类型自动刷新；新增、删除和重排只更新“需要同步”状态，首次绑定或右键显式同步才允许增删、排列和重连真实 Get。同步在一个图变更边界内完成，并按参数 id 保留下游连线。
+### ParameterReceiver
 
-EnumSwitch 的唯一状态真源是 `node.properties.enumSwitch`。分支连接身份由稳定 route id 决定，字符串 key 只负责精确匹配与显示。直接连接 ParameterPanel 或 ParameterReceiver 的 enum/dropdown 输出时记录面板节点 id 与参数 id；源选项变化只显示同步图标，用户显式同步后才按 key 增删和重排分支。执行前由 `graphToPrompt` 注入路由 payload，后端不保存面板绑定或枚举配置。
+1. 首次绑定或用户显式同步时读取源面板参数身份。
+2. 创建或复用 KJ Set 与可见折叠 Get，按 Parameter Id 保存现有上下游连线。
+3. 在一个图变更边界内调整真实输入输出和 Get 排列，再恢复仍存在身份的连线。
+4. 名称与类型变化只刷新显示；新增、删除和重排在显式同步前只显示“需要同步”。
 
-QuickGroupManager 的唯一状态真源是 `node.properties.quickGroupManagerState`，只持久化关闭策略、颜色范围、组 id 顺序和本节点联动规则。组名、颜色、成员和实际模式每次从当前图读取。直接开关操作先在纯模型中完成同 Manager 级联和重叠节点冲突预检，再在一个图变更边界内提交；其它 Manager 和外部组变更只触发显示同步，不传播规则。Subgraph 只作为普通组内节点切换，不递归进入内部图。
+### EnumSwitch
 
-## Classic 与 Nodes 2.0
+1. 独立编辑或显式源选项同步更新 routes。
+2. 按 Route Id 保存连线，调整 `branch_1…branch_N`，再恢复未删除路由。
+3. `graphToPrompt` 注入 Route Id、Branch Key 与协议输入的映射。
+4. 后端只请求 selector 精确匹配的 lazy 分支；未知或未连接目标显式失败。
 
-Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责输入、焦点、键盘、tooltip 与 aria。Classic 使用 LiteGraph slot，Nodes 2.0 使用 Vue slot DOM。
+### QuickGroupManager
 
-隐藏协议槽仍保留序列化位置；可见输入输出使用原生真实 socket。ParameterPanel 布局真源是 `js/lib/parameter_layout.js`，ParameterReceiver 布局真源是 `js/lib/receiver_layout.js`。EnumSwitch 复用固定 32 路协议并只显示当前分支，交互式同步图标由 DOM widget 承担。
+1. 全局 `graphChanged` 监听在动画帧内合并刷新，实例只读取当前图的组快照。
+2. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化。
+3. 环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
+4. 通过预检后，在一个图变更边界内提交全部模式；其它 Manager 只刷新显示。
 
-QuickGroupManager 没有协议槽，Classic 与 Nodes 2.0 都通过同步创建的 DOM widget 提供同一组控制面；`graphChanged` 只驱动合帧重绘，不使用状态轮询。
+## Classic、Nodes 2.0 与尺寸
+
+- Canvas/native 层负责真实 slot、连线和静态布局；DOM overlay 负责交互、焦点、键盘、tooltip 与 aria。
+- ParameterPanel、ParameterReceiver 与 EnumSwitch 的画布槽数组只包含当前业务项，槽 id 使用后端有界 Schema 的连续前缀。
+- Nodes 2.0 concrete slot 对象在原生槽变化后同步名称、类型、颜色和位置；不得恢复隐藏槽数组。
+- DOM widget 通过 `getMinHeight()` 声明内容下限。Classic 内容增长可以走 LiteGraph grow-only 路径；Nodes 2.0 尺寸由 DOM 测量持有。
+- 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角；`computeSize()` 不得把当前节点尺寸当成最小值。
+- QuickGroupManager 没有协议槽，列表使用剩余高度内部滚动；`graphChanged` 不得替换为状态轮询。
+
+## 可选依赖与公开边界
+
+- KJNodes 只对 ParameterReceiver 的绑定、同步和 ParameterPanel 的 Set/Get 辅助功能可选依赖；缺失时明确报错，不模拟成功。
+- Classic 与 Nodes 2.0 为支持范围；App Mode 暂不支持。
+- ParameterReceiver 和 QuickGroupManager 只作用于当前图，不递归搜索或修改 Subgraph 内部图。
+- SimpleNotify 只在发起执行的前端产生提醒，不表示并行分支、整个工作流或队列完成。

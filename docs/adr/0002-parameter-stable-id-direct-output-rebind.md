@@ -1,6 +1,8 @@
 # ADR 0002：稳定参数身份与直接输出重绑
 
-Status: Accepted.
+Status: Superseded by ADR 0006.
+
+后继决策见 [ADR 0006：业务可变槽使用动态原生槽](0006-dynamic-native-business-slots.md)。
 
 ## 背景
 

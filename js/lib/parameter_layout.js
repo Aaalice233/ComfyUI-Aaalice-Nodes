@@ -58,13 +58,6 @@ function controlRect(width, rowTop, parameter, outputWidth) {
 	};
 }
 
-function getVisibleOutputIndices(node) {
-	const parameters = ensureParameters(node);
-	const visible = [];
-	for (const parameter of parameters) if (isTunable(parameter)) visible.push(visible.length);
-	return visible.slice(0, Math.min(32, node.outputs?.length || 32));
-}
-
 export function computeParameterLayout(node) {
 	const width = Math.max(PARAMETER_NODE_LAYOUT.minWidth, Number(node.size?.[0]) || PARAMETER_NODE_LAYOUT.minWidth);
 	const contentTop = Number(node.constructor?.slot_start_y) || 0;
@@ -135,29 +128,15 @@ export function computeParameterLayout(node) {
 		rows,
 		parameters,
 		meta,
-		visibleOutputIndices: getVisibleOutputIndices(node),
 		outputColumn: { left: width - outputWidth, width: outputWidth },
 	};
 }
 
 export function syncNativeOutputLayout(node, layout = computeParameterLayout(node)) {
 	node._aaaliceParameterLayout = layout;
-	node._aaaliceVisibleOutputIndices = new Set(layout.visibleOutputIndices);
-	// Nodes 2.0 measures the private concrete slot collection directly. Keep the
-	// public 32-slot protocol intact, but expose only the active prefix to native
-	// layout and hit testing so unused outputs cannot reserve phantom height.
 	const concrete = node?._concreteOutputs;
 	if (Array.isArray(concrete)) {
-		const previousAll = node._aaaliceAllConcreteOutputs;
-		const expectedCount = node.outputs?.length || 0;
-		// _concreteOutputs is filtered below. Only replace the retained complete
-		// collection when the native layer hands us every protocol slot; otherwise
-		// a zero-parameter panel could permanently lose its slots after filtering.
-		if (!Array.isArray(previousAll) || concrete.length >= expectedCount) {
-			node._aaaliceAllConcreteOutputs = concrete.slice();
-		}
-		const all = node._aaaliceAllConcreteOutputs || concrete;
-		node._concreteOutputs = all.filter((slot) => node._aaaliceVisibleOutputIndices.has(all.indexOf(slot)));
+		node._concreteOutputs = concrete.slice(0, node.outputs?.length || 0);
 	}
 	for (const row of layout.rows) {
 		if (row.kind !== "parameter") continue;
@@ -168,31 +147,20 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 		// made the painted socket look detached and narrowed the real hit target.
 		const slotOffset = (Number(globalThis.LiteGraph?.NODE_SLOT_HEIGHT) || 20) * 0.5;
 		output.pos = [layout.width + 1 - slotOffset, layout.contentTop + row.output.top];
-		output._aaaliceDisplayHidden = !layout.visibleOutputIndices.includes(row.index);
-		output._aaaliceRawIndex = row.index;
-	}
-	for (let index = layout.meta.length; index < (node.outputs?.length || 0); index += 1) {
-		const output = node.outputs[index];
-		if (!output) continue;
-		output._aaaliceDisplayHidden = true;
-		output._aaaliceRawIndex = index;
-		delete output.pos;
 	}
 	// Nodes 2.0 draws and measures concrete slot instances rather than the
 	// public `node.outputs` objects. Keep the copied presentation fields in sync
 	// after every parameter rename, theme refresh, or output reorder; otherwise
 	// labels/colors can remain stale until the node is recreated.
-	const allConcrete = node._aaaliceAllConcreteOutputs;
+	const allConcrete = node._concreteOutputs;
 	if (Array.isArray(allConcrete)) {
 		for (let rawIndex = 0; rawIndex < allConcrete.length; rawIndex += 1) {
 			const concrete = allConcrete[rawIndex];
 			const output = node.outputs?.[rawIndex];
 			if (!concrete || !output) continue;
-			concrete._aaaliceRawIndex = rawIndex;
 			for (const key of [
 				"name", "label", "localized_name", "type", "shape", "color",
-				"color_off", "color_on", "_aaaliceDisplayHidden",
-				"_aaaliceProtocolName", "_aaaliceParamId",
+				"color_off", "color_on", "_aaaliceProtocolName", "_aaaliceParamId",
 			]) {
 				if (output[key] === undefined) delete concrete[key];
 				else concrete[key] = output[key];
@@ -202,19 +170,6 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 		}
 	}
 	return layout;
-}
-
-export function withVisibleConcreteOutputs(node, callback) {
-	const concrete = node?._concreteOutputs;
-	if (!Array.isArray(concrete)) return callback();
-	const visible = node._aaaliceVisibleOutputIndices || new Set();
-	const previous = node._concreteOutputs;
-	node._concreteOutputs = concrete.filter((slot, index) => visible.has(slot?._aaaliceRawIndex ?? index));
-	try {
-		return callback();
-	} finally {
-		node._concreteOutputs = previous;
-	}
 }
 
 export function drawParameterStaticLayer(ctx, node, layout = node._aaaliceParameterLayout || computeParameterLayout(node)) {
