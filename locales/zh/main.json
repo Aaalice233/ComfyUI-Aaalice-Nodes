@@ -6,10 +6,10 @@
       "error": "错误", "notice": "提示", "save": "保存"
     },
     "receiver": {
-      "binding": { "none": "未绑定参数面板", "bound": "已绑定：{title}" },
+      "binding": { "none": "未绑定参数面板", "bound": "已绑定：{title}", "title": "绑定参数面板", "action": "绑定" },
       "status": {
-        "unbound": "尚未绑定", "synced": "已同步", "needsSync": "需要同步",
-        "sourceMissing": "源面板不存在", "kjMissing": "KJNodes 不可用"
+        "unbound": "尚未绑定参数面板，点击选择。", "synced": "已同步", "needsSync": "参数面板结构已变化，点击同步。",
+        "sourceMissing": "源面板不存在，点击重新绑定。", "kjMissing": "KJNodes 不可用，无法同步。"
       },
       "menu": {
         "bind": "🔗 绑定参数面板…", "sync": "🔄 从参数面板同步",
@@ -30,6 +30,40 @@
       "error": {
         "getApi": "KJ GetNode 命名接口不可用。", "createGet": "无法创建 KJ Get 节点。",
         "missingSet": "缺少必要的 KJ Set 节点。"
+      }
+    },
+    "enumSwitch": {
+      "status": {
+        "needsSync": "参数面板选项已变化：新增 {added} 项，移除 {removed} 项。点击同步。",
+        "sourceMissing": "绑定的枚举参数不存在，点击重新绑定。"
+      },
+      "menu": {
+        "edit": "⚙️ 编辑分支…", "bind": "🔗 绑定枚举参数…",
+        "sync": "🔄 从参数面板同步", "detach": "✂️ 解除绑定"
+      },
+      "editor": {
+        "title": "编辑枚举切换分支", "branchLabel": "分支 {index}",
+        "moveUp": "上移", "moveDown": "下移", "add": "添加分支"
+      },
+      "binding": {
+        "title": "绑定枚举参数", "bind": "绑定",
+        "noEnums": "当前工作流中没有可绑定的枚举或下拉参数。"
+      },
+      "confirm": {
+        "removeImpact": "同步或编辑会移除 {count} 个已有连线的分支，这些连线将被断开。"
+      },
+      "toast": { "synced": "枚举切换已同步：{count} 个分支。" },
+      "validation": {
+        "branchCount": "枚举切换需要 1–{count} 个分支。",
+        "branchIds": "分支 ID 不能重复。",
+        "emptyKey": "分支 key 不能为空。",
+        "duplicateKey": "分支 key 重复：{key}"
+      },
+      "error": {
+        "noOptions": "绑定的枚举没有选项。",
+        "tooManyOptions": "绑定的枚举超过 {count} 个选项。",
+        "emptyOption": "绑定的枚举包含空选项。",
+        "duplicateOptions": "绑定的枚举包含重复选项。"
       }
     },
     "pcp": {

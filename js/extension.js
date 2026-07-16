@@ -4,6 +4,7 @@ import { ensureI18nReady } from "./i18n.js";
 
 import "./parameter_panel.js";
 import "./parameter_receiver.js";
+import "./enum_switch.js";
 
 function injectStyles() {
 	for (const filename of ["ui.css", "theme.css"]) {

@@ -4,7 +4,6 @@ export const RECEIVER_LAYOUT = Object.freeze({
 	minWidth: 240,
 	headerHeight: 32,
 	rowHeight: 30,
-	footerHeight: 30,
 	emptyRowsHeight: 28,
 });
 
@@ -16,13 +15,12 @@ export function computeReceiverLayout(node, count) {
 		width: Math.max(RECEIVER_LAYOUT.minWidth, Number(node?.size?.[0]) || RECEIVER_LAYOUT.minWidth),
 		contentTop,
 		visibleCount,
-		height: RECEIVER_LAYOUT.headerHeight + rowsHeight + RECEIVER_LAYOUT.footerHeight,
+		height: RECEIVER_LAYOUT.headerHeight + rowsHeight,
 		rows: Array.from({ length: visibleCount }, (_, index) => ({
 			index,
 			top: RECEIVER_LAYOUT.headerHeight + RECEIVER_LAYOUT.rowHeight * index,
 			center: RECEIVER_LAYOUT.headerHeight + RECEIVER_LAYOUT.rowHeight * (index + 0.5),
 		})),
-		footerTop: RECEIVER_LAYOUT.headerHeight + rowsHeight,
 	};
 }
 

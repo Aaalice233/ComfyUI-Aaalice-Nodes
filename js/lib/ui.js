@@ -5,6 +5,7 @@ const ICON_PATHS = {
 	add: "M12 5v14M5 12h14",
 	copy: "M8 8h11v11H8zM5 16H4V5h11v1",
 	delete: "M4 7h16M9 11v5m6-5v5M8 7l1-3h6l1 3m2 0-1 13H7L6 7",
+	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
 	unlock: "M17 11V8a5 5 0 0 0-9.6-2M5 11h14v10H5z",
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",

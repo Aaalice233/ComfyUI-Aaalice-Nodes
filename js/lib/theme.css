@@ -476,6 +476,20 @@
 .aaalice-editor-rules-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
 .aaalice-editor-rules-body { gap: 18px; }
 .aaalice-editor-rules-body :is(input, select) { min-height: 40px; }
+
+/* EnumSwitch keeps status interactive in DOM while native slots own links. */
+.aaalice-enum-status { display: flex; height: 30px; min-width: 0; align-items: center; justify-content: flex-end; padding: 0 4px; pointer-events: none; }
+.aaalice-enum-status[hidden] { display: none !important; }
+.aaalice-enum-sync { color: var(--aa-ui-muted); pointer-events: auto; }
+.aaalice-enum-sync.is-warning { color: var(--p-orange-400, var(--p-primary-color, var(--primary-color))); }
+.aaalice-enum-sync.is-error,
+.aaalice-enum-sync.is-missing { color: var(--aa-ui-danger); }
+.aaalice-enum-editor-list { display: grid; gap: 8px; }
+.aaalice-enum-editor-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 32px); gap: 6px; align-items: center; }
+.aaalice-enum-editor-row input { min-width: 0; }
+.aaalice-enum-editor-row .is-up .aa-ui-icon { transform: rotate(180deg); }
+.aaalice-enum-editor-error { min-height: 18px; color: var(--aa-ui-danger); font-size: 12px; }
+[data-aaalice-enum-hidden="true"] { display: none !important; }
 .aaalice-editor-number-input { font-variant-numeric: tabular-nums !important; font-feature-settings: "tnum" 1; }
 .aaalice-parameter-editor-footer { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
 .aaalice-parameter-editor > .aa-ui-dialog__footer { min-height: 62px; padding: 10px 18px; background: color-mix(in srgb, var(--aaalice-surface) 92%, var(--aa-ui-canvas)); }
@@ -579,34 +593,18 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.aaalice-receiver-status {
+.aaalice-receiver-binding.has-status { padding-right: 34px; }
+.aaalice-receiver-status-action {
 	position: absolute;
-	top: var(--aaalice-receiver-footer-top, 60px);
-	right: 10px;
-	left: 10px;
-	display: flex;
+	top: 1px;
+	right: 6px;
 	height: 30px;
-	align-items: center;
-	gap: 7px;
-	border-top: 1px solid color-mix(in srgb, var(--border-color, #444) 54%, transparent);
-	color: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
-	font-size: 12px;
-	font-weight: 600;
+	pointer-events: auto;
 }
-.aaalice-receiver-status__mark {
-	display: inline-grid;
-	width: 16px;
-	height: 16px;
-	place-items: center;
-	font-size: 11px;
-	line-height: 1;
-}
-.aaalice-receiver-status__mark .aa-ui-icon { width: 11px; height: 11px; }
-.aaalice-receiver-status.is-success { color: var(--p-green-400, var(--success-text, #62b77b)); }
-.aaalice-receiver-status.is-warning { color: var(--p-orange-400, var(--warning-text, #d6a756)); }
-.aaalice-receiver-status.is-error,
-.aaalice-receiver-status.is-missing { color: var(--error-text, var(--p-red-400, #d66d75)); }
-.aaalice-receiver-status.is-unbound { color: var(--descrip-text, var(--p-text-muted-color, #9ca3af)); }
+.aaalice-receiver-status-action.is-warning { color: var(--p-orange-400, var(--warning-text, #d6a756)); }
+.aaalice-receiver-status-action.is-error,
+.aaalice-receiver-status-action.is-missing { color: var(--error-text, var(--p-red-400, #d66d75)); }
+.aaalice-receiver-status-action.is-unbound { color: var(--descrip-text, var(--p-text-muted-color, #9ca3af)); }
 .aaalice-parameter-receiver-node [data-aaalice-receiver-hidden="true"] { display: none !important; }
 .aaalice-parameter-receiver-node .aaalice-receiver-node-body {
 	position: relative;

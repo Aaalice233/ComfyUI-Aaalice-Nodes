@@ -8,6 +8,14 @@
     },
     "outputs": { "0": { "name": "Parts", "tooltip": "Split segments as a list" } }
   },
+  "EnumSwitch": {
+    "display_name": "Enum Switch",
+    "description": "Select one lazy branch by an exact string value.",
+    "inputs": {
+      "selector": { "name": "Selector", "tooltip": "Connect the string value used to select a matching branch." }
+    },
+    "outputs": { "0": { "name": "Output", "tooltip": "Value from the selected branch." } }
+  },
   "ParameterPanel": {
     "display_name": "Parameter Panel",
     "description": "Edit one parameter set and emit up to 32 direct values; edit structure from the node context menu.",

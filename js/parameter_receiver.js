@@ -1,7 +1,7 @@
 /** ParameterReceiver binding, synchronization, compact UI and lifecycle. */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
-import { el, icon } from "./lib/ui.js";
+import { button, createDialog, el, iconButton } from "./lib/ui.js";
 import {
 	EVENT_PARAMETER_CHANGED,
 	displayName,
@@ -222,21 +222,25 @@ function render(receiver) {
 		? t("aaalice.receiver.binding.none", "No parameter panel bound")
 		: message("aaalice.receiver.binding.bound", "Bound: {title}", { title: current.panelTitle || "ParameterPanel" });
 	const state = statusFor(receiver);
-	const statusIcon = {
-		success: "statusCheck", warning: "statusWarning", unbound: "statusIdle",
-		error: "statusError", missing: "statusError",
-	}[state.kind];
-	root.replaceChildren(
-		el("div", { className: "aaalice-receiver-binding", text: source, attrs: { title: source } }),
-		el("div", {
-			className: `aaalice-receiver-status is-${state.kind}`,
-			attrs: { role: "status", "aria-live": "polite" },
-			children: [el("span", { className: "aaalice-receiver-status__mark", children: [icon(statusIcon)] }), state.text],
-		}),
-	);
+	const showStatus = state.kind !== "success";
+	root.replaceChildren(el("div", {
+		className: `aaalice-receiver-binding${showStatus ? " has-status" : ""}`,
+		text: source,
+		attrs: { title: source },
+	}));
+	if (showStatus) {
+		const statusIcon = { warning: "statusWarning", unbound: "link", error: "statusError", missing: "statusError" }[state.kind];
+		root.append(iconButton({
+			iconName: statusIcon,
+			label: state.text,
+			title: state.text,
+			variant: "ghost",
+			className: `aaalice-receiver-status-action is-${state.kind}`,
+			onClick: () => quickStatusAction(receiver, state),
+		}));
+	}
 	const layout = syncSlotPresentation(receiver);
 	root.style.setProperty("--aaalice-receiver-height", `${layout.height}px`);
-	root.style.setProperty("--aaalice-receiver-footer-top", `${layout.footerTop}px`);
 	const widget = receiver.widgets?.find((item) => item.name === "aaalice_parameter_receiver");
 	if (widget) {
 		widget.computedHeight = layout.height;
@@ -254,6 +258,53 @@ async function confirmAction(text) {
 		title: t("aaalice.common.confirm", "Confirm"), message: text,
 	}));
 	return globalThis.confirm(text);
+}
+
+function openBindingDialog(receiver) {
+	const panels = (receiver.graph?._nodes || []).filter(isParameterPanel);
+	if (!panels.length) {
+		nativeToast("error", t("aaalice.receiver.menu.noPanels", "No Parameter Panels in this graph"));
+		return;
+	}
+	const labels = disambiguatePanelLabels(panels);
+	const select = document.createElement("select");
+	for (let index = 0; index < panels.length; index += 1) select.add(new Option(labels[index], String(index)));
+	const currentIndex = panels.findIndex((panel) => String(panel.id) === String(binding(receiver).panelNodeId));
+	if (currentIndex >= 0) select.value = String(currentIndex);
+	const footer = el("footer");
+	const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary" });
+	const bind = button({ label: t("aaalice.receiver.binding.action", "Bind") });
+	footer.append(cancel, bind);
+	const body = el("div", { className: "aaalice-modal-body", children: [select] });
+	const dialog = createDialog({ title: t("aaalice.receiver.binding.title", "Bind Parameter Panel"), body, footer });
+	cancel.addEventListener("click", () => dialog.close());
+	bind.addEventListener("click", () => {
+		const panel = panels[Number(select.value)];
+		if (!panel) return;
+		dialog.close();
+		runStatusAction(synchronize(receiver, panel));
+	});
+}
+
+function runStatusAction(action) {
+	Promise.resolve(action).catch((error) => {
+		console.error("[Aaalice] ParameterReceiver status action failed", error);
+		nativeToast("error", message("aaalice.receiver.toast.syncFailed", "Parameter Receiver sync failed: {reason}", { reason: error?.message || String(error) }));
+	});
+}
+
+function quickStatusAction(receiver, state) {
+	if (state.kind === "warning") {
+		const panel = panelFor(receiver);
+		if (panel) runStatusAction(synchronize(receiver, panel));
+		else openBindingDialog(receiver);
+		return;
+	}
+	if (["unbound", "missing"].includes(state.kind)) {
+		openBindingDialog(receiver);
+		return;
+	}
+	nativeToast("error", state.text);
 }
 
 function setGetName(getNode, name) {

@@ -6,10 +6,10 @@
       "error": "Error", "notice": "Notice", "save": "Save"
     },
     "receiver": {
-      "binding": { "none": "No parameter panel bound", "bound": "Bound: {title}" },
+      "binding": { "none": "No parameter panel bound", "bound": "Bound: {title}", "title": "Bind Parameter Panel", "action": "Bind" },
       "status": {
-        "unbound": "Not bound", "synced": "Synced", "needsSync": "Needs sync",
-        "sourceMissing": "Source panel missing", "kjMissing": "KJNodes unavailable"
+        "unbound": "No Parameter Panel is bound. Click to select one.", "synced": "Synced", "needsSync": "The Parameter Panel structure changed. Click to synchronize.",
+        "sourceMissing": "The source panel is missing. Click to bind another one.", "kjMissing": "KJNodes is unavailable, so synchronization cannot run."
       },
       "menu": {
         "bind": "🔗 Bind Parameter Panel…", "sync": "🔄 Sync from Parameter Panel",
@@ -30,6 +30,40 @@
       "error": {
         "getApi": "KJ GetNode naming API is unavailable.", "createGet": "Unable to create a KJ Get node.",
         "missingSet": "A required KJ Set node is missing."
+      }
+    },
+    "enumSwitch": {
+      "status": {
+        "needsSync": "Parameter options changed: {added} added, {removed} removed. Click to synchronize.",
+        "sourceMissing": "The bound enum parameter is missing. Click to bind another source."
+      },
+      "menu": {
+        "edit": "⚙️ Edit Branches…", "bind": "🔗 Bind Enum Parameter…",
+        "sync": "🔄 Sync from Parameter Panel", "detach": "✂️ Detach"
+      },
+      "editor": {
+        "title": "Edit Enum Switch branches", "branchLabel": "Branch {index}",
+        "moveUp": "Move up", "moveDown": "Move down", "add": "Add branch"
+      },
+      "binding": {
+        "title": "Bind enum parameter", "bind": "Bind",
+        "noEnums": "No enum or dropdown parameters are available in this graph."
+      },
+      "confirm": {
+        "removeImpact": "Synchronizing or editing removes {count} connected branch(es). Their links will be disconnected."
+      },
+      "toast": { "synced": "Enum Switch synchronized: {count} branches." },
+      "validation": {
+        "branchCount": "Enum Switch requires 1 to {count} branches.",
+        "branchIds": "Branch ids must be unique.",
+        "emptyKey": "Branch keys cannot be empty.",
+        "duplicateKey": "Duplicate branch key: {key}"
+      },
+      "error": {
+        "noOptions": "The bound enum has no options.",
+        "tooManyOptions": "The bound enum has more than {count} options.",
+        "emptyOption": "The bound enum contains an empty option.",
+        "duplicateOptions": "The bound enum contains duplicate options."
       }
     },
     "pcp": {

@@ -14,7 +14,7 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 | Status | Progress | Next |
 |:---:|:---:|:---:|
-| Reset in progress | **3 / 23 nodes** | #3 `EnumSwitch` |
+| Reset in progress | **4 / 23 nodes** | #4 `SimpleNotify` |
 
 ## Requirements
 
@@ -56,6 +56,7 @@ pip install -r requirements.txt
 |---|---|---|
 | `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose up to 32 direct outputs. |
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
+| `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 
 <details>
@@ -68,6 +69,7 @@ Stable ids are inherited from the reset plan and are not renumbered when priorit
 | # | Current implementation | Purpose |
 |---:|---|---|
 | 1 | `SimpleStringSplit` | Split text into a cleaned string list. |
+| 3 | `EnumSwitch` | Lazily route one type-matched branch by an exact string key. |
 | 15 | `ParameterPanel` | Author and directly output up to 32 parameters. |
 | 16 | `ParameterReceiver` | Receive the panel's KJ Get values through stable pass-through slots. |
 
@@ -81,32 +83,41 @@ Stable ids are inherited from the reset plan and are not renumbered when priorit
 
 | Order | # | Legacy id | Domain | Purpose |
 |---:|---:|---|---|---|
-| 1 | 3 | `EnumSwitch` | tools | Route by enum. |
-| 2 | 4 | `SimpleNotify` | tools | Notify when executed. |
-| 3 | 5 | `WorkflowDescription` | tools | On-graph workflow notes. |
-| 4 | 17 | `GroupIsEnabled` | control | Report whether a group is enabled. |
-| 5 | 18 | `GroupMuteManager` | control | Batch mute workflow groups. |
-| 6 | 19 | `GroupIgnoreManager` | control | Batch ignore workflow groups. |
-| 7 | 10 | `PromptCleaningMaid` | prompt | Clean and deduplicate tags. |
-| 8 | 11 | `PromptSelector` | prompt | Select prompts from a checklist. |
-| 9 | 12 | `CharacterFeatureSwapNode` | prompt | Swap character features. |
-| 10 | 21 | `DanbooruGalleryNode` | gallery | Search gallery images and tags. |
-| 11 | 22 | `MultiCharacterEditorNode` | gallery | Edit multi-character prompts. |
-| 12 | 7 | `ModelNameExtractor` | tools | Extract a readable model name. |
-| 13 | 14 | `SimpleCheckpointLoaderWithName` | media | Load a checkpoint with its name and preview. |
-| 14 | 8 | `ResolutionMasterSimplify` | tools | Resolution and size helper. |
-| 15 | 24 | `FetchFromKrita` | krita | Pull content from Krita. |
-| 16 | 25 | `OpenInKrita` | krita | Open content in Krita; implemented together with #24. |
-| 17 | 9 | `SimpleLoadImage` | tools | Load a local image and mask. |
-| 18 | 6 | `VAEImageBatchFix` | tools | Correct VAE batch shapes. |
-| 19 | 13 | `SimpleImageCompare` | media | Compare images interactively. |
-| 20 | 23 | `SaveImagePlus` | media | Save images with additional controls. |
+| 1 | 4 | `SimpleNotify` | tools | Notify when executed. |
+| 2 | 5 | `WorkflowDescription` | tools | On-graph workflow notes. |
+| 3 | 17 | `GroupIsEnabled` | control | Report whether a group is enabled. |
+| 4 | 18 | `GroupMuteManager` | control | Batch mute workflow groups. |
+| 5 | 19 | `GroupIgnoreManager` | control | Batch ignore workflow groups. |
+| 6 | 10 | `PromptCleaningMaid` | prompt | Clean and deduplicate tags. |
+| 7 | 11 | `PromptSelector` | prompt | Select prompts from a checklist. |
+| 8 | 12 | `CharacterFeatureSwapNode` | prompt | Swap character features. |
+| 9 | 21 | `DanbooruGalleryNode` | gallery | Search gallery images and tags. |
+| 10 | 22 | `MultiCharacterEditorNode` | gallery | Edit multi-character prompts. |
+| 11 | 7 | `ModelNameExtractor` | tools | Extract a readable model name. |
+| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | Load a checkpoint with its name and preview. |
+| 13 | 8 | `ResolutionMasterSimplify` | tools | Resolution and size helper. |
+| 14 | 24 | `FetchFromKrita` | krita | Pull content from Krita. |
+| 15 | 25 | `OpenInKrita` | krita | Open content in Krita; implemented together with #24. |
+| 16 | 9 | `SimpleLoadImage` | tools | Load a local image and mask. |
+| 17 | 6 | `VAEImageBatchFix` | tools | Correct VAE batch shapes. |
+| 18 | 13 | `SimpleImageCompare` | media | Compare images interactively. |
+| 19 | 23 | `SaveImagePlus` | media | Save images with additional controls. |
 
 ### Non-node schedule
 
 | # | Frontend extension | Prerequisite nodes | Purpose |
 |---:|---|---|---|
 | 20 | Quick Group Navigation | #17–#19 group-management nodes | Navigate workflow groups from a floating UI. |
+
+</details>
+
+<details>
+<summary><strong>EnumSwitch — lazy enum routing</strong></summary>
+
+- Match `selector` against 1–32 exact branch keys; unmatched or unconnected branches fail visibly.
+- Only the selected lazy branch executes, and every branch shares one inferred connection type.
+- Right-click and choose **⚙️ Edit Branches…** for standalone use.
+- A direct enum/dropdown output from ParameterPanel or ParameterReceiver is detected automatically. When its options change, the warning icon offers an explicit sync that preserves unchanged branch links.
 
 </details>
 
