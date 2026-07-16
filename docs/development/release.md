@@ -1,6 +1,6 @@
-# Release
+# 发布流程
 
-## Registry metadata
+## Registry 元数据
 
 - Package: `comfyui-aaalice-nodes`
 - Publisher: `aaalice`
@@ -30,3 +30,4 @@
 - 在 Registry / Manager 确认新版本、图标、banner 和 README 正常显示。
 - 从发布包安装一次，确认 `.comfyignore` 没有误排运行时文件。
 - 记录真实用户可见的 breaking change；内部重构和测试流水不写入 README。
+- GitHub Actions 上传成功且 Registry 已生成对应版本记录即可结束发布验收；`NodeVersionStatusPending` 表示等待审核，不需要持续等待变为 `Active`。

@@ -1,7 +1,19 @@
-# Workflow serialization is the source of truth for panel parameters
+# ADR 0003：工作流序列化是参数状态真源
 
 Status: Accepted.
 
-The legacy design kept parameter state in process-global server memory synced over HTTP. That breaks after restart, confuses multi-worker setups, and diverges from what is saved in the workflow.
+## 背景
 
-The ordered parameter definitions and values live in ParameterPanel node properties. Prompt serialization injects one parameter payload only for execution; the backend builds the 32 direct outputs from that payload. No process-global service state participates.
+旧设计把参数状态保存在服务端进程全局内存中，并通过 HTTP 同步。这会在重启后丢失状态，在多 worker 环境中产生分歧，也可能与工作流文件实际保存的内容不一致。
+
+## 决策
+
+有序参数定义和当前值保存在 ParameterPanel 的 `node.properties` 中。生成 prompt 时，前端只为本次执行注入参数 payload；后端根据该 payload 构建 32 路直接输出。
+
+任何进程全局服务状态都不得参与参数持久化或执行结果判断。
+
+## 结果
+
+- 保存、加载、复制、撤销和重做都围绕同一个工作流状态真源。
+- 后端保持无会话状态，不需要额外同步接口。
+- 内部执行 payload 只是序列化结果，不是第二份持久状态。

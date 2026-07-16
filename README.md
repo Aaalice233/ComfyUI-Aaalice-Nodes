@@ -14,7 +14,7 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 | Status | Progress | Next |
 |:---:|:---:|:---:|
-| Reset in progress | **4 / 23 nodes** | #4 `SimpleNotify` |
+| Reset in progress | **5 / 23 nodes** | #5 `WorkflowDescription` |
 
 ## Requirements
 
@@ -58,58 +58,7 @@ pip install -r requirements.txt
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
-
-<details>
-<summary><strong>Node reset checklist and schedule</strong></summary>
-
-Stable ids are inherited from the reset plan and are not renumbered when priorities change. The schedule counts nodes only and follows dependencies and reuse between nodes. One node is implemented at a time. The package skeleton and non-node frontend extensions do not count toward node progress. `ParameterReceiver` now fulfills #16, which was previously named `ParameterBreak`.
-
-### Completed
-
-| # | Current implementation | Purpose |
-|---:|---|---|
-| 1 | `SimpleStringSplit` | Split text into a cleaned string list. |
-| 3 | `EnumSwitch` | Lazily route one type-matched branch by an exact string key. |
-| 15 | `ParameterPanel` | Author and directly output up to 32 parameters. |
-| 16 | `ParameterReceiver` | Receive the panel's KJ Get values through stable pass-through slots. |
-
-### Dropped
-
-| # | Legacy id | Reason |
-|---:|---|---|
-| 2 | `SimpleValueSwitch` | Out of scope; not useful enough to reset. |
-
-### Node schedule
-
-| Order | # | Legacy id | Domain | Purpose |
-|---:|---:|---|---|---|
-| 1 | 4 | `SimpleNotify` | tools | Notify when executed. |
-| 2 | 5 | `WorkflowDescription` | tools | On-graph workflow notes. |
-| 3 | 17 | `GroupIsEnabled` | control | Report whether a group is enabled. |
-| 4 | 18 | `GroupMuteManager` | control | Batch mute workflow groups. |
-| 5 | 19 | `GroupIgnoreManager` | control | Batch ignore workflow groups. |
-| 6 | 10 | `PromptCleaningMaid` | prompt | Clean and deduplicate tags. |
-| 7 | 11 | `PromptSelector` | prompt | Select prompts from a checklist. |
-| 8 | 12 | `CharacterFeatureSwapNode` | prompt | Swap character features. |
-| 9 | 21 | `DanbooruGalleryNode` | gallery | Search gallery images and tags. |
-| 10 | 22 | `MultiCharacterEditorNode` | gallery | Edit multi-character prompts. |
-| 11 | 7 | `ModelNameExtractor` | tools | Extract a readable model name. |
-| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | Load a checkpoint with its name and preview. |
-| 13 | 8 | `ResolutionMasterSimplify` | tools | Resolution and size helper. |
-| 14 | 24 | `FetchFromKrita` | krita | Pull content from Krita. |
-| 15 | 25 | `OpenInKrita` | krita | Open content in Krita; implemented together with #24. |
-| 16 | 9 | `SimpleLoadImage` | tools | Load a local image and mask. |
-| 17 | 6 | `VAEImageBatchFix` | tools | Correct VAE batch shapes. |
-| 18 | 13 | `SimpleImageCompare` | media | Compare images interactively. |
-| 19 | 23 | `SaveImagePlus` | media | Save images with additional controls. |
-
-### Non-node schedule
-
-| # | Frontend extension | Prerequisite nodes | Purpose |
-|---:|---|---|---|
-| 20 | Quick Group Navigation | #17–#19 group-management nodes | Navigate workflow groups from a floating UI. |
-
-</details>
+| `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
 
 <details>
 <summary><strong>EnumSwitch — lazy enum routing</strong></summary>
@@ -152,6 +101,15 @@ KJNodes is optional for the package as a whole. Without it, ParameterReceiver wo
 </details>
 
 <details>
+<summary><strong>SimpleNotify — execution-point alerts</strong></summary>
+
+Connect any value to receive one alert when execution reaches the node, then continue with the unchanged value. Desktop notifications and the bundled sound can be enabled independently, and sound volume is configurable. Use **🔔 Enable and Test Alerts** from the node menu to request browser permission and test the enabled channels.
+
+The alert confirms only that execution reached this node. It does not wait for other parallel branches or for the queue to become empty. Browser/API restrictions can prevent desktop notifications or audio; headless API and CLI runs have no frontend alert surface.
+
+</details>
+
+<details>
 <summary><strong>SimpleStringSplit — cleaned text splitting</strong></summary>
 
 Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
@@ -164,6 +122,7 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 - App Mode is not supported.
 - Structural frontend updates can require recreating existing node instances after refresh.
 - ParameterReceiver only binds a ParameterPanel in the current graph; it does not search inside subgraphs.
+- SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
 
 Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) installed separately if you still need its original nodes.
 

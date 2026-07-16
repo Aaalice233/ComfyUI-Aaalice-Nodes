@@ -14,7 +14,7 @@
 
 | 状态 | 进度 | 下一项 |
 |:---:|:---:|:---:|
-| 重置进行中 | **4 / 23 个节点** | #4 `SimpleNotify` |
+| 重置进行中 | **5 / 23 个节点** | #5 `WorkflowDescription` |
 
 ## 环境要求
 
@@ -58,58 +58,7 @@ pip install -r requirements.txt
 | `ParameterReceiver` | `Aaalice/control` | 绑定 ParameterPanel，将对应的 KJ Get 收束到一个紧凑输出节点。 |
 | `EnumSwitch` | `Aaalice/tools` | 根据精确匹配的字符串，只执行并输出对应分支。 |
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
-
-<details>
-<summary><strong>节点重置清单与排期</strong></summary>
-
-稳定编号继承自重置计划，调整优先级时不重编号；排期只统计节点，并按节点之间的依赖和复用关系排序，每次只实现一个节点。包骨架和非节点前端扩展不计入节点进度。`ParameterReceiver` 现承接 #16 的职责，该节点原名为 `ParameterBreak`。
-
-### 已完成
-
-| # | 当前实现 | 用途 |
-|---:|---|---|
-| 1 | `SimpleStringSplit` | 将文本拆分为清理后的字符串列表。 |
-| 3 | `EnumSwitch` | 按精确字符串 key 惰性选通同类型分支。 |
-| 15 | `ParameterPanel` | 创作并直接输出最多 32 个参数。 |
-| 16 | `ParameterReceiver` | 通过稳定的透传槽接收面板对应的 KJ Get 值。 |
-
-### 已砍
-
-| # | 旧节点 ID | 原因 |
-|---:|---|---|
-| 2 | `SimpleValueSwitch` | 不在范围内，实用价值不足，不重写。 |
-
-### 节点排期
-
-| 顺序 | # | 旧节点 ID | 域 | 用途 |
-|---:|---:|---|---|---|
-| 1 | 4 | `SimpleNotify` | tools | 执行时发送通知。 |
-| 2 | 5 | `WorkflowDescription` | tools | 在工作流画布上添加说明。 |
-| 3 | 17 | `GroupIsEnabled` | control | 输出组是否启用。 |
-| 4 | 18 | `GroupMuteManager` | control | 批量静音工作流组。 |
-| 5 | 19 | `GroupIgnoreManager` | control | 批量忽略工作流组。 |
-| 6 | 10 | `PromptCleaningMaid` | prompt | 清洗并去重标签。 |
-| 7 | 11 | `PromptSelector` | prompt | 从清单中选择提示词。 |
-| 8 | 12 | `CharacterFeatureSwapNode` | prompt | 交换角色特征。 |
-| 9 | 21 | `DanbooruGalleryNode` | gallery | 搜索图库图像与标签。 |
-| 10 | 22 | `MultiCharacterEditorNode` | gallery | 编辑多角色提示词。 |
-| 11 | 7 | `ModelNameExtractor` | tools | 提取可读模型名。 |
-| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | 加载模型并输出名称与预览。 |
-| 13 | 8 | `ResolutionMasterSimplify` | tools | 分辨率与尺寸辅助。 |
-| 14 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
-| 15 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容；与 #24 配套实现。 |
-| 16 | 9 | `SimpleLoadImage` | tools | 加载本地图像和遮罩。 |
-| 17 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
-| 18 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
-| 19 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
-
-### 非节点排期
-
-| # | 前端扩展 | 前置节点 | 用途 |
-|---:|---|---|---|
-| 20 | Quick Group Navigation | #17–#19 组管理节点 | 通过浮动界面快速导航工作流组。 |
-
-</details>
+| `SimpleNotify` | `Aaalice/tools` | 执行到达时按开关发送桌面通知和提示音，并原样透传输入值。 |
 
 <details>
 <summary><strong>EnumSwitch — 惰性枚举选通</strong></summary>
@@ -152,6 +101,15 @@ KJNodes 对整个包是可选依赖。未安装时，包含 ParameterReceiver �
 </details>
 
 <details>
+<summary><strong>SimpleNotify — 执行到达提醒</strong></summary>
+
+连接任意类型的值后，执行到达该节点时提醒一次，再将输入值原样传给下游。桌面通知和内置提示音可独立开关，并可调节音量。通过节点右键菜单的 **🔔 启用并测试提醒** 申请浏览器权限并测试当前启用的提醒方式。
+
+提醒只证明执行已经到达该节点，不会等待其它并行分支或整个队列清空。浏览器权限和自动播放策略可能阻止桌面通知或声音；无前端页面的 API、CLI 执行不会产生提醒。
+
+</details>
+
+<details>
 <summary><strong>SimpleStringSplit — 清理式文本拆分</strong></summary>
 
 输入文本并选择 `,` 或 `|` 作为分隔符。节点会清理每段首尾空白、丢弃空段，并以字符串列表输出剩余内容。
@@ -164,6 +122,7 @@ KJNodes 对整个包是可选依赖。未安装时，包含 ParameterReceiver �
 - 暂不支持 App Mode。
 - 前端结构变更后，已有节点实例可能需要在刷新后重新创建。
 - ParameterReceiver 只绑定当前图中的 ParameterPanel，不会跨子图搜索。
+- SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
 
 如果仍需旧节点，请单独保留 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。
 

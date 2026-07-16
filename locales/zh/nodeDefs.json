@@ -8,6 +8,18 @@
     },
     "outputs": { "0": { "name": "分段", "tooltip": "拆分后的字符串列表" } }
   },
+  "SimpleNotify": {
+    "display_name": "简易通知",
+    "description": "执行到达该节点时按开关发送提醒，并将输入值原样传递到输出。",
+    "inputs": {
+      "value": { "name": "值", "tooltip": "作为执行依赖，并原样传递到输出。" },
+      "message": { "name": "消息", "tooltip": "通知正文；留空时使用当前语言的默认文案。" },
+      "desktop_notification": { "name": "桌面通知", "tooltip": "在发起执行的 ComfyUI 客户端显示桌面通知。" },
+      "sound": { "name": "提示音", "tooltip": "在发起执行的 ComfyUI 客户端播放内置提示音。" },
+      "volume": { "name": "音量", "tooltip": "提示音音量，范围为 0–1。" }
+    },
+    "outputs": { "0": { "name": "值", "tooltip": "未经修改的输入值。" } }
+  },
   "EnumSwitch": {
     "display_name": "枚举切换",
     "description": "根据精确匹配的字符串值，仅执行并输出对应分支。",

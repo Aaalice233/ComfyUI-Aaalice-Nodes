@@ -8,6 +8,18 @@
     },
     "outputs": { "0": { "name": "Parts", "tooltip": "Split segments as a list" } }
   },
+  "SimpleNotify": {
+    "display_name": "Simple Notify",
+    "description": "Send enabled alerts when execution reaches this node, then pass the input value through unchanged.",
+    "inputs": {
+      "value": { "name": "Value", "tooltip": "Value used as the execution dependency and passed through unchanged." },
+      "message": { "name": "Message", "tooltip": "Notification text; leave empty to use the localized default." },
+      "desktop_notification": { "name": "Desktop notification", "tooltip": "Show a desktop notification in the initiating ComfyUI client." },
+      "sound": { "name": "Sound", "tooltip": "Play the bundled alert sound in the initiating ComfyUI client." },
+      "volume": { "name": "Volume", "tooltip": "Alert sound volume from 0 to 1." }
+    },
+    "outputs": { "0": { "name": "Value", "tooltip": "The unchanged input value." } }
+  },
   "EnumSwitch": {
     "display_name": "Enum Switch",
     "description": "Select one lazy branch by an exact string value.",

@@ -1,25 +1,30 @@
 # 开发文档
 
-本目录只存放项目的持久技术文档，并通过 `.comfyignore` 排除在 Registry 安装包之外。用户安装与使用说明位于根目录 [README](../README.md) / [中文 README](../README.zh-CN.md)，开发硬规则位于 [AGENTS.md](../AGENTS.md)，领域词汇位于 [CONTEXT.md](../CONTEXT.md)。
+本目录只保存需要长期维护的技术文档，并通过 `.comfyignore` 排除在 Registry 安装包之外。
 
-## 架构决策
+`AGENTS.md` 是 AI 与协作者的开发上下文总入口。会影响实现或验收的文档必须同时以 `@相对路径` 登记在 `AGENTS.md`；本页只负责供人浏览和分类，不承担上下文注入。
 
-[`adr/`](adr/) 记录难逆、存在真实取舍且仅看代码无法解释的决策。当前索引见 [ADR README](adr/README.md)。
+## 文档入口
 
-## 设计规范
+| 文档 | 面向对象 | 内容 |
+|---|---|---|
+| [English README](../README.md) / [中文 README](../README.zh-CN.md) | 用户 | 安装、节点用法、公开限制和预览进度 |
+| [AGENTS.md](../AGENTS.md) | 协作者 | 开发硬规则和验收门槛 |
+| [CONTEXT.md](../CONTEXT.md) | 产品与开发 | 领域词汇和统一称呼 |
+| [架构](development/architecture.md) | 开发者 | 模块边界、状态真源和数据流 |
+| [路线图](development/roadmap.md) | 维护者 | 稳定编号、完成状态和内部排期 |
+| [测试](development/testing.md) | 开发者 | 静态、单测、隔离 GUI 和人工验收 runbook |
+| [发布](development/release.md) | 发布者 | Registry 发布与发布后确认 |
 
-- [UI 设计系统](design/ui-system.md)：主题 token、共享组件、状态与可访问性规则。
-- [ParameterPanel](design/parameter-panel.md)：节点面、参数控件、结构编辑器与双模式渲染。
+## 设计与决策
 
-## 开发说明
+- [UI 设计系统](design/ui-system.md)：主题 token、共享组件、状态和可访问性。
+- [ParameterPanel 设计](design/parameter-panel.md)：节点面、结构编辑器、ParameterReceiver 和双模式渲染。
+- [ADR 索引](adr/README.md)：当前有效和历史架构决策。
 
-- [Architecture](development/architecture.md)：节点、前端模块、数据流和状态真源。
-- [Testing](development/testing.md)：静态检查、后端测试和双模式 GUI 回归。
-- [Release](development/release.md)：Registry 发布前检查与 GitHub Actions 流程。
+## 收录规则
 
-## 收录原则
-
-- 一次性调查记录、聊天结论、截图和本机故障笔记不进入仓库。
-- 面向普通用户的行为写入双语 README，不在开发文档重复维护。
-- 硬性规则写入 AGENTS.md；本目录解释结构、设计和可重复操作。
-- 已删除且未发布的开发中功能不保留迁移说明或历史文档。
+- README 只写用户能观察或操作的内容，不写内部排期和测试过程。
+- `AGENTS.md` 只写硬规则；具体命令和操作步骤进入对应 runbook。
+- ADR 只记录难逆且存在真实方案取舍的决策。
+- 一次性调查、聊天结论、本机故障记录、测试截图和已删除的未发布中间态不进入仓库。

@@ -1,9 +1,19 @@
-# ParameterReceiver uses visible Get nodes and explicit structural sync
+# ADR 0004：ParameterReceiver 使用可见 Get 与显式结构同步
 
 Status: Accepted.
 
-ParameterReceiver is a real 32-route backend pass-through node. Its frontend binding creates or reuses KJ Set nodes, creates visible collapsed KJ Get nodes, and connects those Gets to native receiver inputs. The receiver does not hide routing in an opaque payload and does not simulate KJNodes when the extension is unavailable.
+## 背景
 
-The binding identity is the ParameterPanel node id plus the stable Parameter id. Names and types may refresh automatically, but additions, removals, reordering, and broken managed links only mark the receiver as needing synchronization. Structural graph changes occur only during first bind or an explicit user sync, inside one graph change boundary and with confirmation when links or additional Get consumers are affected.
+ParameterReceiver 需要集中接收 ParameterPanel 对应的 KJ Get 值。若把路由藏在不可见 payload 中，工作流难以检查；若源面板每次编辑都自动创建、删除或移动远端节点，又会造成难以预期的图结构变化。
 
-This keeps the workflow inspectable and prevents distant nodes from being silently created or deleted while a user edits the source panel.
+## 决策
+
+ParameterReceiver 是真实的 32 路后端透传节点。前端绑定会创建或复用 KJ Set，创建可见的折叠 KJ Get，并把 Get 连接到接收器的原生输入。KJNodes 不可用时明确失败，不模拟路由。
+
+绑定身份由 ParameterPanel 节点 id 与稳定 Parameter Id 共同确定。名称和类型可以自动刷新；新增、删除、重排或托管连线损坏只标记为“需要同步”。只有首次绑定或用户显式同步时，才允许在一个图变更边界内调整结构；影响已有连线或额外 Get 使用者时必须确认。
+
+## 结果
+
+- 工作流中的路由可见、可检查，socket 和连线保持原生语义。
+- 编辑源面板不会静默创建或删除远处节点。
+- 结构同步是用户可预期、可撤销的明确操作。

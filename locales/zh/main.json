@@ -5,6 +5,19 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
+    "simpleNotify": {
+      "defaultMessage": "执行已到达简易通知节点。",
+      "menu": { "test": "🔔 启用并测试提醒" },
+      "toast": { "noChannels": "当前没有启用任何提醒方式。" },
+      "error": {
+        "notificationUnsupported": "当前浏览器不支持桌面通知。",
+        "permissionRequired": "请从节点右键菜单选择“启用并测试提醒”以开启桌面通知。",
+        "permissionDenied": "桌面通知已被阻止，请在浏览器或系统设置中手动开启。",
+        "permissionRequestFailed": "浏览器通知权限申请失败。",
+        "notificationFailed": "无法显示桌面通知。",
+        "soundFailed": "无法播放提示音，请从节点右键菜单选择“启用并测试提醒”进行测试。"
+      }
+    },
     "receiver": {
       "binding": { "none": "未绑定参数面板", "bound": "已绑定：{title}", "title": "绑定参数面板", "action": "绑定" },
       "status": {

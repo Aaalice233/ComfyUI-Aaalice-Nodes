@@ -5,6 +5,19 @@
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
       "error": "Error", "notice": "Notice", "save": "Save"
     },
+    "simpleNotify": {
+      "defaultMessage": "Execution reached Simple Notify.",
+      "menu": { "test": "🔔 Enable and Test Alerts" },
+      "toast": { "noChannels": "No alert channel is enabled." },
+      "error": {
+        "notificationUnsupported": "This browser does not support desktop notifications.",
+        "permissionRequired": "Use ‘Enable and Test Alerts’ from the node menu to enable desktop notifications.",
+        "permissionDenied": "Desktop notifications are blocked. Enable them in your browser or system settings.",
+        "permissionRequestFailed": "The browser notification permission request failed.",
+        "notificationFailed": "The desktop notification could not be shown.",
+        "soundFailed": "The alert sound could not be played. Use ‘Enable and Test Alerts’ from the node menu to test it."
+      }
+    },
     "receiver": {
       "binding": { "none": "No parameter panel bound", "bound": "Bound: {title}", "title": "Bind Parameter Panel", "action": "Bind" },
       "status": {
