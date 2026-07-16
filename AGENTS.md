@@ -133,6 +133,7 @@ ComfyUI-Aaalice-Nodes/
 - `PublisherId=aaalice`，包名 `comfyui-aaalice-nodes`，`pyproject.toml` packages 必须覆盖全部已实现域。
 - 发布前同步版本、双语 README、locale、`.comfyignore` 和节点清单。
 - 发布通过 GitHub Actions；具体步骤见 [`docs/development/release.md`](docs/development/release.md)。
+- GitHub Actions 上传成功且 Registry 已生成对应版本记录（即使仍为 `NodeVersionStatusPending`）即可结束发布验收；Registry 审核可能持续一天或更久，禁止等待其变为 `Active`，只需如实报告上传成功与待审核状态。
 
 ## 10. 完成检查
 
