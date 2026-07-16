@@ -364,7 +364,7 @@ function numericDisplay(label, parameter, config, onCommit) {
 
 function valueControl(node, parameter, heading = null) {
 	const config = parameter.config || {};
-	const persist = () => notifyParameterChanged(node, { structure: false });
+	const persist = (detail = {}) => notifyParameterChanged(node, { structure: false, ...detail });
 	if (parameter.param_type === "slider") {
 		const wrap = el("div", "aaalice-pcp-node-slider");
 		const range = isolate(document.createElement("input"));
@@ -455,6 +455,18 @@ function valueControl(node, parameter, heading = null) {
 		const options = (config.options || []).map(String);
 		if (options.length > 0 && options.length <= 4) {
 			const segmented = el("div", { className: "aaalice-pcp-segmented", attrs: { role: "radiogroup", "aria-label": parameter.name || parameter.id } });
+			const indicator = el("span", { className: "aaalice-pcp-segment-indicator", attrs: { "aria-hidden": "true" } });
+			const choices = [];
+			const positionIndicator = (choice, animate = true) => {
+				if (!choice?.isConnected) return;
+				indicator.classList.toggle("is-initializing", !animate);
+				indicator.style.width = `${choice.offsetWidth}px`;
+				indicator.style.height = `${choice.offsetHeight}px`;
+				indicator.style.transform = `translate3d(${choice.offsetLeft}px, ${choice.offsetTop}px, 0)`;
+				indicator.classList.add("is-ready");
+				if (!animate) requestAnimationFrame(() => indicator.classList.remove("is-initializing"));
+			};
+			segmented.append(indicator);
 			for (const option of options) {
 				const choice = isolate(el("button", `aaalice-pcp-segment${option === parameter.value ? " active" : ""}`, option));
 				choice.type = "button";
@@ -462,13 +474,23 @@ function valueControl(node, parameter, heading = null) {
 				choice.setAttribute("aria-checked", String(option === parameter.value));
 				choice.addEventListener("click", () => {
 					parameter.value = option;
-					for (const candidate of segmented.children) {
+					for (const candidate of choices) {
 						candidate.classList.toggle("active", candidate === choice);
 						candidate.setAttribute("aria-checked", String(candidate === choice));
 					}
-					persist();
+					positionIndicator(choice);
+					// The segmented control already reflects the new value. Rebuilding the
+					// panel here would replace the indicator before its transition can run.
+					persist({ redraw: false });
 				});
+				choices.push(choice);
 				segmented.append(choice);
+			}
+			requestAnimationFrame(() => positionIndicator(choices.find((choice) => choice.classList.contains("active")), false));
+			if (typeof ResizeObserver === "function") {
+				const observer = new ResizeObserver(() => positionIndicator(choices.find((choice) => choice.classList.contains("active")), false));
+				observer.observe(segmented);
+				segmented._aaaliceResizeObserver = observer;
 			}
 			return segmented;
 		}
@@ -508,7 +530,12 @@ function valueControl(node, parameter, heading = null) {
 	return isolate(createParameterControl({ parameter, onChange: persist, labels: { input: displayName(parameter) } }));
 }
 
+function disconnectSegmentObservers(root) {
+	for (const segmented of root.querySelectorAll(".aaalice-pcp-segmented")) segmented._aaaliceResizeObserver?.disconnect();
+}
+
 function renderNode(node, root) {
+	disconnectSegmentObservers(root);
 	root.replaceChildren();
 	const parameters = ensureParameters(node);
 	const layout = computeParameterLayout(node);
@@ -953,6 +980,7 @@ function setupParameterPanel(node, loaded = false) {
 	};
 	const onChange = (event) => {
 		if (event.detail?.nodeId != null && String(event.detail.nodeId) !== String(node.id)) return;
+		if (event.detail?.redraw === false) return;
 		node._aaaliceParameterRedraw?.();
 	};
 	window.addEventListener(EVENT_PARAMETER_CHANGED, onChange);
@@ -968,6 +996,7 @@ function setupParameterPanel(node, loaded = false) {
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		mountedParameterPanels.delete(this);
+		disconnectSegmentObservers(root);
 		window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_CHANGED, { detail: { nodeId: this.id, node: this, removed: true } }));
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onChange);
 		if (this._aaaliceCompactResizeTimer) clearTimeout(this._aaaliceCompactResizeTimer);

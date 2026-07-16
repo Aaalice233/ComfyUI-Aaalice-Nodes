@@ -11,7 +11,7 @@ export const PARAMETER_NODE_LAYOUT = Object.freeze({
 	bodyPadding: 4,
 	// Quick Latent keeps a predictable label/control rhythm. The DOM overlay
 	// still receives a 32px hit target, while the canvas surface stays compact.
-	rowHeight: 48,
+	rowHeight: 50,
 	sectionHeight: 22,
 	controlHeight: 32,
 	rowGap: 2,
@@ -50,9 +50,9 @@ function controlRect(width, rowTop, parameter, outputWidth) {
 		: PARAMETER_NODE_LAYOUT.controlHeight;
 	return {
 		left,
-		// Keep the control directly below the compact label line while preserving
-		// the 32px accessible hit target.
-		top: rowTop + 15,
+		// Keep a small visual gap below the compact label while preserving the
+		// 32px accessible hit target.
+		top: rowTop + 17,
 		width: Math.max(80, right - left),
 		height,
 	};
@@ -91,7 +91,7 @@ export function computeParameterLayout(node) {
 			left: control.left,
 			top: cursor + 1,
 			width: control.width,
-			height: 15,
+			height: 14,
 		};
 		const output = {
 			index: outputIndex,

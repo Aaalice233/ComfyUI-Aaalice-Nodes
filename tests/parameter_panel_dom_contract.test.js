@@ -21,3 +21,24 @@ test("parameter enum segments stay inside the 32px control track", () => {
 	assert.match(segmentRule, /box-sizing:\s*border-box/);
 	assert.match(segmentRule, /height:\s*100%/);
 });
+
+test("parameter enum uses a sliding selection indicator", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /aaalice-pcp-segment-indicator/);
+	assert.match(panelSource, /positionIndicator\(choice\)/);
+	assert.match(panelSource, /persist\(\{\s*redraw:\s*false\s*\}\)/);
+	assert.match(panelSource, /event\.detail\?\.redraw === false/);
+	assert.match(panelSource, /_aaaliceResizeObserver\?\.disconnect\(\)/);
+	assert.match(themeSource, /\.aaalice-pcp-segment-indicator\s*\{[^}]*transition:\s*[^;}]*transform/s);
+});
+
+test("parameter labels keep a small gap above their controls", () => {
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(layoutSource, /rowHeight:\s*50/);
+	assert.match(layoutSource, /top:\s*rowTop \+ 17/);
+	assert.match(themeSource, /\.aaalice-pcp-node-root \.aaalice-pcp-node-row\s*\{[^}]*row-gap:\s*2px/s);
+});
