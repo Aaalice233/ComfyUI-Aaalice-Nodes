@@ -42,3 +42,25 @@ test("parameter labels keep a small gap above their controls", () => {
 	assert.match(layoutSource, /top:\s*rowTop \+ 17/);
 	assert.match(themeSource, /\.aaalice-pcp-node-root \.aaalice-pcp-node-row\s*\{[^}]*row-gap:\s*2px/s);
 });
+
+test("image parameters expose upload feedback, a cover thumbnail and a full preview", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+	const chooserSource = panelSource.match(/function chooseImage[\s\S]+?\n}\n\nlet imagePreview/)?.[0] || "";
+
+	assert.match(panelSource, /aaalice\.pcp\.image\.uploaded/);
+	assert.match(chooserSource, /upload\.type = "file"/);
+	assert.match(chooserSource, /upload\.click\(\)/);
+	assert.doesNotMatch(chooserSource, /createDialog|type = "text"|useExisting/);
+	assert.match(panelSource, /aaalice-pcp-node-image/);
+	assert.match(panelSource, /aaalice-pcp-image-preview/);
+	assert.match(panelSource, /aaalice-pcp-node-image-clear/);
+	assert.match(panelSource, /parameter\.value = null/);
+	assert.match(panelSource, /imageControl\.addEventListener\("mouseenter", showPreview\)/);
+	assert.match(panelSource, /imageControl\.addEventListener\("mouseleave", hideImagePreview\)/);
+	assert.match(panelSource, /showImagePreview\(imageButton, reference/);
+	assert.match(themeSource, /\.aaalice-pcp-node-image\s*\{[^}]*background-position:\s*center;[^}]*background-size:\s*cover/s);
+	assert.match(themeSource, /\.aaalice-pcp-node-image-control:hover \.aaalice-pcp-node-image-clear/);
+	assert.match(themeSource, /\.aaalice-pcp-node-image-clear:hover:not\(:disabled\)\s*\{[^}]*transform:\s*translateY\(-50%\)/s);
+	assert.match(themeSource, /\.aaalice-pcp-image-preview img\s*\{[^}]*object-fit:\s*contain/s);
+});

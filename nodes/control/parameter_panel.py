@@ -26,7 +26,8 @@ def _resolve_image(value):
     if not value:
         raise ValueError("image parameter has no selected image")
     if isinstance(value, dict):
-        filename = value.get("filename")
+        # `/upload/image` returns `name`; saved panel values use `filename`.
+        filename = value.get("filename") or value.get("name")
         subfolder = value.get("subfolder") or ""
         image_type = value.get("type") or "input"
         if not filename:

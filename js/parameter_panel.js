@@ -2,6 +2,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
+import { imageReferenceViewPath, normalizeImageReference } from "./lib/image_reference.js";
 import { renderSafeMarkdown } from "./lib/safe_markdown.js";
 import { badge, button, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
@@ -261,44 +262,66 @@ function parameterLinkCount(node, parameterId) {
 	return index < 0 ? 0 : (node.outputs?.[index]?.links?.length || 0);
 }
 
-async function chooseImage(parameter) {
-	return new Promise((resolve) => {
-		const body = el("div", "aaalice-modal-body");
-		const dialogApi = createDialog({
-			title: t("aaalice.pcp.image.title", "Choose image"),
-			body,
-			size: "sm",
-			onRequestClose: () => { resolve(false); return true; },
-		});
-		const close = (value) => { resolve(value); dialogApi.close(value); };
-		const filename = document.createElement("input");
-		filename.type = "text";
-		filename.value = parameter.value?.filename || "";
-		const existing = button({ label: t("aaalice.pcp.image.useExisting", "Use input filename"), variant: "secondary" });
-		existing.addEventListener("click", () => {
-			if (!filename.value.trim()) return;
-			parameter.value = { filename: filename.value.trim(), subfolder: "", type: "input" };
-			close(true);
-		});
-		const upload = document.createElement("input");
-		upload.type = "file";
-		upload.accept = "image/*";
-		upload.addEventListener("change", async () => {
-			const file = upload.files?.[0];
-			if (!file) return;
+function chooseImage(parameter, onSelected) {
+	const upload = document.createElement("input");
+	upload.type = "file";
+	upload.accept = "image/*";
+	upload.addEventListener("change", async () => {
+		const file = upload.files?.[0];
+		if (!file) return;
+		try {
 			const data = new FormData();
 			data.append("image", file);
 			data.append("type", "input");
 			const response = await api.fetchApi("/upload/image", { method: "POST", body: data });
-			if (!response.ok) {
-				toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: HTTP {status}", { status: response.status }));
-				return;
-			}
-			parameter.value = await response.json();
-			close(true);
-		});
-		body.append(field({ label: t("aaalice.pcp.image.existing", "Existing input image"), control: filename }), existing, field({ label: t("aaalice.pcp.image.upload", "Upload new image"), control: upload }));
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const reference = normalizeImageReference(await response.json());
+			if (!reference) throw new Error(t("aaalice.pcp.error.imageUploadResponse", "The server response did not include an image filename."));
+			parameter.value = reference;
+			toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename }));
+			onSelected();
+		} catch (error) {
+			toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: {reason}", { reason: error?.message || String(error) }));
+		}
 	});
+	upload.click();
+}
+
+let imagePreview = null;
+function hideImagePreview() {
+	imagePreview?.remove();
+	imagePreview = null;
+}
+
+function positionImagePreview(trigger) {
+	if (!imagePreview?.isConnected) return;
+	const gap = 8;
+	const margin = 10;
+	const anchor = trigger.getBoundingClientRect();
+	const box = imagePreview.getBoundingClientRect();
+	const left = Math.min(anchor.left, window.innerWidth - box.width - margin);
+	let top = anchor.bottom + gap;
+	if (top + box.height > window.innerHeight - margin) top = anchor.top - box.height - gap;
+	imagePreview.style.left = `${Math.max(margin, left)}px`;
+	imagePreview.style.top = `${Math.max(margin, top)}px`;
+}
+
+function showImagePreview(trigger, reference, label) {
+	if (imagePreview?.isConnected && imagePreview._aaaliceAnchor === trigger) return;
+	hideImagePreview();
+	const path = imageReferenceViewPath(reference);
+	if (!path) return;
+	const preview = el("div", "aaalice-pcp-image-preview");
+	preview.role = "tooltip";
+	const image = document.createElement("img");
+	image.alt = label;
+	image.src = api.apiURL(path);
+	preview.append(image);
+	document.body.append(preview);
+	preview._aaaliceAnchor = trigger;
+	imagePreview = preview;
+	positionImagePreview(trigger);
+	image.addEventListener("load", () => positionImagePreview(trigger), { once: true });
 }
 
 let tooltip = null;
@@ -339,7 +362,11 @@ function attachDescription(trigger, description) {
 	trigger.addEventListener("blur", hideTooltip);
 }
 
-document.addEventListener("keydown", (event) => { if (event.key === "Escape") hideTooltip(); });
+document.addEventListener("keydown", (event) => {
+	if (event.key !== "Escape") return;
+	hideTooltip();
+	hideImagePreview();
+});
 
 function openInlineNumberInput(anchor, value, min, max, step, onCommit) {
 	createNumericEditor(anchor, { value, min, max, step, onCommit });
@@ -521,11 +548,42 @@ function valueControl(node, parameter, heading = null) {
 		return selectWrap;
 	}
 	if (parameter.param_type === "image") {
-		const imageButton = isolate(el("button", "aaalice-pcp-node-value", parameter.value?.filename || t("aaalice.pcp.image.none", "Choose image")));
+		const reference = normalizeImageReference(parameter.value);
+		const imageControl = el("div", "aaalice-pcp-node-image-control");
+		const imageButton = isolate(el("button", "aaalice-pcp-node-value aaalice-pcp-node-image"));
 		imageButton.type = "button";
 		imageButton.setAttribute("aria-label", displayName(parameter));
-		imageButton.addEventListener("click", async () => { if (await chooseImage(parameter)) persist(); });
-		return imageButton;
+		imageButton.append(el("span", "aaalice-pcp-node-image-label", reference?.filename || t("aaalice.pcp.image.none", "Choose image")));
+		const path = imageReferenceViewPath(reference);
+		if (path) {
+			imageButton.classList.add("has-image");
+			imageButton.style.backgroundImage = `url("${api.apiURL(path).replaceAll('"', '%22')}")`;
+			const showPreview = () => showImagePreview(imageButton, reference, displayName(parameter));
+			imageControl.addEventListener("mouseenter", showPreview);
+			imageControl.addEventListener("mouseleave", hideImagePreview);
+			imageControl.addEventListener("focusin", showPreview);
+			imageControl.addEventListener("focusout", (event) => {
+				if (!imageControl.contains(event.relatedTarget)) hideImagePreview();
+			});
+		}
+		imageButton.addEventListener("click", () => chooseImage(parameter, persist));
+		imageControl.append(imageButton);
+		if (reference) {
+			const clearButton = isolate(iconButton({
+				iconName: "delete",
+				label: t("aaalice.pcp.image.clear", "Clear selected image"),
+				variant: "ghost",
+				className: "aaalice-pcp-node-image-clear",
+			}));
+			clearButton.addEventListener("click", (event) => {
+				event.stopPropagation();
+				parameter.value = null;
+				hideImagePreview();
+				persist();
+			});
+			imageControl.append(clearButton);
+		}
+		return imageControl;
 	}
 	return isolate(createParameterControl({ parameter, onChange: persist, labels: { input: displayName(parameter) } }));
 }
@@ -535,6 +593,7 @@ function disconnectSegmentObservers(root) {
 }
 
 function renderNode(node, root) {
+	hideImagePreview();
 	disconnectSegmentObservers(root);
 	root.replaceChildren();
 	const parameters = ensureParameters(node);

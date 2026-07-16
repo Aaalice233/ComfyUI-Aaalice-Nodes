@@ -1,5 +1,6 @@
 /** ParameterPanel domain model. node.properties.parameters is the source of truth. */
 import { t } from "../i18n.js";
+import { normalizeImageReference } from "./image_reference.js";
 import { hasDuplicateOptions } from "./parameter_options.js";
 
 export const MAX_TUNABLE = 32;
@@ -172,10 +173,14 @@ export function ensureParameters(node) {
 }
 
 export function materializeParameters(parameters) {
-	return (parameters || []).map((parameter) => ({
-		...cloneData(parameter),
-		name: displayName(parameter, parameter.param_type || "Parameter"),
-	}));
+	return (parameters || []).map((parameter) => {
+		const materialized = {
+			...cloneData(parameter),
+			name: displayName(parameter, parameter.param_type || "Parameter"),
+		};
+		if (materialized.param_type === "image") materialized.value = normalizeImageReference(materialized.value);
+		return materialized;
+	});
 }
 
 export function normalizeDynamicOptions(parameters) {

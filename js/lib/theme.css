@@ -332,6 +332,71 @@
 .aaalice-pcp-node-root .aaalice-pcp-seed-mode .aa-ui-icon { width: 16px; height: 16px; stroke-width: 2; }
 .aaalice-pcp-node-switch,
 .aaalice-pcp-node-value { width: 100%; padding: 2px 8px; }
+.aaalice-pcp-node-image-control { position: relative; width: 100%; min-width: 0; height: 32px; }
+.aaalice-pcp-node-image {
+	position: relative;
+	height: 100%;
+	overflow: hidden;
+	background-position: center;
+	background-size: cover;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.aaalice-pcp-node-image.has-image { padding-right: 36px; }
+.aaalice-pcp-node-image.has-image::before {
+	position: absolute;
+	inset: 0;
+	background: color-mix(in srgb, var(--aa-ui-canvas) 72%, transparent);
+	content: "";
+	transition: background-color .14s ease;
+}
+.aaalice-pcp-node-image.has-image:hover::before,
+.aaalice-pcp-node-image.has-image:focus-visible::before { background: color-mix(in srgb, var(--aa-ui-canvas) 48%, transparent); }
+.aaalice-pcp-node-image-label { position: relative; z-index: 1; display: block; overflow: hidden; text-overflow: ellipsis; }
+.aaalice-pcp-node-root .aaalice-pcp-node-image-clear {
+	position: absolute;
+	z-index: 2;
+	top: 50%;
+	right: 4px;
+	width: 24px;
+	min-width: 24px;
+	height: 24px;
+	min-height: 24px;
+	padding: 0;
+	border-color: color-mix(in srgb, var(--aaalice-node-danger) 42%, transparent);
+	background: color-mix(in srgb, var(--aa-ui-canvas) 76%, transparent);
+	color: var(--aaalice-node-danger);
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-50%);
+	transition: opacity .14s ease, background-color .14s ease;
+}
+.aaalice-pcp-node-image-control:hover .aaalice-pcp-node-image-clear,
+.aaalice-pcp-node-image-control:focus-within .aaalice-pcp-node-image-clear { opacity: 1; pointer-events: auto; }
+.aaalice-pcp-node-root .aaalice-pcp-node-image-clear:hover { background: color-mix(in srgb, var(--aaalice-node-danger) 18%, var(--aa-ui-canvas)); }
+.aaalice-pcp-node-root .aaalice-pcp-node-image-clear:hover:not(:disabled) { transform: translateY(-50%); }
+.aaalice-pcp-node-image-clear .aa-ui-icon { width: 14px; height: 14px; }
+.aaalice-pcp-image-preview {
+	position: fixed;
+	z-index: 10020;
+	display: grid;
+	max-width: min(420px, calc(100vw - 20px));
+	max-height: min(70vh, 420px);
+	place-items: center;
+	padding: 6px;
+	border: 1px solid var(--aa-ui-border);
+	border-radius: 10px;
+	background: var(--aa-ui-surface);
+	box-shadow: var(--aa-ui-shadow);
+	pointer-events: none;
+}
+.aaalice-pcp-image-preview img {
+	display: block;
+	max-width: min(408px, calc(100vw - 32px));
+	max-height: calc(min(70vh, 420px) - 12px);
+	object-fit: contain;
+	border-radius: 6px;
+}
 .aaalice-pcp-node-root select.invalid { border-color: var(--aaalice-node-danger); color: var(--aaalice-node-danger); }
 
 /* The canvas layer paints the compact static surface; DOM remains the accessible hit target. */
