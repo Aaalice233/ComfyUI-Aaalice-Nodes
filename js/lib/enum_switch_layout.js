@@ -13,6 +13,51 @@ export function reshapeEnumBranchInputs(node, requestedCount) {
 	}
 }
 
+function sameRoutePrefix(previousRoutes, nextRoutes) {
+	const shared = Math.min(previousRoutes.length, nextRoutes.length);
+	for (let index = 0; index < shared; index += 1) {
+		if (String(previousRoutes[index]?.id || "") !== String(nextRoutes[index]?.id || "")) return false;
+	}
+	return true;
+}
+
+/** Reshape branch inputs while preserving their sources by stable Route Id. */
+export function reshapeEnumBranchInputsPreservingLinks(
+	node,
+	previousRoutes,
+	nextRoutes,
+	resolveLink,
+	resolveNode,
+) {
+	const previous = Array.isArray(previousRoutes) ? previousRoutes : [];
+	const next = Array.isArray(nextRoutes) ? nextRoutes : [];
+	// Tail-only changes keep every surviving native branch input in place.
+	if (sameRoutePrefix(previous, next)) {
+		reshapeEnumBranchInputs(node, next.length);
+		return;
+	}
+
+	const connections = [];
+	for (let index = 0; index < previous.length; index += 1) {
+		const link = resolveLink(node.inputs?.[index + 1]?.link);
+		const source = link && resolveNode(link.origin_id);
+		if (source) connections.push({
+			routeId: String(previous[index]?.id || ""),
+			source,
+			originSlot: link.origin_slot,
+		});
+	}
+	for (let index = Math.min(previous.length, (node.inputs?.length || 1) - 1); index > 0; index -= 1) {
+		if (node.inputs?.[index]?.link != null) node.disconnectInput?.(index);
+	}
+	reshapeEnumBranchInputs(node, next.length);
+	const slotById = new Map(next.map((route, index) => [String(route?.id || ""), index + 1]));
+	for (const connection of connections) {
+		const inputIndex = slotById.get(connection.routeId);
+		if (inputIndex != null) connection.source.connect?.(connection.originSlot, node, inputIndex);
+	}
+}
+
 export function syncEnumConcreteInputs(node) {
 	if (!Array.isArray(node?._concreteInputs)) return;
 	node._concreteInputs = node._concreteInputs.slice(0, node.inputs?.length || 0);

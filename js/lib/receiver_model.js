@@ -43,6 +43,16 @@ export function reconcileReceiverSlots(currentSlots, panelMeta, setNameFor) {
 	};
 }
 
+export function receiverSlotsShareStablePrefix(currentSlots, nextSlots) {
+	const current = Array.isArray(currentSlots) ? currentSlots : [];
+	const next = Array.isArray(nextSlots) ? nextSlots : [];
+	const shared = Math.min(current.length, next.length);
+	for (let index = 0; index < shared; index += 1) {
+		if (String(current[index]?.parameterId || "") !== String(next[index]?.parameterId || "")) return false;
+	}
+	return true;
+}
+
 export function receiverStructureDiff(bindingValue, panelMeta) {
 	const binding = normalizeReceiverBinding(bindingValue);
 	const expected = (panelMeta || []).slice(0, MAX_RECEIVER_SLOTS).map((item) => String(item.id));

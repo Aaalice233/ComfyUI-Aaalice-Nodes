@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 | Node | Category | Purpose |
 |---|---|---|
-| `ParameterPanel` | `Aaalice/control` | Manage one parameter set and materialize only its active direct outputs. |
+| `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose its active values as direct outputs. |
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `QuickGroupManager` | `Aaalice/control` | Enable, mute, or bypass color-scoped visual groups with ordering and linkage rules. |
 | `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
@@ -61,7 +61,7 @@ pip install -r requirements.txt
 <summary><strong>EnumSwitch — lazy enum routing</strong></summary>
 
 - Match `selector` against 1–32 exact branch keys; unmatched or unconnected branches fail visibly.
-- Only the current branch count is materialized as native inputs; unused protocol inputs cannot affect node sizing or hit testing.
+- Only configured branches appear as input sockets, so unused capacity cannot affect node sizing or mouse interactions.
 - Only the selected lazy branch executes, and every branch shares one inferred connection type.
 - Right-click and choose **⚙️ Edit Branches…** for standalone use.
 - A direct enum/dropdown output from ParameterPanel or ParameterReceiver is detected automatically. When its options change, the warning icon offers an explicit sync that preserves unchanged branch links.
@@ -80,7 +80,7 @@ New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`
 - Seed supports fixed, increment, decrement, and randomize behavior. The inline lock button switches between fixed and randomize for quick use.
 - If KJ Set/Get is installed, **🔗 Create and link KJ Set nodes for all parameters** is available from the node menu. Newly created collapsed Set nodes are arranged in a compact column to the panel's right.
 
-Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not consume outputs. Only value-producing parameters create native output slots, so unused protocol outputs cannot affect resizing, hit testing, or minimum height.
+Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not create outputs. Only value-producing parameters appear as output sockets.
 
 </details>
 
@@ -91,9 +91,10 @@ Deleting a connected parameter requires confirmation because its links must be r
 
 - The first bind reuses existing KJ Set nodes and asks before creating missing ones. Matching collapsed Get nodes are arranged to the receiver's left.
 - Parameter renames and panel-title changes refresh labels automatically. Adding, deleting, or reordering parameters changes the footer to **Needs sync**; use **🔄 Sync from Parameter Panel** to apply structural changes.
-- The receiver creates only the native input/output slots present in its binding, so no hidden protocol sockets can capture resize or link interactions.
+- Adding parameters at the end leaves existing connections untouched. Middle insertions and reordering keep surviving connections attached to the same parameters.
+- The receiver shows only the input and output sockets in its current binding, so unused capacity cannot interfere with resizing or connection gestures.
 - **🎯 Locate Parameter Panel** centers the bound source. **✂️ Detach** removes receiver-only managed Gets after confirming affected links.
-- If the source panel is deleted, the receiver keeps its saved slot and link snapshot and reports **Source panel missing**. It can then be explicitly rebound.
+- If the source panel is deleted, the receiver keeps its configured sockets and current connections, reports **Source panel missing**, and can be explicitly rebound.
 
 KJNodes is optional for the package as a whole. Without it, ParameterReceiver workflows still load, but bind and sync report an error instead of simulating routing.
 
@@ -102,7 +103,7 @@ KJNodes is optional for the package as a whole. Without it, ParameterReceiver wo
 <details>
 <summary><strong>QuickGroupManager — fast visual-group control</strong></summary>
 
-QuickGroupManager is a frontend-only controller with no prompt inputs or outputs. It discovers visual groups in its current graph and gives every managed group one enabled switch. The node-wide **Mute / Bypass** switch determines how an off group is represented.
+QuickGroupManager does not run as part of workflow execution and has no input or output sockets. It discovers visual groups in its current graph and gives every managed group one enabled switch. The node-wide **Mute / Bypass** switch determines how an off group is represented.
 
 - Use the filter icon to manage all groups, multiple group colors, or uncolored groups. Multiple managers may use independent color scopes.
 - Drag group rows to reorder them; filtered lists remain sortable and each manager saves its own order.

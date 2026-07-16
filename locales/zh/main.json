@@ -123,7 +123,6 @@
         "created": "KJ Set 节点已就绪：新建 {count} 个。"
       },
       "inline": { "editValue": "编辑数值" },
-      "output": { "unused": "未使用输出" },
       "error": {
 		"maxParameters": "最多只能添加 {count} 个可调参数。", "imageUpload": "图像上传失败：{reason}",
 		"imageUploadResponse": "服务器响应中没有图像文件名。"

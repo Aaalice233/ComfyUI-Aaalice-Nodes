@@ -18,7 +18,11 @@ import {
 	isParameterPanel,
 } from "./lib/param_model.js";
 import { getGraphLink, getGraphNode } from "./parameter_panel_kj.js";
-import { reshapeEnumBranchInputs, syncEnumConcreteInputs } from "./lib/enum_switch_layout.js";
+import {
+	reshapeEnumBranchInputs,
+	reshapeEnumBranchInputsPreservingLinks,
+	syncEnumConcreteInputs,
+} from "./lib/enum_switch_layout.js";
 
 const NODE = "EnumSwitch";
 
@@ -138,27 +142,18 @@ function connectionImpact(node, routes) {
 
 function applyRoutes(node, nextRoutes) {
 	const current = state(node);
-	const savedLinks = new Map();
-	for (let index = 0; index < current.routes.length; index += 1) {
-		const link = branchLink(node, index);
-		if (!link) continue;
-		savedLinks.set(current.routes[index].id, {
-			source: getGraphNode(node.graph, link.origin_id), originSlot: link.origin_slot,
-		});
-	}
+	const normalized = nextRoutes.map((route) => ({ id: route.id, key: String(route.key).trim() }));
 	markGraphChange(node, true);
 	try {
-		for (let index = 0; index < current.routes.length; index += 1) {
-			const slot = inputSlot(node, `branch_${index + 1}`);
-			if (slot >= 0 && node.inputs?.[slot]?.link != null) node.disconnectInput?.(slot);
-		}
-		current.routes = nextRoutes.map((route) => ({ id: route.id, key: String(route.key).trim() }));
+		reshapeEnumBranchInputsPreservingLinks(
+			node,
+			current.routes,
+			normalized,
+			(linkId) => getGraphLink(node.graph, linkId),
+			(nodeId) => getGraphNode(node.graph, nodeId),
+		);
+		current.routes = normalized;
 		syncSlots(node);
-		for (let index = 0; index < current.routes.length; index += 1) {
-			const saved = savedLinks.get(current.routes[index].id);
-			const targetSlot = inputSlot(node, `branch_${index + 1}`);
-			if (saved?.source && targetSlot >= 0) saved.source.connect?.(saved.originSlot, node, targetSlot);
-		}
 	} finally {
 		markGraphChange(node, false);
 	}
@@ -371,6 +366,8 @@ function setupEnumSwitch(node, loaded = false) {
 	if (!node || node._aaaliceEnumSwitchSetup) return;
 	node._aaaliceEnumSwitchSetup = true;
 	state(node);
+	node.widgets_up = true;
+	node.widgets_start_y = -(Number(globalThis.LiteGraph?.NODE_TITLE_HEIGHT) || 30);
 	const root = isolate(el("div", "aaalice-enum-status"));
 	node._aaaliceEnumRoot = root;
 	const widget = node.addDOMWidget("aaalice_enum_status", "enum_status", root, {
@@ -383,18 +380,8 @@ function setupEnumSwitch(node, loaded = false) {
 		setValue: () => {},
 	});
 	widget.computedHeight = 0;
-	const placeStatusWidget = (target) => {
-		const statusWidget = target.widgets?.find((item) => item.name === "aaalice_enum_status");
-		if (!statusWidget) return;
-		statusWidget.y = -(Number(globalThis.LiteGraph?.NODE_TITLE_HEIGHT) || 30);
-		statusWidget.last_y = statusWidget.y;
-	};
-	const previousArrangeWidgets = node._arrangeWidgets;
-	node._arrangeWidgets = function () {
-		const result = previousArrangeWidgets?.apply(this, arguments);
-		placeStatusWidget(this);
-		return result;
-	};
+	widget.y = node.widgets_start_y;
+	widget.last_y = widget.y;
 	const previousMenu = node.getExtraMenuOptions;
 	node.getExtraMenuOptions = function (canvas, options = []) {
 		const result = previousMenu?.apply(this, arguments);
@@ -447,7 +434,6 @@ function setupEnumSwitch(node, loaded = false) {
 			return result;
 		};
 	}
-	placeStatusWidget(node);
 	render(node);
 	if (!loaded) fitEnumStructure(node, true);
 }

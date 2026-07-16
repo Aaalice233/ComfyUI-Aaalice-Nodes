@@ -24,6 +24,12 @@
 
 ## 工作流控制与工具
 
+- **QuickGroupManager（快速组管理器）**：在当前图中按独立范围显示、排序和切换可视组的控制节点。避免使用 GroupMuteManager、GroupBypassManager。
+
+- **Managed Group Scope（纳管组范围）**：一个 QuickGroupManager 当前显示并允许手动操作的组集合，由颜色筛选决定。避免使用 Global Group State、shared Manager scope。
+
+- **Group Linkage Rule（组联动规则）**：用户直接切换某组时，由同一个 QuickGroupManager 规划的后续组状态变化。外部状态变化和其它 Manager 的操作不属于联动触发。避免使用 Cross-manager cascade、automatic graph sync。
+
 - **EnumSwitch（枚举选通）**：根据一个精确字符串 key，只执行并输出对应分支的控制节点。避免使用 Fallback Switch、Value Switch。
 
 - **Branch Key（分支键）**：用户可见、区分大小写并用于精确选择分支的稳定字符串。避免使用 Branch Index、display label。

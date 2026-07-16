@@ -123,7 +123,6 @@
         "created": "KJ Set nodes ready: {count} created."
       },
       "inline": { "editValue": "Edit value" },
-      "output": { "unused": "Unused output" },
       "error": {
 		"maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: {reason}",
 		"imageUploadResponse": "The server response did not include an image filename."

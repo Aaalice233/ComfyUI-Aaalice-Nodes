@@ -61,7 +61,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 ### ParameterPanel
 
 1. 结构编辑器统一校验草稿并确认受影响连线。
-2. 一个图变更边界内更新 `node.properties.parameters`，按 Parameter Id 重塑并重连真实输出。
+2. 一个图变更边界内更新 `node.properties.parameters`；尾部增删保留稳定输出，中间变更按 Parameter Id 重塑并重连真实端点。
 3. `graphToPrompt` 为本次执行注入参数 payload。
 4. 执行成功后按 fixed、increment、decrement 或 randomize 更新 Seed，并通知依赖节点刷新。
 
@@ -69,13 +69,13 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 1. 首次绑定或用户显式同步时读取源面板参数身份。
 2. 创建或复用 KJ Set 与可见折叠 Get，按 Parameter Id 保存现有上下游连线。
-3. 在一个图变更边界内调整真实输入输出和 Get 排列，再恢复仍存在身份的连线。
+3. 在一个图变更边界内增量调整真实输入输出和 Get 排列；稳定前缀保持原 link，中间变更再按 Parameter Id 恢复端点。
 4. 名称与类型变化只刷新显示；新增、删除和重排在显式同步前只显示“需要同步”。
 
 ### EnumSwitch
 
 1. 独立编辑或显式源选项同步更新 routes。
-2. 按 Route Id 保存连线，调整 `branch_1…branch_N`，再恢复未删除路由。
+2. 尾部增删保留稳定前缀的原生槽；中间变更按 Route Id 保存真实端点，调整 `branch_1…branch_N` 后恢复未删除路由。
 3. `graphToPrompt` 注入 Route Id、Branch Key 与协议输入的映射。
 4. 后端只请求 selector 精确匹配的 lazy 分支；未知或未连接目标显式失败。
 

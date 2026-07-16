@@ -41,7 +41,7 @@ import {
 	drawParameterStaticLayer,
 	syncNativeOutputLayout,
 } from "./lib/parameter_layout.js";
-import { reshapeParameterOutputs } from "./lib/dynamic_slots.js";
+import { reshapeParameterOutputsPreservingLinks } from "./lib/dynamic_slots.js";
 import { createNumericEditor, createParameterControl } from "./lib/parameter_controls.js";
 
 const NODE = "ParameterPanel";
@@ -195,38 +195,18 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	const shapeChanged = (node.outputs?.length || 0) !== meta.length;
 	const orderChanged = previous.length !== meta.length || previous.some((item, index) => item?.id !== meta[index]?.id);
 	const structureChanged = shapeChanged || orderChanged;
-	const linksById = new Map();
-	if (structureChanged) {
-		const previousMapping = previous.length ? previous : meta;
-		for (let index = 0; index < Math.min(node.outputs?.length || 0, MAX_TUNABLE); index += 1) {
-			const id = previousMapping[index]?.id;
-			const links = node.outputs?.[index]?.links;
-			if (id && links?.length) linksById.set(id, [...links]);
-		}
-	}
 	node.properties ||= {};
 	node.properties.slotMeta = meta.map((item, order) => ({ id: item.id, name: item.name, order }));
-	const slotById = new Map(meta.map((item, index) => [item.id, index]));
 	if (structureChanged) {
 		node._aaaliceApplyingOutputMeta = true;
 		try {
-			for (let index = (node.outputs?.length || 0) - 1; index >= 0; index -= 1) {
-				for (const linkId of [...(node.outputs?.[index]?.links || [])]) {
-					const link = graphLink(node, linkId);
-					const target = link && graphNode(node, link.target_id);
-					target?.disconnectInput?.(link.target_slot);
-				}
-			}
-			reshapeParameterOutputs(node, meta.length);
-			for (const [id, linkIds] of linksById) {
-				for (const linkId of linkIds) {
-					const link = graphLink(node, linkId);
-					if (!link) continue;
-					const target = graphNode(node, link.target_id);
-					target?.disconnectInput?.(link.target_slot);
-					if (slotById.has(id) && target) node.connect?.(slotById.get(id), target, link.target_slot);
-				}
-			}
+			reshapeParameterOutputsPreservingLinks(
+				node,
+				previous.length ? previous : meta,
+				meta,
+				(linkId) => graphLink(node, linkId),
+				(nodeId) => graphNode(node, nodeId),
+			);
 		} finally {
 			node._aaaliceApplyingOutputMeta = false;
 		}

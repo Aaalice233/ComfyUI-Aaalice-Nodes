@@ -53,7 +53,7 @@ test("parameter panel keeps native resize corners and a stable minimum width", (
 	assert.match(panelSource, /function syncParameterResizeLayout/);
 	assert.match(panelSource, /node\.onResize = function \(\)[\s\S]*syncParameterResizeLayout\(this, root\)/);
 	assert.match(panelSource, /syncNativeOutputLayout\(node, computeParameterLayout\(node\)\)/);
-	assert.match(panelSource, /reshapeParameterOutputs\(node, meta\.length\)/);
+	assert.match(panelSource, /reshapeParameterOutputsPreservingLinks\(/);
 	assert.doesNotMatch(panelSource, /withVisibleConcreteOutputs|aaalice-parameter-output-hidden|_aaaliceDisplayHidden|_aaaliceRawIndex/);
 	assert.doesNotMatch(themeSource, /aaalice-parameter-output-hidden/);
 	assert.match(resizeSource, /node\.getWidgetOnPos = function/);

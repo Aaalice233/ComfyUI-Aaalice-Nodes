@@ -9,15 +9,13 @@ import {
 import { button, createDialog, el, iconButton } from "./lib/ui.js";
 import {
 	EVENT_PARAMETER_CHANGED,
-	displayName,
-	ensureParameters,
 	isParameterPanel,
-	tunableMeta,
 } from "./lib/param_model.js";
 import {
 	disambiguatePanelLabels,
 	emptyReceiverBinding,
 	normalizeReceiverBinding,
+	receiverSlotsShareStablePrefix,
 	receiverStructureDiff,
 	reconcileReceiverSlots,
 } from "./lib/receiver_model.js";
@@ -150,6 +148,18 @@ function syncReceiverResizeLayout(receiver) {
 	syncReceiverLayout(receiver, receiver.inputs?.length || 0);
 	markVueReceiverSlots(receiver);
 	receiver.setDirtyCanvas?.(true, true);
+}
+
+function disconnectReceiverInputs(receiver) {
+	for (let index = (receiver.inputs?.length || 0) - 1; index >= 0; index -= 1) {
+		if (receiver.inputs[index]?.link != null) receiver.disconnectInput?.(index);
+	}
+}
+
+function disconnectReceiverOutputs(receiver) {
+	for (let index = (receiver.outputs?.length || 0) - 1; index >= 0; index -= 1) {
+		if (receiver.outputs[index]?.links?.length) receiver.disconnectOutput?.(index);
+	}
 }
 
 function markVueReceiverSlots(receiver) {
@@ -336,6 +346,7 @@ async function synchronize(receiver, panel) {
 	const changingPanel = current.panelNodeId != null && String(current.panelNodeId) !== String(panel.id);
 	const reconciliation = reconcileReceiverSlots(changingPanel ? [] : current.slots, nextMeta, (parameter) => desiredSetName(panel, parameter));
 	if (changingPanel) reconciliation.removed = current.slots.slice();
+	const preserveStablePrefix = !changingPanel && receiverSlotsShareStablePrefix(current.slots, reconciliation.ordered);
 	const removedImpact = reconciliation.removed.map((slot) => {
 		const index = current.slots.findIndex((item) => item.parameterId === slot.parameterId);
 		const getNode = managedGet(receiver, slot, index);
@@ -382,17 +393,22 @@ async function synchronize(receiver, panel) {
 			placeGet(getNode, receiver, index);
 			slot.getNodeId = getNode.id;
 		}
-		for (let index = 0; index < 32; index += 1) receiver.disconnectInput?.(index);
-		for (let index = 0; index < 32; index += 1) receiver.disconnectOutput?.(index);
+		if (!preserveStablePrefix) {
+			disconnectReceiverInputs(receiver);
+			disconnectReceiverOutputs(receiver);
+		}
 		reshapeReceiverSlots(receiver, reconciliation.ordered.length);
 		for (let index = 0; index < reconciliation.ordered.length; index += 1) {
+			if (preserveStablePrefix && receiver.inputs?.[index]?.link != null) continue;
 			const slot = reconciliation.ordered[index];
 			const getNode = getGraphNode(graph, slot.getNodeId);
 			getNode.connect(0, receiver, index);
 		}
-		for (const connection of changingPanel ? [] : outputSnapshot) {
-			const nextIndex = reconciliation.ordered.findIndex((slot) => slot.parameterId === connection.parameterId);
-			if (nextIndex >= 0 && connection.target?.graph === graph) receiver.connect(nextIndex, connection.target, connection.targetSlot);
+		if (!preserveStablePrefix) {
+			for (const connection of changingPanel ? [] : outputSnapshot) {
+				const nextIndex = reconciliation.ordered.findIndex((slot) => slot.parameterId === connection.parameterId);
+				if (nextIndex >= 0 && connection.target?.graph === graph) receiver.connect(nextIndex, connection.target, connection.targetSlot);
+			}
 		}
 		for (const removed of reconciliation.removed) {
 			const oldIndex = current.slots.findIndex((item) => item.parameterId === removed.parameterId);
@@ -410,10 +426,8 @@ async function synchronize(receiver, panel) {
 	} catch (error) {
 		for (const getNode of createdGets) if (getNode.graph === graph) graph.remove?.(getNode);
 		for (const setNode of createdSets) if (setNode.graph === graph) graph.remove?.(setNode);
-		for (let index = 0; index < 32; index += 1) {
-			receiver.disconnectInput?.(index);
-			receiver.disconnectOutput?.(index);
-		}
+		disconnectReceiverInputs(receiver);
+		disconnectReceiverOutputs(receiver);
 		reshapeReceiverSlots(receiver, current.slots.length);
 		for (const connection of inputSnapshot) if (connection.source?.graph === graph) connection.source.connect(connection.sourceSlot, receiver, connection.targetSlot);
 		for (const connection of outputSnapshot) if (connection.target?.graph === graph) {
@@ -446,7 +460,7 @@ async function detach(receiver) {
 			if (getExternalConsumers(getNode, receiver).length) delete getNode.properties?.[OWNER_KEY];
 			else graph?.remove?.(getNode);
 		}
-		for (let index = 0; index < 32; index += 1) receiver.disconnectOutput?.(index);
+		disconnectReceiverOutputs(receiver);
 		receiver.properties.receiverBinding = emptyReceiverBinding();
 	} finally {
 		graph?.afterChange?.();

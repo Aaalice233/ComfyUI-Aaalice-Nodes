@@ -50,6 +50,11 @@ test("receiver does not keep protocol-only slots in the canvas arrays", () => {
 	const layoutSource = readFileSync(join(ROOT, "js", "lib", "receiver_layout.js"), "utf8");
 	assert.match(receiverSource, /reshapeReceiverSlots\(receiver, reconciliation\.ordered\.length\)/);
 	assert.match(receiverSource, /reshapeReceiverSlots\(receiver, current\.slots\.length\)/);
+	assert.match(receiverSource, /function disconnectReceiverInputs/);
+	assert.match(receiverSource, /function disconnectReceiverOutputs/);
+	assert.doesNotMatch(receiverSource, /index < 32/);
+	assert.match(receiverSource, /receiverSlotsShareStablePrefix/);
+	assert.match(receiverSource, /if \(!preserveStablePrefix\) \{[\s\S]*disconnectReceiverInputs\(receiver\);[\s\S]*disconnectReceiverOutputs\(receiver\);/);
 	assert.match(receiverSource, /getMinHeight:\s*\(\) => computeReceiverLayout\(receiver, receiver\.inputs\?\.length \|\| 0\)\.height/);
 	assert.doesNotMatch(receiverSource, /_processNodeClick|getInputPos", "getOutputPos|-1e6/);
 	assert.doesNotMatch(layoutSource, /_aaaliceAllReceiver|withVisibleReceiverSlots/);

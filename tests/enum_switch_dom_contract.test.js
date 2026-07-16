@@ -23,7 +23,11 @@ test("classic and Nodes 2.0 lifecycle paths are both installed", () => {
 	assert.match(source, /nodeCreated/);
 	assert.match(source, /loadedGraphNode/);
 	assert.match(source, /reshapeEnumBranchInputs/);
+	assert.match(source, /reshapeEnumBranchInputsPreservingLinks/);
 	assert.doesNotMatch(source, /withVisibleInputs|getSlotInPosition|data-aaalice-enum-hidden|markVueSlots|MutationObserver/);
+	assert.match(source, /node\.widgets_up = true/);
+	assert.match(source, /node\.widgets_start_y = -\(Number\(globalThis\.LiteGraph\?\.NODE_TITLE_HEIGHT\) \|\| 30\)/);
+	assert.doesNotMatch(source, /node\._arrangeWidgets = function|placeStatusWidget/);
 });
 
 test("shared dialogs mount immediately without a second open call", () => {

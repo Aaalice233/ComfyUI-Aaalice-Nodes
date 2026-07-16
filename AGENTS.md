@@ -105,7 +105,8 @@ ComfyUI-Aaalice-Nodes/
 - Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责交互、焦点、键盘和 aria。
 - Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
 - 业务数量可变的槽不得用固定数组加隐藏标记模拟。ParameterPanel、ParameterReceiver 与 EnumSwitch 必须按当前状态使用原生 `addInput()` / `removeInput()` 与 `addOutput()` / `removeOutput()` 物化连续真实槽；后端可保留最多 32 路的有界 Schema。
-- Nodes 2.0 重挂使用幂等 `MutationObserver`，禁止持续轮询。
+- 动态槽尾部增删不得断开仍处于稳定前缀中的槽；中间插入、删除或重排必须在断开前按稳定 Parameter Id / Route Id 保存源或目标节点及槽位引用，不能只保存会随 `disconnectInput()` / `disconnectOutput()` 一起失效的 link ID。
+- Nodes 2.0 确需监听 DOM 重挂时使用幂等 `MutationObserver`，不需要重挂的节点不得常驻观察器；所有路径禁止持续轮询。
 
 ## 5. 领域不变量
 

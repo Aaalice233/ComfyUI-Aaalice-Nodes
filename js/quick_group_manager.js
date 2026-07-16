@@ -4,7 +4,6 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { button, el, emptyState, icon, iconButton, isolate } from "./lib/ui.js";
 import {
-	GROUP_MODE,
 	GROUP_STATE,
 	classifyGroupNodes,
 	groupMatchesFilter,
@@ -494,6 +493,8 @@ function setupManager(node, { initializeSize = false } = {}) {
 		return previousResize?.apply(this, arguments);
 	};
 	const previousArrangeWidgets = node._arrangeWidgets;
+	// The zero-height title toolbar and the scrollable body need different
+	// origins; widgets_start_y would move both, so only the toolbar is corrected.
 	node._arrangeWidgets = function () {
 		const result = previousArrangeWidgets?.apply(this, arguments);
 		placeToolbarWidget(this);

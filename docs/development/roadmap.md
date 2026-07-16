@@ -18,7 +18,7 @@
 | 3 | `EnumSwitch` | tools | 按精确字符串 key 惰性选通同类型分支。 |
 | 4 | `SimpleNotify` | tools | 在透明透传执行点提醒一次。 |
 | 15 | `ParameterPanel` | control | 创作并直接输出最多 32 个参数。 |
-| 16 | `ParameterReceiver` | control | 通过稳定透传槽接收面板对应的 KJ Get。 |
+| 16 | `ParameterReceiver` | control | 按当前绑定动态接收并透传面板对应的 KJ Get。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 
 ## 不再重置

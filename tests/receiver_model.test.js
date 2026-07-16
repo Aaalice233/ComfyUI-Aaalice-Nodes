@@ -4,6 +4,7 @@ import test from "node:test";
 import {
 	disambiguatePanelLabels,
 	normalizeReceiverBinding,
+	receiverSlotsShareStablePrefix,
 	receiverStructureDiff,
 	reconcileReceiverSlots,
 } from "../js/lib/receiver_model.js";
@@ -37,4 +38,12 @@ test("reconcile keeps stable Get ownership by parameter id", () => {
 
 test("duplicate panel titles include node ids", () => {
 	assert.deepEqual(disambiguatePanelLabels([{ id: 1, title: "Panel" }, { id: 2, title: "Panel" }]), ["Panel (#1)", "Panel (#2)"]);
+});
+
+test("receiver stable-prefix detection distinguishes tail changes from reordering", () => {
+	const current = [{ parameterId: "steps" }, { parameterId: "cfg" }];
+	assert.equal(receiverSlotsShareStablePrefix(current, [...current, { parameterId: "seed" }]), true);
+	assert.equal(receiverSlotsShareStablePrefix(current, current.slice(0, 1)), true);
+	assert.equal(receiverSlotsShareStablePrefix(current, [{ parameterId: "cfg" }, { parameterId: "steps" }]), false);
+	assert.equal(receiverSlotsShareStablePrefix(current, [{ parameterId: "steps" }, { parameterId: "seed" }, { parameterId: "cfg" }]), false);
 });

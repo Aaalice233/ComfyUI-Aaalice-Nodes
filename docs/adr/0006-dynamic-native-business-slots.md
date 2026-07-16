@@ -16,7 +16,7 @@ ParameterPanel、ParameterReceiver 与 EnumSwitch 的业务槽数量都由工作
 
 槽使用 LiteGraph 原生 `addInput()`、`removeInput()`、`addOutput()` 与 `removeOutput()` 调整，不保留隐藏画布槽。后端继续声明最多 32 路的连续协议前缀；执行 payload 只引用当前物化范围。
 
-ParameterPanel 与 ParameterReceiver 在结构变化前按稳定 Parameter Id 记录并恢复连线；EnumSwitch 按稳定 Route Id 记录并恢复连线。删除身份仍需要明确确认，结构变化保持单个图变更边界。
+ParameterPanel 与 ParameterReceiver 在结构变化前按稳定 Parameter Id 记录并恢复连线；EnumSwitch 按稳定 Route Id 记录并恢复连线。尾部增删保留稳定前缀中的原生槽和 link；中间插入、删除或重排在断开前保存真实源/目标节点与槽位引用，不能只保存断开后会失效的 link ID。删除身份仍需要明确确认，结构变化保持单个图变更边界。
 
 ## 结果
 
