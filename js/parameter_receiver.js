@@ -1,6 +1,7 @@
 /** ParameterReceiver binding, synchronization, compact UI and lifecycle. */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
+import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { button, createDialog, el, iconButton } from "./lib/ui.js";
 import {
 	EVENT_PARAMETER_CHANGED,
@@ -49,6 +50,20 @@ function message(key, fallback, values = {}) {
 
 function isReceiver(node) {
 	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE);
+}
+
+function installReceiverCanvasSlotHitTest(canvas = app.canvas) {
+	if (!canvas || canvas._aaaliceReceiverSlotHitTestInstalled) return;
+	const previous = canvas._processNodeClick;
+	if (typeof previous !== "function") return;
+	canvas._aaaliceReceiverSlotHitTestInstalled = true;
+	// Classic starts links by iterating node.inputs/outputs directly, bypassing
+	// the public slot hit-test methods patched on the receiver instance.
+	canvas._processNodeClick = function (_event, _ctrlOrMeta, node) {
+		return isReceiver(node)
+			? withVisibleReceiverSlots(node, () => previous.apply(this, arguments))
+			: previous.apply(this, arguments);
+	};
 }
 
 function binding(node) {
@@ -145,6 +160,12 @@ function applyCompactReceiverSize(receiver) {
 	const width = Math.max(RECEIVER_LAYOUT.minWidth, Number(receiver.size?.[0]) || RECEIVER_LAYOUT.minWidth);
 	const target = receiverNodeSize(receiver);
 	if (Math.abs(Number(receiver.size?.[1]) - target) > 1) receiver.setSize?.([width, target]);
+}
+
+function syncReceiverResizeLayout(receiver) {
+	syncReceiverLayout(receiver, binding(receiver).slots.length);
+	markVueReceiverSlots(receiver);
+	receiver.setDirtyCanvas?.(true, true);
 }
 
 function scheduleCompactReceiverSize(receiver) {
@@ -517,6 +538,7 @@ function refreshNames(receiver, panel) {
 
 function setupReceiver(receiver) {
 	if (!isReceiver(receiver) || receiver._aaaliceReceiverMounted) return;
+	installReceiverCanvasSlotHitTest();
 	receiver._aaaliceReceiverMounted = true;
 	mountedReceivers.add(receiver);
 	ensureVueReceiverObserver();
@@ -530,6 +552,7 @@ function setupReceiver(receiver) {
 		getHeight: () => computeReceiverLayout(receiver, binding(receiver).slots.length).height,
 		getValue: () => "", setValue: () => {},
 	});
+	installDomWidgetResizePassthrough(receiver, root);
 	const previousMenu = receiver.getExtraMenuOptions;
 	receiver.getExtraMenuOptions = function (_canvas, options = []) {
 		const result = previousMenu?.apply(this, arguments);
@@ -537,9 +560,20 @@ function setupReceiver(receiver) {
 		return result;
 	};
 	receiver.computeSize = function () {
-		return [Math.max(RECEIVER_LAYOUT.minWidth, Number(this.size?.[0]) || RECEIVER_LAYOUT.minWidth), receiverNodeSize(this)];
+		return [RECEIVER_LAYOUT.minWidth, receiverNodeSize(this)];
+	};
+	const previousResize = receiver.onResize;
+	receiver.onResize = function () {
+		const result = previousResize?.apply(this, arguments);
+		syncReceiverResizeLayout(this);
+		return result;
 	};
 	for (const method of ["drawSlots", "_measureSlots", "arrange"]) {
+		const previous = receiver[method];
+		if (typeof previous !== "function") continue;
+		receiver[method] = function () { return withVisibleReceiverSlots(this, () => previous.apply(this, arguments)); };
+	}
+	for (const method of ["getSlotInPosition", "getInputOnPos", "getOutputOnPos"]) {
 		const previous = receiver[method];
 		if (typeof previous !== "function") continue;
 		receiver[method] = function () { return withVisibleReceiverSlots(this, () => previous.apply(this, arguments)); };
@@ -602,6 +636,7 @@ function setupReceiver(receiver) {
 	const previousRemoved = receiver.onRemoved;
 	receiver.onRemoved = function () {
 		mountedReceivers.delete(this);
+		cleanupDomWidgetResizePassthrough(this);
 		if (this._aaaliceReceiverResizeTimer) clearTimeout(this._aaaliceReceiverResizeTimer);
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onPanelChange);
 		window.removeEventListener(EVENT_PARAMETER_KJ_CHANGED, onPanelChange);
@@ -635,5 +670,8 @@ app.registerExtension({
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isReceiver(node)) setupReceiver(node); },
 	loadedGraphNode(node) { if (isReceiver(node)) setupReceiver(node); },
-	setup() { for (const node of app.graph?._nodes || []) if (isReceiver(node)) setupReceiver(node); },
+	setup() {
+		installReceiverCanvasSlotHitTest();
+		for (const node of app.graph?._nodes || []) if (isReceiver(node)) setupReceiver(node);
+	},
 });

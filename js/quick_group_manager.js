@@ -22,8 +22,10 @@ import {
 const NODE = "QuickGroupManager";
 const PROPERTY = "quickGroupManagerState";
 const WIDGET = "aaalice_quick_group_manager";
-const MIN_WIDTH = 520;
-const MAX_LIST_HEIGHT = 420;
+const TOOLBAR_WIDGET = "aaalice_quick_group_manager_toolbar";
+const TITLE_ACTIONS_WIDTH = 200;
+const DEFAULT_HEIGHT = 190;
+const MIN_BODY_HEIGHT = 82;
 const mountedManagers = new Set();
 let graphListenerInstalled = false;
 let refreshFrame = 0;
@@ -293,13 +295,57 @@ function moveGroup(node, sourceId, targetId) {
 }
 
 function modeSwitcher(node, state) {
-	const segmented = el("div", { className: "aaalice-qgm-segmented", attrs: { role: "radiogroup", "aria-label": t("aaalice.quickGroup.mode.aria", "Disabled group mode") } });
+	const segmented = el("div", { className: `aaalice-qgm-segmented is-${state.offMode}`, attrs: { role: "radiogroup", "aria-label": t("aaalice.quickGroup.mode.aria", "Disabled group mode") } });
+	segmented.append(el("span", { className: "aaalice-qgm-segmented-thumb", attrs: { "aria-hidden": "true" } }));
 	for (const [value, label] of [["mute", t("aaalice.quickGroup.mode.mute", "Mute")], ["bypass", t("aaalice.quickGroup.mode.bypass", "Bypass")]]) {
-		const choice = el("button", { className: state.offMode === value ? "is-active" : "", attrs: { type: "button", role: "radio", "aria-checked": state.offMode === value }, text: label });
+		const choice = el("button", { className: state.offMode === value ? "is-active" : "", attrs: { type: "button", role: "radio", "aria-checked": state.offMode === value, "data-off-mode": value }, text: label });
 		choice.addEventListener("click", () => switchOffMode(node, value));
 		segmented.append(choice);
 	}
 	return segmented;
+}
+
+function syncModeSwitcher(segmented, state) {
+	segmented.classList.toggle("is-mute", state.offMode === "mute");
+	segmented.classList.toggle("is-bypass", state.offMode === "bypass");
+	segmented.setAttribute("aria-label", t("aaalice.quickGroup.mode.aria", "Disabled group mode"));
+	for (const choice of segmented.querySelectorAll("[data-off-mode]")) {
+		const value = choice.dataset.offMode;
+		const active = value === state.offMode;
+		choice.classList.toggle("is-active", active);
+		choice.setAttribute("aria-checked", String(active));
+		choice.textContent = value === "mute" ? t("aaalice.quickGroup.mode.mute", "Mute") : t("aaalice.quickGroup.mode.bypass", "Bypass");
+	}
+}
+
+function syncToolbar(node, state) {
+	const toolbar = node._aaaliceQuickToolbar;
+	let actions = toolbar.querySelector(".aaalice-qgm-actions");
+	if (!actions) {
+		actions = el("div", "aaalice-qgm-actions");
+		const filter = iconButton({ iconName: "filter", label: t("aaalice.quickGroup.filter.aria", "Choose group colors"), variant: "ghost", className: "aaalice-qgm-filter-button" });
+		filter.addEventListener("click", () => openFilter(node, filter));
+		const refresh = iconButton({ iconName: "refresh", label: t("aaalice.quickGroup.refresh", "Refresh groups"), variant: "ghost", className: "aaalice-qgm-refresh-button", onClick: () => render(node) });
+		actions.append(modeSwitcher(node, state), filter, refresh);
+		toolbar.replaceChildren(actions);
+		node._aaaliceQuickFilterButton = filter;
+	}
+	const segmented = actions.querySelector(".aaalice-qgm-segmented");
+	if (segmented) syncModeSwitcher(segmented, state);
+	const filter = actions.querySelector(".aaalice-qgm-filter-button");
+	if (filter) {
+		const label = `${t("aaalice.quickGroup.filter.aria", "Choose group colors")} · ${filterSummary(state)}`;
+		filter.classList.toggle("is-active", state.filter.mode === "selected");
+		filter.setAttribute("aria-label", label);
+		filter.title = label;
+		node._aaaliceQuickFilterButton = filter;
+	}
+	const refresh = actions.querySelector(".aaalice-qgm-refresh-button");
+	if (refresh) {
+		const label = t("aaalice.quickGroup.refresh", "Refresh groups");
+		refresh.setAttribute("aria-label", label);
+		refresh.title = label;
+	}
 }
 
 function groupRow(node, group, visibleGroups) {
@@ -333,80 +379,151 @@ function groupRow(node, group, visibleGroups) {
 	return row;
 }
 
-function widgetHeight(count) {
-	return 52 + Math.min(MAX_LIST_HEIGHT, Math.max(82, count * 42));
-}
-
 function render(node) {
 	const root = node._aaaliceQuickRoot;
-	if (!root) return;
+	const toolbar = node._aaaliceQuickToolbar;
+	if (!root || !toolbar) return;
 	closePopover(node);
 	const groups = groupsFor(node);
 	const state = stateFor(node);
 	state.groupOrder = reconcileGroupOrder(state.groupOrder, groups);
 	const visibleGroups = orderedVisibleGroups(groups, state);
-	const header = el("header", "aaalice-qgm-header");
-	header.append(el("strong", "aaalice-qgm-title", t("aaalice.quickGroup.title", "Quick Group Manager")));
-	const actions = el("div", "aaalice-qgm-actions");
-	actions.append(modeSwitcher(node, state));
-	const filter = iconButton({ iconName: "filter", label: `${t("aaalice.quickGroup.filter.aria", "Choose group colors")} · ${filterSummary(state)}`, variant: "ghost", active: state.filter.mode === "selected", className: "aaalice-qgm-filter-button" });
-	node._aaaliceQuickFilterButton = filter;
-	filter.addEventListener("click", () => openFilter(node, filter));
-	const refresh = iconButton({ iconName: "refresh", label: t("aaalice.quickGroup.refresh", "Refresh groups"), variant: "ghost", onClick: () => render(node) });
-	actions.append(filter, refresh);
-	header.append(actions);
+	syncToolbar(node, state);
 	const list = el("div", { className: "aaalice-qgm-list", attrs: { role: "list", "aria-label": t("aaalice.quickGroup.groups", "Workflow groups") } });
 	if (visibleGroups.length) for (const group of visibleGroups) list.append(groupRow(node, group, visibleGroups));
 	else list.append(emptyState({ description: groups.length ? t("aaalice.quickGroup.noFilteredGroups", "No groups match the selected colors.") : t("aaalice.quickGroup.noGroups", "No visual groups are available in this graph."), iconName: "filter", className: "aaalice-qgm-empty" }));
-	root.replaceChildren(header, list);
-	root.style.height = `${widgetHeight(visibleGroups.length)}px`;
-	const height = widgetHeight(visibleGroups.length) + 34;
-	if (Number(node.size?.[0]) < MIN_WIDTH || Math.abs(Number(node.size?.[1]) - height) > 1) node.setSize?.([Math.max(MIN_WIDTH, Number(node.size?.[0]) || MIN_WIDTH), height]);
+	root.replaceChildren(list);
 	node.graph?.setDirtyCanvas?.(true, true);
 }
 
-function setupManager(node) {
+function placeToolbarWidget(node) {
+	const widget = node.widgets?.find((item) => item.name === TOOLBAR_WIDGET);
+	if (!widget) return;
+	widget.y = -(Number(globalThis.LiteGraph?.NODE_TITLE_HEIGHT) || 30);
+	widget.last_y = widget.y;
+	widget.computedHeight = 0;
+}
+
+function scheduleInitialSize(node) {
+	if (node._aaaliceQuickInitialSizeFrame) return;
+	node._aaaliceQuickInitialSizeFrame = requestAnimationFrame(() => {
+		node._aaaliceQuickInitialSizeFrame = 0;
+		if (!node.graph || node._aaaliceQuickConfigured) return;
+		const minimum = node.computeSize?.() || [0, MIN_BODY_HEIGHT];
+		node.setSize?.([
+			Math.max(Number(minimum[0]) || 0, Number(node.size?.[0]) || 0),
+			Math.max(DEFAULT_HEIGHT, Number(node.size?.[1]) || 0),
+		]);
+		node.graph?.setDirtyCanvas?.(true, true);
+	});
+}
+
+function enforceMinimumWidth(node) {
+	const width = Number(node.size?.[0]);
+	const minimumWidth = Number(node.computeSize?.()[0]);
+	if (!Number.isFinite(width) || !Number.isFinite(minimumWidth) || width >= minimumWidth) return;
+	node.setSize?.([minimumWidth, Number(node.size?.[1]) || DEFAULT_HEIGHT]);
+}
+
+function beginResizePassthrough(node) {
+	if (node._aaaliceQuickResizeCleanup) return;
+	node._aaaliceQuickToolbar?.classList.add("is-resizing");
+	node._aaaliceQuickRoot?.classList.add("is-resizing");
+	const cleanup = () => {
+		document.removeEventListener("pointerup", cleanup, true);
+		document.removeEventListener("pointercancel", cleanup, true);
+		node._aaaliceQuickToolbar?.classList.remove("is-resizing");
+		node._aaaliceQuickRoot?.classList.remove("is-resizing");
+		node._aaaliceQuickResizeCleanup = null;
+	};
+	node._aaaliceQuickResizeCleanup = cleanup;
+	document.addEventListener("pointerup", cleanup, true);
+	document.addEventListener("pointercancel", cleanup, true);
+}
+
+function setupManager(node, { initializeSize = false } = {}) {
 	if (!isManager(node) || node._aaaliceQuickMounted) return;
 	node._aaaliceQuickMounted = true;
 	mountedManagers.add(node);
 	installGraphListener();
 	stateFor(node);
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] QuickGroupManager requires addDOMWidget");
-	const root = isolate(el("div", "aaalice-qgm aaalice-pcp"));
+	const toolbar = isolate(el("div", "aaalice-qgm-toolbar aaalice-qgm"));
+	node._aaaliceQuickToolbar = toolbar;
+	const toolbarWidget = node.addDOMWidget(TOOLBAR_WIDGET, "custom", toolbar, {
+		serialize: false,
+		hideOnZoom: false,
+		margin: 0,
+		getMinHeight: () => 0,
+		getMaxHeight: () => 0,
+		getHeight: () => 0,
+		getValue: () => "",
+		setValue: () => {},
+	});
+	toolbarWidget.computedHeight = 0;
+	const root = isolate(el("div", "aaalice-qgm aaalice-qgm-body aaalice-pcp"));
 	node._aaaliceQuickRoot = root;
 	node.addDOMWidget(WIDGET, "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,
-		getMinHeight: () => widgetHeight(orderedVisibleGroups(groupsFor(node), stateFor(node)).length),
-		getHeight: () => widgetHeight(orderedVisibleGroups(groupsFor(node), stateFor(node)).length),
+		getMinHeight: () => MIN_BODY_HEIGHT,
 		getValue: () => "",
 		setValue: () => {},
 	});
 	const previousComputeSize = node.computeSize;
 	node.computeSize = function () {
-		const fallback = previousComputeSize?.apply(this, arguments) || this.size || [MIN_WIDTH, 180];
-		return [Math.max(MIN_WIDTH, Number(fallback[0]) || MIN_WIDTH), widgetHeight(orderedVisibleGroups(groupsFor(this), stateFor(this)).length) + 34];
+		const computed = previousComputeSize?.apply(this, arguments) || [0, MIN_BODY_HEIGHT];
+		// The native minimum already accounts for the localized title. Reserve
+		// only the fixed controls sharing that same title row.
+		return [Math.ceil((Number(computed[0]) || 0) + TITLE_ACTIONS_WIDTH), Number(computed[1]) || MIN_BODY_HEIGHT];
+	};
+	const previousGetWidgetOnPos = node.getWidgetOnPos;
+	node.getWidgetOnPos = function (x, y) {
+		// LiteGraph checks widgets before resize handles. Yield the native corner
+		// hit area so the full-size DOM widget cannot swallow node resizing.
+		if (this.findResizeDirection?.(x, y)) {
+			if (app.canvas?.pointer?.isDown) beginResizePassthrough(this);
+			return undefined;
+		}
+		return previousGetWidgetOnPos?.apply(this, arguments);
 	};
 	const previousResize = node.onResize;
-	node.onResize = function (size) {
-		if (size && size[0] < MIN_WIDTH) size[0] = MIN_WIDTH;
+	node.onResize = function () {
+		if (app.canvas?.resizing_node === this) beginResizePassthrough(this);
 		return previousResize?.apply(this, arguments);
+	};
+	const previousArrangeWidgets = node._arrangeWidgets;
+	node._arrangeWidgets = function () {
+		const result = previousArrangeWidgets?.apply(this, arguments);
+		placeToolbarWidget(this);
+		return result;
 	};
 	const previousConfigure = node.onConfigure;
 	node.onConfigure = function () {
 		const result = previousConfigure?.apply(this, arguments);
+		this._aaaliceQuickConfigured = true;
 		this.properties[PROPERTY] = normalizeQuickGroupState(this.properties?.[PROPERTY]);
-		requestAnimationFrame(() => render(this));
+		requestAnimationFrame(() => {
+			enforceMinimumWidth(this);
+			placeToolbarWidget(this);
+			render(this);
+		});
 		return result;
 	};
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		mountedManagers.delete(this);
 		closePopover(this);
+		if (this._aaaliceQuickInitialSizeFrame) cancelAnimationFrame(this._aaaliceQuickInitialSizeFrame);
+		this._aaaliceQuickResizeCleanup?.();
+		this._aaaliceQuickToolbar?.remove?.();
 		this._aaaliceQuickRoot?.remove?.();
 		return previousRemoved?.apply(this, arguments);
 	};
+	if (initializeSize) scheduleInitialSize(node);
+	enforceMinimumWidth(node);
+	placeToolbarWidget(node);
 	render(node);
 }
 
@@ -416,7 +533,7 @@ function hookPrototype(nodeType) {
 	const previous = nodeType.prototype.onNodeCreated;
 	nodeType.prototype.onNodeCreated = function () {
 		const result = previous?.apply(this, arguments);
-		setupManager(this);
+		setupManager(this, { initializeSize: true });
 		return result;
 	};
 }
@@ -425,7 +542,7 @@ app.registerExtension({
 	name: "ComfyUI.Aaalice.QuickGroupManager",
 	async init() { await ensureI18nReady(); },
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
-	nodeCreated(node) { if (isManager(node)) setupManager(node); },
+	nodeCreated(node) { if (isManager(node)) setupManager(node, { initializeSize: true }); },
 	loadedGraphNode(node) { if (isManager(node)) setupManager(node); },
 	setup() { installGraphListener(); for (const node of app.graph?._nodes || []) if (isManager(node)) setupManager(node); },
 });

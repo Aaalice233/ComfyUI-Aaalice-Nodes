@@ -79,16 +79,30 @@ ComfyUI-Aaalice-Nodes/
 
 ## 4. 前端、渲染与状态
 
+### 4.1 生命周期与状态
+
 - `WEB_DIRECTORY = "./js"`；业务扩展使用 `app.registerExtension`，共享模块不得自行重复注册。
 - 交互节点覆盖新建、加载、复制和 setup 补挂路径；不得绕过 ComfyUI 生命周期。
 - `addDOMWidget` 必须同步挂载；异步 i18n 就绪后只更新文案和绘制。
-- DOM widget 提供稳定高度，并随内容更新节点最小尺寸。
-- Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责交互、焦点、键盘和 aria。
-- Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
-- 隐藏协议槽仍参与测量、绘制和命中映射；Nodes 2.0 重挂使用幂等 `MutationObserver`，禁止持续轮询。
 - 工作流持久状态以 `node.properties` 为真源。内部 payload 不暴露为 Schema widget，执行时由 `graphToPrompt` 注入。
 - 状态变化必须覆盖保存、加载、复制、撤销/重做和执行路径。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
+
+### 4.2 DOM widget 与缩放
+
+- DOM widget 提供稳定高度，并随内容更新节点最小尺寸。
+- 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角的绘制与命中；不能只依赖 CSS `pointer-events`，还要确保 widget 命中检测不会先于 `findResizeDirection()` 吞掉缩放操作，并在拖拽期间停用覆盖层交互。
+- 节点 `computeSize()` 必须返回由内容和设计约束决定的稳定最小尺寸；禁止把 `node.size` 当前宽高作为最小值，否则节点拉大后将无法重新缩小。
+- 自定义布局必须在 `onResize` 生命周期内从新尺寸重新计算 DOM 几何、真实 slot 坐标和 Nodes 2.0 slot 标记，并请求画布重绘；只让容器 CSS 自适应会使引脚停留在旧位置。
+- 依赖 CSS transition 或 animation 连续性的交互控件必须保留动画元素的 DOM identity，只同步 class、style 和 aria 状态；禁止在状态切换时通过 `replaceChildren`、`innerHTML` 或整体重建替换动画元素，否则过渡会失效或中断。
+
+### 4.3 原生槽与双模式
+
+- Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责交互、焦点、键盘和 aria。
+- Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
+- 隐藏协议槽必须保留稳定数组位置用于序列化，但不得参与可见槽的测量、绘制或 pointer hit-test；Classic 公共槽数组和 Nodes 2.0 concrete 槽数组必须使用同一可见性真源。
+- 隐藏槽命中过滤不能只覆盖 `getSlotInPosition()`、`getInputOnPos()` 或 `getOutputOnPos()`；必须检查当前 ComfyUI 的真实拉线起点。Classic 的 `LGraphCanvas._processNodeClick()` 会直接遍历 `node.inputs` / `node.outputs`，该路径也必须使用相同的临时可见槽过滤，并在操作后恢复完整协议数组。
+- Nodes 2.0 重挂使用幂等 `MutationObserver`，禁止持续轮询。
 
 ## 5. 领域不变量
 

@@ -71,18 +71,10 @@ export function syncReceiverLayout(node, count) {
 export function withVisibleReceiverSlots(node, callback) {
 	const visible = node?._aaaliceVisibleReceiverSlots || new Set();
 	const saved = [];
-	const hasConcrete = Array.isArray(node?._concreteInputs) || Array.isArray(node?._concreteOutputs);
-	for (const key of ["_concreteInputs", "_concreteOutputs"]) {
+	for (const key of ["inputs", "outputs", "_concreteInputs", "_concreteOutputs"]) {
 		if (!Array.isArray(node?.[key])) continue;
 		saved.push([key, node[key]]);
 		node[key] = node[key].filter((slot, index) => visible.has(slot?._aaaliceRawIndex ?? index));
-	}
-	if (!hasConcrete) {
-		for (const key of ["inputs", "outputs"]) {
-			if (!Array.isArray(node?.[key])) continue;
-			saved.push([key, node[key]]);
-			node[key] = node[key].slice(0, visible.size);
-		}
 	}
 	try { return callback(); }
 	finally { for (const [key, value] of saved) node[key] = value; }

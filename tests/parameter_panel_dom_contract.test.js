@@ -43,6 +43,22 @@ test("parameter labels keep a small gap above their controls", () => {
 	assert.match(themeSource, /\.aaalice-pcp-node-root \.aaalice-pcp-node-row\s*\{[^}]*row-gap:\s*2px/s);
 });
 
+test("parameter panel keeps native resize corners and a stable minimum width", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const resizeSource = readFileSync(join(ROOT, "js", "lib", "dom_widget_resize.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /installDomWidgetResizePassthrough\(node, root\)/);
+	assert.match(panelSource, /node\.computeSize = function \(\) \{\s*return \[MIN_WIDTH, panelNodeSize\(this\)\];/s);
+	assert.match(panelSource, /function syncParameterResizeLayout/);
+	assert.match(panelSource, /node\.onResize = function \(\)[\s\S]*syncParameterResizeLayout\(this, root\)/);
+	assert.match(panelSource, /syncNativeOutputLayout\(node, computeParameterLayout\(node\)\)/);
+	assert.match(resizeSource, /node\.getWidgetOnPos = function/);
+	assert.match(resizeSource, /findResizeDirection\?\.\(x, y\)/);
+	assert.match(resizeSource, /app\.canvas\?\.pointer\?\.isDown/);
+	assert.match(themeSource, /\.aaalice-pcp-node-root\.is-resizing[\s\S]*pointer-events:\s*none\s*!important/);
+});
+
 test("image parameters expose upload feedback, a cover thumbnail and a full preview", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");

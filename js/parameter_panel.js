@@ -4,6 +4,7 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { imageReferenceViewPath, normalizeImageReference } from "./lib/image_reference.js";
 import { renderSafeMarkdown } from "./lib/safe_markdown.js";
+import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { badge, button, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
 	parameterPanelKjMenuItem,
@@ -628,6 +629,14 @@ function renderNode(node, root) {
 	if (!parameters.length) root.append(el("div", "aaalice-pcp-empty", t("aaalice.pcp.empty", "No parameters. Use the node context menu to edit.")));
 }
 
+function syncParameterResizeLayout(node, root) {
+	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
+	root.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
+	root.style.setProperty("--aaalice-node-content-height", `${layout.height}px`);
+	markVueOutputs(node);
+	node.setDirtyCanvas?.(true, true);
+}
+
 function nodeHeight(node) {
 	return Math.max(66, computeParameterLayout(node).height);
 }
@@ -963,10 +972,17 @@ function setupParameterPanel(node, loaded = false) {
 		getValue: () => "",
 		setValue: () => {},
 	});
+	installDomWidgetResizePassthrough(node, root);
 	if (!node._aaaliceOutputPresentationPatched) {
 		node._aaaliceOutputPresentationPatched = true;
 		node.computeSize = function () {
-			return [Math.max(MIN_WIDTH, Number(this.size?.[0]) || MIN_WIDTH), panelNodeSize(this)];
+			return [MIN_WIDTH, panelNodeSize(this)];
+		};
+		const previousResize = node.onResize;
+		node.onResize = function () {
+			const result = previousResize?.apply(this, arguments);
+			syncParameterResizeLayout(this, root);
+			return result;
 		};
 		const previousDrawSlots = node.drawSlots;
 		node.drawSlots = function (ctx, options) {
@@ -1055,6 +1071,7 @@ function setupParameterPanel(node, loaded = false) {
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		mountedParameterPanels.delete(this);
+		cleanupDomWidgetResizePassthrough(this);
 		disconnectSegmentObservers(root);
 		window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_CHANGED, { detail: { nodeId: this.id, node: this, removed: true } }));
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onChange);

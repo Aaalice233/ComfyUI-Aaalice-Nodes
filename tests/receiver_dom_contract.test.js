@@ -23,3 +23,24 @@ test("receiver uses a compact actionable status icon", () => {
 	assert.match(receiverSource, /openBindingDialog/);
 	assert.doesNotMatch(layoutSource, /footerHeight|footerTop/);
 });
+
+test("receiver keeps native resize corners and can shrink after growing", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	assert.match(receiverSource, /installDomWidgetResizePassthrough\(receiver, root\)/);
+	assert.match(receiverSource, /receiver\.computeSize = function \(\) \{\s*return \[RECEIVER_LAYOUT\.minWidth, receiverNodeSize\(this\)\];/s);
+	assert.match(receiverSource, /function syncReceiverResizeLayout/);
+	assert.match(receiverSource, /receiver\.onResize = function \(\)[\s\S]*syncReceiverResizeLayout\(this\)/);
+	assert.match(receiverSource, /syncReceiverLayout\(receiver, binding\(receiver\)\.slots\.length\)/);
+	assert.doesNotMatch(receiverSource, /Math\.max\(RECEIVER_LAYOUT\.minWidth, Number\(this\.size/);
+});
+
+test("receiver hidden protocol slots cannot capture pointer hit tests", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "receiver_layout.js"), "utf8");
+	assert.match(receiverSource, /function installReceiverCanvasSlotHitTest/);
+	assert.match(receiverSource, /canvas\._processNodeClick = function \([^)]*node\)[\s\S]*withVisibleReceiverSlots\(node/);
+	assert.match(receiverSource, /installReceiverCanvasSlotHitTest\(\);/);
+	assert.match(receiverSource, /\["getSlotInPosition", "getInputOnPos", "getOutputOnPos"\]/);
+	assert.match(layoutSource, /\["inputs", "outputs", "_concreteInputs", "_concreteOutputs"\]/);
+	assert.doesNotMatch(layoutSource, /hasConcrete/);
+});
