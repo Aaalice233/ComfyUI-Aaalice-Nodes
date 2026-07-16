@@ -12,6 +12,10 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 > This package is a published preview. Workflows and behavior may change before the first stable release, and the package does not migrate data from ComfyUI-Danbooru-Gallery.
 
+| Status | Progress | Next |
+|:---:|:---:|:---:|
+| Reset in progress | **4 / 25** | #3 `EnumSwitch` |
+
 ## Requirements
 
 - A current ComfyUI installation with V3 custom-node support.
@@ -54,7 +58,56 @@ pip install -r requirements.txt
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 
-## Using ParameterPanel
+<details>
+<summary><strong>Reset checklist and priority queue</strong></summary>
+
+Stable ids are inherited from the reset plan and are not renumbered when priorities change. One queue item is implemented at a time. `ParameterReceiver` now fulfills #16, which was previously named `ParameterBreak`.
+
+### Completed
+
+| # | Current implementation | Purpose |
+|---:|---|---|
+| 0 | Package skeleton | Loadable V3 package, domains, i18n, and `WEB_DIRECTORY`. |
+| 1 | `SimpleStringSplit` | Split text into a cleaned string list. |
+| 15 | `ParameterPanel` | Author and directly output up to 32 parameters. |
+| 16 | `ParameterReceiver` | Receive the panel's KJ Get values through stable pass-through slots. |
+
+### Dropped
+
+| # | Legacy id | Reason |
+|---:|---|---|
+| 2 | `SimpleValueSwitch` | Out of scope; not useful enough to reset. |
+
+### Priority queue
+
+| Order | # | Legacy id | Domain | Purpose |
+|---:|---:|---|---|---|
+| 1 | 3 | `EnumSwitch` | tools | Route by enum. |
+| 2 | 4 | `SimpleNotify` | tools | Notify when executed. |
+| 3 | 5 | `WorkflowDescription` | tools | On-graph workflow notes. |
+| 4 | 6 | `VAEImageBatchFix` | tools | Correct VAE batch shapes. |
+| 5 | 7 | `ModelNameExtractor` | tools | Extract a readable model name. |
+| 6 | 8 | `ResolutionMasterSimplify` | tools | Resolution and size helper. |
+| 7 | 9 | `SimpleLoadImage` | tools | Load a local image and mask. |
+| 8 | 10 | `PromptCleaningMaid` | prompt | Clean and deduplicate tags. |
+| 9 | 11 | `PromptSelector` | prompt | Select prompts from a checklist. |
+| 10 | 12 | `CharacterFeatureSwapNode` | prompt | Swap character features. |
+| 11 | 13 | `SimpleImageCompare` | media | Compare images interactively. |
+| 12 | 14 | `SimpleCheckpointLoaderWithName` | media | Load a checkpoint with its name and preview. |
+| 13 | 17 | `GroupIsEnabled` | control | Report whether a group is enabled. |
+| 14 | 18 | `GroupMuteManager` | control | Batch mute workflow groups. |
+| 15 | 19 | `GroupIgnoreManager` | control | Batch ignore workflow groups. |
+| 16 | 20 | Quick Group Navigation | control | Navigate workflow groups from a floating UI. |
+| 17 | 21 | `DanbooruGalleryNode` | gallery | Search gallery images and tags. |
+| 18 | 22 | `MultiCharacterEditorNode` | gallery | Edit multi-character prompts. |
+| 19 | 23 | `SaveImagePlus` | media | Save images with additional controls. |
+| 20 | 24 | `FetchFromKrita` | krita | Pull content from Krita. |
+| 21 | 25 | `OpenInKrita` | krita | Open content in Krita; ships with #24. |
+
+</details>
+
+<details>
+<summary><strong>ParameterPanel — parameter authoring and direct outputs</strong></summary>
 
 New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`. Sampler and scheduler options follow the current ComfyUI installation.
 
@@ -66,7 +119,10 @@ New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`
 
 Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not consume outputs.
 
-## Using ParameterReceiver
+</details>
+
+<details>
+<summary><strong>ParameterReceiver — compact KJ Get receiver</strong></summary>
 
 `ParameterReceiver` requires KJNodes Set/Get support for binding and synchronization. Create the receiver in the same graph as its source panel, then right-click it and choose **🔗 Bind Parameter Panel…**.
 
@@ -77,9 +133,14 @@ Deleting a connected parameter requires confirmation because its links must be r
 
 KJNodes is optional for the package as a whole. Without it, ParameterReceiver workflows still load, but bind and sync report an error instead of simulating routing.
 
-## SimpleStringSplit
+</details>
+
+<details>
+<summary><strong>SimpleStringSplit — cleaned text splitting</strong></summary>
 
 Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
+
+</details>
 
 ## Compatibility and limitations
 
