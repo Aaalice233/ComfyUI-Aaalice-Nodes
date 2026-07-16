@@ -1,6 +1,8 @@
 /* Shared Aaalice UI primitives. Colors always resolve through ComfyUI theme tokens. */
 .aaalice-pcp,
 .aaalice-pcp-node-root,
+.aaalice-qgm,
+.aaalice-qgm-popover,
 .aaalice-receiver-root,
 .aa-ui-dialog {
 	--aa-ui-text: var(--fg-color, var(--p-text-color, #e5e7eb));
@@ -16,6 +18,7 @@
 	--aa-ui-accent-text: var(--p-primary-contrast-color, #fff);
 	--aa-ui-focus: var(--aa-ui-accent);
 	--aa-ui-danger: var(--error-text, var(--p-red-400, #d66d75));
+	--aa-ui-warning: var(--warning-text, var(--p-amber-400, #d6a84f));
 	--aa-ui-radius-sm: 6px;
 	--aa-ui-radius-md: 10px;
 	--aa-ui-radius-lg: 14px;
@@ -25,7 +28,7 @@
 	font: 13px/1.45 var(--comfy-font, Inter, system-ui, sans-serif);
 }
 
-.aaalice-pcp *, .aaalice-pcp-node-root *, .aaalice-receiver-root *, .aa-ui-dialog *, .aa-ui-dialog-backdrop * { box-sizing: border-box; }
+.aaalice-pcp *, .aaalice-pcp-node-root *, .aaalice-qgm *, .aaalice-qgm-popover *, .aaalice-receiver-root *, .aa-ui-dialog *, .aa-ui-dialog-backdrop * { box-sizing: border-box; }
 
 .aa-ui-icon { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
 

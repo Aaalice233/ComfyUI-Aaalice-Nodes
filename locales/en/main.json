@@ -5,6 +5,34 @@
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
       "error": "Error", "notice": "Notice", "save": "Save"
     },
+    "quickGroup": {
+      "title": "Quick Group Manager",
+      "untitled": "Untitled group",
+      "groups": "Workflow groups",
+      "refresh": "Refresh groups",
+      "reorder": "Drag to reorder; Alt+Arrow keys also work",
+      "reorderGroup": "Reorder {group}",
+      "toggle": "Toggle {group}",
+      "emptyGroup": "This group has no nodes",
+      "noGroups": "No visual groups are available in this graph.",
+      "noFilteredGroups": "No groups match the selected colors.",
+      "mode": { "aria": "Disabled group mode", "mute": "Mute", "bypass": "Bypass" },
+      "filter": {
+        "aria": "Choose group colors", "all": "All groups", "selected": "{count} color filters",
+        "uncolored": "No color", "missing": "No current group uses this color"
+      },
+      "rules": {
+        "aria": "Edit linkage for {group}", "edit": "Edit linkage for {group}", "search": "Search groups",
+        "whenEnabled": "When enabled", "whenDisabled": "When disabled", "actionFor": "Action for {group}",
+        "missingTarget": "Missing group #{id}", "noMatches": "No matching groups"
+      },
+      "error": {
+        "self": "A group cannot link to itself.", "cycle": "The linkage contains a cycle.",
+        "missing": "Group {id} no longer exists.", "conflict": "Group {id} receives conflicting actions.",
+        "empty": "Group {id} has no nodes.", "nodeConflict": "Overlapping groups assign different modes to the same node.",
+        "invalid": "The linkage rule is invalid."
+      }
+    },
     "simpleNotify": {
       "defaultMessage": "Execution reached Simple Notify.",
       "menu": { "test": "🔔 Enable and Test Alerts" },

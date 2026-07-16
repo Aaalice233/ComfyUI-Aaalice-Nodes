@@ -72,5 +72,11 @@
     "description": "Bind a Parameter Panel and collect its KJ Get values in one compact pass-through node.",
     "inputs": {},
     "outputs": {}
+  },
+  "QuickGroupManager": {
+    "display_name": "⚡ Quick Group Manager",
+    "description": "Quickly enable, mute, or bypass visual groups with color scopes, ordering, and linkage rules.",
+    "inputs": {},
+    "outputs": {}
   }
 }

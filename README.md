@@ -14,7 +14,7 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 | Status | Progress | Next |
 |:---:|:---:|:---:|
-| Reset in progress | **5 / 23 nodes** | #5 `WorkflowDescription` |
+| Reset in progress | **6 / 20 nodes** | #10 `PromptCleaningMaid` |
 
 ## Requirements
 
@@ -56,6 +56,7 @@ pip install -r requirements.txt
 |---|---|---|
 | `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose up to 32 direct outputs. |
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
+| `QuickGroupManager` | `Aaalice/control` | Enable, mute, or bypass color-scoped visual groups with ordering and linkage rules. |
 | `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
@@ -101,6 +102,21 @@ KJNodes is optional for the package as a whole. Without it, ParameterReceiver wo
 </details>
 
 <details>
+<summary><strong>QuickGroupManager — fast visual-group control</strong></summary>
+
+QuickGroupManager is a frontend-only controller with no prompt inputs or outputs. It discovers visual groups in its current graph and gives every managed group one enabled switch. The node-wide **Mute / Bypass** switch determines how an off group is represented.
+
+- Use the filter icon to manage all groups, multiple group colors, or uncolored groups. Multiple managers may use independent color scopes.
+- Drag group rows to reorder them; filtered lists remain sortable and each manager saves its own order.
+- Open the link icon on a row to configure what other groups should do when that group is enabled or disabled. Rules may target other colors and cascade only within the manager that initiated the change.
+- Switching Mute / Bypass converts currently disabled groups in that manager's active color scope as one undoable change.
+- External group changes and other managers update the display but do not trigger linkage rules.
+
+The node controls only groups in its current graph. A grouped subgraph node can be switched like any other node, but QuickGroupManager does not recurse into the subgraph's internal graph.
+
+</details>
+
+<details>
 <summary><strong>SimpleNotify — execution-point alerts</strong></summary>
 
 Connect any value to receive one alert when execution reaches the node, then continue with the unchanged value. Desktop notifications and the bundled sound can be enabled independently, and sound volume is configurable. Use **🔔 Enable and Test Alerts** from the node menu to request browser permission and test the enabled channels.
@@ -122,6 +138,7 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 - App Mode is not supported.
 - Structural frontend updates can require recreating existing node instances after refresh.
 - ParameterReceiver only binds a ParameterPanel in the current graph; it does not search inside subgraphs.
+- QuickGroupManager only controls visual groups in its current graph and does not propagate linkage rules across manager instances.
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
 
 Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) installed separately if you still need its original nodes.

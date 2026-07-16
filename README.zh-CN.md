@@ -14,7 +14,7 @@
 
 | 状态 | 进度 | 下一项 |
 |:---:|:---:|:---:|
-| 重置进行中 | **5 / 23 个节点** | #5 `WorkflowDescription` |
+| 重置进行中 | **6 / 20 个节点** | #10 `PromptCleaningMaid` |
 
 ## 环境要求
 
@@ -56,6 +56,7 @@ pip install -r requirements.txt
 |---|---|---|
 | `ParameterPanel` | `Aaalice/control` | 管理一组参数并直接输出最多 32 路值。 |
 | `ParameterReceiver` | `Aaalice/control` | 绑定 ParameterPanel，将对应的 KJ Get 收束到一个紧凑输出节点。 |
+| `QuickGroupManager` | `Aaalice/control` | 按颜色范围启用、静音或绕过可视组，并配置排序与联动规则。 |
 | `EnumSwitch` | `Aaalice/tools` | 根据精确匹配的字符串，只执行并输出对应分支。 |
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 执行到达时按开关发送桌面通知和提示音，并原样透传输入值。 |
@@ -101,6 +102,21 @@ KJNodes 对整个包是可选依赖。未安装时，包含 ParameterReceiver �
 </details>
 
 <details>
+<summary><strong>QuickGroupManager — 快速可视组控制</strong></summary>
+
+QuickGroupManager 是没有 Prompt 输入输出的纯前端控制节点。它会发现当前图中的可视组，每个纳管组只提供一个启用开关；节点顶栏的 **静音 / 绕过** Switcher 统一决定关闭组的实际模式。
+
+- 使用颜色图标管理全部组、多个组颜色或无颜色组；多个 Manager 可以分别使用独立颜色范围。
+- 拖动组行即可排序；过滤后的列表仍可排序，每个 Manager 独立保存顺序。
+- 点击组行的联动图标，可配置该组开启或关闭时其它组应执行的动作。规则可以跨颜色，但只在发起操作的 Manager 内继续级联。
+- 切换静音/绕过时，仅把当前 Manager 颜色范围内已经关闭的组统一转换，并记录为一次可撤销操作。
+- 外部组模式变化和其它 Manager 的操作只刷新显示，不会触发本节点联动。
+
+节点只控制当前图中的组。组内的子图节点会像普通节点一样切换，但不会递归修改子图内部图。
+
+</details>
+
+<details>
 <summary><strong>SimpleNotify — 执行到达提醒</strong></summary>
 
 连接任意类型的值后，执行到达该节点时提醒一次，再将输入值原样传给下游。桌面通知和内置提示音可独立开关，并可调节音量。通过节点右键菜单的 **🔔 启用并测试提醒** 申请浏览器权限并测试当前启用的提醒方式。
@@ -122,6 +138,7 @@ KJNodes 对整个包是可选依赖。未安装时，包含 ParameterReceiver �
 - 暂不支持 App Mode。
 - 前端结构变更后，已有节点实例可能需要在刷新后重新创建。
 - ParameterReceiver 只绑定当前图中的 ParameterPanel，不会跨子图搜索。
+- QuickGroupManager 只控制当前图中的可视组，联动规则不会跨 Manager 实例传播。
 - SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
 
 如果仍需旧节点，请单独保留 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。

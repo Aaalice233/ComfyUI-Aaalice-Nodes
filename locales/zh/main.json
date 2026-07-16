@@ -5,6 +5,34 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
+    "quickGroup": {
+      "title": "快速组管理器",
+      "untitled": "未命名组",
+      "groups": "工作流组",
+      "refresh": "刷新组",
+      "reorder": "拖拽排序；也可使用 Alt+方向键",
+      "reorderGroup": "调整 {group} 的顺序",
+      "toggle": "切换 {group}",
+      "emptyGroup": "该组中没有节点",
+      "noGroups": "当前图中没有可视组。",
+      "noFilteredGroups": "没有符合所选颜色的组。",
+      "mode": { "aria": "关闭组的处理方式", "mute": "静音", "bypass": "绕过" },
+      "filter": {
+        "aria": "选择组颜色", "all": "全部组", "selected": "已选 {count} 个颜色范围",
+        "uncolored": "无颜色", "missing": "当前没有组使用该颜色"
+      },
+      "rules": {
+        "aria": "编辑 {group} 的联动", "edit": "编辑 {group} 的联动", "search": "搜索组",
+        "whenEnabled": "开启时", "whenDisabled": "关闭时", "actionFor": "{group} 的动作",
+        "missingTarget": "已删除的组 #{id}", "noMatches": "没有匹配的组"
+      },
+      "error": {
+        "self": "组不能联动自身。", "cycle": "联动规则中存在环路。",
+        "missing": "组 {id} 已不存在。", "conflict": "组 {id} 收到了互相冲突的动作。",
+        "empty": "组 {id} 中没有节点。", "nodeConflict": "重叠组为同一个节点指定了不同模式。",
+        "invalid": "联动规则无效。"
+      }
+    },
     "simpleNotify": {
       "defaultMessage": "执行已到达简易通知节点。",
       "menu": { "test": "🔔 启用并测试提醒" },

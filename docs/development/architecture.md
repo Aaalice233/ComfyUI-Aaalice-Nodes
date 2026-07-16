@@ -2,10 +2,11 @@
 
 ## 当前范围
 
-仓库注册五个 V3 节点：
+仓库注册六个 V3 节点：
 
 - `ParameterPanel`（`Aaalice/control`）：拥有一组有序参数并提供 32 个稳定直接输出。
 - `ParameterReceiver`（`Aaalice/control`）：提供 32 路固定可选输入与输出，绑定面板后逐路透传对应 Get 值。
+- `QuickGroupManager`（`Aaalice/control`）：在前端按颜色范围管理当前图中的可视组模式、顺序和联动。
 - `EnumSwitch`（`Aaalice/tools`）：按精确字符串 key 惰性选通 1–32 路同类型输入。
 - `SimpleStringSplit`（`Aaalice/tools`）：按逗号或竖线拆分字符串并移除空段。
 - `SimpleNotify`（`Aaalice/tools`）：执行到达时按独立开关提醒，并原样透传同类型值。
@@ -17,6 +18,8 @@
 `nodes/control/parameter_panel.py` 定义 ParameterPanel schema，并把前端注入的参数 payload 转换为 32 路直接输出。解析、校验和类型转换位于 `nodes/_lib/parameter_values.py`，不依赖运行中的 ComfyUI，可直接单测。
 
 `nodes/control/parameter_receiver.py` 定义固定的 32 路可选 AnyType 输入和输出。`nodes/_lib/receiver_values.py` 只按协议顺序透传值；KJ Set/Get 的发现、创建和同步全部属于前端图操作，不进入后端状态。
+
+`nodes/control/quick_group_manager.py` 只注册无输入输出、无执行副作用的 V3 节点。组发现、模式变更、过滤、排序和联动全部属于前端画布操作，不进入 Prompt 执行图。
 
 `nodes/tools/enum_switch.py` 定义 selector、32 个固定 lazy `MatchType` 分支与同类型输出。`nodes/_lib/enum_switch.py` 负责解析路由 payload、校验稳定 route id 与唯一 key，并返回精确匹配的协议输入；未知 selector 和未连接目标分支均显式失败。
 
@@ -34,6 +37,7 @@
 | `js/parameter_panel.js` | 生命周期挂载、DOM 控件、结构编辑器、prompt 注入和队列后 Seed 行为 |
 | `js/parameter_panel_kj.js` | 可选 KJ Set/Get 节点发现、创建和连线 |
 | `js/parameter_receiver.js` | 接收器生命周期、绑定菜单、显式同步、Get 所有权和状态显示 |
+| `js/quick_group_manager.js` | 组管理器生命周期、DOM、颜色范围、排序和原子组模式事务 |
 | `js/enum_switch.js` | 分支编辑、面板枚举绑定、同步提示、真实槽位保线和 prompt 注入 |
 | `js/simple_notify.js` | 执行结果提醒、浏览器权限入口和节点右键测试操作 |
 | `js/lib/simple_notify_runtime.js` | 可单测的桌面通知、提示音和错误分类 |
@@ -42,6 +46,7 @@
 | `js/lib/parameter_layout.js` | 参数行、节点高度、真实输出位置和双模式 slot 同步 |
 | `js/lib/receiver_model.js` | 接收器绑定归一化和按 Parameter Id 的结构差异计算 |
 | `js/lib/receiver_layout.js` | 接收器输入/输出行、状态区高度和双模式真实 slot 同步 |
+| `js/lib/quick_group_manager_model.js` | 组管理状态归一化、过滤排序、联动规划与冲突检测 |
 | `js/lib/parameter_controls.js` | 节点面与编辑器复用的无状态控件 |
 | `js/lib/ui.js` / `ui.css` | 无业务状态的 DOM 组件和基础视觉 |
 | `js/lib/theme.css` | ParameterPanel 节点面与编辑器布局 |
@@ -60,8 +65,12 @@ ParameterReceiver 的唯一状态真源是 `node.properties.receiverBinding`。�
 
 EnumSwitch 的唯一状态真源是 `node.properties.enumSwitch`。分支连接身份由稳定 route id 决定，字符串 key 只负责精确匹配与显示。直接连接 ParameterPanel 或 ParameterReceiver 的 enum/dropdown 输出时记录面板节点 id 与参数 id；源选项变化只显示同步图标，用户显式同步后才按 key 增删和重排分支。执行前由 `graphToPrompt` 注入路由 payload，后端不保存面板绑定或枚举配置。
 
+QuickGroupManager 的唯一状态真源是 `node.properties.quickGroupManagerState`，只持久化关闭策略、颜色范围、组 id 顺序和本节点联动规则。组名、颜色、成员和实际模式每次从当前图读取。直接开关操作先在纯模型中完成同 Manager 级联和重叠节点冲突预检，再在一个图变更边界内提交；其它 Manager 和外部组变更只触发显示同步，不传播规则。Subgraph 只作为普通组内节点切换，不递归进入内部图。
+
 ## Classic 与 Nodes 2.0
 
 Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责输入、焦点、键盘、tooltip 与 aria。Classic 使用 LiteGraph slot，Nodes 2.0 使用 Vue slot DOM。
 
 隐藏协议槽仍保留序列化位置；可见输入输出使用原生真实 socket。ParameterPanel 布局真源是 `js/lib/parameter_layout.js`，ParameterReceiver 布局真源是 `js/lib/receiver_layout.js`。EnumSwitch 复用固定 32 路协议并只显示当前分支，交互式同步图标由 DOM widget 承担。
+
+QuickGroupManager 没有协议槽，Classic 与 Nodes 2.0 都通过同步创建的 DOM widget 提供同一组控制面；`graphChanged` 只驱动合帧重绘，不使用状态轮询。

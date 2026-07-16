@@ -72,5 +72,11 @@
     "description": "绑定参数面板，将对应的 KJ Get 值收束为一个紧凑的透传节点。",
     "inputs": {},
     "outputs": {}
+  },
+  "QuickGroupManager": {
+    "display_name": "⚡ 快速组管理器",
+    "description": "按颜色范围快速启用、静音或绕过可视组，并配置排序与联动规则。",
+    "inputs": {},
+    "outputs": {}
   }
 }
