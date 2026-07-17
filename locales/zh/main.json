@@ -18,8 +18,8 @@
       "noFilteredGroups": "没有符合所选颜色的组。",
       "mode": { "aria": "关闭组的处理方式", "mute": "静音", "bypass": "绕过" },
       "filter": {
-        "aria": "选择组颜色", "all": "全部组", "selected": "已选 {count} 个颜色范围",
-        "uncolored": "无颜色", "missing": "当前没有组使用该颜色"
+        "aria": "选择组颜色", "all": "全部组",
+        "empty": "未选择颜色", "uncolored": "无颜色", "missing": "当前没有组使用该颜色"
       },
       "rules": {
         "aria": "编辑 {group} 的联动", "edit": "编辑 {group} 的联动", "search": "搜索组",

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-供协作者与 AI 助手使用；与当次明确指令冲突时，以当次指令为准。**本文件只记录开发硬规则，必须保持在 500 行以内。**
+供协作者与 AI 助手使用；与当次明确指令冲突时，以当次指令为准。**本文件只记录长期有效的开发硬规则，不记录具体 Bug、调查过程、操作教程或测试日志，并保持在 500 行以内。**
 
 ## 1. 项目边界与依据
 
@@ -22,7 +22,7 @@
 | 位置 | 职责 | 不应包含 |
 |---|---|---|
 | `README.md` / `README.zh-CN.md` | 用户安装、已发布功能、用法和公开限制 | 开发进度、下一项、完整排期、测试记录、协作规则 |
-| `AGENTS.md` | 开发硬规则、架构边界、验收门槛 | 长命令、教程、调查过程 |
+| `AGENTS.md` | 开发硬规则、架构边界、验收门槛 | 具体 Bug、长命令、教程、调查过程 |
 | `CONTEXT.md` | 项目领域词汇和统一称呼 | 文件路径、字段名、实现方案 |
 | `docs/adr/` | 难逆且存在真实取舍的架构决策 | 操作步骤、视觉细节 |
 | `docs/design/` | 设计语言、组件和交互规范 | 后端协议决策 |
@@ -87,19 +87,16 @@ ComfyUI-Aaalice-Nodes/
 - `addDOMWidget` 必须同步挂载；异步 i18n 就绪后只更新文案和绘制。
 - 工作流持久状态以 `node.properties` 为真源。内部 payload 不暴露为 Schema widget，执行时由 `graphToPrompt` 注入。
 - 状态变化必须覆盖保存、加载、复制、撤销/重做和执行路径。
+- 局部重绘不得无条件销毁仍有效的焦点、Popover、Dialog 或操作状态；只有锚点失效、节点移除或对应生命周期结束时才清理。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
 
 ### 4.2 DOM widget 与缩放
 
-- DOM widget 提供稳定高度，并随内容更新节点最小尺寸。
-- 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角的绘制与命中；不能只依赖 CSS `pointer-events`，还要确保 widget 命中检测不会先于 `findResizeDirection()` 吞掉缩放操作，并在拖拽期间停用覆盖层交互。
-- 节点 `computeSize()` 必须返回由内容和设计约束决定的稳定最小尺寸；禁止把 `node.size` 当前宽高作为最小值，否则节点拉大后将无法重新缩小。
-- DOM widget 只通过 `getMinHeight()` 声明内容下限。Classic 内容变化可使用 LiteGraph 的 `expandToFitContent()` / `arrange()` grow-only 路径；Nodes 2.0 由 DOM 测量和 ResizeObserver 持有尺寸真源，禁止从扩展再次调用这两个 LiteGraph 尺寸路径。禁止缓存“用户高度”后在重绘、延迟回调或 `arrange()` 后反复 `setSize()`，否则会与原生拖拽形成尺寸反馈回路。
-- DOM widget 与原生 slot 共用垂直区域时，必须在挂载 widget 前使用 LiteGraph 的 `widgets_up` / `widgets_start_y` 叠放语义，使最小高度取两者较大值；禁止先让原生布局把两段高度相加，再劫持 `_arrangeWidgets()` 或 `arrange()` 事后改坐标。
-- 节点底部出现与 slot 栈高度相近的空白、向上缩小时立即被弹开，优先判定为 LiteGraph 将 slot 区与 DOM widget 最小高度串联相加；先核对当前版本 `computeSize()`、`_arrangeWidgets()` 和 widget 挂载顺序，不得用延迟 `setSize()`、隐藏槽、重复 `arrange()` 或更多命中补丁掩盖布局职责错误。
-- 自定义布局必须在 `onResize` 生命周期内从新尺寸重新计算 DOM 几何、真实 slot 坐标和 Nodes 2.0 slot 标记，并请求画布重绘；只让容器 CSS 自适应会使引脚停留在旧位置。
-- 依赖 CSS transition 或 animation 连续性的交互控件必须保留动画元素的 DOM identity，只同步 class、style 和 aria 状态；禁止在状态切换时通过 `replaceChildren`、`innerHTML` 或整体重建替换动画元素，否则过渡会失效或中断。
-- 约 2–4 个平级互斥选项优先使用分段 Switcher，不改成下拉菜单；不同档位必须由 ComfyUI 主题 token 派生不同状态色，并由同一个稳定 thumb 平移表达切换。切换时只更新 data/class、ARIA 和 transform，且在 `prefers-reduced-motion` 下关闭动效。
+- DOM widget 通过内容下限声明稳定最小尺寸；`computeSize()` 不得把当前 `node.size` 当作最小值，也不得用延迟或重复 `setSize()` 与原生布局争夺尺寸真源。
+- 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角、拖拽和放置命中；CSS `pointer-events` 不能代替原生命中检测。
+- DOM widget 与原生 slot 共用空间时使用 LiteGraph 的叠放语义，不得通过隐藏槽或事后劫持 `arrange()` 修正重复高度。
+- 自定义布局在 `onResize` 中从新尺寸重算 DOM 几何、真实 slot 和 Nodes 2.0 标记，并请求画布重绘。
+- 连续动画控件必须保留动画元素的 DOM identity，只更新 class、style、data 和 ARIA 状态。
 
 ### 4.3 原生槽与双模式
 
@@ -107,7 +104,7 @@ ComfyUI-Aaalice-Nodes/
 - Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
 - 业务数量可变的槽不得用固定数组加隐藏标记模拟。ParameterPanel、ParameterReceiver 与 EnumSwitch 必须按当前状态使用原生 `addInput()` / `removeInput()` 与 `addOutput()` / `removeOutput()` 物化连续真实槽；后端可保留最多 32 路的有界 Schema。
 - 动态槽尾部增删不得断开仍处于稳定前缀中的槽；中间插入、删除或重排必须在断开前按稳定 Parameter Id / Route Id 保存源或目标节点及槽位引用，不能只保存会随 `disconnectInput()` / `disconnectOutput()` 一起失效的 link ID。
-- Nodes 2.0 确需监听 DOM 重挂时使用幂等 `MutationObserver`，不需要重挂的节点不得常驻观察器；所有路径禁止持续轮询。
+- Nodes 2.0 确需监听 DOM 重挂时使用幂等 `MutationObserver`；不需要重挂的节点不得常驻观察器，所有路径禁止持续轮询。
 
 ## 5. 领域不变量
 
@@ -122,16 +119,16 @@ ComfyUI-Aaalice-Nodes/
 ## 6. UI、主题与本地化
 
 - 新 DOM 界面复用 `js/lib/ui.js` + `ui.css`；业务布局放在 `js/lib/theme.css`，不重复实现 button、field、empty state 或 dialog。
-- 节点标题、背景、外轮廓和圆角由 ComfyUI 原生层负责；节点 DOM 根必须透明，不重复绘制整块背景、外边框或顶部圆角。
-- 普通节点内激活态通过 `js/lib/node_accent.js` 和 `--aa-ui-node-*` token 跟随当前节点颜色；关闭态保持中性，警告、危险、筛选颜色和多档业务状态不得被节点色覆盖。
-- 节点颜色同步只走创建、加载、配置、业务重绘和 ComfyUI 官方 `setColorOption()` 生命周期；禁止为颜色或主题同步增加持续轮询。
+- 节点原生层、DOM overlay、Dialog 和 Popover 的职责及主题映射以 [`ui-system.md`](docs/design/ui-system.md) 为准；DOM 根不得重复绘制节点外壳。
+- 普通激活态可以跟随节点强调色；警告、危险、筛选颜色和多档业务状态保留自身语义，且颜色不能成为唯一状态信号。
+- 节点颜色同步只走既有生命周期，禁止为颜色或主题同步增加持续轮询。
 - Toast 只用 `app.extensionManager.toast.add`；可有无状态参数封装，禁止自建容器、队列或动画系统。
 - 静态 `iconName` 与 `icon("…")` 必须存在于共享图标表，并通过图标契约测试。
 - 颜色来自 ComfyUI token；禁止写死品牌色或只适用于暗色主题的正文色。
 - 仅维护 `locales/{en,zh}/{main,nodeDefs}.json`。`nodeDefs.json` 管节点定义，自绘 DOM 使用 `main.json` 和 `js/i18n.js`。
 - 序列化 id、COMBO 值和路径使用稳定英文；修改用户文案时同步两种语言。
 - 本包新增的节点菜单以 emoji 开头，并进入 en/zh 本地化文案。
-- 复杂布局存在多个合理方案时，先做同内容可切换的临时 HTML 演示；小范围视觉调整直接实现。
+- 复杂布局存在多个合理方案时，先做同内容可切换的临时演示；小范围视觉调整直接实现。
 
 ## 7. 编辑与清理
 
@@ -144,15 +141,10 @@ ComfyUI-Aaalice-Nodes/
 
 ## 8. 验证
 
-- 验证按风险升级：静态检查 → 受影响单测 → 全量检查 → 必要的 Classic / Nodes 2.0 GUI 主路径。
-- 仅涉及视觉样式或布局、且不改变交互与协议的修改，完成后直接交给用户刷新验证；除非用户明确要求，不启动独立 ComfyUI 实例，不进行浏览器自动化或自动化测试。
-- 具体命令、隔离实例、端口、日志、浏览器和回归矩阵只以 [`testing.md`](docs/development/testing.md) 为准。
-- GUI 自动验收只使用 Codex 内置浏览器；禁止自行启动 Chrome / Edge、连接 CDP 或引入 Playwright / Selenium。
-- 用户常用实例默认占用 `127.0.0.1:8188`。独立测试实例默认从 `8189` 开始选择空闲端口，并隔离 user directory、数据库和日志；禁止停止、复用或干扰用户实例。
-- 前端改动后硬刷新；slot、widget 或协议变化后删除旧节点并重新创建。
-- `/object_info` 只证明后端注册，不代表 UI 或执行通过。
-- 浏览器权限、系统通知和音频自动播放等真实用户手势必须人工确认，自动化结果不能冒充手测通过。
-- 无法验证时列出已完成检查、原始错误、未验证内容和剩余风险，不得伪造通过。
+- 验证按风险升级：静态检查 → 受影响单测 → 全量检查 → 必要的 Classic / Nodes 2.0 GUI 主路径；具体命令和回归矩阵只以 [`testing.md`](docs/development/testing.md) 为准。
+- 不涉及 slot、widget 尺寸协议、序列化或执行行为，且可在现有实例中硬刷新确认的局部前端视觉、布局和交互修改，完成代码检查后交给用户实际验收；除非用户明确要求，不启动独立实例或浏览器自动化。
+- 必须自动验收 GUI 时只使用 Codex 内置浏览器和隔离实例，禁止操作用户常用实例，也禁止自行启动外部浏览器或引入浏览器测试框架。
+- 浏览器权限、系统通知、音频播放等真实用户手势只能标记为人工确认；无法验证时如实列出缺口和风险。
 
 ## 9. 发布
 
@@ -167,7 +159,7 @@ ComfyUI-Aaalice-Nodes/
 - [ ] node id、输入输出 id 和协议值使用英文
 - [ ] English / 简体中文文案同步
 - [ ] README、roadmap、架构和公开限制按职责更新
-- [ ] Classic 与 Nodes 2.0 主路径已验证或明确说明缺口
+- [ ] Classic 与 Nodes 2.0 主路径已验证，或已明确交给用户刷新验收
 - [ ] 真实 slot、序列化真源和内部 payload 边界未破坏
 - [ ] 文档位置正确，链接和 ADR 状态有效，`AGENTS.md` 少于 500 行
-- [ ] 已完成风险匹配的检查；纯样式交给用户刷新验证时已明确说明未运行自动化测试
+- [ ] 已完成风险匹配的代码检查，并明确说明未执行的 GUI 或人工验收

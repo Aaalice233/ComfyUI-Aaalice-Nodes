@@ -97,6 +97,7 @@ function createPopover(node, anchor, className, ariaLabel) {
 	closePopover(node);
 	const width = className.includes("rules") ? 440 : 280;
 	const popup = createAnchoredPopover({ anchor, ariaLabel, className: `aaalice-qgm-popover ${className}`, width });
+	popup.anchor = anchor;
 	const sharedClose = popup.close;
 	popup.close = () => {
 		sharedClose();
@@ -113,13 +114,52 @@ function minimumBodyHeight(node) {
 	return Math.max(MIN_BODY_HEIGHT, (count * GROUP_ROW_HEIGHT) + (Math.max(0, count - 1) * GROUP_ROW_GAP) + GROUP_LIST_VERTICAL_MARGIN);
 }
 
+function filterEntries(state) {
+	if (state.filter.mode === "all") return [{ label: t("aaalice.quickGroup.filter.all", "All groups") }];
+	const entries = state.filter.colors.map(normalizeColor).filter(Boolean).map((color) => ({ color, label: color }));
+	if (state.filter.includeUncolored) entries.push({ uncolored: true, label: t("aaalice.quickGroup.filter.uncolored", "No color") });
+	return entries.length ? entries : [{ label: t("aaalice.quickGroup.filter.empty", "No colors") }];
+}
+
 function filterSummary(state) {
-	if (state.filter.mode === "all") return t("aaalice.quickGroup.filter.all", "All groups");
-	const count = state.filter.colors.length + (state.filter.includeUncolored ? 1 : 0);
-	return message("aaalice.quickGroup.filter.selected", "{count} color filters", { count });
+	return filterEntries(state).map((entry) => entry.label).join(", ");
+}
+
+function closeFilterTooltip(node) {
+	const tooltip = node._aaaliceQuickFilterTooltip;
+	if (!tooltip) return;
+	if (tooltip.anchor?.getAttribute("aria-describedby") === tooltip.root.id) tooltip.anchor.removeAttribute("aria-describedby");
+	tooltip.root.remove();
+	node._aaaliceQuickFilterTooltip = null;
+}
+
+function showFilterTooltip(node, anchor) {
+	closeFilterTooltip(node);
+	const root = isolate(el("div", { className: "aaalice-qgm-filter-tooltip", attrs: { role: "tooltip" } }));
+	root.id = `aaalice-qgm-filter-tooltip-${Math.random().toString(36).slice(2)}`;
+	const list = el("div", "aaalice-qgm-filter-tooltip-list");
+	for (const entry of filterEntries(stateFor(node))) {
+		const row = el("div", "aaalice-qgm-filter-tooltip-row");
+		if (entry.color) row.append(el("span", { className: "aaalice-qgm-color", attrs: { style: `--group-color:${entry.color}`, "aria-hidden": "true" } }), el("code", null, entry.color));
+		else if (entry.uncolored) row.append(el("span", { className: "aaalice-qgm-color is-uncolored", attrs: { "aria-hidden": "true" } }), el("span", null, entry.label));
+		else row.append(el("span", null, entry.label));
+		list.append(row);
+	}
+	root.append(list);
+	document.body.append(root);
+	const anchorRect = anchor.getBoundingClientRect();
+	const tooltipRect = root.getBoundingClientRect();
+	const left = Math.max(8, Math.min(window.innerWidth - tooltipRect.width - 8, anchorRect.right - tooltipRect.width));
+	const below = anchorRect.bottom + 6;
+	const top = below + tooltipRect.height <= window.innerHeight - 8 ? below : Math.max(8, anchorRect.top - tooltipRect.height - 6);
+	root.style.left = `${left}px`;
+	root.style.top = `${top}px`;
+	anchor.setAttribute("aria-describedby", root.id);
+	node._aaaliceQuickFilterTooltip = { root, anchor };
 }
 
 function openFilter(node, anchor) {
+	closeFilterTooltip(node);
 	const popup = createPopover(node, anchor, "aaalice-qgm-filter-popover", t("aaalice.quickGroup.filter.aria", "Choose group colors"));
 	const groups = groupsFor(node);
 	const state = stateFor(node);
@@ -310,6 +350,11 @@ function syncToolbar(node, state) {
 	if (!actions) {
 		actions = el("div", "aaalice-qgm-actions");
 		const filter = iconButton({ iconName: "filter", label: t("aaalice.quickGroup.filter.aria", "Choose group colors"), variant: "ghost", className: "aaalice-qgm-filter-button" });
+		filter.removeAttribute("title");
+		filter.addEventListener("mouseenter", () => showFilterTooltip(node, filter));
+		filter.addEventListener("mouseleave", () => closeFilterTooltip(node));
+		filter.addEventListener("focus", () => showFilterTooltip(node, filter));
+		filter.addEventListener("blur", () => closeFilterTooltip(node));
 		filter.addEventListener("click", () => openFilter(node, filter));
 		const refresh = iconButton({ iconName: "refresh", label: t("aaalice.quickGroup.refresh", "Refresh groups"), variant: "ghost", className: "aaalice-qgm-refresh-button", onClick: () => render(node) });
 		actions.append(modeSwitcher(node, state), filter, refresh);
@@ -320,15 +365,10 @@ function syncToolbar(node, state) {
 	if (segmented) syncModeSwitcher(segmented, state);
 	const filter = actions.querySelector(".aaalice-qgm-filter-button");
 	if (filter) {
-		const label = `${t("aaalice.quickGroup.filter.aria", "Choose group colors")} · ${filterSummary(state)}`;
-		const selectedColors = state.filter.colors.map(normalizeColor).filter(Boolean);
-		const primaryColor = selectedColors[0] || (state.filter.includeUncolored ? "var(--aa-ui-muted)" : null);
-		filter.classList.toggle("is-active", state.filter.mode === "selected");
-		filter.classList.toggle("is-multi", state.filter.mode === "selected" && selectedColors.length + Number(state.filter.includeUncolored) > 1);
-		if (state.filter.mode === "selected" && primaryColor) filter.style.setProperty("--qgm-filter-color", primaryColor);
-		else filter.style.removeProperty("--qgm-filter-color");
+		const label = `${t("aaalice.quickGroup.filter.aria", "Choose group colors")}: ${filterSummary(state)}`;
 		filter.setAttribute("aria-label", label);
-		filter.title = label;
+		filter.removeAttribute("title");
+		if (node._aaaliceQuickFilterTooltip) showFilterTooltip(node, filter);
 		node._aaaliceQuickFilterButton = filter;
 	}
 	const refresh = actions.querySelector(".aaalice-qgm-refresh-button");
@@ -374,7 +414,11 @@ function render(node) {
 	const toolbar = node._aaaliceQuickToolbar;
 	if (!root || !toolbar) return;
 	node._aaaliceQuickAccent?.sync();
-	closePopover(node);
+	// Toolbar controls survive body redraws. Keep their popovers open so a queued
+	// graphChanged render cannot cancel the user's click on the filter button.
+	// Row controls are rebuilt below, so popovers anchored to them must close.
+	const popoverAnchor = node._aaaliceQuickPopover?.anchor;
+	if (popoverAnchor && !toolbar.contains(popoverAnchor)) closePopover(node);
 	const groups = groupsFor(node);
 	const state = stateFor(node);
 	state.groupOrder = reconcileGroupOrder(state.groupOrder, groups);
@@ -537,6 +581,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node.onRemoved = function () {
 		mountedManagers.delete(this);
 		closePopover(this);
+		closeFilterTooltip(this);
 		this._aaaliceQuickAccent?.dispose();
 		this._aaaliceQuickAccent = null;
 		if (this._aaaliceQuickInitialSizeFrame) cancelAnimationFrame(this._aaaliceQuickInitialSizeFrame);

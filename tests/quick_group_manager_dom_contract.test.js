@@ -67,12 +67,22 @@ test("keeps manual node sizing after the initial default size", () => {
 	assert.match(styles, /\.aaalice-qgm\.is-placing[\s\S]*pointer-events:\s*none/);
 });
 
-test("uses the selected filter color and omits group-row color swatches", () => {
-	assert.match(source, /--qgm-filter-color/);
-	assert.match(styles, /\.aaalice-qgm-filter-button\.is-active[\s\S]*--qgm-filter-color/);
+test("keeps the filter button neutral and lists selected colors in its tooltip", () => {
+	assert.match(source, /aaalice-qgm-filter-tooltip/);
+	assert.match(source, /entry\.color[\s\S]*aaalice-qgm-color[\s\S]*el\("code", null, entry\.color\)/);
+	assert.match(source, /filter\.removeAttribute\("title"\)/);
+	assert.doesNotMatch(source, /quickGroup\.filter\.selected/);
+	assert.doesNotMatch(source, /--qgm-filter-color/);
+	assert.doesNotMatch(styles, /\.aaalice-qgm-filter-button\.is-active/);
+	assert.match(styles, /\.aaalice-qgm-filter-tooltip[\s\S]*pointer-events:\s*none/);
 	const rowBody = source.slice(source.indexOf("function groupRow"), source.indexOf("function render(node)"));
 	assert.doesNotMatch(rowBody, /aaalice-qgm-color/);
 	assert.doesNotMatch(source, /stale \? el\("span", "aaalice-qgm-warning", "!"\) : null/);
+});
+
+test("keeps the toolbar filter popover open across queued body renders", () => {
+	assert.match(source, /popup\.anchor\s*=\s*anchor/);
+	assert.match(source, /if \(popoverAnchor && !toolbar\.contains\(popoverAnchor\)\) closePopover\(node\)/);
 });
 
 test("animates and color-codes the mute/bypass mode switcher", () => {

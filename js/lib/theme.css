@@ -3,6 +3,7 @@
 .aaalice-pcp-node-root,
 .aaalice-qgm,
 .aaalice-qgm-popover,
+.aaalice-qgm-filter-tooltip,
 .aa-ui-dialog {
 	/* Feature aliases keep the canvas/widget rules readable while colors come from ui.css. */
 	--aaalice-text: var(--aa-ui-text);
@@ -763,14 +764,25 @@
 .aaalice-qgm-segmented button.is-active { color: var(--aa-ui-text); }
 .aaalice-qgm-segmented button:focus-visible { outline: 2px solid var(--qgm-mode-color); outline-offset: -1px; }
 .aaalice-qgm .aa-ui-button--icon { width: 26px; height: 26px; }
-.aaalice-qgm-filter-button.is-active {
-	border-color: transparent;
-	background: transparent;
-	box-shadow: none;
-	color: var(--qgm-filter-color, var(--aa-ui-accent));
+.aaalice-qgm-filter-tooltip {
+	position: fixed;
+	z-index: 100030;
+	display: grid;
+	min-width: 148px;
+	max-width: 280px;
+	gap: 7px;
+	padding: 9px 10px;
+	border: 1px solid var(--aa-ui-border-soft);
+	border-radius: 9px;
+	background: var(--aa-ui-surface);
+	box-shadow: 0 10px 28px rgb(0 0 0 / .32);
+	color: var(--aa-ui-text);
+	font: 12px/1.4 var(--comfy-font, Inter, system-ui, sans-serif);
+	pointer-events: none;
 }
-.aaalice-qgm-filter-button.is-active:hover:not(:disabled) { background: color-mix(in srgb, var(--qgm-filter-color, var(--aa-ui-accent)) 10%, transparent); color: var(--qgm-filter-color, var(--aa-ui-accent)); }
-.aaalice-qgm-filter-button.is-multi { color: color-mix(in srgb, var(--qgm-filter-color, var(--aa-ui-accent)) 74%, var(--aa-ui-accent)); }
+.aaalice-qgm-filter-tooltip-list { display: grid; gap: 5px; }
+.aaalice-qgm-filter-tooltip-row { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.aaalice-qgm-filter-tooltip-row code { color: var(--aa-ui-text); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .aaalice-qgm-list {
 	box-sizing: border-box;
 	display: flex;

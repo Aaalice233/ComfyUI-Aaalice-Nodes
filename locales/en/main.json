@@ -18,8 +18,8 @@
       "noFilteredGroups": "No groups match the selected colors.",
       "mode": { "aria": "Disabled group mode", "mute": "Mute", "bypass": "Bypass" },
       "filter": {
-        "aria": "Choose group colors", "all": "All groups", "selected": "{count} color filters",
-        "uncolored": "No color", "missing": "No current group uses this color"
+        "aria": "Choose group colors", "all": "All groups",
+        "empty": "No colors", "uncolored": "No color", "missing": "No current group uses this color"
       },
       "rules": {
         "aria": "Edit linkage for {group}", "edit": "Edit linkage for {group}", "search": "Search groups",
