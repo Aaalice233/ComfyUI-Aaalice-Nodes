@@ -10,7 +10,7 @@
 
 Compact parameter controls and workflow utilities for ComfyUI.
 
-> This package is a published preview. Workflows and behavior may change before the first stable release, and the package does not migrate data from ComfyUI-Danbooru-Gallery.
+> This package is a published preview. Workflows and behavior may change before the first stable release. Legacy workflows are not migrated automatically; the Library can import the supported legacy prompt-library exports described below.
 
 ## Requirements
 
@@ -144,7 +144,7 @@ The settings button opens mode-specific toggles and marks the node when defaults
 <details>
 <summary><strong>PromptSelector — ordered prompt-library selection</strong></summary>
 
-Use the search field and category or collection filters, then select any number of entries across categories. Selection order belongs to the node and determines output order. **Manage selected prompts** can reorder entries, assign weights from 0 to 20, or remove selections; the optional `prefix_prompt` input is emitted first. The node context menu can change the separator, which defaults to `, `.
+Use search and the category or collection filters, then select any number of entries across categories. Each row uses its preview thumbnail as the selection target; a check overlay shows the selected state, while entries without an image use a non-previewing placeholder. Hover or focus an image-backed entry to inspect a larger preview. Selection order belongs to the node and determines output order. **Manage selected prompts** can reorder entries, assign weights from 0 to 20, or remove selections; the optional `prefix_prompt` input is emitted first. The node context menu can change the separator, which defaults to `, `.
 
 PromptSelector stores stable entry references instead of copied text. Editing a library entry updates every referencing node. Deleting a referenced entry leaves a visible missing reference and blocks execution until it is removed or restored; it is never silently matched by name.
 
@@ -163,7 +163,7 @@ Open **Aaalice Workspace** from ComfyUI's left sidebar. **Controls** contains us
 
 Generic scalar widgets, all adjustable Aaalice parameters, and compatible widgets publicly exposed by a subgraph as a whole can be added. The workspace never searches inside a subgraph. Bindings use stable identities rather than node titles or positions; unresolved controls remain visible for manual rebind. Dashboard presets export layout, bindings, and current values as JSON without including the prompt library.
 
-The **Library** workspace manages entries, flat categories, multi-membership collections, tags, and one preview image per entry. It can export the full library or the current category/collection as a ZIP with hashed assets. It imports current ZIP archives plus legacy `data.json + preview/` ZIP or JSON exports, migrating titles, prompts, notes, categories, tags, and previews. Import files and expanded archives are each limited to 256 MiB. Imports are preflighted before applying; conflicts can keep local data, use imported data, or create a duplicate.
+The **Library** workspace manages entries, flat categories, multi-membership collections, tags, and one preview image per entry. It can export the full library or the current category/collection as a ZIP with hashed assets. It imports current ZIP archives plus legacy `data.json + preview/` ZIP or JSON exports, migrating titles, prompts, notes, categories, tags, and previews. Import files, exports, and expanded archives are limited to 2 GiB; transfers are staged and streamed instead of loading the whole archive into memory. Imports are preflighted before applying; conflicts can keep local data, use imported data, or create a duplicate.
 
 ## Compatibility and limitations
 

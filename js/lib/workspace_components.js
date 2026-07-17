@@ -23,6 +23,43 @@ export function createWorkspaceToolbar(actions = [], { className = "", label = n
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
 }
 
+export function formatFileSize(bytes) {
+	const size = Number(bytes) || 0;
+	if (size < 1024) return `${size} B`;
+	if (size < 1024 ** 2) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+	return `${(size / (1024 ** 2)).toFixed(size < 10 * 1024 ** 2 ? 1 : 0)} MB`;
+}
+
+export function createTransferHero({ iconName, eyebrow, title, description, fileName = "", fileMeta = "", tone = "neutral" }) {
+	const copy = el("div", "aa-transfer-hero__copy");
+	if (eyebrow) copy.append(el("span", "aa-transfer-eyebrow", eyebrow));
+	copy.append(el("strong", null, title));
+	if (description) copy.append(el("p", null, description));
+	const root = el("section", { className: `aa-transfer-hero is-${tone}`, children: [el("span", { className: "aa-transfer-hero__icon", children: [icon(iconName)] }), copy] });
+	if (fileName) root.append(el("div", { className: "aa-transfer-file", children: [el("strong", null, fileName), el("span", null, fileMeta)] }));
+	return root;
+}
+
+export function createTransferStats(items) {
+	return el("div", { className: "aa-transfer-stats", children: items.map(({ label, value, tone = "neutral" }) => el("div", {
+		className: `aa-transfer-stat is-${tone}`, children: [el("strong", null, String(value)), el("span", null, label)],
+	})) });
+}
+
+export function createTransferSection({ title, description = "", count = null, tone = "neutral", open = false, children = [] }) {
+	const summary = el("summary", { children: [el("span", "aa-transfer-section__marker"), el("div", { className: "aa-transfer-section__copy", children: [el("strong", null, title), ...(description ? [el("small", null, description)] : [])] }), ...(count == null ? [] : [el("span", "aa-transfer-section__count", String(count))]), icon("moveDown")] });
+	const details = el("details", { className: `aa-transfer-section is-${tone}`, attrs: { open }, children: [summary, el("div", { className: "aa-transfer-section__body", children })] });
+	return details;
+}
+
+export function createTransferResult({ title, description, count = null, countLabel = "", tone = "success" }) {
+	return el("div", { className: `aa-transfer-result is-${tone}`, children: [
+		el("span", { className: "aa-transfer-result__icon", children: [icon(tone === "error" ? "statusError" : "statusCheck")] }),
+		el("strong", null, title), el("p", null, description),
+		...(count == null ? [] : [el("div", { className: "aa-transfer-result__count", children: [el("strong", null, String(count)), el("span", null, countLabel)] })]),
+	] });
+}
+
 export function createCollapsibleSearch({ open = false, value = "", label, closeLabel = label, placeholder, disabled = false, focus = false, onToggle, onInput }) {
 	const toggle = iconButton({ iconName: "search", label: value ? `${label}: ${value}` : label, active: open || Boolean(value), variant: "ghost", disabled, onClick: () => onToggle?.(!open) });
 	toggle.setAttribute("aria-expanded", String(open));

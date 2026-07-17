@@ -5,8 +5,10 @@ Domain logic stays in ``nodes._lib.prompt_library`` so routes remain thin and te
 
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
@@ -70,7 +72,7 @@ def _handler(operation: Callable[..., Any], *, action: str | None = None):
 
 
 async def snapshot(_request: web.Request):
-    return get_library().snapshot()
+    return await asyncio.to_thread(get_library().snapshot)
 
 
 def _create_named(kind: str):
@@ -163,55 +165,90 @@ async def asset(request: web.Request):
     return web.FileResponse(path, headers={"Content-Type": mime, "Cache-Control": "public, max-age=31536000, immutable"})
 
 
-async def export_archive(request: web.Request):
+async def export_prepare(request: web.Request):
     data = await _json(request)
-    content = get_library().export_archive(
-        entry_ids=data.get("entryIds"), category_id=data.get("categoryId"), collection_id=data.get("collectionId")
+    token, size = await asyncio.to_thread(
+        get_library().prepare_export,
+        entry_ids=data.get("entryIds"), category_id=data.get("categoryId"), collection_id=data.get("collectionId"),
     )
-    return web.Response(
-        body=content,
-        content_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="aaalice-prompt-library.zip"'},
-    )
+    return {"token": token, "size": size}
 
 
-async def _read_import(request: web.Request) -> tuple[bytes, str, dict[str, str]]:
+async def export_download(request: web.Request):
+    path = get_library().export_path(request.match_info["token"])
+    response = web.StreamResponse(headers={"Content-Type": "application/zip", "Content-Disposition": 'attachment; filename="aaalice-prompt-library.zip"', "Content-Length": str(path.stat().st_size)})
+    await response.prepare(request)
+    try:
+        with path.open("rb") as source:
+            while chunk := await asyncio.to_thread(source.read, 1024 * 1024):
+                await response.write(chunk)
+        await response.write_eof()
+        return response
+    finally:
+        path.unlink(missing_ok=True)
+
+
+async def _read_import_file(request: web.Request) -> tuple[Path, str]:
     reader = await request.multipart()
-    content = b""
-    filename = ""
-    resolutions: dict[str, str] = {}
-    while field := await reader.next():
-        if field.name == "file":
-            filename = field.filename or ""
-            chunks: list[bytes] = []
-            size = 0
-            while chunk := await field.read_chunk():
+    field = await reader.next()
+    if field is None or field.name != "file":
+        raise ValueError("multipart field 'file' is required")
+    fd, name = tempfile.mkstemp(dir=get_library().root, prefix="import-upload-")
+    os.close(fd)
+    path = Path(name)
+    size = 0
+    try:
+        with path.open("wb") as destination:
+            while chunk := await field.read_chunk(size=1024 * 1024):
                 size += len(chunk)
                 if size > MAX_IMPORT_BYTES:
-                    raise ValueError(f"import file exceeds {MAX_IMPORT_BYTES // (1024 * 1024)} MiB limit")
-                chunks.append(chunk)
-            content = b"".join(chunks)
-        elif field.name == "resolutions":
-            raw = await field.text()
-            value = json.loads(raw)
-            if not isinstance(value, dict):
-                raise ValueError("resolutions must be a JSON object")
-            resolutions = {str(key): str(policy) for key, policy in value.items()}
-    if not content:
-        raise ValueError("multipart field 'file' is required")
-    return content, filename, resolutions
+                    raise ValueError("import file exceeds 2 GiB limit")
+                destination.write(chunk)
+        if not size:
+            raise ValueError("import file is empty")
+        return path, field.filename or ""
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
 
 
 async def import_preflight(request: web.Request):
-    content, filename, _resolutions = await _read_import(request)
-    manifest, _assets = get_library().decode_import(content, filename)
-    return {"manifest": manifest, "preflight": get_library().preflight_import(manifest)}
+    source, filename = await _read_import_file(request)
+    token = ""
+    try:
+        token, manifest = await asyncio.to_thread(get_library().prepare_import, source, filename)
+        preflight = await asyncio.to_thread(get_library().preflight_import, manifest)
+        return {"token": token, "manifest": manifest, "preflight": preflight}
+    except Exception:
+        if token:
+            get_library().discard_import(token)
+        raise
+    finally:
+        source.unlink(missing_ok=True)
 
 
 async def import_apply(request: web.Request):
-    content, filename, resolutions = await _read_import(request)
-    manifest, assets = get_library().decode_import(content, filename)
-    return get_library().apply_import(manifest, assets, resolutions)
+    data = await _json(request)
+    token = data.get("token")
+    resolutions = data.get("resolutions", {})
+    if not isinstance(token, str) or not isinstance(resolutions, dict):
+        raise ValueError("token and resolutions are required")
+    try:
+        manifest, assets = get_library().staged_import(token)
+        return await asyncio.to_thread(get_library().apply_import, manifest, assets, {str(key): str(value) for key, value in resolutions.items()})
+    finally:
+        try:
+            get_library().discard_import(token)
+        except KeyError:
+            pass
+
+
+async def import_discard(request: web.Request):
+    token = (await _json(request)).get("token")
+    if not isinstance(token, str):
+        raise ValueError("token is required")
+    get_library().discard_import(token)
+    return {"ok": True}
 
 
 def register_prompt_library_routes() -> None:
@@ -235,7 +272,9 @@ def register_prompt_library_routes() -> None:
     routes.post(f"{API}/entries/{{id}}/preview")(_handler(set_preview, action="entry.preview.updated"))
     routes.delete(f"{API}/entries/{{id}}/preview")(_handler(delete_preview, action="entry.preview.deleted"))
     routes.get(f"{API}/assets/{{hash}}")(_handler(asset))
-    routes.post(f"{API}/export")(_handler(export_archive))
+    routes.post(f"{API}/export")(_handler(export_prepare))
+    routes.get(f"{API}/export/{{token}}")(_handler(export_download))
     routes.post(f"{API}/import/preflight")(_handler(import_preflight))
     routes.post(f"{API}/import/apply")(_handler(import_apply, action="import.applied"))
+    routes.post(f"{API}/import/discard")(_handler(import_discard))
     _registered = True

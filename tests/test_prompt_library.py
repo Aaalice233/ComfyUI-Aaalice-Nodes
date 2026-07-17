@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 from unittest.mock import patch
 
 from nodes._lib import prompt_library as prompt_library_module
@@ -30,6 +31,13 @@ class PromptLibraryTests(unittest.TestCase):
             "categoryId": category["id"], "collectionIds": [collection["id"]], "tags": ["hair", "red"],
         })
         return category, collection, entry
+
+    def prepare_bytes(self, data: bytes, filename: str):
+        source = Path(self.temp.name) / f"source-{filename}"
+        source.write_bytes(data)
+        token, manifest = self.library.prepare_import(source, filename)
+        _manifest, assets = self.library.staged_import(token)
+        return token, manifest, assets
 
     def test_crud_relations_order_and_cleanup(self):
         category, collection, entry = self.seed()
@@ -76,8 +84,9 @@ class PromptLibraryTests(unittest.TestCase):
     def test_full_and_partial_archive_round_trip(self):
         category, collection, entry = self.seed()
         self.library.set_preview(entry["id"], PNG)
-        archive = self.library.export_archive(category_id=category["id"])
-        manifest, assets = PromptLibrary.decode_import(archive, "backup.zip")
+        archive = self.library.export_archive_to_path(category_id=category["id"])
+        token, manifest = self.library.prepare_import(archive, "backup.zip")
+        _manifest, assets = self.library.staged_import(token)
         self.assertEqual([item["id"] for item in manifest["entries"]], [entry["id"]])
         self.assertEqual(len(assets), 1)
         with tempfile.TemporaryDirectory() as target:
@@ -86,6 +95,18 @@ class PromptLibraryTests(unittest.TestCase):
             self.assertEqual(result["imported"], 1)
             self.assertEqual(imported.get_entry(entry["id"])["text"], "red hair")
             self.assertEqual(imported.get_entry(entry["id"])["collections"][0]["collectionId"], collection["id"])
+        self.library.discard_import(token)
+        archive.unlink()
+
+    def test_export_preparation_uses_a_download_token(self):
+        self.seed()
+        token, size = self.library.prepare_export()
+        path = self.library.export_path(token)
+        self.assertGreater(size, 0)
+        self.assertEqual(size, path.stat().st_size)
+        path.unlink()
+        with self.assertRaises(KeyError):
+            self.library.export_path(token)
 
     def test_import_replacement_cleans_the_last_old_preview_reference(self):
         _category, _collection, entry = self.seed()
@@ -98,7 +119,9 @@ class PromptLibraryTests(unittest.TestCase):
             "entries": [{"id": entry["id"], "title": "Red hair", "text": "red hair", "note": "", "categoryId": None,
                          "previewHash": replacement_hash, "position": 0, "tagIds": [], "collections": []}],
         }
-        self.library.apply_import(manifest, {replacement_hash: replacement}, {entry["id"]: "import"})
+        replacement_path = Path(self.temp.name) / "replacement.png"
+        replacement_path.write_bytes(replacement)
+        self.library.apply_import(manifest, {replacement_hash: replacement_path}, {entry["id"]: "import"})
         self.assertFalse(old_path.exists())
         with self.assertRaises(KeyError):
             self.library.asset(old_asset["hash"])
@@ -108,7 +131,7 @@ class PromptLibraryTests(unittest.TestCase):
             {"name": "People", "prompts": [{"id": "old-smile", "alias": "Smile", "prompt": "smile",
                                                "description": "Friendly expression", "tags": ["face", "happy"]}]},
         ]}).encode()
-        manifest, assets = PromptLibrary.decode_import(raw, "legacy.json")
+        token, manifest, assets = self.prepare_bytes(raw, "legacy.json")
         self.assertEqual(manifest["entries"][0]["text"], "smile")
         self.assertEqual(manifest["entries"][0]["note"], "Friendly expression")
         self.assertEqual({item["name"] for item in manifest["tags"]}, {"face", "happy"})
@@ -130,6 +153,7 @@ class PromptLibraryTests(unittest.TestCase):
         self.assertEqual(len(self.library.preflight_import(duplicate)["duplicate"]), 1)
         self.library.apply_import(duplicate, {}, {duplicate_id: "local"})
         self.assertNotIn(duplicate_id, {item["id"] for item in self.library.snapshot()["entries"]})
+        self.library.discard_import(token)
 
     def test_legacy_export_zip_imports_data_json_and_preview(self):
         stream = io.BytesIO()
@@ -139,10 +163,11 @@ class PromptLibraryTests(unittest.TestCase):
         with zipfile.ZipFile(stream, "w") as archive:
             archive.writestr("data.json", json.dumps(legacy))
             archive.writestr("preview/smile.png", PNG)
-        manifest, assets = PromptLibrary.decode_import(stream.getvalue(), "prompt_library.zip")
+        token, manifest, assets = self.prepare_bytes(stream.getvalue(), "prompt_library.zip")
         self.assertEqual(manifest["entries"][0]["title"], "Smile")
         self.assertEqual(len(assets), 1)
         self.assertIn(manifest["entries"][0]["previewHash"], assets)
+        self.library.discard_import(token)
 
     def test_rejects_zip_traversal_hash_mismatch_and_rolls_back(self):
         stream = io.BytesIO()
@@ -150,7 +175,7 @@ class PromptLibraryTests(unittest.TestCase):
             archive.writestr("manifest.json", json.dumps({"format": "aaalice-prompt-library", "version": 1, "categories": [], "collections": [], "tags": [], "entries": []}))
             archive.writestr("../escape.png", PNG)
         with self.assertRaisesRegex(ValueError, "unsafe archive path"):
-            PromptLibrary.decode_import(stream.getvalue(), "bad.zip")
+            self.prepare_bytes(stream.getvalue(), "bad.zip")
         manifest = {"format": "aaalice-prompt-library", "version": 1, "categories": [], "collections": [], "tags": [], "entries": [
             {"id": "a", "title": "A", "text": "a", "categoryId": "missing", "tagIds": [], "collections": []},
         ]}
@@ -161,15 +186,16 @@ class PromptLibraryTests(unittest.TestCase):
     def test_import_uses_separate_compressed_and_expanded_size_limits(self):
         with patch.object(prompt_library_module, "MAX_IMPORT_BYTES", 4):
             with self.assertRaisesRegex(ValueError, "import file exceeds"):
-                PromptLibrary.decode_import(b"12345", "legacy.json")
+                self.prepare_bytes(b"12345", "legacy.json")
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("manifest.json", "{}")
         with patch.object(prompt_library_module, "MAX_EXPANDED_ARCHIVE_BYTES", 1):
             with self.assertRaisesRegex(ValueError, "expanded archive exceeds"):
-                PromptLibrary.decode_import(stream.getvalue(), "backup.zip")
-        self.assertEqual(prompt_library_module.MAX_IMPORT_BYTES, 256 * 1024 * 1024)
-        self.assertEqual(prompt_library_module.MAX_EXPANDED_ARCHIVE_BYTES, 256 * 1024 * 1024)
+                self.prepare_bytes(stream.getvalue(), "backup.zip")
+        self.assertEqual(prompt_library_module.MAX_IMPORT_BYTES, 2 * 1024 * 1024 * 1024)
+        self.assertEqual(prompt_library_module.MAX_EXPORT_BYTES, 2 * 1024 * 1024 * 1024)
+        self.assertEqual(prompt_library_module.MAX_EXPANDED_ARCHIVE_BYTES, 2 * 1024 * 1024 * 1024)
 
     def test_preflight_reports_invalid_entry_references(self):
         manifest = {"format": "aaalice-prompt-library", "version": 1, "categories": [], "collections": [], "tags": [], "entries": [

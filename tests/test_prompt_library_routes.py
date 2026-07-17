@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from pathlib import Path
 
 from nodes._lib.prompt_library import PromptLibrary
 from nodes.prompt import prompt_library_routes as routes
@@ -47,6 +48,17 @@ class PromptLibraryRouteTests(unittest.IsolatedAsyncioTestCase):
         response = await routes._handler(routes.reorder)(FakeRequest({"kind": "entries", "orderedIds": [second["id"], first["id"]]}))
         self.assertEqual(response.status, 200)
         self.assertEqual(routes.get_library().snapshot()["entries"][0]["id"], second["id"])
+
+    async def test_apply_uses_preflight_token_once_and_removes_stage(self):
+        source = Path(self.temp.name) / "legacy.json"
+        source.write_text(json.dumps({"Imported": ["smile"]}), encoding="utf-8")
+        token, manifest = routes.get_library().prepare_import(source, source.name)
+        entry_id = manifest["entries"][0]["id"]
+        result = await routes.import_apply(FakeRequest({"token": token, "resolutions": {entry_id: "import"}}))
+        self.assertEqual(result["imported"], 1)
+        self.assertEqual(routes.get_library().snapshot()["entries"][0]["text"], "smile")
+        with self.assertRaises(KeyError):
+            routes.get_library().staged_import(token)
 
 
 if __name__ == "__main__":

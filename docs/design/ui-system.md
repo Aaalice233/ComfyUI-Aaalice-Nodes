@@ -81,7 +81,7 @@
 
 ## 7. 共享组件边界
 
-`js/lib/ui.js` 是无业务状态的 DOM 组件层。组件接收已本地化字符串，不导入 `t()`，不读写工作流状态。
+`js/lib/ui.js` 是无业务状态的 DOM 基础组件层；`js/lib/workspace_components.js` 是工作区复合组件层。两层都只接收数据、已本地化字符串和回调，不导入 `t()`，不读写工作流或词库状态。业务入口负责状态、生命周期与画布事务。
 
 | 组件 | 职责 |
 |---|---|
@@ -101,7 +101,25 @@
 Tooltip 使用接近实色的主题表面、单层边框、克制的分层投影和内侧高光，并用跟随实际锚点的小箭头建立空间关系；业务内容不得在 Tooltip 内重复套无语义的卡片表面。
 Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按 Tooltip HTML 白名单净化；支持 CommonMark 与 GFM 的标题、列表、引用、分割线、表格、任务列表、删除线、代码、图片和链接等语法。链接与图片资源只允许 HTTP(S) 协议；含链接的提示必须使用 `interactive` 模式，鼠标从锚点移入浮层时不能消失。
 
+### 7.1 复合组件
+
+| 组件 | 职责 |
+|---|---|
+| `createWorkspaceShell()` | 工作区切换、当前主题和内容挂载边界 |
+| `createWorkspaceToolbar()` | 紧凑同排操作及可访问标签 |
+| `createCollapsibleSearch()` | 侧栏内同排展开的搜索入口、输入和关闭 |
+| `createPageTabs()` / `createSectionCard()` / `createControlCard()` | Dashboard 页面、分区和参数投影的纯视图 |
+| `createTransferHero()` / `createTransferStats()` / `createTransferSection()` / `createTransferResult()` | 导入导出的文件摘要、预检统计、冲突区和结果反馈 |
+
 业务模块可以增加布局 class 和语义色映射，但不得复制基础组件或让共享层持有工作流状态。依赖连续动画的 thumb 必须保留 DOM identity，只更新 class、data、ARIA 和 transform。
+
+### 7.2 交互契约
+
+- 两档及以上互斥状态优先使用 `segmentedControl()`。滑动指示器保持同一 DOM 元素，通过 transform 在约 140–180ms 内移动；不同业务状态可使用不同主题语义色，同时保留文字、图标和 `radiogroup` 状态。
+- 单选下拉优先使用 `selectControl()`。箭头与右边缘保留安全间距，展开时旋转 180°；选择、失焦、`Escape` 或收起后复位，并同步 `aria-expanded`。
+- 窄侧栏和节点中的次级搜索优先使用折叠入口。展开后搜索框占用原工具栏同一行，不新增一行或推动内容区；空间不足时可暂时隐藏同排次要操作。展开后自动聚焦，`Escape`、关闭或退出搜索时收起并清除不可见筛选。
+- 输入、筛选和局部状态变化只更新受影响内容，不重建仍有效的输入、Dialog、Popover 或焦点锚点。
+- 上述动效均在 `prefers-reduced-motion: reduce` 下关闭。
 
 ## 8. 状态、反馈与可访问性
 

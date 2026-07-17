@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import os
+import shutil
 import sqlite3
 import tempfile
+import time
 import uuid
 import zipfile
 from contextlib import contextmanager
@@ -16,9 +17,12 @@ from typing import Any, Iterable
 
 SCHEMA_VERSION = 1
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
-MAX_IMPORT_BYTES = 256 * 1024 * 1024
-MAX_EXPANDED_ARCHIVE_BYTES = 256 * 1024 * 1024
-MAX_ARCHIVE_FILES = 5000
+MAX_IMPORT_BYTES = 2 * 1024 * 1024 * 1024
+MAX_EXPORT_BYTES = 2 * 1024 * 1024 * 1024
+MAX_EXPANDED_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
+MAX_MANIFEST_BYTES = 128 * 1024 * 1024
+MAX_ARCHIVE_FILES = 100_000
+IMPORT_STAGE_TTL_SECONDS = 60 * 60
 
 
 def _id(value: Any = None) -> str:
@@ -50,8 +54,12 @@ class PromptLibrary:
         self.root = Path(root)
         self.db_path = self.root / "prompt-library.sqlite3"
         self.asset_root = self.root / "assets"
+        self.stage_root = self.root / "import-staging"
+        self.export_root = self.root / "export-staging"
         self.root.mkdir(parents=True, exist_ok=True)
         self.asset_root.mkdir(parents=True, exist_ok=True)
+        self.stage_root.mkdir(parents=True, exist_ok=True)
+        self.export_root.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
@@ -399,8 +407,8 @@ class PromptLibrary:
             raise KeyError(f"asset not found: {digest}")
         return self.asset_root / f"{digest}.{row['extension']}", row["mime"]
 
-    def export_archive(self, *, entry_ids: list[str] | None = None, category_id: str | None = None,
-                       collection_id: str | None = None) -> bytes:
+    def export_archive_to_path(self, *, entry_ids: list[str] | None = None, category_id: str | None = None,
+                               collection_id: str | None = None) -> Path:
         snapshot = self.snapshot()
         selected = snapshot["entries"]
         if entry_ids is not None:
@@ -422,26 +430,100 @@ class PromptLibrary:
             "entries": selected,
             "selection": {"entryIds": sorted(selected_ids)},
         }
-        output = io.BytesIO()
-        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
-            for digest in sorted({entry["previewHash"] for entry in selected if entry["previewHash"]}):
-                path, _mime = self.asset(digest)
-                archive.write(path, f"assets/{path.name}")
-        return output.getvalue()
+        manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
+        if len(manifest_bytes) > MAX_MANIFEST_BYTES:
+            raise ValueError(f"export manifest exceeds {MAX_MANIFEST_BYTES // (1024 * 1024)} MiB limit")
+        assets = [self.asset(digest)[0] for digest in sorted({entry["previewHash"] for entry in selected if entry["previewHash"]})]
+        if len(manifest_bytes) + sum(path.stat().st_size for path in assets) > MAX_EXPORT_BYTES:
+            raise ValueError("export content exceeds 2 GiB limit")
+        fd, name = tempfile.mkstemp(dir=self.root, prefix="export-", suffix=".zip")
+        os.close(fd)
+        output = Path(name)
+        try:
+            with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+                archive.writestr("manifest.json", manifest_bytes)
+                for path in assets:
+                    archive.write(path, f"assets/{path.name}")
+            if output.stat().st_size > MAX_EXPORT_BYTES:
+                raise ValueError("export archive exceeds 2 GiB limit")
+            return output
+        except Exception:
+            output.unlink(missing_ok=True)
+            raise
 
-    @staticmethod
-    def decode_import(data: bytes, filename: str = "") -> tuple[dict[str, Any], dict[str, bytes]]:
-        if len(data) > MAX_IMPORT_BYTES:
-            raise ValueError(f"import file exceeds {MAX_IMPORT_BYTES // (1024 * 1024)} MiB limit")
-        if filename.lower().endswith(".json") or not data.startswith(b"PK"):
+    def _stage_path(self, token: str) -> Path:
+        if not isinstance(token, str) or len(token) != 36 or any(character not in "0123456789abcdef-" for character in token):
+            raise ValueError("invalid import token")
+        path = self.stage_root / token
+        if path.parent != self.stage_root or not path.is_dir():
+            raise KeyError("import preview has expired or does not exist")
+        return path
+
+    def cleanup_import_stages(self) -> None:
+        cutoff = time.time() - IMPORT_STAGE_TTL_SECONDS
+        for path in self.stage_root.iterdir():
+            if path.is_dir() and path.stat().st_mtime < cutoff:
+                shutil.rmtree(path, ignore_errors=True)
+
+    def prepare_export(self, **filters: Any) -> tuple[str, int]:
+        cutoff = time.time() - IMPORT_STAGE_TTL_SECONDS
+        for path in self.export_root.glob("*.zip"):
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+        path = self.export_archive_to_path(**filters)
+        token = str(uuid.uuid4())
+        target = self.export_root / f"{token}.zip"
+        path.replace(target)
+        return token, target.stat().st_size
+
+    def export_path(self, token: str) -> Path:
+        if not isinstance(token, str) or len(token) != 36 or any(character not in "0123456789abcdef-" for character in token):
+            raise ValueError("invalid export token")
+        path = self.export_root / f"{token}.zip"
+        if path.parent != self.export_root or not path.is_file():
+            raise KeyError("export has expired or does not exist")
+        return path
+
+    def discard_import(self, token: str) -> None:
+        shutil.rmtree(self._stage_path(token), ignore_errors=True)
+
+    def prepare_import(self, source: Path, filename: str = "") -> tuple[str, dict[str, Any]]:
+        if source.stat().st_size > MAX_IMPORT_BYTES:
+            raise ValueError("import file exceeds 2 GiB limit")
+        self.cleanup_import_stages()
+        token = str(uuid.uuid4())
+        stage = self.stage_root / token
+        (stage / "assets").mkdir(parents=True)
+        try:
+            manifest = self._decode_import_path(source, filename, stage / "assets")
+            self._validate_manifest(manifest)
+            referenced_assets = {entry.get("previewHash") for entry in manifest["entries"] if isinstance(entry, dict) and entry.get("previewHash")}
+            staged_assets = {path.stem for path in (stage / "assets").iterdir() if path.is_file()}
+            if referenced_assets - staged_assets:
+                raise ValueError(f"missing preview asset: {sorted(referenced_assets - staged_assets)[0]}")
+            if staged_assets - referenced_assets:
+                raise ValueError(f"archive contains unreferenced preview assets: {sorted(staged_assets - referenced_assets)[0]}")
+            manifest_bytes = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+            if len(manifest_bytes) > MAX_MANIFEST_BYTES:
+                raise ValueError(f"import manifest exceeds {MAX_MANIFEST_BYTES // (1024 * 1024)} MiB limit")
+            (stage / "manifest.json").write_bytes(manifest_bytes)
+            return token, manifest
+        except Exception:
+            shutil.rmtree(stage, ignore_errors=True)
+            raise
+
+    def _decode_import_path(self, source: Path, filename: str, asset_root: Path) -> dict[str, Any]:
+        with source.open("rb") as handle:
+            signature = handle.read(2)
+        if filename.lower().endswith(".json") or signature != b"PK":
+            if source.stat().st_size > MAX_MANIFEST_BYTES:
+                raise ValueError(f"import JSON exceeds {MAX_MANIFEST_BYTES // (1024 * 1024)} MiB limit")
             try:
-                raw = json.loads(data.decode("utf-8-sig"))
+                raw = json.loads(source.read_text(encoding="utf-8-sig"))
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise ValueError("invalid prompt-library JSON") from exc
-            return PromptLibrary._normalize_old_json(raw), {}
-        assets: dict[str, bytes] = {}
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            return self._normalize_old_json(raw)
+        with zipfile.ZipFile(source) as archive:
             infos = archive.infolist()
             if len(infos) > MAX_ARCHIVE_FILES:
                 raise ValueError("archive contains too many files")
@@ -457,6 +539,9 @@ class PromptLibrary:
                     )
             names = {info.filename for info in infos}
             if "manifest.json" in names:
+                manifest_info = archive.getinfo("manifest.json")
+                if manifest_info.file_size > MAX_MANIFEST_BYTES:
+                    raise ValueError(f"manifest.json exceeds {MAX_MANIFEST_BYTES // (1024 * 1024)} MiB limit")
                 try:
                     manifest = json.loads(archive.read("manifest.json"))
                 except (json.JSONDecodeError, UnicodeDecodeError) as exc:
@@ -464,25 +549,44 @@ class PromptLibrary:
                 for info in infos:
                     if not info.filename.startswith("assets/") or info.is_dir():
                         continue
+                    if info.file_size > MAX_IMAGE_BYTES:
+                        raise ValueError(f"preview image exceeds {MAX_IMAGE_BYTES} bytes")
                     content = archive.read(info)
                     digest = PurePosixPath(info.filename).stem
                     if hashlib.sha256(content).hexdigest() != digest:
                         raise ValueError(f"asset hash mismatch: {info.filename}")
                     detect_image(content)
-                    assets[digest] = content
+                    (asset_root / f"{digest}.{detect_image(content)[1]}").write_bytes(content)
             elif "data.json" in names:
+                if archive.getinfo("data.json").file_size > MAX_MANIFEST_BYTES:
+                    raise ValueError(f"data.json exceeds {MAX_MANIFEST_BYTES // (1024 * 1024)} MiB limit")
                 try:
                     legacy_data = json.loads(archive.read("data.json"))
                 except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                     raise ValueError("legacy archive has no valid data.json") from exc
-                legacy_files = {
-                    info.filename.replace("\\", "/"): archive.read(info)
-                    for info in infos if info.filename.startswith("preview/") and not info.is_dir()
-                }
-                manifest = PromptLibrary._normalize_old_json(legacy_data, legacy_files, assets)
+                legacy_infos = {info.filename.replace("\\", "/"): info for info in infos if info.filename.startswith("preview/") and not info.is_dir()}
+                def load_legacy(name: str) -> bytes | None:
+                    info = legacy_infos.get(name)
+                    if info is None:
+                        return None
+                    if info.file_size > MAX_IMAGE_BYTES:
+                        raise ValueError(f"preview image exceeds {MAX_IMAGE_BYTES} bytes")
+                    return archive.read(info)
+
+                def store_legacy(digest: str, content: bytes, extension: str) -> None:
+                    (asset_root / f"{digest}.{extension}").write_bytes(content)
+                manifest = self._normalize_old_json(legacy_data, load_legacy, store_legacy)
             else:
                 raise ValueError("archive has neither manifest.json nor legacy data.json")
-        PromptLibrary._validate_manifest(manifest)
+        return manifest
+
+    def staged_import(self, token: str) -> tuple[dict[str, Any], dict[str, Path]]:
+        stage = self._stage_path(token)
+        try:
+            manifest = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("staged import manifest is invalid") from exc
+        assets = {path.stem: path for path in (stage / "assets").iterdir() if path.is_file()}
         return manifest, assets
 
     @staticmethod
@@ -542,8 +646,8 @@ class PromptLibrary:
     @staticmethod
     def _normalize_old_json(
         raw: Any,
-        legacy_files: dict[str, bytes] | None = None,
-        normalized_assets: dict[str, bytes] | None = None,
+        legacy_loader: Any = None,
+        asset_sink: Any = None,
     ) -> dict[str, Any]:
         if isinstance(raw, dict) and raw.get("format") == "aaalice-prompt-library":
             PromptLibrary._validate_manifest(raw)
@@ -598,14 +702,14 @@ class PromptLibrary:
                                 tags.append({"id": tag_id, "name": tag_name})
                             entry_tag_ids.append(tag_id)
                     image_name = value.get("image")
-                    if image_name and legacy_files is not None and normalized_assets is not None:
+                    if image_name and legacy_loader is not None and asset_sink is not None:
                         normalized_name = str(image_name).replace("\\", "/")
                         candidates = (normalized_name, f"preview/{PurePosixPath(normalized_name).name}")
-                        content = next((legacy_files[name] for name in candidates if name in legacy_files), None)
+                        content = next((content for name in candidates if (content := legacy_loader(name)) is not None), None)
                         if content is not None:
-                            detect_image(content)
+                            _mime, extension = detect_image(content)
                             preview_hash = hashlib.sha256(content).hexdigest()
-                            normalized_assets[preview_hash] = content
+                            asset_sink(preview_hash, content, extension)
                 else:
                     continue
                 legacy_key = value.get("id") if isinstance(value, dict) else None
@@ -644,7 +748,7 @@ class PromptLibrary:
     def apply_import(
         self,
         manifest: dict[str, Any],
-        assets: dict[str, bytes],
+        assets: dict[str, Path],
         resolutions: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         self._validate_manifest(manifest)
@@ -657,12 +761,13 @@ class PromptLibrary:
         extra_assets = set(assets) - referenced_assets
         if extra_assets:
             raise ValueError(f"archive contains unreferenced preview assets: {sorted(extra_assets)[0]}")
-        prepared_assets: list[tuple[str, bytes, str, str]] = []
-        for digest, content in assets.items():
+        prepared_assets: list[tuple[str, Path, str, str, int]] = []
+        for digest, source in assets.items():
+            content = source.read_bytes()
             if hashlib.sha256(content).hexdigest() != digest:
                 raise ValueError(f"preview asset hash mismatch: {digest}")
             mime, extension = detect_image(content)
-            prepared_assets.append((digest, content, mime, extension))
+            prepared_assets.append((digest, source, mime, extension, len(content)))
         for raw in manifest["entries"]:
             digest = raw.get("previewHash")
             if digest and digest not in assets:
@@ -672,14 +777,14 @@ class PromptLibrary:
         replaced_assets: set[str] = set()
         try:
             with self.transaction() as db:
-                for digest, content, mime, extension in prepared_assets:
+                for digest, source, mime, extension, size in prepared_assets:
                     path = self.asset_root / f"{digest}.{extension}"
                     if not path.exists():
-                        path.write_bytes(content)
+                        shutil.copyfile(source, path)
                         created_paths.append(path)
                     db.execute(
                         "INSERT OR IGNORE INTO assets(hash,mime,extension,size) VALUES (?,?,?,?)",
-                        (digest, mime, extension, len(content)),
+                        (digest, mime, extension, size),
                     )
                 for table, values in (("categories", manifest["categories"]), ("collections", manifest["collections"])):
                     for item in values:

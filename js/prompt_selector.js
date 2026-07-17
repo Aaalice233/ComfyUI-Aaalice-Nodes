@@ -1,14 +1,17 @@
 /** PromptSelector node UI and execution payload injection. */
 
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import {
 	materializePromptPayload, normalizePromptSelectorState, reorderPromptSelection,
 	resolvePromptSelections, setPromptWeight, togglePromptSelection,
 } from "./lib/prompt_selector_model.js";
 import { button, createDialog, el, emptyState, field, icon, iconButton, isolate, selectControl } from "./lib/ui.js";
+import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import { openWorkspace } from "./workspace.js";
 
 const NODE = "PromptSelector";
@@ -26,14 +29,7 @@ function mutate(node, callback) {
 }
 
 function filteredEntries(node) {
-	const query = String(node._aaalicePromptQuery || "").trim().toLocaleLowerCase();
-	const category = node._aaalicePromptCategory || "";
-	const collection = node._aaalicePromptCollection || "";
-	return promptLibraryStore.snapshot.entries.filter((entry) => {
-		if (category && entry.categoryId !== category) return false;
-		if (collection && !(entry.collections || []).some((item) => item.collectionId === collection)) return false;
-		return !query || `${entry.title}\n${entry.text}\n${entry.note || ""}`.toLocaleLowerCase().includes(query);
-	});
+	return promptLibraryStore.filterEntries({ query: node._aaalicePromptQuery, categoryId: node._aaalicePromptCategory, collectionId: node._aaalicePromptCollection });
 }
 
 function promptFilterSelect(label, value, options, onChange) {
@@ -68,7 +64,7 @@ function openSelectedEditor(node) {
 	};
 	const footer = el("div", { children: [button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => dialog.close() })] });
 	const dialog = createDialog({ title: t("aaalice.promptSelector.manage", "Manage selected prompts"), body, footer, size: "lg" });
-	draw(); dialog.open();
+	draw();
 }
 
 function openSeparatorEditor(node) {
@@ -77,29 +73,33 @@ function openSeparatorEditor(node) {
 	const footer = el("div");
 	const dialog = createDialog({ title: t("aaalice.promptSelector.separator", "Prompt separator"), body, footer });
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { mutate(node, (state) => ({ ...state, separator: input.value })); dialog.close(); } }));
-	dialog.open(); input.focus();
+	input.focus();
 }
 
-function renderPromptEntries(node, list, state) {
-	list.replaceChildren();
+function mountPromptEntries(node, list, state, scrollTop = 0) {
 	const selected = new Set(state.selections.map((item) => item.entryId));
-	for (const entry of filteredEntries(node)) {
+	const virtualList = mountVirtualList(list, { rowHeight: 55, gap: 3, overscan: 5, onBeforeRender: closeImagePreview, renderItem: (entry) => {
 		const isSelected = selected.has(entry.id);
-		const label = el("label", `aa-prompt-selector-row${isSelected ? " is-selected" : ""}`);
-		const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = selected.has(entry.id);
-		checkbox.addEventListener("change", () => mutate(node, (current) => togglePromptSelection(current, entry.id, checkbox.checked)));
-		const category = promptLibraryStore.snapshot.categories.find((item) => item.id === entry.categoryId)?.name;
-		label.append(checkbox, el("span", { className: "aa-prompt-selector-copy", children: [
+		const row = el("div", `aa-prompt-selector-row${isSelected ? " is-selected" : ""}`);
+		const inputId = `aa-prompt-${node.id}-${entry.id}`;
+		const preview = createSelectableImagePreview({ source: entry.previewHash ? api.apiURL(`/aaalice/prompt-library/assets/${entry.previewHash}`) : "", title: entry.title, label: `${isSelected ? t("aaalice.promptSelector.selected", "selected") : t("aaalice.workspace.libraryUi.select", "Select")} ${entry.title}`, className: "aa-prompt-selector-preview", selected: isSelected, inputId, onChange: (checked) => mutate(node, (current) => togglePromptSelection(current, entry.id, checked)) });
+		const category = promptLibraryStore.categoryName(entry.categoryId);
+		row.append(preview.root, el("label", { className: "aa-prompt-selector-copy", attrs: { for: inputId }, children: [
 			el("span", { className: "aa-prompt-selector-title", children: [el("strong", null, entry.title), ...(category ? [el("em", null, category)] : [])] }),
 			el("small", null, entry.text),
-		] })); list.append(label);
-	}
-	if (!list.children.length) list.append(emptyState({ iconName: "note", className: "aa-prompt-selector-empty", title: t("aaalice.promptSelector.noResultsTitle", "No prompts found"), description: t("aaalice.promptSelector.noResults", "No matching prompt entries.") }));
+		] })); return row;
+	}, renderEmpty: () => emptyState({ iconName: "note", className: "aa-prompt-selector-empty", title: t("aaalice.promptSelector.noResultsTitle", "No prompts found"), description: t("aaalice.promptSelector.noResults", "No matching prompt entries.") }) });
+	virtualList.setItems(filteredEntries(node), { preserveScroll: false });
+	list.scrollTop = scrollTop; virtualList.refresh();
+	return virtualList;
 }
 
 function render(node) {
 	const root = node._aaalicePromptSelectorRoot;
 	if (!root) return;
+	const listScrollTop = node._aaalicePromptResetScroll ? 0 : root.querySelector(".aa-prompt-selector-list")?.scrollTop || 0;
+	node._aaalicePromptResetScroll = false;
+	destroyVirtualLists(root); closeImagePreview();
 	root.replaceChildren();
 	const state = stateFor(node);
 	const list = el("div", "aa-prompt-selector-list");
@@ -108,7 +108,7 @@ function render(node) {
 	const toolbar = el("div", { className: `aa-prompt-selector-toolbar${searchOpen ? " is-searching" : ""}`, attrs: { role: "search", "aria-label": t("aaalice.promptSelector.filters", "Prompt filters") } });
 	if (searchOpen) {
 		const search = document.createElement("input"); search.type = "search"; search.placeholder = t("aaalice.promptSelector.search", "Search prompt library"); search.value = query;
-		search.addEventListener("input", () => { node._aaalicePromptQuery = search.value; renderPromptEntries(node, list, state); });
+		search.addEventListener("input", () => { node._aaalicePromptQuery = search.value; node._aaalicePromptResetScroll = true; if (node._aaalicePromptFilterFrame) return; node._aaalicePromptFilterFrame = requestAnimationFrame(() => { node._aaalicePromptFilterFrame = 0; render(node); }); });
 		search.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); node._aaalicePromptSearchOpen = false; render(node); } });
 		const searchPanel = el("div", { className: "aa-prompt-selector-search", children: [icon("search"), search,
 			iconButton({ iconName: "close", label: t("aaalice.promptSelector.collapseSearch", "Collapse search"), variant: "ghost", onClick: () => { node._aaalicePromptSearchOpen = false; render(node); } }),
@@ -123,12 +123,12 @@ function render(node) {
 		const searchButton = iconButton({ iconName: "search", label: searchLabel, active: Boolean(query), variant: "secondary", className: "aa-prompt-selector-search-toggle", onClick: () => { node._aaalicePromptSearchOpen = true; node._aaalicePromptSearchShouldFocus = true; render(node); } });
 		searchButton.setAttribute("aria-pressed", String(Boolean(query)));
 		toolbar.append(
-			promptFilterSelect(t("aaalice.promptSelector.allCategories", "All categories"), node._aaalicePromptCategory, promptLibraryStore.snapshot.categories, (value) => { node._aaalicePromptCategory = value; render(node); }),
-			promptFilterSelect(t("aaalice.promptSelector.allCollections", "All collections"), node._aaalicePromptCollection, promptLibraryStore.snapshot.collections, (value) => { node._aaalicePromptCollection = value; render(node); }),
+			promptFilterSelect(t("aaalice.promptSelector.allCategories", "All categories"), node._aaalicePromptCategory, promptLibraryStore.snapshot.categories, (value) => { node._aaalicePromptCategory = value; node._aaalicePromptResetScroll = true; render(node); }),
+			promptFilterSelect(t("aaalice.promptSelector.allCollections", "All collections"), node._aaalicePromptCollection, promptLibraryStore.snapshot.collections, (value) => { node._aaalicePromptCollection = value; node._aaalicePromptResetScroll = true; render(node); }),
 			searchButton,
 		);
 	}
-	renderPromptEntries(node, list, state);
+	mountPromptEntries(node, list, state, listScrollTop);
 	const missing = resolvePromptSelections(state, promptLibraryStore.snapshot.entries).filter((item) => item.missing).length;
 	const footer = el("footer", "aa-prompt-selector-footer");
 	const summary = el("span", { className: `aa-prompt-selector-summary${missing ? " is-error" : ""}`, children: [
@@ -160,7 +160,7 @@ function setup(node, loaded = false) {
 	const previousConfigure = node.onConfigure;
 	node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); stateFor(this); render(this); return result; };
 	const previousRemoved = node.onRemoved;
-	node.onRemoved = function () { cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
+	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
 	const previousCompute = node.computeSize;
 	node.computeSize = function () { const size = previousCompute?.apply(this, arguments) || [MIN_WIDTH, MIN_HEIGHT]; return [Math.max(MIN_WIDTH, size[0]), Math.max(MIN_HEIGHT, size[1])]; };
 	render(node); if (!loaded) node.setSize?.(node.computeSize());
@@ -184,5 +184,5 @@ app.registerExtension({
 	async init() { await ensureI18nReady(); },
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name !== NODE) return; const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); setup(this, false); return result; }; },
 	nodeCreated(node) { if (isSelector(node)) setup(node, false); }, loadedGraphNode(node) { if (isSelector(node)) setup(node, true); },
-	setup() { installPromptHook(); promptLibraryStore.addEventListener("change", () => { for (const node of app.graph?._nodes || []) if (isSelector(node)) render(node); }); for (const node of app.graph?._nodes || []) if (isSelector(node)) setup(node, true); },
+	setup() { installPromptHook(); let refreshFrame = 0; promptLibraryStore.addEventListener("change", () => { if (refreshFrame) return; refreshFrame = requestAnimationFrame(() => { refreshFrame = 0; for (const node of app.graph?._nodes || []) if (isSelector(node) && node._aaalicePromptSelectorRoot?.isConnected) render(node); }); }); for (const node of app.graph?._nodes || []) if (isSelector(node)) setup(node, true); },
 });

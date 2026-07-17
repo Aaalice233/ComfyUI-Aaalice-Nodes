@@ -9,6 +9,8 @@ const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
+const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
+const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 const ui = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
 const uiStyles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
 const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
@@ -22,6 +24,13 @@ test("workspace is an official left sidebar with reusable component boundaries",
 	assert.match(workspace, /createSectionCard/);
 	assert.match(workspace, /createControlCard/);
 	assert.match(workspace, /app\.graph\.extra|graph\.extra/);
+});
+
+test("shared dialogs mount immediately without obsolete open calls", () => {
+	assert.match(ui, /document\.body\.append\(overlay\)/);
+	assert.doesNotMatch(workspace, /dialog\.open\(\)/);
+	assert.doesNotMatch(selector, /dialog\.open\(\)/);
+	assert.match(workspace, /function openCardActions[\s\S]*?dialog = createDialog/);
 });
 
 test("node context-menu add is independent from layout edit mode", () => {
@@ -53,7 +62,8 @@ test("numeric control gestures preview live inside one graph history boundary", 
 test("PromptSelector injects live library text and exposes list management", () => {
 	assert.match(selector, /materializePromptPayload/);
 	assert.match(selector, /selection_payload_json/);
-	assert.match(selector, /type = "checkbox"/);
+	assert.match(selector, /createSelectableImagePreview/);
+	assert.match(imagePreview, /input\.type = "checkbox"/);
 	assert.match(selector, /openSelectedEditor/);
 	assert.match(selector, /draggable: true/);
 	assert.match(selector, /Prompt separator/);
@@ -98,6 +108,9 @@ test("PromptSelector can open the official sidebar directly on library managemen
 
 test("workspace visual hierarchy uses a compact shell, dedicated icon and active section rail", () => {
 	assert.match(workspace, /icon: "aaalice-workspace-sidebar-icon"/);
+	assert.match(workspace, /element\.classList\.add\("aa-workspace-host"\)/);
+	assert.match(theme, /\.aa-workspace-host \{[^}]*height: 100%;[^}]*min-height: 0;[^}]*overflow: hidden;/);
+	assert.match(theme, /\.aa-workspace \{[^}]*flex: 1;/);
 	assert.match(theme, /\.aaalice-workspace-sidebar-icon[\s\S]*mask: url\("\.\.\/assets\/aaalice-workspace\.svg"\)/);
 	assert.match(workspaceIcon, /viewBox="0 0 24 24"/);
 	assert.match(workspaceIcon, /stroke-linecap="round"/);
@@ -124,7 +137,11 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /aa-prompt-selector-search-toggle/);
 	assert.match(selector, /aa-prompt-selector-search/);
 	assert.match(selector, /queueMicrotask/);
-	assert.match(selector, /renderPromptEntries/);
+	assert.match(selector, /mountPromptEntries/);
+	assert.match(selector, /mountVirtualList/);
+	assert.match(selector, /createSelectableImagePreview/);
+	assert.match(imagePreview, /aa-image-preview-selection/);
+	assert.match(imagePreview, /icon\("statusCheck"\)/);
 	assert.match(selector, /aa-prompt-selector-title/);
 	assert.match(selector, /aa-prompt-selector-summary/);
 	assert.match(selector, /aa-prompt-selector-count/);
@@ -132,9 +149,12 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /isSelected \? " is-selected"/);
 	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) 34px/);
 	assert.match(theme, /\.aa-prompt-selector-toolbar\.is-searching \{ grid-template-columns: minmax\(0, 1fr\); \}/);
-	assert.match(theme, /\.dom-widget:has\(> \.aa-prompt-selector\) \{ pointer-events: none !important; \}/);
+	assert.match(theme, /\.dom-widget:has\(> \.aa-prompt-selector\) \{[^}]*position: relative;[^}]*min-height: 240px;[^}]*overflow: hidden;[^}]*pointer-events: none !important;/);
+	assert.match(theme, /\.aa-prompt-selector \{[^}]*position: absolute;[^}]*inset: 0;[^}]*min-height: 0;[^}]*overflow: hidden;/);
+	assert.match(theme, /\.aa-prompt-selector-list \{[^}]*min-height: 0;[^}]*overflow: auto;/);
 	assert.match(theme, /\.aa-prompt-selector\.is-resizing, \.aa-prompt-selector\.is-resizing \* \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-prompt-selector-row\.is-selected/);
+	assert.match(theme, /\.aa-prompt-selector-preview:has\(input:checked\)/);
 });
 
 test("filter dropdowns reuse the shared animated select control", () => {
@@ -162,6 +182,19 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 	assert.match(theme, /\.aa-library-filters \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
 });
 
+test("library rows keep a stable thumbnail column and distinguish entry actions", () => {
+	assert.match(workspace, /createImagePreview/);
+	assert.match(workspace, /mountVirtualList/);
+	assert.match(workspace, /closeImagePreview/);
+	assert.match(workspace, /className: "aa-library-entry-edit"/);
+	assert.match(workspace, /className: "aa-library-entry-delete"/);
+	assert.match(theme, /\.aa-library-entry \{[^}]*grid-template-columns: auto 48px minmax\(0, 1fr\) auto/);
+	assert.match(theme, /\.aa-library-entry-copy \{[^}]*justify-content: center/);
+	assert.match(theme, /\.aa-library-entry-edit:hover/);
+	assert.match(theme, /\.aa-library-entry-delete:hover/);
+	assert.match(theme, /\.aa-image-preview-large/);
+});
+
 test("taxonomy management is a complete single-dialog workspace", () => {
 	assert.match(workspace, /function openTaxonomyManager/);
 	assert.doesNotMatch(workspace, /function openTaxonomyChooser|function manageTaxonomy/);
@@ -175,4 +208,25 @@ test("taxonomy management is a complete single-dialog workspace", () => {
 	assert.match(theme, /\.aa-taxonomy-tabs\[data-value="collections"\]/);
 	assert.match(theme, /--aa-taxonomy-tab-color/);
 	assert.match(theme, /\.aa-taxonomy-row\.is-editing/);
+});
+
+test("import and export use one reusable review flow with explicit outcomes", () => {
+	assert.match(components, /export function createTransferHero/);
+	assert.match(components, /export function createTransferStats/);
+	assert.match(components, /export function createTransferSection/);
+	assert.match(components, /export function createTransferResult/);
+	assert.match(workspace, /function openLibraryExport/);
+	assert.match(workspace, /function openDashboardExport/);
+	assert.match(workspace, /createTransferSection\(\{ title: t\("aaalice\.workspace\.transfer\.conflictDecisions"/);
+	assert.match(workspace, /disabled: groups\.invalid\.length > 0/);
+	assert.match(workspace, /presetNeedsReview/);
+	assert.match(workspace, /createTransferResult\(\{ title: t\("aaalice\.workspace\.transfer\.importComplete"/);
+	assert.match(libraryStore, /importPreflight\(file, \{ signal \} = \{\}\)/);
+	assert.match(libraryStore, /importApply\(token, resolutions = \{\}, \{ signal \} = \{\}\)/);
+	assert.match(libraryStore, /discardImport\(token\)/);
+	assert.match(libraryStore, /apiURL\(`\$\{ENDPOINT\}\/export\/\$\{encodeURIComponent\(result\.token\)\}`\)/);
+	assert.doesNotMatch(workspace, /response\.blob\(\)/);
+	assert.match(theme, /\.aa-transfer-scope\.is-selected/);
+	assert.match(theme, /\.aa-transfer-section\[open\] > summary > \.aa-ui-icon/);
+	assert.match(theme, /@keyframes aa-transfer-loading/);
 });

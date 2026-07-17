@@ -1,6 +1,7 @@
 /** Event-driven prompt-library client store. */
 
 import { api } from "../../../scripts/api.js";
+import { LibraryIndex } from "./library_index.js";
 
 const ENDPOINT = "/aaalice/prompt-library";
 
@@ -15,6 +16,7 @@ export class PromptLibraryStore extends EventTarget {
 	constructor() {
 		super();
 		this.snapshot = { version: 1, categories: [], collections: [], tags: [], entries: [] };
+		this.index = new LibraryIndex(this.snapshot);
 		this.loading = false;
 		this.loaded = false;
 		this.loadPromise = null;
@@ -28,12 +30,18 @@ export class PromptLibraryStore extends EventTarget {
 		this.loadPromise = (async () => {
 			const response = await checked(await api.fetchApi(`${ENDPOINT}/snapshot`));
 			this.snapshot = await response.json();
+			this.index = new LibraryIndex(this.snapshot);
 			this.loaded = true;
 			this.dispatchEvent(new CustomEvent("change", { detail: this.snapshot }));
 			return this.snapshot;
 		})().finally(() => { this.loading = false; this.loadPromise = null; });
 		return this.loadPromise;
 	}
+
+	filterEntries(filters = {}) { return this.index.filter(filters); }
+	categoryName(id) { return this.index.categoryName(id); }
+	tagNames(ids) { return this.index.tagNames(ids); }
+	usage(kind, id) { return this.index.usage(kind, id); }
 
 	async json(path, { method = "POST", body = {} } = {}) {
 		const response = await checked(await api.fetchApi(`${ENDPOINT}${path}`, {
@@ -63,22 +71,28 @@ export class PromptLibraryStore extends EventTarget {
 	}
 	deletePreview(id) { return this.json(`/entries/${encodeURIComponent(id)}/preview`, { method: "DELETE" }); }
 
-	async exportArchive(filter = {}) {
-		return checked(await api.fetchApi(`${ENDPOINT}/export`, {
-			method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filter),
+	async exportArchive(filter = {}, { signal } = {}) {
+		const response = await checked(await api.fetchApi(`${ENDPOINT}/export`, {
+			method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filter), signal,
 		}));
+		const result = await response.json();
+		return { ...result, url: api.apiURL(`${ENDPOINT}/export/${encodeURIComponent(result.token)}`) };
 	}
 
-	async importPreflight(file) {
+	async importPreflight(file, { signal } = {}) {
 		const body = new FormData(); body.append("file", file);
-		const response = await checked(await api.fetchApi(`${ENDPOINT}/import/preflight`, { method: "POST", body }));
+		const response = await checked(await api.fetchApi(`${ENDPOINT}/import/preflight`, { method: "POST", body, signal }));
 		return response.json();
 	}
 
-	async importApply(file, resolutions = {}) {
-		const body = new FormData(); body.append("file", file); body.append("resolutions", JSON.stringify(resolutions));
-		const response = await checked(await api.fetchApi(`${ENDPOINT}/import/apply`, { method: "POST", body }));
+	async importApply(token, resolutions = {}, { signal } = {}) {
+		const response = await checked(await api.fetchApi(`${ENDPOINT}/import/apply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, resolutions }), signal }));
 		const result = await response.json(); await this.refresh(); return result;
+	}
+
+	async discardImport(token) {
+		if (!token) return;
+		await checked(await api.fetchApi(`${ENDPOINT}/import/discard`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
 	}
 
 	destroy() { api.removeEventListener("aaalice.prompt_library.changed", this.onServerChange); }
