@@ -54,6 +54,7 @@
 | 前端视觉、组件、主题或可访问性 | @docs/design/ui-system.md |
 | ParameterPanel / ParameterReceiver 交互与布局 | @docs/design/parameter-system.md |
 | QuickGroupManager 交互与布局 | @docs/design/quick-group-manager.md |
+| PromptSelector、词库或 DIY 侧边栏 | @docs/design/prompt-selector-workspace.md、@docs/adr/0007-independent-prompt-library-live-references.md、@docs/adr/0008-stable-dashboard-control-bindings.md |
 | 参数身份、序列化真源、接收器同步或动态槽协议 | @docs/adr/README.md、@docs/adr/0002-parameter-stable-id-direct-output-rebind.md、@docs/adr/0003-workflow-serialization-source-of-truth.md、@docs/adr/0004-parameter-receiver-explicit-get-sync.md、@docs/adr/0006-dynamic-native-business-slots.md |
 
 新增专题文档时，若其内容会影响实现或验收，必须同时补到本节。README 面向用户，不作为默认开发上下文注入。
@@ -143,6 +144,7 @@ ComfyUI-Aaalice-Nodes/
 
 - 验证按风险升级：静态检查 → 受影响单测 → 全量检查 → 必要的 Classic / Nodes 2.0 GUI 主路径；具体命令和回归矩阵只以 [`testing.md`](docs/development/testing.md) 为准。
 - 不涉及 slot、widget 尺寸协议、序列化或执行行为，且可在现有实例中硬刷新确认的局部前端视觉、布局和交互修改，完成代码检查后交给用户实际验收；除非用户明确要求，不启动独立实例或浏览器自动化。
+- 用户要求用于查看、比较或评审的 HTML / 交互原型属于设计交付物，不属于测试资产；默认只做源码与语法检查，交给用户实际体验，不启动浏览器自动化或代替用户进行视觉和交互验收。仅在用户明确要求自动验收时使用浏览器。
 - 必须自动验收 GUI 时只使用 Codex 内置浏览器和隔离实例，禁止操作用户常用实例，也禁止自行启动外部浏览器或引入浏览器测试框架。
 - 浏览器权限、系统通知、音频播放等真实用户手势只能标记为人工确认；无法验证时如实列出缺口和风险。
 

@@ -6,6 +6,8 @@
 .aaalice-prompt-cleaner,
 .aaalice-prompt-cleaner-popover,
 .aaalice-receiver-root,
+.aa-prompt-selector,
+.aa-workspace,
 .aa-ui-dialog,
 .aa-ui-popover,
 .aa-ui-tooltip {
@@ -36,7 +38,7 @@
 	font: 13px/1.45 var(--comfy-font, Inter, system-ui, sans-serif);
 }
 
-.aaalice-pcp *, .aaalice-pcp-node-root *, .aaalice-qgm *, .aaalice-qgm-popover *, .aaalice-prompt-cleaner *, .aaalice-prompt-cleaner-popover *, .aaalice-receiver-root *, .aa-ui-dialog *, .aa-ui-dialog-backdrop *, .aa-ui-popover *, .aa-ui-tooltip * { box-sizing: border-box; }
+.aaalice-pcp *, .aaalice-pcp-node-root *, .aaalice-qgm *, .aaalice-qgm-popover *, .aaalice-prompt-cleaner *, .aaalice-prompt-cleaner-popover *, .aaalice-receiver-root *, .aa-prompt-selector *, .aa-workspace *, .aa-ui-dialog *, .aa-ui-dialog-backdrop *, .aa-ui-popover *, .aa-ui-tooltip * { box-sizing: border-box; }
 
 .aa-ui-tooltip {
 	--aa-ui-tooltip-surface: color-mix(in srgb, var(--aa-ui-surface) 96%, var(--aa-ui-text));

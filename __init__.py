@@ -26,6 +26,9 @@ class AaaliceNodesExtension(ComfyExtension):
 
 
 async def comfy_entrypoint() -> AaaliceNodesExtension:
+    from .nodes.prompt.prompt_library_routes import register_prompt_library_routes
+
+    register_prompt_library_routes()
     return AaaliceNodesExtension()
 
 

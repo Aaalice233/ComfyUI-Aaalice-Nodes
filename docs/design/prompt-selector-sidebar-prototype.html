@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aaalice Prompt Selector & Sidebar Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101114;
+      --canvas: #17191e;
+      --panel: #202329;
+      --panel-2: #292d35;
+      --panel-3: #323740;
+      --border: #3a3f49;
+      --text: #f1f3f5;
+      --muted: #969da8;
+      --accent: #b8a2ff;
+      --accent-2: #88d4ff;
+      --accent-soft: rgba(184, 162, 255, .14);
+      --danger: #ff858e;
+      --success: #7de2af;
+      --warning: #f2c879;
+      --shadow: 0 14px 40px rgba(0,0,0,.34);
+      --radius: 10px;
+      --sidebar-width: 392px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.45 Inter, "Microsoft YaHei", system-ui, sans-serif;
+    }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .app { height: 100%; display: grid; grid-template-rows: 56px minmax(0, 1fr); }
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+      background: #17191d;
+      z-index: 20;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 252px; }
+    .brand-mark {
+      width: 30px; height: 30px; display: grid; place-items: center;
+      border-radius: 9px; background: var(--accent-soft); color: var(--accent);
+      font-size: 17px; font-weight: 800;
+    }
+    .brand strong { display: block; letter-spacing: .01em; }
+    .brand small { color: var(--muted); }
+    .scheme-tabs {
+      display: flex; gap: 4px; padding: 4px;
+      border: 1px solid var(--border); border-radius: 9px; background: var(--panel);
+    }
+    .scheme-tab, .ghost, .solid, .icon-btn, .chip, .mini-btn {
+      border: 0; border-radius: 7px; background: transparent;
+    }
+    .scheme-tab { padding: 7px 12px; color: var(--muted); }
+    .scheme-tab.active { background: var(--panel-3); color: var(--text); }
+    .top-spacer { flex: 1; }
+    .ghost { padding: 8px 11px; color: var(--muted); }
+    .ghost:hover { background: var(--panel-2); color: var(--text); }
+    .solid { padding: 8px 12px; background: var(--accent); color: #17131f; font-weight: 700; }
+
+    .workspace { min-height: 0; display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+    .canvas {
+      grid-column: 2; grid-row: 1;
+      position: relative; min-width: 0; min-height: 0; overflow: hidden;
+      background-color: var(--canvas);
+      background-image: radial-gradient(circle, #3b3f48 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+    .canvas::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(circle at 58% 35%, transparent 0, rgba(15,16,19,.1) 44%, rgba(15,16,19,.58) 100%);
+    }
+    .canvas-toolbar {
+      position: absolute; top: 14px; left: 14px; right: 14px; z-index: 3;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .scheme-note {
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+      background: rgba(30,33,39,.92); color: var(--muted); backdrop-filter: blur(8px);
+    }
+    .scheme-note strong { color: var(--text); margin-right: 6px; }
+    .canvas-hint { margin-left: auto; color: var(--muted); }
+    .wire {
+      position: absolute; height: 3px; z-index: 0; transform-origin: left center;
+      background: linear-gradient(90deg, #a78bfa, #62d0ff); border-radius: 99px; opacity: .58;
+    }
+
+    .node {
+      position: absolute; z-index: 2; width: 310px;
+      border: 1px solid #555b66; border-radius: 9px;
+      background: #252932; box-shadow: var(--shadow); overflow: hidden;
+    }
+    .node.prompt-node { left: 9%; top: 20%; }
+    .node.subgraph-node { left: 52%; top: 48%; width: 286px; }
+    .node.output-node { right: 7%; top: 21%; width: 220px; }
+    .node-title {
+      min-height: 34px; display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; background: #49405c; font-weight: 700;
+    }
+    .node.subgraph-node .node-title { background: #344d58; }
+    .node.output-node .node-title { background: #494f3a; }
+    .node-id { margin-left: auto; color: rgba(255,255,255,.54); font-weight: 500; font-size: 11px; }
+    .node-body { padding: 10px; display: grid; gap: 10px; }
+    .node-label { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
+    .node-select, .field-input {
+      width: 100%; border: 1px solid var(--border); background: #16181d;
+      border-radius: 7px; padding: 8px 9px;
+    }
+    .mode-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; background: #191b20; border-radius: 8px; }
+    .mode-switch button { border: 0; background: transparent; border-radius: 6px; padding: 6px; color: var(--muted); }
+    .mode-switch button.active { background: var(--accent-soft); color: var(--accent); }
+    .prompt-preview {
+      min-height: 76px; padding: 9px; border-radius: 7px; background: #1a1d22;
+      color: #cfd3da; font-size: 12px; line-height: 1.55;
+    }
+    .node-list-tools { display: grid; grid-template-columns: minmax(0,1fr) 92px; gap: 6px; }
+    .node-entry-list {
+      max-height: 224px; overflow-y: auto; border: 1px solid var(--border);
+      border-radius: 7px; background: #1a1d22;
+    }
+    .node-category-title {
+      position: sticky; top: 0; z-index: 1; padding: 5px 8px;
+      background: #252932; color: var(--muted); font-size: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .node-entry {
+      display: grid; grid-template-columns: auto minmax(0,1fr) auto;
+      align-items: center; gap: 8px; min-height: 32px; padding: 6px 8px;
+      border-bottom: 1px solid rgba(58,63,73,.58); cursor: pointer;
+    }
+    .node-entry:last-child { border-bottom: 0; }
+    .node-entry:hover { background: rgba(255,255,255,.035); }
+    .node-entry.selected { background: var(--accent-soft); }
+    .node-entry input { accent-color: var(--accent); }
+    .node-entry-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .node-entry-category { color: var(--muted); font-size: 10px; }
+    .node-selection-summary { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+    .node-selection-summary strong { color: var(--text); }
+    .node-selection-summary button { margin-left: auto; }
+    .node-actions { display: flex; align-items: center; gap: 6px; }
+    .node-actions button { flex: 1; }
+    .socket-row { position: relative; display: flex; justify-content: space-between; color: var(--muted); }
+    .socket-row::before, .socket-row::after {
+      content: ""; position: absolute; width: 10px; height: 10px; border-radius: 50%;
+      top: 4px; background: var(--accent-2); box-shadow: 0 0 0 2px #202329;
+    }
+    .socket-row::before { left: -15px; }
+    .socket-row::after { right: -15px; }
+    .subgraph-param { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+    .subgraph-param output { color: var(--accent-2); font-variant-numeric: tabular-nums; }
+
+    .sidebar {
+      grid-column: 1; grid-row: 1;
+      min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0,1fr);
+      border-right: 1px solid var(--border); background: var(--panel); position: relative; z-index: 5;
+    }
+    .side-head { padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px; }
+    .side-head h2 { font-size: 15px; margin: 0; }
+    .side-head .icon-btn { margin-left: auto; }
+    .workspace-tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 0 14px 10px; gap: 4px; }
+    .workspace-tabs button {
+      border: 0; padding: 8px; border-radius: 7px; color: var(--muted); background: transparent;
+    }
+    .workspace-tabs button.active { background: var(--panel-3); color: var(--text); }
+    .side-content { min-height: 0; overflow: hidden; position: relative; }
+    .panel-view { height: 100%; display: grid; grid-template-rows: auto minmax(0,1fr); }
+    .pagebar { padding: 0 14px 10px; display: flex; align-items: center; gap: 6px; }
+    .page-select { min-width: 0; flex: 1; }
+    .icon-btn, .mini-btn {
+      width: 32px; height: 32px; display: grid; place-items: center;
+      border: 1px solid transparent; color: var(--muted);
+    }
+    .icon-btn:hover, .mini-btn:hover { color: var(--text); background: var(--panel-2); border-color: var(--border); }
+    .page-scroll {
+      min-height: 0; overflow-y: auto; scroll-behavior: smooth; scroll-snap-type: y proximity;
+      padding: 0 32px 28px 14px;
+    }
+    .section { margin-bottom: 14px; scroll-snap-align: start; }
+    .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .section-head h3 { margin: 0; font-size: 12px; }
+    .section-head span { color: var(--muted); font-size: 11px; }
+    .section-head button { margin-left: auto; }
+    .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .control-card {
+      min-width: 0; padding: 9px; border: 1px solid var(--border); border-radius: 9px;
+      background: var(--panel-2); transition: border-color .15s, transform .15s, opacity .15s;
+    }
+    .control-card.wide { grid-column: 1 / -1; }
+    .control-card.compact { padding: 7px 9px; }
+    .control-card.dragging { opacity: .42; transform: scale(.98); }
+    .control-card.drop-target { border-color: var(--accent); }
+    .control-top { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+    .control-top strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .source-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+    .source-dot.subgraph { background: var(--accent-2); }
+    .source-label { margin-left: auto; color: var(--muted); font-size: 10px; }
+    .control-card input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .inline-value { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .toggle {
+      width: 38px; height: 22px; padding: 3px; border: 0; border-radius: 99px; background: #17191e;
+    }
+    .toggle::after { content: ""; display: block; width: 16px; height: 16px; border-radius: 50%; background: #7b828d; transition: transform .16s, background .16s; }
+    .toggle.on { background: var(--accent-soft); }
+    .toggle.on::after { transform: translateX(16px); background: var(--accent); }
+    .dot-rail { position: absolute; right: 10px; top: 54px; bottom: 16px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+    .dot-rail button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: #555b65; }
+    .dot-rail button.active { background: var(--accent); transform: scale(1.35); }
+
+    .library-view { height: 100%; display: grid; grid-template-rows: auto auto minmax(0,1fr); }
+    .search-row { padding: 0 14px 8px; display: flex; gap: 7px; }
+    .search-row input { flex: 1; min-width: 0; }
+    .filter-row { padding: 0 14px 8px; display: flex; gap: 5px; overflow-x: auto; }
+    .chip { white-space: nowrap; padding: 5px 8px; background: var(--panel-2); color: var(--muted); border: 1px solid transparent; }
+    .chip.active { background: var(--accent-soft); color: var(--accent); border-color: rgba(184,162,255,.3); }
+    .prompt-list { min-height: 0; overflow-y: auto; padding: 0 14px 24px; }
+    .prompt-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .prompt-item-head { display: flex; gap: 8px; align-items: center; }
+    .prompt-item-head strong { flex: 1; }
+    .prompt-item p { margin: 6px 0; color: #bec3ca; font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .tag { color: var(--muted); background: #191b20; border-radius: 5px; padding: 2px 5px; font-size: 10px; }
+    .prompt-actions { display: flex; gap: 5px; margin-top: 8px; }
+    .prompt-actions button { padding: 5px 8px; }
+
+    .context-menu {
+      display: none; position: fixed; z-index: 80; width: 226px; padding: 6px;
+      border: 1px solid var(--border); border-radius: 9px; background: #24272e; box-shadow: var(--shadow);
+    }
+    .context-menu.open { display: block; }
+    .context-menu button { width: 100%; text-align: left; border: 0; border-radius: 6px; padding: 8px; color: var(--text); background: transparent; }
+    .context-menu button:hover { background: var(--panel-3); }
+    .context-menu hr { border: 0; border-top: 1px solid var(--border); margin: 5px; }
+
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 100; place-items: center;
+      background: rgba(5,6,8,.72); backdrop-filter: blur(3px);
+    }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(520px, calc(100vw - 32px)); max-height: min(680px, calc(100vh - 40px)); overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: #23262d; box-shadow: var(--shadow); }
+    .modal-head, .modal-foot { display: flex; align-items: center; gap: 8px; padding: 13px 15px; }
+    .modal-head { border-bottom: 1px solid var(--border); }
+    .modal-head h3 { margin: 0; font-size: 15px; }
+    .modal-head button { margin-left: auto; }
+    .modal-body { padding: 14px 15px; }
+    .modal-foot { border-top: 1px solid var(--border); justify-content: flex-end; }
+    .check-list { display: grid; gap: 5px; }
+    .check-row { display: flex; align-items: center; gap: 9px; padding: 9px; border-radius: 7px; background: #1b1e23; }
+    .check-row small { margin-left: auto; color: var(--muted); }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 22px; z-index: 200; transform: translate(-50%, 18px);
+      padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px; background: #2a2e35;
+      opacity: 0; pointer-events: none; transition: .18s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* 方案 B：页面工作台 */
+    body[data-scheme="studio"] { --sidebar-width: 560px; }
+    body[data-scheme="studio"] .sidebar { grid-template-columns: 132px minmax(0,1fr); grid-template-rows: 1fr; }
+    body[data-scheme="studio"] .side-head, body[data-scheme="studio"] .workspace-tabs { display: none; }
+    .studio-rail { display: none; border-right: 1px solid var(--border); padding: 12px 8px; min-height: 0; }
+    body[data-scheme="studio"] .studio-rail { display: flex; flex-direction: column; gap: 6px; }
+    .studio-rail strong { padding: 6px; }
+    .studio-page { border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; padding: 8px; }
+    .studio-page.active { color: var(--text); background: var(--panel-3); }
+    .studio-rail .solid { margin-top: auto; }
+    body[data-scheme="studio"] .side-content { min-height: 0; }
+    body[data-scheme="studio"] .pagebar { padding-top: 12px; }
+    body[data-scheme="studio"] .control-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    body[data-scheme="studio"] .canvas { background-size: 18px 18px; }
+    body[data-scheme="studio"] .node.prompt-node { left: 8%; top: 16%; }
+    body[data-scheme="studio"] .node.subgraph-node { left: 36%; top: 57%; }
+
+    /* 方案 C：极简快捷栏 */
+    body[data-scheme="quick"] { --sidebar-width: 336px; }
+    body[data-scheme="quick"] .workspace-tabs { display: none; }
+    body[data-scheme="quick"] .side-head { padding-bottom: 12px; }
+    body[data-scheme="quick"] .pagebar { display: none; }
+    body[data-scheme="quick"] .page-scroll { padding-top: 4px; }
+    body[data-scheme="quick"] .control-grid { grid-template-columns: 1fr; }
+    body[data-scheme="quick"] .control-card { padding: 8px; }
+    body[data-scheme="quick"] .section-head span { display: none; }
+    body[data-scheme="quick"] .node.prompt-node { left: 15%; top: 22%; width: 340px; }
+    body[data-scheme="quick"] .node.subgraph-node { left: 58%; top: 50%; }
+    .quick-command { display: none; padding: 0 14px 10px; }
+    body[data-scheme="quick"] .quick-command { display: block; }
+    .quick-command input { width: 100%; padding: 10px 11px; border: 1px solid var(--border); border-radius: 8px; background: #17191e; }
+
+    .edit-banner { display: none; margin: 0 14px 8px; padding: 8px 10px; border-radius: 7px; color: var(--accent); background: var(--accent-soft); }
+    .editing .edit-banner { display: flex; align-items: center; justify-content: space-between; }
+    .editing .control-card { cursor: grab; border-style: dashed; }
+    .editing .control-card::after { content: "拖动排序 · 双击切换宽度"; display: block; margin-top: 7px; color: var(--muted); font-size: 10px; }
+    .editing .control-card:active { cursor: grabbing; }
+
+    @media (max-width: 1060px) {
+      :root { --sidebar-width: 360px; }
+      .brand { min-width: auto; }
+      .brand small { display: none; }
+      .canvas-hint { display: none; }
+      body[data-scheme="studio"] { --sidebar-width: 500px; }
+    }
+  </style>
+</head>
+<body data-scheme="deck">
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">A</div>
+        <div><strong>Aaalice UI Lab</strong><small>Prompt Selector × Workflow Sidebar</small></div>
+      </div>
+      <nav class="scheme-tabs" aria-label="设计方案">
+        <button class="scheme-tab active" data-scheme="deck">A · 节点优先</button>
+        <button class="scheme-tab" data-scheme="studio">B · 页面工作台</button>
+        <button class="scheme-tab" data-scheme="quick">C · 极简快捷栏</button>
+      </nav>
+      <div class="top-spacer"></div>
+      <button class="ghost" id="helpBtn">方案说明</button>
+      <button class="ghost" id="resetBtn">重置演示</button>
+    </header>
+
+    <main class="workspace">
+      <section class="canvas" id="canvas">
+        <div class="canvas-toolbar">
+          <div class="scheme-note" id="schemeNote"></div>
+          <span class="canvas-hint">右键“高清修复子图”管理侧边栏参数</span>
+        </div>
+        <div class="wire" style="left:31%;top:34%;width:29%;transform:rotate(4deg)"></div>
+        <div class="wire" style="left:57%;top:61%;width:22%;transform:rotate(-25deg)"></div>
+        <article class="node prompt-node" id="promptNode"></article>
+        <article class="node subgraph-node" id="subgraphNode" tabindex="0" aria-label="高清修复子图，右键打开菜单"></article>
+        <article class="node output-node" id="outputNode"></article>
+      </section>
+
+      <aside class="sidebar" id="sidebar">
+        <div class="studio-rail" id="studioRail"></div>
+        <div class="side-head">
+          <h2>工作流控制台</h2>
+          <button class="icon-btn" id="editLayoutBtn" title="编辑布局">✦</button>
+        </div>
+        <div class="workspace-tabs">
+          <button class="active" data-view="parameters">参数</button>
+          <button data-view="library">词库</button>
+        </div>
+        <div class="side-content">
+          <div class="quick-command"><input id="quickSearch" placeholder="⌘ 搜索参数或提示词…"></div>
+          <div class="edit-banner"><span>布局编辑模式</span><button class="ghost" id="finishEditBtn">完成</button></div>
+          <div id="sideView"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="context-menu" id="contextMenu">
+    <button data-action="manage-subgraph">📌 管理侧边栏参数…</button>
+    <button data-action="open-subgraph">↗ 进入子图</button>
+    <hr>
+    <button data-action="rename-subgraph">✎ 重命名</button>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-head"><h3 id="modalTitle"></h3><button class="icon-btn" id="closeModalBtn">×</button></header>
+      <div class="modal-body" id="modalBody"></div>
+      <footer class="modal-foot" id="modalFoot"></footer>
+    </section>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const initialState = {
+      scheme: "deck",
+      view: "parameters",
+      selectedPromptIds: ["cinematic", "animecity", "negative"],
+      nodePromptSearch: "",
+      nodeCategoryFilter: "全部",
+      currentPageId: "all",
+      editing: false,
+      libraryFilter: "全部",
+      librarySearch: "",
+      pageSearch: "",
+      nextPage: 4,
+      pages: [
+        { id: "all", name: "全部参数", type: "auto", sections: ["generation", "style", "subgraph"] },
+        { id: "daily", name: "日常出图", type: "custom", sections: ["generation", "subgraph"] },
+        { id: "detail", name: "细节修复", type: "custom", sections: ["subgraph", "style"] }
+      ],
+      params: {
+        steps: 28, cfg: 6.5, seed: 384920, sampler: "dpmpp_2m", batch: false,
+        styleStrength: 0.72, clipSkip: 2,
+        denoise: 0.35, scale: 2, tile: 768, faceRestore: true
+      },
+      subgraphSelected: ["denoise", "scale", "faceRestore"],
+      order: {
+        generation: ["steps", "cfg", "sampler", "seed", "batch"],
+        style: ["styleStrength", "clipSkip"],
+        subgraph: ["denoise", "scale", "tile", "faceRestore"]
+      },
+      widths: { sampler: "wide", seed: "wide", denoise: "wide" },
+      prompts: [
+        { id:"cinematic", name:"电影感人像", category:"人像", favorite:true, tags:["cinematic","portrait"], text:"masterpiece, cinematic portrait, soft rim light, shallow depth of field, 85mm lens" },
+        { id:"softlight", name:"柔光棚拍", category:"人像", favorite:false, tags:["studio","soft light"], text:"studio portrait, softbox lighting, clean background, natural skin texture" },
+        { id:"animecity", name:"雨夜动漫城市", category:"场景", favorite:true, tags:["anime","night","rain"], text:"anime city at night, wet street reflections, neon signs, dramatic rain" },
+        { id:"product", name:"极简产品摄影", category:"产品", favorite:false, tags:["product","minimal"], text:"minimal product photography, seamless background, controlled highlights, crisp details" },
+        { id:"negative", name:"通用负面词", category:"负面", favorite:true, tags:["negative","quality"], text:"low quality, blurry, malformed hands, extra fingers, watermark, text" }
+      ]
+    };
+
+    let state = structuredClone(initialState);
+    let dragged = null;
+    let toastTimer = null;
+
+    const parameterMeta = {
+      steps: { label:"Steps", section:"generation", kind:"range", min:1, max:80, step:1, source:"基础参数" },
+      cfg: { label:"CFG", section:"generation", kind:"range", min:1, max:20, step:.1, source:"基础参数" },
+      sampler: { label:"Sampler", section:"generation", kind:"select", options:[["euler","Euler"],["dpmpp_2m","DPM++ 2M"],["uni_pc","UniPC"]], source:"基础参数" },
+      seed: { label:"Seed", section:"generation", kind:"number", source:"基础参数" },
+      batch: { label:"批量生成", section:"generation", kind:"toggle", source:"基础参数" },
+      styleStrength: { label:"风格强度", section:"style", kind:"range", min:0, max:1, step:.01, source:"风格参数" },
+      clipSkip: { label:"CLIP Skip", section:"style", kind:"range", min:1, max:12, step:1, source:"风格参数" },
+      denoise: { label:"Denoise", section:"subgraph", kind:"range", min:0, max:1, step:.01, source:"高清修复子图", subgraph:true },
+      scale: { label:"Scale", section:"subgraph", kind:"select", options:[[1.5,"1.5×"],[2,"2×"],[3,"3×"],[4,"4×"]], source:"高清修复子图", subgraph:true },
+      tile: { label:"Tile Size", section:"subgraph", kind:"select", options:[[512,"512"],[768,"768"],[1024,"1024"]], source:"高清修复子图", subgraph:true },
+      faceRestore: { label:"面部修复", section:"subgraph", kind:"toggle", source:"高清修复子图", subgraph:true }
+    };
+
+    const sectionMeta = {
+      generation: ["基础生成", "ParameterPanel #12"],
+      style: ["风格控制", "ParameterPanel #18"],
+      subgraph: ["高清修复", "Subgraph #42"]
+    };
+
+    const schemeMeta = {
+      deck: ["方案 A · 节点优先", "保留画布上下文，侧边栏负责快速调参和词库。"],
+      studio: ["方案 B · 页面工作台", "页面和布局管理更突出，适合复杂工作流 DIY。"],
+      quick: ["方案 C · 极简快捷栏", "弱化管理入口，专注搜索、收藏和高频参数。"]
+    };
+
+    const $ = (selector, root=document) => root.querySelector(selector);
+    const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
+    const escapeHtml = value => String(value).replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+
+    function selectedPrompts() { return state.selectedPromptIds.map(id => state.prompts.find(p => p.id === id)).filter(Boolean); }
+    function currentPage() { return state.pages.find(p => p.id === state.currentPageId) ?? state.pages[0]; }
+    function showToast(message) {
+      const el = $("#toast"); el.textContent = message; el.classList.add("show");
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 1600);
+    }
+
+    function render() {
+      document.body.dataset.scheme = state.scheme;
+      $("#sidebar").classList.toggle("editing", state.editing);
+      $$(".scheme-tab").forEach(b => b.classList.toggle("active", b.dataset.scheme === state.scheme));
+      const [title, detail] = schemeMeta[state.scheme];
+      $("#schemeNote").innerHTML = `<strong>${title}</strong>${detail}`;
+      renderNodes();
+      renderStudioRail();
+      renderSideView();
+    }
+
+    function renderNodes() {
+      const categories = ["全部", ...new Set(state.prompts.map(p => p.category))];
+      const query = state.nodePromptSearch.trim().toLowerCase();
+      const visiblePrompts = state.prompts.filter(p =>
+        (state.nodeCategoryFilter === "全部" || p.category === state.nodeCategoryFilter) &&
+        (!query || `${p.name} ${p.tags.join(" ")}`.toLowerCase().includes(query))
+      );
+      const groupedPrompts = [...new Set(visiblePrompts.map(p => p.category))].map(category => ({
+        category,
+        items: visiblePrompts.filter(p => p.category === category)
+      }));
+      const selected = selectedPrompts();
+      const selectedCategoryCount = new Set(selected.map(p => p.category)).size;
+      $("#promptNode").innerHTML = `
+        <div class="node-title">✦ Prompt Selector <span class="node-id">#27</span></div>
+        <div class="node-body">
+          <div class="node-list-tools">
+            <input class="field-input" id="nodePromptSearch" placeholder="搜索条目" value="${escapeHtml(state.nodePromptSearch)}">
+            <select class="node-select" id="nodeCategoryFilter">${categories.map(c => `<option ${c===state.nodeCategoryFilter?"selected":""}>${escapeHtml(c)}</option>`).join("")}</select>
+          </div>
+          <div class="node-entry-list">
+            ${groupedPrompts.map(group => `<div class="node-category-title">${escapeHtml(group.category)}</div>${group.items.map(p => `<label class="node-entry ${state.selectedPromptIds.includes(p.id)?"selected":""}"><input type="checkbox" data-node-prompt="${p.id}" ${state.selectedPromptIds.includes(p.id)?"checked":""}><span class="node-entry-name">${escapeHtml(p.name)}</span><span class="node-entry-category">${p.favorite?"★":""}</span></label>`).join("")}`).join("") || `<div class="prompt-preview">没有匹配条目</div>`}
+          </div>
+          <div class="node-selection-summary"><span>已选 <strong>${selected.length}</strong> 项 · ${selectedCategoryCount} 个类别</span><button class="ghost" id="clearNodeSelection">清空</button></div>
+          <div class="socket-row"><span>selected prompts</span><span>STRING</span></div>
+        </div>`;
+
+      $("#subgraphNode").innerHTML = `
+        <div class="node-title">◇ 高清修复子图 <span class="node-id">#42</span></div>
+        <div class="node-body">
+          ${["denoise","scale","tile","faceRestore"].map(id => {
+            const m=parameterMeta[id], v=state.params[id];
+            return `<div class="subgraph-param"><span>${m.label}</span><output>${typeof v === "boolean" ? (v?"On":"Off") : v}</output></div>`;
+          }).join("")}
+          <div class="socket-row"><span>image</span><span>IMAGE</span></div>
+        </div>`;
+
+      $("#outputNode").innerHTML = `
+        <div class="node-title">◎ Preview Image <span class="node-id">#61</span></div>
+        <div class="node-body"><div class="prompt-preview" style="display:grid;place-items:center;min-height:130px;color:var(--muted)">生成结果预览</div><div class="socket-row"><span>image</span><span></span></div></div>`;
+
+      $("#nodePromptSearch").addEventListener("input", e => {
+        state.nodePromptSearch = e.target.value;
+        renderNodes();
+        requestAnimationFrame(() => { const input=$("#nodePromptSearch"); input?.focus(); input?.setSelectionRange(state.nodePromptSearch.length,state.nodePromptSearch.length); });
+      });
+      $("#nodeCategoryFilter").addEventListener("change", e => { state.nodeCategoryFilter=e.target.value; renderNodes(); });
+      $$('[data-node-prompt]', $("#promptNode")).forEach(input => input.addEventListener("change", () => {
+        const id=input.dataset.nodePrompt;
+        state.selectedPromptIds=input.checked ? [...state.selectedPromptIds,id] : state.selectedPromptIds.filter(item=>item!==id);
+        renderNodes();
+      }));
+      $("#clearNodeSelection").onclick=()=>{state.selectedPromptIds=[];renderNodes();};
+    }
+
+    function renderStudioRail() {
+      $("#studioRail").innerHTML = `<strong>页面</strong>${state.pages.map(p=>`<button class="studio-page ${p.id===state.currentPageId?"active":""}" data-page="${p.id}">${escapeHtml(p.name)}</button>`).join("")}<button class="solid" data-page-action="add">＋ 新建页面</button>`;
+      $$("[data-page]", $("#studioRail")).forEach(b=>b.onclick=()=>{state.currentPageId=b.dataset.page;render();});
+      $("[data-page-action='add']", $("#studioRail")).onclick=()=>openPageDialog("add");
+    }
+
+    function renderSideView() {
+      $$(".workspace-tabs button").forEach(b=>b.classList.toggle("active", b.dataset.view===state.view));
+      const side = $("#sideView");
+      side.innerHTML = state.view === "library" ? libraryTemplate() : parameterTemplate();
+      bindSideEvents();
+    }
+
+    function parameterTemplate() {
+      const page = currentPage();
+      const sections = page.sections.map(sectionId => sectionTemplate(sectionId)).join("");
+      return `<div class="panel-view">
+        <div class="pagebar">
+          <select class="node-select page-select" id="pageSelect">${state.pages.map(p=>`<option value="${p.id}" ${p.id===page.id?"selected":""}>${escapeHtml(p.name)}${p.type==="auto"?" · 自动":""}</option>`).join("")}</select>
+          <button class="mini-btn" data-page-action="add" title="新建页面">＋</button>
+          <button class="mini-btn" data-page-action="rename" title="重命名">✎</button>
+          <button class="mini-btn" data-page-action="duplicate" title="复制页面">⧉</button>
+          <button class="mini-btn" data-page-action="delete" title="删除页面">×</button>
+        </div>
+        <div class="page-scroll" id="pageScroll">${sections || `<div class="prompt-preview">这个页面还没有控件。</div>`}</div>
+        <nav class="dot-rail" aria-label="区块导航">${page.sections.map((s,i)=>`<button class="${i===0?"active":""}" data-dot="${s}" title="${sectionMeta[s][0]}"></button>`).join("")}</nav>
+      </div>`;
+    }
+
+    function sectionTemplate(sectionId) {
+      let ids = state.order[sectionId] ?? [];
+      if (sectionId === "subgraph") ids = ids.filter(id => state.subgraphSelected.includes(id));
+      if (state.pageSearch) ids = ids.filter(id => parameterMeta[id].label.toLowerCase().includes(state.pageSearch.toLowerCase()));
+      if (!ids.length) return "";
+      const [title, source] = sectionMeta[sectionId];
+      return `<section class="section" id="section-${sectionId}" data-section="${sectionId}">
+        <div class="section-head"><h3>${title}</h3><span>${source}</span><button class="icon-btn" title="折叠">⌃</button></div>
+        <div class="control-grid">${ids.map(controlTemplate).join("")}</div>
+      </section>`;
+    }
+
+    function controlTemplate(id) {
+      const m=parameterMeta[id], v=state.params[id], width=state.widths[id]??"";
+      let control="";
+      if(m.kind==="range") control=`<div class="inline-value"><span>${m.min}</span><output>${v}</output></div><input type="range" data-param="${id}" min="${m.min}" max="${m.max}" step="${m.step}" value="${v}">`;
+      if(m.kind==="select") control=`<select class="node-select" data-param="${id}">${m.options.map(([value,label])=>`<option value="${value}" ${String(value)===String(v)?"selected":""}>${label}</option>`).join("")}</select>`;
+      if(m.kind==="number") control=`<input class="field-input" type="number" data-param="${id}" value="${v}">`;
+      if(m.kind==="toggle") control=`<div class="inline-value"><span>${v?"已开启":"已关闭"}</span><button class="toggle ${v?"on":""}" data-toggle="${id}" aria-pressed="${v}"></button></div>`;
+      return `<article class="control-card ${width}" draggable="${state.editing}" data-control="${id}" data-section="${m.section}" title="${state.editing?"拖动排序；双击切换宽度":""}">
+        <div class="control-top"><span class="source-dot ${m.subgraph?"subgraph":""}"></span><strong>${m.label}</strong><span class="source-label">${m.subgraph?"子图":"面板"}</span></div>${control}
+      </article>`;
+    }
+
+    function libraryTemplate() {
+      const cats=["全部","收藏",...new Set(state.prompts.map(p=>p.category))];
+      let items=state.prompts.filter(p=>{
+        const cat=state.libraryFilter==="全部" || (state.libraryFilter==="收藏"?p.favorite:p.category===state.libraryFilter);
+        const q=state.librarySearch.trim().toLowerCase();
+        return cat && (!q || `${p.name} ${p.text} ${p.tags.join(" ")}`.toLowerCase().includes(q));
+      });
+      return `<div class="library-view">
+        <div class="search-row"><input class="field-input" id="librarySearch" placeholder="搜索名称、标签或内容" value="${escapeHtml(state.librarySearch)}"><button class="solid" id="addPromptBtn">＋</button></div>
+        <div class="filter-row">${cats.map(c=>`<button class="chip ${c===state.libraryFilter?"active":""}" data-filter="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}</div>
+        <div class="prompt-list">${items.map(promptItemTemplate).join("") || `<div class="prompt-preview">没有匹配的提示词。</div>`}</div>
+      </div>`;
+    }
+
+    function promptItemTemplate(p) {
+      return `<article class="prompt-item">
+        <div class="prompt-item-head"><button class="icon-btn" data-favorite="${p.id}" title="收藏">${p.favorite?"★":"☆"}</button><strong>${escapeHtml(p.name)}</strong><span class="tag">${escapeHtml(p.category)}</span></div>
+        <p>${escapeHtml(p.text)}</p><div class="tags">${p.tags.map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+        <div class="prompt-actions"><button class="solid" data-use-prompt="${p.id}">${state.selectedPromptIds.includes(p.id)?"从节点移除":"加入节点选择"}</button><button class="ghost" data-copy-prompt="${p.id}">复制</button><button class="ghost" data-delete-prompt="${p.id}">删除</button></div>
+      </article>`;
+    }
+
+    function bindSideEvents() {
+      if(state.view==="parameters") {
+        const pageSelect=$("#pageSelect"); if(pageSelect) pageSelect.onchange=e=>{state.currentPageId=e.target.value;render();};
+        $$('[data-page-action]', $("#sideView")).forEach(b=>b.onclick=()=>handlePageAction(b.dataset.pageAction));
+        $$('[data-param]').forEach(el=>{
+          const event=el.type==="range"?"input":"change";
+          el.addEventListener(event,e=>{
+            const id=e.target.dataset.param, meta=parameterMeta[id];
+            state.params[id]=meta.kind==="range"||meta.kind==="number"||typeof state.params[id]==="number"?Number(e.target.value):e.target.value;
+            if(e.target.type==="range") e.target.previousElementSibling.querySelector("output").value=state.params[id];
+            renderNodes();
+          });
+        });
+        $$('[data-toggle]').forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;state.params[id]=!state.params[id];render();});
+        $$('[data-dot]').forEach(b=>b.onclick=()=>$("#section-"+b.dataset.dot)?.scrollIntoView({behavior:"smooth",block:"start"}));
+        $$('.section-head button').forEach(b=>b.onclick=()=>b.closest(".section").querySelector(".control-grid").toggleAttribute("hidden"));
+        bindDragEvents();
+      } else {
+        $("#librarySearch").oninput=e=>{state.librarySearch=e.target.value;renderSideView();requestAnimationFrame(()=>{$("#librarySearch")?.focus();$("#librarySearch")?.setSelectionRange(state.librarySearch.length,state.librarySearch.length);});};
+        $("#addPromptBtn").onclick=openAddPromptDialog;
+        $$('[data-filter]').forEach(b=>b.onclick=()=>{state.libraryFilter=b.dataset.filter;renderSideView();});
+        $$('[data-favorite]').forEach(b=>b.onclick=()=>{const p=state.prompts.find(p=>p.id===b.dataset.favorite);p.favorite=!p.favorite;renderSideView();});
+        $$('[data-use-prompt]').forEach(b=>b.onclick=()=>{const id=b.dataset.usePrompt;state.selectedPromptIds=state.selectedPromptIds.includes(id)?state.selectedPromptIds.filter(item=>item!==id):[...state.selectedPromptIds,id];render();showToast(state.selectedPromptIds.includes(id)?"已加入节点选择":"已从节点移除");});
+        $$('[data-copy-prompt]').forEach(b=>b.onclick=()=>showToast("提示词已复制（演示）"));
+        $$('[data-delete-prompt]').forEach(b=>b.onclick=()=>{if(state.prompts.length<=1)return;const id=b.dataset.deletePrompt;state.prompts=state.prompts.filter(p=>p.id!==id);state.selectedPromptIds=state.selectedPromptIds.filter(item=>item!==id);render();showToast("词库条目已删除");});
+      }
+    }
+
+    function bindDragEvents() {
+      if(!state.editing) return;
+      $$('.control-card').forEach(card=>{
+        card.ondragstart=()=>{dragged=card.dataset.control;card.classList.add("dragging");};
+        card.ondragend=()=>{dragged=null;card.classList.remove("dragging");$$('.drop-target').forEach(x=>x.classList.remove('drop-target'));};
+        card.ondragover=e=>{e.preventDefault();card.classList.add("drop-target");};
+        card.ondragleave=()=>card.classList.remove("drop-target");
+        card.ondrop=e=>{e.preventDefault();const target=card.dataset.control, section=card.dataset.section;if(!dragged||dragged===target||parameterMeta[dragged].section!==section)return;const order=state.order[section];order.splice(order.indexOf(dragged),1);order.splice(order.indexOf(target),0,dragged);render();};
+        card.ondblclick=()=>{const id=card.dataset.control;state.widths[id]=state.widths[id]==="wide"?"":"wide";render();};
+      });
+    }
+
+    function handlePageAction(action) {
+      if(action==="add"||action==="rename") return openPageDialog(action);
+      const page=currentPage();
+      if(action==="duplicate") {
+        const id=`page-${state.nextPage++}`;state.pages.push({...structuredClone(page),id,name:page.name+" 副本",type:"custom"});state.currentPageId=id;render();showToast("页面已复制");
+      }
+      if(action==="delete") {
+        if(page.type==="auto") return showToast("自动页面不能删除");
+        state.pages=state.pages.filter(p=>p.id!==page.id);state.currentPageId="all";render();showToast("页面已删除");
+      }
+    }
+
+    function openPageDialog(action) {
+      const isRename=action==="rename", page=currentPage();
+      openModal(isRename?"重命名页面":"新建 DIY 页面", `<label>页面名称<input class="field-input" id="pageNameInput" value="${isRename?escapeHtml(page.name):"我的页面"}" style="margin-top:7px"></label>`, [
+        ["取消","ghost",closeModal],
+        [isRename?"保存":"创建","solid",()=>{const name=$("#pageNameInput").value.trim();if(!name)return;if(isRename){page.name=name;}else{const id=`page-${state.nextPage++}`;state.pages.push({id,name,type:"custom",sections:["generation","subgraph"]});state.currentPageId=id;}closeModal();render();showToast(isRename?"页面已重命名":"页面已创建");}]
+      ]);
+      requestAnimationFrame(()=>$("#pageNameInput")?.select());
+    }
+
+    function openAddPromptDialog() {
+      openModal("新增词库条目", `<div style="display:grid;gap:10px"><label>名称<input class="field-input" id="newPromptName" value="新提示词"></label><label>分类<select class="node-select" id="newPromptCategory"><option>人像</option><option>场景</option><option>产品</option><option>负面</option></select></label><label>提示词<textarea class="field-input" id="newPromptText" rows="5">masterpiece, detailed lighting</textarea></label></div>`, [
+        ["取消","ghost",closeModal],
+        ["加入词库","solid",()=>{const id="prompt-"+Date.now();state.prompts.unshift({id,name:$("#newPromptName").value||"未命名",category:$("#newPromptCategory").value,favorite:false,tags:["custom"],text:$("#newPromptText").value});closeModal();render();showToast("已加入词库");}]
+      ]);
+    }
+
+    function openSubgraphDialog() {
+      openModal("选择子图参数加入侧边栏", `<p style="margin-top:0;color:var(--muted)">来源：高清修复子图 #42 · 只读取子图对外暴露的 Widget</p><div class="check-list">${["denoise","scale","tile","faceRestore"].map(id=>`<label class="check-row"><input type="checkbox" data-subgraph-check="${id}" ${state.subgraphSelected.includes(id)?"checked":""}><span>${parameterMeta[id].label}</span><small>${id}</small></label>`).join("")}</div>`, [
+        ["取消","ghost",closeModal],
+        ["应用到当前页面","solid",()=>{state.subgraphSelected=$$('[data-subgraph-check]:checked').map(x=>x.dataset.subgraphCheck);if(!currentPage().sections.includes("subgraph"))currentPage().sections.push("subgraph");closeModal();render();showToast("子图参数已更新");}]
+      ]);
+    }
+
+    function openHelp() {
+      openModal("三个方案的取舍", `<div style="display:grid;gap:12px"><div><strong>A · 节点优先</strong><p style="color:var(--muted)">最接近 ComfyUI 当前使用方式，画布仍是中心，侧边栏承担参数和词库快捷入口。</p></div><div><strong>B · 页面工作台</strong><p style="color:var(--muted)">页面管理常驻，更适合复杂工作流、直播调参和高度 DIY。</p></div><div><strong>C · 极简快捷栏</strong><p style="color:var(--muted)">管理入口最少，用搜索和收藏快速访问高频参数。</p></div><p style="color:var(--warning)">建议：A 作为默认体验，吸收 B 的页面编辑能力和 C 的全局搜索。</p></div>`, [["知道了","solid",closeModal]]);
+    }
+
+    function openModal(title, body, actions=[]) {
+      $("#modalTitle").textContent=title;$("#modalBody").innerHTML=body;const foot=$("#modalFoot");foot.innerHTML="";
+      actions.forEach(([label,klass,handler])=>{const b=document.createElement("button");b.textContent=label;b.className=klass;b.onclick=handler;foot.appendChild(b);});
+      $("#modalBackdrop").classList.add("open");
+    }
+    function closeModal(){ $("#modalBackdrop").classList.remove("open"); }
+
+    $$(".scheme-tab").forEach(b=>b.onclick=()=>{state.scheme=b.dataset.scheme;if(state.scheme==="quick")state.currentPageId="daily";render();});
+    $$(".workspace-tabs button").forEach(b=>b.onclick=()=>{state.view=b.dataset.view;render();});
+    $("#editLayoutBtn").onclick=()=>{state.editing=!state.editing;state.view="parameters";render();};
+    $("#finishEditBtn").onclick=()=>{state.editing=false;render();showToast("布局已保存到工作流（演示）");};
+    $("#helpBtn").onclick=openHelp;
+    $("#resetBtn").onclick=()=>{state=structuredClone(initialState);render();showToast("演示已重置");};
+    $("#closeModalBtn").onclick=closeModal;
+    $("#modalBackdrop").onclick=e=>{if(e.target===$("#modalBackdrop"))closeModal();};
+    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();$("#contextMenu").classList.remove("open");}});
+
+    $("#subgraphNode").addEventListener("contextmenu",e=>{e.preventDefault();const menu=$("#contextMenu");menu.style.left=Math.min(e.clientX,innerWidth-240)+"px";menu.style.top=Math.min(e.clientY,innerHeight-160)+"px";menu.classList.add("open");});
+    $("#subgraphNode").addEventListener("keydown",e=>{if(e.key==="Enter")openSubgraphDialog();});
+    document.addEventListener("click",e=>{if(!e.target.closest("#contextMenu")&&!e.target.closest("#subgraphNode"))$("#contextMenu").classList.remove("open");});
+    $("#contextMenu").onclick=e=>{const action=e.target.dataset.action;if(!action)return;$("#contextMenu").classList.remove("open");if(action==="manage-subgraph")openSubgraphDialog();else showToast(action==="open-subgraph"?"进入子图（演示）":"重命名（演示）");};
+
+    $("#quickSearch").addEventListener("input",e=>{state.pageSearch=e.target.value;state.view=e.target.value.toLowerCase().includes("prompt")?"library":"parameters";renderSideView();});
+
+    render();
+  </script>
+</body>
+</html>

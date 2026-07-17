@@ -62,6 +62,7 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
 | `PromptCleaningMaid` | `Aaalice/prompt` | Quickly disable cleaning, safely clean natural-language prompts, or normalize and deduplicate flat tag lists. |
+| `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 
 <details>
 <summary><strong>EnumSwitch — lazy enum routing</strong></summary>
@@ -141,11 +142,28 @@ The settings button opens mode-specific toggles and marks the node when defaults
 </details>
 
 <details>
+<summary><strong>PromptSelector — ordered prompt-library selection</strong></summary>
+
+Use the search field and category or collection filters, then select any number of entries across categories. Selection order belongs to the node and determines output order. **Manage selected prompts** can reorder entries, assign weights from 0 to 20, or remove selections; the optional `prefix_prompt` input is emitted first. The node context menu can change the separator, which defaults to `, `.
+
+PromptSelector stores stable entry references instead of copied text. Editing a library entry updates every referencing node. Deleting a referenced entry leaves a visible missing reference and blocks execution until it is removed or restored; it is never silently matched by name.
+
+</details>
+
+<details>
 <summary><strong>SimpleStringSplit — cleaned text splitting</strong></summary>
 
 Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
 
 </details>
+
+## Aaalice Workspace
+
+Open **Aaalice Workspace** from ComfyUI's left sidebar. **Controls** contains user-created dashboard pages; no page is generated automatically. Right-click any compatible node and choose **📌 Add controls to sidebar…** at any time, select its controls and a target page/section, then adjust the original values from the sidebar. **Edit layout** only enables page, section, card, separator, spacer, width, compact-mode, and drag-order changes; it is not required for adding controls.
+
+Generic scalar widgets, all adjustable Aaalice parameters, and compatible widgets publicly exposed by a subgraph as a whole can be added. The workspace never searches inside a subgraph. Bindings use stable identities rather than node titles or positions; unresolved controls remain visible for manual rebind. Dashboard presets export layout, bindings, and current values as JSON without including the prompt library.
+
+The **Library** workspace manages entries, flat categories, multi-membership collections, tags, and one preview image per entry. It can export the full library or the current category/collection as a ZIP with hashed assets. ZIP and legacy JSON imports are preflighted before applying; conflicts can keep local data, use imported data, or create a duplicate.
 
 ## Compatibility and limitations
 
@@ -155,6 +173,8 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 - ParameterReceiver only binds a ParameterPanel in the current graph; it does not search inside subgraphs.
 - QuickGroupManager only controls visual groups in its current graph and does not propagate linkage rules across manager instances.
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
+- Prompt-library data lives in the current ComfyUI user directory and is not embedded in workflows; export it separately when moving workflows between installations.
+- Dashboard bindings support ordinary scalar widgets, Aaalice parameters, and public subgraph widgets. Unknown custom DOM widgets and structural actions are not projected.
 
 Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) installed separately if you still need its original nodes.
 

@@ -1,0 +1,87 @@
+/** Event-driven prompt-library client store. */
+
+import { api } from "../../../scripts/api.js";
+
+const ENDPOINT = "/aaalice/prompt-library";
+
+async function checked(response) {
+	if (response?.ok) return response;
+	let detail = "";
+	try { detail = (await response.json())?.message || ""; } catch { /* keep status */ }
+	throw new Error(detail || `Prompt library request failed (${response?.status || "unknown"})`);
+}
+
+export class PromptLibraryStore extends EventTarget {
+	constructor() {
+		super();
+		this.snapshot = { version: 1, categories: [], collections: [], tags: [], entries: [] };
+		this.loading = false;
+		this.loaded = false;
+		this.loadPromise = null;
+		this.onServerChange = () => { void this.refresh(); };
+		api.addEventListener("aaalice.prompt_library.changed", this.onServerChange);
+	}
+
+	async refresh() {
+		if (this.loadPromise) return this.loadPromise;
+		this.loading = true;
+		this.loadPromise = (async () => {
+			const response = await checked(await api.fetchApi(`${ENDPOINT}/snapshot`));
+			this.snapshot = await response.json();
+			this.loaded = true;
+			this.dispatchEvent(new CustomEvent("change", { detail: this.snapshot }));
+			return this.snapshot;
+		})().finally(() => { this.loading = false; this.loadPromise = null; });
+		return this.loadPromise;
+	}
+
+	async json(path, { method = "POST", body = {} } = {}) {
+		const response = await checked(await api.fetchApi(`${ENDPOINT}${path}`, {
+			method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+		}));
+		const result = response.status === 204 ? null : await response.json();
+		await this.refresh();
+		return result;
+	}
+
+	createEntry(data) { return this.json("/entries", { body: data }); }
+	updateEntry(id, data) { return this.json(`/entries/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }
+	deleteEntry(id) { return this.json(`/entries/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+	batchEntries(data) { return this.json("/entries/batch", { body: data }); }
+	reorder(data) { return this.json("/reorder", { body: data }); }
+	createCategory(data) { return this.json("/categories", { body: data }); }
+	updateCategory(id, data) { return this.json(`/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }
+	deleteCategory(id) { return this.json(`/categories/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+	createCollection(data) { return this.json("/collections", { body: data }); }
+	updateCollection(id, data) { return this.json(`/collections/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }
+	deleteCollection(id) { return this.json(`/collections/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+
+	async uploadPreview(id, file) {
+		const body = new FormData(); body.append("file", file);
+		const response = await checked(await api.fetchApi(`${ENDPOINT}/entries/${encodeURIComponent(id)}/preview`, { method: "POST", body }));
+		const result = await response.json(); await this.refresh(); return result;
+	}
+	deletePreview(id) { return this.json(`/entries/${encodeURIComponent(id)}/preview`, { method: "DELETE" }); }
+
+	async exportArchive(filter = {}) {
+		return checked(await api.fetchApi(`${ENDPOINT}/export`, {
+			method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filter),
+		}));
+	}
+
+	async importPreflight(file) {
+		const body = new FormData(); body.append("file", file);
+		const response = await checked(await api.fetchApi(`${ENDPOINT}/import/preflight`, { method: "POST", body }));
+		return response.json();
+	}
+
+	async importApply(file, resolutions = {}) {
+		const body = new FormData(); body.append("file", file); body.append("resolutions", JSON.stringify(resolutions));
+		const response = await checked(await api.fetchApi(`${ENDPOINT}/import/apply`, { method: "POST", body }));
+		const result = await response.json(); await this.refresh(); return result;
+	}
+
+	destroy() { api.removeEventListener("aaalice.prompt_library.changed", this.onServerChange); }
+}
+
+export const promptLibraryStore = new PromptLibraryStore();

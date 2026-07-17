@@ -79,6 +79,12 @@
     "inputs": { "text": { "name": "Text", "tooltip": "Prompt text to clean." } },
     "outputs": { "0": { "name": "Text", "tooltip": "Cleaned prompt text." } }
   },
+  "PromptSelector": {
+    "display_name": "📚 Prompt Selector",
+    "description": "Select, order and weight prompt-library entries while keeping an optional prefix input.",
+    "inputs": { "prefix_prompt": { "name": "Prefix prompt", "tooltip": "Optional prompt placed before selected entries." } },
+    "outputs": { "0": { "name": "Prompt", "tooltip": "Combined selected prompt text." } }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ Quick Group Manager",
     "description": "Quickly enable, mute, or bypass visual groups with color scopes, ordering, and linkage rules.",

@@ -62,6 +62,7 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 执行到达时按开关发送桌面通知和提示音，并原样透传输入值。 |
 | `PromptCleaningMaid` | `Aaalice/prompt` | 快速关闭清理、安全清理自然语言提示词，或规范化并去重扁平标签列表。 |
+| `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序并加权输出可复用提示词条。 |
 
 <details>
 <summary><strong>EnumSwitch — 惰性枚举选通</strong></summary>
@@ -141,11 +142,28 @@ QuickGroupManager 不参与工作流执行，也没有输入或输出引脚。�
 </details>
 
 <details>
+<summary><strong>PromptSelector — 有序词库选择</strong></summary>
+
+使用搜索框和分类/合集筛选后，可以跨分类勾选任意数量的词条。选择顺序属于当前节点，并直接决定输出顺序。通过**管理已选提示词**可以拖动排序、设置 0–20 的权重或移除词条；可选输入 `prefix_prompt` 始终最先输出。节点右键菜单可修改分隔符，默认是 `, `。
+
+PromptSelector 保存稳定词条引用，不复制正文。修改词库词条会更新所有引用节点；删除被引用词条后，节点保留明确的失效引用并阻止执行，直到用户移除或恢复该词条，不会按名称静默猜测替代项。
+
+</details>
+
+<details>
 <summary><strong>SimpleStringSplit — 清理式文本拆分</strong></summary>
 
 输入文本并选择 `,` 或 `|` 作为分隔符。节点会清理每段首尾空白、丢弃空段，并以字符串列表输出剩余内容。
 
 </details>
+
+## Aaalice 工作区
+
+从 ComfyUI 左侧打开 **Aaalice 工作区**。**参数控制**中的页面全部由用户手工创建，不会自动生成。任意时刻都可以右键兼容节点，选择 **📌 添加参数到侧边栏…**，勾选参数和目标页面/分区，然后在侧边栏实时修改原节点值。**编辑布局**只负责页面、分区、卡片、分隔项、空白项、宽度、紧凑模式和拖动排序；添加参数不需要先进入编辑模式。
+
+侧边栏支持通用标量 widget、全部可调 Aaalice 参数，以及子图整体公开的兼容 widget；不会进入子图内部搜索。绑定使用稳定身份，不依赖节点标题或位置；无法解析的参数会保留并允许人工重新绑定。侧边栏预设以 JSON 导出布局、绑定和当前值，但不包含词库。
+
+**词库管理**用于维护词条、扁平分类、多归属合集、标签和每条词条的一张预览图。可以导出完整词库或当前分类/合集，ZIP 内包含 manifest 和哈希资源；支持导入新版 ZIP 与旧版 JSON。导入前会预检新增、已有、冲突、重复和无效数据，冲突可选择保留本地、使用导入内容或创建副本。
 
 ## 兼容性与限制
 
@@ -155,6 +173,8 @@ QuickGroupManager 不参与工作流执行，也没有输入或输出引脚。�
 - ParameterReceiver 只绑定当前图中的 ParameterPanel，不会跨子图搜索。
 - QuickGroupManager 只控制当前图中的可视组，联动规则不会跨 Manager 实例传播。
 - SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
+- 词库保存在当前 ComfyUI 用户目录，不会嵌入工作流；跨安装迁移工作流时需要单独导出词库。
+- 侧边栏只投影普通标量 widget、Aaalice 参数和子图公开 widget，不支持未知自定义 DOM widget 与结构操作。
 
 如果仍需旧节点，请单独保留 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。
 

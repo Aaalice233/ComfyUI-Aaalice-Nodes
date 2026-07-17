@@ -11,6 +11,8 @@ ADR 只记录难逆、令人意外且存在真实方案取舍的当前或已发�
 - [ADR 0003：工作流序列化是参数状态真源](0003-workflow-serialization-source-of-truth.md)
 - [ADR 0004：ParameterReceiver 使用可见 Get 与显式结构同步](0004-parameter-receiver-explicit-get-sync.md)
 - [ADR 0006：业务可变槽使用动态原生槽](0006-dynamic-native-business-slots.md)
+- [ADR 0007：独立词库与实时词条引用](0007-independent-prompt-library-live-references.md)
+- [ADR 0008：侧边栏使用稳定参数绑定](0008-stable-dashboard-control-bindings.md)
 
 ## 已替代
 

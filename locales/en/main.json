@@ -5,6 +5,33 @@
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
       "error": "Error", "notice": "Notice", "save": "Save"
     },
+    "promptSelector": {
+      "search": "Search prompt library", "allCategories": "All categories", "allCollections": "All collections",
+      "filters": "Prompt filters", "openSearch": "Open search", "collapseSearch": "Collapse search", "noResultsTitle": "No prompts found", "noResults": "No matching prompt entries.", "manage": "Manage selected prompts", "manageShort": "Manage", "emptySelected": "No prompts selected.",
+      "missing": "Missing library entry", "missingShort": "missing", "selected": "selected", "weight": "Weight", "separator": "Prompt separator", "separatorMenu": "⚙️ Set prompt separator…"
+    },
+    "workspace": {
+      "title": "Aaalice Workspace", "dashboard": "Controls", "library": "Library", "edit": "Edit layout", "done": "Done", "dashboardActions": "Dashboard actions",
+      "empty": { "title": "Build your control pages", "description": "Create a page, then add controls from any compatible node's context menu." },
+      "page": { "pages": "Dashboard pages", "add": "Add page", "name": "Page name", "default": "Generation", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
+      "section": { "sections": "Sections", "add": "Add section", "name": "Section name", "default": "Controls", "rename": "Rename section", "delete": "Delete section", "toggle": "Toggle section", "empty": "Add a section to start arranging controls." },
+      "target": { "page": "Page", "section": "Section", "newPage": "New page", "newSection": "New section" },
+      "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "compact": "Toggle compact mode" },
+      "layout": { "separator": "Add separator", "separatorLabel": "Separator", "spacer": "Add spacer", "remove": "Remove layout item" },
+      "binding": {
+        "menu": "📌 Add controls to sidebar…", "add": "Add controls to sidebar", "added": "Already added",
+        "allowDuplicate": "Allow duplicate cards", "rebind": "Rebind control", "noCompatible": "No compatible controls are available.",
+        "missing": "Missing binding", "incompatible": "Incompatible control"
+      },
+      "preset": { "title": "Dashboard preset", "export": "Export preset", "import": "Import preset", "missingConfirm": "binding(s) are missing or incompatible. Import the layout and skip incompatible values?" },
+      "libraryUi": {
+        "addEntry": "Add entry", "editEntry": "Edit prompt entry", "edit": "Edit", "title": "Title", "prompt": "Prompt", "note": "Note", "category": "Category", "categories": "Categories", "collections": "Collections", "tags": "Tags", "preview": "Preview image", "removePreview": "Remove current preview",
+        "batch": "Edit selected entries", "keepCategory": "Keep current categories", "noCategory": "No category", "addCollection": "Add to collection", "removeCollection": "Remove from collection", "noCollectionChange": "No collection change",
+        "addCategory": "Add category", "addCollectionAction": "Add collection", "manage": "Manage prompt library", "manageAction": "Manage", "manageCategories": "Manage categories", "manageCollections": "Manage collections", "moveUp": "Move up", "rename": "Rename", "name": "Name", "deleteConfirm": "Delete", "deleteEntryConfirm": "Delete this prompt entry?", "select": "Select",
+        "actions": "Library actions", "emptyTitle": "Your library is empty", "emptyDescription": "Add your first prompt entry to reuse it across selectors.", "noMatchTitle": "No matching entries",
+        "export": "Export", "exportSelected": "Export selected", "import": "Import", "importTitle": "Import prompt library", "keepLocal": "Keep local", "useImport": "Use import", "createDuplicate": "Create duplicate", "new": "new", "existing": "existing", "conflicts": "conflicts", "duplicates": "duplicates", "invalid": "invalid"
+      }
+    },
     "quickGroup": {
       "title": "Quick Group Manager",
       "untitled": "Untitled group",

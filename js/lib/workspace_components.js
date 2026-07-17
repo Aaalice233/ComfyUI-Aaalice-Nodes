@@ -1,0 +1,97 @@
+/** Reusable composite components for Aaalice sidebar workspaces. */
+
+import { button, el, icon, iconButton } from "./ui.js";
+
+export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
+	const root = el("div", "aa-workspace");
+	const header = el("header", "aa-workspace-header");
+	const brand = el("div", "aa-workspace-brand");
+	const mark = el("span", { className: "aa-workspace-brand-mark", children: [icon("drag")] });
+	const heading = el("div", { className: "aa-workspace-heading", children: [el("span", "aa-workspace-kicker", "Aaalice"), el("h2", null, title)] });
+	brand.append(mark, heading);
+	const tablist = el("div", { className: "aa-workspace-tabs", attrs: { role: "tablist", "aria-label": title } });
+	const content = el("main", "aa-workspace-content");
+	const setActive = (value) => {
+		for (const tab of tablist.children) {
+			const active = tab.dataset.value === value;
+			tab.classList.toggle("is-active", active); tab.setAttribute("aria-selected", String(active));
+		}
+	};
+	for (const tab of tabs) {
+		const control = button({ label: tab.label, iconName: tab.iconName, variant: "ghost", size: "sm", onClick: () => { setActive(tab.value); onTabChange?.(tab.value); } });
+		control.dataset.value = tab.value; control.setAttribute("role", "tab"); tablist.append(control);
+	}
+	header.append(brand, tablist); root.append(header, content); setActive(activeTab);
+	return { root, header, content, setActive };
+}
+
+export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {
+	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
+}
+
+export function createPageTabs({ pages, activeId, editMode, labels = {}, onSelect, onAdd, onRename, onDelete, onDuplicate, onReorder }) {
+	const root = el("nav", { className: `aa-dashboard-pages${pages.length ? "" : " is-empty"}`, attrs: { "aria-label": labels.pages || "Dashboard pages" } });
+	for (const page of pages) {
+		const tab = button({ label: page.name, variant: "ghost", size: "sm", active: page.id === activeId, onClick: () => onSelect?.(page.id) });
+		tab.dataset.pageId = page.id; root.append(tab);
+		if (editMode) {
+			tab.draggable = true;
+			tab.addEventListener("dragstart", (event) => event.dataTransfer?.setData("application/x-aaalice-page", page.id));
+			tab.addEventListener("dragover", (event) => event.preventDefault());
+			tab.addEventListener("drop", (event) => { event.preventDefault(); const source = event.dataTransfer?.getData("application/x-aaalice-page"); if (source) onReorder?.(source, page.id); });
+		}
+		if (editMode && page.id === activeId) {
+			root.append(iconButton({ iconName: "copy", label: labels.duplicatePage || "Duplicate page", variant: "ghost", onClick: () => onDuplicate?.(page) }));
+			root.append(iconButton({ iconName: "settings", label: labels.renamePage || "Rename page", variant: "ghost", onClick: () => onRename?.(page) }));
+			root.append(iconButton({ iconName: "delete", label: labels.deletePage || "Delete page", variant: "ghost", onClick: () => onDelete?.(page) }));
+		}
+	}
+	root.append(iconButton({ iconName: "add", label: labels.addPage || "Add page", variant: "ghost", onClick: onAdd }));
+	return root;
+}
+
+export function createSectionCard({ section, editMode, labels = {}, onRename, onDelete, onToggle, onDropSection, children = [] }) {
+	const root = el("section", { className: "aa-dashboard-section", attrs: { "data-section-id": section.id } });
+	const header = el("header", "aa-dashboard-section-header");
+	const toggle = iconButton({ iconName: "moveDown", label: labels.toggleSection || `Toggle ${section.title}`, variant: "ghost", className: `aa-section-toggle${section.collapsed ? " is-collapsed" : ""}`, onClick: onToggle });
+	header.append(toggle, el("h3", null, section.title), el("span", "aa-dashboard-section-count", String(children.length)));
+	if (editMode) header.append(
+		iconButton({ iconName: "settings", label: labels.renameSection || "Rename section", variant: "ghost", onClick: onRename }),
+		iconButton({ iconName: "delete", label: labels.deleteSection || "Delete section", variant: "ghost", onClick: onDelete }),
+	);
+	const grid = el("div", { className: "aa-dashboard-grid", children }); grid.hidden = section.collapsed;
+	if (editMode) {
+		root.draggable = true;
+		root.addEventListener("dragstart", (event) => { if (event.target !== root) return; event.dataTransfer?.setData("application/x-aaalice-section", section.id); });
+		root.addEventListener("dragover", (event) => event.preventDefault());
+		root.addEventListener("drop", (event) => { const source = event.dataTransfer?.getData("application/x-aaalice-section"); if (source) onDropSection?.(source, section.id); });
+	}
+	root.append(header, grid); return root;
+}
+
+export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, draggable = false }) {
+	const root = el("article", { className: `aa-control-card span-${item.span}${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}`, attrs: { "data-item-id": item.id, "data-provider": item.binding?.provider || "layout", draggable } });
+	const header = el("header", "aa-control-card-header");
+	header.append(el("span", "aa-control-card-indicator"), el("span", "aa-control-card-title", title));
+	if (editMode) header.append(
+		iconButton({ iconName: "settings", label: labels.moveControl || "Move control", variant: "ghost", onClick: onMove }),
+		iconButton({ iconName: "copy", label: labels.toggleWidth || "Toggle card width", variant: "ghost", onClick: onToggleSpan }),
+		iconButton({ iconName: "moveDown", label: labels.toggleCompact || "Toggle compact mode", variant: "ghost", onClick: onToggleCompact }),
+		iconButton({ iconName: "delete", label: labels.removeControl || "Remove control", variant: "ghost", onClick: onRemove }),
+	);
+	else header.append(iconButton({ iconName: "settings", label: labels.controlMenu || "Control card menu", variant: "ghost", onClick: onManage }));
+	root.append(header, control || el("p", "aa-control-card-error", status === "incompatible" ? (labels.incompatible || "Incompatible control") : (labels.missing || "Missing binding")));
+	return root;
+}
+
+export function createListRow({ title, description = "", selected = false, onSelect, actions = [] }) {
+	const root = el("div", `aa-workspace-list-row${selected ? " is-selected" : ""}`);
+	const copy = el("div", "aa-workspace-list-row-copy"); copy.append(el("strong", null, title));
+	if (description) copy.append(el("small", null, description));
+	if (onSelect) {
+		const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = selected;
+		checkbox.setAttribute("aria-label", title); checkbox.addEventListener("change", () => onSelect(checkbox.checked));
+		root.append(checkbox);
+	} else root.classList.add("is-static");
+	root.append(copy, ...actions); return root;
+}

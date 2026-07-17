@@ -79,6 +79,12 @@
     "inputs": { "text": { "name": "文本", "tooltip": "需要清理的提示词文本。" } },
     "outputs": { "0": { "name": "文本", "tooltip": "清理后的提示词文本。" } }
   },
+  "PromptSelector": {
+    "display_name": "📚 提示词选择器",
+    "description": "从词库中多选、排序并设置提示词权重，同时保留可选前缀输入。",
+    "inputs": { "prefix_prompt": { "name": "前缀提示词", "tooltip": "放在已选词条之前的可选提示词。" } },
+    "outputs": { "0": { "name": "提示词", "tooltip": "组合后的提示词文本。" } }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ 快速组管理器",
     "description": "按颜色范围快速启用、静音或绕过可视组，并配置排序与联动规则。",

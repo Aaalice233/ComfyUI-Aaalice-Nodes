@@ -24,6 +24,28 @@
 
 ## 工作流控制与工具
 
+- **Prompt Entry（提示词条）**：词库中具有稳定身份、正文和可选组织信息的一条可复用提示词。分类、合集和显示标题都不是词条身份。避免使用 Prompt Snapshot、Node Prompt。
+
+- **Prompt Library（词库）**：由用户独立维护、可被多个工作流引用的 Prompt Entry 集合。它不属于任何单个 PromptSelector 或工作流。避免使用 Node List、Workflow Prompts。
+
+- **Category（分类）**：Prompt Entry 唯一归属的扁平主分类。避免使用 Folder、Collection。
+
+- **Collection（合集）**：对 Prompt Entry 进行多对多组织并保留合集内顺序的人工集合。避免使用 Category、Tag Folder。
+
+- **Prompt Selection（提示词选择）**：PromptSelector 持有的有序 Prompt Entry 引用及各自权重。它引用词条身份，不复制词条正文。
+
+- **PromptSelector（提示词选择器）**：从 Prompt Library 中跨分类选择、排序并加权输出提示词的图节点。词库维护不是该节点的职责。
+
+- **Control Host（参数宿主）**：在当前工作流中拥有一个或多个可投影参数的节点或子图整体。节点标题、位置和临时画布编号都不是宿主身份。
+
+- **Control Binding（参数绑定）**：侧边栏参数卡片与一个 Control Host 上稳定参数身份之间的显式关系。显示名称不是绑定身份。
+
+- **Dashboard Page（控制页面）**：用户在侧边栏中手工组织分区和参数卡片的一个可切换页面。避免使用 Auto Page、Node Group。
+
+- **Dashboard Preset（侧边栏预设）**：可移植的页面布局、Control Binding 与导出时参数值集合；它不包含 Prompt Library。
+
+- **Missing Binding（失效绑定）**：目标宿主或参数身份无法精确解析、但仍被保留以供人工重新绑定的 Control Binding。避免使用 Auto Rebind、Name Match。
+
 - **Prompt Cleaning（提示词清理）**：按照用户明确选择的关闭、自然语言或标签列表模式执行原样透传或保守、确定性的文本规范化。它不猜测提示词类型，也不修复权重、LoRA 或第三方语法；识别到已支持的分区控制语法时整段原样旁路。
 
 - **Tag-list Deduplication（标签列表去重）**：在保持首次出现形式和原顺序的前提下，按配置的大小写与下划线等价规则移除重复顶层标签。避免使用 Prompt semantic repair、automatic prompt detection。

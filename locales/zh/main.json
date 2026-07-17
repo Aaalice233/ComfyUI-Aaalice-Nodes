@@ -5,6 +5,33 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
+    "promptSelector": {
+      "search": "搜索词库", "allCategories": "全部分类", "allCollections": "全部合集",
+      "filters": "提示词筛选", "openSearch": "展开搜索", "collapseSearch": "收起搜索", "noResultsTitle": "没有找到提示词", "noResults": "没有符合条件的词条。", "manage": "管理已选提示词", "manageShort": "管理已选", "emptySelected": "尚未选择提示词。",
+      "missing": "词库引用已失效", "missingShort": "项失效", "selected": "项已选", "weight": "权重", "separator": "提示词分隔符", "separatorMenu": "⚙️ 设置提示词分隔符…"
+    },
+    "workspace": {
+      "title": "Aaalice 工作区", "dashboard": "参数控制", "library": "词库管理", "edit": "编辑布局", "done": "完成", "dashboardActions": "控制台操作",
+      "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。" },
+      "page": { "pages": "侧边栏页面", "add": "新建页面", "name": "页面名称", "default": "生成参数", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
+      "section": { "sections": "分区导航", "add": "新建分区", "name": "分区名称", "default": "参数", "rename": "重命名分区", "delete": "删除分区", "toggle": "展开或折叠分区", "empty": "添加分区后即可开始安排参数。" },
+      "target": { "page": "页面", "section": "分区", "newPage": "新页面", "newSection": "新分区" },
+      "card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "compact": "切换紧凑模式" },
+      "layout": { "separator": "添加分隔线", "separatorLabel": "分隔线", "spacer": "添加留白", "remove": "移除布局项" },
+      "binding": {
+        "menu": "📌 添加参数到侧边栏…", "add": "添加参数到侧边栏", "added": "已添加",
+        "allowDuplicate": "允许重复卡片", "rebind": "重新绑定", "noCompatible": "当前没有兼容参数。",
+        "missing": "参数绑定已失效", "incompatible": "参数类型不兼容"
+      },
+      "preset": { "title": "侧边栏预设", "export": "导出预设", "import": "导入预设", "missingConfirm": "个绑定已失效或类型不兼容。是否仍导入布局并跳过不兼容的值？" },
+      "libraryUi": {
+        "addEntry": "添加词条", "editEntry": "编辑词条", "edit": "编辑", "title": "标题", "prompt": "提示词", "note": "备注", "category": "分类", "categories": "分类", "collections": "合集", "tags": "标签", "preview": "预览图", "removePreview": "移除当前预览图",
+        "batch": "批量编辑已选词条", "keepCategory": "保留原分类", "noCategory": "无分类", "addCollection": "加入合集", "removeCollection": "移出合集", "noCollectionChange": "不修改合集",
+        "addCategory": "添加分类", "addCollectionAction": "添加合集", "manage": "管理词库", "manageAction": "管理", "manageCategories": "管理分类", "manageCollections": "管理合集", "moveUp": "上移", "rename": "重命名", "name": "名称", "deleteConfirm": "删除", "deleteEntryConfirm": "确定删除这个词条吗？", "select": "选择",
+        "actions": "词库操作", "emptyTitle": "词库还是空的", "emptyDescription": "添加第一个词条，之后就能在提示词选择器中反复使用。", "noMatchTitle": "没有匹配的词条",
+        "export": "导出", "exportSelected": "导出已选", "import": "导入", "importTitle": "导入词库", "keepLocal": "保留本地", "useImport": "使用导入内容", "createDuplicate": "创建副本", "new": "新增", "existing": "已有", "conflicts": "冲突", "duplicates": "重复", "invalid": "无效"
+      }
+    },
     "quickGroup": {
       "title": "快速组管理器",
       "untitled": "未命名组",
