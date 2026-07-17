@@ -85,6 +85,15 @@ test("keeps the toolbar filter popover open across queued body renders", () => {
 	assert.match(source, /if \(popoverAnchor && !toolbar\.contains\(popoverAnchor\)\) closePopover\(node\)/);
 });
 
+test("previews existing linkage rules only when a group has rules", () => {
+	assert.match(source, /function showRuleTooltip/);
+	assert.match(source, /aaalice-qgm-rule-tooltip/);
+	assert.match(source, /if \(count\) \{[\s\S]*mouseenter[\s\S]*showRuleTooltip[\s\S]*focus[\s\S]*showRuleTooltip/);
+	assert.match(source, /link\.removeAttribute\("title"\)/);
+	assert.match(source, /whenEnabled[\s\S]*whenDisabled/);
+	assert.match(styles, /\.aaalice-qgm-rule-tooltip-row[\s\S]*grid-template-columns/);
+});
+
 test("animates and color-codes the mute/bypass mode switcher", () => {
 	assert.match(source, /aaalice-qgm-segmented is-\$\{state\.offMode\}/);
 	assert.match(source, /aaalice-qgm-segmented-thumb/);

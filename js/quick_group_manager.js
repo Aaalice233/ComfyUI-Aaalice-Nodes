@@ -125,18 +125,32 @@ function filterSummary(state) {
 	return filterEntries(state).map((entry) => entry.label).join(", ");
 }
 
-function closeFilterTooltip(node) {
-	const tooltip = node._aaaliceQuickFilterTooltip;
+function closeHoverTooltip(node) {
+	const tooltip = node._aaaliceQuickHoverTooltip;
 	if (!tooltip) return;
 	if (tooltip.anchor?.getAttribute("aria-describedby") === tooltip.root.id) tooltip.anchor.removeAttribute("aria-describedby");
 	tooltip.root.remove();
-	node._aaaliceQuickFilterTooltip = null;
+	node._aaaliceQuickHoverTooltip = null;
+}
+
+function mountHoverTooltip(node, anchor, root) {
+	closeHoverTooltip(node);
+	root.id = `aaalice-qgm-tooltip-${Math.random().toString(36).slice(2)}`;
+	document.body.append(root);
+	node._aaaliceQuickAccent?.sync(root);
+	const anchorRect = anchor.getBoundingClientRect();
+	const tooltipRect = root.getBoundingClientRect();
+	const left = Math.max(8, Math.min(window.innerWidth - tooltipRect.width - 8, anchorRect.right - tooltipRect.width));
+	const below = anchorRect.bottom + 6;
+	const top = below + tooltipRect.height <= window.innerHeight - 8 ? below : Math.max(8, anchorRect.top - tooltipRect.height - 6);
+	root.style.left = `${left}px`;
+	root.style.top = `${top}px`;
+	anchor.setAttribute("aria-describedby", root.id);
+	node._aaaliceQuickHoverTooltip = { root, anchor };
 }
 
 function showFilterTooltip(node, anchor) {
-	closeFilterTooltip(node);
-	const root = isolate(el("div", { className: "aaalice-qgm-filter-tooltip", attrs: { role: "tooltip" } }));
-	root.id = `aaalice-qgm-filter-tooltip-${Math.random().toString(36).slice(2)}`;
+	const root = isolate(el("div", { className: "aaalice-qgm-hover-tooltip aaalice-qgm-filter-tooltip", attrs: { role: "tooltip" } }));
 	const list = el("div", "aaalice-qgm-filter-tooltip-list");
 	for (const entry of filterEntries(stateFor(node))) {
 		const row = el("div", "aaalice-qgm-filter-tooltip-row");
@@ -146,20 +160,11 @@ function showFilterTooltip(node, anchor) {
 		list.append(row);
 	}
 	root.append(list);
-	document.body.append(root);
-	const anchorRect = anchor.getBoundingClientRect();
-	const tooltipRect = root.getBoundingClientRect();
-	const left = Math.max(8, Math.min(window.innerWidth - tooltipRect.width - 8, anchorRect.right - tooltipRect.width));
-	const below = anchorRect.bottom + 6;
-	const top = below + tooltipRect.height <= window.innerHeight - 8 ? below : Math.max(8, anchorRect.top - tooltipRect.height - 6);
-	root.style.left = `${left}px`;
-	root.style.top = `${top}px`;
-	anchor.setAttribute("aria-describedby", root.id);
-	node._aaaliceQuickFilterTooltip = { root, anchor };
+	mountHoverTooltip(node, anchor, root);
 }
 
 function openFilter(node, anchor) {
-	closeFilterTooltip(node);
+	closeHoverTooltip(node);
 	const popup = createPopover(node, anchor, "aaalice-qgm-filter-popover", t("aaalice.quickGroup.filter.aria", "Choose group colors"));
 	const groups = groupsFor(node);
 	const state = stateFor(node);
@@ -216,7 +221,47 @@ function cloneRules(rules) {
 	return JSON.parse(JSON.stringify(rules || {}));
 }
 
+function showRuleTooltip(node, sourceGroup, anchor) {
+	const state = stateFor(node);
+	const rule = state.rules[String(sourceGroup.id)];
+	if (!ruleCount(state.rules, sourceGroup.id)) return;
+	const groupsById = new Map(groupsFor(node).map((group) => [String(group.id), group]));
+	const root = isolate(el("div", { className: "aaalice-qgm-hover-tooltip aaalice-qgm-rule-tooltip", attrs: { role: "tooltip" } }));
+	for (const [phase, phaseLabel] of [
+		["enable", t("aaalice.quickGroup.rules.whenEnabled", "When enabled")],
+		["disable", t("aaalice.quickGroup.rules.whenDisabled", "When disabled")],
+	]) {
+		const actions = Object.entries(rule?.[phase] || {});
+		if (!actions.length) continue;
+		const section = el("section", "aaalice-qgm-rule-tooltip-phase");
+		section.append(el("strong", null, phaseLabel));
+		const entries = el("div", "aaalice-qgm-rule-tooltip-entries");
+		for (const [targetId, action] of actions) {
+			const target = groupsById.get(String(targetId));
+			const row = el("div", "aaalice-qgm-rule-tooltip-row");
+			if (target) {
+				const color = normalizeColor(target.color);
+				row.append(
+					el("span", { className: `aaalice-qgm-color${color ? "" : " is-uncolored"}`, attrs: color ? { style: `--group-color:${color}`, "aria-hidden": "true" } : { "aria-hidden": "true" } }),
+					el("span", "aaalice-qgm-rule-tooltip-name", groupLabel(target)),
+				);
+			} else {
+				row.append(
+					el("span", "aaalice-qgm-warning", "!"),
+					el("span", "aaalice-qgm-rule-tooltip-name", message("aaalice.quickGroup.rules.missingTarget", "Missing group #{id}", { id: targetId })),
+				);
+			}
+			row.append(el("span", { className: `aaalice-qgm-rule-tooltip-action is-${action}`, text: action === "enable" ? t("aaalice.common.enabled", "Enabled") : t("aaalice.common.disabled", "Disabled") }));
+			entries.append(row);
+		}
+		section.append(entries);
+		root.append(section);
+	}
+	mountHoverTooltip(node, anchor, root);
+}
+
 function openRuleEditor(node, sourceGroup, anchor) {
+	closeHoverTooltip(node);
 	const popup = createPopover(node, anchor, "aaalice-qgm-rules-popover", message("aaalice.quickGroup.rules.aria", "Edit linkage for {group}", { group: groupLabel(sourceGroup) }));
 	const state = stateFor(node);
 	const groups = groupsFor(node);
@@ -352,9 +397,9 @@ function syncToolbar(node, state) {
 		const filter = iconButton({ iconName: "filter", label: t("aaalice.quickGroup.filter.aria", "Choose group colors"), variant: "ghost", className: "aaalice-qgm-filter-button" });
 		filter.removeAttribute("title");
 		filter.addEventListener("mouseenter", () => showFilterTooltip(node, filter));
-		filter.addEventListener("mouseleave", () => closeFilterTooltip(node));
+		filter.addEventListener("mouseleave", () => closeHoverTooltip(node));
 		filter.addEventListener("focus", () => showFilterTooltip(node, filter));
-		filter.addEventListener("blur", () => closeFilterTooltip(node));
+		filter.addEventListener("blur", () => closeHoverTooltip(node));
 		filter.addEventListener("click", () => openFilter(node, filter));
 		const refresh = iconButton({ iconName: "refresh", label: t("aaalice.quickGroup.refresh", "Refresh groups"), variant: "ghost", className: "aaalice-qgm-refresh-button", onClick: () => render(node) });
 		actions.append(modeSwitcher(node, state), filter, refresh);
@@ -368,7 +413,7 @@ function syncToolbar(node, state) {
 		const label = `${t("aaalice.quickGroup.filter.aria", "Choose group colors")}: ${filterSummary(state)}`;
 		filter.setAttribute("aria-label", label);
 		filter.removeAttribute("title");
-		if (node._aaaliceQuickFilterTooltip) showFilterTooltip(node, filter);
+		if (node._aaaliceQuickHoverTooltip?.anchor === filter) showFilterTooltip(node, filter);
 		node._aaaliceQuickFilterButton = filter;
 	}
 	const refresh = actions.querySelector(".aaalice-qgm-refresh-button");
@@ -400,7 +445,14 @@ function groupRow(node, group, visibleGroups) {
 	const name = el("span", { className: "aaalice-qgm-name", attrs: { title: groupLabel(group) }, text: groupLabel(group) });
 	const count = ruleCount(state.rules, id);
 	const link = iconButton({ iconName: "link", label: message("aaalice.quickGroup.rules.edit", "Edit linkage for {group}", { group: groupLabel(group) }), variant: "ghost", className: `aaalice-qgm-link${count ? " has-rules" : ""}` });
-	if (count) link.append(el("span", "aaalice-qgm-rule-count", String(count)));
+	link.removeAttribute("title");
+	if (count) {
+		link.append(el("span", "aaalice-qgm-rule-count", String(count)));
+		link.addEventListener("mouseenter", () => showRuleTooltip(node, group, link));
+		link.addEventListener("mouseleave", () => closeHoverTooltip(node));
+		link.addEventListener("focus", () => showRuleTooltip(node, group, link));
+		link.addEventListener("blur", () => closeHoverTooltip(node));
+	}
 	link.addEventListener("click", () => openRuleEditor(node, group, link));
 	const enabled = status === GROUP_STATE.ENABLED;
 	const toggle = el("button", { className: `aaalice-qgm-switch${enabled ? " is-on" : ""}${status === GROUP_STATE.MIXED ? " is-mixed" : ""}`, attrs: { type: "button", role: "switch", "aria-checked": status === GROUP_STATE.MIXED ? "mixed" : enabled, disabled: status === GROUP_STATE.EMPTY, title: status === GROUP_STATE.EMPTY ? t("aaalice.quickGroup.emptyGroup", "This group has no nodes") : null, "aria-label": message("aaalice.quickGroup.toggle", "Toggle {group}", { group: groupLabel(group) }) }, children: [el("span", "aaalice-qgm-switch-thumb")] });
@@ -419,6 +471,8 @@ function render(node) {
 	// Row controls are rebuilt below, so popovers anchored to them must close.
 	const popoverAnchor = node._aaaliceQuickPopover?.anchor;
 	if (popoverAnchor && !toolbar.contains(popoverAnchor)) closePopover(node);
+	const hoverAnchor = node._aaaliceQuickHoverTooltip?.anchor;
+	if (hoverAnchor && !toolbar.contains(hoverAnchor)) closeHoverTooltip(node);
 	const groups = groupsFor(node);
 	const state = stateFor(node);
 	state.groupOrder = reconcileGroupOrder(state.groupOrder, groups);
@@ -581,7 +635,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node.onRemoved = function () {
 		mountedManagers.delete(this);
 		closePopover(this);
-		closeFilterTooltip(this);
+		closeHoverTooltip(this);
 		this._aaaliceQuickAccent?.dispose();
 		this._aaaliceQuickAccent = null;
 		if (this._aaaliceQuickInitialSizeFrame) cancelAnimationFrame(this._aaaliceQuickInitialSizeFrame);
