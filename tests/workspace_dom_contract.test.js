@@ -82,7 +82,11 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(workspace, /_aaaliceSectionObserver\?\.disconnect/);
 	assert.doesNotMatch(components, /aa-workspace-brand/);
 	assert.match(components, /ariaLabel: title/);
-	assert.match(components, /setActive: tablist\.setValue/);
+	assert.match(components, /root\.dataset\.workspace = activeTab/);
+	assert.match(components, /root\.dataset\.workspace = value/);
+	assert.match(theme, /\.aa-workspace\[data-workspace="library"\] \{[^}]*--aa-ui-accent: var\(--aa-workspace-library-accent\)/);
+	assert.match(theme, /--aa-ui-accent-soft: color-mix/);
+	assert.match(theme, /--aa-ui-focus: var\(--aa-workspace-library-accent\)/);
 	assert.match(theme, /\.aa-workspace-tabs\[data-value="library"\]/);
 	assert.match(theme, /\.aa-workspace-tabs \{[^}]*display: grid;[^}]*overflow: hidden;/);
 	assert.match(theme, /transform \.2s cubic-bezier/);

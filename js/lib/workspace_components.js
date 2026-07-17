@@ -4,17 +4,19 @@ import { button, el, iconButton, segmentedControl } from "./ui.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
 	const root = el("div", "aa-workspace");
+	root.dataset.workspace = activeTab;
 	const header = el("header", "aa-workspace-header");
 	const tablist = segmentedControl({
 		value: activeTab,
 		options: tabs,
 		ariaLabel: title,
 		className: "aa-workspace-tabs",
-		onChange: onTabChange,
+		onChange: (value) => { root.dataset.workspace = value; onTabChange?.(value); },
 	});
 	const content = el("main", "aa-workspace-content");
+	const setActive = (value) => { root.dataset.workspace = value; tablist.setValue(value); };
 	header.append(tablist); root.append(header, content);
-	return { root, header, content, setActive: tablist.setValue };
+	return { root, header, content, setActive };
 }
 
 export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {
