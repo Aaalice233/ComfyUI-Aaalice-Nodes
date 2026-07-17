@@ -122,12 +122,14 @@ ComfyUI-Aaalice-Nodes/
 - 新 DOM 界面复用 `js/lib/ui.js` + `ui.css`；业务布局放在 `js/lib/theme.css`，不重复实现 button、field、empty state 或 dialog。
 - 节点原生层、DOM overlay、Dialog 和 Popover 的职责及主题映射以 [`ui-system.md`](docs/design/ui-system.md) 为准；DOM 根不得重复绘制节点外壳。
 - 普通激活态可以跟随节点强调色；警告、危险、筛选颜色和多档业务状态保留自身语义，且颜色不能成为唯一状态信号。
+- 两档及以上互斥状态的 Switcher 必须优先复用共享 `segmentedControl`，使用连续滑动指示器呈现切换动画，并通过 ComfyUI 主题 token 区分各状态颜色；同时保留文本、图标或 ARIA 状态信号，并遵循 `prefers-reduced-motion`。
 - 节点颜色同步只走既有生命周期，禁止为颜色或主题同步增加持续轮询。
 - Toast 只用 `app.extensionManager.toast.add`；可有无状态参数封装，禁止自建容器、队列或动画系统。
 - 静态 `iconName` 与 `icon("…")` 必须存在于共享图标表，并通过图标契约测试。
 - 颜色来自 ComfyUI token；禁止写死品牌色或只适用于暗色主题的正文色。
 - 仅维护 `locales/{en,zh}/{main,nodeDefs}.json`。`nodeDefs.json` 管节点定义，自绘 DOM 使用 `main.json` 和 `js/i18n.js`。
 - 序列化 id、COMBO 值和路径使用稳定英文；修改用户文案时同步两种语言。
+- 所有节点的 V3 Schema 与 en/zh `nodeDefs.json` 显示名称必须以同一语义 emoji 开头；新增或重命名节点时同步三处并通过契约测试。
 - 本包新增的节点菜单以 emoji 开头，并进入 en/zh 本地化文案。
 - 复杂布局存在多个合理方案时，先做同内容可切换的临时演示；小范围视觉调整直接实现。
 

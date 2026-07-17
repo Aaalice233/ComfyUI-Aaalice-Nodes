@@ -9,6 +9,7 @@ import {
 	resolvePromptSelections, setPromptWeight, togglePromptSelection,
 } from "./lib/prompt_selector_model.js";
 import { button, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { openWorkspace } from "./workspace.js";
 
 const NODE = "PromptSelector";
 const PROPERTY = "promptSelectorState";
@@ -123,9 +124,9 @@ function render(node) {
 		const searchButton = iconButton({ iconName: "search", label: searchLabel, active: Boolean(query), variant: "secondary", className: "aa-prompt-selector-search-toggle", onClick: () => { node._aaalicePromptSearchOpen = true; node._aaalicePromptSearchShouldFocus = true; render(node); } });
 		searchButton.setAttribute("aria-pressed", String(Boolean(query)));
 		toolbar.append(
-			searchButton,
 			select(t("aaalice.promptSelector.allCategories", "All categories"), node._aaalicePromptCategory, promptLibraryStore.snapshot.categories, (value) => { node._aaalicePromptCategory = value; render(node); }),
 			select(t("aaalice.promptSelector.allCollections", "All collections"), node._aaalicePromptCollection, promptLibraryStore.snapshot.collections, (value) => { node._aaalicePromptCollection = value; render(node); }),
+			searchButton,
 		);
 	}
 	renderPromptEntries(node, list, state);
@@ -136,7 +137,11 @@ function render(node) {
 		el("span", null, t("aaalice.promptSelector.selected", "selected")),
 		...(missing ? [el("em", null, `${missing} ${t("aaalice.promptSelector.missingShort", "missing")}`)] : []),
 	] });
-	footer.append(summary, button({ label: t("aaalice.promptSelector.manageShort", "Manage"), iconName: "settings", variant: "ghost", size: "sm", disabled: !state.selections.length, onClick: () => openSelectedEditor(node) }));
+	const actions = el("div", { className: "aa-prompt-selector-footer-actions", children: [
+		button({ label: t("aaalice.promptSelector.manageLibrary", "Manage library"), iconName: "note", variant: "ghost", size: "sm", onClick: () => openWorkspace("library") }),
+		button({ label: t("aaalice.promptSelector.manageShort", "Manage"), iconName: "settings", variant: "ghost", size: "sm", disabled: !state.selections.length, onClick: () => openSelectedEditor(node) }),
+	] });
+	footer.append(summary, actions);
 	root.append(toolbar, list, footer);
 }
 

@@ -312,7 +312,9 @@ export function segmentedControl({ value, options = [], ariaLabel, onChange = nu
 		if (emit) onChange?.(value);
 	};
 	for (const option of options) {
-		const choice = el("button", { attrs: { type: "button", role: "radio", "aria-checked": false }, text: option.label });
+		const choice = el("button", { attrs: { type: "button", role: "radio", "aria-checked": false } });
+		if (option.iconName) choice.append(icon(option.iconName), el("span", "aa-ui-segmented__label", option.label));
+		else choice.textContent = option.label;
 		choice.dataset[dataAttribute] = option.value;
 		choice.addEventListener("click", () => setValue(option.value, true));
 		choice.addEventListener("keydown", (event) => {

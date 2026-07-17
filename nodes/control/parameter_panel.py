@@ -52,7 +52,7 @@ class ParameterPanel(io.ComfyNode):
     def define_schema(cls) -> io.Schema:
         return io.Schema(
             node_id="ParameterPanel",
-            display_name="Parameter Panel",
+            display_name="🎛️ Parameter Panel",
             category="Aaalice/control",
             description=(
                 "Edit one parameter set and emit up to 32 direct AnyType values. "

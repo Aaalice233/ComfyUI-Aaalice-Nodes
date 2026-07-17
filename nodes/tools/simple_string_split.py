@@ -18,7 +18,7 @@ class SimpleStringSplit(io.ComfyNode):
     def define_schema(cls) -> io.Schema:
         return io.Schema(
             node_id="SimpleStringSplit",
-            display_name="Simple String Split",
+            display_name="✂️ Simple String Split",
             category="Aaalice/tools",
             description=(
                 "Split a string by delimiter, strip whitespace from each part, "

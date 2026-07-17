@@ -7,7 +7,7 @@
     },
     "promptSelector": {
       "search": "Search prompt library", "allCategories": "All categories", "allCollections": "All collections",
-      "filters": "Prompt filters", "openSearch": "Open search", "collapseSearch": "Collapse search", "noResultsTitle": "No prompts found", "noResults": "No matching prompt entries.", "manage": "Manage selected prompts", "manageShort": "Manage", "emptySelected": "No prompts selected.",
+      "filters": "Prompt filters", "openSearch": "Open search", "collapseSearch": "Collapse search", "noResultsTitle": "No prompts found", "noResults": "No matching prompt entries.", "manage": "Manage selected prompts", "manageShort": "Manage", "manageLibrary": "Manage library", "emptySelected": "No prompts selected.",
       "missing": "Missing library entry", "missingShort": "missing", "selected": "selected", "weight": "Weight", "separator": "Prompt separator", "separatorMenu": "⚙️ Set prompt separator…"
     },
     "workspace": {

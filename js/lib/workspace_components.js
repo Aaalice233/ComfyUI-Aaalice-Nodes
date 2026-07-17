@@ -1,28 +1,20 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { button, el, icon, iconButton } from "./ui.js";
+import { button, el, iconButton, segmentedControl } from "./ui.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
 	const root = el("div", "aa-workspace");
 	const header = el("header", "aa-workspace-header");
-	const brand = el("div", "aa-workspace-brand");
-	const mark = el("span", { className: "aa-workspace-brand-mark", children: [icon("drag")] });
-	const heading = el("div", { className: "aa-workspace-heading", children: [el("span", "aa-workspace-kicker", "Aaalice"), el("h2", null, title)] });
-	brand.append(mark, heading);
-	const tablist = el("div", { className: "aa-workspace-tabs", attrs: { role: "tablist", "aria-label": title } });
+	const tablist = segmentedControl({
+		value: activeTab,
+		options: tabs,
+		ariaLabel: title,
+		className: "aa-workspace-tabs",
+		onChange: onTabChange,
+	});
 	const content = el("main", "aa-workspace-content");
-	const setActive = (value) => {
-		for (const tab of tablist.children) {
-			const active = tab.dataset.value === value;
-			tab.classList.toggle("is-active", active); tab.setAttribute("aria-selected", String(active));
-		}
-	};
-	for (const tab of tabs) {
-		const control = button({ label: tab.label, iconName: tab.iconName, variant: "ghost", size: "sm", onClick: () => { setActive(tab.value); onTabChange?.(tab.value); } });
-		control.dataset.value = tab.value; control.setAttribute("role", "tab"); tablist.append(control);
-	}
-	header.append(brand, tablist); root.append(header, content); setActive(activeTab);
-	return { root, header, content, setActive };
+	header.append(tablist); root.append(header, content);
+	return { root, header, content, setActive: tablist.setValue };
 }
 
 export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {

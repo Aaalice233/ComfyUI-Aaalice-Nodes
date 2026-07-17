@@ -80,6 +80,9 @@
 .aa-ui-segmented { position: relative; display: grid; min-width: 0; height: 32px; grid-template-columns: repeat(var(--aa-ui-segment-count, 2), minmax(0, 1fr)); padding: 2px; overflow: hidden; border: 1px solid var(--aa-ui-border-soft); border-radius: 8px; background: var(--aa-ui-control); }
 .aa-ui-segmented__thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--aa-ui-segment-count, 2)); border: 1px solid color-mix(in srgb, var(--aa-ui-accent) 60%, transparent); border-radius: 6px; background: var(--aa-ui-accent-soft); transform: translateX(calc(var(--aa-ui-segment-index, 0) * 100%)); transition: transform .14s cubic-bezier(.2, .75, .25, 1), border-color .14s ease, background-color .14s ease; }
 .aa-ui-segmented button { position: relative; z-index: 1; min-width: 0; border: 0; background: transparent; color: var(--aa-ui-muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .14s ease; }
+.aa-ui-segmented button:has(.aa-ui-icon) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.aa-ui-segmented button .aa-ui-icon { width: 13px; height: 13px; flex: none; }
+.aa-ui-segmented__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aa-ui-segmented button.is-active { color: var(--aa-ui-text); font-weight: 600; }
 .aa-ui-segmented button:focus-visible { outline: 2px solid var(--aa-ui-focus); outline-offset: -2px; }
 .aa-ui-toggle { width: 36px; height: 24px; padding: 2px; border: 1px solid var(--aa-ui-border-soft); border-radius: 999px; background: var(--aa-ui-control); cursor: pointer; }

@@ -10,11 +10,13 @@ const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
 const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace.svg"), "utf8");
 
 test("workspace is an official left sidebar with reusable component boundaries", () => {
 	assert.match(workspace, /registerSidebarTab/);
 	assert.match(workspace, /id: TAB_ID/);
 	assert.match(workspace, /createWorkspaceShell/);
+	assert.match(components, /segmentedControl/);
 	assert.match(workspace, /createSectionCard/);
 	assert.match(workspace, /createControlCard/);
 	assert.match(workspace, /app\.graph\.extra|graph\.extra/);
@@ -53,6 +55,8 @@ test("PromptSelector injects live library text and exposes list management", () 
 	assert.match(selector, /openSelectedEditor/);
 	assert.match(selector, /draggable: true/);
 	assert.match(selector, /Prompt separator/);
+	assert.match(selector, /openWorkspace\("library"\)/);
+	assert.match(selector, /aa-prompt-selector-footer-actions/);
 });
 
 test("workspace uses event-driven refresh without polling", () => {
@@ -61,11 +65,28 @@ test("workspace uses event-driven refresh without polling", () => {
 	assert.doesNotMatch(workspace, /setInterval/);
 });
 
-test("workspace visual hierarchy uses the dedicated sidebar icon and active section rail", () => {
-	assert.match(workspace, /icon: "pi pi-objects-column"/);
+test("PromptSelector can open the official sidebar directly on library management", () => {
+	assert.match(workspace, /export function openWorkspace/);
+	assert.match(workspace, /sidebar\.activeSidebarTabId = TAB_ID/);
+	assert.match(workspace, /activeWorkspace = view/);
+	assert.doesNotMatch(selector, /querySelector\([^\n]*sidebar|\.click\(\)/);
+});
+
+test("workspace visual hierarchy uses a compact shell, dedicated icon and active section rail", () => {
+	assert.match(workspace, /icon: "aaalice-workspace-sidebar-icon"/);
+	assert.match(theme, /\.aaalice-workspace-sidebar-icon[\s\S]*mask: url\("\.\.\/assets\/aaalice-workspace\.svg"\)/);
+	assert.match(workspaceIcon, /viewBox="0 0 24 24"/);
+	assert.match(workspaceIcon, /stroke-linecap="round"/);
+	assert.doesNotMatch(workspaceIcon, /<circle/);
 	assert.match(workspace, /IntersectionObserver/);
 	assert.match(workspace, /_aaaliceSectionObserver\?\.disconnect/);
-	assert.match(components, /aa-workspace-brand-mark/);
+	assert.doesNotMatch(components, /aa-workspace-brand/);
+	assert.match(components, /ariaLabel: title/);
+	assert.match(components, /setActive: tablist\.setValue/);
+	assert.match(theme, /\.aa-workspace-tabs\[data-value="library"\]/);
+	assert.match(theme, /\.aa-workspace-tabs \{[^}]*display: grid;[^}]*overflow: hidden;/);
+	assert.match(theme, /transform \.2s cubic-bezier/);
+	assert.doesNotMatch(workspace.match(/function renderWorkspace[\s\S]*?\n}/)?.[0] || "", /scheduleRender/);
 	assert.match(components, /aa-control-card-indicator/);
 	assert.match(theme, /\.aa-dashboard-dot\.is-active/);
 });
@@ -81,7 +102,7 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /aa-prompt-selector-count/);
 	assert.match(selector, /aa-prompt-selector-empty/);
 	assert.match(selector, /isSelected \? " is-selected"/);
-	assert.match(theme, /grid-template-columns: 34px repeat\(2, minmax\(0, 1fr\)\)/);
+	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) 34px/);
 	assert.match(theme, /\.aa-prompt-selector-toolbar\.is-searching \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 	assert.match(theme, /\.dom-widget:has\(> \.aa-prompt-selector\) \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-prompt-selector\.is-resizing, \.aa-prompt-selector\.is-resizing \* \{ pointer-events: none !important; \}/);

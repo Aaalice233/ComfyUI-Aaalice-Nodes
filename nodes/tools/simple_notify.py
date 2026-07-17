@@ -24,7 +24,7 @@ class SimpleNotify(io.ComfyNode):
         template = io.MatchType.Template("simple_notify")
         return io.Schema(
             node_id="SimpleNotify",
-            display_name="Simple Notify",
+            display_name="🔔 Simple Notify",
             category="Aaalice/tools",
             description=(
                 "Send enabled alerts when execution reaches this node, then pass "

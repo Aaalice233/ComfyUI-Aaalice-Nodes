@@ -31,7 +31,7 @@ class EnumSwitch(io.ComfyNode):
         template = io.MatchType.Template("enum_switch")
         return io.Schema(
             node_id="EnumSwitch",
-            display_name="Enum Switch",
+            display_name="🔀 Enum Switch",
             category="Aaalice/tools",
             description="Select one lazy branch by an exact string value.",
             inputs=[

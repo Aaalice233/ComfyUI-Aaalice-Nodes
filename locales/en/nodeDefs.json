@@ -1,6 +1,6 @@
 {
   "SimpleStringSplit": {
-    "display_name": "Simple String Split",
+    "display_name": "✂️ Simple String Split",
     "description": "Split a string by delimiter, strip whitespace from each part, and drop empty segments.",
     "inputs": {
       "text": { "name": "Text", "tooltip": "Source string to split" },
@@ -9,7 +9,7 @@
     "outputs": { "0": { "name": "Parts", "tooltip": "Split segments as a list" } }
   },
   "SimpleNotify": {
-    "display_name": "Simple Notify",
+    "display_name": "🔔 Simple Notify",
     "description": "Send enabled alerts when execution reaches this node, then pass the input value through unchanged.",
     "inputs": {
       "value": { "name": "Value", "tooltip": "Value used as the execution dependency and passed through unchanged." },
@@ -21,7 +21,7 @@
     "outputs": { "0": { "name": "Value", "tooltip": "The unchanged input value." } }
   },
   "EnumSwitch": {
-    "display_name": "Enum Switch",
+    "display_name": "🔀 Enum Switch",
     "description": "Select one lazy branch by an exact string value using only the current native branch inputs.",
     "inputs": {
       "selector": { "name": "Selector", "tooltip": "Connect the string value used to select a matching branch." }
@@ -29,7 +29,7 @@
     "outputs": { "0": { "name": "Output", "tooltip": "Value from the selected branch." } }
   },
   "ParameterPanel": {
-    "display_name": "Parameter Panel",
+    "display_name": "🎛️ Parameter Panel",
     "description": "Edit one parameter set and materialize up to 32 active direct outputs; edit structure from the node context menu.",
     "inputs": {},
     "outputs": {
@@ -68,7 +68,7 @@
     }
   },
   "ParameterReceiver": {
-    "display_name": "Parameter Receiver",
+    "display_name": "📡 Parameter Receiver",
     "description": "Bind a Parameter Panel and expose only its actual KJ Get values as dynamic native slots.",
     "inputs": {},
     "outputs": {}

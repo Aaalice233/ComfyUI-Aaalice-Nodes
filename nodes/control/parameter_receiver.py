@@ -35,7 +35,7 @@ class ParameterReceiver(io.ComfyNode):
     def define_schema(cls) -> io.Schema:
         return io.Schema(
             node_id="ParameterReceiver",
-            display_name="Parameter Receiver",
+            display_name="📡 Parameter Receiver",
             category="Aaalice/control",
             description=(
                 "Bind a Parameter Panel and expose its KJ Get values as one compact, "

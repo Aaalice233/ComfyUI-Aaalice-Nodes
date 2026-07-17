@@ -24,6 +24,15 @@ let lastSectionId = null;
 let editMode = false;
 let renderFrame = 0;
 
+export function openWorkspace(view = "dashboard") {
+	if (!["dashboard", "library"].includes(view)) throw new Error(`[Aaalice] Unknown workspace view: ${view}`);
+	const sidebar = app.extensionManager?.sidebarTab;
+	if (!sidebar || !("activeSidebarTabId" in sidebar)) throw new Error("[Aaalice] ComfyUI sidebar state is unavailable");
+	activeWorkspace = view;
+	sidebar.activeSidebarTabId = TAB_ID;
+	scheduleRender();
+}
+
 function graphNodes() { return app.graph?._nodes || []; }
 function dashboard() { app.graph.extra ||= {}; app.graph.extra[EXTRA_KEY] = normalizeDashboard(app.graph.extra[EXTRA_KEY] || emptyDashboard()); return app.graph.extra[EXTRA_KEY]; }
 
@@ -347,8 +356,14 @@ async function importLibrary(file) {
 function renderWorkspace(root) {
 	root.querySelector(".aa-workspace-content")?._aaaliceSectionObserver?.disconnect();
 	root.replaceChildren();
-	const shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], onTabChange: (value) => { activeWorkspace = value; scheduleRender(); } });
-	root.append(shell.root); if (activeWorkspace === "dashboard") renderDashboard(shell.content); else renderLibrary(shell.content);
+	let shell;
+	const renderActiveWorkspace = () => {
+		shell.content._aaaliceSectionObserver?.disconnect();
+		shell.content.replaceChildren();
+		if (activeWorkspace === "dashboard") renderDashboard(shell.content); else renderLibrary(shell.content);
+	};
+	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
+	root.append(shell.root); renderActiveWorkspace();
 }
 
 function openAddControls(node) {
@@ -399,7 +414,7 @@ app.registerExtension({
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
 	setup() {
-		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "pi pi-objects-column", title: t("aaalice.workspace.title", "Aaalice Workspace"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { mounted.add(element); renderWorkspace(element); return () => { element.querySelector(".aa-workspace-content")?._aaaliceSectionObserver?.disconnect(); mounted.delete(element); }; } });
+		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.title", "Aaalice Workspace"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { mounted.add(element); renderWorkspace(element); return () => { element.querySelector(".aa-workspace-content")?._aaaliceSectionObserver?.disconnect(); mounted.delete(element); }; } });
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node);
 		api.addEventListener("graphChanged", () => { repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); scheduleRender(); });
 		window.addEventListener("aaalice-parameter-panel-changed", scheduleRender); promptLibraryStore.addEventListener("change", scheduleRender);
