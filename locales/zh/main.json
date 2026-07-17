@@ -7,8 +7,8 @@
     },
     "promptSelector": {
       "search": "搜索词库", "allCategories": "全部分类", "allCollections": "全部合集",
-      "filters": "提示词筛选", "openSearch": "展开搜索", "collapseSearch": "收起搜索", "noResultsTitle": "没有找到提示词", "noResults": "没有符合条件的词条。", "manage": "管理已选提示词", "manageShort": "管理已选", "manageLibrary": "管理词库", "emptySelected": "尚未选择提示词。",
-      "missing": "词库引用已失效", "missingShort": "项失效", "selected": "项已选", "weight": "权重", "separator": "提示词分隔符", "separatorMenu": "⚙️ 设置提示词分隔符…"
+      "filters": "提示词筛选", "openSearch": "展开搜索", "collapseSearch": "收起搜索", "showSelected": "仅显示已选词条", "showAll": "显示全部匹配词条", "noResultsTitle": "没有找到提示词", "noResults": "没有符合条件的词条。", "manage": "管理已选提示词", "manageShort": "管理已选", "manageLibrary": "管理词库", "emptySelected": "尚未选择提示词。", "clearAll": "清空已选",
+      "missing": "词库引用已失效", "missingShort": "项失效", "selected": "项已选", "weight": "权重", "uncategorized": "未分类", "categorySummary": "已选分类分布", "outputQueue": "已选输出队列", "moreSelected": "其余词条请在管理面板中查看", "separator": "提示词分隔符", "separatorMenu": "⚙️ 设置提示词分隔符…"
     },
     "workspace": {
       "title": "Aaalice 工作区", "dashboard": "参数控制", "library": "词库管理", "edit": "编辑布局", "done": "完成", "dashboardActions": "控制台操作",

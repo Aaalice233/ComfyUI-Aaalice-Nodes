@@ -27,6 +27,22 @@ export function togglePromptSelection(state, entryId, selected) {
 	return next;
 }
 
+export function clearPromptSelections(state) {
+	const next = normalizePromptSelectorState(state);
+	next.selections = [];
+	return next;
+}
+
+export function countPromptSelectionsByCategory(state, entries) {
+	const selectedIds = new Set(normalizePromptSelectorState(state).selections.map((item) => item.entryId));
+	const counts = new Map();
+	for (const entry of entries || []) {
+		if (!selectedIds.has(entry.id) || !entry.categoryId) continue;
+		counts.set(entry.categoryId, (counts.get(entry.categoryId) || 0) + 1);
+	}
+	return counts;
+}
+
 export function reorderPromptSelection(state, entryId, targetIndex) {
 	const next = normalizePromptSelectorState(state);
 	const index = next.selections.findIndex((item) => item.entryId === entryId);

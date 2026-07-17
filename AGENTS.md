@@ -89,6 +89,7 @@ ComfyUI-Aaalice-Nodes/
 - 工作流持久状态以 `node.properties` 为真源。内部 payload 不暴露为 Schema widget，执行时由 `graphToPrompt` 注入。
 - 状态变化必须覆盖保存、加载、复制、撤销/重做和执行路径。
 - 局部重绘不得无条件销毁仍有效的焦点、Popover、Dialog 或操作状态；只有锚点失效、节点移除或对应生命周期结束时才清理。
+- 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
 
 ### 4.2 DOM widget 与缩放

@@ -7,8 +7,9 @@ import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } 
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import {
-	materializePromptPayload, normalizePromptSelectorState, reorderPromptSelection,
-	resolvePromptSelections, setPromptWeight, togglePromptSelection,
+	clearPromptSelections, countPromptSelectionsByCategory, materializePromptPayload,
+	normalizePromptSelectorState, reorderPromptSelection, resolvePromptSelections, setPromptWeight,
+	togglePromptSelection,
 } from "./lib/prompt_selector_model.js";
 import { button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate, selectControl } from "./lib/ui.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
@@ -18,7 +19,10 @@ const NODE = "PromptSelector";
 const PROPERTY = "promptSelectorState";
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 240;
-const promptDetailsTooltip = createTooltip({ delay: 180, closeDelay: 100 });
+const SELECTION_TOOLTIP_LIMIT = 12;
+const PROMPT_DETAILS_HOVER_DELAY = 360;
+const promptDetailsTooltip = createTooltip({ delay: PROMPT_DETAILS_HOVER_DELAY, closeDelay: 100 });
+const selectionSummaryTooltip = createTooltip({ delay: 260, closeDelay: 80 });
 
 function isSelector(node) { return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE); }
 function stateFor(node) { node.properties ||= {}; node.properties[PROPERTY] = normalizePromptSelectorState(node.properties[PROPERTY]); return node.properties[PROPERTY]; }
@@ -29,13 +33,82 @@ function mutate(node, callback) {
 	finally { node.graph?.afterChange?.(); node.graph?.setDirtyCanvas?.(true, true); render(node); }
 }
 
-function filteredEntries(node) {
-	return promptLibraryStore.filterEntries({ query: node._aaalicePromptQuery, categoryId: node._aaalicePromptCategory, collectionId: node._aaalicePromptCollection });
+function filteredEntries(node, state) {
+	const entries = promptLibraryStore.filterEntries({ query: node._aaalicePromptQuery, categoryId: node._aaalicePromptCategory, collectionId: node._aaalicePromptCollection });
+	if (!node._aaalicePromptSelectedOnly) return entries;
+	const selectedIds = new Set(state.selections.map((item) => item.entryId));
+	return entries.filter((entry) => selectedIds.has(entry.id));
 }
 
-function promptFilterSelect(label, value, options, onChange) {
+function promptFilterSelect({ label, value, options, onChange, selectedCounts = null, totalSelected = 0 }) {
+	const countedLabel = (text, count) => count > 0 ? `${text} (${count})` : text;
 	return selectControl({ ariaLabel: label, value, onChange, className: "aa-prompt-selector-filter", options: [
-		{ label, value: "" }, ...options.map((option) => ({ label: option.name, value: option.id })),
+		{ label: countedLabel(label, totalSelected), value: "" },
+		...options.map((option) => ({ label: countedLabel(option.name, selectedCounts?.get(option.id) || 0), value: option.id })),
+	] });
+}
+
+function bindSelectionSummary(trigger, content) {
+	const show = (immediate) => {
+		if (selectionSummaryTooltip.isOpenFor(trigger)) { selectionSummaryTooltip.cancelScheduledHide(); return; }
+		selectionSummaryTooltip.show(trigger, content, { className: "aa-prompt-selection-tooltip", contentMode: "dom", immediate });
+	};
+	trigger.addEventListener("mouseenter", () => show(false));
+	trigger.addEventListener("mouseleave", selectionSummaryTooltip.scheduleHide);
+	trigger.addEventListener("focusin", () => show(true));
+	trigger.addEventListener("focusout", selectionSummaryTooltip.scheduleHide);
+	trigger.addEventListener("pointerdown", selectionSummaryTooltip.hide);
+}
+
+function selectionSummaryHeader(title, count) {
+	return el("header", { children: [
+		el("strong", null, title),
+		el("span", null, `${count} ${t("aaalice.promptSelector.selected", "selected")}`),
+	] });
+}
+
+function categorySelectionSummary(state) {
+	const entriesById = new Map(promptLibraryStore.snapshot.entries.map((entry) => [entry.id, entry]));
+	const counts = new Map();
+	let missing = 0;
+	for (const selection of state.selections) {
+		const entry = entriesById.get(selection.entryId);
+		if (!entry) { missing += 1; continue; }
+		const categoryId = entry.categoryId || "";
+		counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
+	}
+	const knownCategoryIds = new Set(promptLibraryStore.snapshot.categories.map((category) => category.id));
+	const rows = promptLibraryStore.snapshot.categories.filter((category) => counts.has(category.id)).map((category) => el("div", { className: "aa-prompt-selection-category", children: [
+		el("span", null, category.name),
+		el("em", null, String(counts.get(category.id))),
+	] }));
+	const uncategorized = [...counts].reduce((total, [categoryId, count]) => total + (!categoryId || !knownCategoryIds.has(categoryId) ? count : 0), 0);
+	if (uncategorized) rows.push(el("div", { className: "aa-prompt-selection-category", children: [
+		el("span", null, t("aaalice.promptSelector.uncategorized", "Uncategorized")),
+		el("em", null, String(uncategorized)),
+	] }));
+	if (missing) rows.push(el("div", { className: "aa-prompt-selection-category is-missing", children: [
+		el("span", null, t("aaalice.promptSelector.missing", "Missing library entry")), el("em", null, String(missing)),
+	] }));
+	return el("article", { className: "aa-prompt-selection-summary", children: [
+		selectionSummaryHeader(t("aaalice.promptSelector.categorySummary", "Selected by category"), state.selections.length),
+		...(rows.length ? [el("div", { className: "aa-prompt-selection-categories", children: rows })] : [el("p", null, t("aaalice.promptSelector.emptySelected", "No prompts selected."))]),
+	] });
+}
+
+function selectedPromptSummary(state) {
+	const resolved = resolvePromptSelections(state, promptLibraryStore.snapshot.entries);
+	const visible = resolved.slice(0, SELECTION_TOOLTIP_LIMIT);
+	const remaining = resolved.length - visible.length;
+	return el("article", { className: "aa-prompt-selection-summary is-queue", children: [
+		selectionSummaryHeader(t("aaalice.promptSelector.outputQueue", "Selected output queue"), resolved.length),
+		...(resolved.length ? [el("ol", { children: visible.map((item, index) => el("li", { className: item.missing ? "is-missing" : "", children: [
+			el("span", { className: "aa-prompt-selection-index", text: String(index + 1) }),
+			el("strong", null, item.entry?.title || t("aaalice.promptSelector.missing", "Missing library entry")),
+			...(item.weight !== 1 ? [el("em", null, `×${item.weight}`)] : []),
+		] })) }), ...(remaining ? [el("footer", { className: "aa-prompt-selection-more", children: [
+			el("strong", null, `+${remaining}`), el("span", null, t("aaalice.promptSelector.moreSelected", "Open Manage to view the remaining selections")),
+		] })] : [])] : [el("p", null, t("aaalice.promptSelector.emptySelected", "No prompts selected."))]),
 	] });
 }
 
@@ -74,6 +147,7 @@ function bindPromptDetails(trigger, entry) {
 }
 
 function closePromptDetails() { promptDetailsTooltip.hide(); }
+function closeSelectionSummary() { selectionSummaryTooltip.hide(); }
 
 function openSelectedEditor(node) {
 	const body = el("div", "aa-prompt-selected-editor");
@@ -100,7 +174,7 @@ function openSelectedEditor(node) {
 		});
 	};
 	const footer = el("div", { children: [button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => dialog.close() })] });
-	const dialog = createDialog({ title: t("aaalice.promptSelector.manage", "Manage selected prompts"), body, footer, size: "lg" });
+	const dialog = createDialog({ title: t("aaalice.promptSelector.manage", "Manage selected prompts"), body, footer, size: "md" });
 	draw();
 }
 
@@ -113,7 +187,7 @@ function openSeparatorEditor(node) {
 	input.focus();
 }
 
-function mountPromptEntries(node, list, state) {
+function mountPromptEntries(node, list, state, entries) {
 	const selected = new Set(state.selections.map((item) => item.entryId));
 	const virtualList = mountVirtualList(list, { rowHeight: 55, gap: 3, overscan: 5, onBeforeRender: () => { closeImagePreview(); closePromptDetails(); }, renderItem: (entry) => {
 		const isSelected = selected.has(entry.id);
@@ -128,7 +202,7 @@ function mountPromptEntries(node, list, state) {
 		bindPromptDetails(copy, entry);
 		row.append(preview.root, copy); return row;
 	}, renderEmpty: () => emptyState({ iconName: "note", className: "aa-prompt-selector-empty", title: t("aaalice.promptSelector.noResultsTitle", "No prompts found"), description: t("aaalice.promptSelector.noResults", "No matching prompt entries.") }) });
-	virtualList.setItems(filteredEntries(node), { preserveScroll: false });
+	virtualList.setItems(entries, { preserveScroll: false });
 	return virtualList;
 }
 
@@ -137,16 +211,26 @@ function render(node) {
 	if (!root) return;
 	const listScrollTop = node._aaalicePromptResetScroll ? 0 : root.querySelector(".aa-prompt-selector-list")?.scrollTop || 0;
 	node._aaalicePromptResetScroll = false;
-	destroyVirtualLists(root); closeImagePreview(); closePromptDetails();
+	destroyVirtualLists(root); closeImagePreview(); closePromptDetails(); closeSelectionSummary();
 	root.replaceChildren();
 	const state = stateFor(node);
+	const selectedOnly = Boolean(node._aaalicePromptSelectedOnly);
+	const visibleEntries = filteredEntries(node, state);
+	const selectedCategoryCounts = countPromptSelectionsByCategory(state, promptLibraryStore.snapshot.entries);
 	const list = el("div", "aa-prompt-selector-list");
 	const query = String(node._aaalicePromptQuery || "");
 	const searchOpen = Boolean(node._aaalicePromptSearchOpen);
 	const toolbar = el("div", { className: `aa-prompt-selector-toolbar${searchOpen ? " is-searching" : ""}`, attrs: { role: "search", "aria-label": t("aaalice.promptSelector.filters", "Prompt filters") } });
 	if (searchOpen) {
 		const search = document.createElement("input"); search.type = "search"; search.placeholder = t("aaalice.promptSelector.search", "Search prompt library"); search.value = query;
-		search.addEventListener("input", () => { node._aaalicePromptQuery = search.value; node._aaalicePromptResetScroll = true; if (node._aaalicePromptFilterFrame) return; node._aaalicePromptFilterFrame = requestAnimationFrame(() => { node._aaalicePromptFilterFrame = 0; render(node); }); });
+		search.addEventListener("input", () => {
+			node._aaalicePromptQuery = search.value;
+			if (node._aaalicePromptFilterFrame) return;
+			node._aaalicePromptFilterFrame = requestAnimationFrame(() => {
+				node._aaalicePromptFilterFrame = 0;
+				list._aaaliceVirtualList?.setItems(filteredEntries(node, stateFor(node)), { preserveScroll: false });
+			});
+		});
 		search.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); node._aaalicePromptSearchOpen = false; render(node); } });
 		const searchPanel = el("div", { className: "aa-prompt-selector-search", children: [icon("search"), search,
 			iconButton({ iconName: "close", label: t("aaalice.promptSelector.collapseSearch", "Collapse search"), variant: "ghost", onClick: () => { node._aaalicePromptSearchOpen = false; render(node); } }),
@@ -160,25 +244,46 @@ function render(node) {
 		const searchLabel = query ? `${t("aaalice.promptSelector.search", "Search prompt library")}: ${query}` : t("aaalice.promptSelector.openSearch", "Open search");
 		const searchButton = iconButton({ iconName: "search", label: searchLabel, active: Boolean(query), variant: "secondary", className: "aa-prompt-selector-search-toggle", onClick: () => { node._aaalicePromptSearchOpen = true; node._aaalicePromptSearchShouldFocus = true; render(node); } });
 		searchButton.setAttribute("aria-pressed", String(Boolean(query)));
+		const categoryFilter = promptFilterSelect({ label: t("aaalice.promptSelector.allCategories", "All categories"), value: node._aaalicePromptCategory, options: promptLibraryStore.snapshot.categories, selectedCounts: selectedCategoryCounts, totalSelected: state.selections.length, onChange: (value) => { node._aaalicePromptCategory = value; node._aaalicePromptResetScroll = true; render(node); } });
+		bindSelectionSummary(categoryFilter.control, () => categorySelectionSummary(state));
 		toolbar.append(
-			promptFilterSelect(t("aaalice.promptSelector.allCategories", "All categories"), node._aaalicePromptCategory, promptLibraryStore.snapshot.categories, (value) => { node._aaalicePromptCategory = value; node._aaalicePromptResetScroll = true; render(node); }),
-			promptFilterSelect(t("aaalice.promptSelector.allCollections", "All collections"), node._aaalicePromptCollection, promptLibraryStore.snapshot.collections, (value) => { node._aaalicePromptCollection = value; node._aaalicePromptResetScroll = true; render(node); }),
+			categoryFilter,
+			promptFilterSelect({ label: t("aaalice.promptSelector.allCollections", "All collections"), value: node._aaalicePromptCollection, options: promptLibraryStore.snapshot.collections, onChange: (value) => { node._aaalicePromptCollection = value; node._aaalicePromptResetScroll = true; render(node); } }),
 			searchButton,
 		);
 	}
-	const virtualList = mountPromptEntries(node, list, state);
+	const virtualList = mountPromptEntries(node, list, state, visibleEntries);
 	const missing = resolvePromptSelections(state, promptLibraryStore.snapshot.entries).filter((item) => item.missing).length;
 	const footer = el("footer", "aa-prompt-selector-footer");
-	const summary = el("span", { className: `aa-prompt-selector-summary${missing ? " is-error" : ""}`, children: [
+	const summary = el("button", { className: `aa-prompt-selector-summary${selectedOnly ? " is-active" : ""}${missing ? " is-error" : ""}`, attrs: {
+		type: "button",
+		"aria-pressed": String(selectedOnly),
+		"aria-label": selectedOnly ? t("aaalice.promptSelector.showAll", "Show all matching prompts") : t("aaalice.promptSelector.showSelected", "Show selected prompts only"),
+		title: selectedOnly ? t("aaalice.promptSelector.showAll", "Show all matching prompts") : t("aaalice.promptSelector.showSelected", "Show selected prompts only"),
+	}, children: [
 		el("span", { className: "aa-prompt-selector-count", children: [el("strong", null, String(state.selections.length))] }),
 		el("span", null, t("aaalice.promptSelector.selected", "selected")),
 		...(missing ? [el("em", null, `${missing} ${t("aaalice.promptSelector.missingShort", "missing")}`)] : []),
 	] });
-	const actions = el("div", { className: "aa-prompt-selector-footer-actions", children: [
-		button({ label: t("aaalice.promptSelector.manageLibrary", "Manage library"), iconName: "note", variant: "ghost", size: "sm", onClick: () => openWorkspace("library") }),
-		button({ label: t("aaalice.promptSelector.manageShort", "Manage"), iconName: "settings", variant: "ghost", size: "sm", disabled: !state.selections.length, onClick: () => openSelectedEditor(node) }),
-	] });
-	footer.append(summary, actions);
+	summary.disabled = !state.selections.length && !selectedOnly;
+	summary.addEventListener("click", () => {
+		node._aaalicePromptSelectedOnly = !selectedOnly;
+		node._aaalicePromptResetScroll = true;
+		render(node);
+	});
+	const clearAction = state.selections.length ? button({
+		label: t("aaalice.promptSelector.clearAll", "Clear selected"),
+		iconName: "close",
+		variant: "ghost",
+		size: "sm",
+		className: "aa-prompt-selector-clear-action",
+		onClick: () => mutate(node, clearPromptSelections),
+	}) : null;
+	const manageLibrary = button({ label: t("aaalice.promptSelector.manageLibrary", "Manage library"), iconName: "note", variant: "ghost", size: "sm", onClick: () => openWorkspace("library") });
+	const manageSelected = button({ label: t("aaalice.promptSelector.manageShort", "Manage"), iconName: "settings", variant: "ghost", size: "sm", disabled: !state.selections.length, onClick: () => openSelectedEditor(node) });
+	if (state.selections.length) bindSelectionSummary(manageSelected, () => selectedPromptSummary(state));
+	const actions = el("div", { className: "aa-prompt-selector-footer-actions", children: [manageLibrary, manageSelected] });
+	footer.append(summary, ...(clearAction ? [clearAction] : []), actions);
 	root.append(toolbar, list, footer);
 	list.scrollTop = listScrollTop;
 	virtualList.refresh();
@@ -200,7 +305,7 @@ function setup(node, loaded = false) {
 	const previousConfigure = node.onConfigure;
 	node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); stateFor(this); render(this); return result; };
 	const previousRemoved = node.onRemoved;
-	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); closePromptDetails(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
+	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); closePromptDetails(); closeSelectionSummary(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
 	const previousCompute = node.computeSize;
 	node.computeSize = function () { const size = previousCompute?.apply(this, arguments) || [MIN_WIDTH, MIN_HEIGHT]; return [Math.max(MIN_WIDTH, size[0]), Math.max(MIN_HEIGHT, size[1])]; };
 	render(node); if (!loaded) node.setSize?.(node.computeSize());

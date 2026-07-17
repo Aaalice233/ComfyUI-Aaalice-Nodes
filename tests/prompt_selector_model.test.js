@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { materializePromptPayload, normalizePromptSelectorState, reorderPromptSelection, resolvePromptSelections, setPromptWeight, togglePromptSelection } from "../js/lib/prompt_selector_model.js";
+import { clearPromptSelections, countPromptSelectionsByCategory, materializePromptPayload, normalizePromptSelectorState, reorderPromptSelection, resolvePromptSelections, setPromptWeight, togglePromptSelection } from "../js/lib/prompt_selector_model.js";
 
 test("prompt selector supports cross-category selection and node-local order", () => {
 	let state = normalizePromptSelectorState(null);
@@ -23,4 +23,21 @@ test("weights normalize and missing entries stay explicit", () => {
 test("materialized payload includes current library text rather than a node snapshot", () => {
 	const state = { selections: [{ entryId: "a", weight: 1 }], separator: ", " };
 	assert.equal(materializePromptPayload(state, [{ id: "a", text: "new text" }]).selections[0].text, "new text");
+});
+
+test("clear selection removes every node-local choice", () => {
+	const state = clearPromptSelections({ selections: [
+		{ entryId: "a", weight: 1.5 }, { entryId: "b", weight: 0.8 },
+	], separator: " | " });
+	assert.deepEqual(state, { version: 1, selections: [], separator: " | " });
+});
+
+test("category selection counts ignore missing and uncategorized entries", () => {
+	const state = normalizePromptSelectorState({ selections: [
+		{ entryId: "a", weight: 1 }, { entryId: "b", weight: 1 }, { entryId: "missing", weight: 1 },
+	] });
+	const counts = countPromptSelectionsByCategory(state, [
+		{ id: "a", categoryId: "people" }, { id: "b", categoryId: null }, { id: "c", categoryId: "people" },
+	]);
+	assert.deepEqual([...counts], [["people", 1]]);
 });

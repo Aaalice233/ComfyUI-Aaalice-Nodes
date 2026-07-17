@@ -7,8 +7,8 @@
     },
     "promptSelector": {
       "search": "Search prompt library", "allCategories": "All categories", "allCollections": "All collections",
-      "filters": "Prompt filters", "openSearch": "Open search", "collapseSearch": "Collapse search", "noResultsTitle": "No prompts found", "noResults": "No matching prompt entries.", "manage": "Manage selected prompts", "manageShort": "Manage", "manageLibrary": "Manage library", "emptySelected": "No prompts selected.",
-      "missing": "Missing library entry", "missingShort": "missing", "selected": "selected", "weight": "Weight", "separator": "Prompt separator", "separatorMenu": "⚙️ Set prompt separator…"
+      "filters": "Prompt filters", "openSearch": "Open search", "collapseSearch": "Collapse search", "showSelected": "Show selected prompts only", "showAll": "Show all matching prompts", "noResultsTitle": "No prompts found", "noResults": "No matching prompt entries.", "manage": "Manage selected prompts", "manageShort": "Manage", "manageLibrary": "Manage library", "emptySelected": "No prompts selected.", "clearAll": "Clear selected",
+      "missing": "Missing library entry", "missingShort": "missing", "selected": "selected", "weight": "Weight", "uncategorized": "Uncategorized", "categorySummary": "Selected by category", "outputQueue": "Selected output queue", "moreSelected": "Open Manage to view the remaining selections", "separator": "Prompt separator", "separatorMenu": "⚙️ Set prompt separator…"
     },
     "workspace": {
       "title": "Aaalice Workspace", "dashboard": "Controls", "library": "Library", "edit": "Edit layout", "done": "Done", "dashboardActions": "Dashboard actions",
