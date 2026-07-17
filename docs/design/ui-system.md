@@ -38,6 +38,7 @@
 | 输入控件 | `--aa-ui-control` | `--comfy-input-bg` / `--p-form-field-background` |
 | 边框 | `--aa-ui-border` | `--border-color` / `--p-content-border-color` |
 | 主题强调 | `--aa-ui-accent` | `--p-primary-color` / `--primary-color` |
+| 媒体前景 | `--aa-ui-on-media` | `--p-surface-0`；用于图片上的浅色图标或文字 |
 | 节点原色 | `--aa-ui-node-color` | 当前节点 `color`；无自定义颜色时回退主题强调色 |
 | 节点强调 | `--aa-ui-node-accent` | 节点原色向当前主题正文色自适应混合 |
 | 节点柔色 | `--aa-ui-node-accent-soft` | 节点强调色的低透明度表面 |
@@ -100,6 +101,8 @@
 
 Tooltip 使用接近实色的主题表面、单层边框、克制的分层投影和内侧高光，并用跟随实际锚点的小箭头建立空间关系；业务内容不得在 Tooltip 内重复套无语义的卡片表面。
 Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按 Tooltip HTML 白名单净化；支持 CommonMark 与 GFM 的标题、列表、引用、分割线、表格、任务列表、删除线、代码、图片和链接等语法。链接与图片资源只允许 HTTP(S) 协议；含链接的提示必须使用 `interactive` 模式，鼠标从锚点移入浮层时不能消失。
+
+信息型 Tooltip 默认使用非交互模式，由共享组件统一设置鼠标穿透；图片预览和只读详情不得在业务 CSS 中重复覆盖 `pointer-events`。只有确实包含链接、按钮或可选文本的内容才显式使用 `interactive` 模式，并由共享组件统一开启命中与焦点管理。
 
 ### 7.1 复合组件
 

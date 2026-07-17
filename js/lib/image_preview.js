@@ -2,7 +2,8 @@
 
 import { createTooltip, el, icon } from "./ui.js";
 
-const previewTooltip = createTooltip({ delay: 160, closeDelay: 90 });
+const IMAGE_PREVIEW_HOVER_DELAY = 360;
+const previewTooltip = createTooltip({ delay: IMAGE_PREVIEW_HOVER_DELAY, closeDelay: 90 });
 
 export function closeImagePreview() { previewTooltip.hide(); }
 
@@ -11,6 +12,7 @@ function bindLargePreview(trigger, source, title) {
 	const show = (immediate) => {
 		if (previewTooltip.isOpenFor(trigger)) { previewTooltip.cancelScheduledHide(); return; }
 		const large = document.createElement("img"); large.src = source; large.alt = title; large.decoding = "async";
+		large.addEventListener("load", previewTooltip.reposition, { once: true });
 		previewTooltip.show(trigger, el("div", { className: "aa-image-preview-large", children: [large, el("strong", null, title)] }), { className: "aa-image-preview-tooltip", contentMode: "dom", immediate });
 	};
 	trigger.addEventListener("mouseenter", () => show(false));

@@ -231,6 +231,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 	const controller = {
 		show,
 		hide,
+		reposition: schedulePosition,
 		cancelScheduledHide,
 		scheduleHide,
 		destroy: hide,

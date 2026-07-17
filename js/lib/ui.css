@@ -22,6 +22,7 @@
 	--aa-ui-accent: var(--p-primary-color, var(--primary-color, #0b8ce9));
 	--aa-ui-accent-soft: color-mix(in srgb, var(--aa-ui-accent) 13%, transparent);
 	--aa-ui-accent-text: var(--p-primary-contrast-color, #fff);
+	--aa-ui-on-media: var(--p-surface-0, #fff);
 	--aa-ui-node-color: var(--aa-ui-accent);
 	--aa-ui-node-accent: var(--aa-ui-accent);
 	--aa-ui-node-accent-soft: color-mix(in srgb, var(--aa-ui-node-accent) 18%, transparent);

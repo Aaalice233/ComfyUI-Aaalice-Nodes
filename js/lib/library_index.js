@@ -5,6 +5,7 @@ export class LibraryIndex {
 		this.entries = Array.isArray(snapshot.entries) ? snapshot.entries : [];
 		this.entryById = new Map(this.entries.map((entry) => [entry.id, entry]));
 		this.categoryById = new Map((snapshot.categories || []).map((item) => [item.id, item]));
+		this.collectionById = new Map((snapshot.collections || []).map((item) => [item.id, item]));
 		this.tagById = new Map((snapshot.tags || []).map((item) => [item.id, item]));
 		this.searchText = new Map(this.entries.map((entry) => [entry.id, `${entry.title}\n${entry.text}\n${entry.note || ""}`.toLocaleLowerCase()]));
 		this.categoryUsage = new Map();
@@ -27,6 +28,7 @@ export class LibraryIndex {
 	}
 
 	categoryName(id) { return this.categoryById.get(id)?.name || ""; }
+	collectionNames(memberships = []) { return memberships.map((item) => this.collectionById.get(item.collectionId)?.name).filter(Boolean); }
 	tagNames(ids = []) { return ids.map((id) => this.tagById.get(id)?.name).filter(Boolean); }
 	usage(kind, id) { return (["category", "categories"].includes(kind) ? this.categoryUsage : this.collectionUsage).get(id) || 0; }
 }

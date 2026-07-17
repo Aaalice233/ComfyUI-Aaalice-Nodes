@@ -139,10 +139,14 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /queueMicrotask/);
 	assert.match(selector, /mountPromptEntries/);
 	assert.match(selector, /mountVirtualList/);
+	assert.match(selector, /root\.append\(toolbar, list, footer\);\s*list\.scrollTop = listScrollTop;\s*virtualList\.refresh\(\);/s);
 	assert.match(selector, /createSelectableImagePreview/);
 	assert.match(imagePreview, /aa-image-preview-selection/);
 	assert.match(imagePreview, /icon\("statusCheck"\)/);
 	assert.match(selector, /aa-prompt-selector-title/);
+	assert.match(selector, /promptDetailsTooltip = createTooltip/);
+	assert.match(selector, /aa-prompt-entry-details-prompt/);
+	assert.match(selector, /collectionNames\(entry\.collections/);
 	assert.match(selector, /aa-prompt-selector-summary/);
 	assert.match(selector, /aa-prompt-selector-count/);
 	assert.match(selector, /aa-prompt-selector-empty/);
@@ -155,6 +159,15 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(theme, /\.aa-prompt-selector\.is-resizing, \.aa-prompt-selector\.is-resizing \* \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-prompt-selector-row\.is-selected/);
 	assert.match(theme, /\.aa-prompt-selector-preview:has\(input:checked\)/);
+	assert.match(theme, /\.aa-image-preview-selection\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--aa-ui-accent\) 18%, transparent\)/s);
+	assert.match(theme, /\.aa-image-preview-selection > \.aa-ui-icon\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*color:\s*var\(--aa-ui-on-media\);[^}]*stroke-width:\s*2\.5/s);
+	assert.match(theme, /\.aa-image-preview-media > img\s*\{[^}]*filter:\s*saturate\(\.92\) brightness\(\.9\)/s);
+	assert.match(theme, /\.aa-prompt-entry-details-tooltip/);
+	assert.match(uiStyles, /\.aa-ui-tooltip\s*\{[^}]*pointer-events:\s*none/s);
+	assert.doesNotMatch(theme.match(/\.aa-image-preview-tooltip\s*\{[^}]*\}/s)?.[0] || "", /pointer-events/);
+	assert.doesNotMatch(theme.match(/\.aa-prompt-entry-details-tooltip\s*\{[^}]*\}/s)?.[0] || "", /pointer-events/);
+	assert.doesNotMatch(selector, /aa-prompt-entry-details-tooltip[^\n]*interactive:\s*true/);
+	assert.match(theme, /\.aa-prompt-entry-details-prompt > p, \.aa-prompt-entry-details-note > p\s*\{[^}]*white-space:\s*pre-wrap/s);
 });
 
 test("filter dropdowns reuse the shared animated select control", () => {
@@ -193,6 +206,10 @@ test("library rows keep a stable thumbnail column and distinguish entry actions"
 	assert.match(theme, /\.aa-library-entry-edit:hover/);
 	assert.match(theme, /\.aa-library-entry-delete:hover/);
 	assert.match(theme, /\.aa-image-preview-large/);
+	assert.match(theme, /\.aa-image-preview-large > img\s*\{[^}]*width:\s*auto[^}]*max-height:/s);
+	assert.match(theme, /\.aa-image-preview-large > strong\s*\{[^}]*position:\s*absolute[^}]*background:\s*color-mix\([^}]*transparent\)/s);
+	assert.match(imagePreview, /IMAGE_PREVIEW_HOVER_DELAY = 360/);
+	assert.match(imagePreview, /addEventListener\("load", previewTooltip\.reposition/);
 });
 
 test("taxonomy management is a complete single-dialog workspace", () => {

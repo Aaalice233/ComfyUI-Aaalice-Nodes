@@ -40,6 +40,7 @@ export class PromptLibraryStore extends EventTarget {
 
 	filterEntries(filters = {}) { return this.index.filter(filters); }
 	categoryName(id) { return this.index.categoryName(id); }
+	collectionNames(memberships) { return this.index.collectionNames(memberships); }
 	tagNames(ids) { return this.index.tagNames(ids); }
 	usage(kind, id) { return this.index.usage(kind, id); }
 
