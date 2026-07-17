@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from nodes._lib.prompt_library import PromptLibrary
+from nodes._lib.prompt_library import DEFAULT_COLLECTION_ID, PromptLibrary
 from nodes.prompt import prompt_library_routes as routes
 
 
@@ -36,11 +36,27 @@ class PromptLibraryRouteTests(unittest.IsolatedAsyncioTestCase):
         snapshot = await routes._handler(routes.snapshot)(FakeRequest())
         self.assertEqual(len(json.loads(snapshot.text)["entries"]), 1)
 
+    async def test_category_routes_return_and_update_identification_color(self):
+        create = routes._handler(routes._create_named("category"))
+        created_response = await create(FakeRequest({"name": "Pose"}))
+        created = json.loads(created_response.text)
+        self.assertRegex(created["color"], r"^#[0-9A-F]{6}$")
+        update = routes._handler(routes._update_named("category"))
+        response = await update(FakeRequest({"color": "#123abc"}, {"id": created["id"]}))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(routes.get_library().snapshot()["categories"][0]["color"], "#123ABC")
+
     async def test_validation_and_missing_errors_are_explicit(self):
         invalid = await routes._handler(routes.create_entry)(FakeRequest({"title": ""}))
         self.assertEqual(invalid.status, 400)
         missing = await routes._handler(routes.delete_entry)(FakeRequest(match_info={"id": "missing"}))
         self.assertEqual(missing.status, 404)
+
+    async def test_default_favorite_folder_delete_is_rejected(self):
+        delete = routes._handler(routes._delete_named("collection"))
+        response = await delete(FakeRequest(match_info={"id": DEFAULT_COLLECTION_ID}))
+        self.assertEqual(response.status, 400)
+        self.assertIn("default favorites", json.loads(response.text)["message"])
 
     async def test_batch_and_reorder_handlers(self):
         first = routes.get_library().create_entry({"title": "A", "text": "a"})
@@ -48,6 +64,10 @@ class PromptLibraryRouteTests(unittest.IsolatedAsyncioTestCase):
         response = await routes._handler(routes.reorder)(FakeRequest({"kind": "entries", "orderedIds": [second["id"], first["id"]]}))
         self.assertEqual(response.status, 200)
         self.assertEqual(routes.get_library().snapshot()["entries"][0]["id"], second["id"])
+
+        deleted = await routes._handler(routes.delete_entries)(FakeRequest({"entryIds": [first["id"], second["id"]]}))
+        self.assertEqual(json.loads(deleted.text)["deleted"], 2)
+        self.assertEqual(routes.get_library().snapshot()["entries"], [])
 
     async def test_apply_uses_preflight_token_once_and_removes_stage(self):
         source = Path(self.temp.name) / "legacy.json"

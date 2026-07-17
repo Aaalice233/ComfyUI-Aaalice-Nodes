@@ -2,7 +2,7 @@
 
 import { createTooltip, el, icon } from "./ui.js";
 
-const IMAGE_PREVIEW_HOVER_DELAY = 360;
+const IMAGE_PREVIEW_HOVER_DELAY = 600;
 const previewTooltip = createTooltip({ delay: IMAGE_PREVIEW_HOVER_DELAY, closeDelay: 90 });
 
 export function closeImagePreview() { previewTooltip.hide(); }

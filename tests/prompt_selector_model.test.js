@@ -1,14 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { clearPromptSelections, countPromptSelectionsByCategory, materializePromptPayload, normalizePromptSelectorState, reorderPromptSelection, resolvePromptSelections, setPromptWeight, togglePromptSelection } from "../js/lib/prompt_selector_model.js";
+import { clearPromptSelections, countPromptSelectionsByCategory, materializePromptPayload, normalizePromptSelectorState, resolvePromptSelections, setPromptWeight, togglePromptSelection } from "../js/lib/prompt_selector_model.js";
 
 test("prompt selector supports cross-category selection and node-local order", () => {
 	let state = normalizePromptSelectorState(null);
 	state = togglePromptSelection(state, "appearance:red", true);
 	state = togglePromptSelection(state, "pose:standing", true);
-	state = reorderPromptSelection(state, "pose:standing", 0);
-	assert.deepEqual(state.selections.map((item) => item.entryId), ["pose:standing", "appearance:red"]);
+	assert.deepEqual(state.selections.map((item) => item.entryId), ["appearance:red", "pose:standing"]);
 });
 
 test("weights normalize and missing entries stay explicit", () => {

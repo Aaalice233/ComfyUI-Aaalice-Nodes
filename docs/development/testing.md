@@ -186,7 +186,7 @@ SimpleNotify 还需覆盖：
 PromptSelector、词库与 DIY 侧边栏还需覆盖：
 
 - PromptSelector 跨分类多选、节点内排序、权重、前缀、分隔符、词库实时编辑和缺失引用阻断。
-- 词库分类、合集、标签、预览图、完整/筛选 ZIP、旧 JSON、冲突策略和损坏包回滚。
+- 词库分类、收藏夹、默认收藏夹、标签、预览图、完整/筛选 ZIP、旧 JSON、冲突策略和损坏包回滚。
 - 普通模式下节点右键始终可以添加参数；编辑模式只开放布局操作。
 - 页面、分区、卡片、分隔项、空白项、跨区拖动、圆点导航、布局预设和 Missing Binding 手动重绑。
 - 通用 widget、Aaalice 稳定 Parameter Id 与 Subgraph 整体公开 widget；不得解析子图内部节点。

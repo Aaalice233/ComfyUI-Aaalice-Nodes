@@ -58,6 +58,7 @@
 - 普通选中态、滑条进度和滑块、布尔开关开启态、联动标记及普通焦点反馈使用节点强调色。
 - 关闭态、未选择态和剩余轨道保持中性，不能把整个节点所有控件染成同一种颜色。
 - 警告、危险、成功、混合状态、实际颜色筛选，以及具有独立业务含义的多档 Switcher 保留各自语义色，不能被节点色覆盖。
+- 用户可编辑的分类识别色属于领域元数据，由共享适配器映射到标签、筛选项和管理界面；正文、边框和选中标记仍需保证颜色之外的可辨性。
 - 颜色不能成为唯一状态信号；开关位置、Switcher 文案、图标、aria 状态和禁用形态必须继续存在。
 
 ## 5. 控件状态映射
@@ -95,7 +96,9 @@
 | `createDialog()` | 统一 Escape、背景关闭、焦点圈定与恢复 |
 | `segmentedControl()` | 2–4 个平级互斥模式、稳定 thumb、radiogroup 与方向键 |
 | `toggleSwitch()` | 单一布尔设置、disabled 和 aria 状态 |
+| `multiSelectControl()` | 有限选项的多选列表、勾选反馈、键盘焦点和稳定值集合 |
 | `selectControl()` | 单选下拉、统一右侧安全间距、展开状态、旋转箭头、键盘与 ARIA |
+| `listboxControl()` | 需要跨平台一致弹层样式的单选列表；支持颜色标记、方向键与稳定值 |
 | `createAnchoredPopover()` | 锚定按钮的非模态浮层、外部关闭、焦点圈定与恢复 |
 | `createTooltip()` | 统一内容提示；通过 `contentMode` 支持 `auto`、`text`、安全 CommonMark/GFM `markdown` 和 `dom`。默认使用非交互 Tooltip；`interactive` 模式提供可悬停、可聚焦链接的非模态悬浮卡片，并管理延迟关闭、Escape、焦点返回和 ARIA 关系 |
 
@@ -115,6 +118,8 @@ Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按
 | `createTransferHero()` / `createTransferStats()` / `createTransferSection()` / `createTransferResult()` | 导入导出的文件摘要、预检统计、冲突区和结果反馈 |
 
 业务模块可以增加布局 class 和语义色映射，但不得复制基础组件或让共享层持有工作流状态。依赖连续动画的 thumb 必须保留 DOM identity，只更新 class、data、ARIA 和 transform。
+
+领域识别色不由基础组件生成。`category_color.js` 只负责验证颜色并把 Category 数据适配为 CSS 变量或选择项；色板分配、持久化和导入导出由词库领域服务负责，界面不得按分类名称重复计算临时颜色。
 
 ### 7.2 交互契约
 

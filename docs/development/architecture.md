@@ -41,7 +41,7 @@
 | 组管理 | `js/quick_group_manager.js` | 全局图事件、DOM、颜色范围、排序和原子模式事务 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
-| 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview}.js` | 虚拟条目列表、词库索引与事件、共享图片预览、选择状态与执行 payload |
+| 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,control_providers,workspace_components}.js` | 手工页面布局、参数投影、子图公开参数、词库管理和预设 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
@@ -118,6 +118,9 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 3. `graphToPrompt` 按 ID 注入当前正文，使正文变化进入执行缓存键；缺失正文由后端校验明确阻止执行。
 4. ZIP 只上传一次到有时效的磁盘暂存区，完成结构、路径、大小、图片和哈希预检后返回 token，再以 SQLite 事务应用冲突策略；导出先生成有时效文件并由浏览器原生流式下载。
 5. Library View 与 PromptSelector 共享快照派生索引、定高虚拟列表和单例图片浮层，条目数量增长不会线性增加常驻 DOM、重复检索或预览监听器容器。
+6. Category 识别色由 SQLite 持久化；新分类优先分配未使用的稳定色板项，旧库与旧版导入自动补色。前端共享适配器只消费颜色，不另建配色真源。
+7. Collection 保持备份与 API 的稳定协议名，产品界面统一称为“收藏夹”；后端保证稳定身份的默认收藏夹存在并拒绝删除，节点收藏按钮只从词库快照派生状态和提交关系变更。
+8. 多选移动、收藏关系更新和删除都进入词库领域事务；批量删除先校验全部稳定词条 ID，再统一删除关系并按最后引用清理预览资源，不允许前端逐条请求形成部分成功。
 
 ### DIY 左侧工作区
 

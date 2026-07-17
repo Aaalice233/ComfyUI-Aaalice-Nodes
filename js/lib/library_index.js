@@ -27,7 +27,9 @@ export class LibraryIndex {
 		});
 	}
 
-	categoryName(id) { return this.categoryById.get(id)?.name || ""; }
+	category(id) { return this.categoryById.get(id) || null; }
+	categoryName(id) { return this.category(id)?.name || ""; }
+	collectionItems(memberships = []) { return memberships.map((item) => this.collectionById.get(item.collectionId)).filter(Boolean); }
 	collectionNames(memberships = []) { return memberships.map((item) => this.collectionById.get(item.collectionId)?.name).filter(Boolean); }
 	tagNames(ids = []) { return ids.map((id) => this.tagById.get(id)?.name).filter(Boolean); }
 	usage(kind, id) { return (["category", "categories"].includes(kind) ? this.categoryUsage : this.collectionUsage).get(id) || 0; }

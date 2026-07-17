@@ -24,13 +24,13 @@
 
 ## 工作流控制与工具
 
-- **Prompt Entry（提示词条）**：词库中具有稳定身份、正文和可选组织信息的一条可复用提示词。分类、合集和显示标题都不是词条身份。避免使用 Prompt Snapshot、Node Prompt。
+- **Prompt Entry（提示词条）**：词库中具有稳定身份、正文和可选组织信息的一条可复用提示词。分类、收藏夹和显示标题都不是词条身份。避免使用 Prompt Snapshot、Node Prompt。
 
 - **Prompt Library（词库）**：由用户独立维护、可被多个工作流引用的 Prompt Entry 集合。它不属于任何单个 PromptSelector 或工作流。避免使用 Node List、Workflow Prompts。
 
-- **Category（分类）**：Prompt Entry 唯一归属的扁平主分类。避免使用 Folder、Collection。
+- **Category（分类）**：Prompt Entry 唯一归属的扁平主分类，拥有可编辑的识别色；颜色用于跨界面识别，不属于分类身份。避免使用 Folder、Collection。
 
-- **Collection（合集）**：对 Prompt Entry 进行多对多组织并保留合集内顺序的人工集合。避免使用 Category、Tag Folder。
+- **Collection（收藏夹）**：对 Prompt Entry 进行多对多收藏并保留夹内顺序的人工集合；`Collection` 是备份与 API 中保持稳定的协议名。避免使用 Category、Tag Folder。
 
 - **Prompt Selection（提示词选择）**：PromptSelector 持有的有序 Prompt Entry 引用及各自权重。它引用词条身份，不复制词条正文。
 

@@ -10,10 +10,13 @@ const ICON_PATHS = {
 	delete: "M4 7h16M9 11v5m6-5v5M8 7l1-3h6l1 3m2 0-1 13H7L6 7",
 	download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
 	drag: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
+	edit: "M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4",
+	favorite: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2-4.5-4.4 6.2-.9L12 3Z",
 	filter: "M4 5h16l-6 7v6l-4 2v-8L4 5Z",
 	layout: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
 	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
+	move: "M3 6h7l2 2h9v11H3V6Zm5 8h8m-3-3 3 3-3 3",
 	unlock: "M17 11V8a5 5 0 0 0-9.6-2M5 11h14v10H5z",
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	moveDown: "m7 10 5 5 5-5",
@@ -357,6 +360,40 @@ export function toggleSwitch({ checked = false, label, disabled = false, onChang
 	return root;
 }
 
+export function multiSelectControl({ options = [], values = [], ariaLabel = "", className = "", disabled = false, onChange = null } = {}) {
+	const selected = new Set(values.map(String));
+	const root = el("div", { className: `aa-ui-multiselect${className ? ` ${className}` : ""}`, attrs: { role: "group", "aria-label": ariaLabel } });
+	const choices = new Map();
+	const syncChoice = (choice, value) => {
+		const active = selected.has(value);
+		choice.classList.toggle("is-selected", active);
+		choice.setAttribute("aria-pressed", String(active));
+		choice.querySelector(".aa-ui-multiselect__status")?.classList.toggle("is-visible", active);
+	};
+	for (const option of options) {
+		const value = String(option.value);
+		const choice = el("button", { className: "aa-ui-multiselect__option", attrs: { type: "button", "aria-pressed": "false" }, children: [
+			el("span", { className: "aa-ui-multiselect__status", attrs: { "aria-hidden": "true" }, children: [icon("statusCheck")] }),
+			el("span", "aa-ui-multiselect__label", option.label),
+		] });
+		choice.disabled = disabled;
+		choice.addEventListener("click", () => {
+			if (choice.disabled) return;
+			if (selected.has(value)) selected.delete(value); else selected.add(value);
+			syncChoice(choice, value);
+			onChange?.([...selected]);
+		});
+		choices.set(value, choice); root.append(choice); syncChoice(choice, value);
+	}
+	root.values = () => [...selected];
+	root.setValues = (nextValues) => {
+		selected.clear(); for (const value of nextValues || []) selected.add(String(value));
+		for (const [value, choice] of choices) syncChoice(choice, value);
+	};
+	root.setDisabled = (next) => { for (const choice of choices.values()) choice.disabled = Boolean(next); };
+	return root;
+}
+
 export function selectControl({ options = [], value = "", ariaLabel = "", className = "", disabled = false, onChange = null } = {}) {
 	const root = el("div", `aa-ui-select${className ? ` ${className}` : ""}`);
 	const control = document.createElement("select"); control.className = "aa-ui-select__native";
@@ -368,15 +405,25 @@ export function selectControl({ options = [], value = "", ariaLabel = "", classN
 		root.classList.toggle("is-open", open); root.dataset.open = String(open);
 		control.setAttribute("aria-expanded", String(open));
 	};
+	const syncOptionColor = () => {
+		const color = control.selectedOptions[0]?.dataset.color || "";
+		root.classList.toggle("has-option-color", Boolean(color));
+		if (color) root.style.setProperty("--aa-ui-select-option-color", color);
+		else root.style.removeProperty("--aa-ui-select-option-color");
+	};
 	const setOptions = (nextOptions, nextValue = control.value) => {
 		control.replaceChildren();
 		for (const item of nextOptions) {
 			const optionValue = typeof item === "object" ? item.value : item;
 			const optionLabel = typeof item === "object" ? item.label : item;
 			const option = new Option(String(optionLabel), String(optionValue), false, String(optionValue) === String(nextValue));
-			if (typeof item === "object") option.disabled = Boolean(item.disabled);
+			if (typeof item === "object") {
+				option.disabled = Boolean(item.disabled);
+				if (item.color) { option.dataset.color = String(item.color); option.style.color = String(item.color); }
+			}
 			control.add(option);
 		}
+		syncOptionColor();
 	};
 	setOptions(options, value);
 	control.addEventListener("pointerdown", () => setOpen(!open));
@@ -385,12 +432,95 @@ export function selectControl({ options = [], value = "", ariaLabel = "", classN
 		else if (event.key === "Enter" || event.key === " " || event.key === "F4" || (event.altKey && event.key === "ArrowDown")) setOpen(true);
 	});
 	control.addEventListener("blur", () => setOpen(false));
-	control.addEventListener("change", () => { setOpen(false); onChange?.(control.value); });
+	control.addEventListener("change", () => { setOpen(false); syncOptionColor(); onChange?.(control.value); });
 	root.append(control, icon("moveDown", { className: "aa-ui-select__arrow" }));
 	root.control = control;
 	root.setOptions = (nextOptions, nextValue = control.value) => setOptions(nextOptions, nextValue);
-	root.setValue = (next) => { control.value = String(next); };
+	root.setValue = (next) => { control.value = String(next); syncOptionColor(); };
 	root.setDisabled = (next) => { control.disabled = Boolean(next); if (control.disabled) setOpen(false); };
+	return root;
+}
+
+export function listboxControl({ options = [], value = "", ariaLabel = "", className = "", disabled = false, onChange = null } = {}) {
+	const root = el("div", `aa-ui-listbox-select${className ? ` ${className}` : ""}`);
+	const label = el("span", "aa-ui-listbox-select__label");
+	const swatch = el("span", "aa-ui-listbox-select__swatch");
+	const trigger = el("button", {
+		className: "aa-ui-listbox-select__trigger",
+		attrs: { type: "button", "aria-haspopup": "listbox", "aria-expanded": "false", "aria-label": ariaLabel },
+		children: [swatch, label, icon("moveDown", { className: "aa-ui-listbox-select__arrow" })],
+	});
+	let choices = [...options];
+	let currentValue = String(value);
+	let popover = null;
+
+	const selectedOption = () => choices.find((item) => String(typeof item === "object" ? item.value : item) === currentValue) || choices[0];
+	const sync = () => {
+		const selected = selectedOption();
+		const selectedLabel = typeof selected === "object" ? selected?.label : selected;
+		const color = typeof selected === "object" ? selected?.color : "";
+		label.textContent = selectedLabel == null ? "" : String(selectedLabel);
+		root.classList.toggle("has-option-color", Boolean(color));
+		if (color) root.style.setProperty("--aa-ui-listbox-color", String(color));
+		else root.style.removeProperty("--aa-ui-listbox-color");
+	};
+	const setOpen = (next) => {
+		const open = Boolean(next) && !trigger.disabled;
+		root.classList.toggle("is-open", open);
+		trigger.setAttribute("aria-expanded", String(open));
+	};
+	const close = () => { popover?.close(); };
+	const open = () => {
+		if (popover || trigger.disabled) return;
+		setOpen(true);
+		popover = createAnchoredPopover({
+			anchor: trigger,
+			ariaLabel,
+			className: "aa-ui-listbox-popover",
+			width: Math.max(180, Math.round(trigger.getBoundingClientRect().width)),
+			onClose: () => { popover = null; setOpen(false); },
+		});
+		const list = el("div", { className: "aa-ui-listbox", attrs: { role: "listbox", "aria-label": ariaLabel } });
+		for (const item of choices) {
+			const optionValue = String(typeof item === "object" ? item.value : item);
+			const optionLabel = String(typeof item === "object" ? item.label : item);
+			const optionColor = typeof item === "object" ? item.color : "";
+			const active = optionValue === currentValue;
+			const option = el("button", {
+				className: `aa-ui-listbox__option${active ? " is-selected" : ""}${optionColor ? " has-color" : ""}`,
+				attrs: { type: "button", role: "option", "aria-selected": String(active), disabled: Boolean(typeof item === "object" && item.disabled) },
+				children: [el("span", "aa-ui-listbox__swatch"), el("span", "aa-ui-listbox__label", optionLabel), icon("statusCheck")],
+			});
+			if (optionColor) option.style.setProperty("--aa-ui-listbox-option-color", String(optionColor));
+			option.addEventListener("click", () => {
+				if (option.disabled) return;
+				currentValue = optionValue;
+				sync(); close(); onChange?.(currentValue);
+			});
+			option.addEventListener("keydown", (event) => {
+				if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+				event.preventDefault();
+				const enabled = [...list.querySelectorAll("button:not(:disabled)")];
+				const index = enabled.indexOf(option);
+				const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? enabled.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + enabled.length) % enabled.length;
+				enabled[nextIndex]?.focus();
+			});
+			list.append(option);
+		}
+		popover.root.append(list);
+	};
+	trigger.addEventListener("click", () => { if (popover) close(); else open(); });
+	trigger.addEventListener("keydown", (event) => {
+		if ((event.key === "ArrowDown" || event.key === "ArrowUp") && !popover) { event.preventDefault(); open(); }
+	});
+	root.append(trigger);
+	root.control = trigger;
+	root.setOptions = (nextOptions, nextValue = currentValue) => { choices = [...nextOptions]; currentValue = String(nextValue); sync(); };
+	root.setValue = (next) => { currentValue = String(next); sync(); };
+	root.setDisabled = (next) => { trigger.disabled = Boolean(next); if (trigger.disabled) close(); };
+	Object.defineProperty(root, "value", { get: () => currentValue });
+	trigger.disabled = disabled;
+	sync();
 	return root;
 }
 
@@ -423,15 +553,22 @@ function focusableElements(root) {
 		.filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
 }
 
-export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300 } = {}) {
+export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300, onClose = null } = {}) {
 	if (!(anchor instanceof HTMLElement)) throw new Error("[Aaalice] Popover anchor is unavailable");
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
 	const root = isolate(el("section", { className: `aa-ui-popover${className ? ` ${className}` : ""}`, attrs: { role: "dialog", "aria-modal": "false", "aria-label": ariaLabel, tabindex: -1 } }));
 	document.body.append(root);
 	root.style.width = `${width}px`;
-	const rect = anchor.getBoundingClientRect();
-	root.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width))}px`;
-	root.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, rect.bottom + 6))}px`;
+	const reposition = () => {
+		const rect = anchor.getBoundingClientRect();
+		const height = Math.min(root.scrollHeight || 80, window.innerHeight - 16);
+		const below = rect.bottom + 6;
+		const above = rect.top - height - 6;
+		const top = below + height <= window.innerHeight - 8 || above < 8 ? below : above;
+		root.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width))}px`;
+		root.style.top = `${Math.max(8, Math.min(window.innerHeight - height - 8, top))}px`;
+	};
+	reposition();
 	let closed = false;
 	const close = () => {
 		if (closed) return;
@@ -440,8 +577,9 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 		document.removeEventListener("keydown", keydown, true);
 		root.remove();
 		previousFocus?.focus?.({ preventScroll: true });
+		onClose?.();
 	};
-	const outside = (event) => { if (!root.contains(event.target) && event.target !== anchor) close(); };
+	const outside = (event) => { if (!root.contains(event.target) && !anchor.contains(event.target)) close(); };
 	const keydown = (event) => {
 		if (event.key === "Escape") { event.preventDefault(); close(); return; }
 		if (event.key !== "Tab") return;
@@ -453,11 +591,12 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 		else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 	};
 	setTimeout(() => {
+		reposition();
 		document.addEventListener("pointerdown", outside, true);
 		document.addEventListener("keydown", keydown, true);
 		(focusableElements(root)[0] || root).focus();
 	});
-	return { root, close };
+	return { root, close, reposition };
 }
 
 export function createDialog({

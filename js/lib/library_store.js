@@ -39,7 +39,9 @@ export class PromptLibraryStore extends EventTarget {
 	}
 
 	filterEntries(filters = {}) { return this.index.filter(filters); }
+	category(id) { return this.index.category(id); }
 	categoryName(id) { return this.index.categoryName(id); }
+	collectionItems(memberships) { return this.index.collectionItems(memberships); }
 	collectionNames(memberships) { return this.index.collectionNames(memberships); }
 	tagNames(ids) { return this.index.tagNames(ids); }
 	usage(kind, id) { return this.index.usage(kind, id); }
@@ -57,6 +59,7 @@ export class PromptLibraryStore extends EventTarget {
 	updateEntry(id, data) { return this.json(`/entries/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }
 	deleteEntry(id) { return this.json(`/entries/${encodeURIComponent(id)}`, { method: "DELETE" }); }
 	batchEntries(data) { return this.json("/entries/batch", { body: data }); }
+	deleteEntries(entryIds) { return this.json("/entries/batch-delete", { body: { entryIds } }); }
 	reorder(data) { return this.json("/reorder", { body: data }); }
 	createCategory(data) { return this.json("/categories", { body: data }); }
 	updateCategory(id, data) { return this.json(`/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }

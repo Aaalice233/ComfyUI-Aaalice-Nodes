@@ -131,6 +131,14 @@ async def batch_entries(request: web.Request):
     return {"updated": count}
 
 
+async def delete_entries(request: web.Request):
+    data = await _json(request)
+    entry_ids = data.get("entryIds")
+    if not isinstance(entry_ids, list) or not all(isinstance(item, str) for item in entry_ids):
+        raise ValueError("entryIds must be a string list")
+    return {"deleted": get_library().delete_entries(entry_ids)}
+
+
 async def reorder(request: web.Request):
     data = await _json(request)
     ordered_ids = data.get("orderedIds")
@@ -268,6 +276,7 @@ def register_prompt_library_routes() -> None:
     routes.patch(f"{API}/entries/{{id}}")(_handler(update_entry, action="entry.updated"))
     routes.delete(f"{API}/entries/{{id}}")(_handler(delete_entry, action="entry.deleted"))
     routes.post(f"{API}/entries/batch")(_handler(batch_entries, action="entries.updated"))
+    routes.post(f"{API}/entries/batch-delete")(_handler(delete_entries, action="entries.deleted"))
     routes.post(f"{API}/reorder")(_handler(reorder, action="order.updated"))
     routes.post(f"{API}/entries/{{id}}/preview")(_handler(set_preview, action="entry.preview.updated"))
     routes.delete(f"{API}/entries/{{id}}/preview")(_handler(delete_preview, action="entry.preview.deleted"))

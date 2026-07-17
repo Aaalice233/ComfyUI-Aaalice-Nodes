@@ -130,7 +130,7 @@ export function createControlCard({ item, title, control, status = "ok", editMod
 	return root;
 }
 
-export function createListRow({ title, description = "", selected = false, onSelect, actions = [] }) {
+export function createListRow({ title, description = "", selected = false, onSelect, leading = null, actions = [] }) {
 	const root = el("div", `aa-workspace-list-row${selected ? " is-selected" : ""}`);
 	const copy = el("div", "aa-workspace-list-row-copy"); copy.append(el("strong", null, title));
 	if (description) copy.append(el("small", null, description));
@@ -139,5 +139,6 @@ export function createListRow({ title, description = "", selected = false, onSel
 		checkbox.setAttribute("aria-label", title); checkbox.addEventListener("change", () => onSelect(checkbox.checked));
 		root.append(checkbox);
 	} else root.classList.add("is-static");
+	if (leading) { root.classList.add("has-leading"); root.append(leading); }
 	root.append(copy, ...actions); return root;
 }

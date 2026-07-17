@@ -11,6 +11,8 @@ const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), 
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
 const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
+const promptEntryDetails = readFileSync(join(ROOT, "js", "lib", "prompt_entry_details.js"), "utf8");
+const categoryColor = readFileSync(join(ROOT, "js", "lib", "category_color.js"), "utf8");
 const ui = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
 const uiStyles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
 const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
@@ -59,13 +61,17 @@ test("numeric control gestures preview live inside one graph history boundary", 
 	assert.match(providers, /afterChange/);
 });
 
-test("PromptSelector injects live library text and exposes list management", () => {
+test("PromptSelector injects live library text and exposes inline weight management", () => {
 	assert.match(selector, /materializePromptPayload/);
 	assert.match(selector, /selection_payload_json/);
 	assert.match(selector, /createSelectableImagePreview/);
 	assert.match(imagePreview, /input\.type = "checkbox"/);
-	assert.match(selector, /openSelectedEditor/);
-	assert.match(selector, /draggable: true/);
+	assert.doesNotMatch(selector, /openSelectedEditor|aa-prompt-selected-editor|draggable: true/);
+	assert.match(selector, /function promptWeightControl/);
+	assert.match(selector, /event\.deltaY < 0/);
+	assert.match(selector, /event\.shiftKey \? \.01 : \.1/);
+	assert.match(selector, /if \(value !== 1\) commit\(1, true\)/);
+	assert.match(selector, /_aaalicePromptWeightFocusEntryId/);
 	assert.match(selector, /Prompt separator/);
 	assert.match(selector, /openWorkspace\("library"\)/);
 	assert.match(selector, /aa-prompt-selector-footer-actions/);
@@ -104,6 +110,19 @@ test("PromptSelector can open the official sidebar directly on library managemen
 	assert.match(workspace, /sidebar\.activeSidebarTabId = TAB_ID/);
 	assert.match(workspace, /activeWorkspace = view/);
 	assert.doesNotMatch(selector, /querySelector\([^\n]*sidebar|\.click\(\)/);
+	assert.match(workspace, /export async function openPromptLibraryEntryEditor\(entryId\)/);
+	assert.match(workspace, /snapshot\.entries\.find\(\(item\) => item\.id === entryId\)/);
+	assert.match(workspace, /entryEditor\(entry\)/);
+	assert.match(selector, /openPromptLibraryEntryEditor\(entry\.id\)/);
+	assert.match(selector, /className: "aa-prompt-selector-edit"/);
+	assert.match(selector, /className: `aa-prompt-selector-favorite\$\{isFavorite \? " is-active" : ""\}`/);
+	assert.match(selector, /openFavoritePicker\(entry\)/);
+	assert.match(selector, /updateEntry\(entry\.id, \{ collectionIds: \[\] \}\)/);
+	assert.match(selector, /addCollectionId: target\.value/);
+	assert.match(selector, /className: "aa-prompt-selector-row-actions"/);
+	assert.match(selector, /event\.preventDefault\(\); event\.stopPropagation\(\); closePromptEntryDetails\(\)/);
+	assert.match(theme, /\.aa-prompt-selector-row:hover \.aa-prompt-selector-row-actions \.aa-ui-button/);
+	assert.match(theme, /\.aa-prompt-selector-favorite\.is-active \.aa-ui-icon \{ fill: currentColor; \}/);
 });
 
 test("workspace visual hierarchy uses a compact shell, dedicated icon and active section rail", () => {
@@ -145,15 +164,16 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(imagePreview, /aa-image-preview-selection/);
 	assert.match(imagePreview, /icon\("statusCheck"\)/);
 	assert.match(selector, /aa-prompt-selector-title/);
-	assert.match(selector, /promptDetailsTooltip = createTooltip/);
-	assert.match(selector, /PROMPT_DETAILS_HOVER_DELAY = 360/);
+	assert.match(selector, /bindPromptEntryDetails\(copy, entry\)/);
+	assert.match(promptEntryDetails, /promptDetailsTooltip = createTooltip/);
+	assert.match(promptEntryDetails, /PROMPT_DETAILS_HOVER_DELAY = 600/);
 	assert.match(selector, /selectionSummaryTooltip = createTooltip/);
 	assert.match(selector, /bindSelectionSummary\(categoryFilter\.control/);
-	assert.match(selector, /bindSelectionSummary\(manageSelected/);
+	assert.match(selector, /bindSelectionSummary\(summary/);
 	assert.match(selector, /categorySelectionSummary/);
 	assert.match(selector, /selectedPromptSummary/);
-	assert.match(selector, /aa-prompt-entry-details-prompt/);
-	assert.match(selector, /collectionNames\(entry\.collections/);
+	assert.match(promptEntryDetails, /aa-prompt-entry-details-prompt/);
+	assert.match(promptEntryDetails, /collectionItems\(entry\.collections/);
 	assert.match(selector, /aa-prompt-selector-summary/);
 	assert.match(selector, /aa-prompt-selector-count/);
 	assert.match(selector, /_aaalicePromptSelectedOnly/);
@@ -172,18 +192,26 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(theme, /\.aa-prompt-selector-list \{[^}]*min-height: 0;[^}]*overflow: auto;/);
 	assert.match(theme, /\.aa-prompt-selector\.is-resizing, \.aa-prompt-selector\.is-resizing \* \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-prompt-selector-row\.is-selected/);
+	assert.match(theme, /\.aa-prompt-selector-row \{[^}]*grid-template-columns: 38px minmax\(0, 1fr\);/);
+	assert.match(theme, /\.aa-prompt-selector-row-actions \{[^}]*position: absolute;/);
+	assert.match(theme, /--aa-prompt-row-surface: var\(--aa-ui-accent-soft\)/);
+	assert.match(theme, /linear-gradient\(90deg, transparent, var\(--aa-prompt-row-surface\) 28%\)/);
+	assert.doesNotMatch(theme, /aa-prompt-selector-row-actions \{ background:[^}]*aa-ui-surface/);
+	assert.match(theme, /\.aa-prompt-selector-row:has\(\.aa-prompt-selector-favorite\.is-active\) \.aa-prompt-selector-copy \{ padding-right: 62px; \}/);
+	assert.match(theme, /\.aa-prompt-selector-row\.is-selected:hover \.aa-prompt-selector-copy/);
+	assert.match(theme, /\.aa-prompt-selector-weight \{[^}]*cursor: ns-resize;/);
 	assert.match(theme, /\.aa-prompt-selector-summary\.is-active/);
-	assert.match(theme, /\.aa-prompt-selector-preview:has\(input:checked\)/);
-	assert.match(theme, /\.aa-image-preview-selection\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--aa-ui-accent\) 18%, transparent\)/s);
-	assert.match(theme, /\.aa-image-preview-selection > \.aa-ui-icon\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*color:\s*var\(--aa-ui-on-media\);[^}]*stroke-width:\s*2\.5/s);
-	assert.match(theme, /\.aa-image-preview-media > img\s*\{[^}]*filter:\s*saturate\(\.92\) brightness\(\.9\)/s);
+	assert.match(uiStyles, /\.aa-image-preview-selectable:has\(input:checked\)/);
+	assert.match(uiStyles, /\.aa-image-preview-selectable \.aa-image-preview-selection\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--aa-ui-accent\) 18%, transparent\)/s);
+	assert.match(uiStyles, /\.aa-image-preview-selectable \.aa-image-preview-selection > \.aa-ui-icon\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*color:\s*var\(--aa-ui-on-media\);[^}]*stroke-width:\s*2\.5/s);
+	assert.match(uiStyles, /\.aa-image-preview-selectable:has\(input:checked\) \.aa-image-preview-media > img\s*\{[^}]*filter:\s*saturate\(\.92\) brightness\(\.9\)/s);
 	assert.match(theme, /\.aa-prompt-entry-details-tooltip/);
 	assert.match(theme, /\.aa-prompt-selection-tooltip/);
 	assert.match(theme, /\.aa-prompt-selection-summary > ol/);
 	assert.match(uiStyles, /\.aa-ui-tooltip\s*\{[^}]*pointer-events:\s*none/s);
 	assert.doesNotMatch(theme.match(/\.aa-image-preview-tooltip\s*\{[^}]*\}/s)?.[0] || "", /pointer-events/);
 	assert.doesNotMatch(theme.match(/\.aa-prompt-entry-details-tooltip\s*\{[^}]*\}/s)?.[0] || "", /pointer-events/);
-	assert.doesNotMatch(selector, /aa-prompt-entry-details-tooltip[^\n]*interactive:\s*true/);
+	assert.doesNotMatch(promptEntryDetails, /aa-prompt-entry-details-tooltip[^\n]*interactive:\s*true/);
 	assert.match(theme, /\.aa-prompt-entry-details-prompt > p, \.aa-prompt-entry-details-note > p\s*\{[^}]*white-space:\s*pre-wrap/s);
 });
 
@@ -196,6 +224,11 @@ test("filter dropdowns reuse the shared animated select control", () => {
 	assert.match(workspace, /className: "aa-library-filter-select"/);
 	assert.match(uiStyles, /\.aa-ui-select\.is-open \.aa-ui-select__arrow/);
 	assert.match(uiStyles, /padding-right: 38px/);
+	assert.match(ui, /syncOptionColor/);
+	assert.match(ui, /--aa-ui-select-option-color/);
+	assert.match(categoryColor, /export function categorySelectOption/);
+	assert.match(selector, /value: option\.id, color: option\.color/);
+	assert.match(workspace, /categories\.map\(categorySelectOption\)/);
 });
 
 test("workspace empty states and compact action bars keep narrow sidebars deliberate", () => {
@@ -213,20 +246,79 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 });
 
 test("library rows keep a stable thumbnail column and distinguish entry actions", () => {
-	assert.match(workspace, /createImagePreview/);
+	assert.match(workspace, /createSelectableImagePreview/);
+	assert.match(workspace, /aa-library-entry-preview/);
+	assert.doesNotMatch(workspace, /checkbox\.type = "checkbox"/);
 	assert.match(workspace, /mountVirtualList/);
 	assert.match(workspace, /closeImagePreview/);
 	assert.match(workspace, /className: "aa-library-entry-edit"/);
 	assert.match(workspace, /className: "aa-library-entry-delete"/);
-	assert.match(theme, /\.aa-library-entry \{[^}]*grid-template-columns: auto 48px minmax\(0, 1fr\) auto/);
+	assert.match(workspace, /el\("label", \{ className: "aa-library-entry-copy"/);
+	assert.match(workspace, /for: `aa-library-entry-\$\{entry\.id\}`/);
+	assert.match(workspace, /preview\.input\.click\(\)/);
+	assert.match(workspace, /bindPromptEntryDetails\(copy, entry\)/);
+	assert.match(workspace, /closePromptEntryDetails\(\)/);
+	assert.match(theme, /\.aa-library-entry \{[^}]*grid-template-columns: 48px minmax\(0, 1fr\) auto/);
+	assert.match(theme, /\.aa-library-entry\.is-selected/);
+	assert.match(uiStyles, /\.aa-image-preview-selectable:has\(input:checked\) \.aa-image-preview-selection/);
 	assert.match(theme, /\.aa-library-entry-copy \{[^}]*justify-content: center/);
 	assert.match(theme, /\.aa-library-entry-edit:hover/);
 	assert.match(theme, /\.aa-library-entry-delete:hover/);
 	assert.match(theme, /\.aa-image-preview-large/);
 	assert.match(theme, /\.aa-image-preview-large > img\s*\{[^}]*width:\s*auto[^}]*max-height:/s);
 	assert.match(theme, /\.aa-image-preview-large > strong\s*\{[^}]*position:\s*absolute[^}]*background:\s*color-mix\([^}]*transparent\)/s);
-	assert.match(imagePreview, /IMAGE_PREVIEW_HOVER_DELAY = 360/);
+	assert.match(imagePreview, /IMAGE_PREVIEW_HOVER_DELAY = 600/);
 	assert.match(imagePreview, /addEventListener\("load", previewTooltip\.reposition/);
+});
+
+test("library selection actions operate on model data instead of rendered rows", () => {
+	assert.doesNotMatch(workspace, /openBatchEdit|libraryUi\.batch|Edit selected entries/);
+	assert.match(workspace, /className: "aa-library-selection-toggle"/);
+	assert.match(workspace, /for \(const entry of visibleEntries\) selected\.add\(entry\.id\)/);
+	assert.match(workspace, /if \(clearsSelection\) selected\.clear\(\)/);
+	assert.match(workspace, /visibleEntries\.every\(\(entry\) => selected\.has\(entry\.id\)\)/);
+	assert.match(workspace, /selectionToggle\.replaceChildren\(icon\(clearsSelection \? "close" : "statusCheck"\)/);
+	assert.match(workspace, /selectionToggle\.classList\.toggle\("is-clear", clearsSelection\)/);
+	assert.doesNotMatch(workspace, /querySelectorAll\([^\n]*aa-library-entry/);
+	assert.match(theme, /\.aa-library-selection-actions/);
+	assert.match(theme, /\.aa-library-selection-toggle\.is-clear:hover:not\(:disabled\)/);
+	assert.match(workspace, /function openMoveSelected\(selected\)/);
+	assert.match(workspace, /const entryIds = \[\.\.\.selected\]/);
+	assert.match(workspace, /batchEntries\(\{ entryIds, categoryId: target\.value === "__none__" \? null : target\.value \}\)/);
+	assert.match(workspace, /className: "aa-library-move-selected"/);
+	assert.match(workspace, /moveSelected\.disabled = selected\.size === 0/);
+	assert.match(theme, /\.aa-library-move-selected:hover:not\(:disabled\)/);
+	assert.match(workspace, /className: "aa-library-export-selected"/);
+	assert.match(workspace, /openLibraryExport\(\{ selected, categoryId, collectionId \}\)/);
+	assert.match(workspace, /className: "aa-library-delete-selected"/);
+	assert.match(workspace, /promptLibraryStore\.deleteEntries\(entryIds\)/);
+	assert.match(workspace, /danger: true/);
+	assert.match(theme, /\.aa-library-delete-selected:hover:not\(:disabled\)/);
+});
+
+test("prompt entry editor prioritizes prompt content and uses shared themed controls", () => {
+	assert.match(workspace, /className: "aa-library-entry-dialog"/);
+	assert.match(workspace, /size: "md"/);
+	assert.match(workspace, /className: "aa-library-entry-section is-content"/);
+	assert.match(workspace, /className: "aa-library-entry-lower"/);
+	assert.match(workspace, /listboxControl\(\{/);
+	assert.match(workspace, /multiSelectControl\(\{/);
+	assert.match(workspace, /collectionIds: collections\.values\(\)/);
+	assert.match(workspace, /className: "aa-library-entry-preview-card"/);
+	assert.match(workspace, /className: "aa-library-entry-preview-overlay"/);
+	assert.match(workspace, /removePreviewRequested/);
+	assert.match(workspace, /URL\.revokeObjectURL\(selectedPreviewUrl\)/);
+	assert.match(ui, /export function listboxControl/);
+	assert.match(ui, /role: "listbox"/);
+	assert.match(ui, /role: "option"/);
+	assert.match(ui, /export function multiSelectControl/);
+	assert.match(ui, /role: "group"/);
+	assert.match(ui, /setAttribute\("aria-pressed", String\(active\)\)/);
+	assert.match(uiStyles, /\.aa-ui-multiselect__option\.is-selected/);
+	assert.match(uiStyles, /\.aa-ui-listbox__option\.is-selected/);
+	assert.match(theme, /\.aa-library-entry-dialog \{ width: min\(820px/);
+	assert.match(theme, /\.aa-library-entry-prompt-field textarea \{ min-height: 238px/);
+	assert.match(theme, /@media \(max-width: 720px\)[\s\S]*\.aa-library-entry-lower \{ grid-template-columns: 1fr;/);
 });
 
 test("taxonomy management is a complete single-dialog workspace", () => {
@@ -242,6 +334,25 @@ test("taxonomy management is a complete single-dialog workspace", () => {
 	assert.match(theme, /\.aa-taxonomy-tabs\[data-value="collections"\]/);
 	assert.match(theme, /--aa-taxonomy-tab-color/);
 	assert.match(theme, /\.aa-taxonomy-row\.is-editing/);
+	assert.match(workspace, /colorInput\.type = "color"/);
+	assert.match(workspace, /updateCategory\(item\.id, \{ name, color: colorInput\.value \}\)/);
+	assert.match(workspace, /aa-taxonomy-color-swatch/);
+	assert.match(components, /leading = null/);
+	assert.match(categoryColor, /export function applyCategoryColor/);
+	assert.match(theme, /\.aa-taxonomy-color-swatch/);
+	assert.match(theme, /\.is-category-colored/);
+	assert.match(workspace, /className: "aa-taxonomy-edit-action"/);
+	assert.match(workspace, /className: "aa-taxonomy-delete-action"/);
+	assert.match(workspace, /deleteCategoryTitle/);
+	assert.match(workspace, /confirmLabel: t\("aaalice\.common\.delete"/);
+	assert.match(workspace, /variant: "danger"/);
+	assert.match(uiStyles, /\.aa-ui-button--danger/);
+	const saveBody = workspace.match(/const saveItem = async[\s\S]*?\n\t};/)?.[0] || "";
+	assert.match(saveBody, /updateCategory/);
+	assert.doesNotMatch(saveBody, /deleteCategory|deleteCollection/);
+	const removeBody = workspace.match(/const remove = async[\s\S]*?\n\t};/)?.[0] || "";
+	assert.match(removeBody, /deleteCategory/);
+	assert.match(removeBody, /danger: true/);
 });
 
 test("import and export use one reusable review flow with explicit outcomes", () => {

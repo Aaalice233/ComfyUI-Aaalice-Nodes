@@ -4,28 +4,31 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { applyCategoryColor } from "./lib/category_color.js";
+import { collectionDisplayName, collectionSelectOption, DEFAULT_COLLECTION_ID } from "./lib/collection.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { promptLibraryStore } from "./lib/library_store.js";
+import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
 import {
 	clearPromptSelections, countPromptSelectionsByCategory, materializePromptPayload,
-	normalizePromptSelectorState, reorderPromptSelection, resolvePromptSelections, setPromptWeight,
+	normalizePromptSelectorState, resolvePromptSelections, setPromptWeight,
 	togglePromptSelection,
 } from "./lib/prompt_selector_model.js";
 import { button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate, selectControl } from "./lib/ui.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
-import { openWorkspace } from "./workspace.js";
+import { openPromptLibraryEntryEditor, openWorkspace } from "./workspace.js";
 
 const NODE = "PromptSelector";
 const PROPERTY = "promptSelectorState";
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 240;
 const SELECTION_TOOLTIP_LIMIT = 12;
-const PROMPT_DETAILS_HOVER_DELAY = 360;
-const promptDetailsTooltip = createTooltip({ delay: PROMPT_DETAILS_HOVER_DELAY, closeDelay: 100 });
 const selectionSummaryTooltip = createTooltip({ delay: 260, closeDelay: 80 });
 
 function isSelector(node) { return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE); }
 function stateFor(node) { node.properties ||= {}; node.properties[PROPERTY] = normalizePromptSelectorState(node.properties[PROPERTY]); return node.properties[PROPERTY]; }
+function defaultFavoritesLabel() { return t("aaalice.workspace.libraryUi.defaultFavorites", "Default favorites"); }
+function favoriteFolderName(collection) { return collectionDisplayName(collection, defaultFavoritesLabel()); }
 
 function mutate(node, callback) {
 	node.graph?.beforeChange?.();
@@ -44,7 +47,7 @@ function promptFilterSelect({ label, value, options, onChange, selectedCounts = 
 	const countedLabel = (text, count) => count > 0 ? `${text} (${count})` : text;
 	return selectControl({ ariaLabel: label, value, onChange, className: "aa-prompt-selector-filter", options: [
 		{ label: countedLabel(label, totalSelected), value: "" },
-		...options.map((option) => ({ label: countedLabel(option.name, selectedCounts?.get(option.id) || 0), value: option.id })),
+		...options.map((option) => ({ label: countedLabel(option.name, selectedCounts?.get(option.id) || 0), value: option.id, color: option.color })),
 	] });
 }
 
@@ -78,10 +81,10 @@ function categorySelectionSummary(state) {
 		counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
 	}
 	const knownCategoryIds = new Set(promptLibraryStore.snapshot.categories.map((category) => category.id));
-	const rows = promptLibraryStore.snapshot.categories.filter((category) => counts.has(category.id)).map((category) => el("div", { className: "aa-prompt-selection-category", children: [
+	const rows = promptLibraryStore.snapshot.categories.filter((category) => counts.has(category.id)).map((category) => applyCategoryColor(el("div", { className: "aa-prompt-selection-category", children: [
 		el("span", null, category.name),
 		el("em", null, String(counts.get(category.id))),
-	] }));
+	] }), category));
 	const uncategorized = [...counts].reduce((total, [categoryId, count]) => total + (!categoryId || !knownCategoryIds.has(categoryId) ? count : 0), 0);
 	if (uncategorized) rows.push(el("div", { className: "aa-prompt-selection-category", children: [
 		el("span", null, t("aaalice.promptSelector.uncategorized", "Uncategorized")),
@@ -107,75 +110,79 @@ function selectedPromptSummary(state) {
 			el("strong", null, item.entry?.title || t("aaalice.promptSelector.missing", "Missing library entry")),
 			...(item.weight !== 1 ? [el("em", null, `×${item.weight}`)] : []),
 		] })) }), ...(remaining ? [el("footer", { className: "aa-prompt-selection-more", children: [
-			el("strong", null, `+${remaining}`), el("span", null, t("aaalice.promptSelector.moreSelected", "Open Manage to view the remaining selections")),
+			el("strong", null, `+${remaining}`), el("span", null, t("aaalice.promptSelector.moreSelected", "More selected prompts")),
 		] })] : [])] : [el("p", null, t("aaalice.promptSelector.emptySelected", "No prompts selected."))]),
 	] });
 }
 
-function promptDetailGroup(label, values) {
-	if (!values.length) return null;
-	return el("div", { className: "aa-prompt-entry-details-group", children: [
-		el("span", null, label), el("div", { children: values.map((value) => el("em", null, value)) }),
+function libraryActionError(summary, error) {
+	app.extensionManager.toast.add({ severity: "error", summary, detail: error.message });
+}
+
+async function removeEntryFromFavorites(entry) {
+	const summary = t("aaalice.workspace.libraryUi.unfavorite", "Remove from favorites");
+	try { await promptLibraryStore.updateEntry(entry.id, { collectionIds: [] }); }
+	catch (error) { libraryActionError(summary, error); }
+}
+
+function openFavoritePicker(entry) {
+	const folders = promptLibraryStore.snapshot.collections;
+	const target = document.createElement("select");
+	const preferredId = folders.some((item) => item.id === DEFAULT_COLLECTION_ID) ? DEFAULT_COLLECTION_ID : folders[0]?.id;
+	for (const folder of folders) target.add(collectionSelectOption(folder, defaultFavoritesLabel(), folder.id === preferredId));
+	const body = el("div", { className: "aa-prompt-favorite-dialog", children: [
+		el("p", null, t("aaalice.workspace.libraryUi.favoriteEntryHint", "Choose a favorite folder for this prompt entry.")),
+		field({ label: t("aaalice.workspace.libraryUi.collections", "Favorite folders"), control: target }),
 	] });
+	const footer = el("div");
+	let dialog;
+	const confirm = button({
+		label: t("aaalice.workspace.libraryUi.favorite", "Favorite"), iconName: "favorite", disabled: !folders.length,
+		onClick: async () => {
+			if (!target.value || confirm.disabled) return;
+			confirm.disabled = true;
+			try {
+				await promptLibraryStore.batchEntries({ entryIds: [entry.id], addCollectionId: target.value });
+				dialog.close();
+			} catch (error) {
+				confirm.disabled = false;
+				libraryActionError(t("aaalice.workspace.libraryUi.favoriteEntry", "Favorite prompt entry"), error);
+			}
+		},
+	});
+	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), confirm);
+	dialog = createDialog({ title: `${t("aaalice.workspace.libraryUi.favoriteEntry", "Favorite prompt entry")} · ${entry.title}`, body, footer, size: "sm", className: "aa-prompt-favorite-dialog-shell" });
 }
 
-function promptDetailsContent(entry) {
-	const category = promptLibraryStore.categoryName(entry.categoryId);
-	const collections = promptLibraryStore.collectionNames(entry.collections || []);
-	const tags = promptLibraryStore.tagNames(entry.tagIds || []);
-	return el("article", { className: "aa-prompt-entry-details", children: [
-		el("header", { children: [el("strong", null, entry.title), ...(category ? [el("span", null, category)] : [])] }),
-		el("section", { className: "aa-prompt-entry-details-prompt", children: [
-			el("span", null, t("aaalice.workspace.libraryUi.prompt", "Prompt")), el("p", null, entry.text),
-		] }),
-		...([promptDetailGroup(t("aaalice.workspace.libraryUi.collections", "Collections"), collections), promptDetailGroup(t("aaalice.workspace.libraryUi.tags", "Tags"), tags)].filter(Boolean)),
-		...(entry.note ? [el("section", { className: "aa-prompt-entry-details-note", children: [
-			el("span", null, t("aaalice.workspace.libraryUi.note", "Note")), el("p", null, entry.note),
-		] })] : []),
-	] });
-}
-
-function bindPromptDetails(trigger, entry) {
-	const show = (immediate) => {
-		if (promptDetailsTooltip.isOpenFor(trigger)) { promptDetailsTooltip.cancelScheduledHide(); return; }
-		promptDetailsTooltip.show(trigger, () => promptDetailsContent(entry), { className: "aa-prompt-entry-details-tooltip", contentMode: "dom", immediate });
-	};
-	trigger.addEventListener("mouseenter", () => show(false));
-	trigger.addEventListener("mouseleave", promptDetailsTooltip.scheduleHide);
-	trigger.addEventListener("focusin", () => show(true));
-	trigger.addEventListener("focusout", promptDetailsTooltip.scheduleHide);
-}
-
-function closePromptDetails() { promptDetailsTooltip.hide(); }
 function closeSelectionSummary() { selectionSummaryTooltip.hide(); }
 
-function openSelectedEditor(node) {
-	const body = el("div", "aa-prompt-selected-editor");
-	const draw = () => {
-		body.replaceChildren();
-		const resolved = resolvePromptSelections(stateFor(node), promptLibraryStore.snapshot.entries);
-		if (!resolved.length) { body.append(emptyState({ description: t("aaalice.promptSelector.emptySelected", "No prompts selected.") })); return; }
-		resolved.forEach((item, index) => {
-			const row = el("div", { className: `aa-prompt-selected-row${item.missing ? " is-missing" : ""}`, attrs: { draggable: true, "data-entry-id": item.entryId } });
-			row.addEventListener("dragstart", (event) => event.dataTransfer?.setData("text/plain", item.entryId));
-			row.addEventListener("dragover", (event) => event.preventDefault());
-			row.addEventListener("drop", (event) => {
-				event.preventDefault(); const source = event.dataTransfer?.getData("text/plain");
-				if (source) mutate(node, (state) => reorderPromptSelection(state, source, index)); draw();
-			});
-			row.append(el("span", { className: "aa-prompt-selected-drag", children: [icon("drag")] }), el("div", { className: "aa-prompt-selected-copy", children: [
-				el("strong", null, item.entry?.title || t("aaalice.promptSelector.missing", "Missing library entry")),
-				el("small", null, item.entry?.text || item.entryId),
-			] }));
-			const weight = document.createElement("input"); weight.type = "number"; weight.min = "0"; weight.max = "20"; weight.step = "0.01"; weight.value = String(item.weight); weight.setAttribute("aria-label", t("aaalice.promptSelector.weight", "Weight"));
-			weight.addEventListener("change", () => { mutate(node, (state) => setPromptWeight(state, item.entryId, Number(weight.value))); draw(); });
-			row.append(weight, iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: () => { mutate(node, (state) => togglePromptSelection(state, item.entryId, false)); draw(); } }));
-			body.append(row);
-		});
+function promptWeightControl(node, entryId, weight) {
+	const value = Number(weight);
+	const hint = t("aaalice.promptSelector.weightHint", "Scroll or use arrow keys to adjust; click to reset to 1");
+	const control = el("button", {
+		className: `aa-prompt-selector-weight${value === 1 ? " is-default" : ""}`,
+		attrs: { type: "button", "aria-label": `${t("aaalice.promptSelector.weight", "Weight")} ${value}. ${hint}`, title: hint },
+		children: [el("span", null, "×"), el("strong", null, String(value))],
+	});
+	control.dataset.weightEntryId = entryId;
+	const commit = (next, restoreFocus = false) => {
+		const normalized = Math.round(Math.min(20, Math.max(0, next)) * 100) / 100;
+		if (normalized === value) return;
+		if (restoreFocus) node._aaalicePromptWeightFocusEntryId = entryId;
+		mutate(node, (state) => setPromptWeight(state, entryId, normalized));
 	};
-	const footer = el("div", { children: [button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => dialog.close() })] });
-	const dialog = createDialog({ title: t("aaalice.promptSelector.manage", "Manage selected prompts"), body, footer, size: "md" });
-	draw();
+	control.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); if (value !== 1) commit(1, true); });
+	control.addEventListener("keydown", (event) => {
+		if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+		event.preventDefault(); event.stopPropagation();
+		commit(value + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? .01 : .1), true);
+	});
+	control.addEventListener("wheel", (event) => {
+		event.preventDefault(); event.stopPropagation();
+		const direction = event.deltaY < 0 ? 1 : event.deltaY > 0 ? -1 : 0;
+		if (direction) commit(value + direction * (event.shiftKey ? .01 : .1));
+	}, { passive: false });
+	return control;
 }
 
 function openSeparatorEditor(node) {
@@ -188,19 +195,30 @@ function openSeparatorEditor(node) {
 }
 
 function mountPromptEntries(node, list, state, entries) {
-	const selected = new Set(state.selections.map((item) => item.entryId));
-	const virtualList = mountVirtualList(list, { rowHeight: 55, gap: 3, overscan: 5, onBeforeRender: () => { closeImagePreview(); closePromptDetails(); }, renderItem: (entry) => {
+	const selectionById = new Map(state.selections.map((item) => [item.entryId, item]));
+	const selected = new Set(selectionById.keys());
+	const virtualList = mountVirtualList(list, { rowHeight: 55, gap: 3, overscan: 5, onBeforeRender: () => { closeImagePreview(); closePromptEntryDetails(); }, renderItem: (entry) => {
 		const isSelected = selected.has(entry.id);
 		const row = el("div", `aa-prompt-selector-row${isSelected ? " is-selected" : ""}`);
 		const inputId = `aa-prompt-${node.id}-${entry.id}`;
 		const preview = createSelectableImagePreview({ source: entry.previewHash ? api.apiURL(`/aaalice/prompt-library/assets/${entry.previewHash}`) : "", title: entry.title, label: `${isSelected ? t("aaalice.promptSelector.selected", "selected") : t("aaalice.workspace.libraryUi.select", "Select")} ${entry.title}`, className: "aa-prompt-selector-preview", selected: isSelected, inputId, onChange: (checked) => mutate(node, (current) => togglePromptSelection(current, entry.id, checked)) });
-		const category = promptLibraryStore.categoryName(entry.categoryId);
+		const category = promptLibraryStore.category(entry.categoryId);
 		const copy = el("label", { className: "aa-prompt-selector-copy", attrs: { for: inputId, tabindex: "0", "aria-label": entry.title }, children: [
-			el("span", { className: "aa-prompt-selector-title", children: [el("strong", null, entry.title), ...(category ? [el("em", null, category)] : [])] }),
+			el("span", { className: "aa-prompt-selector-title", children: [el("strong", null, entry.title), ...(category ? [applyCategoryColor(el("em", null, category.name), category)] : [])] }),
 			el("small", null, entry.text),
 		] });
-		bindPromptDetails(copy, entry);
-		row.append(preview.root, copy); return row;
+		bindPromptEntryDetails(copy, entry);
+		const isFavorite = (entry.collections || []).length > 0;
+		const favoriteAction = iconButton({ iconName: "favorite", label: `${isFavorite ? t("aaalice.workspace.libraryUi.unfavorite", "Remove from favorites") : t("aaalice.workspace.libraryUi.favorite", "Favorite")} ${entry.title}`, className: `aa-prompt-selector-favorite${isFavorite ? " is-active" : ""}`, variant: "ghost", onClick: (event) => {
+			event.preventDefault(); event.stopPropagation(); closePromptEntryDetails();
+			if (isFavorite) void removeEntryFromFavorites(entry); else openFavoritePicker(entry);
+		} });
+		const editAction = iconButton({ iconName: "edit", label: `${t("aaalice.workspace.libraryUi.edit", "Edit")} ${entry.title}`, className: "aa-prompt-selector-edit", variant: "ghost", onClick: (event) => {
+			event.preventDefault(); event.stopPropagation(); closePromptEntryDetails(); void openPromptLibraryEntryEditor(entry.id);
+		} });
+		const weightAction = isSelected ? promptWeightControl(node, entry.id, selectionById.get(entry.id)?.weight ?? 1) : null;
+		const actions = el("div", { className: "aa-prompt-selector-row-actions", children: [weightAction, favoriteAction, editAction] });
+		row.append(preview.root, copy, actions); return row;
 	}, renderEmpty: () => emptyState({ iconName: "note", className: "aa-prompt-selector-empty", title: t("aaalice.promptSelector.noResultsTitle", "No prompts found"), description: t("aaalice.promptSelector.noResults", "No matching prompt entries.") }) });
 	virtualList.setItems(entries, { preserveScroll: false });
 	return virtualList;
@@ -211,7 +229,7 @@ function render(node) {
 	if (!root) return;
 	const listScrollTop = node._aaalicePromptResetScroll ? 0 : root.querySelector(".aa-prompt-selector-list")?.scrollTop || 0;
 	node._aaalicePromptResetScroll = false;
-	destroyVirtualLists(root); closeImagePreview(); closePromptDetails(); closeSelectionSummary();
+	destroyVirtualLists(root); closeImagePreview(); closePromptEntryDetails(); closeSelectionSummary();
 	root.replaceChildren();
 	const state = stateFor(node);
 	const selectedOnly = Boolean(node._aaalicePromptSelectedOnly);
@@ -248,7 +266,7 @@ function render(node) {
 		bindSelectionSummary(categoryFilter.control, () => categorySelectionSummary(state));
 		toolbar.append(
 			categoryFilter,
-			promptFilterSelect({ label: t("aaalice.promptSelector.allCollections", "All collections"), value: node._aaalicePromptCollection, options: promptLibraryStore.snapshot.collections, onChange: (value) => { node._aaalicePromptCollection = value; node._aaalicePromptResetScroll = true; render(node); } }),
+			promptFilterSelect({ label: t("aaalice.promptSelector.allCollections", "All favorite folders"), value: node._aaalicePromptCollection, options: promptLibraryStore.snapshot.collections.map((item) => ({ ...item, name: favoriteFolderName(item) })), onChange: (value) => { node._aaalicePromptCollection = value; node._aaalicePromptResetScroll = true; render(node); } }),
 			searchButton,
 		);
 	}
@@ -271,6 +289,7 @@ function render(node) {
 		node._aaalicePromptResetScroll = true;
 		render(node);
 	});
+	if (state.selections.length) bindSelectionSummary(summary, () => selectedPromptSummary(state));
 	const clearAction = state.selections.length ? button({
 		label: t("aaalice.promptSelector.clearAll", "Clear selected"),
 		iconName: "close",
@@ -280,13 +299,15 @@ function render(node) {
 		onClick: () => mutate(node, clearPromptSelections),
 	}) : null;
 	const manageLibrary = button({ label: t("aaalice.promptSelector.manageLibrary", "Manage library"), iconName: "note", variant: "ghost", size: "sm", onClick: () => openWorkspace("library") });
-	const manageSelected = button({ label: t("aaalice.promptSelector.manageShort", "Manage"), iconName: "settings", variant: "ghost", size: "sm", disabled: !state.selections.length, onClick: () => openSelectedEditor(node) });
-	if (state.selections.length) bindSelectionSummary(manageSelected, () => selectedPromptSummary(state));
-	const actions = el("div", { className: "aa-prompt-selector-footer-actions", children: [manageLibrary, manageSelected] });
+	const actions = el("div", { className: "aa-prompt-selector-footer-actions", children: [manageLibrary] });
 	footer.append(summary, ...(clearAction ? [clearAction] : []), actions);
 	root.append(toolbar, list, footer);
 	list.scrollTop = listScrollTop;
 	virtualList.refresh();
+	if (node._aaalicePromptWeightFocusEntryId) {
+		const entryId = node._aaalicePromptWeightFocusEntryId; node._aaalicePromptWeightFocusEntryId = null;
+		queueMicrotask(() => [...root.querySelectorAll(".aa-prompt-selector-weight")].find((item) => item.dataset.weightEntryId === entryId)?.focus({ preventScroll: true }));
+	}
 }
 
 function setup(node, loaded = false) {
@@ -305,7 +326,7 @@ function setup(node, loaded = false) {
 	const previousConfigure = node.onConfigure;
 	node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); stateFor(this); render(this); return result; };
 	const previousRemoved = node.onRemoved;
-	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); closePromptDetails(); closeSelectionSummary(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
+	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); closePromptEntryDetails(); closeSelectionSummary(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
 	const previousCompute = node.computeSize;
 	node.computeSize = function () { const size = previousCompute?.apply(this, arguments) || [MIN_WIDTH, MIN_HEIGHT]; return [Math.max(MIN_WIDTH, size[0]), Math.max(MIN_HEIGHT, size[1])]; };
 	render(node); if (!loaded) node.setSize?.(node.computeSize());

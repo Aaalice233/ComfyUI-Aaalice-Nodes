@@ -23,6 +23,14 @@ MAX_EXPANDED_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_MANIFEST_BYTES = 128 * 1024 * 1024
 MAX_ARCHIVE_FILES = 100_000
 IMPORT_STAGE_TTL_SECONDS = 60 * 60
+DEFAULT_COLLECTION_ID = "00000000-0000-5000-8000-000000000001"
+DEFAULT_COLLECTION_NAME = "Favorites"
+CATEGORY_COLOR_PALETTE = (
+    "#7C3AED", "#2563EB", "#0891B2", "#0D9488",
+    "#059669", "#65A30D", "#CA8A04", "#D97706",
+    "#EA580C", "#DC2626", "#E11D48", "#DB2777",
+    "#C026D3", "#9333EA", "#4F46E5", "#0284C7",
+)
 
 
 def _id(value: Any = None) -> str:
@@ -33,6 +41,18 @@ def _text(value: Any, field: str, *, empty: bool = True) -> str:
     if not isinstance(value, str) or (not empty and not value.strip()):
         raise ValueError(f"{field} must be a string" + ("" if empty else " and cannot be empty"))
     return value
+
+
+def _category_color(value: Any, fallback: str | None = None) -> str:
+    if value is None or value == "":
+        if fallback is not None:
+            return fallback
+        raise ValueError("category color is required")
+    if not isinstance(value, str) or len(value) != 7 or value[0] != "#" or any(
+        character not in "0123456789abcdefABCDEF" for character in value[1:]
+    ):
+        raise ValueError("category color must use #RRGGBB format")
+    return value.upper()
 
 
 def detect_image(data: bytes) -> tuple[str, str]:
@@ -82,7 +102,8 @@ class PromptLibrary:
             db.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS categories (
-                    id TEXT PRIMARY KEY, name TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0
+                    id TEXT PRIMARY KEY, name TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0,
+                    color TEXT NOT NULL DEFAULT ''
                 );
                 CREATE TABLE IF NOT EXISTS assets (
                     hash TEXT PRIMARY KEY, mime TEXT NOT NULL, extension TEXT NOT NULL, size INTEGER NOT NULL
@@ -112,6 +133,24 @@ class PromptLibrary:
                 );
                 """
             )
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(categories)")}
+            if "color" not in columns:
+                db.execute("ALTER TABLE categories ADD COLUMN color TEXT NOT NULL DEFAULT ''")
+            category_rows = db.execute("SELECT id, color FROM categories ORDER BY position, name, id").fetchall()
+            for index, row in enumerate(category_rows):
+                fallback = CATEGORY_COLOR_PALETTE[index % len(CATEGORY_COLOR_PALETTE)]
+                try:
+                    color = _category_color(row["color"], fallback)
+                except ValueError:
+                    color = fallback
+                if row["color"] != color:
+                    db.execute("UPDATE categories SET color = ? WHERE id = ?", (color, row["id"]))
+            default_position = int(db.execute("SELECT COALESCE(MIN(position), 1) - 1 FROM collections").fetchone()[0])
+            db.execute(
+                "INSERT OR IGNORE INTO collections(id, name, position) VALUES (?, ?, ?)",
+                (DEFAULT_COLLECTION_ID, DEFAULT_COLLECTION_NAME, default_position),
+            )
+            db.commit()
 
     @contextmanager
     def transaction(self):
@@ -161,12 +200,21 @@ class PromptLibrary:
     def _next_position(self, db: sqlite3.Connection, table: str) -> int:
         return int(db.execute(f"SELECT COALESCE(MAX(position), -1) + 1 FROM {table}").fetchone()[0])
 
+    @staticmethod
+    def _next_category_color(db: sqlite3.Connection, position: int) -> str:
+        used = {row[0].upper() for row in db.execute("SELECT color FROM categories") if row[0]}
+        return next(
+            (color for color in CATEGORY_COLOR_PALETTE if color not in used),
+            CATEGORY_COLOR_PALETTE[position % len(CATEGORY_COLOR_PALETTE)],
+        )
+
     def create_category(self, data: dict[str, Any]) -> dict[str, Any]:
         category_id = _id(data.get("id"))
         with self.transaction() as db:
             position = int(data.get("position", self._next_position(db, "categories")))
-            db.execute("INSERT INTO categories(id, name, position) VALUES (?, ?, ?)",
-                       (category_id, _text(data.get("name"), "category name", empty=False), position))
+            color = _category_color(data.get("color"), self._next_category_color(db, position))
+            db.execute("INSERT INTO categories(id, name, position, color) VALUES (?, ?, ?, ?)",
+                       (category_id, _text(data.get("name"), "category name", empty=False), position, color))
         return next(item for item in self.snapshot()["categories"] if item["id"] == category_id)
 
     def update_category(self, category_id: str, data: dict[str, Any]) -> None:
@@ -187,6 +235,8 @@ class PromptLibrary:
         self._update_named("collections", collection_id, data)
 
     def delete_collection(self, collection_id: str) -> None:
+        if collection_id == DEFAULT_COLLECTION_ID:
+            raise ValueError("the default favorites collection cannot be deleted")
         self._delete("collections", collection_id)
 
     def _update_named(self, table: str, item_id: str, data: dict[str, Any]) -> None:
@@ -198,6 +248,9 @@ class PromptLibrary:
         if "position" in data:
             fields.append("position = ?")
             values.append(int(data["position"]))
+        if table == "categories" and "color" in data:
+            fields.append("color = ?")
+            values.append(_category_color(data["color"]))
         if not fields:
             return
         with self.transaction() as db:
@@ -286,6 +339,24 @@ class PromptLibrary:
             db.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         if preview_hash:
             self._cleanup_asset(preview_hash)
+
+    def delete_entries(self, entry_ids: list[str]) -> int:
+        unique_ids = list(dict.fromkeys(entry_ids))
+        if not unique_ids:
+            return 0
+        with self.transaction() as db:
+            placeholders = ",".join("?" for _ in unique_ids)
+            rows = db.execute(
+                f"SELECT id, preview_hash FROM entries WHERE id IN ({placeholders})",
+                unique_ids,
+            ).fetchall()
+            if len(rows) != len(unique_ids):
+                raise KeyError("one or more prompt entries are missing")
+            preview_hashes = {row[1] for row in rows if row[1]}
+            db.execute(f"DELETE FROM entries WHERE id IN ({placeholders})", unique_ids)
+        for preview_hash in preview_hashes:
+            self._cleanup_asset(preview_hash)
+        return len(unique_ids)
 
     def batch_update_entries(
         self,
@@ -609,6 +680,11 @@ class PromptLibrary:
                     raise ValueError(f"manifest {field}[{index}] has no valid name")
                 if "position" in item and (not isinstance(item["position"], int) or isinstance(item["position"], bool)):
                     raise ValueError(f"manifest {field}[{index}] has an invalid position")
+                if field == "categories" and "color" in item:
+                    try:
+                        _category_color(item["color"])
+                    except ValueError as exc:
+                        raise ValueError(f"manifest categories[{index}] has an invalid color") from exc
                 seen.add(item["id"])
 
     @staticmethod
@@ -667,7 +743,8 @@ class PromptLibrary:
             iterable = [("Imported", source)]
         for category_position, (category_name, values) in enumerate(iterable):
             category_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"aaalice:legacy-category:{category_name}"))
-            categories.append({"id": category_id, "name": str(category_name), "position": category_position})
+            categories.append({"id": category_id, "name": str(category_name), "position": category_position,
+                               "color": CATEGORY_COLOR_PALETTE[category_position % len(CATEGORY_COLOR_PALETTE)]})
             if isinstance(values, dict):
                 values = values.get("prompts", values.get("items", []))
             if not isinstance(values, list):
@@ -786,12 +863,18 @@ class PromptLibrary:
                         "INSERT OR IGNORE INTO assets(hash,mime,extension,size) VALUES (?,?,?,?)",
                         (digest, mime, extension, size),
                     )
-                for table, values in (("categories", manifest["categories"]), ("collections", manifest["collections"])):
-                    for item in values:
-                        db.execute(
-                            f"INSERT OR IGNORE INTO {table}(id,name,position) VALUES (?,?,?)",
-                            (item["id"], item["name"], int(item.get("position", 0))),
-                        )
+                for item in manifest["categories"]:
+                    position = int(item.get("position", 0))
+                    color = _category_color(item.get("color"), CATEGORY_COLOR_PALETTE[position % len(CATEGORY_COLOR_PALETTE)])
+                    db.execute(
+                        "INSERT OR IGNORE INTO categories(id,name,position,color) VALUES (?,?,?,?)",
+                        (item["id"], item["name"], position, color),
+                    )
+                for item in manifest["collections"]:
+                    db.execute(
+                        "INSERT OR IGNORE INTO collections(id,name,position) VALUES (?,?,?)",
+                        (item["id"], item["name"], int(item.get("position", 0))),
+                    )
                 for tag in manifest["tags"]:
                     db.execute("INSERT OR IGNORE INTO tags(id,name) VALUES (?,?)", (tag["id"], tag["name"]))
                 for raw in manifest["entries"]:

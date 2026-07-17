@@ -43,15 +43,6 @@ export function countPromptSelectionsByCategory(state, entries) {
 	return counts;
 }
 
-export function reorderPromptSelection(state, entryId, targetIndex) {
-	const next = normalizePromptSelectorState(state);
-	const index = next.selections.findIndex((item) => item.entryId === entryId);
-	if (index < 0) return next;
-	const [item] = next.selections.splice(index, 1);
-	next.selections.splice(Math.max(0, Math.min(next.selections.length, targetIndex)), 0, item);
-	return next;
-}
-
 export function setPromptWeight(state, entryId, weight) {
 	const next = normalizePromptSelectorState(state);
 	const item = next.selections.find((selection) => selection.entryId === entryId);

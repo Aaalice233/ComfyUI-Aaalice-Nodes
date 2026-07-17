@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import sqlite3
 import tempfile
 import unittest
 import zipfile
@@ -10,7 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from nodes._lib import prompt_library as prompt_library_module
-from nodes._lib.prompt_library import PromptLibrary
+from nodes._lib.prompt_library import DEFAULT_COLLECTION_ID, DEFAULT_COLLECTION_NAME, PromptLibrary
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"test-image"
 
@@ -52,6 +53,47 @@ class PromptLibraryTests(unittest.TestCase):
         self.assertIsNone(self.library.get_entry(entry["id"])["categoryId"])
         self.library.delete_entry(entry["id"])
         self.assertEqual(self.library.snapshot()["entries"], [])
+
+    def test_batch_delete_is_atomic_and_cleans_shared_assets(self):
+        first = self.library.create_entry({"title": "A", "text": "a"})
+        second = self.library.create_entry({"title": "B", "text": "b"})
+        asset = self.library.set_preview(first["id"], PNG)
+        self.library.set_preview(second["id"], PNG)
+        with self.assertRaisesRegex(KeyError, "missing"):
+            self.library.delete_entries([first["id"], "missing"])
+        self.assertIsNotNone(self.library.get_entry(first["id"]))
+        self.assertEqual(self.library.delete_entries([first["id"], second["id"]]), 2)
+        self.assertEqual(self.library.snapshot()["entries"], [])
+        with self.assertRaises(KeyError):
+            self.library.asset(asset["hash"])
+
+    def test_default_favorite_folder_is_created_and_cannot_be_deleted(self):
+        default = next(item for item in self.library.snapshot()["collections"] if item["id"] == DEFAULT_COLLECTION_ID)
+        self.assertEqual(default["name"], DEFAULT_COLLECTION_NAME)
+        with self.assertRaisesRegex(ValueError, "default favorites"):
+            self.library.delete_collection(DEFAULT_COLLECTION_ID)
+        self.assertTrue(any(item["id"] == DEFAULT_COLLECTION_ID for item in self.library.snapshot()["collections"]))
+
+    def test_category_colors_are_assigned_distinctly_and_can_be_updated(self):
+        first = self.library.create_category({"name": "Appearance"})
+        second = self.library.create_category({"name": "Pose"})
+        self.assertRegex(first["color"], r"^#[0-9A-F]{6}$")
+        self.assertNotEqual(first["color"], second["color"])
+        self.library.update_category(first["id"], {"color": "#abcdef"})
+        updated = next(item for item in self.library.snapshot()["categories"] if item["id"] == first["id"])
+        self.assertEqual(updated["color"], "#ABCDEF")
+        with self.assertRaisesRegex(ValueError, "#RRGGBB"):
+            self.library.update_category(first["id"], {"color": "blue"})
+
+    def test_existing_database_categories_receive_palette_colors(self):
+        with tempfile.TemporaryDirectory() as target:
+            db = sqlite3.connect(Path(target) / "prompt-library.sqlite3")
+            db.execute("CREATE TABLE categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0)")
+            db.execute("INSERT INTO categories(id,name,position) VALUES ('legacy','Legacy',0)")
+            db.commit()
+            db.close()
+            migrated = PromptLibrary(target)
+            self.assertEqual(migrated.snapshot()["categories"][0]["color"], prompt_library_module.CATEGORY_COLOR_PALETTE[0])
 
     def test_preview_content_hash_lifecycle(self):
         _category, _collection, entry = self.seed()
@@ -95,6 +137,7 @@ class PromptLibraryTests(unittest.TestCase):
             self.assertEqual(result["imported"], 1)
             self.assertEqual(imported.get_entry(entry["id"])["text"], "red hair")
             self.assertEqual(imported.get_entry(entry["id"])["collections"][0]["collectionId"], collection["id"])
+            self.assertEqual(imported.snapshot()["categories"][0]["color"], category["color"])
         self.library.discard_import(token)
         archive.unlink()
 
@@ -134,6 +177,7 @@ class PromptLibraryTests(unittest.TestCase):
         token, manifest, assets = self.prepare_bytes(raw, "legacy.json")
         self.assertEqual(manifest["entries"][0]["text"], "smile")
         self.assertEqual(manifest["entries"][0]["note"], "Friendly expression")
+        self.assertEqual(manifest["categories"][0]["color"], prompt_library_module.CATEGORY_COLOR_PALETTE[0])
         self.assertEqual({item["name"] for item in manifest["tags"]}, {"face", "happy"})
         self.assertEqual(len(manifest["entries"][0]["tagIds"]), 2)
         first = self.library.apply_import(manifest, assets)
@@ -204,6 +248,13 @@ class PromptLibraryTests(unittest.TestCase):
         result = self.library.preflight_import(manifest)
         self.assertEqual(len(result["invalid"]), 1)
         self.assertIn("unknown category", result["invalid"][0]["reason"])
+
+    def test_manifest_rejects_invalid_category_color(self):
+        manifest = {"format": "aaalice-prompt-library", "version": 1,
+                    "categories": [{"id": "category", "name": "Category", "color": "red"}],
+                    "collections": [], "tags": [], "entries": []}
+        with self.assertRaisesRegex(ValueError, "invalid color"):
+            self.library.preflight_import(manifest)
 
 
 if __name__ == "__main__":
