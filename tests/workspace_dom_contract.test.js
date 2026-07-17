@@ -21,6 +21,10 @@ const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace
 test("workspace is an official left sidebar with reusable component boundaries", () => {
 	assert.match(workspace, /registerSidebarTab/);
 	assert.match(workspace, /id: TAB_ID/);
+	assert.match(workspace, /function installWorkspaceCanvasAutoClose/);
+	assert.match(workspace, /canvas\.addEventListener\("click"/);
+	assert.match(workspace, /sidebar\.activeSidebarTabId === TAB_ID/);
+	assert.match(workspace, /sidebar\.toggleSidebarTab\(TAB_ID\)/);
 	assert.match(workspace, /createWorkspaceShell/);
 	assert.match(components, /segmentedControl/);
 	assert.match(workspace, /createSectionCard/);
@@ -308,6 +312,8 @@ test("prompt entry editor prioritizes prompt content and uses shared themed cont
 	assert.match(workspace, /multiSelectControl\(\{/);
 	assert.match(workspace, /collectionIds: collections\.values\(\)/);
 	assert.match(workspace, /className: "aa-library-entry-preview-card"/);
+	assert.match(workspace, /previewFooter\.hidden = !\(file \|\| existingPreviewUrl\)/);
+	assert.doesNotMatch(workspace, /libraryUi\.noPreview/);
 	assert.match(workspace, /className: "aa-library-entry-preview-overlay"/);
 	assert.match(workspace, /removePreviewRequested/);
 	assert.match(workspace, /URL\.revokeObjectURL\(selectedPreviewUrl\)/);
@@ -320,7 +326,10 @@ test("prompt entry editor prioritizes prompt content and uses shared themed cont
 	assert.match(uiStyles, /\.aa-ui-multiselect__option\.is-selected/);
 	assert.match(uiStyles, /\.aa-ui-listbox__option\.is-selected/);
 	assert.match(theme, /\.aa-library-entry-dialog \{ width: min\(820px/);
-	assert.match(theme, /\.aa-library-entry-prompt-field textarea \{ min-height: 238px/);
+	assert.match(theme, /\.aa-library-entry-dialog \.aa-library-entry-prompt-field textarea \{ min-height: 238px/);
+	assert.match(theme, /\.aa-library-entry-dialog \.aa-library-entry-note-field \{[^}]*flex: 1;/);
+	assert.match(theme, /\.aa-library-entry-dialog \.aa-library-entry-note-field textarea \{[^}]*flex: 1;/);
+	assert.match(theme, /\.aa-library-entry-preview-footer\[hidden\] \{ display: none; \}/);
 	assert.match(theme, /@media \(max-width: 720px\)[\s\S]*\.aa-library-entry-lower \{ grid-template-columns: 1fr;/);
 });
 

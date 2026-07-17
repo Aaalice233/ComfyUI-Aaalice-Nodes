@@ -23,6 +23,7 @@ import {
 const EXTRA_KEY = "aaaliceSidebar";
 const TAB_ID = "aaalice-workspace";
 const mounted = new Set();
+const autoCloseCanvases = new WeakSet();
 let activeWorkspace = "dashboard";
 let activePageId = null;
 let lastSectionId = null;
@@ -42,6 +43,18 @@ export function openWorkspace(view = "dashboard") {
 	activeWorkspace = view;
 	sidebar.activeSidebarTabId = TAB_ID;
 	scheduleRender();
+}
+
+function installWorkspaceCanvasAutoClose() {
+	const canvas = app.canvas?.canvas;
+	const sidebar = app.extensionManager?.sidebarTab;
+	if (!(canvas instanceof HTMLCanvasElement)) throw new Error("[Aaalice] ComfyUI canvas is unavailable");
+	if (!sidebar || typeof sidebar.toggleSidebarTab !== "function") throw new Error("[Aaalice] ComfyUI sidebar toggle is unavailable");
+	if (autoCloseCanvases.has(canvas)) return;
+	autoCloseCanvases.add(canvas);
+	canvas.addEventListener("click", () => {
+		if (sidebar.activeSidebarTabId === TAB_ID) sidebar.toggleSidebarTab(TAB_ID);
+	});
 }
 
 export async function openPromptLibraryEntryEditor(entryId) {
@@ -443,6 +456,7 @@ function entryEditor(entry = null) {
 	const previewMedia = el("div", "aa-library-entry-preview-media");
 	const previewFileName = el("span", "aa-library-entry-preview-name");
 	const previewAction = el("div", "aa-library-entry-preview-action");
+	const previewFooter = el("div", { className: "aa-library-entry-preview-footer", children: [previewFileName, previewAction] });
 	const previewPicker = el("label", { className: "aa-library-entry-preview-picker", children: [
 		preview,
 		previewMedia,
@@ -465,7 +479,7 @@ function entryEditor(entry = null) {
 			previewMedia.append(el("span", { className: "aa-library-entry-preview-empty", children: [icon("note"), el("span", null, t("aaalice.workspace.libraryUi.previewEmptyHint", "Click to choose a preview image"))] }));
 		}
 		previewPicker.classList.toggle("has-image", Boolean(imageUrl));
-		previewFileName.textContent = file?.name || (imageUrl ? t("aaalice.workspace.libraryUi.currentPreview", "Current preview image") : t("aaalice.workspace.libraryUi.noPreview", "No preview image"));
+		previewFileName.textContent = file?.name || (imageUrl ? t("aaalice.workspace.libraryUi.currentPreview", "Current preview image") : "");
 		previewAction.replaceChildren();
 		if (file) {
 			previewAction.append(button({ label: t("aaalice.workspace.libraryUi.clearPreviewSelection", "Clear selected image"), iconName: "delete", variant: "ghost", size: "sm", className: "aa-library-entry-preview-remove", onClick: () => { preview.value = ""; releaseSelectedPreview(); renderPreview(); } }));
@@ -476,6 +490,7 @@ function entryEditor(entry = null) {
 				onClick: () => { removePreviewRequested = !removePreviewRequested; renderPreview(); },
 			}));
 		}
+		previewFooter.hidden = !(file || existingPreviewUrl);
 	};
 	preview.addEventListener("change", () => {
 		releaseSelectedPreview();
@@ -500,7 +515,7 @@ function entryEditor(entry = null) {
 	] });
 	const previewSection = el("section", { className: "aa-library-entry-section is-preview", children: [
 		el("h3", null, t("aaalice.workspace.libraryUi.preview", "Preview image")),
-		el("div", { className: "aa-library-entry-preview-card", children: [previewPicker, el("div", { className: "aa-library-entry-preview-footer", children: [previewFileName, previewAction] })] }),
+		el("div", { className: "aa-library-entry-preview-card", children: [previewPicker, previewFooter] }),
 	] });
 	const body = el("div", { className: "aa-library-entry-form", children: [contentSection, el("div", { className: "aa-library-entry-lower", children: [organizeSection, previewSection] })] });
 	const footer = el("div"); const dialog = createDialog({
@@ -947,6 +962,7 @@ app.registerExtension({
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
 	setup() {
 		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.title", "Aaalice Workspace"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { element.classList.add("aa-workspace-host"); mounted.add(element); renderWorkspace(element); return () => { closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.querySelector(".aa-workspace-content")?._aaaliceSectionObserver?.disconnect(); element.classList.remove("aa-workspace-host"); mounted.delete(element); }; } });
+		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphStructureSignature();
 		api.addEventListener("graphChanged", scheduleGraphSync);
 		window.addEventListener("aaalice-parameter-panel-changed", () => scheduleRender("dashboard")); promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
