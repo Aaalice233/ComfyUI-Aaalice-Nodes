@@ -122,6 +122,9 @@ test("PromptSelector can open the official sidebar directly on library managemen
 	assert.match(selector, /className: "aa-prompt-selector-row-actions"/);
 	assert.match(selector, /event\.preventDefault\(\); event\.stopPropagation\(\); closePromptEntryDetails\(\)/);
 	assert.match(theme, /\.aa-prompt-selector-row:hover \.aa-prompt-selector-row-actions \.aa-ui-button/);
+	assert.match(theme, /\.aa-prompt-selector-edit \{ color: var\(--aa-ui-accent\); \}/);
+	assert.match(theme, /\.aa-prompt-selector-favorite \{[^}]*color: var\(--aa-ui-warning\);/);
+	assert.match(theme, /\.aa-prompt-selector-favorite\.is-active \{[^}]*background: transparent;[^}]*box-shadow: none;/);
 	assert.match(theme, /\.aa-prompt-selector-favorite\.is-active \.aa-ui-icon \{ fill: currentColor; \}/);
 });
 

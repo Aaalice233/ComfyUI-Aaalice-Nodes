@@ -1049,10 +1049,14 @@
 .aa-prompt-selector-weight.is-default { border-color: var(--aa-ui-border-soft); background: color-mix(in srgb, var(--aa-ui-control) 82%, transparent); color: var(--aa-ui-muted); }
 .aa-prompt-selector-row:hover .aa-prompt-selector-weight, .aa-prompt-selector-row:focus-within .aa-prompt-selector-weight { opacity: 1; pointer-events: auto; transform: translateX(0); }
 .aa-prompt-selector-weight:hover, .aa-prompt-selector-weight:focus-visible { border-color: color-mix(in srgb, var(--aa-ui-accent) 64%, var(--aa-ui-border)); background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-accent) 14%, transparent); }
+.aa-prompt-selector-edit { color: var(--aa-ui-accent); }
 .aa-prompt-selector-edit:hover:not(:disabled), .aa-prompt-selector-edit:focus-visible { background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); }
-.aa-prompt-selector-favorite.is-active { color: var(--aa-ui-accent); }
+.aa-prompt-selector-favorite { border-radius: 50%; color: var(--aa-ui-warning); }
+.aa-prompt-selector-favorite.is-active { border-color: transparent; background: transparent; box-shadow: none; color: var(--aa-ui-warning); }
 .aa-prompt-selector-favorite.is-active .aa-ui-icon { fill: currentColor; }
-.aa-prompt-selector-favorite:hover:not(:disabled), .aa-prompt-selector-favorite:focus-visible { background: color-mix(in srgb, var(--aa-ui-accent) 13%, transparent); color: var(--aa-ui-accent); }
+.aa-prompt-selector-favorite:hover:not(:disabled), .aa-prompt-selector-favorite:focus-visible { background: color-mix(in srgb, var(--aa-ui-warning) 13%, transparent); color: var(--aa-ui-warning); }
+.aa-prompt-selector-favorite.is-active:hover:not(:disabled) { border-color: transparent; background: transparent; box-shadow: none; }
+.aa-prompt-selector-favorite.is-active:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-warning) 32%, transparent); }
 .aa-prompt-selector-title { display: flex; min-width: 0; align-items: center; gap: 6px; }
 .aa-prompt-selector-title strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 620; }
 .aa-prompt-selector-title em { min-width: 0; overflow: hidden; padding: 1px 5px; border-radius: 5px; background: color-mix(in srgb, var(--aa-ui-control) 74%, transparent); color: var(--aa-ui-muted); font-size: 9px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
