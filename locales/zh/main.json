@@ -12,6 +12,7 @@
     },
     "workspace": {
       "title": "Aaalice 工作区", "dashboard": "参数控制", "library": "词库管理", "edit": "编辑布局", "done": "完成", "dashboardActions": "控制台操作",
+      "search": { "parameters": "搜索参数", "parametersPlaceholder": "搜索当前页面", "library": "搜索词库", "close": "收起搜索", "noParameters": "没有匹配的参数。" },
       "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。" },
       "page": { "pages": "侧边栏页面", "add": "新建页面", "name": "页面名称", "default": "生成参数", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
       "section": { "sections": "分区导航", "add": "新建分区", "name": "分区名称", "default": "参数", "rename": "重命名分区", "delete": "删除分区", "toggle": "展开或折叠分区", "empty": "添加分区后即可开始安排参数。" },
@@ -27,7 +28,7 @@
       "libraryUi": {
         "addEntry": "添加词条", "editEntry": "编辑词条", "edit": "编辑", "title": "标题", "prompt": "提示词", "note": "备注", "category": "分类", "categories": "分类", "collections": "合集", "tags": "标签", "preview": "预览图", "removePreview": "移除当前预览图",
         "batch": "批量编辑已选词条", "keepCategory": "保留原分类", "noCategory": "无分类", "addCollection": "加入合集", "removeCollection": "移出合集", "noCollectionChange": "不修改合集",
-        "addCategory": "添加分类", "addCollectionAction": "添加合集", "manage": "管理词库", "manageAction": "管理", "manageCategories": "管理分类", "manageCollections": "管理合集", "moveUp": "上移", "rename": "重命名", "name": "名称", "deleteConfirm": "删除", "deleteEntryConfirm": "确定删除这个词条吗？", "select": "选择",
+        "addCategory": "添加分类", "addCollectionAction": "添加合集", "add": "添加", "manage": "分类与合集管理", "manageAction": "分类与合集", "manageCategories": "管理分类", "manageCollections": "管理合集", "categoriesHint": "每个词条归属一个分类，用于建立清晰的主结构。", "collectionsHint": "合集可以跨分类组织词条，方便按用途灵活复用。", "newCategory": "输入新分类名称", "newCollection": "输入新合集名称", "noCategories": "还没有分类", "noCollections": "还没有合集", "taxonomyEmptyHint": "在下方创建一个，开始整理提示词条。", "entriesCount": "个词条", "moveUp": "上移", "moveDown": "下移", "rename": "重命名", "name": "名称", "deleteConfirm": "删除", "deleteEntryConfirm": "确定删除这个词条吗？", "select": "选择",
         "actions": "词库操作", "emptyTitle": "词库还是空的", "emptyDescription": "添加第一个词条，之后就能在提示词选择器中反复使用。", "noMatchTitle": "没有匹配的词条",
         "export": "导出", "exportSelected": "导出已选", "import": "导入", "importTitle": "导入词库", "keepLocal": "保留本地", "useImport": "使用导入内容", "createDuplicate": "创建副本", "new": "新增", "existing": "已有", "conflicts": "冲突", "duplicates": "重复", "invalid": "无效"
       }

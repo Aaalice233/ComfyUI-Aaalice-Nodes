@@ -9,9 +9,9 @@ import {
 	findSection, moveItem, normalizeDashboard, preflightDashboardPreset, stableId,
 } from "./lib/dashboard_model.js";
 import { promptLibraryStore } from "./lib/library_store.js";
-import { button, createDialog, el, emptyState, field, iconButton, toggleSwitch } from "./lib/ui.js";
+import { badge, button, createDialog, el, emptyState, field, iconButton, segmentedControl, toggleSwitch } from "./lib/ui.js";
 import {
-	createControlCard, createListRow, createPageTabs, createSectionCard,
+	createCollapsibleSearch, createControlCard, createListRow, createPageTabs, createSectionCard,
 	createWorkspaceShell, createWorkspaceToolbar,
 } from "./lib/workspace_components.js";
 
@@ -23,6 +23,10 @@ let activePageId = null;
 let lastSectionId = null;
 let editMode = false;
 let renderFrame = 0;
+const workspaceViewState = {
+	dashboard: { query: "", searchOpen: false, focusSearch: false },
+	library: { query: "", searchOpen: false, focusSearch: false, categoryId: "", collectionId: "", selected: new Set() },
+};
 
 export function openWorkspace(view = "dashboard") {
 	if (!["dashboard", "library"].includes(view)) throw new Error(`[Aaalice] Unknown workspace view: ${view}`);
@@ -139,19 +143,33 @@ function openMoveControl(item) {
 function renderDashboard(container) {
 	container.classList.toggle("is-layout-editing", editMode);
 	const model = dashboard(); const page = currentPage(model);
-	const toolbar = createWorkspaceToolbar([
-		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Edit layout"), iconName: editMode ? "statusCheck" : "layout", variant: editMode ? "primary" : "secondary", size: "sm", onClick: () => { editMode = !editMode; scheduleRender(); } }),
+	const viewState = workspaceViewState.dashboard;
+	const query = viewState.query;
+	const searchOpen = Boolean(page && !editMode && viewState.searchOpen);
+	const focusSearch = viewState.focusSearch; viewState.focusSearch = false;
+	let applyDashboardSearch = () => {};
+	const search = createCollapsibleSearch({
+		open: searchOpen, value: query, disabled: !page || editMode, focus: focusSearch,
+		label: t("aaalice.workspace.search.parameters", "Search parameters"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.search.parametersPlaceholder", "Search the current page"),
+		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; if (!open) viewState.query = ""; scheduleRender(); },
+		onInput: (value) => { viewState.query = value; applyDashboardSearch(value); },
+	});
+	const dashboardActions = [
+		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Edit layout"), iconName: editMode ? "statusCheck" : "layout", variant: editMode ? "primary" : "secondary", size: "sm", onClick: () => { editMode = !editMode; if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
 		iconButton({ iconName: "download", label: t("aaalice.workspace.preset.export", "Export preset"), variant: "ghost", onClick: () => {
 			const preset = exportDashboardPreset(model, (binding) => resolve(binding)); downloadBlob(new Blob([JSON.stringify(preset, null, 2)], { type: "application/json" }), "aaalice-dashboard-preset.json");
 		} }),
 		iconButton({ iconName: "upload", label: t("aaalice.workspace.preset.import", "Import preset"), variant: "ghost", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
-	], { className: "aa-dashboard-toolbar", label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
-	container.append(toolbar, createPageTabs({
+		search.toggle,
+	];
+	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : dashboardActions, { className: `aa-dashboard-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
+	const pageTabs = createPageTabs({
 		pages: model.pages, activeId: page?.id, editMode, labels: workspaceLabels(), onSelect: (id) => { activePageId = id; scheduleRender(); }, onAdd: addPage,
 		onRename: (target) => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), target.name, (name) => updateDashboard((current) => { current.pages.find((item) => item.id === target.id).name = name; return current; })), onDelete: removePage,
 		onDuplicate: (target) => updateDashboard((current) => { const source = current.pages.find((item) => item.id === target.id); const copy = structuredClone(source); copy.id = stableId("page"); copy.name = `${copy.name} copy`; for (const section of copy.sections) { section.id = stableId("section"); for (const item of section.items) item.id = stableId("item"); } current.pages.splice(current.pages.indexOf(source) + 1, 0, copy); activePageId = copy.id; return current; }),
 		onReorder: (sourceId, targetId) => updateDashboard((current) => { const sourceIndex = current.pages.findIndex((item) => item.id === sourceId); const targetIndex = current.pages.findIndex((item) => item.id === targetId); if (sourceIndex >= 0 && targetIndex >= 0) { const [source] = current.pages.splice(sourceIndex, 1); current.pages.splice(targetIndex, 0, source); } return current; }),
-	}));
+	});
+	container.append(toolbar, pageTabs);
 	if (!page) { container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
 	if (editMode) container.append(createWorkspaceToolbar([
 		button({ label: t("aaalice.workspace.section.add", "Add section"), variant: "ghost", size: "sm", onClick: () => addSection(page) }),
@@ -165,6 +183,7 @@ function renderDashboard(container) {
 		for (const item of section.items) {
 			if (item.kind !== "control") {
 				const special = el("div", item.kind === "separator" ? "aa-dashboard-separator" : "aa-dashboard-spacer", item.kind === "separator" ? item.label : "");
+				special.dataset.searchText = String(item.label || "").toLocaleLowerCase();
 				if (editMode) {
 					special.draggable = true; special.dataset.itemId = item.id;
 					special.append(iconButton({ iconName: "delete", label: t("aaalice.workspace.layout.remove", "Remove layout item"), variant: "ghost", onClick: () => updateDashboard((current) => { const target = findSection(current, page.id, section.id).section; target.items = target.items.filter((entry) => entry.id !== item.id); return current; }) }));
@@ -176,12 +195,14 @@ function renderDashboard(container) {
 			}
 			const resolved = resolve(item.binding);
 			const control = resolved.status === "ok" ? createControlElement(resolved, { onCommit: scheduleRender }) : button({ label: t("aaalice.workspace.binding.rebind", "Rebind"), variant: "secondary", size: "sm", onClick: () => openRebind(item) });
-			const card = createControlCard({ item, title: item.label || resolved.label || item.binding.controlId, control, status: resolved.status, editMode, labels: workspaceLabels(),
+			const cardTitle = item.label || resolved.label || item.binding.controlId;
+			const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, editMode, labels: workspaceLabels(),
 				onManage: () => openCardActions(page.id, section.id, item), onMove: () => openMoveControl(item),
 				onRemove: () => updateDashboard((current) => { const target = findSection(current, page.id, section.id).section; target.items = target.items.filter((entry) => entry.id !== item.id); return current; }),
 				onToggleSpan: () => editItem(page.id, section.id, item.id, (target) => { target.span = target.span === 2 ? 1 : 2; }),
 				onToggleCompact: () => editItem(page.id, section.id, item.id, (target) => { target.compact = !target.compact; }), draggable: editMode,
 			});
+			card.dataset.searchText = String(cardTitle).toLocaleLowerCase();
 			if (editMode) {
 				card.addEventListener("dragstart", (event) => event.dataTransfer?.setData("application/x-aaalice-dashboard-item", item.id));
 				card.addEventListener("dragover", (event) => event.preventDefault());
@@ -195,13 +216,31 @@ function renderDashboard(container) {
 			onRename: () => askText(t("aaalice.workspace.section.rename", "Rename section"), t("aaalice.workspace.section.name", "Section name"), section.title, (name) => updateDashboard((current) => { findSection(current, page.id, section.id).section.title = name; return current; })),
 			onDelete: () => updateDashboard((current) => { const target = current.pages.find((entry) => entry.id === page.id); target.sections = target.sections.filter((entry) => entry.id !== section.id); return current; }),
 		});
+		sectionElement.dataset.searchText = section.title.toLocaleLowerCase(); sectionElement.dataset.collapsed = String(section.collapsed);
 		sectionElement.addEventListener("dragover", (event) => { if (editMode) event.preventDefault(); });
 		sectionElement.addEventListener("drop", (event) => { const source = event.dataTransfer?.getData("application/x-aaalice-dashboard-item"); if (source) updateDashboard((current) => moveItem(current, source, page.id, section.id, section.items.length)); });
 		scroll.append(sectionElement);
 		const dot = button({ label: "", variant: "ghost", size: "icon", ariaLabel: section.title, onClick: () => sectionElement.scrollIntoView({ behavior: "smooth", block: "start" }) }); dot.classList.add("aa-dashboard-dot"); rail.append(dot); sectionDots.push({ section: sectionElement, dot });
 	}
 	if (!page.sections.length) scroll.append(emptyState({ description: t("aaalice.workspace.section.empty", "Add a section to start arranging controls.") }));
-	container.append(el("div", { className: "aa-dashboard-body", children: [scroll, rail] }));
+	const searchEmpty = emptyState({ iconName: "search", className: "aa-workspace-empty aa-dashboard-search-empty", description: t("aaalice.workspace.search.noParameters", "No matching parameters.") }); searchEmpty.hidden = true; scroll.append(searchEmpty);
+	const body = el("div", { className: "aa-dashboard-body", children: [scroll, rail] }); container.append(body);
+	applyDashboardSearch = (value) => {
+		const needle = String(value || "").trim().toLocaleLowerCase(); let visibleSections = 0;
+		body.classList.toggle("is-searching", Boolean(needle)); rail.hidden = Boolean(needle);
+		for (const sectionElement of scroll.querySelectorAll(".aa-dashboard-section")) {
+			const sectionMatches = Boolean(needle && sectionElement.dataset.searchText.includes(needle)); let visibleItems = 0;
+			const grid = sectionElement.querySelector(".aa-dashboard-grid");
+			for (const item of grid.children) {
+				const visible = !needle || sectionMatches || String(item.dataset.searchText || "").includes(needle);
+				item.hidden = !visible; if (visible) visibleItems++;
+			}
+			const visible = !needle || sectionMatches || visibleItems > 0; sectionElement.hidden = !visible;
+			grid.hidden = needle ? false : sectionElement.dataset.collapsed === "true"; if (visible) visibleSections++;
+		}
+		searchEmpty.hidden = !needle || visibleSections > 0;
+	};
+	applyDashboardSearch(searchOpen ? query : "");
 	if (sectionDots.length && typeof IntersectionObserver !== "undefined") {
 		const visibility = new Map();
 		container._aaaliceSectionObserver = new IntersectionObserver((entries) => {
@@ -256,32 +295,85 @@ function entryEditor(entry = null) {
 	} })); dialog.open();
 }
 
-function manageTaxonomy(kind) {
-	const isCategory = kind === "categories"; const title = isCategory ? t("aaalice.workspace.libraryUi.manageCategories", "Manage categories") : t("aaalice.workspace.libraryUi.manageCollections", "Manage collections");
-	const body = el("div", "aa-rebind-list"); const footer = el("div");
+function openTaxonomyManager() {
+	let kind = "categories"; let editingId = null; let dialog;
+	const list = el("div", "aa-taxonomy-list");
+	const summary = el("div", "aa-taxonomy-summary");
+	const addInput = document.createElement("input"); addInput.type = "text";
+	const addButton = button({ label: t("aaalice.workspace.libraryUi.add", "Add"), iconName: "add", onClick: () => addItem() });
+	const tabs = segmentedControl({
+		value: kind, ariaLabel: t("aaalice.workspace.libraryUi.manage", "Manage categories and collections"), className: "aa-taxonomy-tabs",
+		options: [
+			{ value: "categories", label: t("aaalice.workspace.libraryUi.categories", "Categories"), iconName: "layout" },
+			{ value: "collections", label: t("aaalice.workspace.libraryUi.collections", "Collections"), iconName: "note" },
+		],
+		onChange: (value) => { kind = value; editingId = null; draw(); },
+	});
+	const showError = (error) => app.extensionManager.toast.add({ severity: "error", summary: t("aaalice.workspace.libraryUi.manage", "Manage categories and collections"), detail: error.message });
+	const usageCount = (item) => kind === "categories"
+		? promptLibraryStore.snapshot.entries.filter((entry) => entry.categoryId === item.id).length
+		: promptLibraryStore.snapshot.entries.filter((entry) => entry.collections.some((membership) => membership.collectionId === item.id)).length;
+	const reorder = async (items, index, offset) => {
+		const target = index + offset; if (target < 0 || target >= items.length) return;
+		const ids = items.map((item) => item.id); [ids[index], ids[target]] = [ids[target], ids[index]];
+		try { await promptLibraryStore.reorder({ kind, orderedIds: ids }); draw(); } catch (error) { showError(error); }
+	};
+	const rename = async (item, input) => {
+		const name = input.value.trim(); if (!name) return;
+		try {
+			if (kind === "categories") await promptLibraryStore.updateCategory(item.id, { name }); else await promptLibraryStore.updateCollection(item.id, { name });
+			editingId = null; draw();
+		} catch (error) { showError(error); }
+	};
+	const remove = async (item) => {
+		if (!await confirmAction(`${t("aaalice.workspace.libraryUi.deleteConfirm", "Delete")} ${item.name}?`)) return;
+		try {
+			if (kind === "categories") await promptLibraryStore.deleteCategory(item.id); else await promptLibraryStore.deleteCollection(item.id);
+			draw();
+		} catch (error) { showError(error); }
+	};
 	const draw = () => {
-		body.replaceChildren(); const items = promptLibraryStore.snapshot[kind];
+		const isCategory = kind === "categories"; const items = promptLibraryStore.snapshot[kind];
+		const noun = isCategory ? t("aaalice.workspace.libraryUi.categories", "Categories") : t("aaalice.workspace.libraryUi.collections", "Collections");
+		const hint = isCategory ? t("aaalice.workspace.libraryUi.categoriesHint", "Each entry belongs to one category for its primary organization.") : t("aaalice.workspace.libraryUi.collectionsHint", "Collections can group entries across categories for flexible reuse.");
+		summary.replaceChildren(el("div", { children: [el("strong", null, noun), el("p", null, hint)] }), badge(String(items.length), { className: "aa-taxonomy-count" }));
+		addInput.placeholder = isCategory ? t("aaalice.workspace.libraryUi.newCategory", "New category name") : t("aaalice.workspace.libraryUi.newCollection", "New collection name");
+		addInput.setAttribute("aria-label", addInput.placeholder);
+		list.replaceChildren();
+		if (!items.length) list.append(emptyState({ iconName: isCategory ? "layout" : "note", className: "aa-taxonomy-empty", title: isCategory ? t("aaalice.workspace.libraryUi.noCategories", "No categories yet") : t("aaalice.workspace.libraryUi.noCollections", "No collections yet"), description: t("aaalice.workspace.libraryUi.taxonomyEmptyHint", "Create one below to start organizing your prompt entries.") }));
 		items.forEach((item, index) => {
-			body.append(createListRow({ title: item.name, actions: [
-				iconButton({ iconName: "moveDown", label: t("aaalice.workspace.libraryUi.moveUp", "Move up"), variant: "ghost", disabled: index === 0, onClick: async () => { const ids = items.map((value) => value.id); [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]]; await promptLibraryStore.reorder({ kind, orderedIds: ids }); draw(); } }),
-				iconButton({ iconName: "settings", label: t("aaalice.workspace.libraryUi.rename", "Rename"), variant: "ghost", onClick: () => askText(t("aaalice.workspace.libraryUi.rename", "Rename"), t("aaalice.workspace.libraryUi.name", "Name"), item.name, async (name) => { if (isCategory) await promptLibraryStore.updateCategory(item.id, { name }); else await promptLibraryStore.updateCollection(item.id, { name }); draw(); }) }),
-				iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: async () => { if (!await confirmAction(`${t("aaalice.workspace.libraryUi.deleteConfirm", "Delete")} ${item.name}?`)) return; if (isCategory) await promptLibraryStore.deleteCategory(item.id); else await promptLibraryStore.deleteCollection(item.id); draw(); } }),
-			] }));
+			if (editingId === item.id) {
+				const input = document.createElement("input"); input.type = "text"; input.value = item.name; input.setAttribute("aria-label", t("aaalice.workspace.libraryUi.name", "Name"));
+				const row = el("div", { className: "aa-taxonomy-row is-editing", children: [input, el("div", { className: "aa-taxonomy-row-actions", children: [
+					iconButton({ iconName: "statusCheck", label: t("aaalice.common.save", "Save"), onClick: () => rename(item, input) }),
+					iconButton({ iconName: "close", label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => { editingId = null; draw(); } }),
+				] })] });
+				input.addEventListener("keydown", (event) => { if (event.key === "Enter") rename(item, input); else if (event.key === "Escape") { editingId = null; draw(); } });
+				list.append(row); queueMicrotask(() => { input.focus(); input.select(); }); return;
+			}
+			const actions = el("div", { className: "aa-taxonomy-row-actions", children: [
+				iconButton({ iconName: "moveDown", label: t("aaalice.workspace.libraryUi.moveUp", "Move up"), className: "aa-taxonomy-move-up", variant: "ghost", disabled: index === 0, onClick: () => reorder(items, index, -1) }),
+				iconButton({ iconName: "moveDown", label: t("aaalice.workspace.libraryUi.moveDown", "Move down"), variant: "ghost", disabled: index === items.length - 1, onClick: () => reorder(items, index, 1) }),
+				iconButton({ iconName: "settings", label: t("aaalice.workspace.libraryUi.rename", "Rename"), variant: "ghost", onClick: () => { editingId = item.id; draw(); } }),
+				iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: () => remove(item) }),
+			] });
+			const count = usageCount(item); list.append(createListRow({ title: item.name, description: `${count} ${t("aaalice.workspace.libraryUi.entriesCount", "entries")}`, actions: [actions] }));
 		});
 	};
-	const addLabel = isCategory ? t("aaalice.workspace.libraryUi.addCategory", "Add category") : t("aaalice.workspace.libraryUi.addCollectionAction", "Add collection");
-	const dialog = createDialog({ title, body, footer, size: "lg" }); footer.append(
-		button({ label: addLabel, iconName: "add", variant: "secondary", onClick: () => askText(addLabel, t("aaalice.workspace.libraryUi.name", "Name"), "", async (name) => { if (isCategory) await promptLibraryStore.createCategory({ name }); else await promptLibraryStore.createCollection({ name }); draw(); }) }),
-		button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => dialog.close() }),
-	); draw(); dialog.open();
-}
-
-function openTaxonomyChooser() {
-	const body = el("div", { className: "aa-workspace-toolbar", children: [
-		button({ label: t("aaalice.workspace.libraryUi.categories", "Categories"), onClick: () => { dialog.close(); manageTaxonomy("categories"); } }),
-		button({ label: t("aaalice.workspace.libraryUi.collections", "Collections"), variant: "secondary", onClick: () => { dialog.close(); manageTaxonomy("collections"); } }),
-	] });
-	const dialog = createDialog({ title: t("aaalice.workspace.libraryUi.manage", "Manage prompt library"), body, size: "sm" }); dialog.open();
+	const addItem = async () => {
+		const name = addInput.value.trim(); if (!name || addButton.disabled) return;
+		addButton.disabled = true;
+		try {
+			if (kind === "categories") await promptLibraryStore.createCategory({ name }); else await promptLibraryStore.createCollection({ name });
+			addInput.value = ""; draw(); addInput.focus();
+		} catch (error) { showError(error); }
+		finally { addButton.disabled = false; }
+	};
+	const body = el("div", { className: "aa-taxonomy-manager", children: [tabs, summary, list] });
+	const footer = el("div", { className: "aa-taxonomy-footer", children: [addInput, addButton, button({ label: t("aaalice.workspace.done", "Done"), variant: "secondary", onClick: () => dialog.close() })] });
+	addInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); addItem(); } });
+	dialog = createDialog({ title: t("aaalice.workspace.libraryUi.manage", "Manage categories and collections"), body, footer, size: "md", className: "aa-taxonomy-dialog" });
+	draw(); dialog.open();
 }
 
 function openBatchEdit(selected) {
@@ -299,44 +391,58 @@ function openBatchEdit(selected) {
 }
 
 function renderLibrary(container) {
-	let query = container._aaaliceQuery || ""; let categoryId = container._aaaliceCategory || ""; let collectionId = container._aaaliceCollection || "";
-	const selected = container._aaaliceSelected ||= new Set();
-	const search = document.createElement("input"); search.type = "search"; search.placeholder = t("aaalice.promptSelector.search", "Search prompt library"); search.value = query;
-	search.addEventListener("input", () => { container._aaaliceQuery = search.value; scheduleRender(); });
-	const category = document.createElement("select"); category.add(new Option(t("aaalice.promptSelector.allCategories", "All categories"), "")); for (const item of promptLibraryStore.snapshot.categories) category.add(new Option(item.name, item.id, false, item.id === categoryId)); category.addEventListener("change", () => { container._aaaliceCategory = category.value; scheduleRender(); });
-	const collection = document.createElement("select"); collection.add(new Option(t("aaalice.promptSelector.allCollections", "All collections"), "")); for (const item of promptLibraryStore.snapshot.collections) collection.add(new Option(item.name, item.id, false, item.id === collectionId)); collection.addEventListener("change", () => { container._aaaliceCollection = collection.value; scheduleRender(); });
-	const toolbar = createWorkspaceToolbar([
+	const viewState = workspaceViewState.library;
+	let query = viewState.query; const categoryId = viewState.categoryId; const collectionId = viewState.collectionId;
+	const selected = viewState.selected;
+	const searchOpen = viewState.searchOpen;
+	const focusSearch = viewState.focusSearch; viewState.focusSearch = false;
+	let drawEntries = () => {};
+	const search = createCollapsibleSearch({
+		open: searchOpen, value: query, focus: focusSearch,
+		label: t("aaalice.workspace.search.library", "Search prompt library"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.search.library", "Search prompt library"),
+		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; if (!open) viewState.query = ""; scheduleRender(); },
+		onInput: (value) => { query = value; viewState.query = value; drawEntries(); },
+	});
+	const category = document.createElement("select"); category.add(new Option(t("aaalice.promptSelector.allCategories", "All categories"), "")); for (const item of promptLibraryStore.snapshot.categories) category.add(new Option(item.name, item.id, false, item.id === categoryId)); category.addEventListener("change", () => { viewState.categoryId = category.value; scheduleRender(); });
+	const collection = document.createElement("select"); collection.add(new Option(t("aaalice.promptSelector.allCollections", "All collections"), "")); for (const item of promptLibraryStore.snapshot.collections) collection.add(new Option(item.name, item.id, false, item.id === collectionId)); collection.addEventListener("change", () => { viewState.collectionId = collection.value; scheduleRender(); });
+	const libraryActions = [
 		button({ label: t("aaalice.workspace.libraryUi.addEntry", "Add entry"), iconName: "add", size: "sm", onClick: () => entryEditor() }),
 		...(selected.size ? [button({ label: `${t("aaalice.workspace.libraryUi.batch", "Edit selected entries")} (${selected.size})`, variant: "secondary", size: "sm", onClick: () => openBatchEdit(selected) })] : []),
-		button({ label: t("aaalice.workspace.libraryUi.manageAction", "Manage"), iconName: "settings", variant: "ghost", size: "sm", onClick: openTaxonomyChooser }),
+		button({ label: t("aaalice.workspace.libraryUi.manageAction", "Categories & collections"), iconName: "settings", variant: "ghost", size: "sm", onClick: openTaxonomyManager }),
 		iconButton({ iconName: "download", label: selected.size ? `${t("aaalice.workspace.libraryUi.exportSelected", "Export selected")} (${selected.size})` : t("aaalice.workspace.libraryUi.export", "Export"), variant: "ghost", onClick: async () => { const response = await promptLibraryStore.exportArchive({ ...(selected.size ? { entryIds: [...selected] } : {}), ...(!selected.size && categoryId ? { categoryId } : {}), ...(!selected.size && collectionId ? { collectionId } : {}) }); downloadBlob(await response.blob(), "aaalice-prompt-library.zip"); } }),
 		iconButton({ iconName: "upload", label: t("aaalice.workspace.libraryUi.import", "Import"), variant: "ghost", onClick: () => pickFile(".zip,.json,application/zip,application/json", importLibrary) }),
-	], { className: "aa-library-toolbar", label: t("aaalice.workspace.libraryUi.actions", "Library actions") });
-	container.append(toolbar, el("div", { className: "aa-library-filters", children: [search, category, collection] }));
-	const list = el("div", "aa-library-list"); const needle = query.trim().toLocaleLowerCase();
-	const entries = promptLibraryStore.snapshot.entries.filter((entry) => (!categoryId || entry.categoryId === categoryId) && (!collectionId || entry.collections.some((item) => item.collectionId === collectionId)) && (!needle || `${entry.title}\n${entry.text}\n${entry.note}`.toLocaleLowerCase().includes(needle)));
-	for (const entry of entries) {
-		const row = el("article", "aa-library-entry");
-		const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = selected.has(entry.id); checkbox.setAttribute("aria-label", `${t("aaalice.workspace.libraryUi.select", "Select")} ${entry.title}`); checkbox.addEventListener("change", () => { if (checkbox.checked) selected.add(entry.id); else selected.delete(entry.id); scheduleRender(); }); row.append(checkbox);
-		if (entry.previewHash) { row.classList.add("has-preview"); const image = document.createElement("img"); image.src = api.apiURL(`/aaalice/prompt-library/assets/${entry.previewHash}`); image.alt = ""; row.append(image); }
-		const categoryName = promptLibraryStore.snapshot.categories.find((item) => item.id === entry.categoryId)?.name;
-		const tagNames = (entry.tagIds || []).map((id) => promptLibraryStore.snapshot.tags.find((item) => item.id === id)?.name).filter(Boolean).slice(0, 3);
-		const meta = el("div", "aa-library-entry-meta");
-		if (categoryName) meta.append(el("span", "aa-library-chip is-category", categoryName));
-		for (const name of tagNames) meta.append(el("span", "aa-library-chip", name));
-		const copy = el("div", { className: "aa-library-entry-copy", children: [el("strong", null, entry.title), el("p", null, entry.text), meta] });
-		const actions = el("div", { className: "aa-library-entry-actions", children: [iconButton({ iconName: "settings", label: t("aaalice.workspace.libraryUi.edit", "Edit"), variant: "ghost", onClick: () => entryEditor(entry) }), iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: async () => { if (await confirmAction(t("aaalice.workspace.libraryUi.deleteEntryConfirm", "Delete this prompt entry?"))) { await promptLibraryStore.deleteEntry(entry.id); selected.delete(entry.id); } } })] });
-		row.append(copy, actions); list.append(row);
-	}
-	if (!entries.length) {
-		const isLibraryEmpty = promptLibraryStore.snapshot.entries.length === 0;
-		list.append(emptyState({
-			iconName: isLibraryEmpty ? "note" : "filter", className: "aa-workspace-empty aa-library-empty",
-			title: isLibraryEmpty ? t("aaalice.workspace.libraryUi.emptyTitle", "Your library is empty") : t("aaalice.workspace.libraryUi.noMatchTitle", "No matching entries"),
-			description: isLibraryEmpty ? t("aaalice.workspace.libraryUi.emptyDescription", "Add your first prompt entry to reuse it across selectors.") : t("aaalice.promptSelector.noResults", "No matching prompt entries."),
-			actions: isLibraryEmpty ? [button({ label: t("aaalice.workspace.libraryUi.addEntry", "Add entry"), iconName: "add", onClick: () => entryEditor() })] : [],
-		}));
-	} container.append(list);
+		search.toggle,
+	];
+	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : libraryActions, { className: `aa-library-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.libraryUi.actions", "Library actions") });
+	const list = el("div", "aa-library-list");
+	container.append(toolbar, el("div", { className: "aa-library-filters", children: [category, collection] }), list);
+	drawEntries = () => {
+		list.replaceChildren(); const needle = query.trim().toLocaleLowerCase();
+		const entries = promptLibraryStore.snapshot.entries.filter((entry) => (!categoryId || entry.categoryId === categoryId) && (!collectionId || entry.collections.some((item) => item.collectionId === collectionId)) && (!needle || `${entry.title}\n${entry.text}\n${entry.note}`.toLocaleLowerCase().includes(needle)));
+		for (const entry of entries) {
+			const row = el("article", "aa-library-entry");
+			const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = selected.has(entry.id); checkbox.setAttribute("aria-label", `${t("aaalice.workspace.libraryUi.select", "Select")} ${entry.title}`); checkbox.addEventListener("change", () => { if (checkbox.checked) selected.add(entry.id); else selected.delete(entry.id); scheduleRender(); }); row.append(checkbox);
+			if (entry.previewHash) { row.classList.add("has-preview"); const image = document.createElement("img"); image.src = api.apiURL(`/aaalice/prompt-library/assets/${entry.previewHash}`); image.alt = ""; row.append(image); }
+			const categoryName = promptLibraryStore.snapshot.categories.find((item) => item.id === entry.categoryId)?.name;
+			const tagNames = (entry.tagIds || []).map((id) => promptLibraryStore.snapshot.tags.find((item) => item.id === id)?.name).filter(Boolean).slice(0, 3);
+			const meta = el("div", "aa-library-entry-meta");
+			if (categoryName) meta.append(el("span", "aa-library-chip is-category", categoryName));
+			for (const name of tagNames) meta.append(el("span", "aa-library-chip", name));
+			const copy = el("div", { className: "aa-library-entry-copy", children: [el("strong", null, entry.title), el("p", null, entry.text), meta] });
+			const actions = el("div", { className: "aa-library-entry-actions", children: [iconButton({ iconName: "settings", label: t("aaalice.workspace.libraryUi.edit", "Edit"), variant: "ghost", onClick: () => entryEditor(entry) }), iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: async () => { if (await confirmAction(t("aaalice.workspace.libraryUi.deleteEntryConfirm", "Delete this prompt entry?"))) { await promptLibraryStore.deleteEntry(entry.id); selected.delete(entry.id); } } })] });
+			row.append(copy, actions); list.append(row);
+		}
+		if (!entries.length) {
+			const isLibraryEmpty = promptLibraryStore.snapshot.entries.length === 0;
+			list.append(emptyState({
+				iconName: isLibraryEmpty ? "note" : "filter", className: "aa-workspace-empty aa-library-empty",
+				title: isLibraryEmpty ? t("aaalice.workspace.libraryUi.emptyTitle", "Your library is empty") : t("aaalice.workspace.libraryUi.noMatchTitle", "No matching entries"),
+				description: isLibraryEmpty ? t("aaalice.workspace.libraryUi.emptyDescription", "Add your first prompt entry to reuse it across selectors.") : t("aaalice.promptSelector.noResults", "No matching prompt entries."),
+				actions: isLibraryEmpty ? [button({ label: t("aaalice.workspace.libraryUi.addEntry", "Add entry"), iconName: "add", onClick: () => entryEditor() })] : [],
+			}));
+		}
+	};
+	drawEntries();
 }
 
 async function importLibrary(file) {

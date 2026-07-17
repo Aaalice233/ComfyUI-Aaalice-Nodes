@@ -65,6 +65,28 @@ test("workspace uses event-driven refresh without polling", () => {
 	assert.doesNotMatch(workspace, /setInterval/);
 });
 
+test("dashboard and library searches share a collapsible event-driven control", () => {
+	assert.match(components, /export function createCollapsibleSearch/);
+	assert.match(components, /aria-expanded/);
+	assert.match(components, /event\.key === "Escape"/);
+	assert.match(components, /queueMicrotask/);
+	assert.match(workspace, /workspaceViewState = \{/);
+	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false \}/);
+	assert.match(workspace, /viewState\.searchOpen = open; viewState\.focusSearch = open/);
+	assert.doesNotMatch(workspace, /container\._aaalice(?:Dashboard|Library)(?:Query|SearchOpen|SearchShouldFocus)/);
+	assert.match(workspace, /disabled: !page \|\| editMode/);
+	assert.match(workspace, /sectionElement\.dataset\.searchText/);
+	assert.match(workspace, /applyDashboardSearch\(value\)/);
+	assert.match(workspace, /library: \{ query: "", searchOpen: false, focusSearch: false/);
+	assert.match(workspace, /onInput: \(value\) => \{ query = value; viewState\.query = value; drawEntries\(\)/);
+	assert.match(theme, /\.aa-workspace-search \{/);
+	assert.match(workspace, /createWorkspaceToolbar\(searchOpen \? \[search\.panel\]/);
+	assert.doesNotMatch(workspace, /container\.append\(toolbar, \.\.\.\(search\.panel/);
+	assert.match(theme, /\.aa-dashboard-toolbar\.is-searching, \.aa-library-toolbar\.is-searching/);
+	assert.match(theme, /@keyframes aa-workspace-search-open/);
+	assert.match(theme, /\.aa-dashboard-body\.is-searching/);
+});
+
 test("PromptSelector can open the official sidebar directly on library management", () => {
 	assert.match(workspace, /export function openWorkspace/);
 	assert.match(workspace, /sidebar\.activeSidebarTabId = TAB_ID/);
@@ -122,5 +144,20 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 	assert.match(workspace, /aa-workspace-empty aa-dashboard-empty/);
 	assert.match(workspace, /aa-workspace-empty aa-library-empty/);
 	assert.match(theme, /\.aa-dashboard-pages\.is-empty \{ display: none; \}/);
-	assert.match(theme, /\.aa-library-filters > input \{ grid-column: 1 \/ -1; \}/);
+	assert.match(theme, /\.aa-library-filters \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
+});
+
+test("taxonomy management is a complete single-dialog workspace", () => {
+	assert.match(workspace, /function openTaxonomyManager/);
+	assert.doesNotMatch(workspace, /function openTaxonomyChooser|function manageTaxonomy/);
+	assert.match(workspace, /segmentedControl\(\{/);
+	assert.match(workspace, /aa-taxonomy-list/);
+	assert.match(workspace, /editingId === item\.id/);
+	assert.match(workspace, /aa-taxonomy-footer/);
+	assert.match(workspace, /usageCount\(item\)/);
+	assert.match(theme, /\.aa-taxonomy-dialog/);
+	assert.match(theme, /\.aa-taxonomy-tabs \{[^}]*margin-inline: auto/);
+	assert.match(theme, /\.aa-taxonomy-tabs\[data-value="collections"\]/);
+	assert.match(theme, /--aa-taxonomy-tab-color/);
+	assert.match(theme, /\.aa-taxonomy-row\.is-editing/);
 });

@@ -1,6 +1,6 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { button, el, iconButton, segmentedControl } from "./ui.js";
+import { button, el, icon, iconButton, segmentedControl } from "./ui.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
 	const root = el("div", "aa-workspace");
@@ -21,6 +21,21 @@ export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
 
 export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
+}
+
+export function createCollapsibleSearch({ open = false, value = "", label, closeLabel = label, placeholder, disabled = false, focus = false, onToggle, onInput }) {
+	const toggle = iconButton({ iconName: "search", label: value ? `${label}: ${value}` : label, active: open || Boolean(value), variant: "ghost", disabled, onClick: () => onToggle?.(!open) });
+	toggle.setAttribute("aria-expanded", String(open));
+	if (!open) return { toggle, panel: null, input: null };
+	const input = document.createElement("input"); input.type = "search"; input.value = value; input.placeholder = placeholder; input.setAttribute("aria-label", label);
+	input.addEventListener("input", () => onInput?.(input.value));
+	input.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); onToggle?.(false); } });
+	const panel = el("div", { className: "aa-workspace-search", children: [
+		icon("search"), input,
+		iconButton({ iconName: "close", label: closeLabel, variant: "ghost", onClick: () => onToggle?.(false) }),
+	] });
+	if (focus) queueMicrotask(() => { if (input.isConnected) { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); } });
+	return { toggle, panel, input };
 }
 
 export function createPageTabs({ pages, activeId, editMode, labels = {}, onSelect, onAdd, onRename, onDelete, onDuplicate, onReorder }) {

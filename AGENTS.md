@@ -123,6 +123,7 @@ ComfyUI-Aaalice-Nodes/
 - 节点原生层、DOM overlay、Dialog 和 Popover 的职责及主题映射以 [`ui-system.md`](docs/design/ui-system.md) 为准；DOM 根不得重复绘制节点外壳。
 - 普通激活态可以跟随节点强调色；警告、危险、筛选颜色和多档业务状态保留自身语义，且颜色不能成为唯一状态信号。
 - 两档及以上互斥状态的 Switcher 必须优先复用共享 `segmentedControl`，使用连续滑动指示器呈现切换动画，并通过 ComfyUI 主题 token 区分各状态颜色；同时保留文本、图标或 ARIA 状态信号，并遵循 `prefers-reduced-motion`。
+- 窄侧栏和节点中的次级搜索默认折叠为工具栏右侧的搜索按钮，并优先复用共享搜索组件；激活后必须在原工具栏同一行从入口侧动态展开单行搜索框，不得新增一行或造成内容区跳动，空间不足时临时收起同排次要操作；展开使用短促的尺寸与透明度动画并自动聚焦，输入时只局部更新结果，不得重建整个界面或丢失焦点；`Escape`、关闭按钮或退出搜索必须收起搜索框并清除隐藏筛选，入口同步 `aria-expanded` 与激活状态，动画遵循 `prefers-reduced-motion`。
 - 节点颜色同步只走既有生命周期，禁止为颜色或主题同步增加持续轮询。
 - Toast 只用 `app.extensionManager.toast.add`；可有无状态参数封装，禁止自建容器、队列或动画系统。
 - 静态 `iconName` 与 `icon("…")` 必须存在于共享图标表，并通过图标契约测试。
