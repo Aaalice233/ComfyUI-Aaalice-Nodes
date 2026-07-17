@@ -2,6 +2,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "vendor:markdown": "node scripts/vendor_markdown.mjs"
+  },
+  "devDependencies": {
+    "dompurify": "3.4.12",
+    "marked": "15.0.11"
   }
 }

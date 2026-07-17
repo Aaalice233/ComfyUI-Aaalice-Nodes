@@ -3,7 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
-import { button, createAnchoredPopover, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
+import { button, createAnchoredPopover, createTooltip, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
 import {
 	GROUP_STATE,
 	classifyGroupNodes,
@@ -126,31 +126,15 @@ function filterSummary(state) {
 }
 
 function closeHoverTooltip(node) {
-	const tooltip = node._aaaliceQuickHoverTooltip;
-	if (!tooltip) return;
-	if (tooltip.anchor?.getAttribute("aria-describedby") === tooltip.root.id) tooltip.anchor.removeAttribute("aria-describedby");
-	tooltip.root.remove();
-	node._aaaliceQuickHoverTooltip = null;
+	node._aaaliceQuickHoverTooltip?.hide();
 }
 
-function mountHoverTooltip(node, anchor, root) {
-	closeHoverTooltip(node);
-	root.id = `aaalice-qgm-tooltip-${Math.random().toString(36).slice(2)}`;
-	document.body.append(root);
-	node._aaaliceQuickAccent?.sync(root);
-	const anchorRect = anchor.getBoundingClientRect();
-	const tooltipRect = root.getBoundingClientRect();
-	const left = Math.max(8, Math.min(window.innerWidth - tooltipRect.width - 8, anchorRect.right - tooltipRect.width));
-	const below = anchorRect.bottom + 6;
-	const top = below + tooltipRect.height <= window.innerHeight - 8 ? below : Math.max(8, anchorRect.top - tooltipRect.height - 6);
-	root.style.left = `${left}px`;
-	root.style.top = `${top}px`;
-	anchor.setAttribute("aria-describedby", root.id);
-	node._aaaliceQuickHoverTooltip = { root, anchor };
+function hoverTooltipFor(node) {
+	if (!node._aaaliceQuickHoverTooltip) node._aaaliceQuickHoverTooltip = createTooltip();
+	return node._aaaliceQuickHoverTooltip;
 }
 
-function showFilterTooltip(node, anchor) {
-	const root = isolate(el("div", { className: "aaalice-qgm-hover-tooltip aaalice-qgm-filter-tooltip", attrs: { role: "tooltip" } }));
+function showFilterTooltip(node, anchor, immediate = false) {
 	const list = el("div", "aaalice-qgm-filter-tooltip-list");
 	for (const entry of filterEntries(stateFor(node))) {
 		const row = el("div", "aaalice-qgm-filter-tooltip-row");
@@ -159,8 +143,11 @@ function showFilterTooltip(node, anchor) {
 		else row.append(el("span", null, entry.label));
 		list.append(row);
 	}
-	root.append(list);
-	mountHoverTooltip(node, anchor, root);
+	hoverTooltipFor(node).show(anchor, list, {
+		className: "aaalice-qgm-filter-tooltip",
+		immediate,
+		onMount: (root) => node._aaaliceQuickAccent?.sync(root),
+	});
 }
 
 function openFilter(node, anchor) {
@@ -221,12 +208,12 @@ function cloneRules(rules) {
 	return JSON.parse(JSON.stringify(rules || {}));
 }
 
-function showRuleTooltip(node, sourceGroup, anchor) {
+function showRuleTooltip(node, sourceGroup, anchor, immediate = false) {
 	const state = stateFor(node);
 	const rule = state.rules[String(sourceGroup.id)];
 	if (!ruleCount(state.rules, sourceGroup.id)) return;
 	const groupsById = new Map(groupsFor(node).map((group) => [String(group.id), group]));
-	const root = isolate(el("div", { className: "aaalice-qgm-hover-tooltip aaalice-qgm-rule-tooltip", attrs: { role: "tooltip" } }));
+	const content = el("div", "aaalice-qgm-rule-tooltip-content");
 	for (const [phase, phaseLabel] of [
 		["enable", t("aaalice.quickGroup.rules.whenEnabled", "When enabled")],
 		["disable", t("aaalice.quickGroup.rules.whenDisabled", "When disabled")],
@@ -255,9 +242,13 @@ function showRuleTooltip(node, sourceGroup, anchor) {
 			entries.append(row);
 		}
 		section.append(entries);
-		root.append(section);
+		content.append(section);
 	}
-	mountHoverTooltip(node, anchor, root);
+	hoverTooltipFor(node).show(anchor, content, {
+		className: "aaalice-qgm-rule-tooltip",
+		immediate,
+		onMount: (root) => node._aaaliceQuickAccent?.sync(root),
+	});
 }
 
 function openRuleEditor(node, sourceGroup, anchor) {
@@ -398,7 +389,7 @@ function syncToolbar(node, state) {
 		filter.removeAttribute("title");
 		filter.addEventListener("mouseenter", () => showFilterTooltip(node, filter));
 		filter.addEventListener("mouseleave", () => closeHoverTooltip(node));
-		filter.addEventListener("focus", () => showFilterTooltip(node, filter));
+		filter.addEventListener("focus", () => showFilterTooltip(node, filter, true));
 		filter.addEventListener("blur", () => closeHoverTooltip(node));
 		filter.addEventListener("click", () => openFilter(node, filter));
 		const refresh = iconButton({ iconName: "refresh", label: t("aaalice.quickGroup.refresh", "Refresh groups"), variant: "ghost", className: "aaalice-qgm-refresh-button", onClick: () => render(node) });
@@ -413,7 +404,7 @@ function syncToolbar(node, state) {
 		const label = `${t("aaalice.quickGroup.filter.aria", "Choose group colors")}: ${filterSummary(state)}`;
 		filter.setAttribute("aria-label", label);
 		filter.removeAttribute("title");
-		if (node._aaaliceQuickHoverTooltip?.anchor === filter) showFilterTooltip(node, filter);
+		if (node._aaaliceQuickHoverTooltip?.isOpenFor(filter)) showFilterTooltip(node, filter, true);
 		node._aaaliceQuickFilterButton = filter;
 	}
 	const refresh = actions.querySelector(".aaalice-qgm-refresh-button");
@@ -450,7 +441,7 @@ function groupRow(node, group, visibleGroups) {
 		link.append(el("span", "aaalice-qgm-rule-count", String(count)));
 		link.addEventListener("mouseenter", () => showRuleTooltip(node, group, link));
 		link.addEventListener("mouseleave", () => closeHoverTooltip(node));
-		link.addEventListener("focus", () => showRuleTooltip(node, group, link));
+		link.addEventListener("focus", () => showRuleTooltip(node, group, link, true));
 		link.addEventListener("blur", () => closeHoverTooltip(node));
 	}
 	link.addEventListener("click", () => openRuleEditor(node, group, link));
@@ -635,7 +626,8 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node.onRemoved = function () {
 		mountedManagers.delete(this);
 		closePopover(this);
-		closeHoverTooltip(this);
+		this._aaaliceQuickHoverTooltip?.destroy();
+		this._aaaliceQuickHoverTooltip = null;
 		this._aaaliceQuickAccent?.dispose();
 		this._aaaliceQuickAccent = null;
 		if (this._aaaliceQuickInitialSizeFrame) cancelAnimationFrame(this._aaaliceQuickInitialSizeFrame);

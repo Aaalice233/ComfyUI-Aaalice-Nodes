@@ -11,6 +11,44 @@ function ruleBody(source, selector) {
 	return source.match(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`))?.[1] || "";
 }
 
+test("shared tooltips own timing, viewport placement and accessible cleanup", () => {
+	const uiSource = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
+	const styles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
+
+	assert.match(uiSource, /export function createTooltip/);
+	assert.match(uiSource, /import \{ renderSafeMarkdown \} from "\.\/safe_markdown\.js"/);
+	assert.match(uiSource, /contentMode === "markdown"[\s\S]*renderSafeMarkdown\(content\)/);
+	assert.match(uiSource, /contentMode === "text"/);
+	assert.match(uiSource, /contentMode === "dom"/);
+	assert.match(uiSource, /contentMode === "auto"/);
+	assert.match(uiSource, /Unknown tooltip content mode/);
+	assert.match(uiSource, /activeTooltip && activeTooltip !== controller/);
+	assert.match(uiSource, /role:\s*interactive \? "dialog" : "tooltip"/);
+	assert.match(uiSource, /updateDescribedBy\(anchor, root\.id, true\)/);
+	assert.match(uiSource, /updateDescribedBy\(anchor, root\.id, false\)/);
+	assert.match(uiSource, /setTimeout\(\(\) => mount/);
+	assert.match(uiSource, /window\.addEventListener\("resize", schedulePosition\)/);
+	assert.match(uiSource, /window\.addEventListener\("scroll", schedulePosition, true\)/);
+	assert.match(uiSource, /--aa-ui-tooltip-arrow-x/);
+	assert.match(uiSource, /tooltipRect\.width - 14/);
+	assert.match(uiSource, /event\.key === "Escape"/);
+	assert.match(styles, /\.aa-ui-tooltip\s*\{[\s\S]*max-width:\s*min\(320px,[\s\S]*pointer-events:\s*none/);
+	assert.match(uiSource, /interactive \? "dialog" : "tooltip"/);
+	assert.match(uiSource, /updateTokenAttribute\(anchor, "aria-controls", root\.id, true\)/);
+	assert.match(uiSource, /mountedRoot\.addEventListener\("mouseenter", cancelScheduledHide\)/);
+	assert.match(uiSource, /mountedRoot\.addEventListener\("mouseleave", scheduleHide\)/);
+	assert.match(uiSource, /focusFirstInteractive/);
+	assert.match(uiSource, /if \(!root\) \{\s*hide\(\);/);
+	assert.match(styles, /\.aa-ui-tooltip\.is-interactive\s*\{[^}]*pointer-events:\s*auto/);
+	assert.match(styles, /\.aa-ui-tooltip\.is-interactive a:focus-visible/);
+	assert.match(styles, /\.aa-ui-tooltip\s*\{[\s\S]*background:\s*var\(--aa-ui-tooltip-surface\)[\s\S]*box-shadow:\s*0 8px 22px/);
+	assert.match(styles, /\.aa-ui-tooltip::before\s*\{[\s\S]*var\(--aa-ui-tooltip-arrow-x/);
+	assert.match(styles, /\.aa-ui-tooltip\[data-placement="below"\]::before/);
+	assert.match(styles, /inset 0 1px 0/);
+	assert.doesNotMatch(styles, /aa-ui-tooltip-in[^}]*scale\(/);
+	assert.match(styles, /prefers-reduced-motion:\s*reduce[\s\S]*\.aa-ui-tooltip/);
+});
+
 test("parameter enum segments stay inside the 32px control track", () => {
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 	const groupRule = ruleBody(themeSource, ".aaalice-pcp-segmented");
@@ -41,6 +79,43 @@ test("parameter labels keep a small gap above their controls", () => {
 	assert.match(layoutSource, /rowHeight:\s*50/);
 	assert.match(layoutSource, /top:\s*rowTop \+ 17/);
 	assert.match(themeSource, /\.aaalice-pcp-node-root \.aaalice-pcp-node-row\s*\{[^}]*row-gap:\s*2px/s);
+});
+
+test("parameter descriptions use the shared tooltip shell with readable markdown", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+	const markdownSource = readFileSync(join(ROOT, "js", "lib", "safe_markdown.js"), "utf8");
+
+	assert.match(panelSource, /createTooltip/);
+	assert.match(panelSource, /descriptionTooltip\.show\(trigger, resolveDescription/);
+	assert.match(panelSource, /contentMode:\s*"markdown"/);
+	assert.match(panelSource, /interactive:\s*true/);
+	assert.doesNotMatch(panelSource, /import \{ renderSafeMarkdown \}/);
+	assert.match(markdownSource, /import DOMPurify from "\.\.\/vendor\/purify\.es\.js"/);
+	assert.match(markdownSource, /import \{ marked, Renderer \} from "\.\.\/vendor\/marked\.esm\.js"/);
+	assert.match(markdownSource, /gfm:\s*true/);
+	assert.match(markdownSource, /DOMPurify\.sanitize/);
+	assert.match(markdownSource, /ALLOWED_TAGS/);
+	assert.match(markdownSource, /"hr"/);
+	assert.match(markdownSource, /"table"/);
+	assert.match(markdownSource, /"blockquote"/);
+	assert.match(panelSource, /className:\s*"aaalice-parameter-tooltip"/);
+	assert.match(panelSource, /addEventListener\("focus", \(\) => showOrKeep\(true\)\)/);
+	assert.match(panelSource, /addEventListener\("mouseleave", descriptionTooltip\.scheduleHide\)/);
+	assert.match(panelSource, /descriptionTooltip\.cancelScheduledHide\(\)/);
+	assert.match(panelSource, /descriptionTooltip\.focusFirstInteractive\(\)/);
+	assert.match(markdownSource, /https\?:\\\/\\\//);
+	assert.match(markdownSource, /target=\"_blank\" rel=\"noopener noreferrer\"/);
+	assert.match(markdownSource, /template\.innerHTML = renderMarkdownToHtml\(markdown\)/);
+	assert.doesNotMatch(panelSource, /function showTooltip|tooltipTimer/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip\s*\{[^}]*max-width:\s*min\(320px/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip h1\s*\{[^}]*font-size:\s*16px/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip h2\s*\{[^}]*font-size:\s*14px/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip h3\s*\{[^}]*font-size:\s*13px/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip li \+ li/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip hr\s*\{/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip table\s*\{/);
+	assert.match(themeSource, /\.aaalice-parameter-tooltip blockquote\s*\{/);
 });
 
 test("parameter panel keeps native resize corners and a stable minimum width", () => {

@@ -1,5 +1,7 @@
 /** Small, dependency-free DOM component primitives for Aaalice frontend surfaces. */
 
+import { renderSafeMarkdown } from "./safe_markdown.js";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const ICON_PATHS = {
 	add: "M12 5v14M5 12h14",
@@ -57,6 +59,186 @@ export function el(tag, options = null, text = null) {
 export function isolate(element) {
 	for (const eventName of ["pointerdown", "mousedown", "wheel"]) element.addEventListener(eventName, (event) => event.stopPropagation());
 	return element;
+}
+
+let activeTooltip = null;
+let tooltipId = 0;
+
+function updateTokenAttribute(element, attribute, value, add) {
+	const ids = new Set((element.getAttribute(attribute) || "").split(/\s+/).filter(Boolean));
+	if (add) ids.add(value);
+	else ids.delete(value);
+	if (ids.size) element.setAttribute(attribute, [...ids].join(" "));
+	else element.removeAttribute(attribute);
+}
+
+function updateDescribedBy(anchor, id, add) {
+	updateTokenAttribute(anchor, "aria-describedby", id, add);
+}
+
+function placeTooltip(root, anchor) {
+	if (!root?.isConnected || !anchor?.isConnected) return;
+	const margin = 10;
+	const gap = 8;
+	const anchorRect = anchor.getBoundingClientRect();
+	const tooltipRect = root.getBoundingClientRect();
+	const centered = anchorRect.left + ((anchorRect.width - tooltipRect.width) / 2);
+	const left = Math.max(margin, Math.min(window.innerWidth - tooltipRect.width - margin, centered));
+	const arrowX = Math.max(14, Math.min(tooltipRect.width - 14, anchorRect.left + (anchorRect.width / 2) - left));
+	const below = anchorRect.bottom + gap;
+	const fitsBelow = below + tooltipRect.height <= window.innerHeight - margin;
+	const top = fitsBelow ? below : Math.max(margin, anchorRect.top - tooltipRect.height - gap);
+	root.dataset.placement = fitsBelow ? "below" : "above";
+	root.style.setProperty("--aa-ui-tooltip-arrow-x", `${arrowX}px`);
+	root.style.left = `${left}px`;
+	root.style.top = `${top}px`;
+}
+
+function renderTooltipContent(content, contentMode) {
+	if (contentMode === "markdown") return renderSafeMarkdown(content);
+	if (contentMode === "text") return document.createTextNode(String(content));
+	if (contentMode === "dom") {
+		if (content instanceof Node) return content;
+		throw new TypeError("[Aaalice] Tooltip DOM content must be a Node");
+	}
+	if (contentMode === "auto") return content instanceof Node ? content : document.createTextNode(String(content));
+	throw new TypeError(`[Aaalice] Unknown tooltip content mode: ${contentMode}`);
+}
+
+/** Shared tooltip shell. Interactive mode behaves as a hover card with focusable content. */
+export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
+	let root = null;
+	let anchor = null;
+	let showTimer = null;
+	let closeTimer = null;
+	let positionFrame = 0;
+	let interactive = false;
+	let previousExpanded = null;
+
+	const schedulePosition = () => {
+		if (positionFrame) return;
+		positionFrame = requestAnimationFrame(() => {
+			positionFrame = 0;
+			placeTooltip(root, anchor);
+		});
+	};
+	const cancelScheduledHide = () => {
+		clearTimeout(closeTimer);
+		closeTimer = null;
+	};
+	const keydown = (event) => {
+		if (event.key !== "Escape") return;
+		const restoreFocus = interactive && root?.contains(document.activeElement);
+		const previousAnchor = anchor;
+		hide();
+		if (restoreFocus) {
+			event.preventDefault();
+			previousAnchor?.focus?.({ preventScroll: true });
+		}
+	};
+	const removePositionListeners = () => {
+		window.removeEventListener("resize", schedulePosition);
+		window.removeEventListener("scroll", schedulePosition, true);
+		document.removeEventListener("keydown", keydown, true);
+		if (positionFrame) cancelAnimationFrame(positionFrame);
+		positionFrame = 0;
+	};
+	const hide = () => {
+		clearTimeout(showTimer);
+		showTimer = null;
+		cancelScheduledHide();
+		removePositionListeners();
+		if (anchor && root) {
+			if (interactive) {
+				updateTokenAttribute(anchor, "aria-controls", root.id, false);
+				if (previousExpanded == null) anchor.removeAttribute("aria-expanded");
+				else anchor.setAttribute("aria-expanded", previousExpanded);
+			} else updateDescribedBy(anchor, root.id, false);
+		}
+		root?.remove();
+		root = null;
+		anchor = null;
+		interactive = false;
+		previousExpanded = null;
+		if (activeTooltip?.hide === hide) activeTooltip = null;
+	};
+	const scheduleHide = () => {
+		if (!root) {
+			hide();
+			return;
+		}
+		cancelScheduledHide();
+		closeTimer = setTimeout(hide, closeDelay);
+	};
+	const claimActive = () => {
+		if (activeTooltip && activeTooltip !== controller) activeTooltip.hide();
+		activeTooltip = controller;
+	};
+	const mount = (nextAnchor, content, { className = "", contentMode = "auto", interactive: nextInteractive = false, onMount = null } = {}) => {
+		const resolved = typeof content === "function" ? content() : content;
+		if (!nextAnchor?.isConnected || resolved == null || resolved === "") {
+			if (activeTooltip === controller) activeTooltip = null;
+			return;
+		}
+		let rendered;
+		try { rendered = renderTooltipContent(resolved, contentMode); }
+		catch (error) {
+			hide();
+			throw error;
+		}
+		claimActive();
+		interactive = Boolean(nextInteractive);
+		const accessibleLabel = nextAnchor.getAttribute("aria-label") || nextAnchor.textContent?.trim() || null;
+		root = el("div", {
+			className: `aa-ui-tooltip${interactive ? " is-interactive" : ""}${className ? ` ${className}` : ""}`,
+			attrs: {
+				role: interactive ? "dialog" : "tooltip",
+				"aria-label": interactive ? accessibleLabel : null,
+				"aria-modal": interactive ? "false" : null,
+			},
+		});
+		root.id = `aa-ui-tooltip-${++tooltipId}`;
+		root.append(rendered);
+		anchor = nextAnchor;
+		document.body.append(root);
+		if (interactive) {
+			const mountedRoot = root;
+			previousExpanded = anchor.getAttribute("aria-expanded");
+			updateTokenAttribute(anchor, "aria-controls", root.id, true);
+			anchor.setAttribute("aria-expanded", "true");
+			mountedRoot.addEventListener("mouseenter", cancelScheduledHide);
+			mountedRoot.addEventListener("mouseleave", scheduleHide);
+			mountedRoot.addEventListener("focusin", cancelScheduledHide);
+			mountedRoot.addEventListener("focusout", (event) => { if (!mountedRoot.contains(event.relatedTarget)) scheduleHide(); });
+		} else updateDescribedBy(anchor, root.id, true);
+		onMount?.(root);
+		placeTooltip(root, anchor);
+		window.addEventListener("resize", schedulePosition);
+		window.addEventListener("scroll", schedulePosition, true);
+		document.addEventListener("keydown", keydown, true);
+	};
+	const show = (nextAnchor, content, options = {}) => {
+		hide();
+		claimActive();
+		if (options.immediate) mount(nextAnchor, content, options);
+		else showTimer = setTimeout(() => mount(nextAnchor, content, options), delay);
+	};
+	const controller = {
+		show,
+		hide,
+		cancelScheduledHide,
+		scheduleHide,
+		destroy: hide,
+		focusFirstInteractive: () => {
+			const target = root?.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+			if (!target) return false;
+			target.focus({ preventScroll: true });
+			return true;
+		},
+		isOpenFor: (candidate) => Boolean(root && anchor === candidate),
+		get anchor() { return anchor; },
+	};
+	return controller;
 }
 
 export function icon(name, { label = null, className = "" } = {}) {

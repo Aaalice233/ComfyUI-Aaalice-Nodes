@@ -3,7 +3,7 @@
 .aaalice-pcp-node-root,
 .aaalice-qgm,
 .aaalice-qgm-popover,
-.aaalice-qgm-hover-tooltip,
+.aa-ui-tooltip,
 .aa-ui-dialog {
 	/* Feature aliases keep the canvas/widget rules readable while colors come from ui.css. */
 	--aaalice-text: var(--aa-ui-text);
@@ -444,37 +444,37 @@
 
 .aaalice-pcp-error { margin-top: 8px; color: var(--aaalice-danger); font-size: 12px; }
 .aaalice-modal-body { display: flex; flex-direction: column; gap: 12px; }
-.aaalice-parameter-tooltip {
-	--aaalice-tooltip-bg: var(--comfy-menu-secondary-bg, var(--p-content-background, #222));
-	--aaalice-tooltip-text: var(--fg-color, var(--p-text-color, #e5e7eb));
-	--aaalice-tooltip-muted: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
-	--aaalice-tooltip-border: var(--border-color, var(--p-content-border-color, #444));
-	position: fixed;
-	z-index: 10100;
-	width: max-content;
-	max-width: min(224px, calc(100vw - 20px));
-	padding: 12px 14px;
-	border: 1px solid color-mix(in srgb, var(--aaalice-tooltip-border) 82%, transparent);
-	border-radius: 8px;
-	background: color-mix(in srgb, var(--aaalice-tooltip-bg) 82%, var(--comfy-input-bg, #18181b));
-	box-shadow: 0 10px 24px rgb(0 0 0 / .28);
-	color: var(--aaalice-tooltip-text);
-	font: 12px/1.55 var(--comfy-font, Inter, system-ui, sans-serif);
-	overflow-wrap: anywhere;
-	pointer-events: none;
-}
+.aaalice-parameter-tooltip { max-width: min(320px, calc(100vw - 20px)); }
 .aaalice-parameter-tooltip p,
+.aaalice-parameter-tooltip blockquote,
 .aaalice-parameter-tooltip ul,
-.aaalice-parameter-tooltip pre { margin: 0 0 9px; }
-.aaalice-parameter-tooltip h3,
-.aaalice-parameter-tooltip h4,
-.aaalice-parameter-tooltip h5 { margin: 0 0 8px; color: var(--aaalice-tooltip-text); font-size: 13px; line-height: 1.4; font-weight: 650; }
-.aaalice-parameter-tooltip p { color: var(--aaalice-tooltip-muted); }
-.aaalice-parameter-tooltip strong { color: var(--aaalice-tooltip-text); font-weight: 650; }
-.aaalice-parameter-tooltip ul { padding-left: 17px; }
+.aaalice-parameter-tooltip ol,
+.aaalice-parameter-tooltip pre,
+.aaalice-parameter-tooltip table,
+.aaalice-parameter-tooltip hr { margin: 0 0 8px; }
+.aaalice-parameter-tooltip h1 { margin: 1px 0 8px; color: var(--aa-ui-text); font-size: 16px; line-height: 1.3; font-weight: 700; letter-spacing: 0; }
+.aaalice-parameter-tooltip h2 { margin: 1px 0 7px; color: var(--aa-ui-text); font-size: 14px; line-height: 1.35; font-weight: 680; }
+.aaalice-parameter-tooltip h3 { margin: 0 0 6px; color: var(--aa-ui-text); font-size: 13px; line-height: 1.4; font-weight: 650; }
+.aaalice-parameter-tooltip p { color: color-mix(in srgb, var(--aa-ui-text) 92%, var(--aa-ui-muted)); }
+.aaalice-parameter-tooltip strong { color: var(--aa-ui-text); font-weight: 680; }
+.aaalice-parameter-tooltip ul,
+.aaalice-parameter-tooltip ol { padding-left: 17px; }
+.aaalice-parameter-tooltip li + li { margin-top: 3px; }
+.aaalice-parameter-tooltip blockquote { padding-left: 9px; border-left: 2px solid var(--aa-ui-border); color: var(--aa-ui-muted); }
+.aaalice-parameter-tooltip blockquote > :last-child { margin-bottom: 0; }
+.aaalice-parameter-tooltip hr { height: 1px; border: 0; background: var(--aa-ui-border-soft); }
+.aaalice-parameter-tooltip table { display: block; max-width: 100%; border-collapse: collapse; overflow-x: auto; font-size: 11px; }
+.aaalice-parameter-tooltip th,
+.aaalice-parameter-tooltip td { padding: 4px 6px; border: 1px solid var(--aa-ui-border-soft); text-align: left; }
+.aaalice-parameter-tooltip th { background: color-mix(in srgb, var(--aa-ui-text) 5%, transparent); color: var(--aa-ui-text); font-weight: 650; }
+.aaalice-parameter-tooltip del { color: var(--aa-ui-muted); }
+.aaalice-parameter-tooltip input[type="checkbox"] { margin: 0 5px 0 0; accent-color: var(--aa-ui-accent); vertical-align: -1px; pointer-events: none; }
+.aaalice-parameter-tooltip img { display: block; max-width: 100%; max-height: 180px; margin: 6px 0; border-radius: 6px; object-fit: contain; }
 .aaalice-parameter-tooltip :last-child { margin-bottom: 0; }
-.aaalice-parameter-tooltip code { padding: 1px 4px; border-radius: 3px; background: color-mix(in srgb, var(--aaalice-tooltip-text) 10%, transparent); }
-.aaalice-parameter-tooltip a { color: var(--p-primary-color, var(--primary-color, #0b8ce9)); }
+.aaalice-parameter-tooltip code { padding: 1px 4px; border-radius: 4px; background: color-mix(in srgb, var(--aa-ui-text) 9%, transparent); color: var(--aa-ui-text); font-size: .94em; }
+.aaalice-parameter-tooltip pre { max-width: 100%; padding: 7px 8px; overflow-x: auto; border-radius: 6px; background: color-mix(in srgb, var(--aa-ui-control) 82%, transparent); white-space: pre; }
+.aaalice-parameter-tooltip pre code { padding: 0; background: transparent; }
+.aaalice-parameter-tooltip a { color: var(--aa-ui-accent); }
 
 .aaalice-parameter-editor {
 	width: min(1120px, calc(100vw - 48px));
@@ -764,25 +764,10 @@
 .aaalice-qgm-segmented button.is-active { color: var(--aa-ui-text); }
 .aaalice-qgm-segmented button:focus-visible { outline: 2px solid var(--qgm-mode-color); outline-offset: -1px; }
 .aaalice-qgm .aa-ui-button--icon { width: 26px; height: 26px; }
-.aaalice-qgm-hover-tooltip {
-	position: fixed;
-	z-index: 100030;
-	display: grid;
-	max-width: 280px;
-	gap: 7px;
-	padding: 9px 10px;
-	border: 1px solid var(--aa-ui-border-soft);
-	border-radius: 9px;
-	background: var(--aa-ui-surface);
-	box-shadow: 0 10px 28px rgb(0 0 0 / .32);
-	color: var(--aa-ui-text);
-	font: 12px/1.4 var(--comfy-font, Inter, system-ui, sans-serif);
-	pointer-events: none;
-}
-.aaalice-qgm-filter-tooltip { min-width: 148px; }
-.aaalice-qgm-filter-tooltip-list { display: grid; gap: 5px; }
-.aaalice-qgm-filter-tooltip-row { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.aaalice-qgm-filter-tooltip-row code { color: var(--aa-ui-text); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.aaalice-qgm-filter-tooltip { min-width: 164px; }
+.aaalice-qgm-filter-tooltip-list { display: grid; gap: 2px; }
+.aaalice-qgm-filter-tooltip-row { display: flex; min-width: 0; min-height: 24px; align-items: center; gap: 8px; padding: 2px 1px; }
+.aaalice-qgm-filter-tooltip-row code { color: var(--aa-ui-text); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; }
 .aaalice-qgm-list {
 	box-sizing: border-box;
 	display: flex;
@@ -835,15 +820,16 @@
 .aaalice-qgm-link.has-rules { color: var(--aa-ui-node-accent); }
 .aaalice-qgm-rule-count { position: absolute; top: -3px; right: -3px; display: grid; min-width: 15px; height: 15px; place-items: center; padding: 0 3px; border-radius: 999px; background: var(--aa-ui-node-accent); color: var(--aa-ui-node-accent-contrast); font-size: 9px; font-weight: 700; }
 .aaalice-qgm-rule-tooltip { width: max-content; min-width: 220px; }
-.aaalice-qgm-rule-tooltip-phase { display: grid; gap: 4px; }
-.aaalice-qgm-rule-tooltip-phase + .aaalice-qgm-rule-tooltip-phase { padding-top: 7px; border-top: 1px solid var(--aa-ui-border-soft); }
-.aaalice-qgm-rule-tooltip-phase > strong { color: var(--aa-ui-muted); font-size: 11px; font-weight: 650; }
-.aaalice-qgm-rule-tooltip-entries { display: grid; gap: 3px; }
-.aaalice-qgm-rule-tooltip-row { display: grid; min-height: 22px; grid-template-columns: 17px minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.aaalice-qgm-rule-tooltip-content { display: grid; gap: 8px; }
+.aaalice-qgm-rule-tooltip-phase { display: grid; gap: 5px; }
+.aaalice-qgm-rule-tooltip-phase + .aaalice-qgm-rule-tooltip-phase { padding-top: 8px; border-top: 1px solid var(--aa-ui-border-soft); }
+.aaalice-qgm-rule-tooltip-phase > strong { color: var(--aa-ui-muted); font-size: 10px; font-weight: 680; letter-spacing: .04em; text-transform: uppercase; }
+.aaalice-qgm-rule-tooltip-entries { display: grid; gap: 2px; }
+.aaalice-qgm-rule-tooltip-row { display: grid; min-height: 26px; grid-template-columns: 17px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .aaalice-qgm-rule-tooltip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aaalice-qgm-rule-tooltip-action { padding: 2px 6px; border-radius: 5px; font-size: 10px; font-weight: 650; }
-.aaalice-qgm-rule-tooltip-action.is-enable { background: var(--aa-ui-node-accent-soft); color: var(--aa-ui-node-accent); }
-.aaalice-qgm-rule-tooltip-action.is-disable { background: color-mix(in srgb, var(--aa-ui-warning) 14%, transparent); color: var(--aa-ui-warning); }
+.aaalice-qgm-rule-tooltip-action { padding: 0; font-size: 10px; font-weight: 650; }
+.aaalice-qgm-rule-tooltip-action.is-enable { color: var(--aa-ui-node-accent); }
+.aaalice-qgm-rule-tooltip-action.is-disable { color: var(--aa-ui-warning); }
 .aaalice-qgm-switch {
 	position: relative;
 	width: 38px;

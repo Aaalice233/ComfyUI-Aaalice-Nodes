@@ -3,12 +3,12 @@
 .aaalice-pcp-node-root,
 .aaalice-qgm,
 .aaalice-qgm-popover,
-.aaalice-qgm-hover-tooltip,
 .aaalice-prompt-cleaner,
 .aaalice-prompt-cleaner-popover,
 .aaalice-receiver-root,
 .aa-ui-dialog,
-.aa-ui-popover {
+.aa-ui-popover,
+.aa-ui-tooltip {
 	--aa-ui-text: var(--fg-color, var(--p-text-color, #e5e7eb));
 	--aa-ui-muted: var(--descrip-text, var(--p-text-muted-color, #9ca3af));
 	--aa-ui-canvas: var(--comfy-menu-bg, var(--p-surface-950, #111));
@@ -36,7 +36,44 @@
 	font: 13px/1.45 var(--comfy-font, Inter, system-ui, sans-serif);
 }
 
-.aaalice-pcp *, .aaalice-pcp-node-root *, .aaalice-qgm *, .aaalice-qgm-popover *, .aaalice-qgm-hover-tooltip *, .aaalice-prompt-cleaner *, .aaalice-prompt-cleaner-popover *, .aaalice-receiver-root *, .aa-ui-dialog *, .aa-ui-dialog-backdrop *, .aa-ui-popover * { box-sizing: border-box; }
+.aaalice-pcp *, .aaalice-pcp-node-root *, .aaalice-qgm *, .aaalice-qgm-popover *, .aaalice-prompt-cleaner *, .aaalice-prompt-cleaner-popover *, .aaalice-receiver-root *, .aa-ui-dialog *, .aa-ui-dialog-backdrop *, .aa-ui-popover *, .aa-ui-tooltip * { box-sizing: border-box; }
+
+.aa-ui-tooltip {
+	--aa-ui-tooltip-surface: color-mix(in srgb, var(--aa-ui-surface) 96%, var(--aa-ui-text));
+	position: fixed;
+	z-index: 100030;
+	display: grid;
+	width: max-content;
+	max-width: min(320px, calc(100vw - 20px));
+	gap: 7px;
+	padding: 10px 12px;
+	border: 1px solid color-mix(in srgb, var(--aa-ui-border) 76%, var(--aa-ui-text) 6%);
+	border-radius: 8px;
+	background: var(--aa-ui-tooltip-surface);
+	box-shadow: 0 8px 22px rgb(0 0 0 / .22), 0 2px 6px rgb(0 0 0 / .16), inset 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 7%, transparent);
+	color: var(--aa-ui-text);
+	font: 12px/1.5 var(--comfy-font, Inter, system-ui, sans-serif);
+	letter-spacing: .005em;
+	overflow-wrap: anywhere;
+	pointer-events: none;
+	text-rendering: optimizeLegibility;
+	animation: aa-ui-tooltip-in .1s ease-out;
+}
+.aa-ui-tooltip::before {
+	position: absolute;
+	left: var(--aa-ui-tooltip-arrow-x, 50%);
+	width: 8px;
+	height: 8px;
+	background: var(--aa-ui-tooltip-surface);
+	content: "";
+	transform: translateX(-50%) rotate(45deg);
+}
+.aa-ui-tooltip[data-placement="below"]::before { top: -5px; border-top: 1px solid color-mix(in srgb, var(--aa-ui-border) 76%, var(--aa-ui-text) 6%); border-left: 1px solid color-mix(in srgb, var(--aa-ui-border) 76%, var(--aa-ui-text) 6%); }
+.aa-ui-tooltip[data-placement="above"]::before { bottom: -5px; border-right: 1px solid color-mix(in srgb, var(--aa-ui-border) 76%, var(--aa-ui-text) 6%); border-bottom: 1px solid color-mix(in srgb, var(--aa-ui-border) 76%, var(--aa-ui-text) 6%); }
+.aa-ui-tooltip.is-interactive { pointer-events: auto; user-select: text; }
+.aa-ui-tooltip.is-interactive a { color: var(--aa-ui-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 58%, transparent); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
+.aa-ui-tooltip.is-interactive a:hover { color: color-mix(in srgb, var(--aa-ui-accent) 78%, var(--aa-ui-text)); }
+.aa-ui-tooltip.is-interactive a:focus-visible { border-radius: 2px; outline: 2px solid var(--aa-ui-focus); outline-offset: 2px; }
 
 .aa-ui-segmented { position: relative; display: grid; min-width: 0; height: 32px; grid-template-columns: repeat(var(--aa-ui-segment-count, 2), minmax(0, 1fr)); padding: 2px; overflow: hidden; border: 1px solid var(--aa-ui-border-soft); border-radius: 8px; background: var(--aa-ui-control); }
 .aa-ui-segmented__thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--aa-ui-segment-count, 2)); border: 1px solid color-mix(in srgb, var(--aa-ui-accent) 60%, transparent); border-radius: 6px; background: var(--aa-ui-accent-soft); transform: translateX(calc(var(--aa-ui-segment-index, 0) * 100%)); transition: transform .14s cubic-bezier(.2, .75, .25, 1), border-color .14s ease, background-color .14s ease; }
@@ -178,8 +215,9 @@ input.aa-ui-control:not([type]), input.aa-ui-control[type="text"], input.aa-ui-c
 .aa-ui-dialog input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--aa-ui-accent) 20%, transparent); }
 
 @keyframes aa-ui-dialog-in { from { opacity: 0; transform: translateY(6px) scale(.992); } }
+@keyframes aa-ui-tooltip-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-	.aa-ui-button, .aa-ui-dialog { transition: none; animation: none; }
+	.aa-ui-button, .aa-ui-dialog, .aa-ui-tooltip { transition: none; animation: none; }
 }
 @media (max-width: 720px) {
 	.aa-ui-dialog-backdrop { padding: 10px; }

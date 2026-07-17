@@ -68,13 +68,16 @@ test("keeps manual node sizing after the initial default size", () => {
 });
 
 test("keeps the filter button neutral and lists selected colors in its tooltip", () => {
+	assert.match(source, /createTooltip/);
 	assert.match(source, /aaalice-qgm-filter-tooltip/);
 	assert.match(source, /entry\.color[\s\S]*aaalice-qgm-color[\s\S]*el\("code", null, entry\.color\)/);
 	assert.match(source, /filter\.removeAttribute\("title"\)/);
 	assert.doesNotMatch(source, /quickGroup\.filter\.selected/);
 	assert.doesNotMatch(source, /--qgm-filter-color/);
 	assert.doesNotMatch(styles, /\.aaalice-qgm-filter-button\.is-active/);
-	assert.match(styles, /\.aaalice-qgm-filter-tooltip[\s\S]*pointer-events:\s*none/);
+	assert.match(styles, /\.aaalice-qgm-filter-tooltip-row\s*\{[^}]*padding:\s*2px 1px/);
+	assert.doesNotMatch(styles, /\.aaalice-qgm-filter-tooltip-row\s*\{[^}]*background:/);
+	assert.doesNotMatch(styles, /\.aaalice-qgm-hover-tooltip/);
 	const rowBody = source.slice(source.indexOf("function groupRow"), source.indexOf("function render(node)"));
 	assert.doesNotMatch(rowBody, /aaalice-qgm-color/);
 	assert.doesNotMatch(source, /stale \? el\("span", "aaalice-qgm-warning", "!"\) : null/);
@@ -92,6 +95,7 @@ test("previews existing linkage rules only when a group has rules", () => {
 	assert.match(source, /link\.removeAttribute\("title"\)/);
 	assert.match(source, /whenEnabled[\s\S]*whenDisabled/);
 	assert.match(styles, /\.aaalice-qgm-rule-tooltip-row[\s\S]*grid-template-columns/);
+	assert.doesNotMatch(styles, /\.aaalice-qgm-rule-tooltip-action\s*\{[^}]*border-radius:/);
 });
 
 test("animates and color-codes the mute/bypass mode switcher", () => {

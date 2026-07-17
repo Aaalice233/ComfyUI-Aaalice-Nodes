@@ -4,13 +4,12 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { imageReferenceViewPath, normalizeImageReference } from "./lib/image_reference.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
-import { renderSafeMarkdown } from "./lib/safe_markdown.js";
 import {
 	cleanupDomWidgetResizePassthrough,
 	growClassicDomWidgetNode,
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
-import { badge, button, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { badge, button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
 	parameterPanelKjMenuItem,
 	registerParameterPanelKj,
@@ -351,47 +350,35 @@ function showImagePreview(trigger, reference, label) {
 	image.addEventListener("load", () => positionImagePreview(trigger), { once: true });
 }
 
-let tooltip = null;
-let tooltipTimer = null;
-function hideTooltip() {
-	clearTimeout(tooltipTimer);
-	tooltipTimer = null;
-	tooltip?.remove();
-	tooltip = null;
-}
-
-function showTooltip(trigger, description) {
-	hideTooltip();
-	tooltipTimer = setTimeout(() => {
-		tooltip = el("div", "aaalice-parameter-tooltip");
-		tooltip.id = `aaalice-tooltip-${Math.random().toString(36).slice(2)}`;
-		tooltip.role = "tooltip";
-		tooltip.append(renderSafeMarkdown(description));
-		document.body.append(tooltip);
-		trigger.setAttribute("aria-describedby", tooltip.id);
-		const anchor = trigger.getBoundingClientRect();
-		const box = tooltip.getBoundingClientRect();
-		let left = anchor.left;
-		let top = anchor.bottom + 7;
-		if (left + box.width > innerWidth - 10) left = innerWidth - box.width - 10;
-		if (top + box.height > innerHeight - 10) top = anchor.top - box.height - 7;
-		tooltip.style.left = `${Math.max(10, left)}px`;
-		tooltip.style.top = `${Math.max(10, top)}px`;
-	}, 220);
-}
+const descriptionTooltip = createTooltip();
 
 function attachDescription(trigger, description) {
 	const resolveDescription = () => typeof description === "function" ? description() : description;
 	trigger.tabIndex = 0;
-	trigger.addEventListener("mouseenter", () => showTooltip(trigger, resolveDescription()));
-	trigger.addEventListener("mouseleave", hideTooltip);
-	trigger.addEventListener("focus", () => showTooltip(trigger, resolveDescription()));
-	trigger.addEventListener("blur", hideTooltip);
+	const showOrKeep = (immediate) => {
+		if (descriptionTooltip.isOpenFor(trigger)) {
+			descriptionTooltip.cancelScheduledHide();
+			return;
+		}
+		descriptionTooltip.show(trigger, resolveDescription, {
+			className: "aaalice-parameter-tooltip",
+			contentMode: "markdown",
+			immediate,
+			interactive: true,
+		});
+	};
+	trigger.addEventListener("mouseenter", () => showOrKeep(false));
+	trigger.addEventListener("mouseleave", descriptionTooltip.scheduleHide);
+	trigger.addEventListener("focus", () => showOrKeep(true));
+	trigger.addEventListener("blur", descriptionTooltip.scheduleHide);
+	trigger.addEventListener("keydown", (event) => {
+		if (event.key !== "Tab" || event.shiftKey || !descriptionTooltip.isOpenFor(trigger)) return;
+		if (descriptionTooltip.focusFirstInteractive()) event.preventDefault();
+	});
 }
 
 document.addEventListener("keydown", (event) => {
 	if (event.key !== "Escape") return;
-	hideTooltip();
 	hideImagePreview();
 });
 
@@ -479,7 +466,7 @@ function valueControl(node, parameter, heading = null) {
 			parameter.config ||= {};
 			parameter.config.control_after_generate = parameter.config.control_after_generate === "randomize" ? "fixed" : "randomize";
 			updateMode();
-			hideTooltip();
+			descriptionTooltip.hide();
 			persist();
 		});
 		attachDescription(modeButton, modeLabel);

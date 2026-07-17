@@ -16,6 +16,8 @@ docs/
 .gitignore
 .comfyignore
 package.json
+package-lock.json
+scripts/
 
 # —— 测试与缓存 ——
 tests/
@@ -49,6 +51,7 @@ env/
 *.local
 
 # —— 构建产物 ——
+node_modules/
 dist/
 build/
 *.egg-info/
