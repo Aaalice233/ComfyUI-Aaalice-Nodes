@@ -8,9 +8,16 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
+const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
+const dashboardComponents = readFileSync(join(ROOT, "js", "lib", "dashboard_components.js"), "utf8");
+const dashboardInteractions = readFileSync(join(ROOT, "js", "lib", "dashboard_interactions.js"), "utf8");
+const dashboardCommands = readFileSync(join(ROOT, "js", "lib", "dashboard_commands.js"), "utf8");
+const dashboardLayout = readFileSync(join(ROOT, "js", "lib", "dashboard_layout.js"), "utf8");
+const dashboardSizing = readFileSync(join(ROOT, "js", "lib", "dashboard_sizing.js"), "utf8");
 const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
+const imageUpload = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
 const promptEntryDetails = readFileSync(join(ROOT, "js", "lib", "prompt_entry_details.js"), "utf8");
 const categoryColor = readFileSync(join(ROOT, "js", "lib", "category_color.js"), "utf8");
 const ui = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
@@ -27,7 +34,8 @@ test("workspace is an official left sidebar with reusable component boundaries",
 	assert.match(workspace, /sidebar\.toggleSidebarTab\(TAB_ID\)/);
 	assert.match(workspace, /createWorkspaceShell/);
 	assert.match(components, /segmentedControl/);
-	assert.match(workspace, /createSectionCard/);
+	assert.match(workspace, /createDashboardGrid/);
+	assert.match(workspace, /bindDashboardInteractions/);
 	assert.match(workspace, /createControlCard/);
 	assert.match(workspace, /app\.graph\.extra|graph\.extra/);
 });
@@ -55,14 +63,93 @@ test("providers cover generic, Aaalice and public subgraph widgets by stable hos
 	assert.match(providers, /isPromotedWidget/);
 	assert.match(providers, /repairDuplicateHostIds/);
 	assert.doesNotMatch(providers, /setInterval|setTimeout\([^)]*resolve/);
+	assert.doesNotMatch(providers, /document\.|addEventListener|createNumericEditor|createImageUploadControl|selectControl|toggleSwitch/);
 });
 
 test("numeric control gestures preview live inside one graph history boundary", () => {
-	assert.match(providers, /pointerdown/);
-	assert.match(providers, /setValue\(next, \{ transaction: false \}\)/);
-	assert.match(providers, /pointerup/);
-	assert.match(providers, /beforeChange/);
-	assert.match(providers, /afterChange/);
+	assert.match(workspaceControls, /pointerdown/);
+	assert.match(workspaceControls, /setValue\(next, \{ transaction: false, transient: true \}\)/);
+	assert.match(providers, /flushValue/);
+	assert.match(providers, /node\._aaaliceParameterRedraw\?\.\(\)/);
+	assert.match(workspaceControls, /pointerup/);
+	assert.match(workspaceControls, /beforeChange/);
+	assert.match(workspaceControls, /afterChange/);
+	assert.match(workspaceControls, /aa-workspace-numeric-control/);
+	assert.match(workspaceControls, /--aa-shared-range-progress/);
+	assert.match(workspaceControls, /range\.className = "aa-shared-range"/);
+	assert.match(uiStyles, /\.aa-shared-range::\-webkit-slider-runnable-track/);
+	assert.match(workspaceControls, /root\.headerAccessories = \[valueButton\]/);
+	assert.match(workspaceControls, /createNumericEditor/);
+	assert.match(workspaceControls, /addEventListener\("wheel"/);
+	assert.match(workspaceControls, /event\.shiftKey \? 10 : 1/);
+	assert.match(workspaceControls, /passive: false/);
+	assert.match(theme, /\.aa-workspace-numeric-value/);
+	assert.match(uiStyles, /::-webkit-slider-runnable-track/);
+	assert.match(components, /control\?\.headerAccessories/);
+});
+
+test("dashboard image controls share upload, drop, thumbnail, and preview behavior", () => {
+	assert.match(workspaceControls, /function createImageControl/);
+	assert.match(workspaceControls, /aa-workspace-image-control/);
+	assert.match(workspaceControls, /createImageUploadControl\(\{/);
+	assert.match(workspaceControls, /resolved\.setValue\(null\)/);
+	assert.match(imagePreview, /export function bindImagePreview/);
+	assert.match(imageUpload, /export function isImageFile/);
+	assert.match(imageUpload, /export async function uploadImageFile/);
+	assert.match(imageUpload, /export function bindImageDropTarget/);
+	assert.match(imageUpload, /export function createImageUploadControl/);
+	assert.match(imageUpload, /bindImagePreview\(button, source,[^\n]*immediate: true/);
+	assert.match(workspace, /notifyWorkspaceImageUpload/);
+	assert.match(theme, /\.aa-image-upload-button > img\s*\{[^}]*object-fit:\s*cover/s);
+	assert.match(theme, /\.aa-image-upload-button\.is-drop-target/);
+	assert.match(theme, /\.aa-image-upload-control:hover \.aa-image-upload-clear/);
+	assert.match(theme, /\.aa-image-upload-control\s*\{[^}]*height:\s*32px/s);
+});
+
+test("seed lock state reuses one shared control across the node and dashboard", () => {
+	const parameterControls = readFileSync(join(ROOT, "js", "lib", "parameter_controls.js"), "utf8");
+	const parameterPanel = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	assert.match(parameterControls, /export function createSeedModeControl/);
+	assert.match(parameterControls, /control\.setLocked/);
+	assert.match(parameterControls, /aria-pressed/);
+	assert.match(parameterPanel, /createSeedModeControl\(\{/);
+	assert.match(workspaceControls, /createSeedModeControl\(\{/);
+	assert.match(providers, /control_after_generate = locked \? "fixed" : "randomize"/);
+	assert.match(theme, /\.aa-workspace-seed-mode\.aa-ui-button\.is-locked/);
+});
+
+test("dashboard enum and boolean controls reuse the shared themed controls", () => {
+	assert.match(workspaceControls, /selectControl\(\{/);
+	assert.match(workspaceControls, /toggleSwitch\(\{/);
+	assert.match(components, /root\.dataset\.controlKind/);
+	assert.match(theme, /\.aa-workspace-enum-control/);
+	assert.match(theme, /\.aa-workspace-boolean-control/);
+});
+
+test("control cards move management into an accessible context menu", () => {
+	const cardBody = components.match(/export function createControlCard[\s\S]*?\n}/)?.[0] || "";
+	assert.match(ui, /export function createContextMenu/);
+	assert.match(ui, /role: "menu"/);
+	assert.match(ui, /setAttribute\("role", "menuitem"\)/);
+	assert.match(ui, /ArrowUp/);
+	assert.match(ui, /window\.innerWidth - rect\.width/);
+	assert.match(cardBody, /addEventListener\("contextmenu"/);
+	assert.match(cardBody, /event\.key !== "ContextMenu"/);
+	assert.match(cardBody, /preservesNativeEditing/);
+	assert.doesNotMatch(cardBody, /iconButton\(/);
+	assert.match(workspace, /function openCardActions/);
+	assert.match(workspace, /createContextMenu\(\{ x, y/);
+	assert.match(workspace, /danger: true/);
+	assert.match(uiStyles, /\.aa-ui-context-menu__item\.is-danger/);
+});
+
+test("header-only seed controls do not stretch to the neighboring slider card", () => {
+	assert.match(workspaceControls, /root\.dataset\.headerOnly = String\(!hasRange\)/);
+	assert.match(components, /control\?\.dataset\?\.headerOnly === "true"/);
+	assert.match(theme, /\.aa-dashboard-grid-v2, \.aa-dashboard-group-grid \{[^}]*grid-auto-rows: 4px;[^}]*align-items: stretch;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \{[^}]*padding-block: 7px;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-workspace-numeric-value \{[^}]*min-width: 64px;[^}]*flex: 1;/);
+	assert.match(theme, /\.aa-workspace-numeric-value \{[^}]*text-align: center;/);
 });
 
 test("PromptSelector injects live library text and exposes inline weight management", () => {
@@ -93,11 +180,11 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.match(components, /event\.key === "Escape"/);
 	assert.match(components, /queueMicrotask/);
 	assert.match(workspace, /workspaceViewState = \{/);
-	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false \}/);
+	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false, pageRailExpanded: false, selectedItemIds: new Set\(\)/);
 	assert.match(workspace, /viewState\.searchOpen = open; viewState\.focusSearch = open/);
 	assert.doesNotMatch(workspace, /container\._aaalice(?:Dashboard|Library)(?:Query|SearchOpen|SearchShouldFocus)/);
 	assert.match(workspace, /disabled: !page \|\| editMode/);
-	assert.match(workspace, /sectionElement\.dataset\.searchText/);
+	assert.match(workspace, /item\.dataset\.searchText/);
 	assert.match(workspace, /applyDashboardSearch\(value\)/);
 	assert.match(workspace, /library: \{ query: "", searchOpen: false, focusSearch: false/);
 	assert.match(workspace, /onInput: \(value\) => \{ query = value; viewState\.query = value; drawEntries\(\)/);
@@ -106,7 +193,7 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.doesNotMatch(workspace, /container\.append\(toolbar, \.\.\.\(search\.panel/);
 	assert.match(theme, /\.aa-dashboard-toolbar\.is-searching, \.aa-library-toolbar\.is-searching/);
 	assert.match(theme, /@keyframes aa-workspace-search-open/);
-	assert.match(theme, /\.aa-dashboard-body\.is-searching/);
+	assert.match(workspace, /pageRail\.hidden = Boolean\(needle\)/);
 });
 
 test("PromptSelector can open the official sidebar directly on library management", () => {
@@ -132,7 +219,7 @@ test("PromptSelector can open the official sidebar directly on library managemen
 	assert.match(theme, /\.aa-prompt-selector-favorite\.is-active \.aa-ui-icon \{ fill: currentColor; \}/);
 });
 
-test("workspace visual hierarchy uses a compact shell, dedicated icon and active section rail", () => {
+test("workspace visual hierarchy uses a compact shell, dedicated icon and active page rail", () => {
 	assert.match(workspace, /icon: "aaalice-workspace-sidebar-icon"/);
 	assert.match(workspace, /element\.classList\.add\("aa-workspace-host"\)/);
 	assert.match(theme, /\.aa-workspace-host \{[^}]*height: 100%;[^}]*min-height: 0;[^}]*overflow: hidden;/);
@@ -141,12 +228,28 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(workspaceIcon, /viewBox="0 0 24 24"/);
 	assert.match(workspaceIcon, /stroke-linecap="round"/);
 	assert.doesNotMatch(workspaceIcon, /<circle/);
-	assert.match(workspace, /IntersectionObserver/);
-	assert.match(workspace, /_aaaliceSectionObserver\?\.disconnect/);
+	assert.match(components, /createPageRail/);
+	assert.match(components, /aa-dashboard-page-cursor/);
+	assert.match(components, /root\.update = update/);
+	assert.match(components, /active\.offsetTop/);
+	assert.match(components, /const items = new Map\(\)/);
+	assert.doesNotMatch(components, /transitionFromId|\* 27|cursorOffset/);
+	assert.match(workspace, /const dashboardPageRails = new WeakMap\(\)/);
+	assert.match(workspace, /pageRail\.update\(\{/);
+	assert.match(components, /requestAnimationFrame/);
+	assert.match(components, /aria-current/);
+	assert.match(components, /addEventListener\("wheel"/);
+	assert.match(components, /passive: false/);
+	assert.match(components, /ArrowUp/);
+	assert.match(components, /PageDown/);
 	assert.doesNotMatch(components, /aa-workspace-brand/);
 	assert.match(components, /ariaLabel: title/);
 	assert.match(components, /root\.dataset\.workspace = activeTab/);
 	assert.match(components, /root\.dataset\.workspace = value/);
+	assert.match(workspace, /className: "aa-dashboard-edit-toggle"/);
+	assert.match(workspace, /variant: "ghost"/);
+	assert.match(workspace, /active: editMode/);
+	assert.match(theme, /\.aa-dashboard-edit-toggle\.aa-ui-button\.is-active/);
 	assert.match(theme, /\.aa-workspace\[data-workspace="library"\] \{[^}]*--aa-ui-accent: var\(--aa-workspace-library-accent\)/);
 	assert.match(theme, /--aa-ui-accent-soft: color-mix/);
 	assert.match(theme, /--aa-ui-focus: var\(--aa-workspace-library-accent\)/);
@@ -155,7 +258,16 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(theme, /transform \.2s cubic-bezier/);
 	assert.doesNotMatch(workspace.match(/function renderWorkspace[\s\S]*?\n}/)?.[0] || "", /scheduleRender/);
 	assert.match(components, /aa-control-card-indicator/);
-	assert.match(theme, /\.aa-dashboard-dot\.is-active/);
+	assert.match(theme, /\.aa-dashboard-page-dot\.is-active/);
+	assert.match(theme, /\.aa-dashboard-page-rail:hover \.aa-dashboard-page-dot/);
+	assert.match(theme, /\.aa-dashboard-page-list/);
+	assert.match(theme, /\.aa-dashboard-page-rail\.is-expanded/);
+	assert.match(theme, /\.aa-dashboard-page-cursor/);
+	assert.match(theme, /transform \.16s cubic-bezier/);
+	assert.match(theme, /\.aa-dashboard-page-dot\.is-active/);
+	assert.match(theme, /margin-right: auto/);
+	assert.match(theme, /justify-content: space-between/);
+	assert.match(theme, /backdrop-filter: blur\(12px\)/);
 });
 
 test("PromptSelector exposes scannable selected and category states", () => {
@@ -239,7 +351,7 @@ test("filter dropdowns reuse the shared animated select control", () => {
 });
 
 test("workspace empty states and compact action bars keep narrow sidebars deliberate", () => {
-	assert.match(components, /pages\.length \? "" : " is-empty"/);
+	assert.match(components, /aa-dashboard-page-rail/);
 	assert.match(workspace, /aa-dashboard-toolbar/);
 	assert.match(workspace, /aa-library-toolbar/);
 	assert.match(workspace, /iconName: "upload", label: t\("aaalice\.workspace\.preset\.export"/);
@@ -248,8 +360,79 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 	assert.match(workspace, /iconName: "download", label: t\("aaalice\.workspace\.libraryUi\.import"/);
 	assert.match(workspace, /aa-workspace-empty aa-dashboard-empty/);
 	assert.match(workspace, /aa-workspace-empty aa-library-empty/);
-	assert.match(theme, /\.aa-dashboard-pages\.is-empty \{ display: none; \}/);
+	assert.match(theme, /\.aa-dashboard-page-rail\.is-empty \{ display: none; \}/);
+	assert.match(theme, /\.aa-workspace-empty\[hidden\] \{ display: none; \}/);
 	assert.match(theme, /\.aa-library-filters \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
+});
+
+test("dashboard toolbar identifies the current page in its available space", () => {
+	assert.match(workspace, /className: "aa-dashboard-page-name"[^\n]+role: "heading"[^\n]+"aria-current": "page"/);
+	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*min-width: 0;[^}]*flex: 1;/);
+	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*border-left: 2px solid var\(--aa-ui-accent\);[^}]*font-size: 13px;[^}]*font-weight: 700;/);
+	assert.match(theme, /\.aa-dashboard-page-name > span \{[^}]*text-overflow: ellipsis;/);
+});
+
+test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
+	assert.match(workspace, /createGroup\(current, page\.id/);
+	assert.match(dashboardComponents, /export function createDashboardGroup/);
+	assert.match(dashboardComponents, /data-dashboard-group-id/);
+	assert.match(dashboardComponents, /page\.items\.filter\(\(item\) => !item\.groupId\)/);
+	assert.match(dashboardLayout, /export function firstAvailableLayout/);
+	assert.match(dashboardCommands, /export function deleteGroup/);
+	assert.doesNotMatch(workspace, /createSection|findSection|lastSectionId|\.sections/);
+	assert.doesNotMatch(components, /createSectionCard/);
+	assert.doesNotMatch(theme, /aa-dashboard-section/);
+});
+
+test("Dashboard footprints are stable model hints rather than DOM measurements", () => {
+	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
+	assert.match(dashboardSizing, /export function recommendedControlRowSpan/);
+	assert.match(dashboardSizing, /export function recommendedGroupRowSpan/);
+	assert.doesNotMatch(dashboardSizing, /document|getComputedStyle|ResizeObserver/);
+	assert.match(dashboardLayout, /layout\.row \+ layout\.rowSpan/);
+});
+
+test("Dashboard V2 layout editing uses transient pointer gestures and one command commit", () => {
+	assert.match(dashboardInteractions, /pointerdown/);
+	assert.match(dashboardInteractions, /setPointerCapture/);
+	assert.match(dashboardInteractions, /translate3d/);
+	assert.match(dashboardInteractions, /function gridTargetAt/);
+	assert.match(dashboardInteractions, /aa-dashboard-drop-preview/);
+	assert.match(dashboardInteractions, /style\.gridAutoRows/);
+	assert.match(dashboardInteractions, /--aa-dashboard-row-span/);
+	assert.match(dashboardInteractions, /grabRowOffset/);
+	assert.match(dashboardInteractions, /rawTarget\.row - gesture\.grabRowOffset/);
+	assert.match(dashboardInteractions, /event\.key === "Escape"/);
+	assert.match(dashboardInteractions, /onDropItems/);
+	assert.doesNotMatch(dashboardInteractions, /graph\.extra|beforeChange|afterChange/);
+	assert.match(workspace, /onDropItems: \(ids, target\) => updateDashboard/);
+	assert.match(theme, /\.aa-dashboard-scroll \{[^}]*display: flex;[^}]*flex-direction: column;/);
+	assert.match(theme, /\.aa-dashboard-grid-v2 \{[^}]*flex: 1;/);
+	assert.match(theme, /\.aa-dashboard-grid-v2\.is-editing \{[^}]*min-height: 100%;/);
+	assert.match(theme, /grid-row: var\(--aa-dashboard-row\) \/ span var\(--aa-dashboard-row-span\)/);
+});
+
+test("workspace list selection reuses the shared checkbox control", () => {
+	assert.match(components, /checkboxControl\(\{/);
+	assert.match(components, /root\.selectionControl = checkbox/);
+	assert.match(ui, /export function checkboxControl/);
+	assert.match(uiStyles, /\.aa-ui-checkbox\.is-checked/);
+	assert.doesNotMatch(uiStyles, /\.aa-ui-dialog input\[type="checkbox"\]/);
+});
+
+test("add-controls dialog uses a compact structured picker", () => {
+	assert.match(workspace, /aa-add-controls-target-grid/);
+	assert.match(workspace, /aa-add-controls-section aa-add-controls-picker/);
+	assert.match(workspace, /aa-add-controls-selection-count/);
+	assert.match(workspace, /const pageSelect = selectControl/);
+	assert.doesNotMatch(workspace, /sectionSelect|target\.section|newSection/);
+	assert.match(workspace, /aa-add-controls-select-all/);
+	assert.match(workspace, /binding\.selectAll/);
+	assert.match(workspace, /aa-add-controls-footer-count/);
+	assert.match(workspace, /confirmButton\.disabled = selected\.size === 0/);
+	assert.match(workspace, /size: "md", className: "aa-add-controls-dialog-shell"/);
+	assert.match(theme, /\.aa-add-controls-list \{ display: grid;/);
+	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
 test("library rows keep a stable thumbnail column and distinguish entry actions", () => {

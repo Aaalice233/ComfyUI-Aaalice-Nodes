@@ -1,5 +1,5 @@
 /** Shared DOM controls used by ParameterPanel's node surface and editor. */
-import { el, selectControl } from "./ui.js";
+import { el, icon, iconButton, selectControl } from "./ui.js";
 
 function numericInput(parameter, onChange, ariaLabel = "") {
 	const input = document.createElement("input");
@@ -99,6 +99,22 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	view.addEventListener("wheel", commitOnWheel, true);
 	setTimeout(() => { input.focus(); input.select(); }, 0);
 	return input;
+}
+
+export function createSeedModeControl({ locked = false, lockedLabel = "Seed locked; click to unlock", unlockedLabel = "Seed unlocked; click to lock", ariaLabelPrefix = "", className = "", onChange = null } = {}) {
+	let current = Boolean(locked);
+	const control = iconButton({ iconName: current ? "lock" : "unlock", label: current ? lockedLabel : unlockedLabel, variant: "ghost", className: `aa-shared-seed-mode${className ? ` ${className}` : ""}` });
+	const sync = () => {
+		const label = current ? lockedLabel : unlockedLabel;
+		control.replaceChildren(icon(current ? "lock" : "unlock"));
+		control.classList.toggle("is-locked", current); control.classList.toggle("is-unlocked", !current);
+		control.setAttribute("aria-label", ariaLabelPrefix ? `${ariaLabelPrefix}: ${label}` : label); control.setAttribute("title", label); control.setAttribute("aria-pressed", String(current));
+	};
+	control.addEventListener("click", () => { current = !current; sync(); onChange?.(current); });
+	control.setLocked = (next) => { current = Boolean(next); sync(); };
+	control.isLocked = () => current;
+	control.currentLabel = () => current ? lockedLabel : unlockedLabel;
+	sync(); return control;
 }
 
 function createSwitchControl(value, { onChange, ariaLabel = "" } = {}) {

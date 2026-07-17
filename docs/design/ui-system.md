@@ -83,7 +83,7 @@
 
 ## 7. 共享组件边界
 
-`js/lib/ui.js` 是无业务状态的 DOM 基础组件层；`js/lib/workspace_components.js` 是工作区复合组件层。两层都只接收数据、已本地化字符串和回调，不导入 `t()`，不读写工作流或词库状态。业务入口负责状态、生命周期与画布事务。
+`js/lib/ui.js` 是无业务状态的 DOM 基础组件层；`js/lib/workspace_components.js` 是工作区复合组件层；`js/lib/workspace_controls.js` 只把 Provider 解析出的值适配器渲染为控件并管理局部输入手势。三层都只接收数据、已本地化字符串和回调，不导入 `t()`，不拥有工作流或词库状态。Control Provider 只负责发现、解析和写回，业务入口负责状态编排、生命周期与画布事务。
 
 | 组件 | 职责 |
 |---|---|
@@ -96,10 +96,12 @@
 | `createDialog()` | 统一 Escape、背景关闭、焦点圈定与恢复 |
 | `segmentedControl()` | 2–4 个平级互斥模式、稳定 thumb、radiogroup 与方向键 |
 | `toggleSwitch()` | 单一布尔设置、disabled 和 aria 状态 |
+| `checkboxControl()` | 列表多选、紧凑勾选反馈、disabled 和 aria 状态 |
 | `multiSelectControl()` | 有限选项的多选列表、勾选反馈、键盘焦点和稳定值集合 |
 | `selectControl()` | 单选下拉、统一右侧安全间距、展开状态、旋转箭头、键盘与 ARIA |
 | `listboxControl()` | 需要跨平台一致弹层样式的单选列表；支持颜色标记、方向键与稳定值 |
 | `createAnchoredPopover()` | 锚定按钮的非模态浮层、外部关闭、焦点圈定与恢复 |
+| `createContextMenu()` | 鼠标右键或 `ContextMenu` / `Shift+F10` 打开的紧凑操作菜单；负责视口收口、方向键、Escape、危险项和焦点恢复 |
 | `createTooltip()` | 统一内容提示；通过 `contentMode` 支持 `auto`、`text`、安全 CommonMark/GFM `markdown` 和 `dom`。默认使用非交互 Tooltip；`interactive` 模式提供可悬停、可聚焦链接的非模态悬浮卡片，并管理延迟关闭、Escape、焦点返回和 ARIA 关系 |
 
 Tooltip 使用接近实色的主题表面、单层边框、克制的分层投影和内侧高光，并用跟随实际锚点的小箭头建立空间关系；业务内容不得在 Tooltip 内重复套无语义的卡片表面。
@@ -114,7 +116,7 @@ Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按
 | `createWorkspaceShell()` | 工作区切换、当前主题和内容挂载边界 |
 | `createWorkspaceToolbar()` | 紧凑同排操作及可访问标签 |
 | `createCollapsibleSearch()` | 侧栏内同排展开的搜索入口、输入和关闭 |
-| `createPageTabs()` / `createSectionCard()` / `createControlCard()` | Dashboard 页面、分区和参数投影的纯视图 |
+| `createPageRail()` / `createDashboardGrid()` / `createDashboardGroup()` / `createControlCard()` | Dashboard 页面导航、细粒度二维网格、可选布局组和参数投影的纯视图 |
 | `createTransferHero()` / `createTransferStats()` / `createTransferSection()` / `createTransferResult()` | 导入导出的文件摘要、预检统计、冲突区和结果反馈 |
 
 业务模块可以增加布局 class 和语义色映射，但不得复制基础组件或让共享层持有工作流状态。依赖连续动画的 thumb 必须保留 DOM identity，只更新 class、data、ARIA 和 transform。

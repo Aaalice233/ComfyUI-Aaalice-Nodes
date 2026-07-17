@@ -2,7 +2,8 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
-import { imageReferenceViewPath, normalizeImageReference } from "./lib/image_reference.js";
+import { closeImagePreview } from "./lib/image_preview.js";
+import { createImageUploadControl } from "./lib/image_upload.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import {
 	cleanupDomWidgetResizePassthrough,
@@ -41,7 +42,7 @@ import {
 	syncNativeOutputLayout,
 } from "./lib/parameter_layout.js";
 import { reshapeParameterOutputsPreservingLinks } from "./lib/dynamic_slots.js";
-import { createNumericEditor, createParameterControl } from "./lib/parameter_controls.js";
+import { createNumericEditor, createParameterControl, createSeedModeControl } from "./lib/parameter_controls.js";
 
 const NODE = "ParameterPanel";
 const MIN_WIDTH = PARAMETER_NODE_LAYOUT.minWidth;
@@ -241,115 +242,6 @@ function parameterLinkCount(node, parameterId) {
 	return index < 0 ? 0 : (node.outputs?.[index]?.links?.length || 0);
 }
 
-function isImageFile(file) {
-	return file instanceof File && (!file.type || file.type.startsWith("image/"));
-}
-
-async function uploadImageFile(file, parameter, onSelected) {
-	if (!isImageFile(file)) {
-		toast("error", t("aaalice.pcp.error.imageFileType", "Choose an image file."));
-		return;
-	}
-	try {
-		const data = new FormData();
-		data.append("image", file);
-		data.append("type", "input");
-		const response = await api.fetchApi("/upload/image", { method: "POST", body: data });
-		if (!response.ok) throw new Error(`HTTP ${response.status}`);
-		const reference = normalizeImageReference(await response.json());
-		if (!reference) throw new Error(t("aaalice.pcp.error.imageUploadResponse", "The server response did not include an image filename."));
-		parameter.value = reference;
-		toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename }));
-		onSelected();
-	} catch (error) {
-		toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: {reason}", { reason: error?.message || String(error) }));
-	}
-}
-
-function chooseImage(parameter, onSelected) {
-	const upload = document.createElement("input");
-	upload.type = "file";
-	upload.accept = "image/*";
-	upload.addEventListener("change", () => {
-		const file = upload.files?.[0];
-		if (!file) return;
-		void uploadImageFile(file, parameter, onSelected);
-	});
-	upload.click();
-}
-
-function attachImageDropTarget(button, label, parameter, onSelected, defaultLabel) {
-	const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
-	const setActive = (active) => {
-		button.classList.toggle("is-drop-target", active);
-		label.textContent = active ? t("aaalice.pcp.image.drop", "Drop image here") : defaultLabel;
-	};
-	button.addEventListener("dragenter", (event) => {
-		if (!hasFiles(event)) return;
-		event.preventDefault();
-		event.stopPropagation();
-		hideImagePreview();
-		setActive(true);
-	});
-	button.addEventListener("dragover", (event) => {
-		if (!hasFiles(event)) return;
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-		setActive(true);
-	});
-	button.addEventListener("dragleave", (event) => {
-		if (button.contains(event.relatedTarget)) return;
-		setActive(false);
-	});
-	button.addEventListener("drop", (event) => {
-		if (!hasFiles(event)) return;
-		event.preventDefault();
-		event.stopPropagation();
-		setActive(false);
-		const files = Array.from(event.dataTransfer?.files || []);
-		const file = files.find(isImageFile) || files[0];
-		if (file) void uploadImageFile(file, parameter, onSelected);
-	});
-}
-
-let imagePreview = null;
-function hideImagePreview() {
-	imagePreview?.remove();
-	imagePreview = null;
-}
-
-function positionImagePreview(trigger) {
-	if (!imagePreview?.isConnected) return;
-	const gap = 8;
-	const margin = 10;
-	const anchor = trigger.getBoundingClientRect();
-	const box = imagePreview.getBoundingClientRect();
-	const left = Math.min(anchor.left, window.innerWidth - box.width - margin);
-	let top = anchor.bottom + gap;
-	if (top + box.height > window.innerHeight - margin) top = anchor.top - box.height - gap;
-	imagePreview.style.left = `${Math.max(margin, left)}px`;
-	imagePreview.style.top = `${Math.max(margin, top)}px`;
-}
-
-function showImagePreview(trigger, reference, label) {
-	if (imagePreview?.isConnected && imagePreview._aaaliceAnchor === trigger) return;
-	hideImagePreview();
-	const path = imageReferenceViewPath(reference);
-	if (!path) return;
-	const preview = el("div", "aaalice-pcp-image-preview");
-	preview.role = "tooltip";
-	const image = document.createElement("img");
-	image.alt = label;
-	image.src = api.apiURL(path);
-	preview.append(image);
-	document.body.append(preview);
-	preview._aaaliceAnchor = trigger;
-	imagePreview = preview;
-	positionImagePreview(trigger);
-	image.addEventListener("load", () => positionImagePreview(trigger), { once: true });
-}
-
 const descriptionTooltip = createTooltip();
 
 function attachDescription(trigger, description) {
@@ -379,7 +271,7 @@ function attachDescription(trigger, description) {
 
 document.addEventListener("keydown", (event) => {
 	if (event.key !== "Escape") return;
-	hideImagePreview();
+	closeImagePreview();
 });
 
 function openInlineNumberInput(anchor, value, min, max, step, onCommit) {
@@ -410,6 +302,7 @@ function valueControl(node, parameter, heading = null) {
 		const wrap = el("div", "aaalice-pcp-node-slider");
 		const range = isolate(document.createElement("input"));
 		range.type = "range";
+		range.classList.add("aa-shared-range");
 		range.min = String(config.min ?? 0);
 		range.max = String(config.max ?? 100);
 		range.step = String(config.step ?? 1);
@@ -426,7 +319,7 @@ function valueControl(node, parameter, heading = null) {
 			const min = Number(range.min);
 			const max = Number(range.max);
 			const progress = max > min ? Math.min(100, Math.max(0, ((Number(range.value) - min) / (max - min)) * 100)) : 0;
-			range.style.setProperty("--aaalice-range-progress", `${progress}%`);
+			range.style.setProperty("--aa-shared-range-progress", `${progress}%`);
 			display.textContent = String(parameter.value ?? range.value);
 		};
 		range.addEventListener("input", () => {
@@ -443,34 +336,15 @@ function valueControl(node, parameter, heading = null) {
 	if (parameter.param_type === "seed") {
 		const wrap = el("div", "aaalice-pcp-node-seed");
 		const display = numericDisplay("", parameter, config, (value) => { parameter.value = value; persist(); });
-		const modeLabel = () => parameter.config?.control_after_generate === "randomize"
-			? t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock")
-			: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock");
-		const modeButton = isolate(iconButton({
-			iconName: "unlock",
-			label: modeLabel(),
-			variant: "ghost",
-			className: "aaalice-pcp-seed-mode",
-		}));
+		const lockedLabel = t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock");
+		const unlockedLabel = t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock");
+		const modeButton = isolate(createSeedModeControl({ locked: parameter.config?.control_after_generate !== "randomize", lockedLabel, unlockedLabel, ariaLabelPrefix: displayName(parameter), className: "aaalice-pcp-seed-mode", onChange: (locked) => {
+			parameter.config ||= {}; parameter.config.control_after_generate = locked ? "fixed" : "randomize";
+			wrap.classList.toggle("is-locked", locked); descriptionTooltip.hide(); persist();
+		} }));
 		modeButton.removeAttribute("title");
-		const updateMode = () => {
-			const locked = parameter.config?.control_after_generate !== "randomize";
-			modeButton.replaceChildren(icon(locked ? "lock" : "unlock"));
-			wrap.classList.toggle("is-locked", locked);
-			modeButton.classList.toggle("is-locked", locked);
-			modeButton.classList.toggle("is-unlocked", !locked);
-			modeButton.setAttribute("aria-label", `${displayName(parameter)}: ${modeLabel()}`);
-			modeButton.setAttribute("aria-pressed", String(locked));
-		};
-		modeButton.addEventListener("click", () => {
-			parameter.config ||= {};
-			parameter.config.control_after_generate = parameter.config.control_after_generate === "randomize" ? "fixed" : "randomize";
-			updateMode();
-			descriptionTooltip.hide();
-			persist();
-		});
-		attachDescription(modeButton, modeLabel);
-		updateMode();
+		attachDescription(modeButton, modeButton.currentLabel);
+		wrap.classList.toggle("is-locked", modeButton.isLocked());
 		wrap.append(display, modeButton);
 		return wrap;
 	}
@@ -562,45 +436,25 @@ function valueControl(node, parameter, heading = null) {
 		return selectWrap;
 	}
 	if (parameter.param_type === "image") {
-		const reference = normalizeImageReference(parameter.value);
-		const imageControl = el("div", "aaalice-pcp-node-image-control");
-		const imageButton = isolate(el("button", "aaalice-pcp-node-value aaalice-pcp-node-image"));
-		imageButton.type = "button";
-		imageButton.setAttribute("aria-label", displayName(parameter));
-		const defaultLabel = reference?.filename || t("aaalice.pcp.image.none", "Choose image");
-		const imageLabel = el("span", "aaalice-pcp-node-image-label", defaultLabel);
-		imageButton.append(imageLabel);
-		const path = imageReferenceViewPath(reference);
-		if (path) {
-			imageButton.classList.add("has-image");
-			imageButton.style.backgroundImage = `url("${api.apiURL(path).replaceAll('"', '%22')}")`;
-			const showPreview = () => showImagePreview(imageButton, reference, displayName(parameter));
-			imageControl.addEventListener("mouseenter", showPreview);
-			imageControl.addEventListener("mouseleave", hideImagePreview);
-			imageControl.addEventListener("focusin", showPreview);
-			imageControl.addEventListener("focusout", (event) => {
-				if (!imageControl.contains(event.relatedTarget)) hideImagePreview();
-			});
-		}
-		imageButton.addEventListener("click", () => chooseImage(parameter, persist));
-		attachImageDropTarget(imageButton, imageLabel, parameter, persist, defaultLabel);
-		imageControl.append(imageButton);
-		if (reference) {
-			const clearButton = isolate(iconButton({
-				iconName: "delete",
-				label: t("aaalice.pcp.image.clear", "Clear selected image"),
-				variant: "ghost",
-				className: "aaalice-pcp-node-image-clear",
-			}));
-			clearButton.addEventListener("click", (event) => {
-				event.stopPropagation();
-				parameter.value = null;
-				hideImagePreview();
+		return isolate(createImageUploadControl({
+			reference: parameter.value,
+			label: displayName(parameter),
+			emptyLabel: t("aaalice.pcp.image.none", "Choose image"),
+			dropLabel: t("aaalice.pcp.image.drop", "Drop image here"),
+			clearLabel: t("aaalice.pcp.image.clear", "Clear selected image"),
+			className: "aaalice-pcp-node-image-control",
+			onSelected: (reference) => {
+				parameter.value = reference;
+				toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename }));
 				persist();
-			});
-			imageControl.append(clearButton);
-		}
-		return imageControl;
+			},
+			onClear: () => { parameter.value = null; persist(); },
+			onError: (error) => {
+				if (error?.code === "file-type") toast("error", t("aaalice.pcp.error.imageFileType", "Choose an image file."));
+				else if (error?.code === "response") toast("error", t("aaalice.pcp.error.imageUploadResponse", "The server response did not include an image filename."));
+				else toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: {reason}", { reason: error?.message || String(error) }));
+			},
+		}));
 	}
 	return isolate(createParameterControl({ parameter, onChange: persist, labels: { input: displayName(parameter) } }));
 }
@@ -610,7 +464,7 @@ function disconnectSegmentObservers(root) {
 }
 
 function renderNode(node, root) {
-	hideImagePreview();
+	closeImagePreview();
 	disconnectSegmentObservers(root);
 	root.replaceChildren();
 	const parameters = ensureParameters(node);

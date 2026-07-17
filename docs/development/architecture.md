@@ -42,10 +42,10 @@
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
-| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,control_providers,workspace_components}.js` | 手工页面布局、参数投影、子图公开参数、词库管理和预设 |
+| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,workspace_controls}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、词库管理和预设；模型、尺寸、布局、命令、交互、DOM 与 Provider 保持单向职责 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
-| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,parameter_controls,image_reference,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、无状态控件、图像引用、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
+| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,parameter_controls,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、无状态控件、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
 
 共享 `js/lib` 模块不得自行注册扩展或拥有工作流状态。业务入口负责生命周期和画布事务，纯模型保持无 DOM、无 ComfyUI 运行时依赖。
@@ -126,7 +126,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 1. 官方 Sidebar Tab 挂载参数控制与词库工作区；页面布局随工作流序列化，参数值仍由节点拥有。
 2. Control Provider Registry 分别解析通用 widget、Aaalice 稳定参数和子图整体公开 widget；绑定只按稳定 Host ID 与 Control ID 精确解析。
-3. 节点右键添加参数始终可用；编辑模式只开放页面、分区和卡片布局操作。
+3. 节点右键添加参数始终可用；编辑模式只开放页面、双列网格、布局组和卡片布局操作。
 4. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，预设导入跳过不兼容值并等待人工重绑。
 
 ## Classic、Nodes 2.0 与尺寸

@@ -7,7 +7,7 @@ const previewTooltip = createTooltip({ delay: IMAGE_PREVIEW_HOVER_DELAY, closeDe
 
 export function closeImagePreview() { previewTooltip.hide(); }
 
-function bindLargePreview(trigger, source, title) {
+export function bindImagePreview(trigger, source, title, { immediate = false } = {}) {
 	if (!source) return;
 	const show = (immediate) => {
 		if (previewTooltip.isOpenFor(trigger)) { previewTooltip.cancelScheduledHide(); return; }
@@ -15,7 +15,7 @@ function bindLargePreview(trigger, source, title) {
 		large.addEventListener("load", previewTooltip.reposition, { once: true });
 		previewTooltip.show(trigger, el("div", { className: "aa-image-preview-large", children: [large, el("strong", null, title)] }), { className: "aa-image-preview-tooltip", contentMode: "dom", immediate });
 	};
-	trigger.addEventListener("mouseenter", () => show(false));
+	trigger.addEventListener("mouseenter", () => show(immediate));
 	trigger.addEventListener("mouseleave", previewTooltip.scheduleHide);
 	trigger.addEventListener("focusin", () => show(true));
 	trigger.addEventListener("focusout", previewTooltip.scheduleHide);
@@ -32,7 +32,7 @@ export function createImagePreview({ source = "", title = "", label = title, cla
 	if (!source) return el("span", { className: `${classes} is-placeholder`, attrs: { "aria-hidden": "true" }, children: [icon(placeholderIcon)] });
 	const image = document.createElement("img"); image.src = source; image.alt = ""; image.loading = "lazy"; image.decoding = "async";
 	const trigger = el("button", { className: classes, attrs: { type: "button", "aria-label": label }, children: [image] });
-	bindLargePreview(trigger, source, title);
+	bindImagePreview(trigger, source, title);
 	return trigger;
 }
 
@@ -42,6 +42,6 @@ export function createSelectableImagePreview({ source = "", title = "", label = 
 	const root = el("label", { className: `aa-image-preview aa-image-preview-selectable${selected ? " is-selected" : ""}${className ? ` ${className}` : ""}`, children: [
 		input, thumbnail(source, placeholderIcon), el("span", { className: "aa-image-preview-selection", attrs: { "aria-hidden": "true" }, children: [icon("statusCheck")] }),
 	] });
-	bindLargePreview(root, source, title);
+	bindImagePreview(root, source, title);
 	return { root, input };
 }

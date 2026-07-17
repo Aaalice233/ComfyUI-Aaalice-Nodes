@@ -145,39 +145,42 @@ test("parameter panel keeps native resize corners and a stable minimum width", (
 
 test("image parameters expose upload feedback, a cover thumbnail and a full preview", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const uploadSource = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
+	const previewSource = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
-	const chooserSource = panelSource.match(/function chooseImage[\s\S]+?\r?\n}\r?\n\r?\nlet imagePreview/)?.[0] || "";
 
 	assert.match(panelSource, /aaalice\.pcp\.image\.uploaded/);
-	assert.match(chooserSource, /upload\.type = "file"/);
-	assert.match(chooserSource, /upload\.click\(\)/);
-	assert.doesNotMatch(chooserSource, /createDialog|type = "text"|useExisting/);
-	assert.match(panelSource, /aaalice-pcp-node-image/);
-	assert.match(panelSource, /aaalice-pcp-image-preview/);
-	assert.match(panelSource, /aaalice-pcp-node-image-clear/);
+	assert.match(panelSource, /createImageUploadControl\(\{/);
+	assert.match(panelSource, /className: "aaalice-pcp-node-image-control"/);
 	assert.match(panelSource, /parameter\.value = null/);
-	assert.match(panelSource, /imageControl\.addEventListener\("mouseenter", showPreview\)/);
-	assert.match(panelSource, /imageControl\.addEventListener\("mouseleave", hideImagePreview\)/);
-	assert.match(panelSource, /showImagePreview\(imageButton, reference/);
-	assert.match(themeSource, /\.aaalice-pcp-node-image\s*\{[^}]*background-position:\s*center;[^}]*background-size:\s*cover/s);
-	assert.match(themeSource, /\.aaalice-pcp-node-image-control:hover \.aaalice-pcp-node-image-clear/);
-	assert.match(themeSource, /\.aaalice-pcp-node-image-clear:hover:not\(:disabled\)\s*\{[^}]*transform:\s*translateY\(-50%\)/s);
-	assert.match(themeSource, /\.aaalice-pcp-image-preview img\s*\{[^}]*object-fit:\s*contain/s);
+	assert.match(uploadSource, /picker\.type = "file"/);
+	assert.match(uploadSource, /picker\.click\(\)/);
+	assert.match(uploadSource, /thumbnail\.src = source/);
+	assert.match(uploadSource, /bindImagePreview\(button, source,[^\n]*immediate: true/);
+	assert.match(uploadSource, /className: "aa-image-upload-clear"/);
+	assert.match(previewSource, /export function bindImagePreview/);
+	assert.match(themeSource, /\.aa-image-upload-button > img\s*\{[^}]*object-fit:\s*cover/s);
+	assert.match(themeSource, /\.aa-image-upload-control:hover \.aa-image-upload-clear/);
+	assert.match(themeSource, /\.aa-image-upload-clear\.aa-ui-button:hover:not\(:disabled\)[^}]*translateY\(-50%\)/s);
+	assert.match(themeSource, /\.aa-image-preview-large > img\s*\{[^}]*object-fit:\s*contain/s);
 });
 
 test("image parameters upload dropped image files through the existing upload path", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const uploadSource = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
-	assert.match(panelSource, /async function uploadImageFile/);
-	assert.match(panelSource, /api\.fetchApi\("\/upload\/image"/);
-	assert.match(panelSource, /function attachImageDropTarget/);
-	assert.match(panelSource, /addEventListener\("dragenter"/);
-	assert.match(panelSource, /addEventListener\("dragover"/);
-	assert.match(panelSource, /addEventListener\("dragleave"/);
-	assert.match(panelSource, /addEventListener\("drop"/);
-	assert.match(panelSource, /event\.stopPropagation\(\)/);
-	assert.match(panelSource, /event\.dataTransfer\.dropEffect = "copy"/);
-	assert.match(panelSource, /files\.find\(isImageFile\)/);
-	assert.match(themeSource, /\.aaalice-pcp-node-image\.is-drop-target\s*\{/);
+	assert.match(panelSource, /createImageUploadControl/);
+	assert.match(uploadSource, /export async function uploadImageFile/);
+	assert.match(uploadSource, /api\.fetchApi\("\/upload\/image"/);
+	assert.match(uploadSource, /export function bindImageDropTarget/);
+	assert.match(uploadSource, /addEventListener\("dragenter"/);
+	assert.match(uploadSource, /addEventListener\("dragover"/);
+	assert.match(uploadSource, /addEventListener\("dragleave"/);
+	assert.match(uploadSource, /addEventListener\("drop"/);
+	assert.match(uploadSource, /event\.stopPropagation\(\)/);
+	assert.match(uploadSource, /event\.dataTransfer\.dropEffect = "copy"/);
+	assert.match(uploadSource, /files\.find\(isImageFile\)/);
+	assert.match(uploadSource, /bindImageDropTarget\(root/);
+	assert.match(themeSource, /\.aa-image-upload-button\.is-drop-target\s*\{/);
 });

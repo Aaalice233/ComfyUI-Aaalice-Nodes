@@ -40,7 +40,15 @@
 
 - **Control Binding（参数绑定）**：侧边栏参数卡片与一个 Control Host 上稳定参数身份之间的显式关系。显示名称不是绑定身份。
 
-- **Dashboard Page（控制页面）**：用户在侧边栏中手工组织分区和参数卡片的一个可切换页面。避免使用 Auto Page、Node Group。
+- **Dashboard Page（控制页面）**：用户在侧边栏中直接组织参数卡片、分隔项和可选布局组的一个可切换页面。避免使用 Auto Page、Section。
+
+- **Dashboard Control Card（侧边栏参数卡片）**：Control Binding 在控制页面中的可调投影；它可以独立放置，也可以加入一个布局组。避免使用 Section Item、Copied Parameter。
+
+- **Layout Group（布局组）**：控制页面中对若干参数卡片进行命名、识别和整体移动的可选单层组合；删除布局组只解除成员关系。避免使用 Dashboard Section、Nested Group。
+
+- **Grid Position（网格位置）**：参数卡片或布局组在控制页面细粒度结构化网格中的逻辑锚点，不代表像素坐标或参数身份。避免使用 Canvas Position、DOM Position。
+
+- **Grid Footprint（网格占位）**：一个参数卡片或布局组在网格中实际占据的矩形单元范围；不同高度的卡片可以在彼此旁边独立填充剩余空间。避免使用 DOM Size、Visual Row。
 
 - **Dashboard Preset（侧边栏预设）**：可移植的页面布局、Control Binding 与导出时参数值集合；它不包含 Prompt Library。
 

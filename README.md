@@ -159,7 +159,7 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 
 ## Aaalice Workspace
 
-Open **Aaalice Workspace** from ComfyUI's left sidebar. **Controls** contains user-created dashboard pages; no page is generated automatically. Right-click any compatible node and choose **📌 Add controls to sidebar…** at any time, select its controls and a target page/section, then adjust the original values from the sidebar. **Edit layout** only enables page, section, card, separator, spacer, width, compact-mode, and drag-order changes; it is not required for adding controls.
+Open **Aaalice Workspace** from ComfyUI's left sidebar. **Controls** contains user-created dashboard pages; no page is generated automatically. Right-click any compatible node and choose **📌 Add controls to sidebar…** at any time, select its controls and a target page, then adjust the original values from the sidebar. Pages use a structured two-column grid with vertical footprints, so shorter cards can fill the remaining space beside taller cards; **Edit layout** enables card placement, width, separators, optional named layout groups, multi-selection, grouping, and tidy-layout actions. Groups may contain controls from different nodes, move as one unit, and disappear without deleting their cards when ungrouped.
 
 Generic scalar widgets, all adjustable Aaalice parameters, and compatible widgets publicly exposed by a subgraph as a whole can be added. The workspace never searches inside a subgraph. Bindings use stable identities rather than node titles or positions; unresolved controls remain visible for manual rebind. Dashboard presets export layout, bindings, and current values as JSON without including the prompt library.
 

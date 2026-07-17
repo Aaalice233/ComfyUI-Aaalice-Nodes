@@ -8,7 +8,7 @@ DIY 侧边栏需要跨保存、加载、节点改名、复制和工作流调整�
 
 ## 决策
 
-DIY 侧边栏是原节点参数的投影，不拥有参数值。页面、分区和卡片布局保存在工作流；实际参数值继续由原节点 widget 或 `node.properties` 持有。
+DIY 侧边栏是原节点参数的投影，不拥有参数值。页面、布局组和参数卡片布局保存在工作流；实际参数值继续由原节点 widget 或 `node.properties` 持有。
 
 参数卡片通过 Provider、稳定 Control Host ID 和 Control ID 精确绑定。节点标题、位置、显示标签和临时画布 ID 只用于展示或定位，不参与持久匹配。普通节点使用稳定 widget identity，Aaalice 参数使用领域稳定 Parameter Id，子图只暴露子图整体公开的 promoted widget，不遍历内部节点。
 

@@ -360,6 +360,27 @@ export function toggleSwitch({ checked = false, label, disabled = false, onChang
 	return root;
 }
 
+export function checkboxControl({ checked = false, label, disabled = false, onChange = null, className = "" } = {}) {
+	const root = el("button", { className: `aa-ui-checkbox${className ? ` ${className}` : ""}`, attrs: { type: "button", role: "checkbox", "aria-label": label } });
+	root.append(icon("statusCheck"));
+	const sync = () => {
+		root.classList.toggle("is-checked", checked);
+		root.setAttribute("aria-checked", String(checked));
+		root.disabled = disabled;
+	};
+	root.addEventListener("click", () => {
+		if (disabled) return;
+		checked = !checked;
+		sync();
+		onChange?.(checked);
+	});
+	root.setChecked = (next) => { checked = Boolean(next); sync(); };
+	root.setDisabled = (next) => { disabled = Boolean(next); sync(); };
+	root.setLabel = (next) => root.setAttribute("aria-label", next);
+	sync();
+	return root;
+}
+
 export function multiSelectControl({ options = [], values = [], ariaLabel = "", className = "", disabled = false, onChange = null } = {}) {
 	const selected = new Set(values.map(String));
 	const root = el("div", { className: `aa-ui-multiselect${className ? ` ${className}` : ""}`, attrs: { role: "group", "aria-label": ariaLabel } });
@@ -597,6 +618,52 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 		(focusableElements(root)[0] || root).focus();
 	});
 	return { root, close, reposition };
+}
+
+let activeContextMenu = null;
+
+export function createContextMenu({ x, y, ariaLabel = "Menu", items = [], onClose = null } = {}) {
+	activeContextMenu?.close();
+	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+	const root = isolate(el("div", { className: "aa-ui-context-menu", attrs: { role: "menu", "aria-label": ariaLabel, tabindex: -1 } }));
+	const menuItems = [];
+	let closed = false;
+	const close = ({ restoreFocus = true } = {}) => {
+		if (closed) return;
+		closed = true;
+		document.removeEventListener("pointerdown", outside, true);
+		document.removeEventListener("keydown", keydown, true);
+		root.remove();
+		if (activeContextMenu?.root === root) activeContextMenu = null;
+		if (restoreFocus) previousFocus?.focus?.({ preventScroll: true });
+		onClose?.();
+	};
+	const outside = (event) => { if (!root.contains(event.target)) close({ restoreFocus: false }); };
+	const focusAt = (index) => menuItems[(index + menuItems.length) % menuItems.length]?.focus();
+	const keydown = (event) => {
+		if (event.key === "Escape") { event.preventDefault(); close(); return; }
+		if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+		event.preventDefault();
+		const current = menuItems.indexOf(document.activeElement);
+		if (event.key === "Home") focusAt(0);
+		else if (event.key === "End") focusAt(menuItems.length - 1);
+		else focusAt(Math.max(0, current) + (event.key === "ArrowDown" ? 1 : -1));
+	};
+	for (const item of items) {
+		if (item?.separator) { root.append(el("div", { className: "aa-ui-context-menu__separator", attrs: { role: "separator" } })); continue; }
+		const action = button({ label: item.label, iconName: item.iconName || null, variant: "ghost", size: "sm", className: `aa-ui-context-menu__item${item.danger ? " is-danger" : ""}`, disabled: item.disabled, onClick: () => { close({ restoreFocus: false }); item.onSelect?.(); } });
+		action.setAttribute("role", "menuitem");
+		menuItems.push(action); root.append(action);
+	}
+	document.body.append(root);
+	const rect = root.getBoundingClientRect();
+	root.style.left = `${Math.max(8, Math.min(window.innerWidth - rect.width - 8, Number(x) || 0))}px`;
+	root.style.top = `${Math.max(8, Math.min(window.innerHeight - rect.height - 8, Number(y) || 0))}px`;
+	document.addEventListener("pointerdown", outside, true);
+	document.addEventListener("keydown", keydown, true);
+	(menuItems[0] || root).focus({ preventScroll: true });
+	activeContextMenu = { root, close };
+	return activeContextMenu;
 }
 
 export function createDialog({

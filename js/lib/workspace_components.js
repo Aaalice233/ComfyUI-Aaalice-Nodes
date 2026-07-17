@@ -1,6 +1,6 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { button, el, icon, iconButton, segmentedControl } from "./ui.js";
+import { button, checkboxControl, el, icon, iconButton, segmentedControl } from "./ui.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
 	const root = el("div", "aa-workspace");
@@ -75,58 +75,149 @@ export function createCollapsibleSearch({ open = false, value = "", label, close
 	return { toggle, panel, input };
 }
 
-export function createPageTabs({ pages, activeId, editMode, labels = {}, onSelect, onAdd, onRename, onDelete, onDuplicate, onReorder }) {
-	const root = el("nav", { className: `aa-dashboard-pages${pages.length ? "" : " is-empty"}`, attrs: { "aria-label": labels.pages || "Dashboard pages" } });
-	for (const page of pages) {
-		const tab = button({ label: page.name, variant: "ghost", size: "sm", active: page.id === activeId, onClick: () => onSelect?.(page.id) });
-		tab.dataset.pageId = page.id; root.append(tab);
-		if (editMode) {
-			tab.draggable = true;
-			tab.addEventListener("dragstart", (event) => event.dataTransfer?.setData("application/x-aaalice-page", page.id));
-			tab.addEventListener("dragover", (event) => event.preventDefault());
-			tab.addEventListener("drop", (event) => { event.preventDefault(); const source = event.dataTransfer?.getData("application/x-aaalice-page"); if (source) onReorder?.(source, page.id); });
+export function createPageRail(initialState = {}) {
+	const root = el("nav", { className: "aa-dashboard-page-rail", attrs: { "aria-orientation": "vertical" } });
+	const list = el("div", "aa-dashboard-page-list");
+	const cursor = el("span", { className: "aa-dashboard-page-cursor", attrs: { "aria-hidden": "true" } });
+	list.append(cursor); root.append(list);
+	const items = new Map();
+	const addItem = button({ label: "Add page", ariaLabel: "Add page", iconName: "add", variant: "ghost", size: "sm", className: "aa-dashboard-page-add" });
+	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {} };
+	let cursorFrame = 0;
+	let wheelDistance = 0;
+	let wheelDirection = 0;
+	let wheelResetTimer = 0;
+	let cursorInitialized = false;
+	const positionCursor = ({ animate = true } = {}) => {
+		cancelAnimationFrame(cursorFrame);
+		cursorFrame = requestAnimationFrame(() => {
+			const active = items.get(state.activeId);
+			cursor.hidden = !active;
+			if (!active?.isConnected) return;
+			const shouldAnimate = animate && cursorInitialized;
+			cursor.classList.toggle("is-initializing", !shouldAnimate);
+			cursor.style.transform = `translate3d(0, ${active.offsetTop}px, 0)`;
+			cursorInitialized = true;
+			if (!shouldAnimate) requestAnimationFrame(() => cursor.classList.remove("is-initializing"));
+		});
+	};
+	const updateItem = (item, page) => {
+		const active = page.id === state.activeId;
+		item.dataset.pageId = page.id;
+		item.draggable = Boolean(state.editMode);
+		item.classList.toggle("is-active", active);
+		item.setAttribute("aria-label", page.name);
+		item.querySelector(".aa-ui-button__label").textContent = page.name;
+		if (active) item.setAttribute("aria-current", "page"); else item.removeAttribute("aria-current");
+	};
+	const update = (nextState = {}, { animate = true } = {}) => {
+		state = { ...state, ...nextState, pages: nextState.pages || state.pages, labels: nextState.labels || state.labels };
+		root.classList.toggle("is-empty", state.pages.length === 0);
+		root.classList.toggle("is-expanded", Boolean(state.expanded));
+		root.setAttribute("aria-label", state.labels.pages || "Dashboard pages");
+		const nextIds = new Set(state.pages.map((page) => page.id));
+		for (const [id, item] of items) if (!nextIds.has(id)) { item.remove(); items.delete(id); }
+		for (const page of state.pages) {
+			let item = items.get(page.id);
+			if (!item) {
+				item = button({ label: page.name, ariaLabel: page.name, variant: "ghost", size: "sm", className: "aa-dashboard-page-dot" });
+				item.prepend(el("span", { className: "aa-dashboard-page-dot__marker", attrs: { "aria-hidden": "true" } }));
+				items.set(page.id, item);
+			}
+			updateItem(item, page);
+			list.append(item);
 		}
-		if (editMode && page.id === activeId) {
-			root.append(iconButton({ iconName: "copy", label: labels.duplicatePage || "Duplicate page", variant: "ghost", onClick: () => onDuplicate?.(page) }));
-			root.append(iconButton({ iconName: "settings", label: labels.renamePage || "Rename page", variant: "ghost", onClick: () => onRename?.(page) }));
-			root.append(iconButton({ iconName: "delete", label: labels.deletePage || "Delete page", variant: "ghost", onClick: () => onDelete?.(page) }));
-		}
-	}
-	root.append(iconButton({ iconName: "add", label: labels.addPage || "Add page", variant: "ghost", onClick: onAdd }));
+		if (state.editMode) {
+			const addLabel = state.labels.addPage || "Add page";
+			addItem.setAttribute("aria-label", addLabel); addItem.setAttribute("title", addLabel);
+			addItem.querySelector(".aa-ui-button__label").textContent = addLabel;
+			list.append(addItem);
+		} else addItem.remove();
+		positionCursor({ animate });
+	};
+	const selectIndex = (index, { focus = false } = {}) => {
+		const next = state.pages[Math.max(0, Math.min(state.pages.length - 1, index))];
+		if (!next || next.id === state.activeId) return;
+		state.activeId = next.id;
+		for (const page of state.pages) updateItem(items.get(page.id), page);
+		positionCursor();
+		if (focus) queueMicrotask(() => items.get(next.id)?.focus({ preventScroll: true }));
+		state.onSelect?.(next.id, { focus });
+	};
+	root.addEventListener("click", (event) => {
+		if (event.target.closest(".aa-dashboard-page-add")) { state.onAdd?.(); return; }
+		const item = event.target.closest(".aa-dashboard-page-dot");
+		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
+		if (index >= 0) selectIndex(index);
+	});
+	root.addEventListener("pointerenter", () => { state.expanded = true; root.classList.add("is-expanded"); state.onExpandedChange?.(true); });
+	root.addEventListener("pointerleave", () => { state.expanded = false; root.classList.remove("is-expanded"); state.onExpandedChange?.(false); });
+	root.addEventListener("wheel", (event) => {
+		if (event.ctrlKey || state.pages.length < 2 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+		event.preventDefault();
+		let delta = event.deltaY;
+		if (event.deltaMode === 1) delta *= 16;
+		else if (event.deltaMode === 2) delta *= Math.max(1, root.clientHeight);
+		const direction = Math.sign(delta);
+		if (direction && direction !== wheelDirection) wheelDistance = 0;
+		wheelDirection = direction;
+		wheelDistance += delta;
+		clearTimeout(wheelResetTimer);
+		wheelResetTimer = setTimeout(() => { wheelDistance = 0; wheelDirection = 0; }, 180);
+		if (Math.abs(wheelDistance) < 36) return;
+		selectIndex(state.pages.findIndex((page) => page.id === state.activeId) + Math.sign(wheelDistance));
+		wheelDistance = 0;
+	}, { passive: false });
+	root.addEventListener("keydown", (event) => {
+		if (!event.target.closest(".aa-dashboard-page-dot")) return;
+		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
+		let nextIndex = null;
+		if (event.key === "ArrowUp" || event.key === "PageUp") nextIndex = activeIndex - 1;
+		else if (event.key === "ArrowDown" || event.key === "PageDown") nextIndex = activeIndex + 1;
+		else if (event.key === "Home") nextIndex = 0;
+		else if (event.key === "End") nextIndex = pages.length - 1;
+		if (nextIndex == null) return;
+		event.preventDefault();
+		selectIndex(nextIndex, { focus: true });
+	});
+	root.addEventListener("dragstart", (event) => {
+		const item = event.target.closest(".aa-dashboard-page-dot");
+		if (state.editMode && item) event.dataTransfer?.setData("application/x-aaalice-page", item.dataset.pageId);
+	});
+	root.addEventListener("dragover", (event) => { if (state.editMode && event.target.closest(".aa-dashboard-page-dot")) event.preventDefault(); });
+	root.addEventListener("drop", (event) => {
+		const item = event.target.closest(".aa-dashboard-page-dot");
+		if (!state.editMode || !item) return;
+		event.preventDefault();
+		const source = event.dataTransfer?.getData("application/x-aaalice-page");
+		if (source) state.onReorder?.(source, item.dataset.pageId);
+	});
+	root.update = update;
+	root.destroy = () => { cancelAnimationFrame(cursorFrame); clearTimeout(wheelResetTimer); };
+	update(initialState, { animate: false });
 	return root;
 }
 
-export function createSectionCard({ section, editMode, labels = {}, onRename, onDelete, onToggle, onDropSection, children = [] }) {
-	const root = el("section", { className: "aa-dashboard-section", attrs: { "data-section-id": section.id } });
-	const header = el("header", "aa-dashboard-section-header");
-	const toggle = iconButton({ iconName: "moveDown", label: labels.toggleSection || `Toggle ${section.title}`, variant: "ghost", className: `aa-section-toggle${section.collapsed ? " is-collapsed" : ""}`, onClick: onToggle });
-	header.append(toggle, el("h3", null, section.title), el("span", "aa-dashboard-section-count", String(children.length)));
-	if (editMode) header.append(
-		iconButton({ iconName: "settings", label: labels.renameSection || "Rename section", variant: "ghost", onClick: onRename }),
-		iconButton({ iconName: "delete", label: labels.deleteSection || "Delete section", variant: "ghost", onClick: onDelete }),
-	);
-	const grid = el("div", { className: "aa-dashboard-grid", children }); grid.hidden = section.collapsed;
-	if (editMode) {
-		root.draggable = true;
-		root.addEventListener("dragstart", (event) => { if (event.target !== root) return; event.dataTransfer?.setData("application/x-aaalice-section", section.id); });
-		root.addEventListener("dragover", (event) => event.preventDefault());
-		root.addEventListener("drop", (event) => { const source = event.dataTransfer?.getData("application/x-aaalice-section"); if (source) onDropSection?.(source, section.id); });
-	}
-	root.append(header, grid); return root;
-}
-
-export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, draggable = false }) {
-	const root = el("article", { className: `aa-control-card span-${item.span}${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}`, attrs: { "data-item-id": item.id, "data-provider": item.binding?.provider || "layout", draggable } });
+export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup }) {
+	const headerOnly = control?.dataset?.headerOnly === "true";
+	const root = el("article", { className: `aa-control-card${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
+	if (control?.dataset?.controlKind) root.dataset.controlKind = control.dataset.controlKind;
 	const header = el("header", "aa-control-card-header");
 	header.append(el("span", "aa-control-card-indicator"), el("span", "aa-control-card-title", title));
-	if (editMode) header.append(
-		iconButton({ iconName: "settings", label: labels.moveControl || "Move control", variant: "ghost", onClick: onMove }),
-		iconButton({ iconName: "copy", label: labels.toggleWidth || "Toggle card width", variant: "ghost", onClick: onToggleSpan }),
-		iconButton({ iconName: "moveDown", label: labels.toggleCompact || "Toggle compact mode", variant: "ghost", onClick: onToggleCompact }),
-		iconButton({ iconName: "delete", label: labels.removeControl || "Remove control", variant: "ghost", onClick: onRemove }),
-	);
-	else header.append(iconButton({ iconName: "settings", label: labels.controlMenu || "Control card menu", variant: "ghost", onClick: onManage }));
+	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);
 	root.append(header, control || el("p", "aa-control-card-error", status === "incompatible" ? (labels.incompatible || "Incompatible control") : (labels.missing || "Missing binding")));
+	const openMenu = (x, y) => onManage?.({ x, y, editMode, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup });
+	root.addEventListener("contextmenu", (event) => {
+		const input = event.target.closest?.("input, textarea, [contenteditable='true']");
+		const preservesNativeEditing = input?.matches?.("textarea, [contenteditable='true'], input:not([type='range']):not([type='checkbox']):not([type='radio']):not([type='button']):not([type='file'])");
+		if (preservesNativeEditing) return;
+		event.preventDefault(); event.stopPropagation(); root.focus({ preventScroll: true }); openMenu(event.clientX, event.clientY);
+	});
+	root.addEventListener("keydown", (event) => {
+		if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+		event.preventDefault();
+		const rect = root.getBoundingClientRect(); openMenu(rect.left + Math.min(rect.width, 36), rect.top + Math.min(rect.height, 28));
+	});
 	return root;
 }
 
@@ -135,9 +226,11 @@ export function createListRow({ title, description = "", selected = false, onSel
 	const copy = el("div", "aa-workspace-list-row-copy"); copy.append(el("strong", null, title));
 	if (description) copy.append(el("small", null, description));
 	if (onSelect) {
-		const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = selected;
-		checkbox.setAttribute("aria-label", title); checkbox.addEventListener("change", () => onSelect(checkbox.checked));
+		const checkbox = checkboxControl({ checked: selected, label: title, onChange: (checked) => { root.classList.toggle("is-selected", checked); onSelect(checked); } });
+		root.classList.add("is-selectable");
+		root.selectionControl = checkbox;
 		root.append(checkbox);
+		root.addEventListener("click", (event) => { if (!event.target.closest?.("button, input, select, textarea, a")) checkbox.click(); });
 	} else root.classList.add("is-static");
 	if (leading) { root.classList.add("has-leading"); root.append(leading); }
 	root.append(copy, ...actions); return root;

@@ -1,8 +1,7 @@
 /** Extensible registry that projects node controls without owning their values. */
 
-import { api } from "../../../scripts/api.js";
-import { normalizeImageReference } from "./image_reference.js";
 import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
+import { recommendedControlRowSpan } from "./dashboard_sizing.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
 
@@ -77,6 +76,7 @@ controlProviders.register({
 		return ensureParameters(node).filter(isTunable).map((parameter) => ({
 			label: displayName(parameter, parameter.id),
 			binding: { provider: this.id, hostId, controlId: parameter.id, valueType: valueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference") },
+			rowSpan: recommendedControlRowSpan({ value: parameter.value, options: parameter.config, paramType: parameter.param_type }),
 		}));
 	},
 	resolve(node, binding) {
@@ -87,9 +87,20 @@ controlProviders.register({
 		return {
 			status: "ok", node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
 			options: parameter.config || {},
-			setValue(next, { transaction = true } = {}) {
-				const apply = () => { parameter.value = next; notifyParameterChanged(node, { structure: false }); };
+			setValue(next, { transaction = true, transient = false } = {}) {
+				const apply = () => {
+					parameter.value = next;
+					if (transient) { node._aaaliceParameterRedraw?.(); node.setDirtyCanvas?.(true, true); }
+					else notifyParameterChanged(node, { structure: false });
+				};
 				return transaction ? graphTransaction(node, apply) : apply();
+			},
+			flushValue() { notifyParameterChanged(node, { structure: false }); },
+			setSeedLocked(locked) {
+				return graphTransaction(node, () => {
+					parameter.config ||= {}; parameter.config.control_after_generate = locked ? "fixed" : "randomize";
+					notifyParameterChanged(node, { structure: false });
+				});
 			},
 		};
 	},
@@ -107,6 +118,7 @@ const widgetProvider = (id, promoted) => ({
 		return (node.widgets || []).filter((widget) => compatibleWidget(widget) && (promoted ? isPromotedWidget(widget) : true)).map((widget) => ({
 			label: String(widget.label || widget.name),
 			binding: { provider: id, hostId, controlId: widget.name, valueType: valueType(widget.value) },
+			rowSpan: recommendedControlRowSpan({ value: widget.value, options: widget.options, paramType: widget.param_type || widget.type }),
 		}));
 	},
 	resolve(node, binding) {
@@ -126,53 +138,3 @@ const widgetProvider = (id, promoted) => ({
 
 controlProviders.register(widgetProvider("subgraph-widget", true));
 controlProviders.register(widgetProvider("generic-widget", false));
-
-export function createControlElement(resolved, { onInput, onCommit } = {}) {
-	if (resolved?.status !== "ok") return null;
-	const { value, options = {} } = resolved;
-	let control;
-	if (resolved.control?.param_type === "image") {
-		control = document.createElement("input"); control.type = "file"; control.accept = "image/*";
-		control.addEventListener("change", async () => {
-			const file = control.files?.[0]; if (!file) return;
-			const body = new FormData(); body.append("image", file); body.append("type", "input");
-			const response = await api.fetchApi("/upload/image", { method: "POST", body });
-			if (!response.ok) throw new Error(`Image upload failed (${response.status})`);
-			const reference = normalizeImageReference(await response.json());
-			if (!reference) throw new Error("Image upload returned no filename");
-			resolved.setValue(reference); onCommit?.(reference);
-		});
-	} else if (resolved.control?.param_type === "taglist" || Array.isArray(value)) {
-		control = document.createElement("input"); control.type = "text"; control.value = (value || []).join(", ");
-		control.addEventListener("change", () => { const next = control.value.split(",").map((item) => item.trim()).filter(Boolean); resolved.setValue(next); onCommit?.(next); });
-	} else if (Array.isArray(options.values) || Array.isArray(options.options)) {
-		control = document.createElement("select");
-		for (const item of options.values || options.options) control.add(new Option(String(item), String(item), false, String(item) === String(value)));
-		control.addEventListener("change", () => { resolved.setValue(control.value); onCommit?.(control.value); });
-	} else if (typeof value === "boolean") {
-		control = document.createElement("input"); control.type = "checkbox"; control.checked = value;
-		control.addEventListener("change", () => { resolved.setValue(control.checked); onCommit?.(control.checked); });
-	} else {
-		control = document.createElement("input"); control.type = typeof value === "number" && (resolved.control?.type === "slider" || options.display === "slider") ? "range" : typeof value === "number" ? "number" : "text"; control.value = String(value ?? "");
-		if (typeof value === "number") {
-			if (Number.isFinite(Number(options.min))) control.min = String(options.min);
-			if (Number.isFinite(Number(options.max))) control.max = String(options.max);
-			if (Number.isFinite(Number(options.step))) control.step = String(options.step);
-			let gestureOpen = false; let suppressNextChange = false;
-			const beginGesture = () => { if (!gestureOpen) { resolved.node?.graph?.beforeChange?.(); gestureOpen = true; } };
-			const finishGesture = () => { if (!gestureOpen) return; gestureOpen = false; resolved.node?.graph?.afterChange?.(); resolved.node?.graph?.setDirtyCanvas?.(true, true); onCommit?.(Number(control.value)); };
-			control.addEventListener("pointerdown", beginGesture);
-			control.addEventListener("input", () => { const next = Number(control.value); if (gestureOpen) resolved.setValue(next, { transaction: false }); onInput?.(next); });
-			control.addEventListener("change", () => { const next = Number(control.value); if (gestureOpen) { resolved.setValue(next, { transaction: false }); finishGesture(); } else if (suppressNextChange) suppressNextChange = false; else { resolved.setValue(next); onCommit?.(next); } });
-			control.addEventListener("pointerup", () => { if (gestureOpen) { finishGesture(); suppressNextChange = true; } });
-			control.addEventListener("pointercancel", finishGesture);
-			control.addEventListener("blur", finishGesture);
-		} else {
-			control.addEventListener("input", () => onInput?.(control.value));
-			control.addEventListener("change", () => { resolved.setValue(control.value); onCommit?.(control.value); });
-		}
-	}
-	control.setAttribute("aria-label", resolved.label);
-	control.classList.add("aa-workspace-control-input");
-	return control;
-}
