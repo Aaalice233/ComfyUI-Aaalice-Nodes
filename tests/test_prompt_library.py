@@ -6,7 +6,9 @@ import json
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
+from nodes._lib import prompt_library as prompt_library_module
 from nodes._lib.prompt_library import PromptLibrary
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"test-image"
@@ -103,10 +105,14 @@ class PromptLibraryTests(unittest.TestCase):
 
     def test_legacy_json_and_conflict_policies(self):
         raw = json.dumps({"version": "1.6", "categories": [
-            {"name": "People", "prompts": [{"id": "old-smile", "alias": "Smile", "prompt": "smile"}]},
+            {"name": "People", "prompts": [{"id": "old-smile", "alias": "Smile", "prompt": "smile",
+                                               "description": "Friendly expression", "tags": ["face", "happy"]}]},
         ]}).encode()
         manifest, assets = PromptLibrary.decode_import(raw, "legacy.json")
         self.assertEqual(manifest["entries"][0]["text"], "smile")
+        self.assertEqual(manifest["entries"][0]["note"], "Friendly expression")
+        self.assertEqual({item["name"] for item in manifest["tags"]}, {"face", "happy"})
+        self.assertEqual(len(manifest["entries"][0]["tagIds"]), 2)
         first = self.library.apply_import(manifest, assets)
         self.assertEqual(first["imported"], 1)
         entry_id = manifest["entries"][0]["id"]
@@ -151,6 +157,19 @@ class PromptLibraryTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.library.apply_import(manifest, {})
         self.assertEqual(self.library.snapshot()["entries"], [])
+
+    def test_import_uses_separate_compressed_and_expanded_size_limits(self):
+        with patch.object(prompt_library_module, "MAX_IMPORT_BYTES", 4):
+            with self.assertRaisesRegex(ValueError, "import file exceeds"):
+                PromptLibrary.decode_import(b"12345", "legacy.json")
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("manifest.json", "{}")
+        with patch.object(prompt_library_module, "MAX_EXPANDED_ARCHIVE_BYTES", 1):
+            with self.assertRaisesRegex(ValueError, "expanded archive exceeds"):
+                PromptLibrary.decode_import(stream.getvalue(), "backup.zip")
+        self.assertEqual(prompt_library_module.MAX_IMPORT_BYTES, 256 * 1024 * 1024)
+        self.assertEqual(prompt_library_module.MAX_EXPANDED_ARCHIVE_BYTES, 256 * 1024 * 1024)
 
     def test_preflight_reports_invalid_entry_references(self):
         manifest = {"format": "aaalice-prompt-library", "version": 1, "categories": [], "collections": [], "tags": [], "entries": [

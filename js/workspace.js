@@ -9,7 +9,7 @@ import {
 	findSection, moveItem, normalizeDashboard, preflightDashboardPreset, stableId,
 } from "./lib/dashboard_model.js";
 import { promptLibraryStore } from "./lib/library_store.js";
-import { badge, button, createDialog, el, emptyState, field, iconButton, segmentedControl, toggleSwitch } from "./lib/ui.js";
+import { badge, button, createDialog, el, emptyState, field, iconButton, segmentedControl, selectControl, toggleSwitch } from "./lib/ui.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow, createPageTabs, createSectionCard,
 	createWorkspaceShell, createWorkspaceToolbar,
@@ -156,10 +156,10 @@ function renderDashboard(container) {
 	});
 	const dashboardActions = [
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Edit layout"), iconName: editMode ? "statusCheck" : "layout", variant: editMode ? "primary" : "secondary", size: "sm", onClick: () => { editMode = !editMode; if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
-		iconButton({ iconName: "download", label: t("aaalice.workspace.preset.export", "Export preset"), variant: "ghost", onClick: () => {
+		iconButton({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export preset"), variant: "ghost", onClick: () => {
 			const preset = exportDashboardPreset(model, (binding) => resolve(binding)); downloadBlob(new Blob([JSON.stringify(preset, null, 2)], { type: "application/json" }), "aaalice-dashboard-preset.json");
 		} }),
-		iconButton({ iconName: "upload", label: t("aaalice.workspace.preset.import", "Import preset"), variant: "ghost", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
+		iconButton({ iconName: "download", label: t("aaalice.workspace.preset.import", "Import preset"), variant: "ghost", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
 		search.toggle,
 	];
 	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : dashboardActions, { className: `aa-dashboard-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
@@ -403,14 +403,14 @@ function renderLibrary(container) {
 		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; if (!open) viewState.query = ""; scheduleRender(); },
 		onInput: (value) => { query = value; viewState.query = value; drawEntries(); },
 	});
-	const category = document.createElement("select"); category.add(new Option(t("aaalice.promptSelector.allCategories", "All categories"), "")); for (const item of promptLibraryStore.snapshot.categories) category.add(new Option(item.name, item.id, false, item.id === categoryId)); category.addEventListener("change", () => { viewState.categoryId = category.value; scheduleRender(); });
-	const collection = document.createElement("select"); collection.add(new Option(t("aaalice.promptSelector.allCollections", "All collections"), "")); for (const item of promptLibraryStore.snapshot.collections) collection.add(new Option(item.name, item.id, false, item.id === collectionId)); collection.addEventListener("change", () => { viewState.collectionId = collection.value; scheduleRender(); });
+	const category = selectControl({ ariaLabel: t("aaalice.promptSelector.allCategories", "All categories"), value: categoryId, className: "aa-library-filter-select", options: [{ label: t("aaalice.promptSelector.allCategories", "All categories"), value: "" }, ...promptLibraryStore.snapshot.categories.map((item) => ({ label: item.name, value: item.id }))], onChange: (value) => { viewState.categoryId = value; scheduleRender(); } });
+	const collection = selectControl({ ariaLabel: t("aaalice.promptSelector.allCollections", "All collections"), value: collectionId, className: "aa-library-filter-select", options: [{ label: t("aaalice.promptSelector.allCollections", "All collections"), value: "" }, ...promptLibraryStore.snapshot.collections.map((item) => ({ label: item.name, value: item.id }))], onChange: (value) => { viewState.collectionId = value; scheduleRender(); } });
 	const libraryActions = [
 		button({ label: t("aaalice.workspace.libraryUi.addEntry", "Add entry"), iconName: "add", size: "sm", onClick: () => entryEditor() }),
 		...(selected.size ? [button({ label: `${t("aaalice.workspace.libraryUi.batch", "Edit selected entries")} (${selected.size})`, variant: "secondary", size: "sm", onClick: () => openBatchEdit(selected) })] : []),
 		button({ label: t("aaalice.workspace.libraryUi.manageAction", "Categories & collections"), iconName: "settings", variant: "ghost", size: "sm", onClick: openTaxonomyManager }),
-		iconButton({ iconName: "download", label: selected.size ? `${t("aaalice.workspace.libraryUi.exportSelected", "Export selected")} (${selected.size})` : t("aaalice.workspace.libraryUi.export", "Export"), variant: "ghost", onClick: async () => { const response = await promptLibraryStore.exportArchive({ ...(selected.size ? { entryIds: [...selected] } : {}), ...(!selected.size && categoryId ? { categoryId } : {}), ...(!selected.size && collectionId ? { collectionId } : {}) }); downloadBlob(await response.blob(), "aaalice-prompt-library.zip"); } }),
-		iconButton({ iconName: "upload", label: t("aaalice.workspace.libraryUi.import", "Import"), variant: "ghost", onClick: () => pickFile(".zip,.json,application/zip,application/json", importLibrary) }),
+		iconButton({ iconName: "upload", label: selected.size ? `${t("aaalice.workspace.libraryUi.exportSelected", "Export selected")} (${selected.size})` : t("aaalice.workspace.libraryUi.export", "Export"), variant: "ghost", onClick: async () => { const response = await promptLibraryStore.exportArchive({ ...(selected.size ? { entryIds: [...selected] } : {}), ...(!selected.size && categoryId ? { categoryId } : {}), ...(!selected.size && collectionId ? { collectionId } : {}) }); downloadBlob(await response.blob(), "aaalice-prompt-library.zip"); } }),
+		iconButton({ iconName: "download", label: t("aaalice.workspace.libraryUi.import", "Import"), variant: "ghost", onClick: () => pickFile(".zip,.json,application/zip,application/json", importLibrary) }),
 		search.toggle,
 	];
 	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : libraryActions, { className: `aa-library-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.libraryUi.actions", "Library actions") });

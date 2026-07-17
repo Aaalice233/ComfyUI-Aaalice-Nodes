@@ -16,7 +16,8 @@ from typing import Any, Iterable
 
 SCHEMA_VERSION = 1
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
-MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
+MAX_IMPORT_BYTES = 256 * 1024 * 1024
+MAX_EXPANDED_ARCHIVE_BYTES = 256 * 1024 * 1024
 MAX_ARCHIVE_FILES = 5000
 
 
@@ -431,8 +432,8 @@ class PromptLibrary:
 
     @staticmethod
     def decode_import(data: bytes, filename: str = "") -> tuple[dict[str, Any], dict[str, bytes]]:
-        if len(data) > MAX_ARCHIVE_BYTES:
-            raise ValueError(f"import exceeds {MAX_ARCHIVE_BYTES} bytes")
+        if len(data) > MAX_IMPORT_BYTES:
+            raise ValueError(f"import file exceeds {MAX_IMPORT_BYTES // (1024 * 1024)} MiB limit")
         if filename.lower().endswith(".json") or not data.startswith(b"PK"):
             try:
                 raw = json.loads(data.decode("utf-8-sig"))
@@ -450,8 +451,10 @@ class PromptLibrary:
                 if path.is_absolute() or ".." in path.parts or "\\" in info.filename:
                     raise ValueError(f"unsafe archive path: {info.filename}")
                 total += info.file_size
-                if total > MAX_ARCHIVE_BYTES:
-                    raise ValueError("expanded archive exceeds the size limit")
+                if total > MAX_EXPANDED_ARCHIVE_BYTES:
+                    raise ValueError(
+                        f"expanded archive exceeds {MAX_EXPANDED_ARCHIVE_BYTES // (1024 * 1024)} MiB limit"
+                    )
             names = {info.filename for info in infos}
             if "manifest.json" in names:
                 try:
@@ -547,6 +550,8 @@ class PromptLibrary:
             return raw
         entries: list[dict[str, Any]] = []
         categories: list[dict[str, Any]] = []
+        tags: list[dict[str, str]] = []
+        tag_ids: dict[str, str] = {}
         source = raw.get("categories", raw) if isinstance(raw, dict) else raw
         if not isinstance(source, (dict, list)):
             raise ValueError("unsupported legacy prompt-library JSON")
@@ -565,11 +570,33 @@ class PromptLibrary:
                 continue
             for position, value in enumerate(values):
                 preview_hash = None
+                note = ""
+                entry_tag_ids: list[str] = []
                 if isinstance(value, str):
                     title, text = value, value
                 elif isinstance(value, dict):
                     text = value.get("prompt", value.get("text", ""))
                     title = value.get("alias", value.get("name", value.get("title", text)))
+                    note = str(value.get("description", value.get("note", "")) or "")
+                    raw_tags = value.get("tags", [])
+                    if isinstance(raw_tags, str):
+                        raw_tags = [item.strip() for item in raw_tags.split(",")]
+                    if isinstance(raw_tags, list):
+                        for raw_tag in raw_tags:
+                            if isinstance(raw_tag, dict):
+                                tag_name = raw_tag.get("name", raw_tag.get("label", raw_tag.get("value", "")))
+                            else:
+                                tag_name = raw_tag
+                            tag_name = str(tag_name or "").strip()
+                            if not tag_name:
+                                continue
+                            tag_key = tag_name.casefold()
+                            tag_id = tag_ids.get(tag_key)
+                            if tag_id is None:
+                                tag_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"aaalice:legacy-tag:{tag_key}"))
+                                tag_ids[tag_key] = tag_id
+                                tags.append({"id": tag_id, "name": tag_name})
+                            entry_tag_ids.append(tag_id)
                     image_name = value.get("image")
                     if image_name and legacy_files is not None and normalized_assets is not None:
                         normalized_name = str(image_name).replace("\\", "/")
@@ -583,11 +610,11 @@ class PromptLibrary:
                     continue
                 legacy_key = value.get("id") if isinstance(value, dict) else None
                 entry_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"aaalice:legacy-entry:{category_name}:{legacy_key or text}"))
-                entries.append({"id": entry_id, "title": str(title), "text": str(text), "note": "",
-                                "categoryId": category_id, "position": position, "tagIds": [], "collections": [],
+                entries.append({"id": entry_id, "title": str(title), "text": str(text), "note": note,
+                                "categoryId": category_id, "position": position, "tagIds": entry_tag_ids, "collections": [],
                                 "previewHash": preview_hash})
         return {"format": "aaalice-prompt-library", "version": SCHEMA_VERSION, "categories": categories,
-                "collections": [], "tags": [], "entries": entries}
+                "collections": [], "tags": tags, "entries": entries}
 
     def preflight_import(self, manifest: dict[str, Any]) -> dict[str, Any]:
         self._validate_manifest(manifest)

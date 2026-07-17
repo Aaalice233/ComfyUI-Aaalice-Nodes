@@ -163,7 +163,7 @@ Open **Aaalice Workspace** from ComfyUI's left sidebar. **Controls** contains us
 
 Generic scalar widgets, all adjustable Aaalice parameters, and compatible widgets publicly exposed by a subgraph as a whole can be added. The workspace never searches inside a subgraph. Bindings use stable identities rather than node titles or positions; unresolved controls remain visible for manual rebind. Dashboard presets export layout, bindings, and current values as JSON without including the prompt library.
 
-The **Library** workspace manages entries, flat categories, multi-membership collections, tags, and one preview image per entry. It can export the full library or the current category/collection as a ZIP with hashed assets. ZIP and legacy JSON imports are preflighted before applying; conflicts can keep local data, use imported data, or create a duplicate.
+The **Library** workspace manages entries, flat categories, multi-membership collections, tags, and one preview image per entry. It can export the full library or the current category/collection as a ZIP with hashed assets. It imports current ZIP archives plus legacy `data.json + preview/` ZIP or JSON exports, migrating titles, prompts, notes, categories, tags, and previews. Import files and expanded archives are each limited to 256 MiB. Imports are preflighted before applying; conflicts can keep local data, use imported data, or create a duplicate.
 
 ## Compatibility and limitations
 

@@ -8,7 +8,7 @@ import {
 	materializePromptPayload, normalizePromptSelectorState, reorderPromptSelection,
 	resolvePromptSelections, setPromptWeight, togglePromptSelection,
 } from "./lib/prompt_selector_model.js";
-import { button, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { button, createDialog, el, emptyState, field, icon, iconButton, isolate, selectControl } from "./lib/ui.js";
 import { openWorkspace } from "./workspace.js";
 
 const NODE = "PromptSelector";
@@ -36,11 +36,10 @@ function filteredEntries(node) {
 	});
 }
 
-function select(label, value, options, onChange) {
-	const control = document.createElement("select"); control.setAttribute("aria-label", label);
-	control.add(new Option(label, "", false, !value));
-	for (const option of options) control.add(new Option(option.name, option.id, false, option.id === value));
-	control.addEventListener("change", () => onChange(control.value)); return control;
+function promptFilterSelect(label, value, options, onChange) {
+	return selectControl({ ariaLabel: label, value, onChange, className: "aa-prompt-selector-filter", options: [
+		{ label, value: "" }, ...options.map((option) => ({ label: option.name, value: option.id })),
+	] });
 }
 
 function openSelectedEditor(node) {
@@ -124,8 +123,8 @@ function render(node) {
 		const searchButton = iconButton({ iconName: "search", label: searchLabel, active: Boolean(query), variant: "secondary", className: "aa-prompt-selector-search-toggle", onClick: () => { node._aaalicePromptSearchOpen = true; node._aaalicePromptSearchShouldFocus = true; render(node); } });
 		searchButton.setAttribute("aria-pressed", String(Boolean(query)));
 		toolbar.append(
-			select(t("aaalice.promptSelector.allCategories", "All categories"), node._aaalicePromptCategory, promptLibraryStore.snapshot.categories, (value) => { node._aaalicePromptCategory = value; render(node); }),
-			select(t("aaalice.promptSelector.allCollections", "All collections"), node._aaalicePromptCollection, promptLibraryStore.snapshot.collections, (value) => { node._aaalicePromptCollection = value; render(node); }),
+			promptFilterSelect(t("aaalice.promptSelector.allCategories", "All categories"), node._aaalicePromptCategory, promptLibraryStore.snapshot.categories, (value) => { node._aaalicePromptCategory = value; render(node); }),
+			promptFilterSelect(t("aaalice.promptSelector.allCollections", "All collections"), node._aaalicePromptCollection, promptLibraryStore.snapshot.collections, (value) => { node._aaalicePromptCollection = value; render(node); }),
 			searchButton,
 		);
 	}

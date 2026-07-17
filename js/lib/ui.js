@@ -356,6 +356,43 @@ export function toggleSwitch({ checked = false, label, disabled = false, onChang
 	return root;
 }
 
+export function selectControl({ options = [], value = "", ariaLabel = "", className = "", disabled = false, onChange = null } = {}) {
+	const root = el("div", `aa-ui-select${className ? ` ${className}` : ""}`);
+	const control = document.createElement("select"); control.className = "aa-ui-select__native";
+	if (ariaLabel) control.setAttribute("aria-label", ariaLabel);
+	control.disabled = disabled;
+	let open = false;
+	const setOpen = (next) => {
+		open = Boolean(next) && !control.disabled;
+		root.classList.toggle("is-open", open); root.dataset.open = String(open);
+		control.setAttribute("aria-expanded", String(open));
+	};
+	const setOptions = (nextOptions, nextValue = control.value) => {
+		control.replaceChildren();
+		for (const item of nextOptions) {
+			const optionValue = typeof item === "object" ? item.value : item;
+			const optionLabel = typeof item === "object" ? item.label : item;
+			const option = new Option(String(optionLabel), String(optionValue), false, String(optionValue) === String(nextValue));
+			if (typeof item === "object") option.disabled = Boolean(item.disabled);
+			control.add(option);
+		}
+	};
+	setOptions(options, value);
+	control.addEventListener("pointerdown", () => setOpen(!open));
+	control.addEventListener("keydown", (event) => {
+		if (event.key === "Escape") setOpen(false);
+		else if (event.key === "Enter" || event.key === " " || event.key === "F4" || (event.altKey && event.key === "ArrowDown")) setOpen(true);
+	});
+	control.addEventListener("blur", () => setOpen(false));
+	control.addEventListener("change", () => { setOpen(false); onChange?.(control.value); });
+	root.append(control, icon("moveDown", { className: "aa-ui-select__arrow" }));
+	root.control = control;
+	root.setOptions = (nextOptions, nextValue = control.value) => setOptions(nextOptions, nextValue);
+	root.setValue = (next) => { control.value = String(next); };
+	root.setDisabled = (next) => { control.disabled = Boolean(next); if (control.disabled) setOpen(false); };
+	return root;
+}
+
 export function field({ label, control, hint = null, error = null, inline = false, className = "" }) {
 	const wrapper = el("label", `aa-ui-field${inline ? " aa-ui-field--inline" : ""}${error ? " has-error" : ""}${className ? ` ${className}` : ""}`);
 	control?.classList?.add("aa-ui-control");

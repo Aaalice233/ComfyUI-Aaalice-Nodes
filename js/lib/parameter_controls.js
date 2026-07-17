@@ -1,5 +1,5 @@
 /** Shared DOM controls used by ParameterPanel's node surface and editor. */
-import { el, icon } from "./ui.js";
+import { el, selectControl } from "./ui.js";
 
 function numericInput(parameter, onChange, ariaLabel = "") {
 	const input = document.createElement("input");
@@ -101,34 +101,6 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	return input;
 }
 
-function createSelectControl(options = [], value, { onChange, ariaLabel = "" } = {}) {
-	const select = document.createElement("select");
-	if (ariaLabel) select.setAttribute("aria-label", ariaLabel);
-	for (const option of options) {
-		const optionValue = typeof option === "object" ? option.value : option;
-		const optionLabel = typeof option === "object" ? option.label : option;
-		select.add(new Option(String(optionLabel), String(optionValue), false, String(optionValue) === String(value)));
-	}
-	const wrap = el("div", "aaalice-shared-select-wrap");
-	const arrow = icon("moveDown");
-	let pointerToggled = false;
-	const setOpen = (open) => wrap.classList.toggle("is-open", open);
-	select.addEventListener("pointerdown", () => {
-		pointerToggled = true;
-		setOpen(!wrap.classList.contains("is-open"));
-		setTimeout(() => { pointerToggled = false; }, 0);
-	});
-	select.addEventListener("focus", () => { if (!pointerToggled) setOpen(true); });
-	select.addEventListener("keydown", (event) => {
-		if (event.key === "Escape") setOpen(false);
-		else if (event.key === "Enter" || event.key === " " || (event.altKey && event.key === "ArrowDown")) setOpen(!wrap.classList.contains("is-open"));
-	});
-	select.addEventListener("blur", () => setOpen(false));
-	select.addEventListener("change", () => { setOpen(false); onChange?.(select.value); });
-	wrap.append(select, arrow);
-	return wrap;
-}
-
 function createSwitchControl(value, { onChange, ariaLabel = "" } = {}) {
 	const control = el("button", `aaalice-shared-switch${value ? " active" : ""}`);
 	control.type = "button";
@@ -150,7 +122,7 @@ export function createParameterControl({ parameter, onChange, labels = {} } = {}
 	const parameterLabel = labels.input || labels.select || labels.switch || parameter.name || parameter.id || "Parameter";
 	if (parameter.param_type === "seed" || parameter.param_type === "slider") return numericInput(parameter, onChange, parameterLabel);
 	if (parameter.param_type === "switch") return createSwitchControl(parameter.value, { onChange: (value) => { parameter.value = value; onChange?.(value); }, ariaLabel: labels.switch || parameter.name });
-	if (["dropdown", "enum"].includes(parameter.param_type)) return createSelectControl(config.options || [], parameter.value, { onChange: (value) => { parameter.value = value; onChange?.(value); }, ariaLabel: labels.select || parameter.name });
+	if (["dropdown", "enum"].includes(parameter.param_type)) return selectControl({ options: config.options || [], value: parameter.value, onChange: (value) => { parameter.value = value; onChange?.(value); }, ariaLabel: labels.select || parameter.name });
 	const input = parameter.config?.multiline ? document.createElement("textarea") : document.createElement("input");
 	input.value = parameter.param_type === "taglist" ? (parameter.value || []).join(", ") : parameter.value ?? "";
 	input.setAttribute("aria-label", labels.input || parameter.name || "Parameter");

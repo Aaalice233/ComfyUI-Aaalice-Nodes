@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 from aiohttp import web
 
-from .._lib.prompt_library import PromptLibrary
+from .._lib.prompt_library import MAX_IMPORT_BYTES, PromptLibrary
 
 logger = logging.getLogger(__name__)
 
@@ -187,8 +187,8 @@ async def _read_import(request: web.Request) -> tuple[bytes, str, dict[str, str]
             size = 0
             while chunk := await field.read_chunk():
                 size += len(chunk)
-                if size > 64 * 1024 * 1024:
-                    raise ValueError("import file is too large")
+                if size > MAX_IMPORT_BYTES:
+                    raise ValueError(f"import file exceeds {MAX_IMPORT_BYTES // (1024 * 1024)} MiB limit")
                 chunks.append(chunk)
             content = b"".join(chunks)
         elif field.name == "resolutions":

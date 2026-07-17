@@ -9,6 +9,8 @@ const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
+const ui = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
+const uiStyles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
 const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace.svg"), "utf8");
 
@@ -135,12 +137,25 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(theme, /\.aa-prompt-selector-row\.is-selected/);
 });
 
+test("filter dropdowns reuse the shared animated select control", () => {
+	assert.match(ui, /export function selectControl/);
+	assert.match(ui, /aria-expanded/);
+	assert.match(ui, /icon\("moveDown"/);
+	assert.match(selector, /promptFilterSelect/);
+	assert.match(selector, /selectControl\(\{/);
+	assert.match(workspace, /className: "aa-library-filter-select"/);
+	assert.match(uiStyles, /\.aa-ui-select\.is-open \.aa-ui-select__arrow/);
+	assert.match(uiStyles, /padding-right: 38px/);
+});
+
 test("workspace empty states and compact action bars keep narrow sidebars deliberate", () => {
 	assert.match(components, /pages\.length \? "" : " is-empty"/);
 	assert.match(workspace, /aa-dashboard-toolbar/);
 	assert.match(workspace, /aa-library-toolbar/);
-	assert.match(workspace, /iconName: "download"/);
-	assert.match(workspace, /iconName: "upload"/);
+	assert.match(workspace, /iconName: "upload", label: t\("aaalice\.workspace\.preset\.export"/);
+	assert.match(workspace, /iconName: "download", label: t\("aaalice\.workspace\.preset\.import"/);
+	assert.match(workspace, /iconName: "upload", label: selected\.size[\s\S]*libraryUi\.export/);
+	assert.match(workspace, /iconName: "download", label: t\("aaalice\.workspace\.libraryUi\.import"/);
 	assert.match(workspace, /aa-workspace-empty aa-dashboard-empty/);
 	assert.match(workspace, /aa-workspace-empty aa-library-empty/);
 	assert.match(theme, /\.aa-dashboard-pages\.is-empty \{ display: none; \}/);

@@ -94,6 +94,7 @@
 | `createDialog()` | 统一 Escape、背景关闭、焦点圈定与恢复 |
 | `segmentedControl()` | 2–4 个平级互斥模式、稳定 thumb、radiogroup 与方向键 |
 | `toggleSwitch()` | 单一布尔设置、disabled 和 aria 状态 |
+| `selectControl()` | 单选下拉、统一右侧安全间距、展开状态、旋转箭头、键盘与 ARIA |
 | `createAnchoredPopover()` | 锚定按钮的非模态浮层、外部关闭、焦点圈定与恢复 |
 | `createTooltip()` | 统一内容提示；通过 `contentMode` 支持 `auto`、`text`、安全 CommonMark/GFM `markdown` 和 `dom`。默认使用非交互 Tooltip；`interactive` 模式提供可悬停、可聚焦链接的非模态悬浮卡片，并管理延迟关闭、Escape、焦点返回和 ARIA 关系 |
 
