@@ -37,6 +37,8 @@ const zhLocale = readFileSync(join(ROOT, "locales", "zh", "main.json"), "utf8");
 
 test("workspace is an official left sidebar with reusable component boundaries", () => {
 	assert.match(workspace, /registerSidebarTab/);
+	assert.match(workspace, /title: t\("aaalice\.workspace\.sidebarTitle", "Aaalice"\)/);
+	assert.match(workspace, /tooltip: t\("aaalice\.workspace\.title", "Aaalice Workspace"\)/);
 	assert.match(workspace, /id: TAB_ID/);
 	assert.match(workspace, /function installWorkspaceCanvasAutoClose/);
 	assert.match(workspace, /canvas\.addEventListener\("click"/);
@@ -45,7 +47,11 @@ test("workspace is an official left sidebar with reusable component boundaries",
 	assert.match(workspace, /createWorkspaceShell/);
 	assert.match(components, /segmentedControl/);
 	assert.match(components, /headerActions = \[\]/);
-	assert.match(workspace, /let sidebarPinned = true/);
+	assert.match(workspace, /const SIDEBAR_PIN_STORAGE_KEY = "aaalice\.workspace\.sidebarPinned"/);
+	assert.match(workspace, /let sidebarPinned = loadSidebarPinned\(\)/);
+	assert.match(workspace, /localStorage\?\.getItem\(SIDEBAR_PIN_STORAGE_KEY\)/);
+	assert.match(workspace, /localStorage\?\.setItem\(SIDEBAR_PIN_STORAGE_KEY, String\(value\)\)/);
+	assert.match(workspace, /saveSidebarPinned\(sidebarPinned\)/);
 	assert.match(workspace, /className: "aa-workspace-pin"/);
 	assert.match(workspace, /aria-pressed/);
 	assert.match(workspace, /workspacePinTooltip\.show\(pinButton, pinLabel/);
@@ -140,7 +146,7 @@ test("dashboard tag-list controls reuse the shared interactive chip editor", () 
 	assert.match(workspaceControls, /taglist: \{ \.\.\.availabilityLabels, \.\.\.\(labels\.taglist \|\| \{\}\) \}/);
 	assert.match(workspaceControls, /createSharedControl\(spec/);
 	assert.match(workspaceControls, /control\.dataset\.controlKind = view\.kind/);
-	assert.match(theme, /\.aa-control-card\[data-control-kind="taglist"\] \{ --aa-dashboard-control-tone:/);
+	assert.match(theme, /\.aa-control-card \[data-control-tone\] \{ --aa-control-item-tone: var\(--aa-ui-accent\); \}/);
 	assert.match(theme, /\.aa-taglist-control \{[^}]*display: flex;[^}]*height: 32px;[^}]*box-sizing: border-box;[^}]*overflow-x: auto;/);
 	assert.match(theme, /\.aa-taglist-control::\-webkit-scrollbar \{ display: none; \}/);
 	assert.match(theme, /\.aa-taglist-options \{ display: contents; \}/);
@@ -173,7 +179,7 @@ test("dashboard enum and boolean controls reuse the shared themed controls", () 
 	assert.match(controlRegistry, /COMFY_CONTROL_RENDERERS/);
 	assert.match(components, /root\.dataset\.controlKind/);
 	assert.match(theme, /\.aa-control-choice-select/);
-	assert.match(theme, /\.aa-control-card\[data-control-kind="choice"\] \{ --aa-dashboard-control-tone:/);
+	assert.doesNotMatch(theme, /\.aa-control-card\[data-control-kind="choice"\] \{ --aa-dashboard-control-tone:/);
 	assert.match(theme, /\.aa-control-card \.aa-control-choice-select \.aa-ui-select__native \{[^}]*font-size: 11px;[^}]*font-weight: 620;/);
 	assert.match(theme, /\.aa-control-boolean/);
 });
@@ -207,7 +213,8 @@ test("header-only seed controls do not stretch to the neighboring slider card", 
 test("PromptSelector injects live library text and exposes inline weight management", () => {
 	assert.match(selector, /materializePromptPayload/);
 	assert.match(selector, /selection_payload_json/);
-	assert.match(selector, /createSelectableImagePreview/);
+	assert.match(selector, /createImagePreview/);
+	assert.doesNotMatch(selector, /createSelectableImagePreview/);
 	assert.match(imagePreview, /input\.type = "checkbox"/);
 	assert.doesNotMatch(selector, /openSelectedEditor|aa-prompt-selected-editor|draggable: true/);
 	assert.match(selector, /function promptWeightControl/);
@@ -257,6 +264,10 @@ test("PromptSelector can open the official sidebar directly on library managemen
 	assert.match(workspace, /snapshot\.entries\.find\(\(item\) => item\.id === entryId\)/);
 	assert.match(workspace, /entryEditor\(entry\)/);
 	assert.match(selector, /openPromptLibraryEntryEditor\(entry\.id\)/);
+	assert.match(selector, /preview\.addEventListener\("dblclick"/);
+	assert.match(selector, /thumbnailEditHint/);
+	assert.match(selector, /copy\.addEventListener\("click", \(\) => mutate/);
+	assert.match(selector, /"aria-pressed": String\(isSelected\)/);
 	assert.match(selector, /className: "aa-prompt-selector-edit"/);
 	assert.match(selector, /className: `aa-prompt-selector-favorite\$\{isFavorite \? " is-active" : ""\}`/);
 	assert.match(selector, /openFavoritePicker\(entry\)/);
@@ -309,7 +320,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(theme, /\.aa-workspace-tabs \{[^}]*display: grid;[^}]*overflow: hidden;/);
 	assert.match(theme, /transform \.2s cubic-bezier/);
 	assert.doesNotMatch(workspace.match(/function renderWorkspace[\s\S]*?\n}/)?.[0] || "", /scheduleRender/);
-	assert.match(components, /aa-control-card-indicator/);
+	assert.doesNotMatch(components, /aa-control-card-indicator/);
 	assert.match(theme, /\.aa-dashboard-page-dot\.is-active/);
 	assert.match(theme, /\.aa-dashboard-page-rail:hover \.aa-dashboard-page-dot/);
 	assert.match(theme, /\.aa-dashboard-page-list/);
@@ -359,7 +370,7 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /mountPromptEntries/);
 	assert.match(selector, /mountVirtualList/);
 	assert.match(selector, /root\.append\(toolbar, list, footer\);\s*list\.scrollTop = listScrollTop;\s*virtualList\.refresh\(\);/s);
-	assert.match(selector, /createSelectableImagePreview/);
+	assert.match(selector, /createImagePreview/);
 	assert.match(imagePreview, /aa-image-preview-selection/);
 	assert.match(imagePreview, /icon\("statusCheck"\)/);
 	assert.match(selector, /aa-prompt-selector-title/);
@@ -487,6 +498,7 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.doesNotMatch(components, /createSectionCard/);
 	assert.doesNotMatch(theme, /aa-dashboard-section/);
 	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*border:\s*0;[^}]*background:\s*color-mix/);
+	assert.doesNotMatch(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*var\(--aa-dashboard-control-tone\)/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group \.aa-control-card\.is-group-member:is\(\.is-selected, \.is-drop-target\)/);
 });
 
@@ -511,6 +523,7 @@ test("dashboard cards expose equal visual gutters without changing fine row geom
 
 test("dashboard control contents stay within their declared grid footprints", () => {
 	assert.match(theme, /\.aa-control-card-header \{[^}]*min-height:\s*14px;[^}]*line-height:\s*14px;/);
+	assert.match(theme, /\.aa-control-card-title \{[^}]*font-size:\s*11px;[^}]*font-weight:\s*650;/);
 	assert.match(theme, /\.aa-control-choice-select \.aa-ui-select__native \{[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(theme, /data-control-kind="taglist"[^}]*aa-taglist-control[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);
@@ -527,7 +540,10 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(dashboardInteractions, /aa-dashboard-drop-preview/);
 	assert.match(dashboardInteractions, /style\.gridAutoRows/);
 	assert.match(dashboardInteractions, /--aa-dashboard-row-span/);
+	assert.match(dashboardInteractions, /export function grabSpanOffset/);
+	assert.match(dashboardInteractions, /grabColumnOffset = grabSpanOffset/);
 	assert.match(dashboardInteractions, /grabRowOffset/);
+	assert.match(dashboardInteractions, /rawTarget\.column - gesture\.grabColumnOffset/);
 	assert.match(dashboardInteractions, /rawTarget\.row - gesture\.grabRowOffset/);
 	assert.match(dashboardInteractions, /event\.key === "Escape"/);
 	assert.match(dashboardInteractions, /onDropItems/);
@@ -542,9 +558,16 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(workspace, /createSelectionActionBar\(/);
 	assert.match(workspace, /aaalice\.workspace\.selection\.group/);
 	assert.match(theme, /\.aa-dashboard-selection-bar/);
+	assert.match(workspace, /body\.classList\.toggle\("has-selection-actions", count > 0\)/);
+	assert.match(theme, /\.aa-dashboard-body\.has-selection-actions \.aa-dashboard-scroll \{ padding-bottom: 72px; \}/);
+	assert.doesNotMatch(theme, /\.is-layout-editing \.aa-dashboard-scroll \{ padding-bottom: 72px; \}/);
 	assert.match(theme, /\.aa-dashboard-scroll \{[^}]*display: flex;[^}]*flex-direction: column;/);
 	assert.match(theme, /\.aa-dashboard-grid-v2 \{[^}]*flex: 1;/);
 	assert.match(theme, /\.aa-dashboard-grid-v2\.is-editing \{[^}]*min-height: 100%;/);
+	assert.match(workspace, /aa-dashboard-separator-label/);
+	assert.match(workspace, /role: "separator"/);
+	assert.match(theme, /\.aa-dashboard-separator::before,[\s\S]*\.aa-dashboard-separator::after/);
+	assert.match(theme, /\.aa-dashboard-separator-label \{[^}]*text-align: center;/);
 	assert.match(theme, /grid-row: var\(--aa-dashboard-row\) \/ span var\(--aa-dashboard-row-span\)/);
 	assert.match(dashboardSizing, /DASHBOARD_GRID_COLUMNS = 12/);
 	assert.match(dashboardSizing, /DASHBOARD_MIN_CONTROL_COLUMN_SPAN = 3/);
@@ -615,7 +638,8 @@ test("library rows keep a stable thumbnail column and distinguish entry actions"
 	assert.match(theme, /\.aa-library-entry-delete:hover/);
 	assert.match(theme, /\.aa-image-preview-large/);
 	assert.match(theme, /\.aa-image-preview-large > img\s*\{[^}]*width:\s*auto[^}]*max-height:/s);
-	assert.match(theme, /\.aa-image-preview-large > strong\s*\{[^}]*position:\s*absolute[^}]*background:\s*color-mix\([^}]*transparent\)/s);
+	assert.match(theme, /\.aa-image-preview-caption\s*\{[^}]*position:\s*absolute[^}]*background:\s*color-mix\([^}]*transparent\)/s);
+	assert.match(theme, /\.aa-image-preview-caption > small/);
 	assert.match(imagePreview, /IMAGE_PREVIEW_HOVER_DELAY = 600/);
 	assert.match(imagePreview, /addEventListener\("load", previewTooltip\.reposition/);
 });

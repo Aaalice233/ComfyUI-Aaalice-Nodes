@@ -51,6 +51,19 @@ function targetAt(root, clientX, clientY) {
 	return gridTargetAt(root, clientX, clientY);
 }
 
+export function grabSpanOffset(position, start, size, span) {
+	const normalizedSpan = Math.max(1, Number(span) || 1);
+	const ratio = Math.max(0, Math.min(1, (position - start) / Math.max(1, size)));
+	return Math.min(normalizedSpan - 1, Math.floor(ratio * normalizedSpan));
+}
+
+export function selectionFootprint(layouts) {
+	if (!layouts.length) return { row: 0, column: 0, rowSpan: 1, columnSpan: 1 };
+	const row = Math.min(...layouts.map((layout) => layout.row)); const column = Math.min(...layouts.map((layout) => layout.column));
+	const bottom = Math.max(...layouts.map((layout) => layout.row + layout.rowSpan)); const right = Math.max(...layouts.map((layout) => layout.column + layout.columnSpan));
+	return { row, column, rowSpan: bottom - row, columnSpan: right - column };
+}
+
 function showPreview(gesture, target) {
 	if (!gesture.preview) { gesture.preview = document.createElement("div"); gesture.preview.className = "aa-dashboard-drop-preview"; }
 	const columns = Math.max(1, Number(target.grid.dataset.dashboardColumns || getComputedStyle(target.grid).getPropertyValue("--aa-dashboard-columns")) || DASHBOARD_GRID_COLUMNS);
@@ -143,10 +156,14 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			root.setPointerCapture?.(event.pointerId); return;
 		}
 		const selection = syncSelection(entry, event); const itemId = entry.dataset.dashboardItemId; const groupId = entry.dataset.dashboardGroupId;
-		const elements = itemId ? [...root.querySelectorAll("[data-dashboard-item-id]")].filter((element) => selection.items.has(element.dataset.dashboardItemId)) : [entry];
-		const rowSpan = Number(entry.style.getPropertyValue("--aa-dashboard-row-span")) || 1; const entryRect = entry.getBoundingClientRect();
-		const grabRowOffset = Math.max(0, Math.min(rowSpan - 1, Math.floor(((event.clientY - entryRect.top) / Math.max(1, entryRect.height)) * rowSpan)));
-		gesture = { kind: "drag", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, itemIds: itemId ? [...selection.items] : [], groupId, elements, columnSpan: Number(entry.style.getPropertyValue("--aa-dashboard-column-span")) || 1, rowSpan, grabRowOffset, dragging: false, target: null, preview: null };
+		const sourceGrid = entry.parentElement;
+		const elements = itemId ? [...root.querySelectorAll("[data-dashboard-item-id]")].filter((element) => selection.items.has(element.dataset.dashboardItemId) && element.parentElement === sourceGrid) : [entry];
+		const layouts = elements.map((element) => ({ row: Number(element.dataset.dropRow) || 0, column: Number(element.dataset.dropColumn) || 0, rowSpan: Number(element.dataset.dropRowSpan) || 1, columnSpan: Number(element.dataset.dropColumnSpan) || 1 }));
+		const footprint = selectionFootprint(layouts); const selectionRect = elements.map((element) => element.getBoundingClientRect()).reduce((bounds, rect) => ({ left: Math.min(bounds.left, rect.left), top: Math.min(bounds.top, rect.top), right: Math.max(bounds.right, rect.right), bottom: Math.max(bounds.bottom, rect.bottom) }));
+		const columnSpan = footprint.columnSpan; const rowSpan = footprint.rowSpan;
+		const grabColumnOffset = grabSpanOffset(event.clientX, selectionRect.left, selectionRect.right - selectionRect.left, columnSpan);
+		const grabRowOffset = grabSpanOffset(event.clientY, selectionRect.top, selectionRect.bottom - selectionRect.top, rowSpan);
+		gesture = { kind: "drag", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, itemIds: itemId ? elements.map((element) => element.dataset.dashboardItemId) : [], groupId, elements, columnSpan, rowSpan, grabColumnOffset, grabRowOffset, dragging: false, target: null, preview: null };
 		root.setPointerCapture?.(event.pointerId);
 	};
 	const onPointerMove = (event) => {
@@ -179,7 +196,7 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		root.classList.add("is-dragging");
 		for (const element of gesture.elements) { element.classList.add("is-dragging"); element.style.transform = `translate3d(${dx}px, ${dy}px, 0)`; }
 		const rawTarget = gesture.groupId ? gridTargetAt(root, event.clientX, event.clientY) : targetAt(root, event.clientX, event.clientY);
-		const target = { ...rawTarget, row: Math.max(0, rawTarget.row - gesture.grabRowOffset) }; gesture.target = target; showPreview(gesture, target);
+		const target = { ...rawTarget, column: Math.max(0, rawTarget.column - gesture.grabColumnOffset), row: Math.max(0, rawTarget.row - gesture.grabRowOffset) }; gesture.target = target; showPreview(gesture, target);
 		autoScroll(event.clientY);
 	};
 	const onPointerUp = (event) => {

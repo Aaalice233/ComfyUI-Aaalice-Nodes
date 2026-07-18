@@ -17,6 +17,13 @@ function occupied(entries, ignoreId = null) {
 	return result;
 }
 
+function overlaps(left, right) {
+	return left.column < right.column + right.columnSpan
+		&& left.column + left.columnSpan > right.column
+		&& left.row < right.row + right.rowSpan
+		&& left.row + left.rowSpan > right.row;
+}
+
 function firstFree(used, { columns = 12, columnSpan = 1, rowSpan = 1, startRow = 0 } = {}) {
 	const width = Math.max(1, Math.min(columns, Number(columnSpan) || 1)); const height = Math.max(1, Number(rowSpan) || 1);
 	for (let row = Math.max(0, Number(startRow) || 0); ; row++) for (let column = 0; column <= columns - width; column++) {
@@ -49,6 +56,23 @@ export function compactScope(page, groupId = null) {
 	return page;
 }
 
+export function placeEntries(page, entryIds, { groupId = null } = {}) {
+	const protectedIds = new Set(entryIds); const entries = scopeEntries(page, groupId);
+	const queue = orderedItems(entries.filter((entry) => protectedIds.has(entry.id)));
+	while (queue.length) {
+		const blocker = queue.shift();
+		for (const candidate of entries) {
+			if (protectedIds.has(candidate.id) || candidate.id === blocker.id || !overlaps(blocker.layout, candidate.layout)) continue;
+			const nextRow = blocker.layout.row + blocker.layout.rowSpan;
+			if (candidate.layout.row >= nextRow) continue;
+			candidate.layout = { ...candidate.layout, row: nextRow };
+			queue.push(candidate);
+		}
+	}
+	if (groupId) refreshGroupRowSpans(page);
+	return page;
+}
+
 export function placeEntry(page, entryId, target, { groupId = null } = {}) {
 	const entries = scopeEntries(page, groupId); const entry = entries.find((candidate) => candidate.id === entryId);
 	if (!entry) return page;
@@ -61,15 +85,8 @@ export function placeEntry(page, entryId, target, { groupId = null } = {}) {
 	const usedWithoutEntry = occupied(entries, entry.id);
 	if (cells(layout).every((cell) => !usedWithoutEntry.has(cell))) { entry.layout = layout; if (groupId) refreshGroupRowSpans(page); return page; }
 
-	const rest = orderedItems(entries.filter((candidate) => candidate.id !== entryId));
-	const fixed = rest.filter((candidate) => visualOrder(candidate, { ...entry, layout }) < 0 && cells(candidate.layout).every((cell) => !cells(layout).includes(cell)));
-	const used = occupied(fixed); entry.layout = layout; for (const cell of cells(layout)) used.add(cell);
-	for (const candidate of rest.filter((item) => !fixed.includes(item))) {
-		candidate.layout = firstFree(used, { columns: page.gridColumns, columnSpan: candidate.layout.columnSpan, rowSpan: candidate.layout.rowSpan, startRow: layout.row });
-		for (const cell of cells(candidate.layout)) used.add(cell);
-	}
-	if (groupId) refreshGroupRowSpans(page);
-	return page;
+	entry.layout = layout;
+	return placeEntries(page, [entryId], { groupId });
 }
 
 export function projectScope(entries, columns = 12) {

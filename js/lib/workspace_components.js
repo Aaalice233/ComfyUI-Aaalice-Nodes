@@ -243,7 +243,7 @@ export function createControlCard({ item, title, control, status = "ok", editMod
 	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
 	root.dataset.dashboardMinRowSpan = String(headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN);
 	const header = el("header", "aa-control-card-header");
-	header.append(el("span", "aa-control-card-indicator"), el("span", "aa-control-card-title", title));
+	header.append(el("span", "aa-control-card-title", title));
 	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);
 	root.append(header, control || el("p", "aa-control-card-error", status === "incompatible" ? (labels.incompatible || "Incompatible control") : (labels.missing || "Missing binding")));
 	if (editMode && item.kind === "control") root.append(el("button", { className: "aa-dashboard-resize-handle", attrs: { type: "button", "data-dashboard-resize-handle": "true", "aria-label": labels.resizeCard || "Resize card" } }));

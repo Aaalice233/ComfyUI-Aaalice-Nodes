@@ -28,13 +28,14 @@ import { destroySharedControls } from "./lib/controls/registry.js";
 
 const EXTRA_KEY = "aaaliceSidebar";
 const TAB_ID = "aaalice-workspace";
+const SIDEBAR_PIN_STORAGE_KEY = "aaalice.workspace.sidebarPinned";
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
 const dashboardPageRails = new WeakMap();
 const dashboardBoundaryPagingState = { locked: false, resetTimer: 0 };
 const workspacePinTooltip = createTooltip({ delay: 220, closeDelay: 60 });
 let activeWorkspace = "dashboard";
-let sidebarPinned = true;
+let sidebarPinned = loadSidebarPinned();
 let activePageId = null;
 let editMode = false;
 let dashboardModelError = null;
@@ -45,6 +46,25 @@ const workspaceViewState = {
 };
 function defaultFavoritesLabel() { return t("aaalice.workspace.libraryUi.defaultFavorites", "Default favorites"); }
 function favoriteFolderName(collection) { return collectionDisplayName(collection, defaultFavoritesLabel()); }
+
+function loadSidebarPinned() {
+	try {
+		const stored = globalThis.localStorage?.getItem(SIDEBAR_PIN_STORAGE_KEY);
+		if (stored === "true") return true;
+		if (stored === "false") return false;
+	} catch (error) {
+		console.warn("[Aaalice] Unable to read the sidebar pin preference", error);
+	}
+	return true;
+}
+
+function saveSidebarPinned(value) {
+	try {
+		globalThis.localStorage?.setItem(SIDEBAR_PIN_STORAGE_KEY, String(value));
+	} catch (error) {
+		console.warn("[Aaalice] Unable to save the sidebar pin preference", error);
+	}
+}
 
 export function openWorkspace(view = "dashboard") {
 	if (!["dashboard", "library"].includes(view)) throw new Error(`[Aaalice] Unknown workspace view: ${view}`);
@@ -458,7 +478,7 @@ function renderDashboard(container, host) {
 	};
 	const renderItem = (item) => {
 		if (item.kind === "separator") {
-			const separator = el("div", { className: "aa-dashboard-separator", attrs: { "data-dashboard-item-id": item.id, tabindex: editMode ? 0 : null }, children: [el("span", null, item.label), ...(editMode ? [iconButton({ iconName: "delete", label: t("aaalice.workspace.layout.remove", "Remove layout item"), variant: "ghost", onClick: () => updateDashboard((current) => removeItems(current, [item.id])) })] : [])] });
+			const separator = el("div", { className: "aa-dashboard-separator", attrs: { "data-dashboard-item-id": item.id, tabindex: editMode ? 0 : null, role: "separator", "aria-label": item.label }, children: [el("span", "aa-dashboard-separator-label", item.label), ...(editMode ? [iconButton({ iconName: "delete", label: t("aaalice.workspace.layout.remove", "Remove layout item"), variant: "ghost", onClick: () => updateDashboard((current) => removeItems(current, [item.id])) })] : [])] });
 			separator.dataset.searchText = String(item.label || "").toLocaleLowerCase(); return separator;
 		}
 		const resolved = resolve(item.binding);
@@ -514,6 +534,7 @@ function renderDashboard(container, host) {
 		for (const card of grid.querySelectorAll("[data-dashboard-item-id]")) card.classList.toggle("is-selected", viewState.selectedItemIds.has(card.dataset.dashboardItemId));
 		for (const group of grid.querySelectorAll("[data-dashboard-group-id]")) group.classList.toggle("is-selected", viewState.selectedGroupIds.has(group.dataset.dashboardGroupId));
 		const count = selectedItems.length + selectedGroups.length; const canUngroup = selectedGroups.length > 0 || selectedItems.some((item) => item.groupId); const selectedControls = selectedItems.filter((item) => item.kind === "control");
+		body.classList.toggle("has-selection-actions", count > 0);
 		selectionBar.update({ count, summary: t("aaalice.workspace.selection.summary", "{count} selected").replace("{count}", count), actions: {
 			group: { disabled: selectedItems.length < 2 || selectedGroups.length > 0 }, ungroup: { disabled: !canUngroup }, width: { disabled: !selectedControls.length || selectedGroups.length > 0 }, remove: { disabled: !selectedItems.length || selectedGroups.length > 0 }, clear: { disabled: count === 0 },
 		} });
@@ -1075,7 +1096,12 @@ function renderWorkspace(root) {
 		pinButton.setAttribute("aria-label", pinLabel());
 		pinButton.setAttribute("aria-pressed", String(sidebarPinned));
 	};
-	pinButton.addEventListener("click", () => { workspacePinTooltip.hide(); sidebarPinned = !sidebarPinned; syncPinButton(); });
+	pinButton.addEventListener("click", () => {
+		workspacePinTooltip.hide();
+		sidebarPinned = !sidebarPinned;
+		saveSidebarPinned(sidebarPinned);
+		syncPinButton();
+	});
 	pinButton.addEventListener("mouseenter", () => workspacePinTooltip.show(pinButton, pinLabel));
 	pinButton.addEventListener("mouseleave", () => workspacePinTooltip.hide());
 	pinButton.addEventListener("focus", () => workspacePinTooltip.show(pinButton, pinLabel, { immediate: true }));
@@ -1187,7 +1213,7 @@ app.registerExtension({
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
 	setup() {
-		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.title", "Aaalice Workspace"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { element.classList.add("aa-workspace-host"); mounted.add(element); renderWorkspace(element); return () => { workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); }; } });
+		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.sidebarTitle", "Aaalice"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { element.classList.add("aa-workspace-host"); mounted.add(element); renderWorkspace(element); return () => { workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); }; } });
 		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphStructureSignature();
 		api.addEventListener("graphChanged", scheduleGraphSync);

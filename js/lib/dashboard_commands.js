@@ -1,7 +1,7 @@
 /** Immutable Dashboard V2 commands composed from pure model/layout helpers. */
 
 import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, stableId } from "./dashboard_model.js";
-import { compactScope, firstAvailableLayout, orderedItems, placeEntry } from "./dashboard_layout.js";
+import { compactScope, firstAvailableLayout, orderedItems, placeEntries, placeEntry } from "./dashboard_layout.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
 
 function copy(model) { return structuredClone(normalizeDashboard(model)); }
@@ -41,10 +41,24 @@ export function moveItems(model, itemIds, targetPageId, { groupId = null, row = 
 	}
 	const page = findPage(next, targetPageId); if (!page) throw new Error("Dashboard target page is missing");
 	if (groupId && !page.groups.some((group) => group.id === groupId)) throw new Error("Dashboard target group is missing");
-	for (const item of orderedItems(moving)) {
-		item.groupId = groupId;
-		item.layout = row == null ? firstAvailableLayout(page, { groupId, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan }) : { row, column, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan };
-		page.items.push(item); placeEntry(page, item.id, item.layout, { groupId });
+	const ordered = orderedItems(moving);
+	if (row == null) {
+		for (const item of ordered) {
+			item.groupId = groupId;
+			item.layout = firstAvailableLayout(page, { groupId, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan });
+			page.items.push(item);
+		}
+	} else if (ordered.length) {
+		const minRow = Math.min(...ordered.map((item) => item.layout.row));
+		const minColumn = Math.min(...ordered.map((item) => item.layout.column));
+		const width = Math.max(...ordered.map((item) => item.layout.column - minColumn + (item.kind === "separator" ? page.gridColumns : item.layout.columnSpan)));
+		const targetRow = Math.max(0, Number(row) || 0); const targetColumn = Math.max(0, Math.min(page.gridColumns - width, Number(column) || 0));
+		for (const item of ordered) {
+			item.groupId = groupId;
+			item.layout = { ...item.layout, row: targetRow + item.layout.row - minRow, column: targetColumn + item.layout.column - minColumn, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan };
+			page.items.push(item);
+		}
+		placeEntries(page, ordered.map((item) => item.id), { groupId });
 	}
 	if (groupId) { const group = page.groups.find((entry) => entry.id === groupId); placeEntry(page, groupId, group.layout); }
 	for (const candidate of next.pages) removeEmptyGroups(candidate);
@@ -52,15 +66,18 @@ export function moveItems(model, itemIds, targetPageId, { groupId = null, row = 
 }
 
 export function resizeItems(model, itemIds, columnSpan) {
-	const ids = new Set(itemIds); const next = copy(model); const touched = new Set();
+	const ids = new Set(itemIds); const next = copy(model); const touched = [];
 	for (const page of next.pages) for (const item of page.items) if (ids.has(item.id) && item.kind === "control") {
 		item.layout.columnSpan = Math.max(DASHBOARD_MIN_CONTROL_COLUMN_SPAN, Math.min(page.gridColumns, Math.round(Number(columnSpan)) || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN));
 		item.layout.column = Math.min(item.layout.column, page.gridColumns - item.layout.columnSpan);
-		touched.add(`${page.id}:${item.groupId || "page"}`);
+		touched.push({ page, item });
 	}
-	for (const key of touched) {
-		const [pageId, scope] = key.split(":"); const page = findPage(next, pageId); const groupId = scope === "page" ? null : scope;
-		compactScope(page, groupId); if (groupId) compactScope(page, null);
+	for (const { page, item } of touched) {
+		placeEntry(page, item.id, item.layout, { groupId: item.groupId });
+		if (item.groupId) {
+			const group = page.groups.find((candidate) => candidate.id === item.groupId);
+			if (group) placeEntry(page, group.id, group.layout);
+		}
 	}
 	return normalizeDashboard(next);
 }

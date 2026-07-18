@@ -6,7 +6,7 @@ import { ensureI18nReady, t } from "./i18n.js";
 import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { applyCategoryColor } from "./lib/category_color.js";
 import { collectionDisplayName, collectionSelectOption, DEFAULT_COLLECTION_ID } from "./lib/collection.js";
-import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
+import { closeImagePreview, createImagePreview } from "./lib/image_preview.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
 import {
@@ -200,13 +200,15 @@ function mountPromptEntries(node, list, state, entries) {
 	const virtualList = mountVirtualList(list, { rowHeight: 55, gap: 3, overscan: 5, onBeforeRender: () => { closeImagePreview(); closePromptEntryDetails(); }, renderItem: (entry) => {
 		const isSelected = selected.has(entry.id);
 		const row = el("div", `aa-prompt-selector-row${isSelected ? " is-selected" : ""}`);
-		const inputId = `aa-prompt-${node.id}-${entry.id}`;
-		const preview = createSelectableImagePreview({ source: entry.previewHash ? api.apiURL(`/aaalice/prompt-library/assets/${entry.previewHash}`) : "", title: entry.title, label: `${isSelected ? t("aaalice.promptSelector.selected", "selected") : t("aaalice.workspace.libraryUi.select", "Select")} ${entry.title}`, className: "aa-prompt-selector-preview", selected: isSelected, inputId, onChange: (checked) => mutate(node, (current) => togglePromptSelection(current, entry.id, checked)) });
+		const quickEditHint = t("aaalice.promptSelector.thumbnailEditHint", "Double-click the thumbnail to edit this entry");
+		const preview = createImagePreview({ source: entry.previewHash ? api.apiURL(`/aaalice/prompt-library/assets/${entry.previewHash}`) : "", title: entry.title, label: `${entry.title}. ${quickEditHint}`, hint: quickEditHint, className: "aa-prompt-selector-preview" });
+		preview.addEventListener("dblclick", (event) => { event.preventDefault(); event.stopPropagation(); closeImagePreview(); closePromptEntryDetails(); void openPromptLibraryEntryEditor(entry.id); });
 		const category = promptLibraryStore.category(entry.categoryId);
-		const copy = el("label", { className: "aa-prompt-selector-copy", attrs: { for: inputId, tabindex: "0", "aria-label": entry.title }, children: [
+		const copy = el("button", { className: "aa-prompt-selector-copy", attrs: { type: "button", "aria-label": entry.title, "aria-pressed": String(isSelected) }, children: [
 			el("span", { className: "aa-prompt-selector-title", children: [el("strong", null, entry.title), ...(category ? [applyCategoryColor(el("em", null, category.name), category)] : [])] }),
 			el("small", null, entry.text),
 		] });
+		copy.addEventListener("click", () => mutate(node, (current) => togglePromptSelection(current, entry.id, !isSelected)));
 		bindPromptEntryDetails(copy, entry);
 		const isFavorite = (entry.collections || []).length > 0;
 		const favoriteAction = iconButton({ iconName: "favorite", label: `${isFavorite ? t("aaalice.workspace.libraryUi.unfavorite", "Remove from favorites") : t("aaalice.workspace.libraryUi.favorite", "Favorite")} ${entry.title}`, className: `aa-prompt-selector-favorite${isFavorite ? " is-active" : ""}`, variant: "ghost", onClick: (event) => {
@@ -218,7 +220,7 @@ function mountPromptEntries(node, list, state, entries) {
 		} });
 		const weightAction = isSelected ? promptWeightControl(node, entry.id, selectionById.get(entry.id)?.weight ?? 1) : null;
 		const actions = el("div", { className: "aa-prompt-selector-row-actions", children: [weightAction, favoriteAction, editAction] });
-		row.append(preview.root, copy, actions); return row;
+		row.append(preview, copy, actions); return row;
 	}, renderEmpty: () => emptyState({ iconName: "note", className: "aa-prompt-selector-empty", title: t("aaalice.promptSelector.noResultsTitle", "No prompts found"), description: t("aaalice.promptSelector.noResults", "No matching prompt entries.") }) });
 	virtualList.setItems(entries, { preserveScroll: false });
 	return virtualList;

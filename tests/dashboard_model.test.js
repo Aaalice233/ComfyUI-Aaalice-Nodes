@@ -76,6 +76,42 @@ test("fine-grained rows allow a short card below another card beside a tall card
 	]);
 });
 
+test("overlap pushes only the collision chain and preserves unrelated gaps", () => {
+	const page = createPage("P"); const makeItem = (id, row, column, controlId = id) => ({
+		id, kind: "control", label: id, binding: { ...binding, controlId }, groupId: null,
+		layout: { row, column, columnSpan: 6, rowSpan: 6 }, compact: false,
+	});
+	let model = normalizeDashboard({ version: 2, pages: [{ ...page, items: [
+		makeItem("moving", 0, 0), makeItem("collision-a", 12, 0), makeItem("collision-b", 18, 0),
+		makeItem("neighbor", 12, 6), makeItem("unrelated-gap", 30, 6),
+	], groups: [] }] });
+	model = moveItems(model, ["moving"], page.id, { row: 12, column: 0 });
+	const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
+	assert.deepEqual(layouts.moving, { row: 12, column: 0, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["collision-a"], { row: 18, column: 0, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["collision-b"], { row: 24, column: 0, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts.neighbor, { row: 12, column: 6, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["unrelated-gap"], { row: 30, column: 6, columnSpan: 6, rowSpan: 6 });
+});
+
+test("multi-card movement preserves internal offsets and displaces only external collisions", () => {
+	const page = createPage("P"); const makeItem = (id, row, column) => ({
+		id, kind: "control", label: id, binding: { ...binding, controlId: id }, groupId: null,
+		layout: { row, column, columnSpan: 6, rowSpan: 6 }, compact: false,
+	});
+	let model = normalizeDashboard({ version: 2, pages: [{ ...page, items: [
+		makeItem("selected-left", 0, 0), makeItem("selected-right", 0, 6),
+		makeItem("collision-left", 12, 0), makeItem("collision-right", 12, 6), makeItem("unrelated", 30, 6),
+	], groups: [] }] });
+	model = moveItems(model, ["selected-left", "selected-right"], page.id, { row: 12, column: 0 });
+	const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
+	assert.deepEqual(layouts["selected-left"], { row: 12, column: 0, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["selected-right"], { row: 12, column: 6, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["collision-left"], { row: 18, column: 0, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["collision-right"], { row: 18, column: 6, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts.unrelated, { row: 30, column: 6, columnSpan: 6, rowSpan: 6 });
+});
+
 test("groups own no duplicate member list and delete preserves controls", () => {
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
 		{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } },
@@ -116,18 +152,18 @@ test("width changes and explicit compaction remain deterministic", () => {
 	]);
 	next = resizeItems(next, [next.pages[0].items[0].id], 12); next = compactDashboard(next, page.id);
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 12, rowSpan: 12 }, { row: 12, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 12, column: 6, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 0, columnSpan: 12, rowSpan: 12 }, { row: 12, column: 6, columnSpan: 6, rowSpan: 12 }, { row: 12, column: 0, columnSpan: 6, rowSpan: 12 },
 	]); assert.deepEqual(firstAvailableLayout(next.pages[0], { columnSpan: 6, rowSpan: 12 }), { row: 24, column: 0, columnSpan: 6, rowSpan: 12 });
 });
 
-test("free card resize snaps both axes and reflows collisions", () => {
+test("free card resize snaps both axes and pushes only collisions", () => {
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
 		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } },
 	]);
 	const firstId = next.pages[0].items[0].id;
 	next = resizeItem(next, firstId, { columnSpan: 9.4, rowSpan: 15.6 });
 	assert.deepEqual(next.pages[0].items.find((item) => item.id === firstId).layout, { row: 0, column: 0, columnSpan: 9, rowSpan: 16 });
-	assert.deepEqual(next.pages[0].items[1].layout, { row: 16, column: 0, columnSpan: 6, rowSpan: 12 });
+	assert.deepEqual(next.pages[0].items[1].layout, { row: 16, column: 6, columnSpan: 6, rowSpan: 12 });
 	next = resizeItem(next, firstId, { columnSpan: 1, rowSpan: 2 });
 	assert.equal(next.pages[0].items.find((item) => item.id === firstId).layout.columnSpan, 3);
 });

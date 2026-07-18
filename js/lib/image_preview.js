@@ -7,13 +7,17 @@ const previewTooltip = createTooltip({ delay: IMAGE_PREVIEW_HOVER_DELAY, closeDe
 
 export function closeImagePreview() { previewTooltip.hide(); }
 
-export function bindImagePreview(trigger, source, title, { immediate = false } = {}) {
-	if (!source) return;
+export function bindImagePreview(trigger, source, title, { immediate = false, hint = "" } = {}) {
+	if (!source && !hint) return;
 	const show = (immediate) => {
 		if (previewTooltip.isOpenFor(trigger)) { previewTooltip.cancelScheduledHide(); return; }
-		const large = document.createElement("img"); large.src = source; large.alt = title; large.decoding = "async";
-		large.addEventListener("load", previewTooltip.reposition, { once: true });
-		previewTooltip.show(trigger, el("div", { className: "aa-image-preview-large", children: [large, el("strong", null, title)] }), { className: "aa-image-preview-tooltip", contentMode: "dom", immediate });
+		let content;
+		if (source) {
+			const large = document.createElement("img"); large.src = source; large.alt = title; large.decoding = "async";
+			large.addEventListener("load", previewTooltip.reposition, { once: true });
+			content = el("div", { className: "aa-image-preview-large", children: [large, el("div", { className: "aa-image-preview-caption", children: [el("strong", null, title), ...(hint ? [el("small", null, hint)] : [])] })] });
+		} else content = el("span", "aa-image-preview-quick-hint", hint);
+		previewTooltip.show(trigger, content, { className: source ? "aa-image-preview-tooltip" : "aa-image-preview-hint-tooltip", contentMode: "dom", immediate });
 	};
 	trigger.addEventListener("mouseenter", () => show(immediate));
 	trigger.addEventListener("mouseleave", previewTooltip.scheduleHide);
@@ -27,12 +31,10 @@ function thumbnail(source, placeholderIcon) {
 	return el("span", { className: "aa-image-preview-media", attrs: { "aria-hidden": "true" }, children: [image] });
 }
 
-export function createImagePreview({ source = "", title = "", label = title, className = "", placeholderIcon = "note" } = {}) {
+export function createImagePreview({ source = "", title = "", label = title, className = "", placeholderIcon = "note", hint = "" } = {}) {
 	const classes = `aa-image-preview${className ? ` ${className}` : ""}`;
-	if (!source) return el("span", { className: `${classes} is-placeholder`, attrs: { "aria-hidden": "true" }, children: [icon(placeholderIcon)] });
-	const image = document.createElement("img"); image.src = source; image.alt = ""; image.loading = "lazy"; image.decoding = "async";
-	const trigger = el("button", { className: classes, attrs: { type: "button", "aria-label": label }, children: [image] });
-	bindImagePreview(trigger, source, title);
+	const trigger = el("button", { className: `${classes}${source ? "" : " is-placeholder"}`, attrs: { type: "button", "aria-label": label }, children: [thumbnail(source, placeholderIcon)] });
+	bindImagePreview(trigger, source, title, { hint });
 	return trigger;
 }
 
