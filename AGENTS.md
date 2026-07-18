@@ -77,6 +77,8 @@ ComfyUI-Aaalice-Nodes/
 - category 使用 `Aaalice/<domain>`；当前域为 `Aaalice/control`、`Aaalice/prompt` 与 `Aaalice/tools`。
 - `nodes/_lib/` 只放不依赖运行中 ComfyUI 的纯逻辑，并可直接单测。
 - 运行时错误保留原始原因与参数上下文；不得把导入错误伪装成未实现。
+- `validate_inputs()` 只校验执行前可获得的字面量、类型或前端注入 payload；连接输入在该阶段没有上游运行值，禁止对其做非空或内容语义校验。此类检查必须放在 `execute()` 拿到真实上游值之后。
+- HTTP 公共认证 header 不得无条件包含 `Content-Type: application/json`；无 body 的 GET 只发送认证等实际 header，JSON POST 使用客户端 `json=` 参数自动生成编码和 Content-Type，避免服务端把空 GET body 当作无效 JSON。
 - 模块关系与状态真源见 [`architecture.md`](docs/development/architecture.md)。
 
 ## 4. 前端、渲染与状态
@@ -95,7 +97,9 @@ ComfyUI-Aaalice-Nodes/
 ### 4.2 DOM widget 与缩放
 
 - DOM widget 通过内容下限声明稳定最小尺寸；`computeSize()` 不得把当前 `node.size` 当作最小值，也不得用延迟或重复 `setSize()` 与原生布局争夺尺寸真源。
+- 可手动缩放的 DOM widget 不得把当前 `scrollHeight`、`clientHeight`、wrapper 高度或已拉伸后的几何当作 `getMinHeight()`；这些值会形成只增不减的反馈环。需要容纳可增长列表时使用与当前尺寸无关的稳定下限，并在空间不足时由内容区滚动。
 - 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角、拖拽和放置命中；CSS `pointer-events` 不能代替原生命中检测。
+- DOM overlay 根和 Comfy wrapper 默认不接收指针，只给真实交互控件开启命中；缩放期间根及全部后代必须停用命中，底部和四角保留原生手柄安全区。
 - DOM widget 与原生 slot 共用空间时使用 LiteGraph 的叠放语义，不得通过隐藏槽或事后劫持 `arrange()` 修正重复高度。
 - 自定义布局在 `onResize` 中从新尺寸重算 DOM 几何、真实 slot 和 Nodes 2.0 标记，并请求画布重绘。
 - 连续动画控件必须保留动画元素的 DOM identity，只更新 class、style、data 和 ARIA 状态。
@@ -116,6 +120,7 @@ ComfyUI-Aaalice-Nodes/
 - `ParameterReceiver` 通过可见 KJ Get 和按绑定数量动态物化的真实 slot 工作；缺少 KJNodes 时明确失败，不模拟成功。
 - `EnumSwitch` 按当前 route 数量物化连续 lazy MatchType 分支；未知 selector 或未连接目标分支必须显式失败。
 - `SimpleNotify` 只表示执行到达，不表示并行分支完成或队列清空；通知副作用只发生在前端。
+- `CharacterFeatureSwapNode` 只使用 DeepSeek 官方 API；服务地址不进入用户配置。请求显式发送思考开关，默认关闭，启用时只提供 DeepSeek 实际区分的 `high` 与 `max`。
 - 产品术语以 [`CONTEXT.md`](CONTEXT.md) 为准，协议决策以 accepted ADR 为准。
 
 ## 6. UI、主题与本地化
@@ -124,10 +129,12 @@ ComfyUI-Aaalice-Nodes/
 - 节点原生层、DOM overlay、Dialog 和 Popover 的职责及主题映射以 [`ui-system.md`](docs/design/ui-system.md) 为准；DOM 根不得重复绘制节点外壳。
 - 普通激活态可以跟随节点强调色；警告、危险、筛选颜色和多档业务状态保留自身语义，且颜色不能成为唯一状态信号。
 - Switcher、Select、折叠搜索、Dialog、Popover 等交互必须优先复用共享组件；具体动画、间距、状态和可访问性契约只在 [`ui-system.md`](docs/design/ui-system.md) 维护，业务模块不得复制实现。
+- 节点内 Tag List 必须允许标签换行并保证末尾新增输入框始终可达；不得让默认标签把输入框挤到不可见的单行横向滚动末端。节点缩短时由 Tag 区域内部纵向滚动，不得反向锁死节点最小高度。
 - 节点颜色同步只走既有生命周期，禁止为颜色或主题同步增加持续轮询。
 - Toast 只用 `app.extensionManager.toast.add`；可有无状态参数封装，禁止自建容器、队列或动画系统。
 - 静态 `iconName` 与 `icon("…")` 必须存在于共享图标表，并通过图标契约测试。
 - 颜色来自 ComfyUI token；禁止写死品牌色或只适用于暗色主题的正文色。
+- 新 DOM 根使用 `--aa-ui-*` token 前必须加入 `ui.css` 的共享主题作用域，并用契约测试确认关键 token 可继承；选择器命中不代表含未定义自定义属性的颜色声明实际生效。
 - 仅维护 `locales/{en,zh}/{main,nodeDefs}.json`。`nodeDefs.json` 管节点定义，自绘 DOM 使用 `main.json` 和 `js/i18n.js`。
 - 序列化 id、COMBO 值和路径使用稳定英文；修改用户文案时同步两种语言。
 - 所有节点的 V3 Schema 与 en/zh `nodeDefs.json` 显示名称必须以同一语义 emoji 开头；新增或重命名节点时同步三处并通过契约测试。

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import sys
 import unittest
@@ -25,6 +26,11 @@ ROUTES = json.dumps(
 
 
 class EnumSwitchNodeTests(unittest.TestCase):
+    def test_custom_validation_only_reads_injected_routes(self):
+        signature = inspect.signature(EnumSwitch.validate_inputs)
+        self.assertEqual(list(signature.parameters), ["routes_json"])
+        self.assertIs(EnumSwitch.validate_inputs(ROUTES), True)
+
     def test_schema_uses_fixed_lazy_matchtype_branches(self):
         schema = EnumSwitch.define_schema()
         self.assertEqual(schema.node_id, "EnumSwitch")

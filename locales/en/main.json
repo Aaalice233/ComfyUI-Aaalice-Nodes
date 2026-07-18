@@ -194,6 +194,24 @@
         "duplicateOptions": "The bound enum contains duplicate options."
       }
     },
+    "characterSwap": {
+      "features": {
+        "label": "Replace features", "placeholder": "Enter features and press Enter", "append": "+ Add feature",
+        "empty": "Add at least one replacement feature", "input": "Add replacement features",
+        "enable": "Enable {tag}", "disable": "Disable {tag}", "remove": "Remove {tag}"
+      },
+      "settings": {
+        "entry": "Character Feature Swap LLM", "open": "Configure LLM…", "title": "Character Feature Swap",
+        "apiKey": "DeepSeek API Key", "model": "DeepSeek model", "timeout": "Timeout (seconds)",
+        "thinking": "Thinking effort", "thinkingDisabled": "Off", "thinkingHigh": "High", "thinkingMax": "Maximum",
+        "thinkingHint": "DeepSeek exposes Off, High, and Maximum; Low and Medium are mapped to High by the service.",
+        "template": "Prompt template", "templateHint": "Must contain {original_prompt}, {character_prompt}, and {target_features}.",
+        "keyConfigured": "Configured; leave blank to keep", "keyMissing": "Enter a DeepSeek API key", "clearKey": "Clear saved API key", "keyWillClear": "Saved key will be cleared",
+        "fetchModels": "Get models", "loadingModels": "Loading models…", "modelsLoaded": "Model list loaded.",
+        "test": "Test connection", "testing": "Testing a DeepSeek request…", "testPassed": "DeepSeek request succeeded ({count} available models).",
+        "restoreTemplate": "Restore default template", "saving": "Saving…"
+      }
+    },
     "pcp": {
       "empty": "No parameters. Use the node context menu to edit.",
       "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },

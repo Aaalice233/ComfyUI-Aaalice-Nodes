@@ -54,7 +54,7 @@ class EnumSwitch(io.ComfyNode):
         )
 
     @classmethod
-    def validate_inputs(cls, routes_json: str = "[]", **_kwargs):
+    def validate_inputs(cls, routes_json: str = "[]"):
         try:
             parse_routes(routes_json)
         except ValueError as exc:

@@ -13,7 +13,8 @@ export function createTagListControl({ value = [], onChange = null, ariaLabel = 
 	const input = document.createElement("input");
 	input.type = "text"; input.className = "aa-taglist-input"; input.autocomplete = "off"; input.spellcheck = false;
 	input.setAttribute("aria-label", labels.input || labels.placeholder || "Add tags");
-	input.addEventListener("focus", () => { root.scrollLeft = root.scrollWidth; });
+	const revealInput = () => { root.scrollLeft = root.scrollWidth; root.scrollTop = root.scrollHeight; };
+	input.addEventListener("focus", revealInput);
 	root.addEventListener("wheel", (event) => { if (root.scrollWidth <= root.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return; event.preventDefault(); root.scrollLeft += event.deltaY; }, { passive: false });
 	const emit = () => onChange?.(entries.map((entry) => ({ ...entry })));
 	const render = () => {
@@ -30,7 +31,7 @@ export function createTagListControl({ value = [], onChange = null, ariaLabel = 
 				toggle.setAttribute("aria-label", actionLabel(entry.enabled ? (labels.disable || "Disable {tag}") : (labels.enable || "Enable {tag}"), entry.text));
 			};
 			toggle.addEventListener("click", () => { entry.enabled = !entry.enabled; sync(); emit(); });
-			remove.addEventListener("click", (event) => { event.stopPropagation(); entries.splice(index, 1); render(); emit(); input.focus(); });
+			remove.addEventListener("click", (event) => { event.stopPropagation(); entries.splice(index, 1); render(); emit(); input.focus(); revealInput(); });
 			chip.addEventListener("dragstart", (event) => { draggedIndex = index; chip.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(index)); });
 			chip.addEventListener("dragend", () => { draggedIndex = null; chip.classList.remove("is-dragging"); for (const target of list.querySelectorAll(".is-drop-before, .is-drop-after")) target.classList.remove("is-drop-before", "is-drop-after"); });
 			chip.addEventListener("dragover", (event) => { if (draggedIndex === null || draggedIndex === index) return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; const rect = chip.getBoundingClientRect(); const after = event.clientX > rect.left + rect.width / 2; chip.classList.toggle("is-drop-before", !after); chip.classList.toggle("is-drop-after", after); });
@@ -47,7 +48,7 @@ export function createTagListControl({ value = [], onChange = null, ariaLabel = 
 	input.addEventListener("keydown", (event) => {
 		if (event.key !== "Enter") return; event.preventDefault(); const known = new Set(entries.map((entry) => entry.text)); const additions = [];
 		for (const text of parseTagListValue(input.value)) { if (!known.has(text)) { known.add(text); additions.push(text); } }
-		if (!additions.length) return; for (const text of additions) entries.push({ text, enabled: true }); input.value = ""; render(); emit();
+		if (!additions.length) return; for (const text of additions) entries.push({ text, enabled: true }); input.value = ""; render(); emit(); revealInput();
 	});
 	root.value = () => entries.map((entry) => ({ ...entry })); root.setValue = (next) => { entries = normalizeTagListValue(next); render(); };
 	root.addEventListener("pointerdown", (event) => { if (event.target === root) requestAnimationFrame(() => input.focus()); });

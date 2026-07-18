@@ -14,11 +14,13 @@
 | `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
 | `PromptCleaningMaid` | `Aaalice/prompt` | 原样透传，或按显式格式清理自然语言、规范化并去重标签列表 | 模式切换、详细设置和内部配置注入 |
 | `PromptSelector` | `Aaalice/prompt` | 组合前缀与有序词条正文，校验缺失引用和权重 | 跨分类选择、筛选、排序、权重和实时词库 payload 注入 |
+| `CharacterFeatureSwapNode` | `Aaalice/prompt` | 通过 DeepSeek 官方 API 迁移指定的单角色特征 | 复用 Tag List 编辑特征，并注入节点状态和配置版本 |
 
 根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入错误保留原始异常。当前 Python 域为 `nodes/control`、`nodes/tools`、`nodes/prompt` 与无 ComfyUI 运行时依赖的 `nodes/_lib`。
 
 ## 后端边界
 
+- V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `CharacterFeatureSwapNode`、`PromptCleaningMaid`、`PromptSelector` 与 `EnumSwitch` 的自定义校验签名分别只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
 - `nodes/control/parameter_panel.py` 声明最多 32 路输出，把前端注入的参数 payload 转换为有界值序列；解析和类型转换位于 `nodes/_lib/parameter_values.py`。
 - `nodes/control/parameter_receiver.py` 声明最多 32 路可选 AnyType 输入输出；`nodes/_lib/receiver_values.py` 只按协议顺序透传，不保存绑定状态。
 - `nodes/control/quick_group_manager.py` 只注册无输入输出的 V3 节点；组发现和模式变化不进入后端。
@@ -27,6 +29,7 @@
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
 - `PromptCleaningMaid` 使用单一 STRING 输入输出；`nodes/_lib/prompt_cleaning.py` 持有配置验证、自然语言清理、顶层标签扫描和稳定去重。结构异常的标签列表原样输出并记录 warning；识别到已支持的顶层分区控制词时无损旁路，不猜测或修复其语法。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。词库领域服务使用用户目录中的 SQLite，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
+- `CharacterFeatureSwapNode` 接收原提示词与参考角色提示词，读取前端注入的启用特征和配置版本，并使用当前用户目录中的 DeepSeek 配置异步生成单一 STRING。纯逻辑负责 payload、模板和响应校验；配置、模型查询和真实 Chat Completion 连接测试路由不把 API Key 返回前端或写入工作流。
 
 后端 32 路 Schema 是执行和校验上限，不是前端槽数组真源。ParameterPanel 的返回值仍填满有界输出协议；画布只物化当前参数对应的连续槽。
 
@@ -42,6 +45,7 @@
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
+| 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |
 | DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
@@ -61,6 +65,8 @@
 | QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
 | PromptCleaningMaid | `node.properties.promptCleaningMaidState` | 当前模式控件、设置状态、执行配置 JSON | DOM 控件副本、自动识别的 Prompt 类型 |
 | PromptSelector | `node.properties.promptSelectorState` | 当前词条正文、缺失引用、执行 payload | 节点内正文快照、DOM 复选状态 |
+| CharacterFeatureSwapNode | `node.properties.characterFeatureSwap` | 启用特征、配置版本和执行 payload | DOM 标签副本、全局活动预设、API Key 或模型配置 |
+| Character Feature Swap LLM | 当前 ComfyUI 用户目录配置文件 | DeepSeek API Key、模型、超时、思考强度、模板和配置版本 | 工作流 JSON、节点属性或前端缓存 |
 | DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 参数值、目标解析和 Missing Binding 状态 | 侧边栏 DOM、节点标题或位置 |
 | DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、参数值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
 | Prompt Library | 用户目录 SQLite | 当前筛选、PromptSelector 引用解析 | 单个工作流、单个节点或浏览器缓存 |
@@ -124,6 +130,14 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 7. Collection 保持备份与 API 的稳定协议名，产品界面统一称为“收藏夹”；后端保证稳定身份的默认收藏夹存在并拒绝删除，节点收藏按钮只从词库快照派生状态和提交关系变更。
 8. 多选移动、收藏关系更新和删除都进入词库领域事务；批量删除先校验全部稳定词条 ID，再统一删除关系并按最后引用清理预览资源，不允许前端逐条请求形成部分成功。
 
+### CharacterFeatureSwapNode
+
+1. 节点以 `node.properties.characterFeatureSwap` 保存版本化特征列表；共享 Tag List 负责启用、停用、增删和排序，修改进入正常图历史边界。
+2. `graphToPrompt` 只注入特征 payload 和当前配置版本，使节点状态及 LLM 设置变化参与执行缓存；API Key、Base URL、模型和模板不进入工作流。
+3. 后端用固定占位符替换构建兼容自然语言与 Tag 列表的请求，通过 DeepSeek 官方 `/chat/completions` 执行，并对空输入、无启用特征、配置、HTTP、超时和响应结构错误显式失败。
+4. ComfyUI 设置页通过专用路由维护用户目录配置、查询模型和测试连接；读取设置只公开 API Key 是否存在，空 Key 更新保留原值，清除必须显式请求。
+5. 每次请求都显式发送 DeepSeek `thinking` 开关；默认关闭思考，启用时只发送官方实际区分的 `high` 或 `max` `reasoning_effort`。服务地址固定为 DeepSeek 官方端点，不保存或接受自定义 Base URL。
+
 ### DIY 左侧工作区
 
 1. 官方 Sidebar Tab 挂载参数控制与词库工作区；页面布局随工作流序列化，参数值仍由节点拥有。
@@ -169,8 +183,9 @@ const unregister = registerWidgetControlAdapter({
 - Canvas/native 层负责真实 slot、连线和静态布局；DOM overlay 负责交互、焦点、键盘、tooltip 与 aria。
 - ParameterPanel、ParameterReceiver 与 EnumSwitch 的画布槽数组只包含当前业务项，槽 id 使用后端有界 Schema 的连续前缀。
 - Nodes 2.0 concrete slot 对象在原生槽变化后同步名称、类型、颜色和位置；不得恢复隐藏槽数组。
-- DOM widget 通过 `getMinHeight()` 声明内容下限。Classic 内容增长可以走 LiteGraph grow-only 路径；Nodes 2.0 尺寸由 DOM 测量持有。
-- 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角；`computeSize()` 不得把当前节点尺寸当成最小值。
+- DOM widget 通过 `getMinHeight()` 声明与当前几何无关的稳定内容下限。Classic 只有内容本身定义最小高度且界面不要求再次缩短时才可走 LiteGraph grow-only 路径；可手动缩放的列表节点使用固定下限和内部滚动。Nodes 2.0 尺寸继续由原生 DOM 测量持有。
+- `computeSize()`、`getMinHeight()` 和布局刷新不得读取当前 `node.size`、已拉伸 wrapper 或 `scrollHeight` 后再作为最小值，否则会形成只增不减的尺寸反馈环。
+- 全尺寸 DOM widget 的 wrapper 与业务根不接收指针，只让真实控件命中；缩放期间全部 DOM 后代让出事件，保证 LiteGraph 左右下角原生缩放手柄持续可用。
 - QuickGroupManager 没有协议槽，最小高度由当前可见组数量决定且列表不使用内部滚动；`graphChanged` 不得替换为状态轮询。
 - 节点 DOM 根不覆盖原生背景、外边框或圆角；Classic 使用 LiteGraph `bgcolor`，Nodes 2.0 保留原生容器轮廓。
 

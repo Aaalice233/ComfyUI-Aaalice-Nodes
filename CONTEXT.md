@@ -36,6 +36,8 @@
 
 - **PromptSelector（提示词选择器）**：从 Prompt Library 中跨分类选择、排序并加权输出提示词的图节点。词库维护不是该节点的职责。
 
+- **Character Feature Swap（角色特征交换）**：以一个单角色原提示词为主体，从参考角色提示词迁移用户明确启用的特征，同时保持原提示词的语言、格式和未选择内容。避免使用 General Prompt Rewrite、Multi-character Editor。
+
 - **Control Host（参数宿主）**：在当前工作流中拥有一个或多个可投影参数的节点或子图整体。节点标题、位置和临时画布编号都不是宿主身份。
 
 - **Control Binding（参数绑定）**：侧边栏参数卡片与一个 Control Host 上稳定参数身份之间的显式关系。显示名称不是绑定身份。

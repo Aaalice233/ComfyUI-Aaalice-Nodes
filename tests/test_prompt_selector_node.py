@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import unittest
 
@@ -8,6 +9,10 @@ from nodes.prompt.prompt_selector import PromptSelector
 
 
 class PromptSelectorNodeTests(unittest.TestCase):
+    def test_custom_validation_only_reads_injected_selection(self):
+        signature = inspect.signature(PromptSelector.validate_inputs)
+        self.assertEqual(list(signature.parameters), ["selection_payload_json"])
+
     def test_registration_and_schema(self):
         self.assertIn(PromptSelector, NODE_CLASSES)
         schema = PromptSelector.define_schema()

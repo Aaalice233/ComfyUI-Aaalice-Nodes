@@ -42,7 +42,7 @@ class PromptCleaningMaid(io.ComfyNode):
         )
 
     @classmethod
-    def validate_inputs(cls, config_json: str = "", **_kwargs):
+    def validate_inputs(cls, config_json: str = ""):
         try:
             parse_config_json(config_json)
         except ValueError as exc:

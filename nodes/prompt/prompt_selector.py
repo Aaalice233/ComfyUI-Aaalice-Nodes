@@ -26,7 +26,7 @@ class PromptSelector(io.ComfyNode):
         )
 
     @classmethod
-    def validate_inputs(cls, selection_payload_json: str = "", **_kwargs):
+    def validate_inputs(cls, selection_payload_json: str = ""):
         try:
             parse_selection_payload(selection_payload_json)
         except ValueError as exc:

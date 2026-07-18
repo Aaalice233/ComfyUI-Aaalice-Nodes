@@ -8,6 +8,7 @@ import "./enum_switch.js";
 import "./simple_notify.js";
 import "./prompt_cleaning_maid.js";
 import "./prompt_selector.js";
+import "./character_feature_swap.js";
 import "./workspace.js";
 
 function injectStyles() {

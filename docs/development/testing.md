@@ -169,9 +169,21 @@ GUI 自动验收只能使用 Codex 内置浏览器：
 | 保存后重新加载 | ✓ | ✓ |
 | 复制节点、撤销和重做 | ✓ | ✓ |
 | 暗色 / 亮色与窄宽度（涉及视觉时） | ✓ | ✓ |
+| 节点增高、缩短及左右下角原生缩放手柄（涉及 DOM widget 时） | ✓ | ✓ |
 | 无阻断性 Console 错误 | ✓ | ✓ |
 
 ParameterPanel / ParameterReceiver 还需覆盖绑定、显式同步、稳定 Parameter Id 重绑、源缺失和 KJNodes 缺失路径；EnumSwitch 需覆盖 lazy 分支、未知 key、未连接分支和显式选项同步。
+
+CharacterFeatureSwapNode 还需覆盖：
+
+- DeepSeek mock 分别断言 `GET /models` 不携带 JSON Content-Type 或空 JSON body，`POST /chat/completions` 使用 `application/json` 请求体；认证 header 在两条路径保持一致。DeepSeek 会把带 JSON Content-Type 的空 GET body 判为无效 JSON。
+- 请求必须显式携带 DeepSeek `thinking.type`；关闭时不得发送 `reasoning_effort`，启用时只允许 `high` 或 `max`。不要增加会被 DeepSeek 映射为 `high` 的伪 `low` / `medium` 档位。
+- “测试连接”必须同时验证模型列表和一次真实 Chat Completion，不能只用 `/models` 成功代替生成路径可用；超时错误必须包含秒数、模型和思考档位。
+- `original_prompt` 和 `character_prompt` 由上游 STRING 节点连接时，执行前自定义校验不得把连接占位值误判为空；真实空字符串只在 `execute()` 取得上游结果后显式失败。
+- 默认八个特征及批量新增后，Tag 自动换行且末尾输入框始终可见或能通过 Tag 区域纵向滚动到达。
+- 启用、停用、删除和排序后仍能继续输入新 Tag，输入焦点、回车提交和中英文逗号/换行批量解析正常。
+- Classic 与 Nodes 2.0 分别从最小高度增高、再缩短，并从左下角和右下角重复拖拽；节点不得把任一次拉高后的 DOM 高度固化为新下限。
+- 缩短时只有 Tag 内容区滚动，DOM overlay 不遮挡标题拖拽、原生缩放角、输入 socket 或输出 socket。
 
 SimpleNotify 还需覆盖：
 

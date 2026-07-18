@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import sys
 import unittest
@@ -12,6 +13,10 @@ from nodes.prompt.prompt_cleaning_maid import PromptCleaningMaid
 
 
 class PromptCleaningMaidNodeTests(unittest.TestCase):
+    def test_custom_validation_only_reads_injected_config(self):
+        signature = inspect.signature(PromptCleaningMaid.validate_inputs)
+        self.assertEqual(list(signature.parameters), ["config_json"])
+
     def test_node_is_registered_with_string_socket_contract(self):
         self.assertIn(PromptCleaningMaid, NODE_CLASSES)
         schema = PromptCleaningMaid.define_schema()
