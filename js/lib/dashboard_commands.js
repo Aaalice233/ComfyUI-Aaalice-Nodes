@@ -97,10 +97,18 @@ export function createGroup(model, pageId, itemIds, { name = "Group", tone = "ne
 	if (itemIds.length < 2) throw new Error("A layout group requires at least two items");
 	const next = copy(model); const page = findPage(next, pageId); const ids = new Set(itemIds);
 	if (!page || itemIds.some((id) => !page.items.some((item) => item.id === id))) throw new Error("Layout group items must belong to one page");
-	const selected = orderedItems(page.items.filter((item) => ids.has(item.id))); const row = Math.min(...selected.map((item) => item.layout.row));
+	const selected = page.items.filter((item) => ids.has(item.id));
+	const absoluteLayouts = new Map(selected.map((item) => {
+		const parent = item.groupId ? page.groups.find((group) => group.id === item.groupId) : null;
+		return [item.id, { ...item.layout, row: item.layout.row + (parent?.layout.row || 0), column: item.layout.column + (parent?.layout.column || 0) }];
+	}));
+	const row = Math.min(...[...absoluteLayouts.values()].map((layout) => layout.row));
 	const group = createLayoutGroup(name, tone, row); page.groups.push(group);
-	for (const item of selected) item.groupId = group.id;
-	removeEmptyGroups(page); compactScope(page, group.id); compactScope(page, null); return normalizeDashboard(next);
+	for (const item of selected) {
+		const layout = absoluteLayouts.get(item.id);
+		item.groupId = group.id; item.layout = { ...layout, row: layout.row - row };
+	}
+	removeEmptyGroups(page); placeEntry(page, group.id, group.layout); return normalizeDashboard(next);
 }
 
 export function assignToGroup(model, pageId, itemIds, groupId) { return moveItems(model, itemIds, pageId, { groupId }); }
@@ -115,9 +123,13 @@ export function ungroupItems(model, pageId, itemIds) {
 export function deleteGroup(model, pageId, groupId) {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) return next;
 	const group = page.groups.find((entry) => entry.id === groupId); const members = orderedItems(page.items.filter((item) => item.groupId === groupId));
+	if (!group) return next;
 	page.groups = page.groups.filter((entry) => entry.id !== groupId);
-	for (const item of members) { item.layout = firstAvailableLayout(page, { columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan }); item.groupId = null; }
-	if (group) compactScope(page, null); return normalizeDashboard(next);
+	for (const item of members) {
+		item.layout = { ...item.layout, row: group.layout.row + item.layout.row, column: group.layout.column + item.layout.column };
+		item.groupId = null;
+	}
+	return normalizeDashboard(next);
 }
 
 export function moveGroup(model, pageId, groupId, row) {

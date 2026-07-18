@@ -324,6 +324,17 @@ function currentDashboardPresetSnapshot(model = dashboard(), previousValues = nu
 	return { dashboard: model, values: mergeCapturedPresetValues(captured, previousValues), bindings: captured.bindings };
 }
 
+function availableDashboardPresetName(fileName, state = dashboardPresetState()) {
+	const fallback = t("aaalice.workspace.dashboardPreset.defaultName", "Preset {count}").replace("{count}", "1");
+	const source = String(fileName || "").replace(/\.[^.]+$/, "").trim() || fallback;
+	const names = new Set(state.presets.map((preset) => preset.name.toLocaleLowerCase())); let count = 1; let name;
+	do {
+		const suffix = count++ === 1 ? "" : ` ${count - 1}`;
+		name = `${source.slice(0, Math.max(1, 80 - suffix.length)).trim()}${suffix}`;
+	} while (names.has(name.toLocaleLowerCase()));
+	return name;
+}
+
 function commitDashboardPresetChange(callback, detail = t("aaalice.workspace.dashboardPreset.saveWorkflowReminder", "Save the workflow to keep these sidebar presets.")) {
 	try { updateDashboardPresetState(callback, detail); return true; }
 	catch (error) { notifyDashboardPresetError(error); return false; }
@@ -757,13 +768,15 @@ async function importDashboardPreset(file) {
 			el("div", { className: "aa-transfer-callout is-info", children: [icon("statusIdle"), el("p", null, `${savedValues.length} ${t("aaalice.workspace.transfer.compatibleValues", "compatible saved values will be restored. Values outside current ranges are safely skipped.")}`)] }),
 		);
 		const importLabel = t("aaalice.workspace.preset.import", "Import layout");
+		const presetName = document.createElement("input"); presetName.maxLength = 80; presetName.value = availableDashboardPresetName(file.name);
+		body.append(field({ label: t("aaalice.workspace.dashboardPreset.name", "Preset name"), control: presetName }));
 		const primary = button({ label: importLabel, onClick: () => {
 			setActionBusy(primary, true, importLabel, t("aaalice.workspace.transfer.importing", "Importing…"));
 			try {
 				const graph = app.graph; graph?.beforeChange?.();
 				try {
 					graph.extra ||= {};
-					const nextPresetState = setDashboardPresetBaseline(dashboardPresetState(), null);
+					const nextPresetState = createDashboardPreset(dashboardPresetState(), presetName.value, snapshot);
 					applyDashboardSnapshotPlan(preflight, { readDashboard: () => dashboard(), writeDashboard: (next) => { graph.extra[EXTRA_KEY] = normalizeDashboard(next); } });
 					graph.extra[DASHBOARD_PRESETS_EXTRA_KEY] = nextPresetState;
 					activePageId = preflight.dashboard.pages[0]?.id || null;

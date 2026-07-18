@@ -58,17 +58,11 @@ export function compactScope(page, groupId = null) {
 
 export function placeEntries(page, entryIds, { groupId = null } = {}) {
 	const protectedIds = new Set(entryIds); const entries = scopeEntries(page, groupId);
-	const queue = orderedItems(entries.filter((entry) => protectedIds.has(entry.id)));
-	while (queue.length) {
-		const blocker = queue.shift();
-		for (const candidate of entries) {
-			if (protectedIds.has(candidate.id) || candidate.id === blocker.id || !overlaps(blocker.layout, candidate.layout)) continue;
-			const nextRow = blocker.layout.row + blocker.layout.rowSpan;
-			if (candidate.layout.row >= nextRow) continue;
-			candidate.layout = { ...candidate.layout, row: nextRow };
-			queue.push(candidate);
-		}
-	}
+	const moving = orderedItems(entries.filter((entry) => protectedIds.has(entry.id)));
+	const fixed = entries.filter((entry) => !protectedIds.has(entry.id));
+	let rowOffset = 0;
+	while (moving.some((entry) => fixed.some((candidate) => overlaps({ ...entry.layout, row: entry.layout.row + rowOffset }, candidate.layout)))) rowOffset++;
+	if (rowOffset) for (const entry of moving) entry.layout = { ...entry.layout, row: entry.layout.row + rowOffset };
 	if (groupId) refreshGroupRowSpans(page);
 	return page;
 }

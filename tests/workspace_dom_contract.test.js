@@ -826,6 +826,8 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 	assert.match(workspace, /createTransferSection\(\{ title: t\("aaalice\.workspace\.transfer\.conflictDecisions"/);
 	assert.match(workspace, /disabled: groups\.invalid\.length > 0/);
 	assert.match(workspace, /presetNeedsReview/);
+	assert.match(workspace, /availableDashboardPresetName\(file\.name\)/);
+	assert.match(workspace, /createDashboardPreset\(dashboardPresetState\(\), presetName\.value, snapshot\)/);
 	assert.match(workspace, /createTransferResult\(\{ title: t\("aaalice\.workspace\.transfer\.importComplete"/);
 	assert.match(libraryStore, /importPreflight\(file, \{ signal \} = \{\}\)/);
 	assert.match(libraryStore, /importApply\(token, resolutions = \{\}, \{ signal \} = \{\}\)/);
