@@ -5,12 +5,13 @@ import { DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./das
 
 const DRAG_THRESHOLD = 5;
 
-export function bindDashboardBoundaryPaging(scroller, { state = {}, canAdvance = () => false, canRetreat = () => false, onAdvance, onRetreat, settleDelay = 220 } = {}) {
+export function bindDashboardBoundaryPaging(scroller, { state = {}, isEnabled = () => true, canAdvance = () => false, canRetreat = () => false, onAdvance, onRetreat, settleDelay = 220 } = {}) {
 	const armNextGesture = () => {
 		clearTimeout(state.resetTimer);
 		state.resetTimer = setTimeout(() => { state.locked = false; }, settleDelay);
 	};
 	const turnPage = (direction) => {
+		if (!isEnabled()) return false;
 		const allowed = direction > 0 ? canAdvance() : canRetreat();
 		if (state.locked || !allowed) return false;
 		state.locked = true;
@@ -25,7 +26,7 @@ export function bindDashboardBoundaryPaging(scroller, { state = {}, canAdvance =
 		if (event.defaultPrevented || event.ctrlKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
 		const direction = Math.sign(event.deltaY);
 		armNextGesture();
-		if (state.locked || !(direction > 0 ? canAdvance() : canRetreat())) return;
+		if (!isEnabled() || state.locked || !(direction > 0 ? canAdvance() : canRetreat())) return;
 		if (atBoundary(direction)) { if (turnPage(direction)) event.preventDefault(); return; }
 		requestAnimationFrame(() => { if (scroller.isConnected && atBoundary(direction)) turnPage(direction); });
 	};

@@ -444,8 +444,9 @@ function renderDashboard(container, host) {
 	const activePageIndex = model.pages.findIndex((entry) => entry.id === page.id);
 	bindDashboardBoundaryPaging(scroll, {
 		state: dashboardBoundaryPagingState,
-		canAdvance: () => !editMode && !viewState.searchOpen && activePageIndex >= 0 && activePageIndex < model.pages.length - 1,
-		canRetreat: () => !editMode && !viewState.searchOpen && activePageIndex > 0,
+		isEnabled: () => !viewState.searchOpen && !scroll.querySelector(".aa-dashboard-grid-v2.is-dragging"),
+		canAdvance: () => activePageIndex >= 0 && activePageIndex < model.pages.length - 1,
+		canRetreat: () => activePageIndex > 0,
 		onAdvance: () => pageRail.selectIndex(activePageIndex + 1, { source: "boundary" }),
 		onRetreat: () => pageRail.selectIndex(activePageIndex - 1, { source: "boundary" }),
 	});

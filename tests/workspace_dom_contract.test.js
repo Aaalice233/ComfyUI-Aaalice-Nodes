@@ -323,10 +323,13 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(workspace, /initialEdge: detail\.source === "boundary" && direction === "backward" \? "bottom" : "top"/);
 	assert.match(workspace, /aa-dashboard-scroll\$\{pageTransitionClass\}/);
 	assert.match(dashboardInteractions, /export function bindDashboardBoundaryPaging/);
+	assert.match(dashboardInteractions, /isEnabled = \(\) => true/);
 	assert.match(dashboardInteractions, /event\.defaultPrevented/);
 	assert.match(dashboardInteractions, /direction > 0 \? scroller\.scrollTop >= maxScrollTop - 1 : scroller\.scrollTop <= 1/);
-	assert.match(workspace, /canAdvance: \(\) => !editMode && !viewState\.searchOpen/);
-	assert.match(workspace, /canRetreat: \(\) => !editMode && !viewState\.searchOpen/);
+	assert.match(workspace, /isEnabled: \(\) => !viewState\.searchOpen && !scroll\.querySelector\("\.aa-dashboard-grid-v2\.is-dragging"\)/);
+	assert.match(workspace, /canAdvance: \(\) => activePageIndex >= 0/);
+	assert.match(workspace, /canRetreat: \(\) => activePageIndex > 0/);
+	assert.doesNotMatch(workspace, /canAdvance: \(\) => !editMode/);
 	assert.match(workspace, /pageRail\.selectIndex\(activePageIndex \+ 1, \{ source: "boundary" \}\)/);
 	assert.match(workspace, /pageRail\.selectIndex\(activePageIndex - 1, \{ source: "boundary" \}\)/);
 	assert.match(components, /root\.selectIndex = \(index, options\) => selectIndex\(index, options\)/);
