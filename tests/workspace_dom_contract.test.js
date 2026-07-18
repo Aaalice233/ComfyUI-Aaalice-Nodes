@@ -9,6 +9,7 @@ const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
+const nodeControlMenu = readFileSync(join(ROOT, "js", "lib", "node_control_menu.js"), "utf8");
 const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
 const numericControl = readFileSync(join(ROOT, "js", "lib", "controls", "numeric.js"), "utf8");
 const choiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "choice.js"), "utf8");
@@ -91,6 +92,8 @@ test("node context-menu add is independent from layout edit mode", () => {
 	assert.match(workspace, /📌 Add controls to sidebar/);
 	const menuBody = workspace.match(/function patchNodeMenu[\s\S]*?\n}/)?.[0] || "";
 	assert.doesNotMatch(menuBody, /editMode/);
+	assert.match(menuBody, /installNodeControlMenu/);
+	assert.match(nodeControlMenu, /listControls\(this\)/);
 	assert.match(workspace, /editMode \?[^\n]*Done/);
 });
 

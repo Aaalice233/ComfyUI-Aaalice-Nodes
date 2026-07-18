@@ -39,8 +39,10 @@ export function registeredWidgetControlAdapters() { return adapters.map(({ id, p
 function widgetType(widget) { return String(widget?.type || "").trim().toLowerCase(); }
 function isLinkedWidget(widget) { const [base, linkedName] = widgetType(widget).split(":", 2); return Boolean(linkedName && SIMPLE_NATIVE_WIDGETS[base]); }
 function isInactiveNativeWidget(widget) { return INACTIVE_NATIVE_WIDGET_TYPES.has(widgetType(widget)) || isLinkedWidget(widget); }
-function simpleNativeWidgetDefinition(widget) {
-	if (!widget || widget.serialize === false || widget.options?.serialize === false || typeof widget.name !== "string" || !widget.name) return null;
+function simpleNativeWidgetDefinition(widget, { promoted = false } = {}) {
+	// PromotedWidgetView is intentionally non-serializing: the interior widget
+	// remains the state owner while the subgraph node only projects its control.
+	if (!widget || (!promoted && (widget.serialize === false || widget.options?.serialize === false)) || typeof widget.name !== "string" || !widget.name) return null;
 	return SIMPLE_NATIVE_WIDGETS[widgetType(widget)] || null;
 }
 
@@ -149,10 +151,10 @@ registerWidgetControlAdapter({
 	id: "comfy-native-widget",
 	priority: -1000,
 	matches({ node, widget, promoted }) {
-		return supportsNativeFallback(node, promoted) && Boolean(simpleNativeWidgetDefinition(widget));
+		return supportsNativeFallback(node, promoted) && Boolean(simpleNativeWidgetDefinition(widget, { promoted }));
 	},
-	describe({ node, widget }) {
-		const definition = simpleNativeWidgetDefinition(widget);
+	describe({ node, widget, promoted }) {
+		const definition = simpleNativeWidgetDefinition(widget, { promoted });
 		const seedMode = linkedSeedModeWidget(node, widget);
 		return {
 			controlId: widget.name,

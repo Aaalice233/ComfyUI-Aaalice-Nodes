@@ -92,7 +92,7 @@ test("third-party widget adapters can serialize and validate domain-specific pre
 
 test("promoted widget discovery only exposes actual public subgraph widgets", () => {
 	const ordinary = { name: "ordinary", type: "number", value: 1, options: {} };
-	const promoted = { name: "public", type: "number", value: 2, options: {}, sourceNodeId: 4, sourceWidgetName: "cfg" };
+	const promoted = { name: "public", type: "number", value: 2, options: {}, serialize: false, sourceNodeId: "4", sourceWidgetName: "cfg" };
 	assert.deepEqual(listAdaptedWidgetControls({ widgets: [ordinary, promoted] }, { promoted: true }).map((item) => item.controlId), ["public"]);
 	assert.ok(registeredWidgetControlAdapters().some((adapter) => adapter.id === "comfy-native-widget"));
 });

@@ -4,6 +4,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "./lib/control_providers.js";
+import { installNodeControlMenu } from "./lib/node_control_menu.js";
 import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
 import {
 	bindingKey, createPage, emptyDashboard, normalizeDashboard,
@@ -1379,14 +1380,11 @@ function openAddControls(node) {
 }
 
 function patchNodeMenu(node) {
-	if (!node || node._aaaliceWorkspaceMenuPatched || !controlProviders.providerForNode(node)) return;
-	node._aaaliceWorkspaceMenuPatched = true;
-	const previous = node.getExtraMenuOptions;
-	node.getExtraMenuOptions = function (_canvas, options = []) {
-		const result = previous?.apply(this, arguments); const target = Array.isArray(result) ? result : options;
-		const label = t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…");
-		if (!target.some((item) => item?.content === label)) target.push({ content: label, callback: () => openAddControls(this) }); return result;
-	};
+	installNodeControlMenu(node, {
+		label: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"),
+		listControls: (candidate) => controlProviders.list(candidate),
+		openControls: openAddControls,
+	});
 }
 
 app.registerExtension({
