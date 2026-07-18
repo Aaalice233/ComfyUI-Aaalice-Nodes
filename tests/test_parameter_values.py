@@ -92,11 +92,22 @@ class ParameterValueTests(unittest.TestCase):
                 "id": "tags",
                 "name": "Tags",
                 "param_type": "taglist",
-                "value": ["cat", "blue eyes"],
+                "value": [
+                    {"text": "cat", "enabled": True},
+                    {"text": "blue eyes", "enabled": False},
+                    {"text": "1girl", "enabled": True},
+                ],
                 "config": {},
             },
         ])
-        self.assertEqual(outputs[:2], (7, ["cat", "blue eyes"]))
+        self.assertEqual(outputs[:2], (7, ["cat", "1girl"]))
+
+    def test_legacy_taglist_strings_remain_enabled(self):
+        outputs = parameters_to_outputs([{
+            "id": "tags", "name": "Tags", "param_type": "taglist",
+            "value": ["cat", "blue eyes"], "config": {},
+        }])
+        self.assertEqual(outputs[0], ["cat", "blue eyes"])
 
 
 if __name__ == "__main__":

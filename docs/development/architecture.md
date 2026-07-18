@@ -42,10 +42,11 @@
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
-| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,workspace_controls}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、词库管理和预设；模型、尺寸、布局、命令、交互、DOM 与 Provider 保持单向职责 |
+| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,control_host_events,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、词库管理和预设；模型、尺寸、布局、命令、交互、DOM、Provider、事件失效与第三方 widget 适配保持单向职责 |
+| 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
-| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,parameter_controls,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、无状态控件、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
+| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
 
 共享 `js/lib` 模块不得自行注册扩展或拥有工作流状态。业务入口负责生命周期和画布事务，纯模型保持无 DOM、无 ComfyUI 运行时依赖。
@@ -125,9 +126,38 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 ### DIY 左侧工作区
 
 1. 官方 Sidebar Tab 挂载参数控制与词库工作区；页面布局随工作流序列化，参数值仍由节点拥有。
-2. Control Provider Registry 分别解析通用 widget、Aaalice 稳定参数和子图整体公开 widget；绑定只按稳定 Host ID 与 Control ID 精确解析。
-3. 节点右键添加参数始终可用；编辑模式只开放页面、双列网格、布局组和卡片布局操作。
+2. Control Provider Registry 分别解析简单 ComfyUI 原生 widget、Aaalice 稳定参数和子图整体公开 widget；绑定只按稳定 Host ID、Control ID 与可选 Adapter ID 精确解析。原生 fallback 仅接受由 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 及其 LiteGraph 运行时别名组成的简单节点，并统一映射为 `numeric`、`boolean`、`text`、`choice`；出现未知自定义面板时不做部分猜测。结构支持、运行可用性和绑定健康度是三个独立维度：空选项或未赋值控件仍可建立绑定，并以 `ready`、`empty`、`unset`、`unavailable`、`error` 表示瞬时可用性，不得伪装成 `missing` 或 `incompatible`。
+3. 节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。卡片宽高以整数网格单位持久化，窄侧栏的一列投影只改变显示，不反写规范布局。
 4. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，预设导入跳过不兼容值并等待人工重绑。
+
+#### 第三方节点适配
+
+- 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
+- 只要普通节点包含未知 widget、DOM 面板、图片上传、预览或自定义操作控件，内置 fallback 就不接管该节点的原生控件，避免把自定义状态拆成不完整的侧边栏副本。此类节点必须由节点作者或本包使用显式适配器逐项接入。
+- 第三方扩展从 `/extensions/ComfyUI-Aaalice-Nodes/api.js` 导入 `registerWidgetControlAdapter()`；适配器只负责识别 widget，并描述稳定 `controlId`、显示名、控件 `kind`、稳定 `valueType`、当前值、选项、可用性和写回函数。动态选项变化后可调用 `invalidateControlHost(node)` 请求事件驱动刷新，不得轮询。
+- 适配器使用稳定英文 `id` 和显式 `priority`。Dashboard Binding 保存 Adapter ID，重载后不会因新增适配器或优先级变化而漂移到另一实现。
+- 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并返回 `controlView()`，不得持有工作流状态。
+- Provider 负责图事务、节点 dirty 和绑定解析；适配器不得直接操作侧边栏 DOM，渲染器不得发现节点。适配器卸载函数应在第三方扩展销毁时调用。
+
+```js
+import { registerWidgetControlAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/api.js";
+
+const unregister = registerWidgetControlAdapter({
+  id: "vendor-strength",
+  priority: 100,
+  matches: ({ widget }) => widget.type === "VENDOR_STRENGTH",
+  describe: ({ widget }) => ({
+    controlId: `strength:${widget.name}`,
+    label: widget.label || widget.name,
+    kind: "numeric",
+    valueType: "number",
+    getValue: () => widget.model.value,
+    getAvailability: () => ({ state: widget.model.ready ? "ready" : "unavailable", reason: "vendor-loading" }),
+    options: { min: 0, max: 10, step: 0.1 },
+    setValue: (value) => { widget.model.value = value; },
+  }),
+});
+```
 
 ## Classic、Nodes 2.0 与尺寸
 

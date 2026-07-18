@@ -17,7 +17,7 @@
       "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。", "page": "请从兼容节点的右键菜单添加参数。" },
       "page": { "pages": "侧边栏页面", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
       "target": { "page": "页面", "newPage": "新页面" },
-      "card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "compact": "切换紧凑模式" },
+      "card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "compact": "切换紧凑模式", "resize": "调整卡片大小；方向键按网格单位调整" },
       "layout": { "separator": "添加分隔线", "separatorLabel": "分隔线", "remove": "移除布局项", "compact": "整理布局" },
       "selection": { "toolbar": "所选布局项快捷操作", "summary": "已选择 {count} 项", "group": "快捷打组", "ungroup": "移出组", "width": "切换所选宽度", "remove": "移除所选", "removeConfirm": "确定移除选中的 {count} 个布局项吗？", "clear": "清空选择" },
       "group": { "menu": "布局组菜单", "create": "创建布局组", "default": "新建布局组", "name": "组名称", "edit": "编辑布局组", "delete": "解除整组", "addItem": "加入布局组", "removeItem": "移出布局组", "tone": "组颜色", "tones": { "neutral": "中性", "blue": "蓝色", "green": "绿色", "amber": "琥珀色", "purple": "紫色", "red": "红色" } },
@@ -25,7 +25,7 @@
       "binding": {
         "menu": "📌 添加参数到侧边栏…", "add": "添加参数到侧边栏", "added": "已添加",
         "allowDuplicate": "允许重复卡片", "allowDuplicateHint": "允许已存在于侧边栏的参数再次创建镜像卡片。", "destination": "投放位置", "destinationHint": "选择接收这些参数的页面。", "chooseControls": "选择参数", "chooseControlsHint": "默认选中所有可添加参数，点击卡片可取消。", "selectedControls": "个参数已选", "selectAll": "全选", "clearAll": "全不选", "addSelected": "添加参数 · {count}", "rebind": "重新绑定", "noCompatible": "当前没有兼容参数。",
-		"missing": "参数绑定已失效", "incompatible": "参数类型不兼容", "saveWorkflowReminder": "请保存工作流以保留这些侧边栏参数，否则修改将会丢失。"
+		"missing": "参数绑定已失效", "incompatible": "参数类型不兼容", "selectOption": "请选择", "noOptions": "暂无可用选项", "unset": "当前暂无可用值", "unavailable": "控件暂时不可用", "error": "控件发生错误，暂时不可用", "saveWorkflowReminder": "请保存工作流以保留这些侧边栏参数，否则修改将会丢失。"
       },
       "preset": { "title": "侧边栏预设", "export": "导出预设", "import": "导入预设", "missingConfirm": "个绑定已失效或类型不兼容。是否仍导入布局并跳过不兼容的值？" },
       "transfer": {
@@ -230,7 +230,7 @@
       "image": {
 		"none": "选择图像", "drop": "松开以选择图像", "uploaded": "图像上传成功：{filename}", "clear": "清空已选择图像"
       },
-	  "taglist": { "placeholder": "每行一个标签，也可使用中英文逗号分隔" }
+	  "taglist": { "placeholder": "输入标签后按回车添加", "append": "+ 添加标签", "empty": "输入后按回车添加标签", "input": "添加标签", "enable": "启用 {tag}", "disable": "停用 {tag}", "remove": "删除 {tag}" }
     }
   }
 }

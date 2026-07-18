@@ -1,131 +1,62 @@
-/** Dashboard control rendering over provider-resolved value adapters. */
+/** Sidebar host adapter for Aaalice and ComfyUI renderer families. */
 
-import { createImageUploadControl } from "./image_upload.js";
-import { createNumericEditor, createSeedModeControl } from "./parameter_controls.js";
-import { formatTagListValue, parseTagListValue } from "./taglist_value.js";
-import { el, selectControl, toggleSwitch } from "./ui.js";
-
-function createNumericControl(resolved, { labels = {}, onInput, onCommit } = {}) {
-	const options = resolved.options || {}; const initial = Number(resolved.value);
-	const hasFiniteOption = (key) => options[key] !== null && options[key] !== "" && Number.isFinite(Number(options[key]));
-	const min = hasFiniteOption("min") ? Number(options.min) : Number.MIN_SAFE_INTEGER;
-	const max = hasFiniteOption("max") ? Number(options.max) : Number.MAX_SAFE_INTEGER;
-	const step = Number.isFinite(Number(options.step)) && Number(options.step) > 0 ? Number(options.step) : 1;
-	const bounded = hasFiniteOption("min") && hasFiniteOption("max") && max > min;
-	const hasRange = bounded && resolved.control?.param_type !== "seed";
-	const root = el("div", `aa-workspace-numeric-control${hasRange ? "" : " is-unbounded"}`);
-	root.dataset.controlKind = "number";
-	const range = document.createElement("input"); range.type = "range"; range.className = "aa-shared-range"; range.min = String(min); range.max = String(max); range.step = String(step); range.value = String(initial);
-	range.setAttribute("aria-label", resolved.label);
-	const valueButton = el("button", { className: "aa-workspace-numeric-value", attrs: { type: "button", role: "spinbutton", "aria-label": resolved.label, "aria-valuemin": String(min), "aria-valuemax": String(max) } });
-	let current = Number.isFinite(initial) ? initial : 0; let gestureOpen = false; let gestureTimer = 0;
-	const stepText = String(step).toLowerCase(); const exponent = Number(stepText.split("e-")[1] || 0);
-	const precision = Math.min(12, Math.max(exponent, stepText.split(".")[1]?.split("e")[0]?.length || 0));
-	const normalize = (value) => {
-		const clamped = Math.min(max, Math.max(min, Number(value)));
-		return Number.isFinite(clamped) ? Number(clamped.toFixed(precision)) : current;
-	};
-	const sync = (value) => {
-		current = normalize(value); valueButton.textContent = String(current); valueButton.setAttribute("aria-valuenow", String(current));
-		if (hasRange) {
-			range.value = String(current);
-			const progress = ((current - min) / (max - min)) * 100;
-			range.style.setProperty("--aa-shared-range-progress", `${Math.min(100, Math.max(0, progress))}%`);
-		}
-	};
-	const beginGesture = () => {
-		if (gestureOpen) return;
-		resolved.node?.graph?.beforeChange?.(); gestureOpen = true;
-	};
-	const finishGesture = () => {
-		clearTimeout(gestureTimer); gestureTimer = 0;
-		if (!gestureOpen) return;
-		gestureOpen = false; resolved.flushValue?.(); resolved.node?.graph?.afterChange?.(); resolved.node?.graph?.setDirtyCanvas?.(true, true); onCommit?.(current);
-	};
-	const preview = (value) => {
-		const next = normalize(value); if (next === current) return false;
-		sync(next); resolved.setValue(next, { transaction: false, transient: true }); onInput?.(next); return true;
-	};
-	if (hasRange) {
-		range.addEventListener("pointerdown", beginGesture);
-		range.addEventListener("input", () => { beginGesture(); preview(Number(range.value)); });
-		range.addEventListener("change", finishGesture);
-		range.addEventListener("pointerup", finishGesture);
-		range.addEventListener("pointercancel", finishGesture);
-	} else range.hidden = true;
-	const adjustOnWheel = (event) => {
-		if (!event.deltaY) return;
-		beginGesture(); const delta = step * (event.shiftKey ? 10 : 1) * (event.deltaY < 0 ? 1 : -1);
-		if (preview(current + delta)) event.preventDefault();
-		clearTimeout(gestureTimer); gestureTimer = setTimeout(finishGesture, 160);
-	};
-	root.addEventListener("wheel", adjustOnWheel, { passive: false });
-	valueButton.addEventListener("wheel", adjustOnWheel, { passive: false });
-	valueButton.addEventListener("click", () => createNumericEditor(valueButton, { value: current, min, max, step, onCommit: (next) => {
-		const value = normalize(next); sync(value); resolved.setValue(value); onCommit?.(value);
-	} }));
-	valueButton.addEventListener("keydown", (event) => {
-		if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown"].includes(event.key)) return;
-		event.preventDefault(); const direction = event.key === "ArrowUp" || event.key === "PageUp" ? 1 : -1;
-		const scale = event.key.startsWith("Page") || event.shiftKey ? 10 : 1; const next = normalize(current + direction * step * scale);
-		if (next === current) return; sync(next); resolved.setValue(next); onCommit?.(next);
-	});
-	root.addEventListener("blur", finishGesture, true); valueButton.addEventListener("blur", finishGesture);
-	root.headerAccessories = [valueButton];
-	if (resolved.control?.param_type === "seed" && resolved.setSeedLocked) root.headerAccessories.push(createSeedModeControl({
-		locked: resolved.options?.control_after_generate !== "randomize",
-		lockedLabel: labels.seedLocked || "Seed locked; click to unlock",
-		unlockedLabel: labels.seedUnlocked || "Seed unlocked; click to lock",
-		ariaLabelPrefix: resolved.label,
-		className: "aa-workspace-seed-mode",
-		onChange: (locked) => { resolved.setSeedLocked(locked); onCommit?.(current); },
-	}));
-	root.hidden = !hasRange;
-	root.dataset.headerOnly = String(!hasRange);
-	sync(current); root.append(range, valueButton); return root;
-}
-
-function createImageControl(resolved, { labels = {}, onCommit, onError, onSuccess } = {}) {
-	const root = createImageUploadControl({
-		reference: resolved.value,
-		label: resolved.label,
-		emptyLabel: labels.imageNone || "Choose image",
-		dropLabel: labels.imageDrop || "Drop image here",
-		clearLabel: labels.imageClear || "Clear selected image",
-		className: "aa-workspace-image-control",
-		onSelected: (next) => { resolved.setValue(next); onSuccess?.(next); onCommit?.(next); },
-		onClear: () => { resolved.setValue(null); onCommit?.(null); },
-		onError,
-	});
-	root.dataset.controlKind = "image";
-	return root;
-}
+import { createSharedControl } from "./controls/registry.js";
+import { resolvedControlSpec } from "./controls/specs.js";
 
 export function createControlElement(resolved, { labels = {}, onInput, onCommit, onError, onSuccess } = {}) {
 	if (resolved?.status !== "ok") return null;
-	const { value, options = {} } = resolved;
-	let control;
-	if (resolved.control?.param_type === "image") {
-		control = createImageControl(resolved, { labels, onCommit, onError, onSuccess });
-	} else if (resolved.control?.param_type === "taglist" || Array.isArray(value)) {
-		control = document.createElement("textarea"); control.value = formatTagListValue(value);
-		control.dataset.controlKind = "taglist";
-		control.placeholder = labels.taglistPlaceholder || "One tag per line, or separate tags with commas";
-		control.addEventListener("change", () => { const next = parseTagListValue(control.value); resolved.setValue(next); onCommit?.(next); });
-	} else if (Array.isArray(options.values) || Array.isArray(options.options)) {
-		control = selectControl({ options: options.values || options.options, value, ariaLabel: resolved.label, className: "aa-workspace-enum-control", onChange: (next) => { resolved.setValue(next); onCommit?.(next); } });
-		control.dataset.controlKind = "enum";
-	} else if (typeof value === "boolean") {
-		control = toggleSwitch({ checked: value, label: resolved.label, className: "aa-workspace-boolean-control", onChange: (next) => { resolved.setValue(next); onCommit?.(next); } });
-		control.dataset.controlKind = "boolean";
-	} else if (typeof value === "number") {
-		control = createNumericControl(resolved, { labels, onInput, onCommit });
-	} else {
-		control = document.createElement("input"); control.type = "text"; control.value = String(value ?? "");
-		control.addEventListener("input", () => onInput?.(control.value));
-		control.addEventListener("change", () => { resolved.setValue(control.value); onCommit?.(control.value); });
-	}
-	if (!control.getAttribute("aria-label") && !control.querySelector?.("[aria-label]")) control.setAttribute("aria-label", resolved.label);
+	const availabilityLabels = labels.availability || {};
+	const spec = resolvedControlSpec(resolved, {
+		labels: {
+			numeric: availabilityLabels,
+			seed: { ...availabilityLabels, locked: labels.seedLocked, unlocked: labels.seedUnlocked },
+			boolean: { ...availabilityLabels, enabled: labels.enabled, disabled: labels.disabled },
+			choice: { ...availabilityLabels, select: labels.selectOption },
+			text: availabilityLabels,
+			taglist: { ...availabilityLabels, ...(labels.taglist || {}) },
+			image: { ...availabilityLabels, none: labels.imageNone, drop: labels.imageDrop, clear: labels.imageClear },
+		},
+		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean" },
+	});
+	let gestureOpen = false;
+	const view = createSharedControl(spec, {
+		preview(next) {
+			if (["numeric", "seed"].includes(spec.kind)) resolved.setValue(next, { transaction: false, transient: true });
+			onInput?.(next);
+		},
+		commit(next, detail = {}) {
+			resolved.setValue(next, { workspaceRedraw: detail.redraw !== false });
+			onCommit?.(next, detail);
+		},
+		beginGesture() {
+			if (gestureOpen) return;
+			gestureOpen = true; resolved.node?.graph?.beforeChange?.();
+		},
+		endGesture(next) {
+			if (!gestureOpen) return;
+			gestureOpen = false; resolved.flushValue?.();
+			resolved.node?.graph?.afterChange?.(); resolved.node?.graph?.setDirtyCanvas?.(true, true); onCommit?.(next);
+		},
+		setSeedLocked: (locked) => { resolved.setSeedLocked?.(locked); onCommit?.(resolved.value); },
+		onError,
+		onSuccess,
+	});
+	let control = view.root;
 	control.classList.add("aa-workspace-control-input");
+	control.dataset.controlKind = view.kind;
+	control.dataset.controlFamily = spec.family;
+	control.dataset.controlAvailability = spec.availability.state;
+	if (view.headerOnly) {
+		if (view.headerAccessories.length) {
+			control.dataset.headerOnly = "true"; control.hidden = true; control.headerAccessories = view.headerAccessories;
+		} else {
+			const accessory = control;
+			control = document.createElement("div"); control.hidden = true;
+			control.className = "aa-workspace-control-input aa-control-header-only-host";
+			control.dataset.controlKind = view.kind; control.dataset.controlFamily = spec.family;
+			control.dataset.headerOnly = "true"; control.headerAccessories = [accessory];
+		}
+	} else if (view.headerAccessories.length) control.headerAccessories = view.headerAccessories;
+	if (!control.getAttribute("aria-label") && !control.querySelector?.("[aria-label]")) control.setAttribute("aria-label", resolved.label);
 	return control;
 }

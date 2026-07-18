@@ -4,12 +4,14 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "./lib/control_providers.js";
+import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
 import {
 	bindingKey, createPage, emptyDashboard, exportDashboardPreset, normalizeDashboard, preflightDashboardPreset,
 } from "./lib/dashboard_model.js";
-import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicatePage, moveGroup, moveItems, removeItems, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
+import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicatePage, moveGroup, moveItems, removeItems, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
-import { bindDashboardInteractions } from "./lib/dashboard_interactions.js";
+import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
@@ -22,12 +24,14 @@ import {
 	createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement } from "./lib/workspace_controls.js";
+import { destroySharedControls } from "./lib/controls/registry.js";
 
 const EXTRA_KEY = "aaaliceSidebar";
 const TAB_ID = "aaalice-workspace";
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
 const dashboardPageRails = new WeakMap();
+const dashboardBoundaryPagingState = { locked: false, resetTimer: 0 };
 const workspacePinTooltip = createTooltip({ delay: 220, closeDelay: 60 });
 let activeWorkspace = "dashboard";
 let sidebarPinned = true;
@@ -36,7 +40,7 @@ let editMode = false;
 let dashboardModelError = null;
 let renderFrame = 0;
 const workspaceViewState = {
-	dashboard: { query: "", searchOpen: false, focusSearch: false, pageRailExpanded: false, selectedItemIds: new Set(), selectedGroupIds: new Set() },
+	dashboard: { query: "", searchOpen: false, focusSearch: false, pageRailExpanded: false, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
 	library: { query: "", searchOpen: false, focusSearch: false, categoryId: "", collectionId: "", selected: new Set() },
 };
 function defaultFavoritesLabel() { return t("aaalice.workspace.libraryUi.defaultFavorites", "Default favorites"); }
@@ -104,13 +108,24 @@ function remindWorkflowSave(detail) {
 function scheduleRender(view = null) {
 	if (view && view !== activeWorkspace) return;
 	if (renderFrame) return;
-	renderFrame = requestAnimationFrame(() => { renderFrame = 0; for (const root of mounted) renderWorkspace(root); });
+	renderFrame = requestAnimationFrame(() => {
+		renderFrame = 0;
+		const pageTransition = workspaceViewState.dashboard.pageTransition;
+		for (const root of mounted) renderWorkspace(root);
+		if (workspaceViewState.dashboard.pageTransition === pageTransition) workspaceViewState.dashboard.pageTransition = null;
+	});
+}
+
+function widgetOptionSignature(widget) {
+	const values = widget?.options?.values || widget?.options?.options;
+	if (!Array.isArray(values)) return null;
+	return values.map((item) => typeof item === "object" && item !== null ? String(item.value ?? item.label ?? "") : String(item));
 }
 
 function graphStructureSignature() {
 	return graphNodes().map((node) => JSON.stringify([
 		node.id, node.type, node.comfyClass, node.properties?.aaaliceHostId,
-		(node.widgets || []).map((widget) => [widget.name, widget.type]),
+		(node.widgets || []).map((widget) => [widget.name, widget.type, widgetOptionSignature(widget)]),
 		(node.properties?.parameters || []).map((parameter) => [parameter.id, parameter.type]),
 	])).join("|");
 }
@@ -134,6 +149,24 @@ function askText(title, label, value, onSave) {
 	const dialog = createDialog({ title, body, footer });
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { if (input.value.trim()) onSave(input.value.trim()); dialog.close(); } }));
 	input.focus(); input.select();
+}
+
+function captureDashboardPageSnapshot(pageRail) {
+	const source = pageRail.closest(".aa-dashboard-body")?.querySelector(".aa-dashboard-scroll:not(.is-page-leaving)");
+	if (!source) return null;
+	const snapshot = source.cloneNode(true);
+	const sourceFields = source.querySelectorAll("input, textarea, select");
+	const snapshotFields = snapshot.querySelectorAll("input, textarea, select");
+	for (let index = 0; index < sourceFields.length; index++) {
+		const sourceField = sourceFields[index]; const snapshotField = snapshotFields[index];
+		if (!snapshotField) continue;
+		if ("value" in snapshotField) snapshotField.value = sourceField.value;
+		if ("checked" in snapshotField) snapshotField.checked = sourceField.checked;
+	}
+	snapshot.classList.remove("is-page-entering", "is-page-entering-forward", "is-page-entering-backward");
+	snapshot.setAttribute("aria-hidden", "true"); snapshot.inert = true;
+	snapshot._aaaliceSnapshotScrollTop = source.scrollTop;
+	return snapshot;
 }
 
 function downloadBlob(blob, filename) {
@@ -220,11 +253,35 @@ function workspaceLabels() {
 		pages: t("aaalice.workspace.page.pages", "Dashboard pages"), duplicatePage: t("aaalice.workspace.page.duplicate", "Duplicate page"),
 		renamePage: t("aaalice.workspace.page.rename", "Rename page"), deletePage: t("aaalice.workspace.page.delete", "Delete page"),
 		groupMenu: t("aaalice.workspace.group.menu", "Layout group menu"),
+		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
 		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
 		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
-		taglistPlaceholder: t("aaalice.pcp.taglist.placeholder", "One tag per line, or separate tags with commas"),
+		selectOption: t("aaalice.workspace.binding.selectOption", "Select an option"),
+		availability: {
+			noOptions: t("aaalice.workspace.binding.noOptions", "No options available"), unset: t("aaalice.workspace.binding.unset", "No value available"),
+			unavailable: t("aaalice.workspace.binding.unavailable", "Control is temporarily unavailable"), error: t("aaalice.workspace.binding.error", "Control unavailable due to an error"),
+		},
+		taglist: {
+			placeholder: t("aaalice.pcp.taglist.placeholder", "Enter tags and press Enter"),
+			append: t("aaalice.pcp.taglist.append", "+ Add tag"),
+			empty: t("aaalice.pcp.taglist.empty", "Press Enter to add tags"),
+			input: t("aaalice.pcp.taglist.input", "Add tags"),
+			enable: t("aaalice.pcp.taglist.enable", "Enable {tag}"),
+			disable: t("aaalice.pcp.taglist.disable", "Disable {tag}"),
+			remove: t("aaalice.pcp.taglist.remove", "Remove {tag}"),
+		},
 		missing: t("aaalice.workspace.binding.missing", "Missing binding"), incompatible: t("aaalice.workspace.binding.incompatible", "Incompatible control"),
 	};
+}
+
+function controlAvailabilityDescription(control) {
+	const availability = control.availability;
+	if (!availability || availability.state === "ready") return control.binding.valueType;
+	const labels = workspaceLabels().availability;
+	if (availability.reason === "no-options") return labels.noOptions;
+	if (availability.state === "unset") return labels.unset;
+	if (availability.state === "error") return labels.error;
+	return labels.unavailable;
 }
 
 function notifyWorkspaceImageUpload(error = null, reference = null) {
@@ -324,6 +381,9 @@ function renderDashboard(container, host) {
 		} })] })); return;
 	}
 	const query = viewState.query;
+	const pageTransition = viewState.pageTransition?.pageId === page?.id ? viewState.pageTransition : null;
+	const pageTransitionClass = pageTransition ? ` is-page-entering is-page-entering-${pageTransition.direction}` : "";
+	const pageSnapshot = pageTransition?.snapshot || null;
 	const searchOpen = Boolean(page && !editMode && viewState.searchOpen);
 	const focusSearch = viewState.focusSearch; viewState.focusSearch = false;
 	let applyDashboardSearch = () => {};
@@ -348,7 +408,7 @@ function renderDashboard(container, host) {
 		] });
 	};
 	const dashboardActions = [
-		...(page ? [el("div", { className: "aa-dashboard-page-name", attrs: { title: page.name, role: "heading", "aria-level": "2", "aria-current": "page" }, children: [el("span", null, page.name)] })] : []),
+		...(page ? [el("div", { className: `aa-dashboard-page-name${pageTransitionClass}`, attrs: { title: page.name, role: "heading", "aria-level": "2", "aria-current": "page" }, children: [el("span", null, page.name)] })] : []),
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
 		...(editMode ? [
 			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
@@ -367,14 +427,28 @@ function renderDashboard(container, host) {
 	let pageRail = dashboardPageRails.get(host);
 	if (!pageRail) { pageRail = createPageRail(); dashboardPageRails.set(host, pageRail); }
 	pageRail.update({
-		pages: model.pages, activeId: page?.id, expanded: viewState.pageRailExpanded, editMode, labels: workspaceLabels(), onSelect: (id) => {
+		pages: model.pages, activeId: page?.id, expanded: viewState.pageRailExpanded, editMode, labels: workspaceLabels(), onSelect: (id, detail = {}) => {
+			if (id === activePageId) return;
+			if (detail.source === "boundary") pageRail.showTemporarily(1100);
+			const previousIndex = model.pages.findIndex((entry) => entry.id === activePageId);
+			const nextIndex = model.pages.findIndex((entry) => entry.id === id);
+			const direction = nextIndex < previousIndex ? "backward" : "forward";
+			viewState.pageTransition = { pageId: id, direction, source: detail.source, initialEdge: detail.source === "boundary" && direction === "backward" ? "bottom" : "top", snapshot: captureDashboardPageSnapshot(pageRail) };
 			activePageId = id; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); scheduleRender();
 		}, onExpandedChange: (expanded) => { viewState.pageRailExpanded = expanded; },
 		onReorder: (sourceId, targetId) => updateDashboard((current) => { const sourceIndex = current.pages.findIndex((item) => item.id === sourceId); const targetIndex = current.pages.findIndex((item) => item.id === targetId); if (sourceIndex >= 0 && targetIndex >= 0) { const [source] = current.pages.splice(sourceIndex, 1); current.pages.splice(targetIndex, 0, source); } return current; }),
 	});
 	container.append(toolbar);
 	if (!page) { container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
-	const scroll = el("div", "aa-dashboard-scroll");
+	const scroll = el("div", `aa-dashboard-scroll${pageTransitionClass}`);
+	const activePageIndex = model.pages.findIndex((entry) => entry.id === page.id);
+	bindDashboardBoundaryPaging(scroll, {
+		state: dashboardBoundaryPagingState,
+		canAdvance: () => !editMode && !viewState.searchOpen && activePageIndex >= 0 && activePageIndex < model.pages.length - 1,
+		canRetreat: () => !editMode && !viewState.searchOpen && activePageIndex > 0,
+		onAdvance: () => pageRail.selectIndex(activePageIndex + 1, { source: "boundary" }),
+		onRetreat: () => pageRail.selectIndex(activePageIndex - 1, { source: "boundary" }),
+	});
 	const openGroupMenu = (event, group) => {
 		const rect = event.currentTarget.getBoundingClientRect(); createContextMenu({ x: event.clientX || rect.right, y: event.clientY || rect.bottom, ariaLabel: t("aaalice.workspace.group.menu", "Layout group menu"), items: [
 			{ label: t("aaalice.workspace.group.edit", "Edit group"), iconName: "settings", onSelect: () => openEditGroup(page, group) },
@@ -387,16 +461,16 @@ function renderDashboard(container, host) {
 			separator.dataset.searchText = String(item.label || "").toLocaleLowerCase(); return separator;
 		}
 		const resolved = resolve(item.binding);
-		const control = resolved.status === "ok" ? createControlElement(resolved, { labels: workspaceLabels(), onCommit: scheduleRender, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference) }) : button({ label: t("aaalice.workspace.binding.rebind", "Rebind"), variant: "secondary", size: "sm", onClick: () => openRebind(item) });
+		const control = resolved.status === "ok" ? createControlElement(resolved, { labels: workspaceLabels(), onCommit: (_value, detail = {}) => { if (detail.redraw !== false) scheduleRender("dashboard"); }, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference) }) : button({ label: t("aaalice.workspace.binding.rebind", "Rebind"), variant: "secondary", size: "sm", onClick: () => openRebind(item) });
 		const cardTitle = item.label || resolved.label || item.binding.controlId;
 		const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, editMode, labels: workspaceLabels(), onManage: (context) => openCardActions(context, item), onMove: () => openMoveControl(item),
-			onRemove: () => updateDashboard((current) => removeItems(current, [item.id])), onToggleSpan: () => updateDashboard((current) => resizeItems(current, [item.id], item.layout.columnSpan === 2 ? 1 : 2)),
+			onRemove: () => updateDashboard((current) => removeItems(current, [item.id])), onToggleSpan: () => updateDashboard((current) => resizeItems(current, [item.id], item.layout.columnSpan === DASHBOARD_GRID_COLUMNS ? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN : DASHBOARD_GRID_COLUMNS)),
 			onToggleCompact: () => updateDashboard((current) => updateItem(current, item.id, (target) => { target.compact = !target.compact; })),
 			onGroup: () => openAssignGroup(page, item), onUngroup: () => updateDashboard((current) => ungroupItems(current, page.id, [item.id])),
 		});
 		card.dataset.dashboardItemId = item.id; card.dataset.searchText = String(cardTitle).toLocaleLowerCase(); return card;
 	};
-	const columns = container.clientWidth && container.clientWidth < 330 ? 1 : 2;
+	const columns = container.clientWidth && container.clientWidth < 330 ? 1 : DASHBOARD_GRID_COLUMNS;
 	const grid = createDashboardGrid({ page, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu });
 	let updateSelectionUi = () => {}; let dashboardInteraction = null;
 	const clearSelection = () => { viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); dashboardInteraction?.setSelection(viewState.selectedItemIds, viewState.selectedGroupIds); updateSelectionUi(); };
@@ -411,7 +485,7 @@ function renderDashboard(container, host) {
 		} },
 		{ id: "width", label: t("aaalice.workspace.selection.width", "Toggle selected widths"), iconName: "copy", onSelect: () => {
 			const controls = page.items.filter((item) => viewState.selectedItemIds.has(item.id) && item.kind === "control"); if (!controls.length) return;
-			const width = controls.every((item) => item.layout.columnSpan === 2) ? 1 : 2; updateDashboard((current) => resizeItems(current, controls.map((item) => item.id), width));
+			const width = controls.every((item) => item.layout.columnSpan === DASHBOARD_GRID_COLUMNS) ? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN : DASHBOARD_GRID_COLUMNS; updateDashboard((current) => resizeItems(current, controls.map((item) => item.id), width));
 		} },
 		{ id: "remove", label: t("aaalice.workspace.selection.remove", "Remove selected"), iconName: "delete", className: "aa-dashboard-selection-remove", onSelect: async () => {
 			const ids = [...viewState.selectedItemIds]; if (!ids.length || viewState.selectedGroupIds.size) return;
@@ -424,7 +498,15 @@ function renderDashboard(container, host) {
 	if (!page.items.length) grid.append(emptyState({ className: "aa-dashboard-page-empty", description: t("aaalice.workspace.empty.page", "Add controls from a compatible node's context menu.") }));
 	scroll.append(grid);
 	const searchEmpty = emptyState({ iconName: "search", className: "aa-workspace-empty aa-dashboard-search-empty", description: t("aaalice.workspace.search.noParameters", "No matching parameters.") }); searchEmpty.hidden = true; scroll.append(searchEmpty);
-	const body = el("div", { className: "aa-dashboard-body", children: [scroll, pageRail, selectionBar.root] }); container.append(body);
+	if (pageSnapshot) {
+		pageSnapshot.classList.add("is-page-leaving", `is-page-leaving-${pageTransition.direction}`);
+		pageSnapshot.addEventListener("animationend", () => pageSnapshot.remove(), { once: true });
+		setTimeout(() => pageSnapshot.remove(), 360);
+	}
+	const pageStage = el("div", { className: "aa-dashboard-page-stage", children: [...(pageSnapshot ? [pageSnapshot] : []), scroll] });
+	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, pageRail, selectionBar.root] }); container.append(body);
+	if (pageTransition?.initialEdge === "bottom") scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
+	if (pageSnapshot) pageSnapshot.scrollTop = pageSnapshot._aaaliceSnapshotScrollTop || 0;
 	updateSelectionUi = () => {
 		const selectedItems = page.items.filter((item) => viewState.selectedItemIds.has(item.id)); const selectedGroups = page.groups.filter((group) => viewState.selectedGroupIds.has(group.id));
 		viewState.selectedItemIds = new Set(selectedItems.map((item) => item.id)); viewState.selectedGroupIds = new Set(selectedGroups.map((group) => group.id));
@@ -438,6 +520,7 @@ function renderDashboard(container, host) {
 	dashboardInteraction = bindDashboardInteractions(grid, { editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds,
 		onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; updateSelectionUi(); },
 		onDropItems: (ids, target) => updateDashboard((current) => moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row)),
+		onResizeItem: (itemId, size) => updateDashboard((current) => resizeItem(current, itemId, size)),
 	});
 	updateSelectionUi();
 	applyDashboardSearch = (value) => {
@@ -973,9 +1056,11 @@ async function importLibrary(file) {
 function renderWorkspace(root) {
 	workspacePinTooltip.hide();
 	closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(root);
+	destroySharedControls(root);
 	root.replaceChildren();
 	let shell;
 	const renderActiveWorkspace = () => {
+		destroySharedControls(shell.content);
 		shell.content.replaceChildren();
 		if (activeWorkspace === "dashboard") renderDashboard(shell.content, root); else renderLibrary(shell.content);
 	};
@@ -1061,7 +1146,7 @@ function openAddControls(node) {
 		list.replaceChildren();
 		for (const control of controls) {
 			const key = bindingKey(control.binding); const added = existing.has(key);
-			const row = createListRow({ title: control.label, description: added ? t("aaalice.workspace.binding.added", "Already added") : control.binding.valueType, selected: selected.has(key), onSelect: (checked) => { if (checked) selected.add(key); else selected.delete(key); updateSelectionState(); } });
+			const row = createListRow({ title: control.label, description: added ? t("aaalice.workspace.binding.added", "Already added") : controlAvailabilityDescription(control), selected: selected.has(key), onSelect: (checked) => { if (checked) selected.add(key); else selected.delete(key); updateSelectionState(); } });
 			row.selectionControl.setDisabled(added && !allowDuplicate); list.append(row);
 		}
 		updateSelectionState();
@@ -1105,6 +1190,7 @@ app.registerExtension({
 		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphStructureSignature();
 		api.addEventListener("graphChanged", scheduleGraphSync);
-		window.addEventListener("aaalice-parameter-panel-changed", () => scheduleRender("dashboard")); promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
+		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => scheduleRender("dashboard"));
+		window.addEventListener("aaalice-parameter-panel-changed", (event) => { if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard"); }); promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
 	},
 });

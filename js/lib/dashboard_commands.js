@@ -2,7 +2,7 @@
 
 import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, stableId } from "./dashboard_model.js";
 import { compactScope, firstAvailableLayout, orderedItems, placeEntry } from "./dashboard_layout.js";
-import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
 
 function copy(model) { return structuredClone(normalizeDashboard(model)); }
 function removeEmptyGroups(page) {
@@ -12,15 +12,15 @@ function removeEmptyGroups(page) {
 export function addItems(model, pageId, controls) {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
 	for (const control of controls) {
-		const item = createControlItem(control.binding, control.label, { row: 0, column: 0, columnSpan: 1, rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN });
-		item.layout = firstAvailableLayout(page, { rowSpan: item.layout.rowSpan }); page.items.push(item);
+		const item = createControlItem(control.binding, control.label, { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN });
+		item.layout = firstAvailableLayout(page, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan }); page.items.push(item);
 	}
 	return normalizeDashboard(next);
 }
 
 export function addSeparator(model, pageId, label = "") {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
-	const item = createSeparatorItem(label); item.layout = firstAvailableLayout(page, { columnSpan: 2, rowSpan: item.layout.rowSpan }); page.items.push(item); return normalizeDashboard(next);
+	const item = createSeparatorItem(label); item.layout = firstAvailableLayout(page, { columnSpan: page.gridColumns, rowSpan: item.layout.rowSpan }); page.items.push(item); return normalizeDashboard(next);
 }
 
 export function removeItems(model, itemIds) {
@@ -43,7 +43,7 @@ export function moveItems(model, itemIds, targetPageId, { groupId = null, row = 
 	if (groupId && !page.groups.some((group) => group.id === groupId)) throw new Error("Dashboard target group is missing");
 	for (const item of orderedItems(moving)) {
 		item.groupId = groupId;
-		item.layout = row == null ? firstAvailableLayout(page, { groupId, columnSpan: item.kind === "separator" ? 2 : item.layout.columnSpan, rowSpan: item.layout.rowSpan }) : { row, column, columnSpan: item.kind === "separator" ? 2 : item.layout.columnSpan, rowSpan: item.layout.rowSpan };
+		item.layout = row == null ? firstAvailableLayout(page, { groupId, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan }) : { row, column, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan };
 		page.items.push(item); placeEntry(page, item.id, item.layout, { groupId });
 	}
 	if (groupId) { const group = page.groups.find((entry) => entry.id === groupId); placeEntry(page, groupId, group.layout); }
@@ -53,11 +53,26 @@ export function moveItems(model, itemIds, targetPageId, { groupId = null, row = 
 
 export function resizeItems(model, itemIds, columnSpan) {
 	const ids = new Set(itemIds); const next = copy(model); const touched = new Set();
-	for (const page of next.pages) for (const item of page.items) if (ids.has(item.id) && item.kind === "control") { item.layout.columnSpan = columnSpan === 2 ? 2 : 1; item.layout.column = item.layout.columnSpan === 2 ? 0 : item.layout.column; touched.add(`${page.id}:${item.groupId || "page"}`); }
+	for (const page of next.pages) for (const item of page.items) if (ids.has(item.id) && item.kind === "control") {
+		item.layout.columnSpan = Math.max(DASHBOARD_MIN_CONTROL_COLUMN_SPAN, Math.min(page.gridColumns, Math.round(Number(columnSpan)) || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN));
+		item.layout.column = Math.min(item.layout.column, page.gridColumns - item.layout.columnSpan);
+		touched.add(`${page.id}:${item.groupId || "page"}`);
+	}
 	for (const key of touched) {
 		const [pageId, scope] = key.split(":"); const page = findPage(next, pageId); const groupId = scope === "page" ? null : scope;
 		compactScope(page, groupId); if (groupId) compactScope(page, null);
 	}
+	return normalizeDashboard(next);
+}
+
+export function resizeItem(model, itemId, { columnSpan, rowSpan }) {
+	const next = copy(model); const { page, item } = findItem(next, itemId);
+	if (!page || item?.kind !== "control") return next;
+	item.layout.columnSpan = Math.max(DASHBOARD_MIN_CONTROL_COLUMN_SPAN, Math.min(page.gridColumns, Math.round(Number(columnSpan)) || item.layout.columnSpan));
+	item.layout.rowSpan = Math.max(1, Math.round(Number(rowSpan)) || item.layout.rowSpan);
+	item.layout.column = Math.min(item.layout.column, page.gridColumns - item.layout.columnSpan);
+	placeEntry(page, item.id, item.layout, { groupId: item.groupId });
+	if (item.groupId) placeEntry(page, item.groupId, page.groups.find((group) => group.id === item.groupId)?.layout || { row: 0, column: 0 });
 	return normalizeDashboard(next);
 }
 
@@ -76,7 +91,7 @@ export function assignToGroup(model, pageId, itemIds, groupId) { return moveItem
 export function ungroupItems(model, pageId, itemIds) {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) return next; const ids = new Set(itemIds);
 	const items = orderedItems(page.items.filter((item) => ids.has(item.id)));
-	for (const item of items) { item.layout = firstAvailableLayout(page, { columnSpan: item.kind === "separator" ? 2 : item.layout.columnSpan, rowSpan: item.layout.rowSpan }); item.groupId = null; }
+	for (const item of items) { item.layout = firstAvailableLayout(page, { columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan }); item.groupId = null; }
 	removeEmptyGroups(page); return normalizeDashboard(next);
 }
 
@@ -84,7 +99,7 @@ export function deleteGroup(model, pageId, groupId) {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) return next;
 	const group = page.groups.find((entry) => entry.id === groupId); const members = orderedItems(page.items.filter((item) => item.groupId === groupId));
 	page.groups = page.groups.filter((entry) => entry.id !== groupId);
-	for (const item of members) { item.layout = firstAvailableLayout(page, { columnSpan: item.kind === "separator" ? 2 : item.layout.columnSpan, rowSpan: item.layout.rowSpan }); item.groupId = null; }
+	for (const item of members) { item.layout = firstAvailableLayout(page, { columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan }); item.groupId = null; }
 	if (group) compactScope(page, null); return normalizeDashboard(next);
 }
 

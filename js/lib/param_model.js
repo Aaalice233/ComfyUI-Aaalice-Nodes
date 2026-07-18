@@ -2,6 +2,7 @@
 import { t } from "../i18n.js";
 import { normalizeImageReference } from "./image_reference.js";
 import { hasDuplicateOptions } from "./parameter_options.js";
+import { normalizeTagListValue } from "./taglist_value.js";
 
 export const MAX_TUNABLE = 32;
 const SEED_MAX = 0xffffffffffffffff;
@@ -117,6 +118,16 @@ function defaultValueForType(paramType, config = {}) {
 	return null;
 }
 
+function normalizeParameterValue(parameter) {
+	if (parameter?.param_type !== "taglist") return;
+	const normalized = normalizeTagListValue(parameter.value);
+	const current = parameter.value;
+	const canonical = Array.isArray(current) && current.length === normalized.length
+		&& current.every((entry, index) => entry && typeof entry === "object"
+			&& entry.text === normalized[index].text && entry.enabled === normalized[index].enabled);
+	if (!canonical) parameter.value = normalized;
+}
+
 export function createParameter(paramType, partial = {}) {
 	const config = cloneData(partial.config || {});
 	if (paramType === "slider") {
@@ -134,7 +145,7 @@ export function createParameter(paramType, partial = {}) {
 		if (!Array.isArray(config.options) || !config.options.length) config.options = ["option_a", "option_b"];
 	}
 	const name = partial.name || (paramType === "separator" ? "Section" : paramType);
-	return {
+	const parameter = {
 		id: partial.id || newParamId(),
 		name,
 		name_key: partial.name_key,
@@ -145,6 +156,8 @@ export function createParameter(paramType, partial = {}) {
 		config,
 		description: String(partial.description || ""),
 	};
+	normalizeParameterValue(parameter);
+	return parameter;
 }
 
 function builtin(id, fallback, paramType, value, config = {}) {
@@ -172,6 +185,7 @@ function createSamplerTemplateParameters() {
 export function ensureParameters(node) {
 	node.properties ||= {};
 	if (!Array.isArray(node.properties.parameters)) node.properties.parameters = createSamplerTemplateParameters();
+	for (const parameter of node.properties.parameters) normalizeParameterValue(parameter);
 	return node.properties.parameters;
 }
 
@@ -181,6 +195,7 @@ export function materializeParameters(parameters) {
 			...cloneData(parameter),
 			name: displayName(parameter, parameter.param_type || "Parameter"),
 		};
+		normalizeParameterValue(materialized);
 		if (materialized.param_type === "image") materialized.value = normalizeImageReference(materialized.value);
 		return materialized;
 	});

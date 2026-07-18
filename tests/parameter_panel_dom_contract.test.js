@@ -51,8 +51,8 @@ test("shared tooltips own timing, viewport placement and accessible cleanup", ()
 
 test("parameter enum segments stay inside the 32px control track", () => {
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
-	const groupRule = ruleBody(themeSource, ".aaalice-pcp-segmented");
-	const segmentRule = ruleBody(themeSource, ".aaalice-pcp-segment");
+	const groupRule = ruleBody(themeSource, ".aa-control-choice-segmented");
+	const segmentRule = ruleBody(themeSource, ".aa-control-choice-option");
 
 	assert.match(groupRule, /box-sizing:\s*border-box/);
 	assert.match(groupRule, /height:\s*32px/);
@@ -62,14 +62,20 @@ test("parameter enum segments stay inside the 32px control track", () => {
 
 test("parameter enum uses a sliding selection indicator", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const choiceSource = readFileSync(join(ROOT, "js", "lib", "controls", "choice.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
-	assert.match(panelSource, /aaalice-pcp-segment-indicator/);
-	assert.match(panelSource, /positionIndicator\(choice\)/);
-	assert.match(panelSource, /persist\(\{\s*redraw:\s*false\s*\}\)/);
-	assert.match(panelSource, /event\.detail\?\.redraw === false/);
-	assert.match(panelSource, /_aaaliceResizeObserver\?\.disconnect\(\)/);
-	assert.match(themeSource, /\.aaalice-pcp-segment-indicator\s*\{[^}]*transition:\s*[^;}]*transform/s);
+	assert.match(panelSource, /createSharedControl\(spec/);
+	assert.match(themeSource, /\.aa-control-numeric-range\[hidden\] \{ display: none; \}/);
+	assert.match(choiceSource, /aa-control-choice-indicator/);
+	assert.match(choiceSource, /stableToneIndexes\(options\.map\(optionValue\)\)/);
+	assert.match(choiceSource, /indicator\.dataset\.controlTone = activeChoice\.dataset\.controlTone/);
+	assert.match(choiceSource, /"data-control-tone": String\(tones\.get\(value\)\)/);
+	assert.match(choiceSource, /position\(activeChoice, animate\)/);
+	assert.match(choiceSource, /port\.commit\(value, \{ redraw: false \}\)/);
+	assert.match(choiceSource, /observer\?\.disconnect\(\)/);
+	assert.match(themeSource, /\.aa-control-choice-indicator\s*\{[^}]*transition:\s*[^;}]*transform/s);
+	assert.match(themeSource, /\.aa-control-choice-indicator\s*\{[^}]*var\(--aa-control-item-tone/s);
 });
 
 test("parameter labels keep a small gap above their controls", () => {
@@ -93,15 +99,22 @@ test("separator parameters place their label between two visible rules", () => {
 	assert.match(themeSource, /\.aaalice-pcp-node-section-label\s*\{[^}]*text-align:\s*center/s);
 });
 
-test("tag-list parameters use the shared multiline editor and explain where values are set", () => {
+test("tag-list parameters use the shared interactive chip editor and explain where values are set", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
-	const controlsSource = readFileSync(join(ROOT, "js", "lib", "parameter_controls.js"), "utf8");
+	const controlsSource = readFileSync(join(ROOT, "js", "lib", "controls", "taglist.js"), "utf8");
 	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
 
 	assert.match(panelSource, /aaalice\.pcp\.editor\.valueHint/);
-	assert.match(controlsSource, /isTagList \|\| parameter\.config\?\.multiline \? document\.createElement\("textarea"\)/);
+	assert.match(controlsSource, /export function createTagListControl/);
+	assert.match(controlsSource, /aa-taglist-chip-toggle/);
+	assert.match(controlsSource, /aria-pressed/);
+	assert.match(controlsSource, /dragstart/);
+	assert.match(controlsSource, /entries\.splice\(index, 1\)/);
 	assert.match(controlsSource, /parseTagListValue\(input\.value\)/);
-	assert.match(layoutSource, /parameter\.param_type === "taglist"/);
+	assert.match(controlsSource, /root\.append\(list, input\)/);
+	assert.match(panelSource, /parameterControlSpec\(parameter/);
+	assert.match(panelSource, /createSharedControl\(spec/);
+	assert.doesNotMatch(layoutSource, /parameter\.param_type === "taglist"/);
 });
 
 test("parameter editor keeps the reorder hint in the dialog header", () => {
@@ -209,14 +222,15 @@ test("parameter panel keeps native resize corners and a stable minimum width", (
 
 test("image parameters expose upload feedback, a cover thumbnail and a full preview", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const controlSource = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
 	const uploadSource = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
 	const previewSource = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
 	assert.match(panelSource, /aaalice\.pcp\.image\.uploaded/);
-	assert.match(panelSource, /createImageUploadControl\(\{/);
-	assert.match(panelSource, /className: "aaalice-pcp-node-image-control"/);
-	assert.match(panelSource, /parameter\.value = null/);
+	assert.match(controlSource, /createImageUploadControl\(\{/);
+	assert.match(controlSource, /className: "aa-control-image"/);
+	assert.match(controlSource, /onClear: \(\) => port\.commit\(null\)/);
 	assert.match(uploadSource, /picker\.type = "file"/);
 	assert.match(uploadSource, /picker\.click\(\)/);
 	assert.match(uploadSource, /thumbnail\.src = source/);
@@ -230,11 +244,11 @@ test("image parameters expose upload feedback, a cover thumbnail and a full prev
 });
 
 test("image parameters upload dropped image files through the existing upload path", () => {
-	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const controlSource = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
 	const uploadSource = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
-	assert.match(panelSource, /createImageUploadControl/);
+	assert.match(controlSource, /createImageUploadControl/);
 	assert.match(uploadSource, /export async function uploadImageFile/);
 	assert.match(uploadSource, /api\.fetchApi\("\/upload\/image"/);
 	assert.match(uploadSource, /export function bindImageDropTarget/);

@@ -107,6 +107,19 @@ def validate_parameters_list(
                     f"parameter {pid!r}: selected value "
                     f"{parameter.get('value')!r} is unavailable"
                 )
+        if param_type == "taglist":
+            value = parameter.get("value")
+            if not isinstance(value, list):
+                raise ValueError(f"parameter {pid!r}: taglist value must be an array")
+            for tag_index, tag in enumerate(value):
+                if isinstance(tag, str):
+                    if not tag.strip():
+                        raise ValueError(f"parameter {pid!r}: tag {tag_index} must not be empty")
+                    continue
+                if not isinstance(tag, dict) or not isinstance(tag.get("text"), str) or not tag["text"].strip():
+                    raise ValueError(f"parameter {pid!r}: tag {tag_index} must contain non-empty text")
+                if "enabled" in tag and not isinstance(tag["enabled"], bool):
+                    raise ValueError(f"parameter {pid!r}: tag {tag_index} enabled must be boolean")
         if param_type == "seed":
             behavior = config.get("control_after_generate", "fixed")
             if behavior not in {"fixed", "increment", "decrement", "randomize"}:
@@ -140,7 +153,11 @@ def coerce_parameter_value(
         return "" if value is None else str(value)
     if param_type == "taglist":
         if isinstance(value, list):
-            return [str(item) for item in value]
+            return [
+                str(item.get("text", "")).strip() if isinstance(item, dict) else str(item).strip()
+                for item in value
+                if not isinstance(item, dict) or item.get("enabled", True)
+            ]
         raise ValueError(f"parameter {pid!r}: taglist value must be an array")
     if param_type == "image":
         if image_resolver is None:

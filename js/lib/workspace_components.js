@@ -1,6 +1,7 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
 import { button, checkboxControl, el, icon, iconButton, segmentedControl } from "./ui.js";
+import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [] }) {
 	const root = el("div", "aa-workspace");
@@ -107,7 +108,14 @@ export function createPageRail(initialState = {}) {
 	let wheelDistance = 0;
 	let wheelDirection = 0;
 	let wheelResetTimer = 0;
+	let temporaryExpansionTimer = 0;
+	let pointerHovered = false;
 	let cursorInitialized = false;
+	const setExpanded = (expanded) => {
+		state.expanded = Boolean(expanded);
+		root.classList.toggle("is-expanded", state.expanded);
+		state.onExpandedChange?.(state.expanded);
+	};
 	const positionCursor = ({ animate = true } = {}) => {
 		cancelAnimationFrame(cursorFrame);
 		cursorFrame = requestAnimationFrame(() => {
@@ -149,22 +157,30 @@ export function createPageRail(initialState = {}) {
 		}
 		positionCursor({ animate });
 	};
-	const selectIndex = (index, { focus = false } = {}) => {
+	const selectIndex = (index, { focus = false, source = "navigation" } = {}) => {
 		const next = state.pages[Math.max(0, Math.min(state.pages.length - 1, index))];
 		if (!next || next.id === state.activeId) return;
 		state.activeId = next.id;
 		for (const page of state.pages) updateItem(items.get(page.id), page);
 		positionCursor();
 		if (focus) queueMicrotask(() => items.get(next.id)?.focus({ preventScroll: true }));
-		state.onSelect?.(next.id, { focus });
+		state.onSelect?.(next.id, { focus, source });
 	};
 	root.addEventListener("click", (event) => {
 		const item = event.target.closest(".aa-dashboard-page-dot");
 		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
 		if (index >= 0) selectIndex(index);
 	});
-	root.addEventListener("pointerenter", () => { state.expanded = true; root.classList.add("is-expanded"); state.onExpandedChange?.(true); });
-	root.addEventListener("pointerleave", () => { state.expanded = false; root.classList.remove("is-expanded"); state.onExpandedChange?.(false); });
+	root.addEventListener("pointerenter", () => {
+		pointerHovered = true;
+		clearTimeout(temporaryExpansionTimer);
+		setExpanded(true);
+	});
+	root.addEventListener("pointerleave", () => {
+		pointerHovered = false;
+		clearTimeout(temporaryExpansionTimer);
+		setExpanded(false);
+	});
 	root.addEventListener("wheel", (event) => {
 		if (event.ctrlKey || state.pages.length < 2 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
 		event.preventDefault();
@@ -206,19 +222,31 @@ export function createPageRail(initialState = {}) {
 		if (source) state.onReorder?.(source, item.dataset.pageId);
 	});
 	root.update = update;
-	root.destroy = () => { cancelAnimationFrame(cursorFrame); clearTimeout(wheelResetTimer); };
+	root.selectIndex = (index, options) => selectIndex(index, options);
+	root.showTemporarily = (duration = 1100) => {
+		clearTimeout(temporaryExpansionTimer);
+		setExpanded(true);
+		temporaryExpansionTimer = setTimeout(() => {
+			if (!pointerHovered) setExpanded(false);
+		}, duration);
+	};
+	root.destroy = () => { cancelAnimationFrame(cursorFrame); clearTimeout(wheelResetTimer); clearTimeout(temporaryExpansionTimer); };
 	update(initialState, { animate: false });
 	return root;
 }
 
 export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup }) {
 	const headerOnly = control?.dataset?.headerOnly === "true";
-	const root = el("article", { className: `aa-control-card${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
+	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
+	const root = el("article", { className: `aa-control-card${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
 	if (control?.dataset?.controlKind) root.dataset.controlKind = control.dataset.controlKind;
+	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
+	root.dataset.dashboardMinRowSpan = String(headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN);
 	const header = el("header", "aa-control-card-header");
 	header.append(el("span", "aa-control-card-indicator"), el("span", "aa-control-card-title", title));
 	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);
 	root.append(header, control || el("p", "aa-control-card-error", status === "incompatible" ? (labels.incompatible || "Incompatible control") : (labels.missing || "Missing binding")));
+	if (editMode && item.kind === "control") root.append(el("button", { className: "aa-dashboard-resize-handle", attrs: { type: "button", "data-dashboard-resize-handle": "true", "aria-label": labels.resizeCard || "Resize card" } }));
 	const openMenu = (x, y) => onManage?.({ x, y, editMode, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup });
 	root.addEventListener("contextmenu", (event) => {
 		const input = event.target.closest?.("input, textarea, [contenteditable='true']");

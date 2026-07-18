@@ -2,25 +2,9 @@
 
 import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
 import { recommendedControlRowSpan } from "./dashboard_sizing.js";
+import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
-
-function valueType(value) {
-	if (typeof value === "number") return "number";
-	if (typeof value === "boolean") return "boolean";
-	if (typeof value === "string") return "string";
-	return null;
-}
-
-function isPromotedWidget(widget) {
-	return widget && typeof widget.sourceNodeId !== "undefined" && typeof widget.sourceWidgetName === "string";
-}
-
-function compatibleWidget(widget) {
-	if (!widget || widget.serialize === false || widget.options?.serialize === false || typeof widget.name !== "string") return false;
-	if (["button", "custom", "image", "preview"].includes(String(widget.type || "").toLowerCase())) return false;
-	return Boolean(valueType(widget.value));
-}
 
 export function ensureHostId(node) {
 	node.properties ||= {};
@@ -75,23 +59,23 @@ controlProviders.register({
 		const hostId = ensureHostId(node);
 		return ensureParameters(node).filter(isTunable).map((parameter) => ({
 			label: displayName(parameter, parameter.id),
-			binding: { provider: this.id, hostId, controlId: parameter.id, valueType: valueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference") },
+			binding: { provider: this.id, hostId, controlId: parameter.id, valueType: controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference") },
 			rowSpan: recommendedControlRowSpan({ value: parameter.value, options: parameter.config, paramType: parameter.param_type }),
 		}));
 	},
 	resolve(node, binding) {
 		const parameter = ensureParameters(node).find((item) => item.id === binding.controlId && isTunable(item));
 		if (!parameter) return { status: "missing", node };
-		const currentType = valueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference");
+		const currentType = controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference");
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
 		return {
-			status: "ok", node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
+			status: "ok", family: "aaalice", controlId: binding.controlId, node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
 			options: parameter.config || {},
-			setValue(next, { transaction = true, transient = false } = {}) {
+			setValue(next, { transaction = true, transient = false, workspaceRedraw = true } = {}) {
 				const apply = () => {
 					parameter.value = next;
 					if (transient) { node._aaaliceParameterRedraw?.(); node.setDirtyCanvas?.(true, true); }
-					else notifyParameterChanged(node, { structure: false });
+					else notifyParameterChanged(node, { structure: false, workspaceRedraw });
 				};
 				return transaction ? graphTransaction(node, apply) : apply();
 			},
@@ -110,27 +94,32 @@ const widgetProvider = (id, promoted) => ({
 	id,
 	supportsNode(node) {
 		const subgraph = Boolean(node?.isSubgraphNode?.());
-		return promoted ? subgraph && node.widgets?.some((widget) => isPromotedWidget(widget) && compatibleWidget(widget))
-			: !isParameterPanel(node) && !subgraph && node?.widgets?.some(compatibleWidget);
+		return promoted ? subgraph && listAdaptedWidgetControls(node, { promoted: true }).length > 0
+			: !isParameterPanel(node) && !subgraph && listAdaptedWidgetControls(node).length > 0;
 	},
 	list(node) {
 		const hostId = ensureHostId(node);
-		return (node.widgets || []).filter((widget) => compatibleWidget(widget) && (promoted ? isPromotedWidget(widget) : true)).map((widget) => ({
-			label: String(widget.label || widget.name),
-			binding: { provider: id, hostId, controlId: widget.name, valueType: valueType(widget.value) },
-			rowSpan: recommendedControlRowSpan({ value: widget.value, options: widget.options, paramType: widget.param_type || widget.type }),
+		return listAdaptedWidgetControls(node, { promoted }).map((adapted) => ({
+			label: adapted.label,
+			availability: adapted.availability,
+			binding: { provider: id, hostId, controlId: adapted.controlId, valueType: adapted.valueType, adapterId: adapted.adapterId },
+			rowSpan: recommendedControlRowSpan({ value: adapted.value, options: adapted.options, paramType: adapted.kind || adapted.control?.param_type || adapted.control?.type }),
 		}));
 	},
 	resolve(node, binding) {
-		const widget = (node.widgets || []).find((item) => item.name === binding.controlId && compatibleWidget(item) && (promoted ? isPromotedWidget(item) : true));
-		if (!widget) return { status: "missing", node };
-		const currentType = valueType(widget.value);
+		const adapted = listAdaptedWidgetControls(node, { promoted, adapterId: binding.adapterId || null })
+			.find((candidate) => candidate.controlId === binding.controlId);
+		if (!adapted) return { status: "missing", node };
+		const currentType = adapted.valueType;
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
 		return {
-			status: "ok", node, control: widget, label: String(widget.label || widget.name), value: widget.value, options: widget.options || {},
+			status: "ok", family: "comfy", kind: adapted.kind, controlId: adapted.controlId, node, control: adapted.control, label: adapted.label, value: adapted.value, options: adapted.options, availability: adapted.availability,
 			setValue(next, { transaction = true } = {}) {
-				const apply = () => { widget.value = next; widget.callback?.(next); node.setDirtyCanvas?.(true, true); };
+				const apply = () => { adapted.setValue(next); node.setDirtyCanvas?.(true, true); };
 				return transaction ? graphTransaction(node, apply) : apply();
+			},
+			setSeedLocked(locked) {
+				return graphTransaction(node, () => { adapted.setSeedLocked(locked); node.setDirtyCanvas?.(true, true); });
 			},
 		};
 	},

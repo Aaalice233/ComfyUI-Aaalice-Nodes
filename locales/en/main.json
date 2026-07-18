@@ -17,7 +17,7 @@
       "empty": { "title": "Build your control pages", "description": "Create a page, then add controls from any compatible node's context menu.", "page": "Add controls from a compatible node's context menu." },
       "page": { "pages": "Dashboard pages", "add": "Add page", "name": "Page name", "default": "Generation", "menu": "Page actions", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
       "target": { "page": "Page", "newPage": "New page" },
-      "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "compact": "Toggle compact mode" },
+      "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "compact": "Toggle compact mode", "resize": "Resize card; arrow keys adjust by one grid unit" },
       "layout": { "separator": "Add separator", "separatorLabel": "Separator", "remove": "Remove layout item", "compact": "Tidy layout" },
       "selection": { "toolbar": "Selected layout actions", "summary": "{count} selected", "group": "Quick group", "ungroup": "Remove from group", "width": "Toggle selected widths", "remove": "Remove selected", "removeConfirm": "Remove {count} selected layout items?", "clear": "Clear selection" },
       "group": { "menu": "Layout group menu", "create": "Create group", "default": "New group", "name": "Group name", "edit": "Edit group", "delete": "Ungroup controls", "addItem": "Add to group", "removeItem": "Remove from group", "tone": "Group color", "tones": { "neutral": "Neutral", "blue": "Blue", "green": "Green", "amber": "Amber", "purple": "Purple", "red": "Red" } },
@@ -25,7 +25,7 @@
       "binding": {
         "menu": "📌 Add controls to sidebar…", "add": "Add controls to sidebar", "added": "Already added",
         "allowDuplicate": "Allow duplicate cards", "allowDuplicateHint": "Permit another card for controls already placed in the sidebar.", "destination": "Destination", "destinationHint": "Choose which page will receive the selected controls.", "chooseControls": "Choose controls", "chooseControlsHint": "Available controls are selected by default; click a card to exclude it.", "selectedControls": "controls selected", "selectAll": "Select all", "clearAll": "Clear all", "addSelected": "Add controls · {count}", "rebind": "Rebind control", "noCompatible": "No compatible controls are available.",
-		"missing": "Missing binding", "incompatible": "Incompatible control", "saveWorkflowReminder": "Save the workflow to keep these sidebar controls; otherwise they will be lost."
+		"missing": "Missing binding", "incompatible": "Incompatible control", "selectOption": "Select an option", "noOptions": "No options available", "unset": "No value available", "unavailable": "Control is temporarily unavailable", "error": "Control unavailable due to an error", "saveWorkflowReminder": "Save the workflow to keep these sidebar controls; otherwise they will be lost."
       },
       "preset": { "title": "Dashboard preset", "export": "Export preset", "import": "Import preset", "missingConfirm": "binding(s) are missing or incompatible. Import the layout and skip incompatible values?" },
       "transfer": {
@@ -230,7 +230,7 @@
       "image": {
 		"none": "Choose image", "drop": "Drop image here", "uploaded": "Image uploaded: {filename}", "clear": "Clear selected image"
       },
-	  "taglist": { "placeholder": "One tag per line, or separate tags with commas" }
+	  "taglist": { "placeholder": "Enter tags and press Enter", "append": "+ Add tag", "empty": "Enter a tag and press Enter", "input": "Add tags", "enable": "Enable {tag}", "disable": "Disable {tag}", "remove": "Remove {tag}" }
     }
   }
 }

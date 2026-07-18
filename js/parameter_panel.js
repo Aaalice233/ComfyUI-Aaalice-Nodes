@@ -3,7 +3,6 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { closeImagePreview } from "./lib/image_preview.js";
-import { createImageUploadControl } from "./lib/image_upload.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import {
 	cleanupDomWidgetResizePassthrough,
@@ -43,7 +42,8 @@ import {
 	syncNativeOutputLayout,
 } from "./lib/parameter_layout.js";
 import { reshapeParameterOutputsPreservingLinks } from "./lib/dynamic_slots.js";
-import { createNumericEditor, createParameterControl, createSeedModeControl } from "./lib/parameter_controls.js";
+import { createSharedControl, destroySharedControls } from "./lib/controls/registry.js";
+import { parameterControlSpec } from "./lib/controls/specs.js";
 
 const NODE = "ParameterPanel";
 const MIN_WIDTH = PARAMETER_NODE_LAYOUT.minWidth;
@@ -270,205 +270,66 @@ document.addEventListener("keydown", (event) => {
 	closeImagePreview();
 });
 
-function openInlineNumberInput(anchor, value, min, max, step, onCommit) {
-	createNumericEditor(anchor, { value, min, max, step, onCommit });
-}
-
-function numericDisplay(label, parameter, config, onCommit) {
-	const value = isolate(el("button", "aaalice-pcp-value-display", String(parameter.value ?? 0)));
-	value.type = "button";
-	value.dataset.parameterId = String(parameter.id || "");
-	value.dataset.aaaliceValueField = "true";
-	value.setAttribute("aria-label", `${displayName(parameter)}: ${t("aaalice.pcp.inline.editValue", "Edit value")}`);
-	value.addEventListener("click", () => openInlineNumberInput(
-		value,
-		parameter.value,
-		Number(config.min ?? 0),
-		Number(config.max ?? Number.MAX_SAFE_INTEGER),
-		Number(config.step ?? 1),
-		onCommit,
-	));
-	return value;
-}
-
 function valueControl(node, parameter, heading = null) {
-	const config = parameter.config || {};
 	const persist = (detail = {}) => notifyParameterChanged(node, { structure: false, ...detail });
-	if (parameter.param_type === "slider") {
-		const wrap = el("div", "aaalice-pcp-node-slider");
-		const range = isolate(document.createElement("input"));
-		range.type = "range";
-		range.classList.add("aa-shared-range");
-		range.min = String(config.min ?? 0);
-		range.max = String(config.max ?? 100);
-		range.step = String(config.step ?? 1);
-		range.value = String(parameter.value ?? 0);
-		range.setAttribute("aria-label", displayName(parameter));
-		const display = numericDisplay("", parameter, config, (value) => {
-			parameter.value = value;
-			range.value = String(value);
-			updateProgress();
-			persist();
-		});
-		display.classList.add("aaalice-pcp-slider-value");
-		const updateProgress = () => {
-			const min = Number(range.min);
-			const max = Number(range.max);
-			const progress = max > min ? Math.min(100, Math.max(0, ((Number(range.value) - min) / (max - min)) * 100)) : 0;
-			range.style.setProperty("--aa-shared-range-progress", `${progress}%`);
-			display.textContent = String(parameter.value ?? range.value);
-		};
-		range.addEventListener("input", () => {
-			parameter.value = Number(range.value);
-			updateProgress();
-		});
-		range.addEventListener("change", persist);
-		updateProgress();
-		if (heading) heading.append(display);
-		else wrap.append(display);
-		wrap.append(range);
-		return wrap;
-	}
-	if (parameter.param_type === "seed") {
-		const wrap = el("div", "aaalice-pcp-node-seed");
-		const display = numericDisplay("", parameter, config, (value) => { parameter.value = value; persist(); });
-		const lockedLabel = t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock");
-		const unlockedLabel = t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock");
-		const modeButton = isolate(createSeedModeControl({ locked: parameter.config?.control_after_generate !== "randomize", lockedLabel, unlockedLabel, ariaLabelPrefix: displayName(parameter), className: "aaalice-pcp-seed-mode", onChange: (locked) => {
-			parameter.config ||= {}; parameter.config.control_after_generate = locked ? "fixed" : "randomize";
-			wrap.classList.toggle("is-locked", locked); descriptionTooltip.hide(); persist();
-		} }));
-		modeButton.removeAttribute("title");
-		attachDescription(modeButton, modeButton.currentLabel);
-		wrap.classList.toggle("is-locked", modeButton.isLocked());
-		wrap.append(display, modeButton);
-		return wrap;
-	}
-	if (parameter.param_type === "switch") {
-		const switchButton = isolate(el("button", `aaalice-pcp-node-switch${parameter.value ? " active" : ""}`));
-		switchButton.type = "button";
-		switchButton.setAttribute("aria-label", displayName(parameter));
-		switchButton.setAttribute("aria-pressed", String(Boolean(parameter.value)));
-		switchButton.append(
-			el("span", { className: "aaalice-pcp-switch-track", children: [el("span", "aaalice-pcp-switch-thumb")] }),
-			el("span", "aaalice-pcp-switch-label", parameter.value ? t("aaalice.common.enabled", "Enabled") : t("aaalice.common.disabled", "Disabled")),
-		);
-		switchButton.addEventListener("click", () => {
-			parameter.value = !parameter.value;
-			switchButton.classList.toggle("active", parameter.value);
-			switchButton.setAttribute("aria-pressed", String(Boolean(parameter.value)));
-			switchButton.querySelector(".aaalice-pcp-switch-label").textContent = parameter.value ? t("aaalice.common.enabled", "Enabled") : t("aaalice.common.disabled", "Disabled");
-			persist();
-		});
-		return switchButton;
-	}
-	if (["dropdown", "enum"].includes(parameter.param_type)) {
-		const options = (config.options || []).map(String);
-		if (options.length > 0 && options.length <= 4) {
-			const segmented = el("div", { className: "aaalice-pcp-segmented", attrs: { role: "radiogroup", "aria-label": parameter.name || parameter.id } });
-			const indicator = el("span", { className: "aaalice-pcp-segment-indicator", attrs: { "aria-hidden": "true" } });
-			const choices = [];
-			const positionIndicator = (choice, animate = true) => {
-				if (!choice?.isConnected) return;
-				indicator.classList.toggle("is-initializing", !animate);
-				indicator.style.width = `${choice.offsetWidth}px`;
-				indicator.style.height = `${choice.offsetHeight}px`;
-				indicator.style.transform = `translate3d(${choice.offsetLeft}px, ${choice.offsetTop}px, 0)`;
-				indicator.classList.add("is-ready");
-				if (!animate) requestAnimationFrame(() => indicator.classList.remove("is-initializing"));
-			};
-			segmented.append(indicator);
-			for (const option of options) {
-				const choice = isolate(el("button", `aaalice-pcp-segment${option === parameter.value ? " active" : ""}`, option));
-				choice.type = "button";
-				choice.setAttribute("role", "radio");
-				choice.setAttribute("aria-checked", String(option === parameter.value));
-				choice.addEventListener("click", () => {
-					parameter.value = option;
-					for (const candidate of choices) {
-						candidate.classList.toggle("active", candidate === choice);
-						candidate.setAttribute("aria-checked", String(candidate === choice));
-					}
-					positionIndicator(choice);
-					// The segmented control already reflects the new value. Rebuilding the
-					// panel here would replace the indicator before its transition can run.
-					persist({ redraw: false });
-				});
-				choices.push(choice);
-				segmented.append(choice);
-			}
-			requestAnimationFrame(() => positionIndicator(choices.find((choice) => choice.classList.contains("active")), false));
-			if (typeof ResizeObserver === "function") {
-				const observer = new ResizeObserver(() => positionIndicator(choices.find((choice) => choice.classList.contains("active")), false));
-				observer.observe(segmented);
-				segmented._aaaliceResizeObserver = observer;
-			}
-			return segmented;
-		}
-		const select = isolate(document.createElement("select"));
-		select.setAttribute("aria-label", displayName(parameter));
-		const selectWrap = el("div", "aaalice-pcp-select-wrap");
-		const valid = options.includes(String(parameter.value));
-		if (!valid && parameter.value != null) {
-			select.add(new Option(`${parameter.value} ⚠`, parameter.value, true, true));
-			select.classList.add("invalid");
-		}
-		for (const option of options) select.add(new Option(option, option, false, option === String(parameter.value)));
-		const setSelectOpen = (open) => selectWrap.classList.toggle("is-open", open);
-		let pointerToggled = false;
-		select.addEventListener("pointerdown", () => {
-			pointerToggled = true;
-			setSelectOpen(!selectWrap.classList.contains("is-open"));
-			setTimeout(() => { pointerToggled = false; }, 0);
-		});
-		select.addEventListener("focus", () => { if (!pointerToggled) setSelectOpen(true); });
-		select.addEventListener("keydown", (event) => {
-			if (event.key === "Escape") setSelectOpen(false);
-			else if (event.key === "Enter" || event.key === " " || (event.altKey && event.key === "ArrowDown")) setSelectOpen(!selectWrap.classList.contains("is-open"));
-		});
-		select.addEventListener("blur", () => setSelectOpen(false));
-		select.addEventListener("change", () => { setSelectOpen(false); parameter.value = select.value; persist(); });
-		selectWrap.append(select, icon("moveDown"));
-		return selectWrap;
-	}
-	if (parameter.param_type === "image") {
-		return isolate(createImageUploadControl({
-			reference: parameter.value,
-			label: displayName(parameter),
-			emptyLabel: t("aaalice.pcp.image.none", "Choose image"),
-			dropLabel: t("aaalice.pcp.image.drop", "Drop image here"),
-			clearLabel: t("aaalice.pcp.image.clear", "Clear selected image"),
-			className: "aaalice-pcp-node-image-control",
-			onSelected: (reference) => {
-				parameter.value = reference;
-				toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename }));
-				persist();
-			},
-			onClear: () => { parameter.value = null; persist(); },
-			onError: (error) => {
-				if (error?.code === "file-type") toast("error", t("aaalice.pcp.error.imageFileType", "Choose an image file."));
-				else if (error?.code === "response") toast("error", t("aaalice.pcp.error.imageUploadResponse", "The server response did not include an image filename."));
-				else toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: {reason}", { reason: error?.message || String(error) }));
-			},
-		}));
-	}
-	return isolate(createParameterControl({
-		parameter,
-		onChange: persist,
+	const lockedLabel = t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock");
+	const unlockedLabel = t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock");
+	const spec = parameterControlSpec(parameter, {
+		label: displayName(parameter),
 		labels: {
-			input: displayName(parameter),
-			taglistPlaceholder: t("aaalice.pcp.taglist.placeholder", "One tag per line, or separate tags with commas"),
+			seed: { locked: lockedLabel, unlocked: unlockedLabel },
+			boolean: { enabled: t("aaalice.common.enabled", "Enabled"), disabled: t("aaalice.common.disabled", "Disabled") },
+			taglist: {
+				placeholder: t("aaalice.pcp.taglist.placeholder", "Enter tags and press Enter"), append: t("aaalice.pcp.taglist.append", "+ Add tag"),
+				empty: t("aaalice.pcp.taglist.empty", "Press Enter to add tags"), input: t("aaalice.pcp.taglist.input", "Add tags"),
+				enable: t("aaalice.pcp.taglist.enable", "Enable {tag}"), disable: t("aaalice.pcp.taglist.disable", "Disable {tag}"), remove: t("aaalice.pcp.taglist.remove", "Remove {tag}"),
+			},
+			image: { none: t("aaalice.pcp.image.none", "Choose image"), drop: t("aaalice.pcp.image.drop", "Drop image here"), clear: t("aaalice.pcp.image.clear", "Clear selected image") },
 		},
-	}));
+		presentation: { segmented: true },
+	});
+	let gestureOpen = false;
+	const graphCommit = (callback, detail = {}) => {
+		node.graph?.beforeChange?.();
+		try { callback(); persist(detail); }
+		finally { node.graph?.afterChange?.(); node.graph?.setDirtyCanvas?.(true, true); }
+	};
+	const view = createSharedControl(spec, {
+		preview(next) { if (spec.kind === "numeric") { parameter.value = next; node.setDirtyCanvas?.(true, true); } },
+		commit(next, detail = {}) { graphCommit(() => { parameter.value = next; }, detail.redraw === false ? { redraw: false } : {}); },
+		beginGesture() { if (!gestureOpen) { gestureOpen = true; node.graph?.beforeChange?.(); } },
+		endGesture(next) {
+			if (!gestureOpen) return; gestureOpen = false; parameter.value = next; persist({ redraw: false });
+			node.graph?.afterChange?.(); node.graph?.setDirtyCanvas?.(true, true);
+		},
+		setSeedLocked(locked) {
+			graphCommit(() => { parameter.config ||= {}; parameter.config.control_after_generate = locked ? "fixed" : "randomize"; });
+			descriptionTooltip.hide();
+		},
+		onSuccess(reference) { toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename })); },
+		onError(error) {
+			if (error?.code === "file-type") toast("error", t("aaalice.pcp.error.imageFileType", "Choose an image file."));
+			else if (error?.code === "response") toast("error", t("aaalice.pcp.error.imageUploadResponse", "The server response did not include an image filename."));
+			else toast("error", message("aaalice.pcp.error.imageUpload", "Image upload failed: {reason}", { reason: error?.message || String(error) }));
+		},
+	});
+	isolate(view.root); for (const accessory of view.headerAccessories) isolate(accessory);
+	if (spec.kind === "numeric" && heading) {
+		view.headerAccessories[0]?.classList.add("aa-control-numeric-value--heading"); heading.append(...view.headerAccessories);
+	} else if (spec.kind === "seed") {
+		view.root.classList.add("aa-control-seed-inline"); view.root.append(...view.headerAccessories);
+		const modeButton = view.headerAccessories[1]; modeButton?.removeAttribute("title"); if (modeButton) attachDescription(modeButton, modeButton.currentLabel);
+	}
+	return view.root;
 }
 
-function disconnectSegmentObservers(root) {
-	for (const segmented of root.querySelectorAll(".aaalice-pcp-segmented")) segmented._aaaliceResizeObserver?.disconnect();
+function destroyRenderedControls(root) {
+	destroySharedControls(root);
 }
 
 function renderNode(node, root) {
 	closeImagePreview();
-	disconnectSegmentObservers(root);
+	destroyRenderedControls(root);
 	root.replaceChildren();
 	const parameters = ensureParameters(node);
 	const layout = computeParameterLayout(node);

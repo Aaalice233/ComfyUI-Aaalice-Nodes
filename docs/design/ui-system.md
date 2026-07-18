@@ -83,7 +83,9 @@
 
 ## 7. 共享组件边界
 
-`js/lib/ui.js` 是无业务状态的 DOM 基础组件层；`js/lib/workspace_components.js` 是工作区复合组件层；`js/lib/workspace_controls.js` 只把 Provider 解析出的值适配器渲染为控件并管理局部输入手势。三层都只接收数据、已本地化字符串和回调，不导入 `t()`，不拥有工作流或词库状态。Control Provider 只负责发现、解析和写回，业务入口负责状态编排、生命周期与画布事务。
+`js/lib/ui.js` 是无业务状态的 DOM 基础组件层；`js/lib/controls/` 以 Control Spec / Port / View 统一参数控件；`js/lib/workspace_components.js` 是工作区复合组件层；`js/lib/workspace_controls.js` 只负责把 Provider 结果接到共享控件并管理局部手势。各层只接收数据、已本地化字符串和回调，不导入 `t()`，不拥有工作流或词库状态。Control Provider 只负责发现、解析和写回，业务入口负责状态编排、生命周期与画布事务。
+
+共享参数控件固定分为两个 family：`aaalice` 复用 ParameterPanel 的完整交互和视觉语义，供节点面与侧边栏共同使用；`comfy` 面向普通 ComfyUI widget、子图公开 widget 和第三方适配器，默认使用更中性的原生控件策略。两者可以复用数字、布尔和选择等底层 renderer，但 family 的策略注册必须独立，业务宿主不得复制控件实现。
 
 | 组件 | 职责 |
 |---|---|
@@ -103,6 +105,10 @@
 | `createAnchoredPopover()` | 锚定按钮的非模态浮层、外部关闭、焦点圈定与恢复 |
 | `createContextMenu()` | 鼠标右键或 `ContextMenu` / `Shift+F10` 打开的紧凑操作菜单；负责视口收口、方向键、Escape、危险项和焦点恢复 |
 | `createTooltip()` | 统一内容提示；通过 `contentMode` 支持 `auto`、`text`、安全 CommonMark/GFM `markdown` 和 `dom`。默认使用非交互 Tooltip；`interactive` 模式提供可悬停、可聚焦链接的非模态悬浮卡片，并管理延迟关闭、Escape、焦点返回和 ARIA 关系 |
+| `createSharedControl()` | 按 family 与 kind 解析 renderer，把规范化 Control Spec 和无状态 Port 回调组合为可挂载 Control View |
+| `registerWidgetControlAdapter()` | 把第三方 widget 的身份、值、选项和写回方式规范化；不渲染 DOM、不创建图事务 |
+| `registerControlRenderer()` | 为既有 family 增加特殊控件 kind；重复 kind 显式失败，注销只移除自己的 renderer |
+| `renderControlAvailability()` | 为结构有效但暂不可操作的控件提供统一只读状态；空选项、未赋值和临时错误不冒充绑定丢失 |
 
 Tooltip 使用接近实色的主题表面、单层边框、克制的分层投影和内侧高光，并用跟随实际锚点的小箭头建立空间关系；业务内容不得在 Tooltip 内重复套无语义的卡片表面。
 Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按 Tooltip HTML 白名单净化；支持 CommonMark 与 GFM 的标题、列表、引用、分割线、表格、任务列表、删除线、代码、图片和链接等语法。链接与图片资源只允许 HTTP(S) 协议；含链接的提示必须使用 `interactive` 模式，鼠标从锚点移入浮层时不能消失。
@@ -120,6 +126,14 @@ Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按
 | `createTransferHero()` / `createTransferStats()` / `createTransferSection()` / `createTransferResult()` | 导入导出的文件摘要、预检统计、冲突区和结果反馈 |
 
 业务模块可以增加布局 class 和语义色映射，但不得复制基础组件或让共享层持有工作流状态。依赖连续动画的 thumb 必须保留 DOM identity，只更新 class、data、ARIA 和 transform。
+
+Dashboard 的规范布局使用 12 列、4px 行轨道和 2px 轨道间隔；控件默认占 6 列，交互最小宽度为 3 列。布局模式右下角拖柄只生成吸附后的临时预览，松手后通过一次命令提交整数 `columnSpan` / `rowSpan` 并处理碰撞；方向键按一个单位调整，`Shift` 加速为两个单位。侧栏过窄时投影成一列，允许继续调整高度，但不得用投影尺寸覆盖工作流中的规范宽度。旧双列 Dashboard V2 页面在规范化时等比迁移到 12 列，不保留第二套布局算法。
+
+Dashboard 页面切换沿右侧纵向 Page Rail 建立方向感，并使用完整页面滚动过渡：进入后续页面时旧页整体向上退出、新页从下方进入；返回前序页面时方向相反。滚动舞台裁切过渡内容，Page Rail、顶栏和布局操作保持稳定，页名使用更短、更弱的同步淡入。动画只在 Page Id 真正变化时触发，普通调参和重绘不得重复播放，并在 `prefers-reduced-motion: reduce` 下完全关闭。
+
+正常浏览时，向下滚动到当前 Dashboard 页面底部会自动进入后一页，向上滚动到顶部会自动返回前一页；内容不足一屏时按滚动方向直接翻页。一次连续滚轮或触控板手势最多切换一页，必须在手势停止后才能继续翻页，避免惯性滚动跨过多个页面。边界翻页完成后，右侧 Page Rail 临时展开约一秒并显示当前页名称，再自动恢复紧凑状态；直接点击 Page Rail 不重复触发该反馈。搜索和布局模式不启用边界翻页，首尾页面保留普通的滚动边界反馈。
+
+Layout Group 在视图中呈现为一张 Composite Card：组名、组操作和成员共享一个外壳，成员只保留由控件类型色派生的低对比背景，不重复绘制完整边框和投影。成员的选中、Missing Binding 与 Seed Lock 通过背景强度和单侧状态条表达，避免重新制造内层卡片边框；成员仍保持独立身份、网格占位、拖拽、缩放和绑定，不把组合视觉写入模型。
 
 领域识别色不由基础组件生成。`category_color.js` 只负责验证颜色并把 Category 数据适配为 CSS 变量或选择项；色板分配、持久化和导入导出由词库领域服务负责，界面不得按分类名称重复计算临时颜色。
 

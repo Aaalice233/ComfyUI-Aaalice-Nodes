@@ -8,7 +8,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
+const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
 const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
+const numericControl = readFileSync(join(ROOT, "js", "lib", "controls", "numeric.js"), "utf8");
+const choiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "choice.js"), "utf8");
+const booleanControl = readFileSync(join(ROOT, "js", "lib", "controls", "boolean.js"), "utf8");
+const taglistControl = readFileSync(join(ROOT, "js", "lib", "controls", "taglist.js"), "utf8");
+const imageControl = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
+const controlRegistry = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
 const dashboardComponents = readFileSync(join(ROOT, "js", "lib", "dashboard_components.js"), "utf8");
 const dashboardInteractions = readFileSync(join(ROOT, "js", "lib", "dashboard_interactions.js"), "utf8");
@@ -69,39 +76,49 @@ test("providers cover generic, Aaalice and public subgraph widgets by stable hos
 	assert.match(providers, /aaalice-parameter/);
 	assert.match(providers, /generic-widget/);
 	assert.match(providers, /subgraph-widget/);
-	assert.match(providers, /isPromotedWidget/);
+	assert.match(providers, /listAdaptedWidgetControls/);
+	assert.match(widgetAdapters, /registerWidgetControlAdapter/);
+	assert.match(widgetAdapters, /comfy-native-widget/);
+	assert.match(widgetAdapters, /valueType: definition\.valueType/);
+	assert.match(widgetAdapters, /state: "empty", reason: "no-options"/);
+	assert.doesNotMatch(widgetAdapters, /Boolean\(controlValueType\(widget\.value\)\)/);
+	assert.match(widgetAdapters, /priority/);
+	assert.match(widgetAdapters, /adapterId/);
 	assert.match(providers, /repairDuplicateHostIds/);
 	assert.doesNotMatch(providers, /setInterval|setTimeout\([^)]*resolve/);
 	assert.doesNotMatch(providers, /document\.|addEventListener|createNumericEditor|createImageUploadControl|selectControl|toggleSwitch/);
+	assert.match(controlRegistry, /renderControlAvailability/);
+	assert.match(theme, /\.aa-control-card\.is-unavailable/);
+	assert.match(theme, /\.aa-control-availability \{/);
 });
 
 test("numeric control gestures preview live inside one graph history boundary", () => {
-	assert.match(workspaceControls, /pointerdown/);
+	assert.match(numericControl, /pointerdown/);
 	assert.match(workspaceControls, /setValue\(next, \{ transaction: false, transient: true \}\)/);
 	assert.match(providers, /flushValue/);
 	assert.match(providers, /node\._aaaliceParameterRedraw\?\.\(\)/);
-	assert.match(workspaceControls, /pointerup/);
+	assert.match(numericControl, /pointerup/);
 	assert.match(workspaceControls, /beforeChange/);
 	assert.match(workspaceControls, /afterChange/);
-	assert.match(workspaceControls, /aa-workspace-numeric-control/);
-	assert.match(workspaceControls, /--aa-shared-range-progress/);
-	assert.match(workspaceControls, /range\.className = "aa-shared-range"/);
+	assert.match(workspaceControls, /createSharedControl\(spec/);
+	assert.match(numericControl, /--aa-shared-range-progress/);
+	assert.match(numericControl, /aa-shared-range aa-control-numeric-range/);
 	assert.match(uiStyles, /\.aa-shared-range::\-webkit-slider-runnable-track/);
-	assert.match(workspaceControls, /root\.headerAccessories = \[valueButton\]/);
-	assert.match(workspaceControls, /createNumericEditor/);
-	assert.match(workspaceControls, /addEventListener\("wheel"/);
-	assert.match(workspaceControls, /event\.shiftKey \? 10 : 1/);
-	assert.match(workspaceControls, /passive: false/);
-	assert.match(theme, /\.aa-workspace-numeric-value/);
+	assert.match(numericControl, /const accessories = \[valueButton\]/);
+	assert.match(numericControl, /createNumericEditor/);
+	assert.match(numericControl, /addEventListener\("wheel"/);
+	assert.match(numericControl, /event\.shiftKey \? 10 : 1/);
+	assert.match(numericControl, /passive: false/);
+	assert.match(theme, /\.aa-control-numeric-value/);
 	assert.match(uiStyles, /::-webkit-slider-runnable-track/);
 	assert.match(components, /control\?\.headerAccessories/);
 });
 
 test("dashboard image controls share upload, drop, thumbnail, and preview behavior", () => {
-	assert.match(workspaceControls, /function createImageControl/);
-	assert.match(workspaceControls, /aa-workspace-image-control/);
-	assert.match(workspaceControls, /createImageUploadControl\(\{/);
-	assert.match(workspaceControls, /resolved\.setValue\(null\)/);
+	assert.match(imageControl, /renderImageControl/);
+	assert.match(imageControl, /aa-control-image/);
+	assert.match(imageControl, /createImageUploadControl\(\{/);
+	assert.match(imageControl, /port\.commit\(null\)/);
 	assert.match(imagePreview, /export function bindImagePreview/);
 	assert.match(imageUpload, /export function isImageFile/);
 	assert.match(imageUpload, /export async function uploadImageFile/);
@@ -110,38 +127,55 @@ test("dashboard image controls share upload, drop, thumbnail, and preview behavi
 	assert.match(imageUpload, /bindImagePreview\(button, source,[^\n]*immediate: true/);
 	assert.match(workspace, /notifyWorkspaceImageUpload/);
 	assert.match(theme, /\.aa-image-upload-button > img\s*\{[^}]*object-fit:\s*cover/s);
+	assert.match(theme, /\.aa-image-upload-button > img\s*\{[^}]*z-index:\s*0/s);
+	assert.match(theme, /\.aa-image-upload-button\.has-image::before\s*\{[^}]*z-index:\s*1/s);
+	assert.match(theme, /\.aa-image-upload-button\.has-image \.aa-image-upload-label\s*\{[^}]*margin-inline:\s*0 auto;[^}]*font-weight:\s*650;[^}]*text-align:\s*left/s);
 	assert.match(theme, /\.aa-image-upload-button\.is-drop-target/);
 	assert.match(theme, /\.aa-image-upload-control:hover \.aa-image-upload-clear/);
 	assert.match(theme, /\.aa-image-upload-control\s*\{[^}]*height:\s*32px/s);
 });
 
-test("dashboard tag-list controls reuse the shared multiline parser", () => {
-	const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
-	assert.match(workspaceControls, /document\.createElement\("textarea"\)/);
-	assert.match(workspaceControls, /parseTagListValue\(control\.value\)/);
-	assert.match(workspaceControls, /control\.dataset\.controlKind = "taglist"/);
+test("dashboard tag-list controls reuse the shared interactive chip editor", () => {
+	assert.match(taglistControl, /createTagListControl\(\{/);
+	assert.match(workspaceControls, /taglist: \{ \.\.\.availabilityLabels, \.\.\.\(labels\.taglist \|\| \{\}\) \}/);
+	assert.match(workspaceControls, /createSharedControl\(spec/);
+	assert.match(workspaceControls, /control\.dataset\.controlKind = view\.kind/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="taglist"\] \{ --aa-dashboard-control-tone:/);
+	assert.match(theme, /\.aa-taglist-control \{[^}]*display: flex;[^}]*height: 32px;[^}]*box-sizing: border-box;[^}]*overflow-x: auto;/);
+	assert.match(theme, /\.aa-taglist-control::\-webkit-scrollbar \{ display: none; \}/);
+	assert.match(theme, /\.aa-taglist-options \{ display: contents; \}/);
+	assert.match(theme, /\.aaalice-pcp\.aaalice-pcp-node-root \.aa-taglist-control > input\.aa-taglist-input,[\s\S]*border: 0;[^}]*background: transparent;[^}]*box-shadow: none;/);
+	assert.match(theme, /\.aa-taglist-chip\.is-selected/);
+	assert.match(theme, /\.aa-taglist-chip\.is-disabled/);
+	assert.match(theme, /\[data-control-tone="11"\]/);
+	assert.match(taglistControl, /tagToneIndexes\(entries\)/);
+	assert.match(workspace, /event\.detail\?\.workspaceRedraw !== false/);
 });
 
 test("seed lock state reuses one shared control across the node and dashboard", () => {
-	const parameterControls = readFileSync(join(ROOT, "js", "lib", "parameter_controls.js"), "utf8");
 	const parameterPanel = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
-	assert.match(parameterControls, /export function createSeedModeControl/);
-	assert.match(parameterControls, /control\.setLocked/);
-	assert.match(parameterControls, /aria-pressed/);
-	assert.match(parameterPanel, /createSeedModeControl\(\{/);
-	assert.match(workspaceControls, /createSeedModeControl\(\{/);
+	assert.match(numericControl, /export function createSeedModeControl/);
+	assert.match(numericControl, /control\.setLocked/);
+	assert.match(numericControl, /aria-pressed/);
+	assert.match(parameterPanel, /createSharedControl\(spec/);
+	assert.match(workspaceControls, /createSharedControl\(spec/);
 	assert.match(providers, /control_after_generate = locked \? "fixed" : "randomize"/);
-	assert.match(theme, /\.aa-workspace-seed-mode\.aa-ui-button\.is-locked/);
-	assert.match(theme, /\.aa-control-card:has\(\.aa-workspace-seed-mode\.is-locked\)/);
-	assert.match(theme, /\.aa-control-card:has\(\.aa-workspace-seed-mode\.is-locked\) \.aa-workspace-numeric-value/);
+	assert.match(providers, /adapted\.setSeedLocked\(locked\)/);
+	assert.match(theme, /\.aa-control-seed-mode\.is-locked/);
+	assert.match(theme, /\.aa-control-card:has\(\.aa-control-seed-mode\.is-locked\)/);
+	assert.match(theme, /\.aa-control-card:has\(\.aa-control-seed-mode\.is-locked\) \.aa-control-numeric-value/);
 });
 
 test("dashboard enum and boolean controls reuse the shared themed controls", () => {
-	assert.match(workspaceControls, /selectControl\(\{/);
-	assert.match(workspaceControls, /toggleSwitch\(\{/);
+	assert.match(choiceControl, /selectControl\(\{/);
+	assert.match(booleanControl, /toggleSwitch\(\{/);
+	assert.match(controlRegistry, /AAALICE_CONTROL_RENDERERS/);
+	assert.match(controlRegistry, /COMFY_CONTROL_RENDERERS/);
 	assert.match(components, /root\.dataset\.controlKind/);
-	assert.match(theme, /\.aa-workspace-enum-control/);
-	assert.match(theme, /\.aa-workspace-boolean-control/);
+	assert.match(theme, /\.aa-control-choice-select/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="choice"\] \{ --aa-dashboard-control-tone:/);
+	assert.match(theme, /\.aa-control-card \.aa-control-choice-select \.aa-ui-select__native \{[^}]*font-size: 11px;[^}]*font-weight: 620;/);
+	assert.match(theme, /\.aa-control-boolean/);
 });
 
 test("control cards move management into an accessible context menu", () => {
@@ -162,12 +196,12 @@ test("control cards move management into an accessible context menu", () => {
 });
 
 test("header-only seed controls do not stretch to the neighboring slider card", () => {
-	assert.match(workspaceControls, /root\.dataset\.headerOnly = String\(!hasRange\)/);
+	assert.match(numericControl, /headerOnly: !hasRange/);
 	assert.match(components, /control\?\.dataset\?\.headerOnly === "true"/);
 	assert.match(theme, /\.aa-dashboard-grid-v2, \.aa-dashboard-group-grid \{[^}]*grid-auto-rows: 4px;[^}]*align-items: stretch;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \{[^}]*padding-block: 7px;/);
-	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-workspace-numeric-value \{[^}]*min-width: 64px;[^}]*flex: 1;/);
-	assert.match(theme, /\.aa-workspace-numeric-value \{[^}]*text-align: center;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*min-width: 64px;[^}]*flex: 1;/);
+	assert.match(theme, /\.aa-control-numeric-value \{[^}]*text-align: center;/);
 });
 
 test("PromptSelector injects live library text and exposes inline weight management", () => {
@@ -286,6 +320,31 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(theme, /margin-right: auto/);
 	assert.match(theme, /justify-content: space-between/);
 	assert.match(theme, /backdrop-filter: blur\(12px\)/);
+	assert.match(workspace, /initialEdge: detail\.source === "boundary" && direction === "backward" \? "bottom" : "top"/);
+	assert.match(workspace, /aa-dashboard-scroll\$\{pageTransitionClass\}/);
+	assert.match(dashboardInteractions, /export function bindDashboardBoundaryPaging/);
+	assert.match(dashboardInteractions, /event\.defaultPrevented/);
+	assert.match(dashboardInteractions, /direction > 0 \? scroller\.scrollTop >= maxScrollTop - 1 : scroller\.scrollTop <= 1/);
+	assert.match(workspace, /canAdvance: \(\) => !editMode && !viewState\.searchOpen/);
+	assert.match(workspace, /canRetreat: \(\) => !editMode && !viewState\.searchOpen/);
+	assert.match(workspace, /pageRail\.selectIndex\(activePageIndex \+ 1, \{ source: "boundary" \}\)/);
+	assert.match(workspace, /pageRail\.selectIndex\(activePageIndex - 1, \{ source: "boundary" \}\)/);
+	assert.match(components, /root\.selectIndex = \(index, options\) => selectIndex\(index, options\)/);
+	assert.match(workspace, /captureDashboardPageSnapshot/);
+	assert.match(workspace, /\.aa-dashboard-scroll:not\(\.is-page-leaving\)/);
+	assert.match(workspace, /pageTransition\?\.initialEdge === "bottom"/);
+	assert.match(workspace, /detail\.source === "boundary"\) pageRail\.showTemporarily\(1100\)/);
+	assert.match(components, /root\.showTemporarily = \(duration = 1100\)/);
+	assert.match(components, /temporaryExpansionTimer = setTimeout\(\(\) => \{[\s\S]*if \(!pointerHovered\) setExpanded\(false\)/);
+	assert.match(workspace, /aa-dashboard-page-stage/);
+	assert.match(theme, /\.aa-dashboard-page-stage \{[^}]*overflow: hidden;/);
+	assert.match(theme, /@keyframes aa-dashboard-page-forward-in/);
+	assert.match(theme, /@keyframes aa-dashboard-page-forward-out/);
+	assert.match(theme, /@keyframes aa-dashboard-page-backward-in/);
+	assert.match(theme, /@keyframes aa-dashboard-page-backward-out/);
+	assert.match(theme, /\.aa-dashboard-scroll\.is-page-entering-forward/);
+	assert.match(theme, /\.aa-dashboard-scroll\.is-page-leaving-forward/);
+	assert.match(theme, /prefers-reduced-motion: reduce[\s\S]*\.aa-dashboard-scroll\.is-page-entering/);
 });
 
 test("PromptSelector exposes scannable selected and category states", () => {
@@ -387,7 +446,7 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 });
 
 test("dashboard toolbar identifies the current page in its available space", () => {
-	assert.match(workspace, /className: "aa-dashboard-page-name"[^\n]+role: "heading"[^\n]+"aria-current": "page"/);
+	assert.match(workspace, /className: `aa-dashboard-page-name\$\{pageTransitionClass\}`[^\n]+role: "heading"[^\n]+"aria-current": "page"/);
 	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*min-width: 0;[^}]*flex: 1;/);
 	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*border-left: 2px solid var\(--aa-ui-accent\);[^}]*font-size: 13px;[^}]*font-weight: 700;/);
 	assert.match(theme, /\.aa-dashboard-page-name > span \{[^}]*text-overflow: ellipsis;/);
@@ -407,11 +466,16 @@ test("layout editing keeps creation and layout tools in the primary toolbar", ()
 	assert.doesNotMatch(workspace, /if \(editMode\) container\.append\(createWorkspaceToolbar/);
 	assert.doesNotMatch(components, /aa-dashboard-page-add|onAdd/);
 	assert.doesNotMatch(theme, /aa-dashboard-page-add/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > \.aa-ui-button \{[^}]*height: 29px;[^}]*min-height: 29px;[^}]*border-radius: 7px;/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > :is\(\.aa-dashboard-add-separator, \.aa-dashboard-tidy-layout, \.aa-dashboard-page-menu\)/);
 });
 
 test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
 	assert.match(workspace, /createGroup\(current, page\.id/);
 	assert.match(dashboardComponents, /export function createDashboardGroup/);
+	assert.match(dashboardComponents, /aa-dashboard-composite-card/);
+	assert.match(dashboardComponents, /classList\.add\("is-group-member"\)/);
+	assert.match(dashboardComponents, /dataset\.dashboardGroupMember/);
 	assert.match(dashboardComponents, /data-dashboard-group-id/);
 	assert.match(dashboardComponents, /page\.items\.filter\(\(item\) => !item\.groupId\)/);
 	assert.match(dashboardLayout, /export function firstAvailableLayout/);
@@ -419,10 +483,13 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.doesNotMatch(workspace, /createSection|findSection|lastSectionId|\.sections/);
 	assert.doesNotMatch(components, /createSectionCard/);
 	assert.doesNotMatch(theme, /aa-dashboard-section/);
+	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*border:\s*0;[^}]*background:\s*color-mix/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group \.aa-control-card\.is-group-member:is\(\.is-selected, \.is-drop-target\)/);
 });
 
 test("Dashboard footprints are stable model hints rather than DOM measurements", () => {
 	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
+	assert.match(dashboardSizing, /export function dashboardCardHeight/);
 	assert.match(dashboardSizing, /export function recommendedControlRowSpan/);
 	assert.match(dashboardSizing, /export function recommendedGroupRowSpan/);
 	assert.doesNotMatch(dashboardSizing, /document|getComputedStyle|ResizeObserver/);
@@ -432,10 +499,20 @@ test("Dashboard footprints are stable model hints rather than DOM measurements",
 test("dashboard cards expose equal visual gutters without changing fine row geometry", () => {
 	assert.match(theme, /--aa-dashboard-card-gap:\s*6px/);
 	assert.match(theme, /--aa-dashboard-track-gap:\s*2px/);
+	assert.match(theme, /grid-auto-rows:\s*4px/);
 	assert.match(theme, /column-gap:\s*var\(--aa-dashboard-card-gap\)/);
 	assert.match(theme, /row-gap:\s*var\(--aa-dashboard-track-gap\)/);
 	assert.match(theme, /height:\s*calc\(100% - var\(--aa-dashboard-card-gap\) \+ var\(--aa-dashboard-track-gap\)\)/);
 	assert.doesNotMatch(theme, /margin-bottom:\s*calc\(var\(--aa-dashboard-card-gap\) - var\(--aa-dashboard-track-gap\)\)/);
+});
+
+test("dashboard control contents stay within their declared grid footprints", () => {
+	assert.match(theme, /\.aa-control-card-header \{[^}]*min-height:\s*14px;[^}]*line-height:\s*14px;/);
+	assert.match(theme, /\.aa-control-choice-select \.aa-ui-select__native \{[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
+	assert.match(theme, /data-control-kind="taglist"[^}]*aa-taglist-control[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
+	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);
+	assert.match(theme, /\.aa-dashboard-group \{[^}]*padding:\s*5px;/);
+	assert.match(theme, /\.aa-dashboard-group-header \{[^}]*min-height:\s*26px;/);
 });
 
 test("Dashboard V2 layout editing uses transient pointer gestures and one command commit", () => {
@@ -443,6 +520,7 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(dashboardInteractions, /setPointerCapture/);
 	assert.match(dashboardInteractions, /translate3d/);
 	assert.match(dashboardInteractions, /function gridTargetAt/);
+	assert.match(dashboardInteractions, /target\.column = Math\.max\(0, Math\.min\(columns - columnSpan, target\.column\)\)/);
 	assert.match(dashboardInteractions, /aa-dashboard-drop-preview/);
 	assert.match(dashboardInteractions, /style\.gridAutoRows/);
 	assert.match(dashboardInteractions, /--aa-dashboard-row-span/);
@@ -465,6 +543,18 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(theme, /\.aa-dashboard-grid-v2 \{[^}]*flex: 1;/);
 	assert.match(theme, /\.aa-dashboard-grid-v2\.is-editing \{[^}]*min-height: 100%;/);
 	assert.match(theme, /grid-row: var\(--aa-dashboard-row\) \/ span var\(--aa-dashboard-row-span\)/);
+	assert.match(dashboardSizing, /DASHBOARD_GRID_COLUMNS = 12/);
+	assert.match(dashboardSizing, /DASHBOARD_MIN_CONTROL_COLUMN_SPAN = 3/);
+	assert.match(components, /data-dashboard-resize-handle/);
+	assert.match(dashboardInteractions, /kind: "resize"/);
+	assert.match(dashboardInteractions, /gesture\.preview\.dataset\.dropRow = gesture\.element\.dataset\.dropRow/);
+	assert.match(dashboardInteractions, /gesture\.preview\.dataset\.dropColumn = gesture\.element\.dataset\.dropColumn/);
+	assert.match(dashboardInteractions, /Math\.round\(dx/);
+	assert.match(dashboardInteractions, /Math\.round\(dy/);
+	assert.match(dashboardInteractions, /onResizeItem\?\./);
+	assert.match(workspace, /onResizeItem: \(itemId, size\) => updateDashboard/);
+	assert.match(theme, /\.aa-dashboard-resize-handle/);
+	assert.match(theme, /cursor: nwse-resize/);
 });
 
 test("workspace list selection reuses the shared checkbox control", () => {

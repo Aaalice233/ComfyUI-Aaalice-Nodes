@@ -19,7 +19,7 @@ export const PARAMETER_NODE_LAYOUT = Object.freeze({
 });
 
 function rowHeight(parameter) {
-	return parameter.param_type === "taglist" || (parameter.param_type === "string" && parameter.config?.multiline)
+	return parameter.param_type === "string" && parameter.config?.multiline
 		? Math.max(70, PARAMETER_NODE_LAYOUT.rowHeight + 22)
 		: PARAMETER_NODE_LAYOUT.rowHeight;
 }
@@ -45,7 +45,7 @@ function outputColumnWidth(parameters) {
 function controlRect(width, rowTop, parameter, outputWidth) {
 	const left = PARAMETER_NODE_LAYOUT.bodyPadding;
 	const right = Math.max(left + 120, width - outputWidth - PARAMETER_NODE_LAYOUT.bodyPadding - 6);
-	const height = parameter.param_type === "taglist" || (parameter.param_type === "string" && parameter.config?.multiline)
+	const height = parameter.param_type === "string" && parameter.config?.multiline
 		? 56
 		: PARAMETER_NODE_LAYOUT.controlHeight;
 	return {

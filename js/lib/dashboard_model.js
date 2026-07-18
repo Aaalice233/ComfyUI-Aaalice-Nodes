@@ -1,6 +1,12 @@
 /** Pure workflow-owned Dashboard V2 model and preset codec. */
 
-import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_SEPARATOR_ROW_SPAN, recommendedGroupRowSpan } from "./dashboard_sizing.js";
+import {
+	DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN,
+	DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
+	DASHBOARD_GRID_COLUMNS,
+	DASHBOARD_SEPARATOR_ROW_SPAN,
+	recommendedGroupRowSpan,
+} from "./dashboard_sizing.js";
 
 export const DASHBOARD_VERSION = 2;
 export const DASHBOARD_TONES = Object.freeze(["neutral", "blue", "green", "amber", "purple", "red"]);
@@ -20,18 +26,22 @@ function normalizeBinding(binding) {
 	for (const field of ["provider", "hostId", "controlId", "valueType"]) {
 		if (typeof binding[field] !== "string" || !binding[field]) throw new DashboardModelError(`Control binding field ${field} is invalid`, "invalid-binding");
 	}
-	return { provider: binding.provider, hostId: binding.hostId, controlId: binding.controlId, valueType: binding.valueType };
+	return { provider: binding.provider, hostId: binding.hostId, controlId: binding.controlId, valueType: binding.valueType, ...(typeof binding.adapterId === "string" && binding.adapterId ? { adapterId: binding.adapterId } : {}) };
 }
 
-function normalizeLayout(layout, { fullWidth = false, rowSpan = null } = {}) {
-	const row = Number(layout?.row); const column = Number(layout?.column); const columnSpan = Number(layout?.columnSpan); const normalizedRowSpan = Number(rowSpan ?? layout?.rowSpan);
+function normalizeLayout(layout, { fullWidth = false, rowSpan = null, legacyColumns = false } = {}) {
+	const row = Number(layout?.row);
+	const columnScale = legacyColumns ? DASHBOARD_GRID_COLUMNS / 2 : 1;
+	const column = Number(layout?.column) * columnScale;
+	const columnSpan = Number(layout?.columnSpan) * columnScale;
+	const normalizedRowSpan = Number(rowSpan ?? layout?.rowSpan);
 	if (!Number.isInteger(row) || row < 0) throw new DashboardModelError("Grid row must be a non-negative integer", "invalid-layout");
 	if (!Number.isInteger(normalizedRowSpan) || normalizedRowSpan < 1) throw new DashboardModelError("Grid row span must be a positive integer", "invalid-layout");
 	if (fullWidth) {
-		if (column !== 0 || columnSpan !== 2) throw new DashboardModelError("Full-width grid items must occupy both columns", "invalid-layout");
-		return { row, column: 0, columnSpan: 2, rowSpan: normalizedRowSpan };
+		if (column !== 0 || columnSpan !== DASHBOARD_GRID_COLUMNS) throw new DashboardModelError("Full-width grid items must occupy the complete grid", "invalid-layout");
+		return { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: normalizedRowSpan };
 	}
-	if (![0, 1].includes(column) || ![1, 2].includes(columnSpan) || column + columnSpan > 2) throw new DashboardModelError("Grid column or span is invalid", "invalid-layout");
+	if (!Number.isInteger(column) || column < 0 || !Number.isInteger(columnSpan) || columnSpan < 1 || column + columnSpan > DASHBOARD_GRID_COLUMNS) throw new DashboardModelError("Grid column or span is invalid", "invalid-layout");
 	return { row, column, columnSpan, rowSpan: normalizedRowSpan };
 }
 
@@ -57,11 +67,13 @@ export function normalizeDashboard(raw) {
 	if (!Array.isArray(raw.pages)) throw new DashboardModelError("Dashboard pages must be an array");
 	for (const sourcePage of raw.pages) {
 		assertUnique(sourcePage?.id, ids);
-		const page = { id: sourcePage.id, name: String(sourcePage.name || "Page"), items: [], groups: [] };
+		const legacyColumns = sourcePage?.gridColumns !== DASHBOARD_GRID_COLUMNS;
+		if (sourcePage?.gridColumns != null && sourcePage.gridColumns !== DASHBOARD_GRID_COLUMNS) throw new DashboardModelError(`Unsupported dashboard grid: ${sourcePage.gridColumns}`, "unsupported-grid");
+		const page = { id: sourcePage.id, name: String(sourcePage.name || "Page"), gridColumns: DASHBOARD_GRID_COLUMNS, items: [], groups: [] };
 		if (!Array.isArray(sourcePage.groups) || !Array.isArray(sourcePage.items)) throw new DashboardModelError("Dashboard page collections are invalid");
 		for (const sourceGroup of sourcePage.groups) {
 			assertUnique(sourceGroup?.id, ids);
-			page.groups.push({ id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: DASHBOARD_TONES.includes(sourceGroup.tone) ? sourceGroup.tone : "neutral", layout: normalizeLayout(sourceGroup.layout, { fullWidth: true, rowSpan: 1 }) });
+			page.groups.push({ id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: DASHBOARD_TONES.includes(sourceGroup.tone) ? sourceGroup.tone : "neutral", layout: normalizeLayout(sourceGroup.layout, { fullWidth: true, rowSpan: 1, legacyColumns }) });
 		}
 		const groupIds = new Set(page.groups.map((group) => group.id));
 		for (const sourceItem of sourcePage.items) {
@@ -73,7 +85,7 @@ export function normalizeDashboard(raw) {
 			page.items.push({
 				id: sourceItem.id, kind, binding: kind === "control" ? normalizeBinding(sourceItem.binding) : null,
 				label: String(sourceItem.label || ""), groupId, compact: Boolean(sourceItem.compact),
-				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null }),
+				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns }),
 			});
 		}
 		for (const group of page.groups) group.layout.rowSpan = recommendedGroupRowSpan(page.items.filter((item) => item.groupId === group.id));
@@ -84,15 +96,15 @@ export function normalizeDashboard(raw) {
 	return result;
 }
 
-export function createPage(name = "Page") { return { id: stableId("page"), name, items: [], groups: [] }; }
-export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: 1, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }) {
+export function createPage(name = "Page") { return { id: stableId("page"), name, gridColumns: DASHBOARD_GRID_COLUMNS, items: [], groups: [] }; }
+export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }) {
 	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label, groupId: null, compact: false, layout: normalizeLayout(layout) };
 }
 export function createSeparatorItem(label = "", row = 0) {
-	return { id: stableId("item"), kind: "separator", binding: null, label, groupId: null, compact: false, layout: { row, column: 0, columnSpan: 2, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN } };
+	return { id: stableId("item"), kind: "separator", binding: null, label, groupId: null, compact: false, layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN } };
 }
 export function createLayoutGroup(name = "Group", tone = "neutral", row = 0) {
-	return { id: stableId("group"), name, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", layout: { row, column: 0, columnSpan: 2, rowSpan: 1 } };
+	return { id: stableId("group"), name, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: 1 } };
 }
 
 export function findPage(model, pageId) { return model.pages.find((page) => page.id === pageId) || null; }
@@ -100,7 +112,9 @@ export function findItem(model, itemId) {
 	for (const page of model.pages) { const item = page.items.find((entry) => entry.id === itemId); if (item) return { page, item }; }
 	return { page: null, item: null };
 }
-export function bindingKey(binding) { return `${binding.provider}:${binding.hostId}:${binding.controlId}`; }
+export function bindingKey(binding) {
+	return `${binding.provider}:${binding.hostId}:${binding.controlId}${binding.adapterId ? `:${binding.adapterId}` : ""}`;
+}
 
 export function exportDashboardPreset(model, resolveValue) {
 	const dashboard = normalizeDashboard(model); const values = {};

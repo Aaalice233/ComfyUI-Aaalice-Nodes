@@ -1,4 +1,4 @@
-/** Pure fine-grained two-column Dashboard V2 placement and projection. */
+/** Pure fine-grained Dashboard V2 placement and responsive projection. */
 
 import { recommendedGroupRowSpan } from "./dashboard_sizing.js";
 
@@ -17,9 +17,9 @@ function occupied(entries, ignoreId = null) {
 	return result;
 }
 
-function firstFree(used, { columnSpan = 1, rowSpan = 1, startRow = 0 } = {}) {
-	const width = columnSpan === 2 ? 2 : 1; const height = Math.max(1, Number(rowSpan) || 1);
-	for (let row = Math.max(0, Number(startRow) || 0); ; row++) for (const column of width === 2 ? [0] : [0, 1]) {
+function firstFree(used, { columns = 12, columnSpan = 1, rowSpan = 1, startRow = 0 } = {}) {
+	const width = Math.max(1, Math.min(columns, Number(columnSpan) || 1)); const height = Math.max(1, Number(rowSpan) || 1);
+	for (let row = Math.max(0, Number(startRow) || 0); ; row++) for (let column = 0; column <= columns - width; column++) {
 		const layout = { row, column, columnSpan: width, rowSpan: height };
 		if (cells(layout).every((cell) => !used.has(cell))) return layout;
 	}
@@ -36,13 +36,13 @@ export function scopeEntries(page, groupId = null) {
 }
 
 export function firstAvailableLayout(page, { groupId = null, columnSpan = 1, rowSpan = 1, startRow = 0 } = {}) {
-	return firstFree(occupied(scopeEntries(page, groupId)), { columnSpan, rowSpan, startRow });
+	return firstFree(occupied(scopeEntries(page, groupId)), { columns: page.gridColumns, columnSpan, rowSpan, startRow });
 }
 
 export function compactScope(page, groupId = null) {
 	const entries = orderedItems(scopeEntries(page, groupId)); const used = new Set();
 	for (const entry of entries) {
-		entry.layout = firstFree(used, { columnSpan: entry.layout.columnSpan, rowSpan: entry.layout.rowSpan });
+		entry.layout = firstFree(used, { columns: page.gridColumns, columnSpan: entry.layout.columnSpan, rowSpan: entry.layout.rowSpan });
 		for (const cell of cells(entry.layout)) used.add(cell);
 	}
 	if (groupId) refreshGroupRowSpans(page);
@@ -54,7 +54,7 @@ export function placeEntry(page, entryId, target, { groupId = null } = {}) {
 	if (!entry) return page;
 	const layout = {
 		row: Math.max(0, Number(target.row) || 0),
-		column: entry.layout.columnSpan === 2 ? 0 : Math.max(0, Math.min(1, Number(target.column) || 0)),
+		column: Math.max(0, Math.min(page.gridColumns - entry.layout.columnSpan, Number(target.column) || 0)),
 		columnSpan: entry.layout.columnSpan,
 		rowSpan: entry.layout.rowSpan,
 	};
@@ -65,14 +65,14 @@ export function placeEntry(page, entryId, target, { groupId = null } = {}) {
 	const fixed = rest.filter((candidate) => visualOrder(candidate, { ...entry, layout }) < 0 && cells(candidate.layout).every((cell) => !cells(layout).includes(cell)));
 	const used = occupied(fixed); entry.layout = layout; for (const cell of cells(layout)) used.add(cell);
 	for (const candidate of rest.filter((item) => !fixed.includes(item))) {
-		candidate.layout = firstFree(used, { columnSpan: candidate.layout.columnSpan, rowSpan: candidate.layout.rowSpan, startRow: layout.row });
+		candidate.layout = firstFree(used, { columns: page.gridColumns, columnSpan: candidate.layout.columnSpan, rowSpan: candidate.layout.rowSpan, startRow: layout.row });
 		for (const cell of cells(candidate.layout)) used.add(cell);
 	}
 	if (groupId) refreshGroupRowSpans(page);
 	return page;
 }
 
-export function projectScope(entries, columns = 2) {
+export function projectScope(entries, columns = 12) {
 	const result = new Map();
 	if (columns !== 1) { for (const entry of entries) result.set(entry.id, { ...entry.layout }); return result; }
 	let row = 0;

@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { DashboardModelError, createPage, emptyDashboard, exportDashboardPreset, normalizeDashboard, preflightDashboardPreset } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicatePage, addItems, moveItems, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { DashboardModelError, bindingKey, createPage, emptyDashboard, exportDashboardPreset, normalizeDashboard, preflightDashboardPreset } from "../js/lib/dashboard_model.js";
+import { compactDashboard, createGroup, deleteGroup, duplicatePage, addItems, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
-import { recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
+import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
 
 const binding = { provider: "generic-widget", hostId: "host-a", controlId: "steps", valueType: "number" };
 const modelWithPage = () => { const model = emptyDashboard(); const page = createPage("Generation"); model.pages.push(page); return { model, page }; };
@@ -12,8 +12,20 @@ const modelWithPage = () => { const model = emptyDashboard(); const page = creat
 test("Dashboard V2 pages directly own grid control cards", () => {
 	const { model, page } = modelWithPage();
 	const next = addItems(model, page.id, [{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } }]);
-	assert.equal(next.version, 2); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 1, rowSpan: 12 }, { row: 0, column: 1, columnSpan: 1, rowSpan: 12 },
+	assert.equal(next.version, 2); assert.equal(next.pages[0].gridColumns, 12); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
+	]);
+});
+
+test("legacy two-column pages normalize once into the twelve-column grid", () => {
+	const legacy = { version: 2, pages: [{ id: "page", name: "Legacy", items: [
+		{ id: "left", kind: "control", binding, groupId: null, layout: { row: 0, column: 0, columnSpan: 1, rowSpan: 12 } },
+		{ id: "right", kind: "control", binding: { ...binding, controlId: "cfg" }, groupId: null, layout: { row: 0, column: 1, columnSpan: 1, rowSpan: 12 } },
+	], groups: [] }] };
+	const normalized = normalizeDashboard(legacy);
+	assert.equal(normalized.pages[0].gridColumns, 12);
+	assert.deepEqual(normalized.pages[0].items.map((item) => item.layout), [
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
 	]);
 });
 
@@ -25,14 +37,27 @@ test("control footprints are stable presentation categories rather than DOM meas
 	assert.equal(recommendedControlRowSpan({ value: 30, options: { min: 1, max: 100 }, paramType: "slider" }), 12);
 	assert.equal(recommendedControlRowSpan({ value: 0, options: { min: 0, max: 100, control_after_generate: "fixed" }, paramType: "seed" }), 7);
 	assert.equal(recommendedControlRowSpan({ value: true }), 9);
-	assert.equal(recommendedControlRowSpan({ value: ["cat"], paramType: "taglist" }), 16);
+	assert.equal(recommendedControlRowSpan({ value: ["cat"], paramType: "taglist" }), 12);
 	assert.equal(recommendedGroupRowSpan([{ layout: { row: 6, rowSpan: 6 } }]), 19);
+	assert.equal(dashboardCardHeight(5), 24);
+	assert.equal(dashboardCardHeight(7), 36);
+	assert.equal(dashboardCardHeight(9), 48);
+	assert.equal(dashboardCardHeight(12), 66);
+});
+
+test("third-party adapter identity survives normalization and preset keys", () => {
+	const adapted = { ...binding, adapterId: "vendor-controls" };
+	const { model, page } = modelWithPage();
+	const next = addItems(model, page.id, [{ label: "Steps", binding: adapted }]);
+	assert.equal(next.pages[0].items[0].binding.adapterId, "vendor-controls");
+	assert.equal(bindingKey(adapted), "generic-widget:host-a:steps:vendor-controls");
+	assert.notEqual(bindingKey(adapted), bindingKey(binding));
 });
 
 test("grid projection to one column does not mutate canonical layout", () => {
 	const entries = [
-		{ id: "a", layout: { row: 0, column: 0, columnSpan: 1, rowSpan: 12 } },
-		{ id: "b", layout: { row: 0, column: 1, columnSpan: 1, rowSpan: 7 } },
+		{ id: "a", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 12 } },
+		{ id: "b", layout: { row: 0, column: 6, columnSpan: 6, rowSpan: 7 } },
 	];
 	const projection = projectScope(entries, 1); assert.deepEqual(projection.get("a"), { row: 0, column: 0, columnSpan: 1, rowSpan: 12 }); assert.deepEqual(projection.get("b"), { row: 12, column: 0, columnSpan: 1, rowSpan: 7 }); assert.equal(entries[1].layout.row, 0);
 });
@@ -43,11 +68,11 @@ test("fine-grained rows allow a short card below another card beside a tall card
 		{ label: "Top", binding: { ...binding, controlId: "top" }, rowSpan: 6 },
 		{ label: "Bottom", binding: { ...binding, controlId: "bottom" }, rowSpan: 6 },
 	]);
-	const bottom = next.pages[0].items[2]; next = moveItems(next, [bottom.id], page.id, { row: 6, column: 1 });
+	const bottom = next.pages[0].items[2]; next = moveItems(next, [bottom.id], page.id, { row: 6, column: 6 });
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 1, rowSpan: 12 },
-		{ row: 0, column: 1, columnSpan: 1, rowSpan: 6 },
-		{ row: 6, column: 1, columnSpan: 1, rowSpan: 6 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 6, columnSpan: 6, rowSpan: 6 },
+		{ row: 6, column: 6, columnSpan: 6, rowSpan: 6 },
 	]);
 });
 
@@ -89,10 +114,34 @@ test("width changes and explicit compaction remain deterministic", () => {
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
 		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }, { label: "C", binding: { ...binding, controlId: "c" } },
 	]);
-	next = resizeItems(next, [next.pages[0].items[0].id], 2); next = compactDashboard(next, page.id);
+	next = resizeItems(next, [next.pages[0].items[0].id], 12); next = compactDashboard(next, page.id);
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 2, rowSpan: 12 }, { row: 12, column: 0, columnSpan: 1, rowSpan: 12 }, { row: 12, column: 1, columnSpan: 1, rowSpan: 12 },
-	]); assert.deepEqual(firstAvailableLayout(next.pages[0], { rowSpan: 12 }), { row: 24, column: 0, columnSpan: 1, rowSpan: 12 });
+		{ row: 0, column: 0, columnSpan: 12, rowSpan: 12 }, { row: 12, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 12, column: 6, columnSpan: 6, rowSpan: 12 },
+	]); assert.deepEqual(firstAvailableLayout(next.pages[0], { columnSpan: 6, rowSpan: 12 }), { row: 24, column: 0, columnSpan: 6, rowSpan: 12 });
+});
+
+test("free card resize snaps both axes and reflows collisions", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
+		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } },
+	]);
+	const firstId = next.pages[0].items[0].id;
+	next = resizeItem(next, firstId, { columnSpan: 9.4, rowSpan: 15.6 });
+	assert.deepEqual(next.pages[0].items.find((item) => item.id === firstId).layout, { row: 0, column: 0, columnSpan: 9, rowSpan: 16 });
+	assert.deepEqual(next.pages[0].items[1].layout, { row: 16, column: 0, columnSpan: 6, rowSpan: 12 });
+	next = resizeItem(next, firstId, { columnSpan: 1, rowSpan: 2 });
+	assert.equal(next.pages[0].items.find((item) => item.id === firstId).layout.columnSpan, 3);
+});
+
+test("resizing a grouped card refreshes both group and page footprints", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
+		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }, { label: "C", binding: { ...binding, controlId: "c" } },
+	]);
+	next = createGroup(next, page.id, next.pages[0].items.slice(0, 2).map((item) => item.id));
+	const group = next.pages[0].groups[0]; const member = next.pages[0].items.find((item) => item.groupId === group.id);
+	next = resizeItem(next, member.id, { columnSpan: 12, rowSpan: 20 });
+	const resizedGroup = next.pages[0].groups.find((item) => item.id === group.id);
+	assert.equal(resizedGroup.layout.rowSpan, 39);
+	assert.ok(next.pages[0].items.find((item) => item.binding.controlId === "c").layout.row >= resizedGroup.layout.row + resizedGroup.layout.rowSpan);
 });
 
 test("duplicating a page regenerates layout identities and preserves bindings", () => {
