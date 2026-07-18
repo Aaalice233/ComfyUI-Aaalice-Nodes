@@ -36,6 +36,23 @@ function graphTransaction(node, callback) {
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); }
 }
 
+function validatePresetPayload(entry, { valueType, options = {} } = {}) {
+	if (!entry || entry.valueType !== valueType) return "type-mismatch";
+	const value = entry.payload;
+	if (valueType === "number") {
+		if (typeof value !== "number" || !Number.isFinite(value)) return "invalid-number";
+		if (Number.isFinite(Number(options.min)) && value < Number(options.min)) return "below-minimum";
+		if (Number.isFinite(Number(options.max)) && value > Number(options.max)) return "above-maximum";
+	}
+	if (valueType === "boolean" && typeof value !== "boolean") return "invalid-boolean";
+	if (valueType === "string" && typeof value !== "string") return "invalid-string";
+	if (valueType === "string-list" && !Array.isArray(value)) return "invalid-list";
+	if (valueType === "reference" && value !== null && typeof value !== "object") return "invalid-reference";
+	const choices = Array.isArray(options.values) ? options.values : Array.isArray(options.options) ? options.options : null;
+	if (valueType === "string" && choices?.length && !choices.some((choice) => String(typeof choice === "object" ? choice.value ?? choice.label : choice) === value)) return "missing-option";
+	return true;
+}
+
 class ProviderRegistry {
 	constructor() { this.providers = []; }
 	register(provider) { this.providers.push(provider); return () => { this.providers = this.providers.filter((item) => item !== provider); }; }
@@ -71,6 +88,9 @@ controlProviders.register({
 		return {
 			status: "ok", family: "aaalice", controlId: binding.controlId, node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
 			options: parameter.config || {},
+			readPresetValue() { return structuredClone(parameter.value); },
+			validatePresetValue(entry) { return validatePresetPayload(entry, { valueType: binding.valueType, options: parameter.config || {} }); },
+			applyPresetValue(entry, options = {}) { return this.setValue(structuredClone(entry.payload), options); },
 			setValue(next, { transaction = true, transient = false, workspaceRedraw = true } = {}) {
 				const apply = () => {
 					parameter.value = next;
@@ -114,6 +134,16 @@ const widgetProvider = (id, promoted) => ({
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
 		return {
 			status: "ok", family: "comfy", kind: adapted.kind, controlId: adapted.controlId, node, control: adapted.control, label: adapted.label, value: adapted.value, options: adapted.options, availability: adapted.availability,
+			readPresetValue() { return structuredClone(adapted.readPresetValue ? adapted.readPresetValue() : adapted.value); },
+			validatePresetValue(entry) {
+				if (!entry || entry.valueType !== binding.valueType) return "type-mismatch";
+				if (adapted.hasCustomPresetCodec) return adapted.validatePresetValue?.(entry) ?? true;
+				return validatePresetPayload(entry, { valueType: binding.valueType, options: adapted.options });
+			},
+			applyPresetValue(entry, options = {}) {
+				const apply = () => adapted.applyPresetValue ? adapted.applyPresetValue(structuredClone(entry)) : adapted.setValue(structuredClone(entry.payload));
+				return options.transaction === false ? apply() : graphTransaction(node, apply);
+			},
 			setValue(next, { transaction = true } = {}) {
 				const apply = () => { adapted.setValue(next); node.setDirtyCanvas?.(true, true); };
 				return transaction ? graphTransaction(node, apply) : apply();

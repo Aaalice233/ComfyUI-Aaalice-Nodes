@@ -123,6 +123,7 @@ Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按
 | `createWorkspaceToolbar()` | 紧凑同排操作及可访问标签 |
 | `createCollapsibleSearch()` | 侧栏内同排展开的搜索入口、输入和关闭 |
 | `createPageRail()` / `createDashboardGrid()` / `createDashboardGroup()` / `createControlCard()` | Dashboard 页面导航、细粒度二维网格、可选布局组和参数投影的纯视图 |
+| `createValuePresetPicker()` | Dashboard 顶栏的紧凑参数预设选择、当前状态和管理入口；不持有工作流状态或直接写节点 |
 | `createTransferHero()` / `createTransferStats()` / `createTransferSection()` / `createTransferResult()` | 导入导出的文件摘要、预检统计、冲突区和结果反馈 |
 
 业务模块可以增加布局 class 和语义色映射，但不得复制基础组件或让共享层持有工作流状态。依赖连续动画的 thumb 必须保留 DOM identity，只更新 class、data、ARIA 和 transform。

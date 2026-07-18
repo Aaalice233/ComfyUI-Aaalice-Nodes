@@ -23,6 +23,8 @@ const dashboardCommands = readFileSync(join(ROOT, "js", "lib", "dashboard_comman
 const dashboardLayout = readFileSync(join(ROOT, "js", "lib", "dashboard_layout.js"), "utf8");
 const dashboardSizing = readFileSync(join(ROOT, "js", "lib", "dashboard_sizing.js"), "utf8");
 const dashboardSelection = readFileSync(join(ROOT, "js", "lib", "dashboard_selection.js"), "utf8");
+const dashboardValuePresets = readFileSync(join(ROOT, "js", "lib", "dashboard_value_presets.js"), "utf8");
+const dashboardPresetRuntime = readFileSync(join(ROOT, "js", "lib", "dashboard_preset_runtime.js"), "utf8");
 const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 const imageUpload = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
@@ -615,6 +617,35 @@ test("adding controls reminds the user to save the workflow", () => {
 	assert.match(workspace, /aaalice\.workspace\.binding\.saveWorkflowReminder/);
 	assert.match(enLocale, /Save the workflow to keep these sidebar controls/);
 	assert.match(zhLocale, /请保存工作流以保留这些侧边栏参数/);
+});
+
+test("parameter value presets are workflow-owned, transactional, and visually distinct from layout backups", () => {
+	assert.match(workspace, /const VALUE_PRESETS_EXTRA_KEY = "aaaliceSidebarValuePresets"/);
+	assert.match(workspace, /createValuePresetPicker\(\{/);
+	assert.match(workspace, /currentValuePresetSnapshot/);
+	assert.match(workspace, /confirmValuePresetSwitch/);
+	assert.match(workspace, /planDashboardPresetApplication/);
+	assert.match(workspace, /graph\?\.beforeChange\?\.\(\)[\s\S]*applyDashboardPresetPlan\(plan\)[\s\S]*graph\?\.afterChange\?\.\(\)/);
+	assert.match(workspace, /valuePreset\.saveWorkflowReminder/);
+	assert.match(components, /export function createValuePresetPicker/);
+	assert.match(components, /aria-haspopup": "dialog"/);
+	assert.match(components, /aa-value-preset-current-primary/);
+	assert.match(components, /aa-value-preset-current-manage/);
+	assert.match(theme, /\.aa-value-preset-trigger__name \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+	assert.match(theme, /\.aa-value-preset-popover\.aa-ui-popover/);
+	assert.match(theme, /\.aa-value-preset-switch-warning/);
+	assert.match(dashboardValuePresets, /DASHBOARD_VALUE_PRESETS_VERSION = 1/);
+	assert.match(dashboardValuePresets, /export function compareValuePreset/);
+	assert.match(dashboardPresetRuntime, /function uniqueBindings/);
+	assert.match(dashboardPresetRuntime, /rollbackErrors/);
+	assert.match(providers, /hasCustomPresetCodec/);
+	assert.match(widgetAdapters, /readPresetValue/);
+	assert.match(widgetAdapters, /validatePresetValue/);
+	assert.match(widgetAdapters, /applyPresetValue/);
+	assert.match(enLocale, /"title": "Parameter presets"/);
+	assert.match(zhLocale, /"title": "参数预设"/);
+	assert.match(enLocale, /"preset": \{ "title": "Layout backup"/);
+	assert.match(zhLocale, /"preset": \{ "title": "布局备份"/);
 });
 
 test("library rows keep a stable thumbnail column and distinguish entry actions", () => {

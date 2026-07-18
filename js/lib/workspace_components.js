@@ -1,6 +1,6 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { button, checkboxControl, el, icon, iconButton, segmentedControl } from "./ui.js";
+import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, segmentedControl } from "./ui.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [] }) {
@@ -22,6 +22,66 @@ export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, head
 
 export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
+}
+
+export function createValuePresetPicker({ presets = [], selectedId = null, comparison = null, labels = {}, onSelect, onCreate, onSave, onDuplicate, onRename, onDelete, onRestore } = {}) {
+	const selected = presets.find((preset) => preset.id === selectedId) || null;
+	const statusLabel = comparison?.modified ? labels.modified : comparison?.attention ? labels.attention : "";
+	const canReconcile = Boolean(comparison?.modified || comparison?.attention);
+	const root = el("div", "aa-value-preset-picker");
+	const trigger = el("button", {
+		className: `aa-value-preset-trigger${comparison?.modified ? " is-modified" : ""}${comparison?.attention ? " needs-attention" : ""}`,
+		attrs: { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": labels.open || "Parameter presets" },
+		children: [
+			el("span", "aa-value-preset-trigger__eyebrow", labels.short || "Preset"),
+			el("span", "aa-value-preset-trigger__name", selected?.name || labels.custom || "Custom"),
+			...(statusLabel ? [el("span", "aa-value-preset-trigger__status", statusLabel)] : []),
+			icon("moveDown", { className: "aa-value-preset-trigger__arrow" }),
+		],
+	});
+	let popover = null;
+	const close = () => popover?.close();
+	const invoke = (callback, ...args) => { close(); callback?.(...args); };
+	const open = () => {
+		if (popover) return;
+		trigger.setAttribute("aria-expanded", "true"); root.classList.add("is-open");
+		popover = createAnchoredPopover({
+			anchor: trigger, ariaLabel: labels.title || "Parameter presets", className: "aa-value-preset-popover", width: 286,
+			onClose: () => { popover = null; trigger.setAttribute("aria-expanded", "false"); root.classList.remove("is-open"); },
+		});
+		const heading = el("header", { className: "aa-value-preset-popover__header", children: [
+			el("div", { children: [el("strong", null, labels.title || "Parameter presets"), el("small", null, labels.description || "Switch all sidebar controls together")] }),
+			el("span", "aa-value-preset-count", String(presets.length)),
+		] });
+		const list = el("div", { className: "aa-value-preset-list", attrs: { role: "listbox", "aria-label": labels.title || "Parameter presets" } });
+		if (!presets.length) list.append(el("div", { className: "aa-value-preset-empty", children: [el("strong", null, labels.empty || "No presets yet"), el("small", null, labels.emptyHint || "Save the current values to create one.")] }));
+		for (const preset of presets) {
+			const active = preset.id === selectedId;
+			const action = el("button", {
+				className: `aa-value-preset-option${active ? " is-active" : ""}`,
+				attrs: { type: "button", role: "option", "aria-selected": String(active) },
+				children: [el("span", { children: [el("strong", null, preset.name), el("small", null, (labels.valueCount || "{count} values").replace("{count}", String(Object.keys(preset.values || {}).length)))] }), ...(active ? [icon("statusCheck")] : [])],
+			});
+			action.addEventListener("click", () => { if (!active) invoke(onSelect, preset.id); }); list.append(action);
+		}
+		const currentActions = selected ? el("div", { className: "aa-value-preset-current-actions", children: [
+			...(canReconcile ? [el("div", { className: "aa-value-preset-current-primary", children: [
+				button({ label: labels.save || "Save changes", iconName: "statusCheck", variant: "primary", size: "sm", onClick: () => invoke(onSave, selected.id) }),
+				button({ label: labels.restore || "Restore", iconName: "refresh", variant: "ghost", size: "sm", onClick: () => invoke(onRestore, selected.id) }),
+			] })] : []),
+			el("div", { className: "aa-value-preset-current-manage", children: [
+				iconButton({ iconName: "copy", label: labels.duplicate || "Duplicate", variant: "ghost", onClick: () => invoke(onDuplicate, selected.id) }),
+				iconButton({ iconName: "edit", label: labels.rename || "Rename", variant: "ghost", onClick: () => invoke(onRename, selected.id) }),
+				iconButton({ iconName: "delete", label: labels.delete || "Delete", variant: "ghost", className: "is-danger", onClick: () => invoke(onDelete, selected.id) }),
+			] }),
+		] }) : null;
+		const footer = el("footer", { className: "aa-value-preset-popover__footer", children: [button({ label: labels.create || "Save current as new preset", iconName: "add", variant: "secondary", size: "sm", onClick: () => invoke(onCreate) })] });
+		popover.root.append(heading, list, ...(currentActions ? [currentActions] : []), footer);
+		popover.reposition();
+	};
+	trigger.addEventListener("click", () => { if (popover) close(); else open(); });
+	trigger.addEventListener("keydown", (event) => { if (["ArrowDown", "ArrowUp"].includes(event.key) && !popover) { event.preventDefault(); open(); } });
+	root.append(trigger); return root;
 }
 
 export function createSelectionActionBar({ ariaLabel, actions = [] }) {

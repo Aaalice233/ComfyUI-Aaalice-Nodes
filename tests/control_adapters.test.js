@@ -68,6 +68,28 @@ test("third-party widget adapters normalize custom identity, value access and wr
 	} finally { unregister(); }
 });
 
+test("third-party widget adapters can serialize and validate domain-specific preset payloads", () => {
+	const events = [];
+	const unregister = registerWidgetControlAdapter({
+		id: "test-vendor-preset", priority: 100, matches: ({ widget }) => widget.type === "VENDOR_PRESET",
+		describe: ({ widget }) => ({
+			controlId: widget.name, kind: "text", valueType: "string", value: widget.value,
+			readPresetValue: () => ({ token: widget.value }),
+			validatePresetValue: (entry) => typeof entry.payload?.token === "string" || "invalid-token",
+			applyPresetValue: (entry) => { events.push(entry.payload.token); widget.value = entry.payload.token; },
+		}),
+	});
+	try {
+		const widget = { name: "style", type: "VENDOR_PRESET", value: "soft" };
+		const adapted = adaptWidgetControl({ widgets: [widget] }, widget);
+		assert.equal(adapted.hasCustomPresetCodec, true);
+		assert.deepEqual(adapted.readPresetValue(), { token: "soft" });
+		assert.equal(adapted.validatePresetValue({ valueType: "string", payload: { token: 4 } }), "invalid-token");
+		adapted.applyPresetValue({ valueType: "string", payload: { token: "hard" } });
+		assert.equal(widget.value, "hard"); assert.deepEqual(events, ["hard"]);
+	} finally { unregister(); }
+});
+
 test("promoted widget discovery only exposes actual public subgraph widgets", () => {
 	const ordinary = { name: "ordinary", type: "number", value: 1, options: {} };
 	const promoted = { name: "public", type: "number", value: 2, options: {}, sourceNodeId: 4, sourceWidgetName: "cfg" };
@@ -158,4 +180,7 @@ test("adapter contract rejects unstable identities and asynchronous descriptors"
 	const unregisterAsync = registerWidgetControlAdapter({ id: "test-async", priority: 100, matches: () => true, describe: async () => ({ controlId: "x", value: 1 }) });
 	try { assert.throws(() => adaptWidgetControl({}, {}), /synchronous descriptor/); }
 	finally { unregisterAsync(); }
+	const unregisterPartialCodec = registerWidgetControlAdapter({ id: "test-partial-codec", priority: 100, matches: () => true, describe: () => ({ controlId: "x", value: 1, readPresetValue: () => 1 }) });
+	try { assert.throws(() => adaptWidgetControl({}, {}), /complete preset codec/); }
+	finally { unregisterPartialCodec(); }
 });

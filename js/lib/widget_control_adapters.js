@@ -88,6 +88,10 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	const options = described.options || widget.options || {};
 	const availabilitySource = typeof described.getAvailability === "function" ? described.getAvailability(context) : described.availability;
 	const availability = normalizeAvailability(availabilitySource, { kind, currentValue: value, options });
+	const presetHooks = ["readPresetValue", "validatePresetValue", "applyPresetValue"]
+		.map((hook) => typeof described[hook] === "function" || typeof adapter[hook] === "function");
+	if (presetHooks.some(Boolean) && !presetHooks.every(Boolean)) throw new TypeError(`Widget control adapter ${adapter.id} must provide the complete preset codec`);
+	const hasCustomPresetCodec = presetHooks.every(Boolean);
 	return {
 		adapterId: adapter.id,
 		controlId,
@@ -97,12 +101,28 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 		kind,
 		options,
 		availability,
+		hasCustomPresetCodec,
 		widget,
 		control: described.control || widget,
 		setValue(next) {
 			if (typeof described.setValue === "function") return described.setValue(next, context);
 			if (typeof adapter.setValue === "function") return adapter.setValue(next, context);
 			widget.value = next; widget.callback?.(next);
+		},
+		readPresetValue() {
+			if (typeof described.readPresetValue === "function") return described.readPresetValue(context);
+			if (typeof adapter.readPresetValue === "function") return adapter.readPresetValue(context);
+			return value;
+		},
+		validatePresetValue(entry) {
+			if (typeof described.validatePresetValue === "function") return described.validatePresetValue(entry, context);
+			if (typeof adapter.validatePresetValue === "function") return adapter.validatePresetValue(entry, context);
+			return true;
+		},
+		applyPresetValue(entry) {
+			if (typeof described.applyPresetValue === "function") return described.applyPresetValue(entry, context);
+			if (typeof adapter.applyPresetValue === "function") return adapter.applyPresetValue(entry, context);
+			return this.setValue(entry.payload);
 		},
 		setSeedLocked(locked) { return described.setSeedLocked?.(Boolean(locked), context); },
 	};
