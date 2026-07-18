@@ -177,6 +177,24 @@ test("inactive and linked native widgets do not block ordinary controls", () => 
 	seed.setSeedLocked(false); assert.equal(node.widgets[1].value, "randomize"); assert.equal(seedMode, "randomize");
 });
 
+test("ComfyUI Primitive integer value controls are treated as seed metadata", () => {
+	let modeCommit = null;
+	const mode = {
+		name: "control_after_generate", type: "combo", value: "fixed",
+		options: { values: ["fixed", "increment", "decrement", "randomize"], serialize: false, canvasOnly: true },
+		callback: (value) => { modeCommit = value; },
+	};
+	const value = { name: "value", type: "number", value: 7, options: { min: 0, max: 100 }, linkedWidgets: [mode] };
+	const controls = listAdaptedWidgetControls({ widgets: [value, mode] });
+	assert.equal(controls.length, 1);
+	assert.equal(controls[0].controlId, "value");
+	assert.equal(controls[0].kind, "seed");
+	assert.deepEqual(controls[0].readPresetValue(), { value: 7, control_after_generate: "fixed" });
+	controls[0].setSeedLocked(false);
+	assert.equal(mode.value, "randomize");
+	assert.equal(modeCommit, "randomize");
+});
+
 test("adapter contract rejects unstable identities and asynchronous descriptors", () => {
 	const unregisterEmpty = registerWidgetControlAdapter({ id: "test-empty-id", priority: 100, matches: () => true, describe: () => ({ controlId: "", value: 1 }) });
 	try { assert.throws(() => adaptWidgetControl({}, {}), /empty controlId/); }

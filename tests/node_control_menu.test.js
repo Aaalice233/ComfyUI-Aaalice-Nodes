@@ -17,7 +17,11 @@ test("control menu discovers widgets when the menu opens, not when the node is c
 	node.getExtraMenuOptions(null, beforeWidgets);
 	assert.deepEqual(beforeWidgets, []);
 
-	node.widgets.push({ name: "value", type: "INT", value: 0, options: {} });
+	const mode = {
+		name: "control_after_generate", type: "combo", value: "fixed",
+		options: { values: ["fixed", "increment", "decrement", "randomize"], serialize: false, canvasOnly: true },
+	};
+	node.widgets.push({ name: "value", type: "number", value: 0, options: {}, linkedWidgets: [mode] }, mode);
 	const afterWidgets = [];
 	node.getExtraMenuOptions(null, afterWidgets);
 	assert.equal(afterWidgets.length, 1);

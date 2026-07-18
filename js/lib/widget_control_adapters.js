@@ -38,7 +38,15 @@ export function registeredWidgetControlAdapters() { return adapters.map(({ id, p
 
 function widgetType(widget) { return String(widget?.type || "").trim().toLowerCase(); }
 function isLinkedWidget(widget) { const [base, linkedName] = widgetType(widget).split(":", 2); return Boolean(linkedName && SIMPLE_NATIVE_WIDGETS[base]); }
-function isInactiveNativeWidget(widget) { return INACTIVE_NATIVE_WIDGET_TYPES.has(widgetType(widget)) || isLinkedWidget(widget); }
+function isNativeValueControl(widget) {
+	const values = Array.isArray(widget?.options?.values) ? widget.options.values.map(String) : [];
+	return widgetType(widget) === "combo" && widget?.options?.serialize === false && widget?.options?.canvasOnly === true
+		&& ["fixed", "increment", "decrement", "randomize"].every((mode) => values.includes(mode));
+}
+function isInactiveNativeWidget(node, widget) {
+	if (INACTIVE_NATIVE_WIDGET_TYPES.has(widgetType(widget)) || isLinkedWidget(widget)) return true;
+	return isNativeValueControl(widget) && (node?.widgets || []).some((owner) => owner !== widget && owner?.linkedWidgets?.includes(widget));
+}
 function simpleNativeWidgetDefinition(widget, { promoted = false } = {}) {
 	// PromotedWidgetView is intentionally non-serializing: the interior widget
 	// remains the state owner while the subgraph node only projects its control.
@@ -50,7 +58,7 @@ function supportsNativeFallback(node, promoted) {
 	if (promoted) return true;
 	// A mixed node may rely on a custom panel as its real state owner. In that
 	// case only an explicit higher-priority adapter may opt individual widgets in.
-	return (node?.widgets || []).every((widget) => isInactiveNativeWidget(widget) || Boolean(simpleNativeWidgetDefinition(widget)));
+	return (node?.widgets || []).every((widget) => isInactiveNativeWidget(node, widget) || Boolean(simpleNativeWidgetDefinition(widget)));
 }
 
 function optionValues(options = {}) { return Array.isArray(options.values) ? options.values : Array.isArray(options.options) ? options.options : []; }
@@ -68,6 +76,8 @@ function normalizeAvailability(value, { kind, currentValue, options } = {}) {
 }
 
 function linkedSeedModeWidget(node, widget) {
+	const linked = widget?.linkedWidgets?.find((candidate) => isNativeValueControl(candidate));
+	if (linked) return linked;
 	return (node?.widgets || []).find((candidate) => {
 		const [, linkedName] = widgetType(candidate).split(":", 2);
 		return candidate?.name === "control_after_generate" && linkedName === widget?.name;
