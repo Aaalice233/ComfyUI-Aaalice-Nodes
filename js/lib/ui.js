@@ -17,6 +17,7 @@ const ICON_PATHS = {
 	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
 	move: "M3 6h7l2 2h9v11H3V6Zm5 8h8m-3-3 3 3-3 3",
+	pin: "M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6Zm3 11v7",
 	unlock: "M17 11V8a5 5 0 0 0-9.6-2M5 11h14v10H5z",
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	moveDown: "m7 10 5 5 5-5",

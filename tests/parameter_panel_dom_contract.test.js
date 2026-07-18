@@ -81,6 +81,70 @@ test("parameter labels keep a small gap above their controls", () => {
 	assert.match(themeSource, /\.aaalice-pcp-node-root \.aaalice-pcp-node-row\s*\{[^}]*row-gap:\s*2px/s);
 });
 
+test("separator parameters place their label between two visible rules", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /aaalice-pcp-node-section-label/);
+	assert.match(panelSource, /role: "separator"/);
+	assert.match(layoutSource, /sectionHeight:\s*24/);
+	assert.match(themeSource, /\.aaalice-pcp-node-section::before,[\s\S]*\.aaalice-pcp-node-section::after/);
+	assert.match(themeSource, /\.aaalice-pcp-node-section-label\s*\{[^}]*text-align:\s*center/s);
+});
+
+test("tag-list parameters use the shared multiline editor and explain where values are set", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const controlsSource = readFileSync(join(ROOT, "js", "lib", "parameter_controls.js"), "utf8");
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
+
+	assert.match(panelSource, /aaalice\.pcp\.editor\.valueHint/);
+	assert.match(controlsSource, /isTagList \|\| parameter\.config\?\.multiline \? document\.createElement\("textarea"\)/);
+	assert.match(controlsSource, /parseTagListValue\(input\.value\)/);
+	assert.match(layoutSource, /parameter\.param_type === "taglist"/);
+});
+
+test("parameter editor keeps the reorder hint in the dialog header", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /aaalice-editor-header-hint/);
+	assert.match(panelSource, /headerLead\.append\([\s\S]*dialogApi\.heading[\s\S]*reorderHint/);
+	assert.doesNotMatch(panelSource, /aaalice-editor-rail-header|aaalice-editor-rail-heading/);
+	assert.match(themeSource, /\.aaalice-editor-header-lead\s*\{/);
+});
+
+test("parameter editor assigns a maintainable theme tone to every parameter type", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const modelSource = readFileSync(join(ROOT, "js", "lib", "param_model.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+	const types = ["slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist", "separator"];
+
+	assert.match(modelSource, /export const PARAMETER_TYPE_ORDER = Object\.freeze/);
+	assert.match(modelSource, /new Set\(PARAMETER_TYPE_ORDER\.filter/);
+	assert.match(panelSource, /for \(const paramType of PARAMETER_TYPE_ORDER\)/);
+	assert.match(panelSource, /row\.dataset\.parameterType = parameter\.param_type/);
+	for (const type of types) {
+		assert.match(themeSource, new RegExp(`data-parameter-type="${type}"`));
+	}
+	assert.match(themeSource, /--aaalice-parameter-type-tone/);
+	assert.match(themeSource, /\.aaalice-editor-list-row::before/);
+});
+
+test("parameter editor creates parameters from a header add menu", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /className: "aaalice-editor-header-add"/);
+	assert.match(panelSource, /createAnchoredPopover\(\{/);
+	assert.match(panelSource, /for \(const paramType of PARAMETER_TYPE_ORDER\)/);
+	assert.match(panelSource, /appendEditorParameter\(editor, paramType, rerender\)/);
+	assert.match(panelSource, /role: "menu"/);
+	assert.match(panelSource, /\["ArrowDown", "ArrowUp", "Home", "End"\]/);
+	assert.doesNotMatch(panelSource, /aaalice-editor-add-control|parameterTypeOptions/);
+	assert.match(themeSource, /\.aaalice-parameter-type-option/);
+});
+
 test("parameter descriptions use the shared tooltip shell with readable markdown", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");

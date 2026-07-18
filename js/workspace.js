@@ -15,11 +15,11 @@ import { closeImagePreview, createSelectableImagePreview } from "./lib/image_pre
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
 import { applyCategoryColor, categorySelectOption, nativeCategoryOption } from "./lib/category_color.js";
 import { collectionDisplayName, isDefaultCollection } from "./lib/collection.js";
-import { badge, button, createContextMenu, createDialog, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl, toggleSwitch } from "./lib/ui.js";
+import { badge, button, createContextMenu, createDialog, createTooltip, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl, toggleSwitch } from "./lib/ui.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow, createPageRail,
-	createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
+	createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement } from "./lib/workspace_controls.js";
 
@@ -28,7 +28,9 @@ const TAB_ID = "aaalice-workspace";
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
 const dashboardPageRails = new WeakMap();
+const workspacePinTooltip = createTooltip({ delay: 220, closeDelay: 60 });
 let activeWorkspace = "dashboard";
+let sidebarPinned = true;
 let activePageId = null;
 let editMode = false;
 let dashboardModelError = null;
@@ -57,7 +59,7 @@ function installWorkspaceCanvasAutoClose() {
 	if (autoCloseCanvases.has(canvas)) return;
 	autoCloseCanvases.add(canvas);
 	canvas.addEventListener("click", () => {
-		if (sidebar.activeSidebarTabId === TAB_ID) sidebar.toggleSidebarTab(TAB_ID);
+		if (!sidebarPinned && sidebar.activeSidebarTabId === TAB_ID) sidebar.toggleSidebarTab(TAB_ID);
 	});
 }
 
@@ -88,6 +90,15 @@ function updateDashboard(callback) {
 	const graph = app.graph; graph?.beforeChange?.();
 	try { graph.extra ||= {}; graph.extra[EXTRA_KEY] = normalizeDashboard(callback(dashboard()) || dashboard()); }
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
+}
+
+function remindWorkflowSave(detail) {
+	app.extensionManager?.toast?.add?.({
+		severity: "warn",
+		summary: t("aaalice.common.notice", "Notice"),
+		detail,
+		life: 4500,
+	});
 }
 
 function scheduleRender(view = null) {
@@ -207,10 +218,11 @@ function resolve(binding) { return controlProviders.resolve(binding, graphNodes(
 function workspaceLabels() {
 	return {
 		pages: t("aaalice.workspace.page.pages", "Dashboard pages"), duplicatePage: t("aaalice.workspace.page.duplicate", "Duplicate page"),
-		renamePage: t("aaalice.workspace.page.rename", "Rename page"), deletePage: t("aaalice.workspace.page.delete", "Delete page"), addPage: t("aaalice.workspace.page.add", "Add page"),
+		renamePage: t("aaalice.workspace.page.rename", "Rename page"), deletePage: t("aaalice.workspace.page.delete", "Delete page"),
 		groupMenu: t("aaalice.workspace.group.menu", "Layout group menu"),
 		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
 		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
+		taglistPlaceholder: t("aaalice.pcp.taglist.placeholder", "One tag per line, or separate tags with commas"),
 		missing: t("aaalice.workspace.binding.missing", "Missing binding"), incompatible: t("aaalice.workspace.binding.incompatible", "Incompatible control"),
 	};
 }
@@ -321,35 +333,47 @@ function renderDashboard(container, host) {
 		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; if (!open) viewState.query = ""; scheduleRender(); },
 		onInput: (value) => { viewState.query = value; applyDashboardSearch(value); },
 	});
-	let createGroupButton = null;
+	const addSeparatorToPage = () => {
+		if (!page) return;
+		askText(t("aaalice.workspace.layout.separator", "Add separator"), t("aaalice.workspace.layout.separatorLabel", "Separator"), "", (label) => updateDashboard((current) => addSeparator(current, page.id, label)));
+	};
+	const openPageMenu = (event) => {
+		if (!page) return;
+		const rect = event.currentTarget.getBoundingClientRect();
+		createContextMenu({ x: rect.right, y: rect.bottom, ariaLabel: t("aaalice.workspace.page.menu", "Page actions"), items: [
+			{ label: t("aaalice.workspace.page.duplicate", "Duplicate page"), iconName: "copy", onSelect: () => updateDashboard((current) => { const next = duplicatePage(current, page.id); activePageId = next.pages[next.pages.findIndex((entry) => entry.id === page.id) + 1]?.id || page.id; return next; }) },
+			{ label: t("aaalice.workspace.page.rename", "Rename page"), iconName: "edit", onSelect: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, (name) => updateDashboard((current) => { current.pages.find((item) => item.id === page.id).name = name; return current; })) },
+			{ separator: true },
+			{ label: t("aaalice.workspace.page.delete", "Delete page"), iconName: "delete", danger: true, onSelect: () => removePage(page) },
+		] });
+	};
 	const dashboardActions = [
 		...(page ? [el("div", { className: "aa-dashboard-page-name", attrs: { title: page.name, role: "heading", "aria-level": "2", "aria-current": "page" }, children: [el("span", null, page.name)] })] : []),
-		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
-		...(editMode && page ? [
-			iconButton({ iconName: "copy", label: t("aaalice.workspace.page.duplicate", "Duplicate page"), variant: "ghost", onClick: () => updateDashboard((current) => { const next = duplicatePage(current, page.id); activePageId = next.pages[next.pages.findIndex((entry) => entry.id === page.id) + 1]?.id || page.id; return next; }) }),
-			iconButton({ iconName: "settings", label: t("aaalice.workspace.page.rename", "Rename page"), variant: "ghost", onClick: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, (name) => updateDashboard((current) => { current.pages.find((item) => item.id === page.id).name = name; return current; })) }),
-			iconButton({ iconName: "delete", label: t("aaalice.workspace.page.delete", "Delete page"), variant: "ghost", onClick: () => removePage(page) }),
-		] : []),
-		iconButton({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export preset"), variant: "ghost", onClick: () => openDashboardExport(model) }),
-		iconButton({ iconName: "download", label: t("aaalice.workspace.preset.import", "Import preset"), variant: "ghost", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
-		search.toggle,
+		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
+		...(editMode ? [
+			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
+			...(page ? [
+				button({ label: t("aaalice.workspace.layout.separator", "Add separator"), variant: "ghost", size: "sm", className: "aa-dashboard-add-separator", onClick: addSeparatorToPage }),
+				iconButton({ iconName: "layout", label: t("aaalice.workspace.layout.compact", "Tidy layout"), variant: "ghost", className: "aa-dashboard-tidy-layout", onClick: () => updateDashboard((current) => compactDashboard(current, page.id)) }),
+				iconButton({ iconName: "settings", label: t("aaalice.workspace.page.menu", "Page actions"), variant: "ghost", className: "aa-dashboard-page-menu", onClick: openPageMenu }),
+			] : []),
+		] : [
+			iconButton({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export preset"), variant: "ghost", onClick: () => openDashboardExport(model) }),
+			iconButton({ iconName: "download", label: t("aaalice.workspace.preset.import", "Import preset"), variant: "ghost", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
+			search.toggle,
+		]),
 	];
 	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : dashboardActions, { className: `aa-dashboard-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
 	let pageRail = dashboardPageRails.get(host);
 	if (!pageRail) { pageRail = createPageRail(); dashboardPageRails.set(host, pageRail); }
 	pageRail.update({
 		pages: model.pages, activeId: page?.id, expanded: viewState.pageRailExpanded, editMode, labels: workspaceLabels(), onSelect: (id) => {
-			activePageId = id; scheduleRender();
-		}, onExpandedChange: (expanded) => { viewState.pageRailExpanded = expanded; }, onAdd: addPage,
+			activePageId = id; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); scheduleRender();
+		}, onExpandedChange: (expanded) => { viewState.pageRailExpanded = expanded; },
 		onReorder: (sourceId, targetId) => updateDashboard((current) => { const sourceIndex = current.pages.findIndex((item) => item.id === sourceId); const targetIndex = current.pages.findIndex((item) => item.id === targetId); if (sourceIndex >= 0 && targetIndex >= 0) { const [source] = current.pages.splice(sourceIndex, 1); current.pages.splice(targetIndex, 0, source); } return current; }),
 	});
 	container.append(toolbar);
 	if (!page) { container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
-	if (editMode) container.append(createWorkspaceToolbar([
-		(createGroupButton = button({ label: t("aaalice.workspace.group.create", "Create group"), iconName: "layout", variant: "ghost", size: "sm", disabled: viewState.selectedItemIds.size < 2, onClick: () => askText(t("aaalice.workspace.group.create", "Create group"), t("aaalice.workspace.group.name", "Group name"), t("aaalice.workspace.group.default", "New group"), (name) => updateDashboard((current) => createGroup(current, page.id, [...viewState.selectedItemIds], { name, tone: "blue" }))) })),
-		button({ label: t("aaalice.workspace.layout.separator", "Add separator"), variant: "ghost", size: "sm", onClick: () => askText(t("aaalice.workspace.layout.separator", "Add separator"), t("aaalice.workspace.layout.separatorLabel", "Separator"), "", (label) => updateDashboard((current) => addSeparator(current, page.id, label))) }),
-		button({ label: t("aaalice.workspace.layout.compact", "Tidy layout"), variant: "ghost", size: "sm", onClick: () => updateDashboard((current) => compactDashboard(current, page.id)) }),
-	]));
 	const scroll = el("div", "aa-dashboard-scroll");
 	const openGroupMenu = (event, group) => {
 		const rect = event.currentTarget.getBoundingClientRect(); createContextMenu({ x: event.clientX || rect.right, y: event.clientY || rect.bottom, ariaLabel: t("aaalice.workspace.group.menu", "Layout group menu"), items: [
@@ -374,14 +398,48 @@ function renderDashboard(container, host) {
 	};
 	const columns = container.clientWidth && container.clientWidth < 330 ? 1 : 2;
 	const grid = createDashboardGrid({ page, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu });
-	if (!page.items.length) grid.append(emptyState({ description: t("aaalice.workspace.empty.page", "Add controls from a compatible node's context menu.") }));
+	let updateSelectionUi = () => {}; let dashboardInteraction = null;
+	const clearSelection = () => { viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); dashboardInteraction?.setSelection(viewState.selectedItemIds, viewState.selectedGroupIds); updateSelectionUi(); };
+	const selectionBar = createSelectionActionBar({ ariaLabel: t("aaalice.workspace.selection.toolbar", "Selected layout actions"), actions: [
+		{ id: "group", label: t("aaalice.workspace.selection.group", "Quick group"), iconName: "layout", showLabel: true, className: "aa-dashboard-selection-group", onSelect: () => {
+			const ids = [...viewState.selectedItemIds]; if (ids.length < 2 || viewState.selectedGroupIds.size) return;
+			askText(t("aaalice.workspace.group.create", "Create group"), t("aaalice.workspace.group.name", "Group name"), t("aaalice.workspace.group.default", "New group"), (name) => { clearSelection(); updateDashboard((current) => createGroup(current, page.id, ids, { name, tone: "blue" })); });
+		} },
+		{ id: "ungroup", label: t("aaalice.workspace.selection.ungroup", "Remove from group"), iconName: "close", onSelect: () => {
+			const itemIds = [...viewState.selectedItemIds]; const groupIds = [...viewState.selectedGroupIds]; clearSelection();
+			updateDashboard((current) => { let next = current; for (const groupId of groupIds) next = deleteGroup(next, page.id, groupId); const targetPage = next.pages.find((candidate) => candidate.id === page.id); const groupedIds = itemIds.filter((id) => targetPage?.items.find((item) => item.id === id)?.groupId); return groupedIds.length ? ungroupItems(next, page.id, groupedIds) : next; });
+		} },
+		{ id: "width", label: t("aaalice.workspace.selection.width", "Toggle selected widths"), iconName: "copy", onSelect: () => {
+			const controls = page.items.filter((item) => viewState.selectedItemIds.has(item.id) && item.kind === "control"); if (!controls.length) return;
+			const width = controls.every((item) => item.layout.columnSpan === 2) ? 1 : 2; updateDashboard((current) => resizeItems(current, controls.map((item) => item.id), width));
+		} },
+		{ id: "remove", label: t("aaalice.workspace.selection.remove", "Remove selected"), iconName: "delete", className: "aa-dashboard-selection-remove", onSelect: async () => {
+			const ids = [...viewState.selectedItemIds]; if (!ids.length || viewState.selectedGroupIds.size) return;
+			const message = t("aaalice.workspace.selection.removeConfirm", "Remove {count} selected layout items?").replace("{count}", ids.length);
+			if (!await confirmAction(message, { title: t("aaalice.workspace.selection.remove", "Remove selected"), confirmLabel: t("aaalice.common.delete", "Delete"), danger: true })) return;
+			clearSelection(); updateDashboard((current) => removeItems(current, ids));
+		} },
+		{ id: "clear", label: t("aaalice.workspace.selection.clear", "Clear selection"), iconName: "close", className: "aa-dashboard-selection-clear", onSelect: clearSelection },
+	] });
+	if (!page.items.length) grid.append(emptyState({ className: "aa-dashboard-page-empty", description: t("aaalice.workspace.empty.page", "Add controls from a compatible node's context menu.") }));
 	scroll.append(grid);
 	const searchEmpty = emptyState({ iconName: "search", className: "aa-workspace-empty aa-dashboard-search-empty", description: t("aaalice.workspace.search.noParameters", "No matching parameters.") }); searchEmpty.hidden = true; scroll.append(searchEmpty);
-	const body = el("div", { className: "aa-dashboard-body", children: [scroll, pageRail] }); container.append(body);
-	bindDashboardInteractions(grid, { editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds,
-		onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; if (createGroupButton) createGroupButton.disabled = items.size < 2; for (const card of grid.querySelectorAll("[data-dashboard-item-id]")) card.classList.toggle("is-selected", items.has(card.dataset.dashboardItemId)); for (const group of grid.querySelectorAll("[data-dashboard-group-id]")) group.classList.toggle("is-selected", groups.has(group.dataset.dashboardGroupId)); },
+	const body = el("div", { className: "aa-dashboard-body", children: [scroll, pageRail, selectionBar.root] }); container.append(body);
+	updateSelectionUi = () => {
+		const selectedItems = page.items.filter((item) => viewState.selectedItemIds.has(item.id)); const selectedGroups = page.groups.filter((group) => viewState.selectedGroupIds.has(group.id));
+		viewState.selectedItemIds = new Set(selectedItems.map((item) => item.id)); viewState.selectedGroupIds = new Set(selectedGroups.map((group) => group.id));
+		for (const card of grid.querySelectorAll("[data-dashboard-item-id]")) card.classList.toggle("is-selected", viewState.selectedItemIds.has(card.dataset.dashboardItemId));
+		for (const group of grid.querySelectorAll("[data-dashboard-group-id]")) group.classList.toggle("is-selected", viewState.selectedGroupIds.has(group.dataset.dashboardGroupId));
+		const count = selectedItems.length + selectedGroups.length; const canUngroup = selectedGroups.length > 0 || selectedItems.some((item) => item.groupId); const selectedControls = selectedItems.filter((item) => item.kind === "control");
+		selectionBar.update({ count, summary: t("aaalice.workspace.selection.summary", "{count} selected").replace("{count}", count), actions: {
+			group: { disabled: selectedItems.length < 2 || selectedGroups.length > 0 }, ungroup: { disabled: !canUngroup }, width: { disabled: !selectedControls.length || selectedGroups.length > 0 }, remove: { disabled: !selectedItems.length || selectedGroups.length > 0 }, clear: { disabled: count === 0 },
+		} });
+	};
+	dashboardInteraction = bindDashboardInteractions(grid, { editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds,
+		onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; updateSelectionUi(); },
 		onDropItems: (ids, target) => updateDashboard((current) => moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row)),
 	});
+	updateSelectionUi();
 	applyDashboardSearch = (value) => {
 		const needle = String(value || "").trim().toLocaleLowerCase(); let visibleItems = 0;
 		body.classList.toggle("is-searching", Boolean(needle)); pageRail.hidden = Boolean(needle);
@@ -913,6 +971,7 @@ async function importLibrary(file) {
 }
 
 function renderWorkspace(root) {
+	workspacePinTooltip.hide();
 	closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(root);
 	root.replaceChildren();
 	let shell;
@@ -920,7 +979,23 @@ function renderWorkspace(root) {
 		shell.content.replaceChildren();
 		if (activeWorkspace === "dashboard") renderDashboard(shell.content, root); else renderLibrary(shell.content);
 	};
-	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
+	const pinLabel = () => sidebarPinned
+		? t("aaalice.workspace.pin.pinned", "Pinned: clicking outside keeps the sidebar open. Click to enable auto-close.")
+		: t("aaalice.workspace.pin.unpinned", "Auto-close enabled: clicking outside closes the sidebar. Click to pin.");
+	const pinButton = iconButton({ iconName: "pin", label: pinLabel(), variant: "ghost", active: sidebarPinned, className: "aa-workspace-pin" });
+	pinButton.removeAttribute("title");
+	const syncPinButton = () => {
+		pinButton.classList.toggle("is-active", sidebarPinned);
+		pinButton.setAttribute("aria-label", pinLabel());
+		pinButton.setAttribute("aria-pressed", String(sidebarPinned));
+	};
+	pinButton.addEventListener("click", () => { workspacePinTooltip.hide(); sidebarPinned = !sidebarPinned; syncPinButton(); });
+	pinButton.addEventListener("mouseenter", () => workspacePinTooltip.show(pinButton, pinLabel));
+	pinButton.addEventListener("mouseleave", () => workspacePinTooltip.hide());
+	pinButton.addEventListener("focus", () => workspacePinTooltip.show(pinButton, pinLabel, { immediate: true }));
+	pinButton.addEventListener("blur", () => workspacePinTooltip.hide());
+	syncPinButton();
+	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], headerActions: [pinButton], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
 	root.append(shell.root); renderActiveWorkspace();
 }
 
@@ -930,8 +1005,8 @@ function openAddControls(node) {
 	const body = el("div", "aa-add-controls-dialog"); const list = el("div", "aa-add-controls-list");
 	const pageSelect = selectControl({ ariaLabel: t("aaalice.workspace.target.page", "Page"), onChange: () => rebuildTargets() });
 	const targetGrid = el("div", "aa-add-controls-target-grid");
-	const destinationPanel = el("section", { className: "aa-add-controls-section", children: [
-		el("header", { className: "aa-add-controls-section-header", children: [el("div", { children: [el("h3", null, t("aaalice.workspace.binding.destination", "Destination")), el("p", null, t("aaalice.workspace.binding.destinationHint", "Choose where the selected controls will appear."))] })] }),
+	const destinationPanel = el("section", { className: "aa-add-controls-section aa-add-controls-destination", children: [
+		el("div", { className: "aa-add-controls-destination-copy", children: [el("h3", null, t("aaalice.workspace.binding.destination", "Destination")), el("p", null, t("aaalice.workspace.binding.destinationHint", "Choose where the selected controls will appear."))] }),
 		targetGrid,
 	] });
 	const rebuildTargets = () => {
@@ -944,14 +1019,18 @@ function openAddControls(node) {
 		body._createTarget = () => updateDashboard((current) => { const nextPage = createPage(pageName.value.trim() || "Page"); current.pages.push(nextPage); activePageId = nextPage.id; return current; });
 	} else { rebuildTargets(); targetGrid.append(field({ label: t("aaalice.workspace.target.page", "Page"), control: pageSelect })); }
 	const existing = new Set(model.pages.flatMap((candidatePage) => candidatePage.items.filter((item) => item.kind === "control").map((item) => bindingKey(item.binding))));
+	const duplicateKeys = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => existing.has(key)));
+	selected = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => !existing.has(key)));
 	const selectionCount = el("span", "aa-add-controls-selection-count");
-	const footerCount = el("span", "aa-add-controls-footer-count");
 	let confirmButton = null; let selectAllButton = null;
 	const eligibleKeys = () => controls.map((control) => bindingKey(control.binding)).filter((key) => allowDuplicate || !existing.has(key));
 	const updateSelectionState = () => {
 		const text = `${selected.size} ${t("aaalice.workspace.binding.selectedControls", "controls selected")}`;
-		selectionCount.textContent = text; footerCount.textContent = text;
-		if (confirmButton) confirmButton.disabled = selected.size === 0;
+		selectionCount.textContent = text;
+		if (confirmButton) {
+			confirmButton.disabled = selected.size === 0;
+			confirmButton.querySelector(".aa-ui-button__label").textContent = t("aaalice.workspace.binding.addSelected", "Add controls · {count}").replace("{count}", selected.size);
+		}
 		if (selectAllButton) {
 			const keys = eligibleKeys(); const allSelected = keys.length > 0 && keys.every((key) => selected.has(key));
 			const label = allSelected ? t("aaalice.workspace.binding.clearAll", "Clear all") : t("aaalice.workspace.binding.selectAll", "Select all");
@@ -960,7 +1039,11 @@ function openAddControls(node) {
 		}
 	};
 	let drawList = () => {};
-	const duplicateToggle = toggleSwitch({ checked: false, label: t("aaalice.workspace.binding.allowDuplicate", "Allow duplicate cards"), onChange: (value) => { allowDuplicate = value; if (!value) for (const key of existing) selected.delete(key); drawList(); } });
+	const duplicateToggle = toggleSwitch({ checked: false, label: t("aaalice.workspace.binding.allowDuplicate", "Allow duplicate cards"), onChange: (value) => {
+		allowDuplicate = value;
+		for (const key of duplicateKeys) { if (value) selected.add(key); else selected.delete(key); }
+		drawList();
+	} });
 	const duplicateSetting = el("div", { className: "aa-add-controls-duplicate", children: [
 		el("div", { children: [el("strong", null, t("aaalice.workspace.binding.allowDuplicate", "Allow duplicate cards")), el("small", null, t("aaalice.workspace.binding.allowDuplicateHint", "Permit another card for controls already placed in the sidebar."))] }), duplicateToggle,
 	] });
@@ -969,10 +1052,10 @@ function openAddControls(node) {
 		if (allSelected) for (const key of keys) selected.delete(key); else for (const key of keys) selected.add(key);
 		drawList();
 	} });
-	const pickerActions = el("div", { className: "aa-add-controls-picker-actions", children: [selectAllButton, selectionCount] });
+	const pickerActions = el("div", { className: "aa-add-controls-picker-actions", children: [selectionCount, selectAllButton] });
 	const controlPicker = el("section", { className: "aa-add-controls-section aa-add-controls-picker", children: [
 		el("header", { className: "aa-add-controls-section-header", children: [el("div", { children: [el("h3", null, t("aaalice.workspace.binding.chooseControls", "Choose controls")), el("p", null, t("aaalice.workspace.binding.chooseControlsHint", "Select one or more controls to add to this page."))] }), pickerActions] }),
-		duplicateSetting, list,
+		...(duplicateKeys.size ? [duplicateSetting] : []), list,
 	] });
 	drawList = () => {
 		list.replaceChildren();
@@ -985,12 +1068,15 @@ function openAddControls(node) {
 	};
 	body.append(destinationPanel, controlPicker); drawList();
 	const footer = el("div"); const dialog = createDialog({ title: t("aaalice.workspace.binding.add", "Add controls to sidebar"), body, footer, size: "md", className: "aa-add-controls-dialog-shell" });
-	confirmButton = button({ label: t("aaalice.workspace.binding.addAction", "Add controls"), disabled: true, onClick: () => {
+	confirmButton = button({ label: t("aaalice.workspace.binding.addSelected", "Add controls · {count}").replace("{count}", selected.size), disabled: true, onClick: () => {
 		if (body._createTarget) { body._createTarget(); model = dashboard(); page = currentPage(model); }
 		if (!page) return;
-		const chosen = controls.filter((control) => selected.has(bindingKey(control.binding))); updateDashboard((current) => addItems(current, page.id, chosen)); dialog.close();
+		const chosen = controls.filter((control) => selected.has(bindingKey(control.binding)));
+		updateDashboard((current) => addItems(current, page.id, chosen));
+		remindWorkflowSave(t("aaalice.workspace.binding.saveWorkflowReminder", "Save the workflow to keep these sidebar controls; otherwise they will be lost."));
+		dialog.close();
 	} });
-	footer.append(footerCount, button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), confirmButton);
+	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), confirmButton);
 	updateSelectionState();
 }
 
@@ -1015,7 +1101,7 @@ app.registerExtension({
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
 	setup() {
-		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.title", "Aaalice Workspace"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { element.classList.add("aa-workspace-host"); mounted.add(element); renderWorkspace(element); return () => { workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); }; } });
+		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.title", "Aaalice Workspace"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { element.classList.add("aa-workspace-host"); mounted.add(element); renderWorkspace(element); return () => { workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); }; } });
 		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphStructureSignature();
 		api.addEventListener("graphChanged", scheduleGraphSync);

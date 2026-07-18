@@ -1,5 +1,6 @@
 /** Shared DOM controls used by ParameterPanel's node surface and editor. */
 import { el, icon, iconButton, selectControl } from "./ui.js";
+import { formatTagListValue, parseTagListValue } from "./taglist_value.js";
 
 function numericInput(parameter, onChange, ariaLabel = "") {
 	const input = document.createElement("input");
@@ -139,11 +140,13 @@ export function createParameterControl({ parameter, onChange, labels = {} } = {}
 	if (parameter.param_type === "seed" || parameter.param_type === "slider") return numericInput(parameter, onChange, parameterLabel);
 	if (parameter.param_type === "switch") return createSwitchControl(parameter.value, { onChange: (value) => { parameter.value = value; onChange?.(value); }, ariaLabel: labels.switch || parameter.name });
 	if (["dropdown", "enum"].includes(parameter.param_type)) return selectControl({ options: config.options || [], value: parameter.value, onChange: (value) => { parameter.value = value; onChange?.(value); }, ariaLabel: labels.select || parameter.name });
-	const input = parameter.config?.multiline ? document.createElement("textarea") : document.createElement("input");
-	input.value = parameter.param_type === "taglist" ? (parameter.value || []).join(", ") : parameter.value ?? "";
+	const isTagList = parameter.param_type === "taglist";
+	const input = isTagList || parameter.config?.multiline ? document.createElement("textarea") : document.createElement("input");
+	input.value = isTagList ? formatTagListValue(parameter.value) : parameter.value ?? "";
+	if (isTagList) input.placeholder = labels.taglistPlaceholder || "One tag per line, or separate tags with commas";
 	input.setAttribute("aria-label", labels.input || parameter.name || "Parameter");
 	input.addEventListener("change", () => {
-		parameter.value = parameter.param_type === "taglist" ? input.value.split(",").map((item) => item.trim()).filter(Boolean) : input.value;
+		parameter.value = isTagList ? parseTagListValue(input.value) : input.value;
 		onChange?.(parameter.value);
 	});
 	return input;

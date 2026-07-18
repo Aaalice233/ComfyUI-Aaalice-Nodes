@@ -15,6 +15,7 @@ const dashboardInteractions = readFileSync(join(ROOT, "js", "lib", "dashboard_in
 const dashboardCommands = readFileSync(join(ROOT, "js", "lib", "dashboard_commands.js"), "utf8");
 const dashboardLayout = readFileSync(join(ROOT, "js", "lib", "dashboard_layout.js"), "utf8");
 const dashboardSizing = readFileSync(join(ROOT, "js", "lib", "dashboard_sizing.js"), "utf8");
+const dashboardSelection = readFileSync(join(ROOT, "js", "lib", "dashboard_selection.js"), "utf8");
 const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 const imageUpload = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
@@ -24,16 +25,24 @@ const ui = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
 const uiStyles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
 const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace.svg"), "utf8");
+const enLocale = readFileSync(join(ROOT, "locales", "en", "main.json"), "utf8");
+const zhLocale = readFileSync(join(ROOT, "locales", "zh", "main.json"), "utf8");
 
 test("workspace is an official left sidebar with reusable component boundaries", () => {
 	assert.match(workspace, /registerSidebarTab/);
 	assert.match(workspace, /id: TAB_ID/);
 	assert.match(workspace, /function installWorkspaceCanvasAutoClose/);
 	assert.match(workspace, /canvas\.addEventListener\("click"/);
-	assert.match(workspace, /sidebar\.activeSidebarTabId === TAB_ID/);
+	assert.match(workspace, /!sidebarPinned && sidebar\.activeSidebarTabId === TAB_ID/);
 	assert.match(workspace, /sidebar\.toggleSidebarTab\(TAB_ID\)/);
 	assert.match(workspace, /createWorkspaceShell/);
 	assert.match(components, /segmentedControl/);
+	assert.match(components, /headerActions = \[\]/);
+	assert.match(workspace, /let sidebarPinned = true/);
+	assert.match(workspace, /className: "aa-workspace-pin"/);
+	assert.match(workspace, /aria-pressed/);
+	assert.match(workspace, /workspacePinTooltip\.show\(pinButton, pinLabel/);
+	assert.match(theme, /\.aa-workspace-pin\.aa-ui-button\.is-active/);
 	assert.match(workspace, /createDashboardGrid/);
 	assert.match(workspace, /bindDashboardInteractions/);
 	assert.match(workspace, /createControlCard/);
@@ -106,6 +115,13 @@ test("dashboard image controls share upload, drop, thumbnail, and preview behavi
 	assert.match(theme, /\.aa-image-upload-control\s*\{[^}]*height:\s*32px/s);
 });
 
+test("dashboard tag-list controls reuse the shared multiline parser", () => {
+	const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
+	assert.match(workspaceControls, /document\.createElement\("textarea"\)/);
+	assert.match(workspaceControls, /parseTagListValue\(control\.value\)/);
+	assert.match(workspaceControls, /control\.dataset\.controlKind = "taglist"/);
+});
+
 test("seed lock state reuses one shared control across the node and dashboard", () => {
 	const parameterControls = readFileSync(join(ROOT, "js", "lib", "parameter_controls.js"), "utf8");
 	const parameterPanel = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
@@ -116,6 +132,8 @@ test("seed lock state reuses one shared control across the node and dashboard", 
 	assert.match(workspaceControls, /createSeedModeControl\(\{/);
 	assert.match(providers, /control_after_generate = locked \? "fixed" : "randomize"/);
 	assert.match(theme, /\.aa-workspace-seed-mode\.aa-ui-button\.is-locked/);
+	assert.match(theme, /\.aa-control-card:has\(\.aa-workspace-seed-mode\.is-locked\)/);
+	assert.match(theme, /\.aa-control-card:has\(\.aa-workspace-seed-mode\.is-locked\) \.aa-workspace-numeric-value/);
 });
 
 test("dashboard enum and boolean controls reuse the shared themed controls", () => {
@@ -359,9 +377,12 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 	assert.match(workspace, /iconName: "upload", label: selected\.size[\s\S]*libraryUi\.export/);
 	assert.match(workspace, /iconName: "download", label: t\("aaalice\.workspace\.libraryUi\.import"/);
 	assert.match(workspace, /aa-workspace-empty aa-dashboard-empty/);
+	assert.match(workspace, /className: "aa-dashboard-page-empty"/);
 	assert.match(workspace, /aa-workspace-empty aa-library-empty/);
 	assert.match(theme, /\.aa-dashboard-page-rail\.is-empty \{ display: none; \}/);
+	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*right: -10px;[^}]*width: 34px;[^}]*padding-right: 10px;/);
 	assert.match(theme, /\.aa-workspace-empty\[hidden\] \{ display: none; \}/);
+	assert.match(theme, /\.aa-dashboard-page-empty \{[^}]*position: absolute;[^}]*inset: 0;[^}]*place-content: center;[^}]*text-align: center;/);
 	assert.match(theme, /\.aa-library-filters \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
 });
 
@@ -370,6 +391,22 @@ test("dashboard toolbar identifies the current page in its available space", () 
 	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*min-width: 0;[^}]*flex: 1;/);
 	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*border-left: 2px solid var\(--aa-ui-accent\);[^}]*font-size: 13px;[^}]*font-weight: 700;/);
 	assert.match(theme, /\.aa-dashboard-page-name > span \{[^}]*text-overflow: ellipsis;/);
+});
+
+test("detached context menus retain theme tokens and visible hover feedback", () => {
+	assert.match(uiStyles, /\.aa-ui-popover,\s*\n\.aa-ui-context-menu,\s*\n\.aa-ui-tooltip/);
+	assert.match(uiStyles, /\.aa-ui-context-menu__item\.aa-ui-button:hover:not\(:disabled\)[^}]*border-color:[^}]*background: color-mix\(in srgb, var\(--aa-ui-accent\) 14%, var\(--aa-ui-control\)\)/);
+});
+
+test("layout editing keeps creation and layout tools in the primary toolbar", () => {
+	assert.match(workspace, /className: "aa-dashboard-add-page"/);
+	assert.match(workspace, /className: "aa-dashboard-add-separator"/);
+	assert.match(workspace, /className: "aa-dashboard-tidy-layout"/);
+	assert.match(workspace, /className: "aa-dashboard-page-menu"/);
+	assert.match(workspace, /editMode \? \[[\s\S]*aa-dashboard-add-page[\s\S]*aa-dashboard-add-separator[\s\S]*aa-dashboard-tidy-layout[\s\S]*\] : \[[\s\S]*preset\.export[\s\S]*preset\.import[\s\S]*search\.toggle/);
+	assert.doesNotMatch(workspace, /if \(editMode\) container\.append\(createWorkspaceToolbar/);
+	assert.doesNotMatch(components, /aa-dashboard-page-add|onAdd/);
+	assert.doesNotMatch(theme, /aa-dashboard-page-add/);
 });
 
 test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
@@ -392,6 +429,15 @@ test("Dashboard footprints are stable model hints rather than DOM measurements",
 	assert.match(dashboardLayout, /layout\.row \+ layout\.rowSpan/);
 });
 
+test("dashboard cards expose equal visual gutters without changing fine row geometry", () => {
+	assert.match(theme, /--aa-dashboard-card-gap:\s*6px/);
+	assert.match(theme, /--aa-dashboard-track-gap:\s*2px/);
+	assert.match(theme, /column-gap:\s*var\(--aa-dashboard-card-gap\)/);
+	assert.match(theme, /row-gap:\s*var\(--aa-dashboard-track-gap\)/);
+	assert.match(theme, /height:\s*calc\(100% - var\(--aa-dashboard-card-gap\) \+ var\(--aa-dashboard-track-gap\)\)/);
+	assert.doesNotMatch(theme, /margin-bottom:\s*calc\(var\(--aa-dashboard-card-gap\) - var\(--aa-dashboard-track-gap\)\)/);
+});
+
 test("Dashboard V2 layout editing uses transient pointer gestures and one command commit", () => {
 	assert.match(dashboardInteractions, /pointerdown/);
 	assert.match(dashboardInteractions, /setPointerCapture/);
@@ -406,6 +452,15 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(dashboardInteractions, /onDropItems/);
 	assert.doesNotMatch(dashboardInteractions, /graph\.extra|beforeChange|afterChange/);
 	assert.match(workspace, /onDropItems: \(ids, target\) => updateDashboard/);
+	assert.match(dashboardInteractions, /kind: "marquee"/);
+	assert.match(dashboardInteractions, /aa-dashboard-marquee/);
+	assert.match(dashboardInteractions, /intersectingSelectionIds/);
+	assert.match(dashboardInteractions, /unbind\.setSelection/);
+	assert.match(dashboardSelection, /export function selectionRectangle/);
+	assert.match(components, /export function createSelectionActionBar/);
+	assert.match(workspace, /createSelectionActionBar\(/);
+	assert.match(workspace, /aaalice\.workspace\.selection\.group/);
+	assert.match(theme, /\.aa-dashboard-selection-bar/);
 	assert.match(theme, /\.aa-dashboard-scroll \{[^}]*display: flex;[^}]*flex-direction: column;/);
 	assert.match(theme, /\.aa-dashboard-grid-v2 \{[^}]*flex: 1;/);
 	assert.match(theme, /\.aa-dashboard-grid-v2\.is-editing \{[^}]*min-height: 100%;/);
@@ -428,11 +483,22 @@ test("add-controls dialog uses a compact structured picker", () => {
 	assert.doesNotMatch(workspace, /sectionSelect|target\.section|newSection/);
 	assert.match(workspace, /aa-add-controls-select-all/);
 	assert.match(workspace, /binding\.selectAll/);
-	assert.match(workspace, /aa-add-controls-footer-count/);
+	assert.doesNotMatch(workspace, /aa-add-controls-footer-count/);
+	assert.match(workspace, /selected = new Set\(controls.*!existing\.has/);
+	assert.match(workspace, /binding\.addSelected/);
+	assert.match(workspace, /\.\.\.\(duplicateKeys\.size \? \[duplicateSetting\] : \[\]\)/);
 	assert.match(workspace, /confirmButton\.disabled = selected\.size === 0/);
 	assert.match(workspace, /size: "md", className: "aa-add-controls-dialog-shell"/);
 	assert.match(theme, /\.aa-add-controls-list \{ display: grid;/);
 	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+});
+
+test("adding controls reminds the user to save the workflow", () => {
+	assert.match(workspace, /function remindWorkflowSave\(detail\)/);
+	assert.match(workspace, /severity: "warn"/);
+	assert.match(workspace, /aaalice\.workspace\.binding\.saveWorkflowReminder/);
+	assert.match(enLocale, /Save the workflow to keep these sidebar controls/);
+	assert.match(zhLocale, /请保存工作流以保留这些侧边栏参数/);
 });
 
 test("library rows keep a stable thumbnail column and distinguish entry actions", () => {

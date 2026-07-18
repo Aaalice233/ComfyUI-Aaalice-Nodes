@@ -2,6 +2,7 @@
 
 import { createImageUploadControl } from "./image_upload.js";
 import { createNumericEditor, createSeedModeControl } from "./parameter_controls.js";
+import { formatTagListValue, parseTagListValue } from "./taglist_value.js";
 import { el, selectControl, toggleSwitch } from "./ui.js";
 
 function createNumericControl(resolved, { labels = {}, onInput, onCommit } = {}) {
@@ -107,8 +108,10 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 	if (resolved.control?.param_type === "image") {
 		control = createImageControl(resolved, { labels, onCommit, onError, onSuccess });
 	} else if (resolved.control?.param_type === "taglist" || Array.isArray(value)) {
-		control = document.createElement("input"); control.type = "text"; control.value = (value || []).join(", ");
-		control.addEventListener("change", () => { const next = control.value.split(",").map((item) => item.trim()).filter(Boolean); resolved.setValue(next); onCommit?.(next); });
+		control = document.createElement("textarea"); control.value = formatTagListValue(value);
+		control.dataset.controlKind = "taglist";
+		control.placeholder = labels.taglistPlaceholder || "One tag per line, or separate tags with commas";
+		control.addEventListener("change", () => { const next = parseTagListValue(control.value); resolved.setValue(next); onCommit?.(next); });
 	} else if (Array.isArray(options.values) || Array.isArray(options.options)) {
 		control = selectControl({ options: options.values || options.options, value, ariaLabel: resolved.label, className: "aa-workspace-enum-control", onChange: (next) => { resolved.setValue(next); onCommit?.(next); } });
 		control.dataset.controlKind = "enum";

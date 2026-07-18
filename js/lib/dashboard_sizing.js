@@ -9,6 +9,7 @@ function finiteOption(options, key) {
 }
 
 export function recommendedControlRowSpan({ value, options = {}, paramType = "" } = {}) {
+	if (paramType === "taglist") return 16;
 	if (typeof value === "number") {
 		const bounded = finiteOption(options, "min") && finiteOption(options, "max") && Number(options.max) > Number(options.min);
 		const seedLike = paramType === "seed" || typeof options.control_after_generate === "string";

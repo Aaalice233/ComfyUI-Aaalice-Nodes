@@ -10,7 +10,7 @@ import {
 	growClassicDomWidgetNode,
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
-import { badge, button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { badge, button, createAnchoredPopover, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
 	parameterPanelKjMenuItem,
 	registerParameterPanelKj,
@@ -18,6 +18,7 @@ import {
 import {
 	EVENT_PARAMETER_CHANGED,
 	MAX_TUNABLE,
+	PARAMETER_TYPE_ORDER,
 	applySeedAfterQueue,
 	cloneData,
 	countTunable,
@@ -80,11 +81,6 @@ function markGraphChange(node, before) {
 
 function parameterTypeLabel(value) {
 	return t(`aaalice.pcp.types.${value}`, value);
-}
-
-function parameterTypeOptions() {
-	return ["slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist", "separator"]
-		.map((value) => ({ value, label: parameterTypeLabel(value) }));
 }
 
 function selectInput(options, value) {
@@ -456,7 +452,14 @@ function valueControl(node, parameter, heading = null) {
 			},
 		}));
 	}
-	return isolate(createParameterControl({ parameter, onChange: persist, labels: { input: displayName(parameter) } }));
+	return isolate(createParameterControl({
+		parameter,
+		onChange: persist,
+		labels: {
+			input: displayName(parameter),
+			taglistPlaceholder: t("aaalice.pcp.taglist.placeholder", "One tag per line, or separate tags with commas"),
+		},
+	}));
 }
 
 function disconnectSegmentObservers(root) {
@@ -474,7 +477,8 @@ function renderNode(node, root) {
 	root.style.setProperty("--aaalice-node-content-height", `${layout.height}px`);
 	for (const parameter of parameters) {
 		if (parameter.param_type === "separator") {
-			const section = el("div", "aaalice-pcp-node-section", displayName(parameter));
+			const label = displayName(parameter);
+			const section = el("div", { className: "aaalice-pcp-node-section", attrs: { role: "separator", "aria-label": label }, children: [el("span", "aaalice-pcp-node-section-label", label)] });
 			section.dataset.parameterId = parameter.id;
 			root.append(section);
 			continue;
@@ -553,6 +557,9 @@ function renderInspector(editor, parameter, rerender) {
 	const descriptionField = inspectorField(t("aaalice.pcp.field.description", "Parameter description"), description);
 	descriptionField.classList.add("aaalice-editor-description-field");
 	generalBody.append(descriptionField);
+	if (parameter.param_type !== "separator") {
+		generalBody.append(el("p", "aaalice-editor-value-hint", t("aaalice.pcp.editor.valueHint", "Set the parameter value on the node after saving.")));
+	}
 	inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.general", "General"), generalBody, "aaalice-editor-section--description"));
 	if (["slider", "seed"].includes(parameter.param_type)) {
 		const ruleKeys = ["min", "max", ...(parameter.param_type === "slider" ? ["step"] : [])];
@@ -621,6 +628,7 @@ function renderEditorList(editor, rerender) {
 		const row = el("div", `aaalice-editor-list-row${editor.selectedId === parameter.id ? " selected" : ""}`);
 		row.draggable = true;
 		row.dataset.id = parameter.id;
+		row.dataset.parameterType = parameter.param_type;
 		const handle = el("span", "aaalice-editor-drag", "⋮⋮");
 		const text = el("button", "aaalice-editor-list-select");
 		text.type = "button";
@@ -707,27 +715,29 @@ function renderEditorList(editor, rerender) {
 	}
 }
 
+function appendEditorParameter(editor, paramType, rerender) {
+	if (paramType !== "separator" && countTunable(editor.parameters) >= MAX_TUNABLE) {
+		toast("warn", message("aaalice.pcp.error.maxParameters", "At most {count} tunable parameters.", { count: MAX_TUNABLE }));
+		return false;
+	}
+	const parameter = createParameter(paramType, {
+		name: uniqueName(editor.parameters, paramType === "separator" ? "Section" : paramType),
+		name_custom: true,
+	});
+	editor.parameters.push(parameter);
+	editor.selectedId = parameter.id;
+	editor.dirty = true;
+	rerender();
+	return true;
+}
+
 async function openParameterEditor(node) {
 	const original = ensureParameters(node);
 	const editor = { parameters: cloneData(original), selectedId: original[0]?.id || null, dirty: false, list: null, inspector: null };
 	const workspace = el("div", "aaalice-parameter-editor-workspace");
 	const rail = el("aside", "aaalice-parameter-editor-rail");
-	const railHeader = el("header", "aaalice-editor-rail-header");
-	const railHeading = el("div", "aaalice-editor-rail-heading");
-	railHeading.append(
-		el("strong", null, t("aaalice.pcp.editor.parameters", "Parameters")),
-		el("span", null, t("aaalice.pcp.editor.reorderHint", "Drag to reorder · Double-click to rename")),
-	);
-	railHeader.append(railHeading);
-	const addBar = el("div", "aaalice-editor-add");
-	const addControl = el("div", "aaalice-editor-add-control");
-	const type = selectInput(parameterTypeOptions(), "slider");
-	type.setAttribute("aria-label", t("aaalice.pcp.editor.parameterType", "Parameter type"));
-	const add = iconButton({ iconName: "add", label: t("aaalice.pcp.editor.add", "Add parameter"), variant: "primary", className: "aaalice-editor-add-button" });
 	editor.list = el("div", "aaalice-editor-compact-list");
-	addControl.append(type, add);
-	addBar.append(addControl);
-	rail.append(railHeader, addBar, editor.list);
+	rail.append(editor.list);
 	editor.inspector = el("main", "aaalice-parameter-editor-inspector");
 	workspace.append(rail, editor.inspector);
 	const errors = el("div", { className: "aaalice-pcp-error", attrs: { role: "status", "aria-live": "polite" } });
@@ -749,7 +759,18 @@ async function openParameterEditor(node) {
 		onRequestClose: requestDiscard,
 	});
 	editor.count = badge("", { className: "aaalice-editor-count" });
-	dialogApi.header.replaceChildren(dialogApi.heading, editor.count);
+	const add = button({ label: t("aaalice.pcp.editor.add", "Add parameter"), iconName: "add", variant: "primary", className: "aaalice-editor-header-add" });
+	add.setAttribute("aria-haspopup", "menu");
+	add.setAttribute("aria-expanded", "false");
+	const headerLead = el("div", "aaalice-editor-header-lead");
+	headerLead.append(
+		dialogApi.heading,
+		el("span", "aaalice-editor-header-hint", t("aaalice.pcp.editor.reorderHint", "Drag to reorder · Double-click to rename")),
+	);
+	const headerActions = el("div", "aaalice-editor-header-actions");
+	headerActions.append(editor.count, add);
+	dialogApi.header.replaceChildren(headerLead, headerActions);
+	let typePopover = null;
 	const rerender = (list = true) => {
 		if (list) renderEditorList(editor, rerender);
 		renderInspector(editor, editor.parameters.find((item) => item.id === editor.selectedId), rerender);
@@ -767,17 +788,54 @@ async function openParameterEditor(node) {
 		save.disabled = Boolean(validation.length);
 	};
 	add.addEventListener("click", () => {
-		if (type.value !== "separator" && countTunable(editor.parameters) >= MAX_TUNABLE) {
-			toast("warn", message("aaalice.pcp.error.maxParameters", "At most {count} tunable parameters.", { count: MAX_TUNABLE }));
-			return;
+		if (typePopover) { typePopover.close(); return; }
+		typePopover = createAnchoredPopover({
+			anchor: add,
+			ariaLabel: t("aaalice.pcp.editor.parameterType", "Parameter type"),
+			className: "aaalice-parameter-type-popover",
+			width: 288,
+			onClose: () => { typePopover = null; add.setAttribute("aria-expanded", "false"); },
+		});
+		add.setAttribute("aria-expanded", "true");
+		const menuHeader = el("header", "aaalice-parameter-type-menu-header");
+		menuHeader.append(
+			el("strong", null, t("aaalice.pcp.editor.parameterType", "Parameter type")),
+			el("span", null, t("aaalice.pcp.editor.chooseTypeHint", "Choose a type to create it immediately.")),
+		);
+		const menu = el("div", { className: "aaalice-parameter-type-menu", attrs: { role: "menu" } });
+		const atLimit = countTunable(editor.parameters) >= MAX_TUNABLE;
+		for (const paramType of PARAMETER_TYPE_ORDER) {
+			const option = button({
+				label: parameterTypeLabel(paramType),
+				variant: "ghost",
+				size: "sm",
+				className: "aaalice-parameter-type-option",
+				disabled: atLimit && paramType !== "separator",
+				onClick: () => {
+					typePopover?.close();
+					appendEditorParameter(editor, paramType, rerender);
+				},
+			});
+			option.dataset.parameterType = paramType;
+			option.setAttribute("role", "menuitem");
+			menu.append(option);
 		}
-		const parameter = createParameter(type.value, { name: uniqueName(editor.parameters, type.value === "separator" ? "Section" : type.value), name_custom: true });
-		editor.parameters.push(parameter);
-		editor.selectedId = parameter.id;
-		editor.dirty = true;
-		rerender();
+		menu.addEventListener("keydown", (event) => {
+			if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+			event.preventDefault();
+			const options = [...menu.querySelectorAll("button:not(:disabled)")];
+			const current = options.indexOf(document.activeElement);
+			const next = event.key === "Home"
+				? 0
+				: event.key === "End"
+					? options.length - 1
+					: (Math.max(0, current) + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+			options[next]?.focus();
+		});
+		typePopover.root.append(menuHeader, menu);
+		typePopover.reposition();
 	});
-	cancel.addEventListener("click", () => dialogApi.requestClose());
+	cancel.addEventListener("click", () => { typePopover?.close(); dialogApi.requestClose(); });
 	save.addEventListener("click", async () => {
 		const validation = validateParametersDraft(editor.parameters);
 		if (validation.length) return;
@@ -792,6 +850,7 @@ async function openParameterEditor(node) {
 		notifyParameterChanged(node, { structure: true });
 		markGraphChange(node, false);
 		toast("warn", t("aaalice.pcp.editor.saveWorkflowReminder", "Save the workflow to keep these parameter changes; otherwise they will be lost."));
+		typePopover?.close();
 		dialogApi.close(true);
 	});
 	rerender();

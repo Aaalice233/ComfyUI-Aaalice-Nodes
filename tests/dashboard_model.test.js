@@ -25,6 +25,7 @@ test("control footprints are stable presentation categories rather than DOM meas
 	assert.equal(recommendedControlRowSpan({ value: 30, options: { min: 1, max: 100 }, paramType: "slider" }), 12);
 	assert.equal(recommendedControlRowSpan({ value: 0, options: { min: 0, max: 100, control_after_generate: "fixed" }, paramType: "seed" }), 7);
 	assert.equal(recommendedControlRowSpan({ value: true }), 9);
+	assert.equal(recommendedControlRowSpan({ value: ["cat"], paramType: "taglist" }), 16);
 	assert.equal(recommendedGroupRowSpan([{ layout: { row: 6, rowSpan: 6 } }]), 19);
 });
 

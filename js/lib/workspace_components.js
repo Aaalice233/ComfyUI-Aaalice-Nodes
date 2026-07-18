@@ -2,7 +2,7 @@
 
 import { button, checkboxControl, el, icon, iconButton, segmentedControl } from "./ui.js";
 
-export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
+export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [] }) {
 	const root = el("div", "aa-workspace");
 	root.dataset.workspace = activeTab;
 	const header = el("header", "aa-workspace-header");
@@ -15,12 +15,33 @@ export function createWorkspaceShell({ title, tabs, activeTab, onTabChange }) {
 	});
 	const content = el("main", "aa-workspace-content");
 	const setActive = (value) => { root.dataset.workspace = value; tablist.setValue(value); };
-	header.append(tablist); root.append(header, content);
+	header.append(tablist, ...headerActions); root.append(header, content);
 	return { root, header, content, setActive };
 }
 
 export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
+}
+
+export function createSelectionActionBar({ ariaLabel, actions = [] }) {
+	const summary = el("span", "aa-dashboard-selection-summary"); const controls = new Map();
+	const root = el("div", { className: "aa-dashboard-selection-bar", attrs: { role: "toolbar", "aria-label": ariaLabel }, children: [summary] });
+	for (const action of actions) {
+		const control = action.showLabel
+			? button({ label: action.label, iconName: action.iconName, variant: action.variant || "ghost", size: "sm", className: action.className || "", onClick: action.onSelect })
+			: iconButton({ iconName: action.iconName, label: action.label, variant: action.variant || "ghost", className: action.className || "", onClick: action.onSelect });
+		control.dataset.selectionAction = action.id; controls.set(action.id, control); root.append(control);
+	}
+	root.hidden = true;
+	return {
+		root,
+		update({ count = 0, summary: nextSummary = "", actions: states = {} } = {}) {
+			summary.textContent = nextSummary; root.hidden = count === 0;
+			for (const [id, control] of controls) {
+				const state = states[id] || {}; control.disabled = Boolean(state.disabled); control.hidden = Boolean(state.hidden);
+			}
+		},
+	};
 }
 
 export function formatFileSize(bytes) {
@@ -81,7 +102,6 @@ export function createPageRail(initialState = {}) {
 	const cursor = el("span", { className: "aa-dashboard-page-cursor", attrs: { "aria-hidden": "true" } });
 	list.append(cursor); root.append(list);
 	const items = new Map();
-	const addItem = button({ label: "Add page", ariaLabel: "Add page", iconName: "add", variant: "ghost", size: "sm", className: "aa-dashboard-page-add" });
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {} };
 	let cursorFrame = 0;
 	let wheelDistance = 0;
@@ -127,12 +147,6 @@ export function createPageRail(initialState = {}) {
 			updateItem(item, page);
 			list.append(item);
 		}
-		if (state.editMode) {
-			const addLabel = state.labels.addPage || "Add page";
-			addItem.setAttribute("aria-label", addLabel); addItem.setAttribute("title", addLabel);
-			addItem.querySelector(".aa-ui-button__label").textContent = addLabel;
-			list.append(addItem);
-		} else addItem.remove();
 		positionCursor({ animate });
 	};
 	const selectIndex = (index, { focus = false } = {}) => {
@@ -145,7 +159,6 @@ export function createPageRail(initialState = {}) {
 		state.onSelect?.(next.id, { focus });
 	};
 	root.addEventListener("click", (event) => {
-		if (event.target.closest(".aa-dashboard-page-add")) { state.onAdd?.(); return; }
 		const item = event.target.closest(".aa-dashboard-page-dot");
 		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
 		if (index >= 0) selectIndex(index);

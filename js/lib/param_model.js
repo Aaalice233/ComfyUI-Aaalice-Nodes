@@ -6,8 +6,11 @@ import { hasDuplicateOptions } from "./parameter_options.js";
 export const MAX_TUNABLE = 32;
 const SEED_MAX = 0xffffffffffffffff;
 export const EVENT_PARAMETER_CHANGED = "aaalice-parameter-panel-changed";
+export const PARAMETER_TYPE_ORDER = Object.freeze([
+	"slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist", "separator",
+]);
 
-const TUNABLE = new Set(["slider", "seed", "switch", "string", "dropdown", "enum", "image", "taglist"]);
+const TUNABLE = new Set(PARAMETER_TYPE_ORDER.filter((type) => type !== "separator"));
 const sourceOptions = {
 	// Keep the panel useful while /object_info is still loading. The live node
 	// definitions replace these values as soon as ComfyUI responds.
