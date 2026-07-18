@@ -6,12 +6,12 @@ import { ensureI18nReady, t } from "./i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "./lib/control_providers.js";
 import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
 import {
-	bindingKey, createPage, emptyDashboard, exportDashboardPreset, normalizeDashboard, preflightDashboardPreset,
+	bindingKey, createPage, emptyDashboard, normalizeDashboard,
 } from "./lib/dashboard_model.js";
 import {
-	compareValuePreset, createValuePreset, duplicateValuePreset, emptyValuePresetState, markValuePresetApplied, normalizeValuePresetState, removeValuePreset, renameValuePreset, replaceValuePreset,
-} from "./lib/dashboard_value_presets.js";
-import { applyDashboardPresetPlan, captureDashboardValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
+	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
+} from "./lib/dashboard_presets.js";
+import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
 import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicatePage, moveGroup, moveItems, removeItems, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
@@ -25,13 +25,14 @@ import { badge, button, createContextMenu, createDialog, createTooltip, el, empt
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow, createPageRail,
-	createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createValuePresetPicker, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
+	createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
 
 const EXTRA_KEY = "aaaliceSidebar";
-const VALUE_PRESETS_EXTRA_KEY = "aaaliceSidebarValuePresets";
+const DASHBOARD_PRESETS_EXTRA_KEY = "aaaliceSidebarPresets";
+const LEGACY_VALUE_PRESETS_EXTRA_KEY = "aaaliceSidebarValuePresets";
 const TAB_ID = "aaalice-workspace";
 const SIDEBAR_PIN_STORAGE_KEY = "aaalice.workspace.sidebarPinned";
 const mounted = new Set();
@@ -44,7 +45,7 @@ let sidebarPinned = loadSidebarPinned();
 let activePageId = null;
 let editMode = false;
 let dashboardModelError = null;
-let valuePresetModelError = null;
+let dashboardPresetModelError = null;
 let renderFrame = 0;
 const workspaceViewState = {
 	dashboard: { query: "", searchOpen: false, focusSearch: false, pageRailExpanded: false, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
@@ -122,20 +123,31 @@ function updateDashboard(callback) {
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
 }
 
-function valuePresetState() {
+function dashboardPresetState() {
 	try {
-		const value = normalizeValuePresetState(app.graph?.extra?.[VALUE_PRESETS_EXTRA_KEY] ?? null); valuePresetModelError = null; return value;
-	} catch (error) { valuePresetModelError = error; return emptyValuePresetState(); }
+		const value = normalizeDashboardPresetState(app.graph?.extra?.[DASHBOARD_PRESETS_EXTRA_KEY] ?? null); dashboardPresetModelError = null; return value;
+	} catch (error) { dashboardPresetModelError = error; return emptyDashboardPresetState(); }
 }
 
-function updateValuePresetState(callback, detail = null) {
-	if (valuePresetModelError) throw valuePresetModelError;
+function updateDashboardPresetState(callback, detail = null) {
+	if (dashboardPresetModelError) throw dashboardPresetModelError;
 	const graph = app.graph; graph?.beforeChange?.();
 	try {
 		graph.extra ||= {};
-		graph.extra[VALUE_PRESETS_EXTRA_KEY] = normalizeValuePresetState(callback(valuePresetState()) || valuePresetState());
+		graph.extra[DASHBOARD_PRESETS_EXTRA_KEY] = normalizeDashboardPresetState(callback(dashboardPresetState()) || dashboardPresetState());
 	} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender("dashboard"); }
 	if (detail) remindWorkflowSave(detail);
+}
+
+function clearLegacyDashboardPresets() {
+	const graph = app.graph; const extra = graph?.extra;
+	if (!extra || !Object.prototype.hasOwnProperty.call(extra, LEGACY_VALUE_PRESETS_EXTRA_KEY)) return;
+	graph?.beforeChange?.();
+	try {
+		delete extra[LEGACY_VALUE_PRESETS_EXTRA_KEY];
+		if (!extra[DASHBOARD_PRESETS_EXTRA_KEY]) extra[DASHBOARD_PRESETS_EXTRA_KEY] = emptyDashboardPresetState();
+	} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); }
+	remindWorkflowSave(t("aaalice.workspace.dashboardPreset.legacyCleared", "Old parameter-only presets were cleared. Save the workflow to finish upgrading."));
 }
 
 function remindWorkflowSave(detail) {
@@ -290,108 +302,134 @@ async function removePage(page) {
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
 
-function valuePresetLabels() {
+function dashboardPresetLabels() {
 	return {
-		title: t("aaalice.workspace.valuePreset.title", "Parameter presets"), open: t("aaalice.workspace.valuePreset.open", "Open parameter presets"),
-		description: t("aaalice.workspace.valuePreset.description", "Switch every sidebar control together"), custom: t("aaalice.workspace.valuePreset.custom", "Custom"), modified: t("aaalice.workspace.valuePreset.modified", "Modified"), attention: t("aaalice.workspace.valuePreset.attention", "Needs attention"),
-		empty: t("aaalice.workspace.valuePreset.empty", "No presets yet"), emptyHint: t("aaalice.workspace.valuePreset.emptyHint", "Save current values for quick switching later."), emptyAction: t("aaalice.workspace.valuePreset.emptyAction", "Save current values"), valueCount: t("aaalice.workspace.valuePreset.valueCount", "{count} values"),
-		create: t("aaalice.workspace.valuePreset.create", "Save current as new preset"), createShort: t("aaalice.workspace.valuePreset.createShort", "Save as new preset"), save: t("aaalice.workspace.valuePreset.save", "Save changes"), restore: t("aaalice.workspace.valuePreset.restore", "Restore"), duplicate: t("aaalice.workspace.valuePreset.duplicate", "Duplicate"), rename: t("aaalice.workspace.valuePreset.rename", "Rename"), delete: t("aaalice.workspace.valuePreset.delete", "Delete"),
+		title: t("aaalice.workspace.dashboardPreset.title", "Sidebar presets"), open: t("aaalice.workspace.dashboardPreset.open", "Open sidebar presets"), unsaved: t("aaalice.workspace.dashboardPreset.unsaved", "Unsaved"), attention: t("aaalice.workspace.dashboardPreset.attention", "Needs attention"),
+		empty: t("aaalice.workspace.dashboardPreset.empty", "No presets yet"), emptyHint: t("aaalice.workspace.dashboardPreset.emptyHint", "Save the current sidebar layout and values for quick switching later."), emptyAction: t("aaalice.workspace.dashboardPreset.emptyAction", "Save current sidebar"),
+		presetCount: t("aaalice.workspace.dashboardPreset.presetCount", "{count} presets"), presetSummary: t("aaalice.workspace.dashboardPreset.presetSummary", "{pages} pages · {values} values"), add: t("aaalice.workspace.dashboardPreset.add", "New"), create: t("aaalice.workspace.dashboardPreset.create", "New preset"), manage: t("aaalice.workspace.dashboardPreset.manage", "Manage preset"), modified: t("aaalice.workspace.dashboardPreset.modified", "Unsaved changes"), update: t("aaalice.workspace.dashboardPreset.update", "Save changes"), saveCurrent: t("aaalice.workspace.dashboardPreset.saveCurrent", "Save as preset"), restore: t("aaalice.workspace.dashboardPreset.restore", "Discard changes"), duplicate: t("aaalice.workspace.dashboardPreset.duplicate", "Duplicate"), rename: t("aaalice.workspace.dashboardPreset.rename", "Rename"), delete: t("aaalice.workspace.dashboardPreset.delete", "Delete"),
+		changeSummary: t("aaalice.workspace.dashboardPreset.changeSummary", "{layout} layout · {values} values"), dataError: t("aaalice.workspace.dashboardPreset.dataError", "Preset data error"), dataErrorHint: t("aaalice.workspace.dashboardPreset.dataErrorHint", "The saved sidebar preset data could not be read."),
 	};
 }
 
-function notifyValuePresetError(error) {
-	app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.workspace.valuePreset.error", "Parameter preset error"), detail: String(error?.message || error), life: 5200 });
+function notifyDashboardPresetError(error) {
+	app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.workspace.dashboardPreset.error", "Sidebar preset error"), detail: String(error?.message || error), life: 5200 });
 }
 
-function currentValuePresetSnapshot(model = dashboard()) { return captureDashboardValues(model, (binding) => resolve(binding)); }
-
-function commitValuePresetChange(callback, detail = t("aaalice.workspace.valuePreset.saveWorkflowReminder", "Save the workflow to keep these parameter presets.")) {
-	try { updateValuePresetState(callback, detail); return true; }
-	catch (error) { notifyValuePresetError(error); return false; }
+function currentDashboardPresetSnapshot(model = dashboard(), previousValues = null) {
+	if (previousValues == null) {
+		const state = dashboardPresetState();
+		previousValues = state.presets.find((preset) => preset.id === state.baselinePresetId)?.values || {};
+	}
+	const captured = captureDashboardValues(model, (binding) => resolve(binding));
+	return { dashboard: model, values: mergeCapturedPresetValues(captured, previousValues), bindings: captured.bindings };
 }
 
-function createCurrentValuePreset(model = dashboard()) {
-	const state = valuePresetState(); const snapshot = currentValuePresetSnapshot(model);
-	if (!Object.keys(snapshot.values).length) { notifyValuePresetError(t("aaalice.workspace.valuePreset.noValues", "There are no available sidebar values to save.")); return; }
-	const name = t("aaalice.workspace.valuePreset.defaultName", "Preset {count}").replace("{count}", String(state.presets.length + 1));
-	askText(valuePresetLabels().create, t("aaalice.workspace.valuePreset.name", "Preset name"), name, (nextName) => commitValuePresetChange((current) => createValuePreset(current, nextName, snapshot.values)));
+function commitDashboardPresetChange(callback, detail = t("aaalice.workspace.dashboardPreset.saveWorkflowReminder", "Save the workflow to keep these sidebar presets.")) {
+	try { updateDashboardPresetState(callback, detail); return true; }
+	catch (error) { notifyDashboardPresetError(error); return false; }
 }
 
-function saveCurrentValuePreset(presetId, model = dashboard()) {
-	const snapshot = currentValuePresetSnapshot(model);
-	if (!Object.keys(snapshot.values).length) { notifyValuePresetError(t("aaalice.workspace.valuePreset.noValues", "There are no available sidebar values to save.")); return false; }
-	return commitValuePresetChange((current) => replaceValuePreset(current, presetId, snapshot.values), t("aaalice.workspace.valuePreset.savedReminder", "Parameter preset updated. Save the workflow to keep it."));
-}
-
-function duplicateCurrentValuePreset(presetId) {
-	const state = valuePresetState(); const preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
-	const name = t("aaalice.workspace.valuePreset.copyName", "{name} copy").replace("{name}", preset.name);
-	askText(valuePresetLabels().duplicate, t("aaalice.workspace.valuePreset.name", "Preset name"), name, (nextName) => commitValuePresetChange((current) => duplicateValuePreset(current, presetId, nextName)));
-}
-
-function renameCurrentValuePreset(presetId) {
-	const preset = valuePresetState().presets.find((item) => item.id === presetId); if (!preset) return;
-	askText(valuePresetLabels().rename, t("aaalice.workspace.valuePreset.name", "Preset name"), preset.name, (name) => commitValuePresetChange((current) => renameValuePreset(current, presetId, name)));
-}
-
-async function deleteCurrentValuePreset(presetId) {
-	const preset = valuePresetState().presets.find((item) => item.id === presetId); if (!preset) return;
-	const message = t("aaalice.workspace.valuePreset.deleteConfirm", "Delete parameter preset “{name}”? Current node values will not change.").replace("{name}", preset.name);
-	if (!await confirmAction(message, { title: valuePresetLabels().delete, confirmLabel: valuePresetLabels().delete })) return;
-	commitValuePresetChange((current) => removeValuePreset(current, presetId));
-}
-
-function confirmValuePresetSwitch(activePreset) {
-	return new Promise((resolveDecision) => {
-		let settled = false; let dialog;
-		const finish = (decision) => { if (settled) return; settled = true; dialog.close(); resolveDecision(decision); };
-		const body = el("div", { className: "aa-value-preset-switch-warning", children: [icon("statusWarning"), el("div", { children: [el("strong", null, t("aaalice.workspace.valuePreset.unsavedTitle", "Current preset has unsaved changes")), el("p", null, t("aaalice.workspace.valuePreset.unsavedHint", "Save the changes before switching, or discard them and apply the selected preset."))] })] });
-		const footer = el("div", { children: [
-			button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => finish(null) }),
-			button({ label: t("aaalice.workspace.valuePreset.discardSwitch", "Discard and switch"), variant: "ghost", onClick: () => finish("discard") }),
-			button({ label: t("aaalice.workspace.valuePreset.saveSwitch", "Save and switch"), onClick: () => finish("save") }),
-		] });
-		dialog = createDialog({ title: activePreset.name, body, footer, size: "sm", className: "aa-value-preset-switch-dialog", onRequestClose: () => { finish(null); return false; } });
+function askTextValue(title, label, value) {
+	return new Promise((resolveValue) => {
+		const input = document.createElement("input"); input.value = value || "";
+		const body = el("div", { children: [field({ label, control: input })] }); const footer = el("div"); let settled = false; let dialog;
+		const finish = (result) => { if (settled) return; settled = true; dialog.close(); resolveValue(result); };
+		footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => finish(null) }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { const result = input.value.trim(); if (result) finish(result); } }));
+		dialog = createDialog({ title, body, footer, onRequestClose: () => { finish(null); return false; } });
+		input.focus(); input.select();
 	});
 }
 
-function confirmPartialValuePreset(plan, preset) {
+async function createCurrentDashboardPreset(model = dashboard()) {
+	const state = dashboardPresetState(); const snapshot = currentDashboardPresetSnapshot(model);
+	if (!snapshot.dashboard.pages.length && !Object.keys(snapshot.values).length) { notifyDashboardPresetError(t("aaalice.workspace.dashboardPreset.noContent", "There is no sidebar layout to save.")); return false; }
+	const names = new Set(state.presets.map((preset) => preset.name.toLowerCase())); let count = 1; let name;
+	do { name = t("aaalice.workspace.dashboardPreset.defaultName", "Preset {count}").replace("{count}", String(count++)); } while (names.has(name.toLowerCase()));
+	const nextName = await askTextValue(dashboardPresetLabels().create, t("aaalice.workspace.dashboardPreset.name", "Preset name"), name);
+	return nextName ? commitDashboardPresetChange((current) => createDashboardPreset(current, nextName, snapshot)) : false;
+}
+
+function updateCurrentDashboardPreset(presetId, model = dashboard()) {
+	const state = dashboardPresetState(); const preset = state.presets.find((item) => item.id === presetId); if (!preset) return false;
+	const snapshot = currentDashboardPresetSnapshot(model, preset.values);
+	return commitDashboardPresetChange((current) => replaceDashboardPreset(current, presetId, snapshot), t("aaalice.workspace.dashboardPreset.savedReminder", "Sidebar preset updated. Save the workflow to keep it."));
+}
+
+async function duplicateCurrentDashboardPreset(presetId) {
+	const state = dashboardPresetState(); const preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
+	const name = t("aaalice.workspace.dashboardPreset.copyName", "{name} copy").replace("{name}", preset.name);
+	const nextName = await askTextValue(dashboardPresetLabels().duplicate, t("aaalice.workspace.dashboardPreset.name", "Preset name"), name);
+	if (nextName) commitDashboardPresetChange((current) => duplicateDashboardPreset(current, presetId, nextName));
+}
+
+async function renameCurrentDashboardPreset(presetId) {
+	const preset = dashboardPresetState().presets.find((item) => item.id === presetId); if (!preset) return;
+	const name = await askTextValue(dashboardPresetLabels().rename, t("aaalice.workspace.dashboardPreset.name", "Preset name"), preset.name);
+	if (name) commitDashboardPresetChange((current) => renameDashboardPreset(current, presetId, name));
+}
+
+async function deleteCurrentDashboardPreset(presetId) {
+	const preset = dashboardPresetState().presets.find((item) => item.id === presetId); if (!preset) return;
+	const message = t("aaalice.workspace.dashboardPreset.deleteConfirm", "Delete sidebar preset “{name}”? The current sidebar will not change.").replace("{name}", preset.name);
+	if (!await confirmAction(message, { title: dashboardPresetLabels().delete, confirmLabel: dashboardPresetLabels().delete, danger: true })) return;
+	commitDashboardPresetChange((current) => removeDashboardPreset(current, presetId));
+}
+
+function confirmDashboardPresetSwitch(activePreset = null) {
+	return new Promise((resolveDecision) => {
+		let settled = false; let dialog;
+		const finish = (decision) => { if (settled) return; settled = true; dialog.close(); resolveDecision(decision); };
+		const body = el("div", { className: "aa-value-preset-switch-warning", children: [icon("statusWarning"), el("div", { children: [el("strong", null, t("aaalice.workspace.dashboardPreset.unsavedTitle", "Current sidebar is custom")), el("p", null, t("aaalice.workspace.dashboardPreset.unsavedHint", "Save the current layout and values before switching, or discard them."))] })] });
+		const footer = el("div", { children: [
+			button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => finish(null) }),
+			button({ label: t("aaalice.workspace.dashboardPreset.discardSwitch", "Discard and switch"), variant: "ghost", onClick: () => finish("discard") }),
+			button({ label: activePreset ? t("aaalice.workspace.dashboardPreset.saveSwitch", "Update and switch") : t("aaalice.workspace.dashboardPreset.saveAsSwitch", "Save as and switch"), onClick: () => finish(activePreset ? "update" : "save-as") }),
+		] });
+		dialog = createDialog({ title: activePreset?.name || dashboardPresetLabels().unsaved, body, footer, size: "sm", className: "aa-value-preset-switch-dialog", onRequestClose: () => { finish(null); return false; } });
+	});
+}
+
+function confirmPartialDashboardPreset(plan, preset) {
 	return new Promise((resolveConfirmed) => {
 		let settled = false; let dialog;
 		const finish = (confirmed) => { if (settled) return; settled = true; dialog.close(); resolveConfirmed(confirmed); };
-		const labels = { missing: t("aaalice.workspace.binding.missing", "Missing"), incompatible: t("aaalice.workspace.binding.incompatible", "Incompatible"), invalid: t("aaalice.workspace.valuePreset.invalid", "Invalid value"), unused: t("aaalice.workspace.valuePreset.unused", "Not on sidebar") };
+		const availability = workspaceLabels().availability;
+		const labels = { missing: t("aaalice.workspace.binding.missing", "Missing"), incompatible: t("aaalice.workspace.binding.incompatible", "Incompatible"), invalid: t("aaalice.workspace.dashboardPreset.invalid", "Invalid value"), unused: t("aaalice.workspace.dashboardPreset.unused", "Not on sidebar"), empty: availability.noOptions, unset: availability.unset, unavailable: availability.unavailable, error: availability.error };
 		const rows = plan.issues.map((entry) => el("div", { className: "aa-value-preset-issue", children: [
 			el("div", { children: [el("strong", null, entry.binding?.controlId || entry.key), ...(entry.reason ? [el("small", null, entry.reason)] : [])] }),
 			badge(labels[entry.status] || entry.status, { className: "is-warning" }),
 		] }));
 		const body = el("div", { className: "aa-value-preset-review", children: [
-			el("p", null, t("aaalice.workspace.valuePreset.partialHint", "Some saved values cannot be applied safely. Review them before applying the compatible values.")),
+			el("p", null, t("aaalice.workspace.dashboardPreset.partialHint", "Some controls cannot be restored safely. Review them before applying the compatible layout and values.")),
 			el("div", { className: "aa-value-preset-issues", children: rows }),
 		] });
-		const footer = el("div", { children: [button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => finish(false) }), button({ label: t("aaalice.workspace.valuePreset.applyCompatible", "Apply compatible values"), disabled: !plan.ready.length, onClick: () => finish(true) })] });
+		const footer = el("div", { children: [button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => finish(false) }), button({ label: t("aaalice.workspace.dashboardPreset.applyCompatible", "Apply compatible preset"), onClick: () => finish(true) })] });
 		dialog = createDialog({ title: preset.name, body, footer, size: "sm", className: "aa-value-preset-review-dialog", onRequestClose: () => { finish(false); return false; } });
 	});
 }
 
-async function applyValuePreset(presetId, { restore = false } = {}) {
-	let state = valuePresetState(); const preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
-	const current = currentValuePresetSnapshot(); const active = state.presets.find((item) => item.id === state.lastAppliedPresetId) || null;
-	const comparison = active ? compareValuePreset(active, current.values) : null;
-	if (!restore && active && active.id !== presetId && comparison?.modified) {
-		const decision = await confirmValuePresetSwitch(active); if (!decision) return;
-		if (decision === "save" && !saveCurrentValuePreset(active.id)) return;
-		state = valuePresetState();
+async function applyDashboardPreset(presetId, { restore = false } = {}) {
+	let state = dashboardPresetState(); let preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
+	const active = state.presets.find((item) => item.id === state.baselinePresetId) || null;
+	const current = currentDashboardPresetSnapshot(); const comparison = active ? compareDashboardPreset(active, current) : null;
+	const hasCustomContent = current.dashboard.pages.length > 0 || Object.keys(current.values).length > 0;
+	if (!restore && active?.id !== presetId && (active ? comparison?.modified : hasCustomContent)) {
+		const decision = await confirmDashboardPresetSwitch(active); if (!decision) return;
+		if (decision === "update" && !updateCurrentDashboardPreset(active.id)) return;
+		if (decision === "save-as" && !await createCurrentDashboardPreset()) return;
+		state = dashboardPresetState(); preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
 	}
-	const plan = planDashboardPresetApplication(preset, dashboard(), (binding) => resolve(binding));
-	if (plan.issues.length && !await confirmPartialValuePreset(plan, preset)) return;
-	if (!plan.ready.length) { notifyValuePresetError(t("aaalice.workspace.valuePreset.noneApplicable", "This preset has no compatible sidebar values to apply.")); return; }
+	const plan = planDashboardPresetApplication(preset, (binding) => resolve(binding));
+	if (plan.issues.length && !await confirmPartialDashboardPreset(plan, preset)) return;
 	const graph = app.graph; graph?.beforeChange?.();
 	try {
-		applyDashboardPresetPlan(plan);
-		graph.extra ||= {}; graph.extra[VALUE_PRESETS_EXTRA_KEY] = markValuePresetApplied(state, presetId);
-	} catch (error) { notifyValuePresetError(error); return; }
+		graph.extra ||= {};
+		applyDashboardSnapshotPlan(plan, { readDashboard: () => dashboard(), writeDashboard: (next) => { graph.extra[EXTRA_KEY] = normalizeDashboard(next); } });
+		graph.extra[DASHBOARD_PRESETS_EXTRA_KEY] = setDashboardPresetBaseline(state, presetId);
+		activePageId = preset.dashboard.pages.some((page) => page.id === activePageId) ? activePageId : preset.dashboard.pages[0]?.id || null;
+	} catch (error) { notifyDashboardPresetError(error); return; }
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender("dashboard"); }
-	remindWorkflowSave(t("aaalice.workspace.valuePreset.appliedReminder", "Parameter preset applied. Save the workflow to keep these values."));
+	remindWorkflowSave(t("aaalice.workspace.dashboardPreset.appliedReminder", "Sidebar preset applied. Save the workflow to keep the layout and values."));
 }
 
 function workspaceLabels() {
@@ -493,7 +531,7 @@ function openEditGroup(page, group) {
 }
 
 function openDashboardExport(model) {
-	const preset = exportDashboardPreset(model, (binding) => resolve(binding));
+	const preset = serializeDashboardPreset(currentDashboardPresetSnapshot(model));
 	const pages = preset.dashboard.pages;
 	const groups = pages.flatMap((page) => page.groups);
 	const controls = pages.flatMap((page) => page.items).filter((item) => item.kind === "control");
@@ -553,18 +591,18 @@ function renderDashboard(container, host) {
 			{ label: t("aaalice.workspace.page.delete", "Delete page"), iconName: "delete", danger: true, onSelect: () => removePage(page) },
 		] });
 	};
-	const presetState = valuePresetState();
-	const selectedValuePreset = presetState.presets.find((item) => item.id === presetState.lastAppliedPresetId) || null;
-	const currentPresetValues = page && !editMode ? currentValuePresetSnapshot(model).values : {};
-	const valuePresetComparison = selectedValuePreset ? compareValuePreset(selectedValuePreset, currentPresetValues) : null;
-	const valuePresetPicker = page && !editMode ? createValuePresetPicker({
-		presets: presetState.presets, selectedId: selectedValuePreset?.id || null, comparison: valuePresetComparison, labels: valuePresetLabels(),
-		onSelect: (presetId) => applyValuePreset(presetId), onCreate: () => createCurrentValuePreset(model), onSave: (presetId) => saveCurrentValuePreset(presetId, model),
-		onRestore: (presetId) => applyValuePreset(presetId, { restore: true }), onDuplicate: duplicateCurrentValuePreset, onRename: renameCurrentValuePreset, onDelete: deleteCurrentValuePreset,
-	}) : null;
+	const presetState = dashboardPresetState();
+	const baselinePreset = presetState.presets.find((item) => item.id === presetState.baselinePresetId) || null;
+	const currentPresetSnapshot = currentDashboardPresetSnapshot(model);
+	const presetComparison = baselinePreset ? compareDashboardPreset(baselinePreset, currentPresetSnapshot) : null;
+	const presetPicker = createDashboardPresetPicker({
+		presets: presetState.presets, baselineId: baselinePreset?.id || null, comparison: presetComparison, error: dashboardPresetModelError, labels: dashboardPresetLabels(),
+		onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
+		onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
+	});
 	const dashboardActions = [
 		...(page ? [el("div", { className: `aa-dashboard-page-name${pageTransitionClass}`, attrs: { title: page.name, role: "heading", "aria-level": "2", "aria-current": "page" }, children: [el("span", null, page.name)] })] : []),
-		...(valuePresetPicker ? [valuePresetPicker] : []),
+		presetPicker,
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
 		...(editMode ? [
 			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
@@ -700,13 +738,13 @@ async function importDashboardPreset(file) {
 	const dialog = createDialog({ title: t("aaalice.workspace.preset.import", "Import layout"), body, footer, size: "md", className: "aa-transfer-dialog" });
 	setDialogFooter(footer, button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }));
 	try {
-		const preset = JSON.parse(await file.text()); const preflight = preflightDashboardPreset(preset, (binding) => resolve(binding));
-		const missing = preflight.bindings.filter((item) => item.status !== "ok");
+		const snapshot = parseDashboardPreset(JSON.parse(await file.text())); const preflight = planDashboardPresetApplication(snapshot, (binding) => resolve(binding));
+		const missing = preflight.issues;
 		const pages = preflight.dashboard.pages;
 		const groups = pages.flatMap((page) => page.groups);
-		const compatible = preflight.bindings.filter((item) => item.status === "ok");
+		const compatible = preflight.ready;
 		const savedValues = compatible.filter((item) => item.saved);
-		const missingRows = missing.map((item) => el("div", { className: "aa-transfer-entry-row", children: [el("div", { children: [el("strong", null, item.binding.controlId), el("small", null, `${item.binding.provider} · ${item.binding.valueType}`)] }), badge(item.status === "incompatible" ? t("aaalice.workspace.binding.incompatible", "Incompatible") : t("aaalice.workspace.binding.missing", "Missing"), { className: "is-warning" })] }));
+		const missingRows = missing.map((item) => el("div", { className: "aa-transfer-entry-row", children: [el("div", { children: [el("strong", null, item.binding?.controlId || item.key), el("small", null, item.binding ? `${item.binding.provider} · ${item.binding.valueType}` : item.key)] }), badge(item.status === "incompatible" ? t("aaalice.workspace.binding.incompatible", "Incompatible") : t("aaalice.workspace.binding.missing", "Missing"), { className: "is-warning" })] }));
 		body.replaceChildren(
 			createTransferHero({ iconName: missing.length ? "statusWarning" : "statusCheck", eyebrow: t("aaalice.workspace.transfer.review", "Import preview"), title: missing.length ? t("aaalice.workspace.transfer.presetNeedsReview", "Some controls need rebinding") : t("aaalice.workspace.transfer.readyToImport", "Ready to import"), description: missing.length ? t("aaalice.workspace.transfer.presetNeedsReviewHint", "The layout can still be restored. Missing cards stay visible and incompatible saved values are skipped.") : t("aaalice.workspace.transfer.presetReadyHint", "Every control binding matches this workflow. Layout and compatible values will be restored together."), fileName: file.name, fileMeta: `${formatFileSize(file.size)} · ${t("aaalice.workspace.transfer.jsonPreset", "JSON layout backup")}`, tone: missing.length ? "warning" : "success" }),
 			createTransferStats([
@@ -724,13 +762,11 @@ async function importDashboardPreset(file) {
 			try {
 				const graph = app.graph; graph?.beforeChange?.();
 				try {
-					graph.extra ||= {}; graph.extra[EXTRA_KEY] = preflight.dashboard;
-					for (const item of preflight.bindings) {
-						if (item.status !== "ok" || !item.saved) continue; const resolved = resolve(item.binding); const next = item.saved.value;
-						if (resolved.status !== "ok") continue;
-						if (typeof next === "number" && (Number.isFinite(Number(resolved.options?.min)) && next < Number(resolved.options.min) || Number.isFinite(Number(resolved.options?.max)) && next > Number(resolved.options.max))) continue;
-						resolved.setValue(next, { transaction: false });
-					}
+					graph.extra ||= {};
+					const nextPresetState = setDashboardPresetBaseline(dashboardPresetState(), null);
+					applyDashboardSnapshotPlan(preflight, { readDashboard: () => dashboard(), writeDashboard: (next) => { graph.extra[EXTRA_KEY] = normalizeDashboard(next); } });
+					graph.extra[DASHBOARD_PRESETS_EXTRA_KEY] = nextPresetState;
+					activePageId = preflight.dashboard.pages[0]?.id || null;
 				} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
 				body.replaceChildren(createTransferResult({ title: t("aaalice.workspace.transfer.presetImportComplete", "Layout imported"), description: missing.length ? t("aaalice.workspace.transfer.presetImportPartialHint", "The layout is ready. Unresolved cards were kept so you can rebind them manually.") : t("aaalice.workspace.transfer.presetImportCompleteHint", "Pages, layout groups, bindings and compatible saved values were restored."), count: compatible.length, countLabel: t("aaalice.workspace.transfer.controlsMatched", "controls matched") }));
 				setDialogFooter(footer, button({ label: t("aaalice.workspace.done", "Done"), onClick: () => dialog.close() }));
@@ -1212,6 +1248,7 @@ async function importLibrary(file) {
 }
 
 function renderWorkspace(root) {
+	clearLegacyDashboardPresets();
 	workspacePinTooltip.hide();
 	closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(root);
 	destroySharedControls(root);

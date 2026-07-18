@@ -91,11 +91,11 @@
 |---|---|
 | `el()` | 安全创建 DOM，普通文本使用 `textContent` |
 | `icon()` | 渲染内置 SVG；独立图标必须有可访问名称 |
-| `button()` / `iconButton()` | 统一按钮视觉、状态、aria-label 和 tooltip |
+| `button()` / `iconButton()` | 统一按钮视觉、状态、aria-label 和 tooltip；极少数需要覆盖对话框默认确认项时使用 `defaultAction: true` |
 | `field()` | 字段标签、提示、控件与错误信息 |
 | `badge()` | 类型或短元数据，不单独承担关键状态 |
 | `emptyState()` | 解释空状态原因和下一步 |
-| `createDialog()` | 统一 Escape、背景关闭、焦点圈定与恢复 |
+| `createDialog()` | 统一 Enter 确认、Escape 取消、背景关闭、焦点圈定与恢复；默认确认 Footer 中的 primary（危险确认则为 danger），短表单默认使用 420px `compact` 宽度，复杂内容显式选择 `sm` / `md` / `lg` |
 | `segmentedControl()` | 2–4 个平级互斥模式、稳定 thumb、radiogroup 与方向键 |
 | `toggleSwitch()` | 单一布尔设置、disabled 和 aria 状态 |
 | `checkboxControl()` | 列表多选、紧凑勾选反馈、disabled 和 aria 状态 |
@@ -110,6 +110,8 @@
 | `registerControlRenderer()` | 为既有 family 增加特殊控件 kind；重复 kind 显式失败，注销只移除自己的 renderer |
 | `renderControlAvailability()` | 为结构有效但暂不可操作的控件提供统一只读状态；空选项、未赋值和临时错误不冒充绑定丢失 |
 
+对话框键盘契约由 `createDialog()` 集中实现，业务对话框不得重复注册全局 Enter / Escape。Enter 动态查找当前可用的显式 `defaultAction`、primary 或 danger Footer 按钮；输入法组合、重复按键、组合键、多行文本、下拉、可编辑区域和自身承担激活职责的控件不会触发确认。特殊对话框可用 `confirmOnEnter: false` 整体关闭，局部交互区域可用 `data-aa-dialog-enter="ignore"` 隔离。Escape 优先交给已展开的下拉、Popover 或菜单消费，其后才请求关闭当前对话框。
+
 Tooltip 使用接近实色的主题表面、单层边框、克制的分层投影和内侧高光，并用跟随实际锚点的小箭头建立空间关系；业务内容不得在 Tooltip 内重复套无语义的卡片表面。
 Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按 Tooltip HTML 白名单净化；支持 CommonMark 与 GFM 的标题、列表、引用、分割线、表格、任务列表、删除线、代码、图片和链接等语法。链接与图片资源只允许 HTTP(S) 协议；含链接的提示必须使用 `interactive` 模式，鼠标从锚点移入浮层时不能消失。
 
@@ -123,7 +125,7 @@ Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按
 | `createWorkspaceToolbar()` | 紧凑同排操作及可访问标签 |
 | `createCollapsibleSearch()` | 侧栏内同排展开的搜索入口、输入和关闭 |
 | `createPageRail()` / `createDashboardGrid()` / `createDashboardGroup()` / `createControlCard()` | Dashboard 页面导航、细粒度二维网格、可选布局组和参数投影的纯视图 |
-| `createValuePresetPicker()` | Dashboard 顶栏的单行参数预设选择、按需状态徽标、首次使用引导和管理入口；不持有工作流状态或直接写节点 |
+| `createDashboardPresetPicker()` | Dashboard 顶栏的单行完整预设选择、已修改/未保存状态、首次使用引导和管理入口；不持有工作流状态或直接写节点 |
 | `createTransferHero()` / `createTransferStats()` / `createTransferSection()` / `createTransferResult()` | 导入导出的文件摘要、预检统计、冲突区和结果反馈 |
 
 业务模块可以增加布局 class 和语义色映射，但不得复制基础组件或让共享层持有工作流状态。依赖连续动画的 thumb 必须保留 DOM identity，只更新 class、data、ARIA 和 transform。

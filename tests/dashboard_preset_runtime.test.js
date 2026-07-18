@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
-import { applyDashboardPresetPlan, captureDashboardValues, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
+import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
 
 const binding = (controlId, valueType = "number") => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType });
-const dashboard = (...bindings) => ({ pages: [
-	{ items: bindings.map((item, index) => ({ id: `item-${index}`, kind: "control", binding: item })) },
-	{ items: bindings.length ? [{ id: "mirror", kind: "control", binding: bindings[0] }] : [] },
+const dashboard = (...bindings) => ({ version: 2, pages: [
+	{ id: "page-a", name: "A", gridColumns: 12, groups: [], items: bindings.map((item, index) => ({ id: `item-${index}`, kind: "control", binding: item, label: "", groupId: null, compact: false, layout: { row: index * 8, column: 0, columnSpan: 6, rowSpan: 7 } })) },
+	{ id: "page-b", name: "B", gridColumns: 12, groups: [], items: bindings.length ? [{ id: "mirror", kind: "control", binding: bindings[0], label: "", groupId: null, compact: false, layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 7 } }] : [] },
 ] });
+const snapshot = (layout, values = {}) => ({ dashboard: layout, values });
 
 test("value capture deduplicates mirrored cards and skips unresolved or unset controls", () => {
 	const steps = binding("steps"); const cfg = binding("cfg"); const empty = binding("empty", "string"); const calls = [];
@@ -23,15 +24,29 @@ test("value capture deduplicates mirrored cards and skips unresolved or unset co
 	assert.deepEqual(result.bindings.map(({ status }) => status), ["ok", "missing", "unset"]);
 });
 
+test("capture respects runtime availability and preserves unavailable saved values", () => {
+	const steps = binding("steps"); const cfg = binding("cfg");
+	const snapshot = captureDashboardValues(dashboard(steps, cfg), (candidate) => candidate.controlId === "cfg"
+		? { status: "ok", value: 7, availability: { state: "unavailable" } }
+		: { status: "ok", value: 24 });
+	assert.deepEqual(snapshot.values, { [bindingKey(steps)]: { valueType: "number", payload: 24 } });
+	assert.deepEqual(snapshot.bindings.map(({ status }) => status), ["ok", "unavailable"]);
+	const previous = { [bindingKey(cfg)]: { valueType: "number", payload: 11 }, "generic-widget:gone:value": { valueType: "number", payload: 3 } };
+	assert.deepEqual(mergeCapturedPresetValues(snapshot, previous), {
+		[bindingKey(steps)]: { valueType: "number", payload: 24 },
+		[bindingKey(cfg)]: { valueType: "number", payload: 11 },
+	});
+});
+
 test("application planning separates ready, absent, incompatible and invalid values", () => {
 	const steps = binding("steps"); const cfg = binding("cfg"); const mode = binding("mode", "string");
-	const preset = { id: "quality", values: {
+	const preset = snapshot(dashboard(steps, cfg, mode), {
 		[bindingKey(steps)]: { valueType: "number", payload: 30 },
 		[bindingKey(cfg)]: { valueType: "number", payload: 11 },
 		[bindingKey(mode)]: { valueType: "number", payload: 1 },
 		"generic-widget:gone:value": { valueType: "number", payload: 2 },
-	} };
-	const plan = planDashboardPresetApplication(preset, dashboard(steps, cfg, mode), (candidate) => {
+	});
+	const plan = planDashboardPresetApplication(preset, (candidate) => {
 		if (candidate.controlId === "cfg") return { status: "ok", value: 7, validatePresetValue: () => "above-maximum" };
 		return { status: "ok", value: candidate.controlId === "mode" ? "fast" : 20, validatePresetValue: () => true };
 	});
@@ -50,20 +65,38 @@ test("preset application writes each binding once and rolls back an interrupted 
 			state[candidate.controlId] = entry.payload;
 		},
 	});
-	const preset = { id: "broken", values: {
+	const preset = snapshot(dashboard(first, second), {
 		[bindingKey(first)]: { valueType: "number", payload: 10 },
 		[bindingKey(second)]: { valueType: "number", payload: 20 },
-	} };
-	const plan = planDashboardPresetApplication(preset, dashboard(first, second), resolved);
+	});
+	const plan = planDashboardPresetApplication(preset, resolved);
 	assert.throws(() => applyDashboardPresetPlan(plan), /vendor write failed/);
 	assert.deepEqual(state, { first: 1, second: 2 });
-	assert.deepEqual(writes, [["first", 10], ["second", 20], ["first", 1]]);
+	assert.deepEqual(writes, [["first", 10], ["second", 20], ["second", 2], ["first", 1]]);
+});
+
+test("application rolls back a codec that mutates before throwing", () => {
+	const target = binding("target"); let current = 1;
+	const plan = planDashboardPresetApplication(snapshot(dashboard(target), { [bindingKey(target)]: { valueType: "number", payload: 9 } }), () => ({
+		status: "ok", readPresetValue: () => current, validatePresetValue: () => true,
+		applyPresetValue(entry) { current = entry.payload; if (entry.payload === 9) throw new Error("failed after write"); },
+	}));
+	assert.throws(() => applyDashboardPresetPlan(plan), /failed after write/);
+	assert.equal(current, 1);
+});
+
+test("asynchronous third-party preset codecs fail visibly before application", () => {
+	const target = binding("target");
+	const preset = snapshot(dashboard(target), { [bindingKey(target)]: { valueType: "number", payload: 9 } });
+	const plan = planDashboardPresetApplication(preset, () => ({ status: "ok", value: 1, validatePresetValue: async () => true }));
+	assert.equal(plan.ready.length, 0);
+	assert.equal(plan.issues[0].error.code, "async-preset-codec");
 });
 
 test("successful preset application reports the atomic result", () => {
 	const steps = binding("steps"); let current = 20; let dirty = 0;
-	const preset = { id: "quality", values: { [bindingKey(steps)]: { valueType: "number", payload: 32 } } };
-	const plan = planDashboardPresetApplication(preset, dashboard(steps), () => ({
+	const preset = snapshot(dashboard(steps), { [bindingKey(steps)]: { valueType: "number", payload: 32 } });
+	const plan = planDashboardPresetApplication(preset, () => ({
 		status: "ok", node: { setDirtyCanvas: () => dirty++ }, readPresetValue: () => current,
 		validatePresetValue: () => true, applyPresetValue: (entry) => { current = entry.payload; },
 	}));
@@ -77,9 +110,20 @@ test("third-party codec failures stay visible in preflight without breaking capt
 	assert.deepEqual(captured.values, {});
 	assert.equal(captured.bindings[0].status, "error");
 	assert.match(captured.bindings[0].error.message, /codec offline/);
-	const preset = { id: "vendor", values: { [bindingKey(vendor)]: { valueType: "string", payload: "x" } } };
-	const plan = planDashboardPresetApplication(preset, dashboard(vendor), () => ({ status: "ok", value: "old", validatePresetValue: () => { throw new Error("codec rejected"); } }));
+	const preset = snapshot(dashboard(vendor), { [bindingKey(vendor)]: { valueType: "string", payload: "x" } });
+	const plan = planDashboardPresetApplication(preset, () => ({ status: "ok", value: "old", validatePresetValue: () => { throw new Error("codec rejected"); } }));
 	assert.equal(plan.ready.length, 0);
 	assert.equal(plan.issues[0].status, "invalid");
 	assert.equal(plan.issues[0].reason, "codec rejected");
+});
+
+test("layout and values roll back together when a preset write fails", () => {
+	const target = binding("target"); let currentValue = 1; let currentDashboard = dashboard(binding("old"));
+	const plan = planDashboardPresetApplication(snapshot(dashboard(target), { [bindingKey(target)]: { valueType: "number", payload: 9 } }), () => ({
+		status: "ok", readPresetValue: () => currentValue, validatePresetValue: () => true,
+		applyPresetValue(entry) { currentValue = entry.payload; if (entry.payload === 9) throw new Error("write failed"); },
+	}));
+	assert.throws(() => applyDashboardSnapshotPlan(plan, { readDashboard: () => currentDashboard, writeDashboard: (next) => { currentDashboard = next; } }), /write failed/);
+	assert.equal(currentValue, 1);
+	assert.equal(currentDashboard.pages[0].items[0].binding.controlId, "old");
 });

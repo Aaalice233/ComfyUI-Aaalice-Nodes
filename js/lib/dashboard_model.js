@@ -115,26 +115,3 @@ export function findItem(model, itemId) {
 export function bindingKey(binding) {
 	return `${binding.provider}:${binding.hostId}:${binding.controlId}${binding.adapterId ? `:${binding.adapterId}` : ""}`;
 }
-
-export function exportDashboardPreset(model, resolveValue) {
-	const dashboard = normalizeDashboard(model); const values = {};
-	for (const page of dashboard.pages) for (const item of page.items) {
-		if (item.kind !== "control") continue;
-		const resolved = resolveValue?.(item.binding);
-		if (resolved?.status === "ok") values[bindingKey(item.binding)] = { valueType: item.binding.valueType, value: resolved.value };
-	}
-	return { format: "aaalice-dashboard-preset", version: DASHBOARD_VERSION, dashboard, values };
-}
-
-export function preflightDashboardPreset(preset, resolveBinding) {
-	if (preset?.format !== "aaalice-dashboard-preset" || preset?.version !== DASHBOARD_VERSION) throw new DashboardModelError("Unsupported dashboard preset", "unsupported-preset");
-	const dashboard = normalizeDashboard(preset.dashboard); const bindings = [];
-	for (const page of dashboard.pages) for (const item of page.items) {
-		if (item.kind !== "control") continue;
-		const resolved = resolveBinding(item.binding); const saved = preset.values?.[bindingKey(item.binding)];
-		let status = resolved?.status || "missing";
-		if (status === "ok" && saved && saved.valueType !== item.binding.valueType) status = "incompatible";
-		bindings.push({ itemId: item.id, binding: item.binding, status, saved });
-	}
-	return { dashboard, bindings };
-}

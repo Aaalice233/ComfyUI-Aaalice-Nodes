@@ -28,14 +28,15 @@
 		"missing": "参数绑定已失效", "incompatible": "参数类型不兼容", "selectOption": "请选择", "noOptions": "暂无可用选项", "unset": "当前暂无可用值", "unavailable": "控件暂时不可用", "error": "控件发生错误，暂时不可用", "saveWorkflowReminder": "请保存工作流以保留这些侧边栏参数，否则修改将会丢失。"
       },
       "preset": { "title": "布局备份", "export": "导出布局", "import": "导入布局", "missingConfirm": "个绑定已失效或类型不兼容。是否仍导入布局并跳过不兼容的值？" },
-      "valuePreset": {
-        "title": "参数预设", "open": "打开参数预设", "description": "一键切换侧边栏全部参数", "custom": "自定义", "modified": "已修改", "attention": "需要处理",
-          "empty": "还没有预设", "emptyHint": "保存当前参数，之后即可在这里快速切换。", "emptyAction": "保存当前值", "valueCount": "{count} 个参数", "name": "预设名称", "defaultName": "预设 {count}", "copyName": "{name} 副本",
-          "create": "将当前参数保存为新预设", "createShort": "保存为新预设", "save": "保存修改", "restore": "恢复预设", "duplicate": "复制", "rename": "重命名", "delete": "删除", "deleteConfirm": "确定删除参数预设“{name}”吗？当前节点参数不会改变。",
-        "error": "参数预设错误", "noValues": "当前没有可保存的侧边栏参数。", "invalid": "值无效", "unused": "侧边栏中不存在", "noneApplicable": "这个预设没有可以安全应用的侧边栏参数。",
-        "unsavedTitle": "当前预设存在未保存修改", "unsavedHint": "切换前可以保存修改，也可以放弃修改并应用所选预设。", "discardSwitch": "放弃并切换", "saveSwitch": "保存并切换",
-        "partialHint": "部分保存值无法安全应用，请确认后再应用其余兼容参数。", "applyCompatible": "应用兼容参数",
-        "saveWorkflowReminder": "请保存工作流以保留这些参数预设。", "savedReminder": "参数预设已更新，请保存工作流。", "appliedReminder": "参数预设已应用，请保存工作流以保留这些值。"
+      "dashboardPreset": {
+          "title": "侧边栏预设", "open": "打开侧边栏预设", "unsaved": "未保存", "attention": "需要处理",
+          "empty": "还没有预设", "emptyHint": "保存当前所有页面、布局和参数值，之后可一键切换。", "emptyAction": "创建第一个预设", "name": "预设名称", "defaultName": "预设 {count}", "copyName": "{name} 副本",
+		  "presetCount": "{count} 个预设", "presetSummary": "{pages} 个页面 · {values} 个参数", "add": "新增", "create": "新增预设", "manage": "管理预设", "modified": "当前有修改", "update": "保存修改", "saveCurrent": "保存为预设", "restore": "放弃修改", "duplicate": "复制", "rename": "重命名", "delete": "删除", "deleteConfirm": "确定删除侧边栏预设“{name}”吗？当前侧边栏不会改变。",
+		  "changeSummary": "布局 {layout} 处 · 参数 {values} 处", "dataError": "预设数据异常", "dataErrorHint": "无法读取工作流中保存的侧边栏预设数据。",
+        "error": "侧边栏预设错误", "noContent": "当前没有可以保存的侧边栏布局。", "invalid": "值无效", "unused": "侧边栏中不存在",
+        "unsavedTitle": "当前修改尚未保存", "unsavedHint": "切换前可以保存当前布局和参数，也可以放弃修改。", "discardSwitch": "放弃并切换", "saveSwitch": "保存并切换", "saveAsSwitch": "另存并切换",
+        "partialHint": "部分参数无法安全恢复，请确认后再应用其余兼容布局和参数。", "applyCompatible": "应用兼容内容",
+        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "savedReminder": "侧边栏预设已更新，请保存工作流。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "legacyCleared": "旧版纯参数预设已清空，请保存工作流以完成升级。"
       },
       "transfer": {
 		"backup": "便携备份", "layoutPreset": "布局备份", "preflight": "安全检查", "review": "导入预览",

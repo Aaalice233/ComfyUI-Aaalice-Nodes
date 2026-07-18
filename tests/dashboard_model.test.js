@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { DashboardModelError, bindingKey, createPage, emptyDashboard, exportDashboardPreset, normalizeDashboard, preflightDashboardPreset } from "../js/lib/dashboard_model.js";
+import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
 import { compactDashboard, createGroup, deleteGroup, duplicatePage, addItems, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
@@ -184,13 +184,6 @@ test("duplicating a page regenerates layout identities and preserves bindings", 
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }]);
 	next = createGroup(next, page.id, next.pages[0].items.map((item) => item.id)); next = duplicatePage(next, page.id);
 	assert.equal(next.pages.length, 2); assert.notEqual(next.pages[0].id, next.pages[1].id); assert.notEqual(next.pages[0].groups[0].id, next.pages[1].groups[0].id); assert.notEqual(next.pages[0].items[0].id, next.pages[1].items[0].id); assert.deepEqual(next.pages[0].items[0].binding, next.pages[1].items[0].binding);
-});
-
-test("preset carries current values and rejects old preset versions", () => {
-	const { model, page } = modelWithPage(); const dashboard = addItems(model, page.id, [{ label: "Steps", binding }]);
-	const preset = exportDashboardPreset(dashboard, () => ({ status: "ok", value: 30 })); assert.equal(Object.values(preset.values)[0].value, 30);
-	assert.equal(preflightDashboardPreset(preset, () => ({ status: "missing" })).bindings[0].status, "missing");
-	assert.throws(() => preflightDashboardPreset({ ...preset, version: 1 }, () => ({ status: "ok" })), /Unsupported dashboard preset/);
 });
 
 test("duplicate ids, missing groups and overlapping cells fail visibly", () => {

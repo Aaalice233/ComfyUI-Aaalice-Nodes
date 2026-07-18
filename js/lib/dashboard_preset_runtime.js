@@ -1,6 +1,36 @@
-/** Runtime bridge between workflow-owned value presets and live control providers. */
+/** Runtime bridge between sidebar preset snapshots and live control providers. */
 
 import { bindingKey } from "./dashboard_model.js";
+import { normalizeDashboardSnapshot } from "./dashboard_presets.js";
+
+export class DashboardPresetRuntimeError extends Error {
+	constructor(message, code, key, cause = null) {
+		super(message, cause ? { cause } : undefined);
+		this.name = "DashboardPresetRuntimeError"; this.code = code; this.key = key;
+	}
+}
+
+function synchronous(value, operation, key) {
+	if (value && typeof value.then === "function") throw new DashboardPresetRuntimeError(`Preset ${operation} must be synchronous: ${key}`, "async-preset-codec", key);
+	return value;
+}
+
+function runtimeAvailability(resolved) {
+	const state = resolved?.availability?.state;
+	return state && state !== "ready" ? state : null;
+}
+
+function readCurrentPayload(resolved, key) {
+	const value = synchronous(resolved.readPresetValue ? resolved.readPresetValue() : resolved.value, "read", key);
+	return typeof value === "undefined" ? undefined : structuredClone(value);
+}
+
+function writePresetEntry(entry, value) {
+	const result = entry.resolved.applyPresetValue
+		? entry.resolved.applyPresetValue(value, { transaction: false, workspaceRedraw: false })
+		: entry.resolved.setValue(value.payload, { transaction: false, workspaceRedraw: false });
+	synchronous(result, "write", entry.key);
+}
 
 function uniqueBindings(dashboard) {
 	const result = new Map();
@@ -18,8 +48,10 @@ export function captureDashboardValues(dashboard, resolveBinding) {
 		try { resolved = resolveBinding(binding); }
 		catch (error) { bindings.push({ key, binding, status: "error", error }); continue; }
 		const status = resolved?.status || "missing";
+		const availability = status === "ok" ? runtimeAvailability(resolved) : null;
+		if (availability) { bindings.push({ key, binding, status: availability, resolved }); continue; }
 		let payload;
-		try { payload = status === "ok" ? (resolved.readPresetValue ? resolved.readPresetValue() : structuredClone(resolved.value)) : undefined; }
+		try { payload = status === "ok" ? readCurrentPayload(resolved, key) : undefined; }
 		catch (error) { bindings.push({ key, binding, status: "error", error }); continue; }
 		const captureStatus = status === "ok" && typeof payload === "undefined" ? "unset" : status;
 		bindings.push({ key, binding, status: captureStatus });
@@ -30,47 +62,72 @@ export function captureDashboardValues(dashboard, resolveBinding) {
 	return { values, bindings };
 }
 
-export function planDashboardPresetApplication(preset, dashboard, resolveBinding) {
-	const dashboardBindings = uniqueBindings(dashboard); const entries = [];
-	for (const [key, saved] of Object.entries(preset.values || {})) {
-		const binding = dashboardBindings.get(key);
-		if (!binding) { entries.push({ key, saved, status: "unused" }); continue; }
+export function mergeCapturedPresetValues(snapshot, previousValues = {}) {
+	const values = structuredClone(snapshot?.values || {});
+	for (const binding of snapshot?.bindings || []) {
+		if (binding.status === "ok" || !Object.prototype.hasOwnProperty.call(previousValues, binding.key)) continue;
+		values[binding.key] = structuredClone(previousValues[binding.key]);
+	}
+	return values;
+}
+
+export function planDashboardPresetApplication(snapshot, resolveBinding) {
+	const normalized = normalizeDashboardSnapshot(snapshot); const dashboardBindings = uniqueBindings(normalized.dashboard); const entries = [];
+	for (const [key, binding] of dashboardBindings) {
+		const saved = normalized.values[key];
 		let resolved;
 		try { resolved = resolveBinding(binding); }
 		catch (error) { entries.push({ key, binding, saved, status: "invalid", reason: error.message, error }); continue; }
 		if (resolved?.status !== "ok") { entries.push({ key, binding, saved, resolved, status: resolved?.status || "missing" }); continue; }
+		const availability = runtimeAvailability(resolved);
+		if (availability) { entries.push({ key, binding, saved, resolved, status: availability }); continue; }
+		if (!saved) { entries.push({ key, binding, resolved, status: "unset" }); continue; }
 		if (saved.valueType !== binding.valueType) { entries.push({ key, binding, saved, resolved, status: "incompatible" }); continue; }
 		let validation;
-		try { validation = resolved.validatePresetValue?.(saved); }
+		try { validation = synchronous(resolved.validatePresetValue?.(saved), "validation", key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
 		if (validation === false || typeof validation === "string") { entries.push({ key, binding, saved, resolved, status: "invalid", reason: typeof validation === "string" ? validation : "invalid-value" }); continue; }
 		let previousPayload;
-		try { previousPayload = resolved.readPresetValue ? resolved.readPresetValue() : structuredClone(resolved.value); }
+		try { previousPayload = readCurrentPayload(resolved, key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
 		entries.push({ key, binding, saved, resolved, previous: { valueType: binding.valueType, payload: previousPayload }, status: "ready" });
 	}
+	for (const [key, saved] of Object.entries(normalized.values)) if (!dashboardBindings.has(key)) entries.push({ key, saved, status: "unused" });
 	return {
-		presetId: preset.id,
+		dashboard: normalized.dashboard,
 		entries,
 		ready: entries.filter((entry) => entry.status === "ready"),
 		issues: entries.filter((entry) => entry.status !== "ready"),
 	};
 }
 
+export function applyDashboardSnapshotPlan(plan, { readDashboard, writeDashboard }) {
+	const previousDashboard = structuredClone(readDashboard());
+	try {
+		writeDashboard(structuredClone(plan.dashboard));
+		return applyDashboardPresetPlan(plan);
+	} catch (error) {
+		try { writeDashboard(previousDashboard); }
+		catch (rollbackError) { throw new AggregateError([error, rollbackError], "Sidebar preset application and layout rollback failed"); }
+		throw error;
+	}
+}
+
 export function applyDashboardPresetPlan(plan) {
 	const touchedNodes = new Set(); const applied = [];
 	try {
 		for (const entry of plan.ready) {
-			if (entry.resolved.applyPresetValue) entry.resolved.applyPresetValue(entry.saved, { transaction: false, workspaceRedraw: false });
-			else entry.resolved.setValue(entry.saved.payload, { transaction: false, workspaceRedraw: false });
-			applied.push(entry); if (entry.resolved.node) touchedNodes.add(entry.resolved.node);
+			// Include the current entry before writing: a third-party codec may mutate
+			// its state and then throw, and that partial write must also be rolled back.
+			applied.push(entry);
+			writePresetEntry(entry, entry.saved);
+			if (entry.resolved.node) touchedNodes.add(entry.resolved.node);
 		}
 	} catch (error) {
 		const rollbackErrors = [];
 		for (const entry of applied.reverse()) {
 			try {
-				if (entry.resolved.applyPresetValue) entry.resolved.applyPresetValue(entry.previous, { transaction: false, workspaceRedraw: false });
-				else entry.resolved.setValue(entry.previous.payload, { transaction: false, workspaceRedraw: false });
+				writePresetEntry(entry, entry.previous);
 			} catch (rollbackError) { rollbackErrors.push(rollbackError); }
 		}
 		if (rollbackErrors.length) throw new AggregateError([error, ...rollbackErrors], "Parameter preset application and rollback failed");

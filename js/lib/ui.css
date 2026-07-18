@@ -239,6 +239,7 @@
 	backdrop-filter: blur(3px);
 }
 .aa-ui-dialog { display: grid; max-width: 96vw; max-height: 90vh; overflow: hidden; grid-template-rows: auto minmax(0, 1fr) auto; border: 1px solid var(--aa-ui-border-soft); border-radius: var(--aa-ui-radius-lg); background: var(--aa-ui-surface); box-shadow: var(--aa-ui-shadow); animation: aa-ui-dialog-in .14s ease-out; }
+.aa-ui-dialog--compact { width: min(420px, 96vw); }
 .aa-ui-dialog--sm { width: min(460px, 96vw); }
 .aa-ui-dialog--md { width: min(720px, 96vw); }
 .aa-ui-dialog--lg { width: min(1040px, 96vw); }

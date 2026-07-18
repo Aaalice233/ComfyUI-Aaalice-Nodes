@@ -3,6 +3,7 @@
 import { renderSafeMarkdown } from "./safe_markdown.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+const DEFAULT_DIALOG_SIZE = "compact";
 const ICON_PATHS = {
 	add: "M12 5v14M5 12h14",
 	close: "M18 6 6 18M6 6l12 12",
@@ -17,6 +18,7 @@ const ICON_PATHS = {
 	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
 	move: "M3 6h7l2 2h9v11H3V6Zm5 8h8m-3-3 3 3-3 3",
+	more: "M5 11v2M12 11v2M19 11v2",
 	pin: "M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6Zm3 11v7",
 	unlock: "M17 11V8a5 5 0 0 0-9.6-2M5 11h14v10H5z",
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
@@ -282,11 +284,12 @@ export function button({
 	className = "",
 	active = false,
 	disabled = false,
+	defaultAction = false,
 	onClick = null,
 } = {}) {
 	const result = el("button", {
 		className: `aa-ui-button aa-ui-button--${variant} aa-ui-button--${size}${active ? " is-active" : ""}${className ? ` ${className}` : ""}`,
-		attrs: { type: "button", title, disabled, "aria-label": ariaLabel || null },
+		attrs: { type: "button", title, disabled, "aria-label": ariaLabel || null, "data-aa-dialog-default": defaultAction ? "true" : null },
 	});
 	if (iconName) result.append(icon(iconName));
 	if (label != null) result.append(el("span", "aa-ui-button__label", label));
@@ -450,7 +453,11 @@ export function selectControl({ options = [], value = "", ariaLabel = "", classN
 	setOptions(options, value);
 	control.addEventListener("pointerdown", () => setOpen(!open));
 	control.addEventListener("keydown", (event) => {
-		if (event.key === "Escape") setOpen(false);
+		if (event.key === "Escape" && open) {
+			event.preventDefault();
+			event.stopPropagation();
+			setOpen(false);
+		}
 		else if (event.key === "Enter" || event.key === " " || event.key === "F4" || (event.altKey && event.key === "ArrowDown")) setOpen(true);
 	});
 	control.addEventListener("blur", () => setOpen(false));
@@ -575,6 +582,31 @@ function focusableElements(root) {
 		.filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
 }
 
+function dialogAction(footer, selector) {
+	return [...(footer?.querySelectorAll(selector) || [])].reverse().find((action) => (
+		!action.disabled
+		&& !action.hidden
+		&& action.getAttribute("aria-disabled") !== "true"
+		&& action.getAttribute("aria-hidden") !== "true"
+	));
+}
+
+function dialogDefaultAction(footer) {
+	return dialogAction(footer, '[data-aa-dialog-default="true"]')
+		|| dialogAction(footer, ".aa-ui-button--primary")
+		|| dialogAction(footer, ".aa-ui-button--danger");
+}
+
+function shouldIgnoreDialogEnter(event, dialog) {
+	if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat) return true;
+	if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return true;
+	const target = event.target instanceof Element ? event.target : document.activeElement;
+	if (!(target instanceof Element) || !dialog.contains(target)) return true;
+	if (target.closest('[data-aa-dialog-enter="ignore"], textarea, select, [contenteditable]:not([contenteditable="false"]), button, a[href], [role="button"], [role="option"], [role="listbox"], [role="combobox"]')) return true;
+	if (target instanceof HTMLInputElement && ["button", "checkbox", "color", "file", "radio", "range", "reset", "submit"].includes(target.type)) return true;
+	return false;
+}
+
 export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300, onClose = null } = {}) {
 	if (!(anchor instanceof HTMLElement)) throw new Error("[Aaalice] Popover anchor is unavailable");
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
@@ -671,9 +703,10 @@ export function createDialog({
 	title,
 	body = null,
 	footer = null,
-	size = "md",
+	size = DEFAULT_DIALOG_SIZE,
 	className = "",
 	closeOnBackdrop = true,
+	confirmOnEnter = true,
 	onRequestClose = null,
 } = {}) {
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -710,8 +743,18 @@ export function createDialog({
 		close(value);
 	};
 	const keydown = (event) => {
-		if (event.key === "Escape") {
+		if (event.key === "Enter" && confirmOnEnter && !shouldIgnoreDialogEnter(event, dialog)) {
+			const action = dialogDefaultAction(footerElement);
+			if (!action) return;
 			event.preventDefault();
+			event.stopPropagation();
+			action.click();
+			return;
+		}
+		if (event.key === "Escape") {
+			if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !dialog.contains(event.target)) return;
+			event.preventDefault();
+			event.stopPropagation();
 			requestClose(null);
 			return;
 		}

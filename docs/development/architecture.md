@@ -42,7 +42,7 @@
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
-| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_value_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,control_host_events,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、参数值预设、词库管理和布局备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、事件失效与第三方 widget 适配保持单向职责 |
+| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,control_host_events,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、事件失效与第三方 widget 适配保持单向职责 |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
@@ -62,7 +62,7 @@
 | PromptCleaningMaid | `node.properties.promptCleaningMaidState` | 当前模式控件、设置状态、执行配置 JSON | DOM 控件副本、自动识别的 Prompt 类型 |
 | PromptSelector | `node.properties.promptSelectorState` | 当前词条正文、缺失引用、执行 payload | 节点内正文快照、DOM 复选状态 |
 | DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 参数值、目标解析和 Missing Binding 状态 | 侧边栏 DOM、节点标题或位置 |
-| DIY 参数预设 | `app.graph.extra.aaaliceSidebarValuePresets` | 当前值差异、Binding 解析、应用预检结果 | 侧边栏 DOM、参数值副本、布局备份 |
+| DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、参数值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
 | Prompt Library | 用户目录 SQLite | 当前筛选、PromptSelector 引用解析 | 单个工作流、单个节点或浏览器缓存 |
 
 Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序位置不是身份；结构变化按稳定身份保存并恢复连线。
@@ -130,13 +130,13 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 2. Control Provider Registry 分别解析简单 ComfyUI 原生 widget、Aaalice 稳定参数和子图整体公开 widget；绑定只按稳定 Host ID、Control ID 与可选 Adapter ID 精确解析。原生 fallback 仅接受由 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 及其 LiteGraph 运行时别名组成的简单节点，并统一映射为 `numeric`、`boolean`、`text`、`choice`；出现未知自定义面板时不做部分猜测。结构支持、运行可用性和绑定健康度是三个独立维度：空选项或未赋值控件仍可建立绑定，并以 `ready`、`empty`、`unset`、`unavailable`、`error` 表示瞬时可用性，不得伪装成 `missing` 或 `incompatible`。
 3. 节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。卡片宽高以整数网格单位持久化，窄侧栏的一列投影只改变显示，不反写规范布局。
 4. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，布局备份导入跳过不兼容值并等待人工重绑。
-5. 参数预设纯模型只保存稳定 Binding Key、值类型和可序列化 payload；运行时协调器负责去重、捕获、预检、原子应用和失败回滚。工作区入口负责 ComfyUI 图事务、对话框、未保存提示和工作流序列化，Provider 继续是唯一写回节点的边界。
+5. 侧边栏预设纯模型保存完整 Dashboard 与按稳定 Binding Key 索引的可序列化参数 payload，并从当前 Working Copy 与基准快照计算“已修改”状态；不存在基准时由界面显示“未保存”。运行时协调器负责去重、捕获、预检以及布局与参数的共同应用和失败回滚；工作区入口负责 ComfyUI 图事务、对话框、切换保护和工作流序列化，Provider 继续是唯一写回节点的边界。
 
 #### 第三方节点适配
 
 - 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
 - 只要普通节点包含未知 widget、DOM 面板、图片上传、预览或自定义操作控件，内置 fallback 就不接管该节点的原生控件，避免把自定义状态拆成不完整的侧边栏副本。此类节点必须由节点作者或本包使用显式适配器逐项接入。
-- 第三方扩展从 `/extensions/ComfyUI-Aaalice-Nodes/api.js` 导入 `registerWidgetControlAdapter()`；适配器只负责识别 widget，并描述稳定 `controlId`、显示名、控件 `kind`、稳定 `valueType`、当前值、选项、可用性和写回函数。动态选项变化后可调用 `invalidateControlHost(node)` 请求事件驱动刷新，不得轮询。普通标量自动进入参数预设；领域值需要自定义序列化时可选实现同步 `readPresetValue()`、`validatePresetValue(entry)` 和 `applyPresetValue(entry)`，三者组成同一 codec，payload 必须可写入工作流 JSON。
+- 第三方扩展从 `/extensions/ComfyUI-Aaalice-Nodes/api.js` 导入 `registerWidgetControlAdapter()`；适配器只负责识别 widget，并描述稳定 `controlId`、显示名、控件 `kind`、稳定 `valueType`、当前值、选项、可用性和写回函数。动态选项变化后可调用 `invalidateControlHost(node)` 请求事件驱动刷新，不得轮询。普通标量自动进入侧边栏预设；领域值需要自定义序列化时可选实现同步 `readPresetValue()`、`validatePresetValue(entry)` 和 `applyPresetValue(entry)`，三者组成同一 codec，payload 必须可写入工作流 JSON。
 - 适配器使用稳定英文 `id` 和显式 `priority`。Dashboard Binding 保存 Adapter ID，重载后不会因新增适配器或优先级变化而漂移到另一实现。
 - 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并返回 `controlView()`，不得持有工作流状态。
 - Provider 负责图事务、节点 dirty 和绑定解析；适配器不得直接操作侧边栏 DOM，渲染器不得发现节点。适配器卸载函数应在第三方扩展销毁时调用。
