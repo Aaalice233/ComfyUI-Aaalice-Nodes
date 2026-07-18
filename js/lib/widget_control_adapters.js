@@ -1,5 +1,7 @@
 /** Pluggable adapters that normalize third-party widgets for sidebar providers. */
 
+import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
+
 const adapters = [];
 
 const SIMPLE_NATIVE_WIDGETS = Object.freeze({
@@ -68,6 +70,11 @@ function linkedSeedModeWidget(node, widget) {
 		const [, linkedName] = widgetType(candidate).split(":", 2);
 		return candidate?.name === "control_after_generate" && linkedName === widget?.name;
 	}) || null;
+}
+
+function seedBehaviorValues(widget) {
+	const values = Array.isArray(widget?.options?.values) ? widget.options.values : Array.isArray(widget?.options?.options) ? widget.options.options : null;
+	return values?.map((value) => String(typeof value === "object" ? value.value ?? value.label : value)) || SEED_AFTER_GENERATE_MODES;
 }
 
 export function adaptWidgetControl(node, widget, { promoted = false, adapterId = null } = {}) {
@@ -154,7 +161,16 @@ registerWidgetControlAdapter({
 			valueType: definition.valueType,
 			kind: seedMode ? "seed" : definition.kind,
 			options: { ...(widget.options || {}), ...(seedMode ? { control_after_generate: seedMode.value } : {}) },
-			...(seedMode ? { setSeedLocked: (locked) => { seedMode.value = locked ? "fixed" : "randomize"; seedMode.callback?.(seedMode.value); } } : {}),
+			...(seedMode ? {
+				readPresetValue: () => createSeedPresetPayload(widget.value, seedMode.value),
+				validatePresetValue: (entry) => validateSeedPresetEntry(entry, { ...(widget.options || {}), behaviors: seedBehaviorValues(seedMode) }),
+				applyPresetValue: (entry) => {
+					const decoded = decodeSeedPresetEntry(entry, seedMode.value);
+					widget.value = decoded.value; widget.callback?.(widget.value);
+					if (decoded.hasBehavior) { seedMode.value = decoded.behavior; seedMode.callback?.(seedMode.value); }
+				},
+				setSeedLocked: (locked) => { seedMode.value = locked ? "fixed" : "randomize"; seedMode.callback?.(seedMode.value); },
+			} : {}),
 		};
 	},
 });

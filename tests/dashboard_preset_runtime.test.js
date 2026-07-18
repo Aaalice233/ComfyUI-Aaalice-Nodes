@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
 import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
+import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "../js/lib/seed_preset.js";
 
 const binding = (controlId, valueType = "number") => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType });
 const dashboard = (...bindings) => ({ version: 2, pages: [
@@ -102,6 +103,24 @@ test("successful preset application reports the atomic result", () => {
 	}));
 	assert.deepEqual(applyDashboardPresetPlan(plan), { applied: 1, skipped: 0 });
 	assert.equal(current, 32); assert.equal(dirty, 1);
+});
+
+test("switching between seed presets restores each lock behavior", () => {
+	const seed = binding("seed"); const state = { value: 1, behavior: "randomize" };
+	const resolveSeed = () => ({
+		status: "ok", kind: "seed", value: state.value,
+		readPresetValue: () => createSeedPresetPayload(state.value, state.behavior),
+		validatePresetValue: (entry) => validateSeedPresetEntry(entry, { min: 0, max: 100 }),
+		applyPresetValue: (entry) => { const decoded = decodeSeedPresetEntry(entry, state.behavior); state.value = decoded.value; state.behavior = decoded.behavior; },
+	});
+	const fixed = snapshot(dashboard(seed), { [bindingKey(seed)]: { valueType: "number", payload: createSeedPresetPayload(11, "fixed") } });
+	const random = snapshot(dashboard(seed), { [bindingKey(seed)]: { valueType: "number", payload: createSeedPresetPayload(22, "randomize") } });
+	applyDashboardPresetPlan(planDashboardPresetApplication(fixed, resolveSeed));
+	assert.deepEqual(state, { value: 11, behavior: "fixed" });
+	applyDashboardPresetPlan(planDashboardPresetApplication(random, resolveSeed));
+	assert.deepEqual(state, { value: 22, behavior: "randomize" });
+	applyDashboardPresetPlan(planDashboardPresetApplication(fixed, resolveSeed));
+	assert.deepEqual(state, { value: 11, behavior: "fixed" });
 });
 
 test("third-party codec failures stay visible in preflight without breaking capture", () => {

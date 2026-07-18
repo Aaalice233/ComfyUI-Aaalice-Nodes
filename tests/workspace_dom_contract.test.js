@@ -184,6 +184,8 @@ test("seed lock state reuses one shared control across the node and dashboard", 
 	assert.match(workspaceControls, /createSharedControl\(spec/);
 	assert.match(providers, /control_after_generate = locked \? "fixed" : "randomize"/);
 	assert.match(providers, /adapted\.setSeedLocked\(locked\)/);
+	assert.match(providers, /createSeedPresetPayload\(parameter\.value, parameter\.config\?\.control_after_generate\)/);
+	assert.match(providers, /parameter\.config\.control_after_generate = decoded\.behavior/);
 	assert.match(theme, /\.aa-control-seed-mode\.is-locked/);
 	assert.match(theme, /\.aa-control-card:has\(\.aa-control-seed-mode\.is-locked\)/);
 	assert.match(theme, /\.aa-control-card:has\(\.aa-control-seed-mode\.is-locked\) \.aa-control-numeric-value/);

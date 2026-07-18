@@ -169,6 +169,10 @@ test("inactive and linked native widgets do not block ordinary controls", () => 
 	] };
 	const [seed] = listAdaptedWidgetControls(node);
 	assert.equal(seed.controlId, "seed"); assert.equal(seed.kind, "seed"); assert.equal(seed.options.control_after_generate, "randomize");
+	assert.deepEqual(seed.readPresetValue(), { value: 1, control_after_generate: "randomize" });
+	assert.equal(seed.validatePresetValue({ valueType: "number", payload: { value: 9, control_after_generate: "fixed" } }), true);
+	seed.applyPresetValue({ valueType: "number", payload: { value: 9, control_after_generate: "fixed" } });
+	assert.equal(node.widgets[0].value, 9); assert.equal(node.widgets[1].value, "fixed");
 	seed.setSeedLocked(true); assert.equal(node.widgets[1].value, "fixed"); assert.equal(seedMode, "fixed");
 	seed.setSeedLocked(false); assert.equal(node.widgets[1].value, "randomize"); assert.equal(seedMode, "randomize");
 });

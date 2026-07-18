@@ -130,6 +130,9 @@ export function setDashboardPresetBaseline(state, presetId = null) {
 
 function equalPayload(left, right) {
 	if (Object.is(left, right)) return true;
+	const seedValue = (value) => value && typeof value === "object" && !Array.isArray(value) && typeof value.value === "number" && typeof value.control_after_generate === "string" ? value.value : undefined;
+	if (typeof left === "number" && Object.is(left, seedValue(right))) return true;
+	if (typeof right === "number" && Object.is(seedValue(left), right)) return true;
 	if (!left || !right || typeof left !== "object" || typeof right !== "object" || Array.isArray(left) !== Array.isArray(right)) return false;
 	const leftKeys = Object.keys(left); const rightKeys = Object.keys(right);
 	return leftKeys.length === rightKeys.length && leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && equalPayload(left[key], right[key]));

@@ -71,6 +71,15 @@ test("comparison detects layout and value changes but ignores transient unavaila
 	assert.equal(missing.modified, true); assert.equal(missing.attention, true);
 });
 
+test("legacy scalar seed presets compare against the current structured seed state", () => {
+	const key = "aaalice-parameter:host-a:steps";
+	const preset = { id: "p", name: "Legacy seed", dashboard: layout(), values: { [key]: { valueType: "number", payload: 20 } } };
+	const same = compareDashboardPreset(preset, { dashboard: layout(), values: { [key]: { valueType: "number", payload: { value: 20, control_after_generate: "fixed" } } } });
+	assert.equal(same.modified, false);
+	const changed = compareDashboardPreset(preset, { dashboard: layout(), values: { [key]: { valueType: "number", payload: { value: 21, control_after_generate: "fixed" } } } });
+	assert.equal(changed.modified, true);
+});
+
 test("portable backups use the same normalized snapshot contract", () => {
 	const serialized = serializeDashboardPreset(snapshot());
 	assert.equal(serialized.format, "aaalice-sidebar-preset");

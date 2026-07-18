@@ -2,6 +2,7 @@
 
 import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
 import { recommendedControlRowSpan } from "./dashboard_sizing.js";
+import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "./seed_preset.js";
 import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
@@ -85,12 +86,23 @@ controlProviders.register({
 		if (!parameter) return { status: "missing", node };
 		const currentType = controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference");
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
+		const seed = parameter.param_type === "seed";
 		return {
-			status: "ok", family: "aaalice", controlId: binding.controlId, node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
+			status: "ok", family: "aaalice", kind: seed ? "seed" : null, controlId: binding.controlId, node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
 			options: parameter.config || {},
-			readPresetValue() { return structuredClone(parameter.value); },
-			validatePresetValue(entry) { return validatePresetPayload(entry, { valueType: binding.valueType, options: parameter.config || {} }); },
-			applyPresetValue(entry, options = {}) { return this.setValue(structuredClone(entry.payload), options); },
+			readPresetValue() { return seed ? createSeedPresetPayload(parameter.value, parameter.config?.control_after_generate) : structuredClone(parameter.value); },
+			validatePresetValue(entry) {
+				return seed ? validateSeedPresetEntry(entry, parameter.config || {}) : validatePresetPayload(entry, { valueType: binding.valueType, options: parameter.config || {} });
+			},
+			applyPresetValue(entry, { transaction = true, workspaceRedraw = true } = {}) {
+				if (!seed) return this.setValue(structuredClone(entry.payload), { transaction, workspaceRedraw });
+				const decoded = decodeSeedPresetEntry(entry, parameter.config?.control_after_generate || "randomize");
+				const apply = () => {
+					parameter.value = decoded.value; parameter.config ||= {}; parameter.config.control_after_generate = decoded.behavior;
+					notifyParameterChanged(node, { structure: false, workspaceRedraw });
+				};
+				return transaction ? graphTransaction(node, apply) : apply();
+			},
 			setValue(next, { transaction = true, transient = false, workspaceRedraw = true } = {}) {
 				const apply = () => {
 					parameter.value = next;
