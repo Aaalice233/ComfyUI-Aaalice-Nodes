@@ -631,8 +631,17 @@ test("parameter value presets are workflow-owned, transactional, and visually di
 	assert.match(components, /aria-haspopup": "dialog"/);
 	assert.match(components, /aa-value-preset-current-primary/);
 	assert.match(components, /aa-value-preset-current-manage/);
-	assert.match(theme, /\.aa-value-preset-trigger__name \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+	assert.match(components, /className: `aa-value-preset-list\$\{presets\.length \? "" : " is-empty"\}`/);
+	assert.match(components, /aa-value-preset-empty__icon/);
+	assert.match(components, /labels\.emptyAction/);
+	assert.match(components, /const footer = presets\.length \?/);
+	assert.match(components, /labels\.createShort/);
+	assert.doesNotMatch(components, /aa-value-preset-trigger__eyebrow/);
+	assert.match(theme, /\.aa-value-preset-trigger \{[^}]*display: flex;[^}]*height: 29px;[^}]*align-items: center;/);
+	assert.match(theme, /\.aa-value-preset-trigger__name \{[^}]*flex: 1;[^}]*text-overflow: ellipsis;/);
 	assert.match(theme, /\.aa-value-preset-popover\.aa-ui-popover/);
+	assert.match(theme, /\.aa-value-preset-list\.is-empty/);
+	assert.match(theme, /\.aa-value-preset-empty__icon/);
 	assert.match(theme, /\.aa-value-preset-switch-warning/);
 	assert.match(dashboardValuePresets, /DASHBOARD_VALUE_PRESETS_VERSION = 1/);
 	assert.match(dashboardValuePresets, /export function compareValuePreset/);

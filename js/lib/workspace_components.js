@@ -33,7 +33,6 @@ export function createValuePresetPicker({ presets = [], selectedId = null, compa
 		className: `aa-value-preset-trigger${comparison?.modified ? " is-modified" : ""}${comparison?.attention ? " needs-attention" : ""}`,
 		attrs: { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": labels.open || "Parameter presets" },
 		children: [
-			el("span", "aa-value-preset-trigger__eyebrow", labels.short || "Preset"),
 			el("span", "aa-value-preset-trigger__name", selected?.name || labels.custom || "Custom"),
 			...(statusLabel ? [el("span", "aa-value-preset-trigger__status", statusLabel)] : []),
 			icon("moveDown", { className: "aa-value-preset-trigger__arrow" }),
@@ -51,10 +50,18 @@ export function createValuePresetPicker({ presets = [], selectedId = null, compa
 		});
 		const heading = el("header", { className: "aa-value-preset-popover__header", children: [
 			el("div", { children: [el("strong", null, labels.title || "Parameter presets"), el("small", null, labels.description || "Switch all sidebar controls together")] }),
-			el("span", "aa-value-preset-count", String(presets.length)),
+			...(presets.length ? [el("span", "aa-value-preset-count", String(presets.length))] : []),
 		] });
-		const list = el("div", { className: "aa-value-preset-list", attrs: { role: "listbox", "aria-label": labels.title || "Parameter presets" } });
-		if (!presets.length) list.append(el("div", { className: "aa-value-preset-empty", children: [el("strong", null, labels.empty || "No presets yet"), el("small", null, labels.emptyHint || "Save the current values to create one.")] }));
+		const list = el("div", {
+			className: `aa-value-preset-list${presets.length ? "" : " is-empty"}`,
+			attrs: presets.length ? { role: "listbox", "aria-label": labels.title || "Parameter presets" } : {},
+		});
+		if (!presets.length) list.append(el("div", { className: "aa-value-preset-empty", children: [
+			el("span", { className: "aa-value-preset-empty__icon", attrs: { "aria-hidden": "true" }, children: [icon("favorite")] }),
+			el("strong", null, labels.empty || "No presets yet"),
+			el("small", null, labels.emptyHint || "Save current values for quick switching later."),
+			button({ label: labels.emptyAction || "Save current values", iconName: "add", variant: "primary", size: "sm", onClick: () => invoke(onCreate) }),
+		] }));
 		for (const preset of presets) {
 			const active = preset.id === selectedId;
 			const action = el("button", {
@@ -75,8 +82,8 @@ export function createValuePresetPicker({ presets = [], selectedId = null, compa
 				iconButton({ iconName: "delete", label: labels.delete || "Delete", variant: "ghost", className: "is-danger", onClick: () => invoke(onDelete, selected.id) }),
 			] }),
 		] }) : null;
-		const footer = el("footer", { className: "aa-value-preset-popover__footer", children: [button({ label: labels.create || "Save current as new preset", iconName: "add", variant: "secondary", size: "sm", onClick: () => invoke(onCreate) })] });
-		popover.root.append(heading, list, ...(currentActions ? [currentActions] : []), footer);
+		const footer = presets.length ? el("footer", { className: "aa-value-preset-popover__footer", children: [button({ label: labels.createShort || "Save as new preset", iconName: "add", variant: "secondary", size: "sm", onClick: () => invoke(onCreate) })] }) : null;
+		popover.root.append(heading, list, ...(currentActions ? [currentActions] : []), ...(footer ? [footer] : []));
 		popover.reposition();
 	};
 	trigger.addEventListener("click", () => { if (popover) close(); else open(); });

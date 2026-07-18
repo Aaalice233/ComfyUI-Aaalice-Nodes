@@ -292,10 +292,10 @@ function resolve(binding) { return controlProviders.resolve(binding, graphNodes(
 
 function valuePresetLabels() {
 	return {
-		title: t("aaalice.workspace.valuePreset.title", "Parameter presets"), short: t("aaalice.workspace.valuePreset.short", "Preset"), open: t("aaalice.workspace.valuePreset.open", "Open parameter presets"),
+		title: t("aaalice.workspace.valuePreset.title", "Parameter presets"), open: t("aaalice.workspace.valuePreset.open", "Open parameter presets"),
 		description: t("aaalice.workspace.valuePreset.description", "Switch every sidebar control together"), custom: t("aaalice.workspace.valuePreset.custom", "Custom"), modified: t("aaalice.workspace.valuePreset.modified", "Modified"), attention: t("aaalice.workspace.valuePreset.attention", "Needs attention"),
-		empty: t("aaalice.workspace.valuePreset.empty", "No presets yet"), emptyHint: t("aaalice.workspace.valuePreset.emptyHint", "Save the current values to create one."), valueCount: t("aaalice.workspace.valuePreset.valueCount", "{count} values"),
-		create: t("aaalice.workspace.valuePreset.create", "Save current as new preset"), save: t("aaalice.workspace.valuePreset.save", "Save changes"), restore: t("aaalice.workspace.valuePreset.restore", "Restore"), duplicate: t("aaalice.workspace.valuePreset.duplicate", "Duplicate"), rename: t("aaalice.workspace.valuePreset.rename", "Rename"), delete: t("aaalice.workspace.valuePreset.delete", "Delete"),
+		empty: t("aaalice.workspace.valuePreset.empty", "No presets yet"), emptyHint: t("aaalice.workspace.valuePreset.emptyHint", "Save current values for quick switching later."), emptyAction: t("aaalice.workspace.valuePreset.emptyAction", "Save current values"), valueCount: t("aaalice.workspace.valuePreset.valueCount", "{count} values"),
+		create: t("aaalice.workspace.valuePreset.create", "Save current as new preset"), createShort: t("aaalice.workspace.valuePreset.createShort", "Save as new preset"), save: t("aaalice.workspace.valuePreset.save", "Save changes"), restore: t("aaalice.workspace.valuePreset.restore", "Restore"), duplicate: t("aaalice.workspace.valuePreset.duplicate", "Duplicate"), rename: t("aaalice.workspace.valuePreset.rename", "Rename"), delete: t("aaalice.workspace.valuePreset.delete", "Delete"),
 	};
 }
 
