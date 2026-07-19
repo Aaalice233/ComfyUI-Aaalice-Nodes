@@ -772,6 +772,9 @@ test("prompt entry editor prioritizes prompt content and uses shared themed cont
 	assert.match(workspace, /removePreviewRequested/);
 	assert.match(workspace, /URL\.revokeObjectURL\(selectedPreviewUrl\)/);
 	assert.match(ui, /export function listboxControl/);
+	assert.match(ui, /const leadingIcon = el\("span", "aa-ui-listbox-select__leading-icon"\)/);
+	assert.match(ui, /root\.classList\.toggle\("has-option-icon", Boolean\(iconName\)\)/);
+	assert.match(ui, /\$\{optionIcon \? " has-icon" : ""\}/);
 	assert.match(ui, /role: "listbox"/);
 	assert.match(ui, /role: "option"/);
 	assert.match(ui, /export function multiSelectControl/);
@@ -779,6 +782,8 @@ test("prompt entry editor prioritizes prompt content and uses shared themed cont
 	assert.match(ui, /setAttribute\("aria-pressed", String\(active\)\)/);
 	assert.match(uiStyles, /\.aa-ui-multiselect__option\.is-selected/);
 	assert.match(uiStyles, /\.aa-ui-listbox__option\.is-selected/);
+	assert.match(uiStyles, /\.aa-ui-listbox-select\.has-option-icon \.aa-ui-listbox-select__trigger/);
+	assert.match(uiStyles, /\.aa-ui-listbox__option\.has-icon/);
 	assert.match(theme, /\.aa-library-entry-dialog \{ width: min\(820px/);
 	assert.match(theme, /\.aa-library-entry-dialog \.aa-library-entry-prompt-field textarea \{ min-height: 238px/);
 	assert.match(theme, /\.aa-library-entry-dialog \.aa-library-entry-note-field \{[^}]*flex: 1;/);

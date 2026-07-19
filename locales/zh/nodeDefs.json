@@ -94,6 +94,15 @@
     },
     "outputs": { "0": { "name": "新提示词", "tooltip": "替换选中特征后的提示词。" } }
   },
+  "BooruGalleryNode": {
+    "display_name": "🖼️ Booru 画廊",
+    "description": "搜索多个 Booru 站点，并按已选顺序输出图片与提示词快照。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "图片", "tooltip": "严格按照已保存选择顺序输出的图片。" },
+      "1": { "name": "提示词", "tooltip": "与图片一一对应的处理后提示词。" }
+    }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ 快速组管理器",
     "description": "按颜色范围快速启用、静音或绕过可视组，并配置排序与联动规则。",

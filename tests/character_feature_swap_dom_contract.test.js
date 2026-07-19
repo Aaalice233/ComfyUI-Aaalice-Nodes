@@ -26,13 +26,24 @@ test("mounts a synchronous non-serializing DOM widget across supported lifecycle
 });
 
 test("wraps feature chips while keeping the add-tag input visible", () => {
-	assert.match(theme, /\.aaalice-character-swap \{[^}]*grid-template-rows: auto minmax\(0, 1fr\);/);
+	assert.match(theme, /\.aaalice-character-swap \{[^}]*grid-template-rows: auto auto minmax\(0, 1fr\);/);
 	assert.match(theme, /\.aaalice-character-swap \.aa-taglist-control \{[^}]*flex-wrap: wrap;[^}]*overflow-x: hidden;[^}]*overflow-y: auto;/);
 	assert.match(theme, /\.aaalice-character-swap \.aa-taglist-control > input\.aa-taglist-input \{[^}]*min-width: 108px;[^}]*flex: 1 0 108px;/);
-	assert.match(source, /const MIN_WIDGET_HEIGHT = 96/);
+	assert.match(source, /const MIN_WIDGET_HEIGHT = 164/);
 	assert.match(source, /getMinHeight: \(\) => MIN_WIDGET_HEIGHT/);
 	assert.doesNotMatch(source, /root\.scrollHeight/);
 	assert.doesNotMatch(source, /growClassicDomWidgetNode/);
+});
+
+test("shows the current model and localized thinking effort on the node", () => {
+	assert.match(source, /className: "aaalice-character-swap-summary"/);
+	assert.match(source, /aaalice\.characterSwap\.features\.model/);
+	assert.match(source, /aaalice\.characterSwap\.features\.thinking/);
+	assert.match(source, /renderSettingsSummary\(node\)/);
+	assert.match(source, /applyPublicSettings\(savedSettings\)/);
+	assert.match(source, /refreshPublicSettings\(\{ force: true \}\)/);
+	assert.match(theme, /\.aaalice-character-swap-summary \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/);
+	assert.match(theme, /\.aaalice-character-swap-summary-value \{[^}]*text-overflow: ellipsis;/);
 });
 
 test("uses stable per-tag color fills and keeps disabled tags visually distinct", () => {

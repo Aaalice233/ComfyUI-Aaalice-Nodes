@@ -38,6 +38,16 @@
 
 - **Character Feature Swap（角色特征交换）**：以一个单角色原提示词为主体，从参考角色提示词迁移用户明确启用的特征，同时保持原提示词的语言、格式和未选择内容。避免使用 General Prompt Rewrite、Multi-character Editor。
 
+- **Booru Source（画廊来源）**：提供搜索、详情和可选账户能力的一个独立站点；来源身份是稳定英文协议值，不等于显示名称。
+
+- **Gallery Capability（画廊能力）**：一个 Booru Source 明确声明的 Rating、分页、认证、标签分类、收藏和下载支持范围。避免使用 Cross-site fallback、Implicit support。
+
+- **Gallery Page（画廊页）**：当前来源与频道中的一段一基页结果；界面统一使用从 1 开始的逻辑页码，站点的 `page`、`pid` 或 cursor 由适配器转换。它不是瀑布流 DOM、滚动像素或已选快照。
+
+- **Gallery Selection Snapshot（画廊选择快照）**：BooruGalleryNode 按顺序保存的来源、帖子身份、媒体地址、原始分类标签和可选本地编辑标签。它是工作流状态，不是当前搜索结果引用。
+
+- **Virtual Masonry（虚拟瀑布流）**：按图片自然比例和最短列排列、但只挂载视口附近卡片 DOM 的浏览布局。避免使用 Fixed-row grid、Full DOM gallery。
+
 - **Control Host（参数宿主）**：在当前工作流中拥有一个或多个可投影参数的节点或子图整体。节点标题、位置和临时画布编号都不是宿主身份。
 
 - **Control Binding（参数绑定）**：侧边栏参数卡片与一个 Control Host 上稳定参数身份之间的显式关系。显示名称不是绑定身份。

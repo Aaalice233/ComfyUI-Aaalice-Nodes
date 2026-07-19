@@ -6,6 +6,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const DEFAULT_DIALOG_SIZE = "compact";
 const ICON_PATHS = {
 	add: "M12 5v14M5 12h14",
+	arrowRight: "M5 12h14m-6-6 6 6-6 6",
 	close: "M18 6 6 18M6 6l12 12",
 	copy: "M8 8h11v11H8zM5 16H4V5h11v1",
 	delete: "M4 7h16M9 11v5m6-5v5M8 7l1-3h6l1 3m2 0-1 13H7L6 7",
@@ -16,6 +17,7 @@ const ICON_PATHS = {
 	filter: "M4 5h16l-6 7v6l-4 2v-8L4 5Z",
 	layout: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
 	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
+	loading: "M21 12a9 9 0 1 1-6.22-8.56",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
 	move: "M3 6h7l2 2h9v11H3V6Zm5 8h8m-3-3 3 3-3 3",
 	more: "M5 11v2M12 11v2M19 11v2",
@@ -30,6 +32,8 @@ const ICON_PATHS = {
 	statusError: "M7 7l10 10M17 7 7 17",
 	statusIdle: "M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
 	statusWarning: "M12 9v4m0 4h.01M10.3 4.8 3.2 17a2 2 0 0 0 1.7 3h14.2a2 2 0 0 0 1.7-3L13.7 4.8a2 2 0 0 0-3.4 0Z",
+	storage: "M4 6c0-1.66 3.58-3 8-3s8 1.34 8 3-3.58 3-8 3-8-1.34-8-3Zm0 0v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6m-16 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6",
+	tag: "M20 13 13 20 4 11V4h7l9 9ZM8.5 8.5h.01",
 	upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
 };
 
@@ -87,12 +91,27 @@ function updateDescribedBy(anchor, id, add) {
 	updateTokenAttribute(anchor, "aria-describedby", id, add);
 }
 
-function placeTooltip(root, anchor) {
+function placeTooltip(root, anchor, preferredPlacement = "auto") {
 	if (!root?.isConnected || !anchor?.isConnected) return;
 	const margin = 10;
 	const gap = 8;
 	const anchorRect = anchor.getBoundingClientRect();
 	const tooltipRect = root.getBoundingClientRect();
+	if (preferredPlacement === "side") {
+		const roomRight = window.innerWidth - anchorRect.right - margin;
+		const roomLeft = anchorRect.left - margin;
+		const showRight = roomRight >= tooltipRect.width + gap || roomRight >= roomLeft;
+		const left = showRight
+			? Math.min(window.innerWidth - tooltipRect.width - margin, anchorRect.right + gap)
+			: Math.max(margin, anchorRect.left - tooltipRect.width - gap);
+		const top = Math.max(margin, Math.min(window.innerHeight - tooltipRect.height - margin, anchorRect.top - 50));
+		const arrowY = Math.max(14, Math.min(tooltipRect.height - 14, anchorRect.top + (anchorRect.height / 2) - top));
+		root.dataset.placement = showRight ? "right" : "left";
+		root.style.setProperty("--aa-ui-tooltip-arrow-y", `${arrowY}px`);
+		root.style.left = `${left}px`;
+		root.style.top = `${top}px`;
+		return;
+	}
 	const centered = anchorRect.left + ((anchorRect.width - tooltipRect.width) / 2);
 	const left = Math.max(margin, Math.min(window.innerWidth - tooltipRect.width - margin, centered));
 	const arrowX = Math.max(14, Math.min(tooltipRect.width - 14, anchorRect.left + (anchorRect.width / 2) - left));
@@ -125,12 +144,13 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 	let positionFrame = 0;
 	let interactive = false;
 	let previousExpanded = null;
+	let preferredPlacement = "auto";
 
 	const schedulePosition = () => {
 		if (positionFrame) return;
 		positionFrame = requestAnimationFrame(() => {
 			positionFrame = 0;
-			placeTooltip(root, anchor);
+			placeTooltip(root, anchor, preferredPlacement);
 		});
 	};
 	const cancelScheduledHide = () => {
@@ -171,6 +191,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		anchor = null;
 		interactive = false;
 		previousExpanded = null;
+		preferredPlacement = "auto";
 		if (activeTooltip?.hide === hide) activeTooltip = null;
 	};
 	const scheduleHide = () => {
@@ -185,7 +206,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		if (activeTooltip && activeTooltip !== controller) activeTooltip.hide();
 		activeTooltip = controller;
 	};
-	const mount = (nextAnchor, content, { className = "", contentMode = "auto", interactive: nextInteractive = false, onMount = null } = {}) => {
+	const mount = (nextAnchor, content, { className = "", contentMode = "auto", interactive: nextInteractive = false, onMount = null, placement = "auto" } = {}) => {
 		const resolved = typeof content === "function" ? content() : content;
 		if (!nextAnchor?.isConnected || resolved == null || resolved === "") {
 			if (activeTooltip === controller) activeTooltip = null;
@@ -199,6 +220,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		}
 		claimActive();
 		interactive = Boolean(nextInteractive);
+		preferredPlacement = placement;
 		const accessibleLabel = nextAnchor.getAttribute("aria-label") || nextAnchor.textContent?.trim() || null;
 		root = el("div", {
 			className: `aa-ui-tooltip${interactive ? " is-interactive" : ""}${className ? ` ${className}` : ""}`,
@@ -223,7 +245,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 			mountedRoot.addEventListener("focusout", (event) => { if (!mountedRoot.contains(event.relatedTarget)) scheduleHide(); });
 		} else updateDescribedBy(anchor, root.id, true);
 		onMount?.(root);
-		placeTooltip(root, anchor);
+		placeTooltip(root, anchor, preferredPlacement);
 		window.addEventListener("resize", schedulePosition);
 		window.addEventListener("scroll", schedulePosition, true);
 		document.addEventListener("keydown", keydown, true);
@@ -397,7 +419,7 @@ export function multiSelectControl({ options = [], values = [], ariaLabel = "", 
 	};
 	for (const option of options) {
 		const value = String(option.value);
-		const choice = el("button", { className: "aa-ui-multiselect__option", attrs: { type: "button", "aria-pressed": "false" }, children: [
+		const choice = el("button", { className: "aa-ui-multiselect__option", attrs: { ...(option.attrs || {}), type: "button", "aria-pressed": "false" }, children: [
 			el("span", { className: "aa-ui-multiselect__status", attrs: { "aria-hidden": "true" }, children: [icon("statusCheck")] }),
 			el("span", "aa-ui-multiselect__label", option.label),
 		] });
@@ -474,10 +496,11 @@ export function listboxControl({ options = [], value = "", ariaLabel = "", class
 	const root = el("div", `aa-ui-listbox-select${className ? ` ${className}` : ""}`);
 	const label = el("span", "aa-ui-listbox-select__label");
 	const swatch = el("span", "aa-ui-listbox-select__swatch");
+	const leadingIcon = el("span", "aa-ui-listbox-select__leading-icon");
 	const trigger = el("button", {
 		className: "aa-ui-listbox-select__trigger",
 		attrs: { type: "button", "aria-haspopup": "listbox", "aria-expanded": "false", "aria-label": ariaLabel },
-		children: [swatch, label, icon("moveDown", { className: "aa-ui-listbox-select__arrow" })],
+		children: [swatch, leadingIcon, label, icon("moveDown", { className: "aa-ui-listbox-select__arrow" })],
 	});
 	let choices = [...options];
 	let currentValue = String(value);
@@ -488,8 +511,12 @@ export function listboxControl({ options = [], value = "", ariaLabel = "", class
 		const selected = selectedOption();
 		const selectedLabel = typeof selected === "object" ? selected?.label : selected;
 		const color = typeof selected === "object" ? selected?.color : "";
+		const iconName = typeof selected === "object" ? selected?.iconName : "";
 		label.textContent = selectedLabel == null ? "" : String(selectedLabel);
+		trigger.title = selectedLabel == null ? "" : String(selectedLabel);
 		root.classList.toggle("has-option-color", Boolean(color));
+		root.classList.toggle("has-option-icon", Boolean(iconName));
+		leadingIcon.replaceChildren(...(iconName ? [icon(iconName)] : []));
 		if (color) root.style.setProperty("--aa-ui-listbox-color", String(color));
 		else root.style.removeProperty("--aa-ui-listbox-color");
 	};
@@ -514,11 +541,12 @@ export function listboxControl({ options = [], value = "", ariaLabel = "", class
 			const optionValue = String(typeof item === "object" ? item.value : item);
 			const optionLabel = String(typeof item === "object" ? item.label : item);
 			const optionColor = typeof item === "object" ? item.color : "";
+			const optionIcon = typeof item === "object" ? item.iconName : "";
 			const active = optionValue === currentValue;
 			const option = el("button", {
-				className: `aa-ui-listbox__option${active ? " is-selected" : ""}${optionColor ? " has-color" : ""}`,
+				className: `aa-ui-listbox__option${active ? " is-selected" : ""}${optionColor ? " has-color" : ""}${optionIcon ? " has-icon" : ""}`,
 				attrs: { type: "button", role: "option", "aria-selected": String(active), disabled: Boolean(typeof item === "object" && item.disabled) },
-				children: [el("span", "aa-ui-listbox__swatch"), el("span", "aa-ui-listbox__label", optionLabel), icon("statusCheck")],
+				children: [el("span", "aa-ui-listbox__swatch"), el("span", { className: "aa-ui-listbox__leading-icon", children: optionIcon ? [icon(optionIcon)] : [] }), el("span", "aa-ui-listbox__label", optionLabel), icon("statusCheck")],
 			});
 			if (optionColor) option.style.setProperty("--aa-ui-listbox-option-color", String(optionColor));
 			option.addEventListener("click", () => {

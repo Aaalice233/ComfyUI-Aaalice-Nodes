@@ -15,8 +15,9 @@
 | `PromptCleaningMaid` | `Aaalice/prompt` | 原样透传，或按显式格式清理自然语言、规范化并去重标签列表 | 模式切换、详细设置和内部配置注入 |
 | `PromptSelector` | `Aaalice/prompt` | 组合前缀与有序词条正文，校验缺失引用和权重 | 跨分类选择、筛选、排序、权重和实时词库 payload 注入 |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | 通过 DeepSeek 官方 API 迁移指定的单角色特征 | 复用 Tag List 编辑特征，并注入节点状态和配置版本 |
+| `BooruGalleryNode` | `Aaalice/gallery` | 下载有序选择快照，原子解码并输出一一对应的 IMAGE/STRING list | 多站点搜索、虚拟瀑布流、选择排序、本地标签编辑、详情、收藏与设置 |
 
-根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入错误保留原始异常。当前 Python 域为 `nodes/control`、`nodes/tools`、`nodes/prompt` 与无 ComfyUI 运行时依赖的 `nodes/_lib`。
+根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入错误保留原始异常。当前 Python 域为 `nodes/control`、`nodes/tools`、`nodes/prompt`、`nodes/gallery` 与无 ComfyUI 运行时依赖的 `nodes/_lib`。
 
 ## 后端边界
 
@@ -30,6 +31,7 @@
 - `PromptCleaningMaid` 使用单一 STRING 输入输出；`nodes/_lib/prompt_cleaning.py` 持有配置验证、自然语言清理、顶层标签扫描和稳定去重。结构异常的标签列表原样输出并记录 warning；识别到已支持的顶层分区控制词时无损旁路，不猜测或修复其语法。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。词库领域服务使用用户目录中的 SQLite，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
 - `CharacterFeatureSwapNode` 接收原提示词与参考角色提示词，读取前端注入的启用特征和配置版本，并使用当前用户目录中的 DeepSeek 配置异步生成单一 STRING。纯逻辑负责 payload、模板和响应校验；配置、模型查询和真实 Chat Completion 连接测试路由不把 API Key 返回前端或写入工作流。
+- `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability，路由只处理 JSON、流式媒体和错误映射；媒体代理逐次复核 HTTPS 白名单、Content-Type 和大小。
 
 后端 32 路 Schema 是执行和校验上限，不是前端槽数组真源。ParameterPanel 的返回值仍填满有界输出协议；画布只物化当前参数对应的连续槽。
 
@@ -46,6 +48,7 @@
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |
+| 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_model,virtual_masonry}.js` | 单行顶栏、自然比例虚拟瀑布流、选择与详情、定高已选列表、设置入口和选择快照注入 |
 | DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
@@ -66,6 +69,8 @@
 | PromptCleaningMaid | `node.properties.promptCleaningMaidState` | 当前模式控件、设置状态、执行配置 JSON | DOM 控件副本、自动识别的 Prompt 类型 |
 | PromptSelector | `node.properties.promptSelectorState` | 当前词条正文、缺失引用、执行 payload | 节点内正文快照、DOM 复选状态 |
 | CharacterFeatureSwapNode | `node.properties.characterFeatureSwap` | 启用特征、配置版本和执行 payload | DOM 标签副本、全局活动预设、API Key 或模型配置 |
+| BooruGalleryNode | `node.properties.booruGalleryState`（查询上下文、逻辑页码与选择快照） | 搜索 Summary、详情、当前请求和执行 payload | 搜索结果、cursor、滚动像素、Hover、Dialog、凭据、缓存或图片 DOM |
+| Booru Gallery 用户设置 | 当前 ComfyUI 用户目录配置文件 | 凭据、默认来源、黑名单、Prompt 默认值、超时与缓存预算 | 工作流 JSON、节点属性或搜索结果 |
 | Character Feature Swap LLM | 当前 ComfyUI 用户目录配置文件 | DeepSeek API Key、模型、超时、思考强度、模板和配置版本 | 工作流 JSON、节点属性或前端缓存 |
 | DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 参数值、目标解析和 Missing Binding 状态 | 侧边栏 DOM、节点标题或位置 |
 | DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、参数值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
@@ -137,6 +142,14 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 3. 后端用固定占位符替换构建兼容自然语言与 Tag 列表的请求，通过 DeepSeek 官方 `/chat/completions` 执行，并对空输入、无启用特征、配置、HTTP、超时和响应结构错误显式失败。
 4. ComfyUI 设置页通过专用路由维护用户目录配置、查询模型和测试连接；读取设置只公开 API Key 是否存在，空 Key 更新保留原值，清除必须显式请求。
 5. 每次请求都显式发送 DeepSeek `thinking` 开关；默认关闭思考，启用时只发送官方实际区分的 `high` 或 `max` `reasoning_effort`。服务地址固定为 DeepSeek 官方端点，不保存或接受自定义 Base URL。
+
+### BooruGalleryNode
+
+1. `node.properties.booruGalleryState` 只保存来源、查询筛选、Prompt 处理和有序 Detail 快照；浏览结果、详情请求与 DOM 都是会话派生状态。用户目录中的全局内容黑名单由 Service 注入适配器并进入页面缓存键：传统 Booru 同时发送远端排除查询并对轻量响应复核，AI TAG 使用列表响应自带的标签本地过滤；任何来源都不得为了黑名单逐帖 hydrate Detail。
+2. 搜索只获取 Summary。Hover、详情或选择才按需补全 Detail 和分类标签；页面、详情、标签分类和原图分别进入有界缓存。
+3. 独立虚拟瀑布流按最短列增量放置，ResizeObserver 只观察容器；滚动由单一 rAF 计算可见区并差量挂载卡片，离开 overscan 的图片移除 `src`。
+4. 用户编辑只改本地分类标签。`graphToPrompt` 为每次排队复制当前有序选择和最终 Prompt，后续节点编辑不回写已经排队的任务。
+5. capability 控制 Rating、排行榜、直接跳页、认证和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key，Rating 只暴露站点实际支持的 Safe、Questionable、Explicit；它不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
 
 ### DIY 左侧工作区
 

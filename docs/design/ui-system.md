@@ -79,6 +79,8 @@
 - 间距以 4px 为基准，常用值为 2、4、6、8、10、12、16、20、24px；节点条目优先使用紧凑档位。
 - 按钮与输入圆角约 6–8px，卡片约 8–10px，弹窗约 14px。
 - 节点正文以 11–13px 为主；字段标签和辅助信息保持层级，不使用过重字重。
+- 紧凑界面不默认套用“标题 + 副标题”结构。标题已经说明对象或任务时直接进入控件；辅助说明只保留会改变用户决策、解释风险或明确边界的内容，并放在对应控件附近，不重复页面标题。
+- 实质性说明和操作提示不得通过缩小字号换取空间，通常不小于 10px；9px 以下只用于短 ID、计数和非必要元数据。空间不足时优先删除同义说明、缩短文案或渐进披露，而不是制造看不清的小字。
 - 交互目标通常不小于 32px；受原生标题栏高度限制的紧凑按钮必须仍有明确命中区和 aria 名称。
 - 同级条目使用小间距聚合，节点底部只保留必要收口空间，不能用大块空白代替布局。
 - 动效控制在约 140–180ms，并在 `prefers-reduced-motion: reduce` 下关闭。
@@ -106,7 +108,7 @@
 | `listboxControl()` | 需要跨平台一致弹层样式的单选列表；支持颜色标记、方向键与稳定值 |
 | `createAnchoredPopover()` | 锚定按钮的非模态浮层、外部关闭、焦点圈定与恢复 |
 | `createContextMenu()` | 鼠标右键或 `ContextMenu` / `Shift+F10` 打开的紧凑操作菜单；负责视口收口、方向键、Escape、危险项和焦点恢复 |
-| `createTooltip()` | 统一内容提示；通过 `contentMode` 支持 `auto`、`text`、安全 CommonMark/GFM `markdown` 和 `dom`。默认使用非交互 Tooltip；`interactive` 模式提供可悬停、可聚焦链接的非模态悬浮卡片，并管理延迟关闭、Escape、焦点返回和 ARIA 关系 |
+| `createTooltip()` | 统一内容提示；通过 `contentMode` 支持 `auto`、`text`、安全 CommonMark/GFM `markdown` 和 `dom`，通过 `placement: "side"` 支持画廊等贴近来源卡片的左右预览。默认使用非交互 Tooltip；`interactive` 模式提供可悬停、可聚焦链接的非模态悬浮卡片，并管理延迟关闭、Escape、焦点返回和 ARIA 关系 |
 | `createSharedControl()` | 按 family 与 kind 解析 renderer，把规范化 Control Spec 和无状态 Port 回调组合为可挂载 Control View |
 | `registerWidgetControlAdapter()` | 把第三方 widget 的身份、值、选项和写回方式规范化；不渲染 DOM、不创建图事务 |
 | `registerControlRenderer()` | 为既有 family 增加特殊控件 kind；重复 kind 显式失败，注销只移除自己的 renderer |

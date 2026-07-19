@@ -16,6 +16,7 @@ ADR 只记录难逆、令人意外且存在真实方案取舍的当前或已发�
 | [0007：独立词库与实时词条引用](0007-independent-prompt-library-live-references.md) | 词库独立持久化，节点按稳定 ID 实时解析正文。 |
 | [0008：侧边栏使用稳定参数绑定](0008-stable-dashboard-control-bindings.md) | 侧边栏只投影原值，并按稳定宿主与参数身份精确绑定。 |
 | [0009：Dashboard 使用结构化网格与可选布局组](0009-dashboard-grid-layout-groups.md) | 页面直接组织卡片；可选单层布局组与支持宽高跨度的十二列细分逻辑网格取代强制分区。 |
+| [0010：Booru Gallery 使用能力适配、选择快照与虚拟瀑布流](0010-booru-gallery-capability-snapshots-masonry.md) | 多站点差异集中在 capability 适配器；排队保存独立选择快照，浏览使用有界 DOM 的自然比例瀑布流。 |
 
 ## 已替代
 

@@ -1,0 +1,168 @@
+"""Booru Gallery settings persistence with secret redaction."""
+
+from __future__ import annotations
+
+import copy
+import json
+import os
+import threading
+from pathlib import Path
+from typing import Any
+
+from .._lib.booru_gallery import CATEGORY_ORDER, DEFAULT_PROMPT_CATEGORIES
+
+
+def default_settings() -> dict[str, Any]:
+    return {
+        "version": 1,
+        "revision": 0,
+        "defaultSource": "danbooru",
+        "defaultRatings": {"danbooru": ["general"], "gelbooru": ["safe"], "safebooru": ["safe"], "aitag": []},
+        "blacklist": [],
+        "promptDefaults": {"categories": list(DEFAULT_PROMPT_CATEGORIES), "replaceUnderscores": False,
+                           "escapeParentheses": False, "excludedTags": []},
+        "tooltip": True,
+        "timeout": 30,
+        "cacheBudgetMiB": 1024,
+        "credentials": {
+            "danbooru": {"username": "", "apiKey": ""},
+            "gelbooru": {"userId": "", "apiKey": ""},
+            "safebooru": {},
+            "aitag": {},
+        },
+    }
+
+
+def _string_list(value: Any, field: str) -> list[str]:
+    if isinstance(value, str):
+        value = value.splitlines()
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError(f"{field} values must be strings")
+        item = item.strip()
+        if item and item not in result:
+            result.append(item)
+    return result
+
+
+class GallerySettingsStore:
+    def __init__(self, path: Path):
+        self.path = path
+        self._lock = threading.RLock()
+
+    def load(self) -> dict[str, Any]:
+        with self._lock:
+            settings = default_settings()
+            if self.path.exists():
+                try:
+                    raw = json.loads(self.path.read_text(encoding="utf-8"))
+                except Exception as exc:
+                    raise RuntimeError(f"failed to read Booru Gallery settings at {self.path}: {exc}") from exc
+                if not isinstance(raw, dict):
+                    raise RuntimeError("Booru Gallery settings root must be an object")
+                for key in settings:
+                    if key in raw:
+                        settings[key] = raw[key]
+                settings["credentials"] = {**default_settings()["credentials"], **(raw.get("credentials") or {})}
+            return self._validate(settings)
+
+    def _validate(self, settings: dict[str, Any]) -> dict[str, Any]:
+        if settings.get("defaultSource") not in {"danbooru", "gelbooru", "safebooru", "aitag"}:
+            raise ValueError("defaultSource is invalid")
+        timeout = int(settings.get("timeout", 30))
+        budget = int(settings.get("cacheBudgetMiB", 1024))
+        if not 3 <= timeout <= 300:
+            raise ValueError("timeout must be between 3 and 300 seconds")
+        if not 128 <= budget <= 32768:
+            raise ValueError("cacheBudgetMiB must be between 128 and 32768")
+        settings["timeout"] = timeout
+        settings["cacheBudgetMiB"] = budget
+        settings["blacklist"] = _string_list(settings.get("blacklist", []), "blacklist")
+        rating_options = {
+            "danbooru": {"general", "sensitive", "questionable", "explicit"},
+            "gelbooru": {"safe", "questionable", "explicit"},
+            "safebooru": {"safe"},
+            "aitag": set(),
+        }
+        raw_ratings = settings.get("defaultRatings")
+        if not isinstance(raw_ratings, dict):
+            raise ValueError("defaultRatings must be an object")
+        normalized_ratings: dict[str, list[str]] = {}
+        for source, allowed in rating_options.items():
+            values = _string_list(raw_ratings.get(source, []), f"defaultRatings.{source}")
+            if source == "gelbooru":
+                values = ["safe" if value == "general" else value for value in values if value != "sensitive"]
+                values = list(dict.fromkeys(values))
+            if set(values) - allowed:
+                raise ValueError(f"defaultRatings.{source} contains unsupported values")
+            normalized_ratings[source] = values
+        settings["defaultRatings"] = normalized_ratings
+        prompt = settings.get("promptDefaults")
+        if not isinstance(prompt, dict):
+            raise ValueError("promptDefaults must be an object")
+        prompt["categories"] = [item for item in _string_list(prompt.get("categories", []), "prompt categories") if item in CATEGORY_ORDER]
+        prompt["excludedTags"] = _string_list(prompt.get("excludedTags", []), "excludedTags")
+        prompt["replaceUnderscores"] = bool(prompt.get("replaceUnderscores", False))
+        prompt["escapeParentheses"] = bool(prompt.get("escapeParentheses", False))
+        settings["tooltip"] = bool(settings.get("tooltip", True))
+        settings["revision"] = max(0, int(settings.get("revision", 0)))
+        return settings
+
+    def public(self) -> dict[str, Any]:
+        settings = copy.deepcopy(self.load())
+        credentials = settings.pop("credentials")
+        settings["credentialStatus"] = {
+            source: {f"has{key[0].upper()}{key[1:]}": bool(value) for key, value in values.items()}
+            for source, values in credentials.items()
+        }
+        return settings
+
+    def save(self, update: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(update, dict):
+            raise ValueError("settings update must be an object")
+        with self._lock:
+            settings = self.load()
+            for key in ("defaultSource", "defaultRatings", "blacklist", "promptDefaults", "tooltip", "timeout", "cacheBudgetMiB"):
+                if key in update:
+                    settings[key] = copy.deepcopy(update[key])
+            credential_update = update.get("credentials", {})
+            clear = update.get("clearCredentials", {})
+            if credential_update is not None and not isinstance(credential_update, dict):
+                raise ValueError("credentials must be an object")
+            for source, fields in (credential_update or {}).items():
+                if source not in settings["credentials"] or not isinstance(fields, dict):
+                    raise ValueError(f"invalid credential update for {source}")
+                for key, value in fields.items():
+                    if key not in settings["credentials"][source] or not isinstance(value, str):
+                        raise ValueError(f"invalid credential field {source}.{key}")
+                    if value:
+                        settings["credentials"][source][key] = value.strip()
+            if clear is not None and not isinstance(clear, dict):
+                raise ValueError("clearCredentials must be an object")
+            for source, fields in (clear or {}).items():
+                if source not in settings["credentials"] or not isinstance(fields, list):
+                    raise ValueError(f"invalid clearCredentials for {source}")
+                for key in fields:
+                    if key in settings["credentials"][source]:
+                        settings["credentials"][source][key] = ""
+            settings["revision"] += 1
+            settings = self._validate(settings)
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+            temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            os.replace(temporary, self.path)
+            return self.public()
+
+
+_store: GallerySettingsStore | None = None
+
+
+def get_gallery_settings_store() -> GallerySettingsStore:
+    global _store
+    if _store is None:
+        import folder_paths
+        _store = GallerySettingsStore(Path(folder_paths.get_user_directory()) / "aaalice-nodes" / "booru_gallery.json")
+    return _store

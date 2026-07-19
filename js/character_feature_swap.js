@@ -16,7 +16,10 @@ const PROPERTY = "characterFeatureSwap";
 const WIDGET = "aaalice_character_feature_swap";
 const API = "/aaalice/character-feature-swap";
 const DEFAULT_WIDTH = 360;
-const MIN_WIDGET_HEIGHT = 96;
+const MIN_WIDGET_HEIGHT = 164;
+
+let publicSettings = null;
+let publicSettingsRequest = null;
 
 function isCharacterSwap(node) {
 	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE);
@@ -51,9 +54,44 @@ function commitFeatures(node, features) {
 	}
 }
 
+function thinkingLabel(mode) {
+	return ({
+		disabled: t("aaalice.characterSwap.settings.thinkingDisabled", "Off"),
+		high: t("aaalice.characterSwap.settings.thinkingHigh", "High"),
+		max: t("aaalice.characterSwap.settings.thinkingMax", "Maximum"),
+	})[mode] || "—";
+}
+
+function renderSettingsSummary(node) {
+	if (!node._aaaliceCharacterSwapModelValue || !node._aaaliceCharacterSwapThinkingValue) return;
+	const model = publicSettings?.model || "—";
+	const thinking = thinkingLabel(publicSettings?.thinking_mode);
+	node._aaaliceCharacterSwapModelValue.textContent = model;
+	node._aaaliceCharacterSwapModelValue.title = model;
+	node._aaaliceCharacterSwapThinkingValue.textContent = thinking;
+	node._aaaliceCharacterSwapThinkingValue.title = thinking;
+}
+
+function applyPublicSettings(settings) {
+	publicSettings = settings;
+	for (const node of app.graph?._nodes || []) if (isCharacterSwap(node)) renderSettingsSummary(node);
+}
+
+async function refreshPublicSettings({ force = false } = {}) {
+	if (!force && publicSettings) return publicSettings;
+	if (!force && publicSettingsRequest) return publicSettingsRequest;
+	publicSettingsRequest = jsonRequest(`${API}/settings`)
+		.then((settings) => { applyPublicSettings(settings); return settings; })
+		.finally(() => { publicSettingsRequest = null; });
+	return publicSettingsRequest;
+}
+
 function render(node) {
 	if (!node._aaaliceCharacterSwapControl) return;
 	node._aaaliceCharacterSwapLabel.textContent = t("aaalice.characterSwap.features.label", "Replace features");
+	node._aaaliceCharacterSwapModelLabel.textContent = t("aaalice.characterSwap.features.model", "Model");
+	node._aaaliceCharacterSwapThinkingLabel.textContent = t("aaalice.characterSwap.features.thinking", "Thinking");
+	renderSettingsSummary(node);
 	node._aaaliceCharacterSwapControl.setValue(stateFor(node).features);
 }
 
@@ -63,15 +101,27 @@ function setupNode(node, { initializeSize = false } = {}) {
 	stateFor(node);
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] CharacterFeatureSwapNode requires addDOMWidget");
 	const label = el("span", { className: "aaalice-character-swap-label", text: t("aaalice.characterSwap.features.label", "Replace features") });
+	const modelLabel = el("span", { className: "aaalice-character-swap-summary-label", text: t("aaalice.characterSwap.features.model", "Model") });
+	const modelValue = el("span", { className: "aaalice-character-swap-summary-value", text: "—" });
+	const thinkingLabelElement = el("span", { className: "aaalice-character-swap-summary-label", text: t("aaalice.characterSwap.features.thinking", "Thinking") });
+	const thinkingValue = el("span", { className: "aaalice-character-swap-summary-value", text: "—" });
+	const summary = el("div", { className: "aaalice-character-swap-summary", children: [
+		el("div", { className: "aaalice-character-swap-summary-item", children: [modelLabel, modelValue] }),
+		el("div", { className: "aaalice-character-swap-summary-item", children: [thinkingLabelElement, thinkingValue] }),
+	] });
 	const control = createTagListControl({
 		value: stateFor(node).features,
 		ariaLabel: t("aaalice.characterSwap.features.label", "Replace features"),
 		labels: labels(),
 		onChange: (next) => commitFeatures(node, next),
 	});
-	const root = isolate(el("div", { className: "aaalice-character-swap", children: [label, control] }));
+	const root = isolate(el("div", { className: "aaalice-character-swap", children: [label, summary, control] }));
 	node._aaaliceCharacterSwapRoot = root;
 	node._aaaliceCharacterSwapLabel = label;
+	node._aaaliceCharacterSwapModelLabel = modelLabel;
+	node._aaaliceCharacterSwapModelValue = modelValue;
+	node._aaaliceCharacterSwapThinkingLabel = thinkingLabelElement;
+	node._aaaliceCharacterSwapThinkingValue = thinkingValue;
 	node._aaaliceCharacterSwapControl = control;
 	node._aaaliceCharacterSwapAccent = bindNodeAccent(node, root);
 	node.addDOMWidget(WIDGET, "custom", root, {
@@ -104,6 +154,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		return previousRemoved?.apply(this, arguments);
 	};
 	render(node);
+	void refreshPublicSettings().catch((error) => console.error("[Aaalice] Character Feature Swap settings summary failed", error));
 	if (initializeSize) node.setSize?.(node.computeSize());
 }
 
@@ -126,6 +177,7 @@ function input(type, value = "") {
 
 async function openSettingsDialog() {
 	const settings = await jsonRequest(`${API}/settings`);
+	applyPublicSettings(settings);
 	let clearApiKey = false;
 	const apiKey = input("password");
 	apiKey.placeholder = settings.has_api_key
@@ -208,7 +260,8 @@ async function openSettingsDialog() {
 	const save = button({ label: t("aaalice.common.save", "Save"), variant: "primary", onClick: async () => {
 		save.disabled = true; setStatus(t("aaalice.characterSwap.settings.saving", "Saving…"));
 		try {
-			await jsonRequest(`${API}/settings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...requestBody(), prompt_template: template.value, clear_api_key: clearApiKey }) });
+			const savedSettings = await jsonRequest(`${API}/settings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...requestBody(), prompt_template: template.value, clear_api_key: clearApiKey }) });
+			applyPublicSettings(savedSettings);
 			dialog.close();
 		} catch (error) { save.disabled = false; setStatus(error.message, true); }
 	} });
@@ -242,7 +295,7 @@ function installPromptHook() {
 	if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable for CharacterFeatureSwapNode");
 	app.graphToPrompt = async function (...args) {
 		const nodes = (app.graph?._nodes || []).filter(isCharacterSwap);
-		const settings = nodes.length ? await jsonRequest(`${API}/settings`) : null;
+		const settings = nodes.length ? await refreshPublicSettings({ force: true }) : null;
 		const result = await original(...args);
 		const output = result?.output ?? result;
 		for (const node of nodes) {
@@ -269,7 +322,11 @@ function hookPrototype(nodeType) {
 
 app.registerExtension({
 	name: "ComfyUI.Aaalice.CharacterFeatureSwap",
-	async init() { await ensureI18nReady(); registerSettingsEntry(); },
+	async init() {
+		await ensureI18nReady();
+		registerSettingsEntry();
+		void refreshPublicSettings().catch((error) => console.error("[Aaalice] Character Feature Swap settings summary failed", error));
+	},
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isCharacterSwap(node)) setupNode(node, { initializeSize: true }); },
 	loadedGraphNode(node) { if (isCharacterSwap(node)) setupNode(node); },

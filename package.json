@@ -3,6 +3,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "benchmark:gallery": "node scripts/gallery_benchmark.mjs",
     "vendor:markdown": "node scripts/vendor_markdown.mjs"
   },
   "devDependencies": {

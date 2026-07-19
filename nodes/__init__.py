@@ -13,6 +13,7 @@ _DOMAIN_MODULES = (
     "tools",
     "control",
     "prompt",
+    "gallery",
 )
 
 

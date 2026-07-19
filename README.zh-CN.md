@@ -64,6 +64,7 @@ pip install -r requirements.txt
 | `PromptCleaningMaid` | `Aaalice/prompt` | 快速关闭清理、安全清理自然语言提示词，或规范化并去重扁平标签列表。 |
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序并加权输出可复用提示词条。 |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | 从参考角色迁移选中特征，并保持原提示词的语言和格式。 |
+| `BooruGalleryNode` | `Aaalice/gallery` | 在 Danbooru、Gelbooru、Safebooru 与 AI TAG 的虚拟瀑布流中搜索，并按顺序输出图片与对应提示词。 |
 
 <details>
 <summary><strong>EnumSwitch — 惰性枚举选通</strong></summary>
@@ -152,6 +153,15 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 </details>
 
 <details>
+<summary><strong>BooruGalleryNode — 多站点有序画廊</strong></summary>
+
+选择 Danbooru、Gelbooru、Safebooru 或 AI TAG 后搜索和筛选帖子，并在自动续载的自然比例瀑布流中跨页多选。Danbooru 提供今日榜、周榜与月榜频道，AI TAG 提供月榜；紧凑页码控件会跟随当前可见结果页，刷新时保留页码，也能不加载前面所有页面而直接跳转。“已选”页保存顺序，支持拖动排序和移除；每个已选帖子都能在本地编辑作者、版权、角色、通用和元数据五类标签，不会修改远端帖子。AI TAG 使用公开作品元数据，把图片 Prompt 作为 General 标签提供，不虚构 Rating 映射。`images` 与 `prompts` 按同一顺序一一对应；任何原图下载失败都会让节点整体明确失败，不跳项也不补占位黑图。
+
+站点凭据、默认值、全局内容黑名单、新节点 Prompt 默认值、请求超时、悬停详情和原图缓存预算统一放在 **ComfyUI 设置 → Aaalice Nodes → Booru Gallery**。黑名单会从搜索、排行榜和收藏夹结果中隐藏精确匹配的标签，不修改输出提示词或已有选择。凭据与缓存只保存在当前 ComfyUI 用户目录，不进入工作流 JSON。Gelbooru 目前必须配置官方 User ID 和 API Key 才能浏览；未配置时，节点会直接引导打开 Gallery 设置，不再发起必然失败的匿名请求。Danbooru 支持读取和修改收藏；Gelbooru 只读取收藏，首版禁用收藏写入；Safebooru 与 AI TAG 不支持账户收藏。节点不提供标签自动补全、完整标签数据库、远端标签编辑、Cookie 登录，也不迁移旧工作流或旧设置。
+
+</details>
+
+<details>
 <summary><strong>CharacterFeatureSwapNode — LLM 角色特征迁移</strong></summary>
 
 连接原提示词和参考角色提示词，然后用紧凑的特征标签选择需要迁移的内容。标签可以启用、停用、拖动排序、删除，也可以添加自定义特征描述。同一个默认指令同时处理自然语言、Tag 列表和混合提示词；结果保持原提示词的语言与格式，参考提示词缺少某项特征时会要求模型保留原特征。
@@ -186,6 +196,7 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 - QuickGroupManager 只控制当前图中的可视组，联动规则不会跨 Manager 实例传播。
 - SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
 - CharacterFeatureSwapNode 仅支持 DeepSeek 官方 API，需要有效的 DeepSeek API Key 和可用模型；API 可用性、费用、隐私与输出质量由 DeepSeek 决定。
+- BooruGalleryNode 依赖第三方站点 API 与媒体主机；网络、凭据、站点限制、帖子元数据和收藏行为由各站点控制。只能选择静态 JPG、PNG、WebP 和 GIF 帖子。
 - 词库保存在当前 ComfyUI 用户目录，不会嵌入工作流；跨安装迁移工作流时需要单独导出词库。
 - 侧边栏自动支持简单原生标量、文本和下拉节点、Aaalice 参数及子图公开 widget。只要节点含未知自定义 widget 或 DOM 面板，就不会自动做不完整投影，必须使用显式适配器。
 

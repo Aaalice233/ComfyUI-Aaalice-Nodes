@@ -29,6 +29,7 @@
 | [参数系统](design/parameter-system.md) | ParameterPanel、ParameterReceiver、结构编辑器和双模式布局 |
 | [QuickGroupManager](design/quick-group-manager.md) | 顶栏、组列表、过滤、排序、联动和自适应尺寸 |
 | [PromptSelector、词库与 DIY 侧边栏](design/prompt-selector-workspace.md) | 提示词选择、词库管理、页面布局、参数卡片和子图公开参数 |
+| [Booru Gallery](design/booru-gallery.md) | 多站点能力、单行顶栏、虚拟瀑布流、选择、详情、本地标签编辑和设置 |
 
 `design/prompt-selector-sidebar-prototype.html` 是早期交互参考，只用于回看设计探索，不是现行规范、运行时代码或测试资产。当前行为以设计文档、架构、accepted ADR 和代码为准。
 

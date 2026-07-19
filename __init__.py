@@ -26,9 +26,11 @@ class AaaliceNodesExtension(ComfyExtension):
 
 
 async def comfy_entrypoint() -> AaaliceNodesExtension:
+    from .nodes.gallery.routes import register_gallery_routes
     from .nodes.prompt.character_feature_swap_routes import register_character_feature_swap_routes
     from .nodes.prompt.prompt_library_routes import register_prompt_library_routes
 
+    register_gallery_routes()
     register_character_feature_swap_routes()
     register_prompt_library_routes()
     return AaaliceNodesExtension()

@@ -94,6 +94,15 @@
     },
     "outputs": { "0": { "name": "New Prompt", "tooltip": "Prompt with selected features replaced." } }
   },
+  "BooruGalleryNode": {
+    "display_name": "🖼️ Booru Gallery",
+    "description": "Search supported booru sites and output an ordered image and prompt snapshot.",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "Images", "tooltip": "Selected images in the exact saved order." },
+      "1": { "name": "Prompts", "tooltip": "Processed prompts paired one-to-one with Images." }
+    }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ Quick Group Manager",
     "description": "Quickly enable, mute, or bypass visual groups with color scopes, ordering, and linkage rules.",

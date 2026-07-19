@@ -64,6 +64,7 @@ pip install -r requirements.txt
 | `PromptCleaningMaid` | `Aaalice/prompt` | Quickly disable cleaning, safely clean natural-language prompts, or normalize and deduplicate flat tag lists. |
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | Transfer selected character features while preserving the original prompt's language and format. |
+| `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
 
 <details>
 <summary><strong>EnumSwitch — lazy enum routing</strong></summary>
@@ -152,6 +153,15 @@ PromptSelector stores stable entry references instead of copied text. Editing a 
 </details>
 
 <details>
+<summary><strong>BooruGalleryNode — multi-site ordered gallery</strong></summary>
+
+Choose Danbooru, Gelbooru, Safebooru, or AI TAG, search and filter posts, then select across an automatically loading natural-ratio masonry gallery. Danbooru exposes today's, weekly, and monthly ranking channels; AI TAG exposes its monthly ranking. The compact page control tracks the visible result page, preserves it on refresh, and can jump directly without loading every earlier page. The Selected view preserves order, supports drag reordering and removal, and lets each selected post edit its local Artist, Copyright, Character, General, and Meta tags without modifying the remote post. AI TAG uses its public work metadata and exposes its image prompt as General tags; it has no artificial Rating mapping. `images` and `prompts` are paired lists in that exact order; one failed original download fails the node instead of inserting a placeholder or skipping the item.
+
+Configure site credentials, defaults, the global content blacklist, new-node prompt defaults, request timeout, hover details, and the original-image cache budget under **ComfyUI Settings → Aaalice Nodes → Booru Gallery**. The blacklist hides exact tag matches from search, ranking, and favorite results without changing generated prompts or existing selections. Credentials and caches stay in the current ComfyUI user directory and never enter workflow JSON. Gelbooru currently requires its official User ID and API Key for gallery access; when they are missing, the node links directly to Gallery settings instead of issuing a failing anonymous request. Danbooru supports favorite reading and writing; Gelbooru favorite reading is available but writing is disabled; Safebooru and AI TAG account favorites are not supported. The node does not include tag autocomplete, a full tag database, remote tag editing, cookie login, or a legacy workflow/settings migration layer.
+
+</details>
+
+<details>
 <summary><strong>CharacterFeatureSwapNode — LLM character-feature transfer</strong></summary>
 
 Connect the original prompt and a reference character prompt, then use the compact feature chips to choose what should be transferred. Chips can be enabled, disabled, reordered, removed, or extended with custom feature descriptions. The same default instruction handles natural language, tag lists, and mixed prompts; the result follows the original prompt's language and formatting and keeps an original feature when the reference does not provide its replacement.
@@ -186,6 +196,7 @@ The **Library** workspace manages entries, flat categories, multi-membership fav
 - QuickGroupManager only controls visual groups in its current graph and does not propagate linkage rules across manager instances.
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
 - CharacterFeatureSwapNode supports only the official DeepSeek API and requires a valid DeepSeek API key and available model; API availability, billing, privacy, and output quality are controlled by DeepSeek.
+- BooruGalleryNode depends on third-party site APIs and media hosts. Network availability, credentials, site limits, post metadata, and favorite behavior remain controlled by each site; only static JPG, PNG, WebP, and GIF posts are selectable.
 - Prompt-library data lives in the current ComfyUI user directory and is not embedded in workflows; export it separately when moving workflows between installations.
 - Dashboard bindings automatically support simple native scalar/text/combo nodes, Aaalice parameters, and public subgraph widgets. A node containing an unknown custom widget or DOM panel is not partially projected; it requires an explicit adapter.
 
