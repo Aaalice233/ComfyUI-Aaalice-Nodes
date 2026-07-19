@@ -47,3 +47,9 @@ test("masonry reports overscanned visible items for bounded media prefetch", () 
 	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
 	assert.match(source, /onVisibleItemsChange\?\.\(layout\.visible\(container\.scrollTop, container\.clientHeight \|\| 1, 0\.25\)\.map\(\(placement\) => placement\.item\)\)/);
 });
+
+test("masonry redraws once after synchronous data changes so restored widget geometry is used", () => {
+	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
+	assert.match(source, /setItems\(next, \{ preserveScroll = true \} = \{\}\) \{[^\n]+draw\(true\); schedule\(\); \},/);
+	assert.match(source, /append\(next\) \{[^\n]+draw\(true\); schedule\(\); \},/);
+});

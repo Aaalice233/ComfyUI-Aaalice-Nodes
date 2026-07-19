@@ -12,6 +12,17 @@ from typing import Any
 from .._lib.booru_gallery import CATEGORY_ORDER, DEFAULT_PROMPT_CATEGORIES
 
 
+SELECTION_STAMPS = {
+    "inspection", "approved", "pass", "qa", "audit", "certified", "verified", "selected",
+    "quality", "accepted", "official", "checked", "pure", "crown",
+    "inspectionDate", "inspectionReverse", "passDate", "qaDate", "reviewBadge", "birthday",
+    "organic", "silverCapital", "visa", "hotPick", "soldOut", "hot", "nationwideShipping", "nationwideFlight",
+    "sfShipping", "qualityGuarantee", "praise", "delicacySquare", "traditionVertical",
+    "chinaCuisine", "ruyi", "snowCuisine", "traditionCircle", "delicacyWide", "traditionWide",
+    "auspicious", "exclusiveCertification", "soldOutPostal", "quarantineQualified",
+}
+
+
 def default_settings() -> dict[str, Any]:
     return {
         "version": 1,
@@ -21,6 +32,7 @@ def default_settings() -> dict[str, Any]:
         "promptDefaults": {"categories": list(DEFAULT_PROMPT_CATEGORIES), "replaceUnderscores": False,
                            "escapeParentheses": False},
         "tooltip": True,
+        "selectionStamp": "inspection",
         "timeout": 30,
         "cacheBudgetMiB": 1024,
         "credentials": {
@@ -90,6 +102,10 @@ class GallerySettingsStore:
         prompt["replaceUnderscores"] = bool(prompt.get("replaceUnderscores", False))
         prompt["escapeParentheses"] = bool(prompt.get("escapeParentheses", False))
         settings["tooltip"] = bool(settings.get("tooltip", True))
+        selection_stamp = str(settings.get("selectionStamp", "inspection"))
+        if selection_stamp not in SELECTION_STAMPS:
+            raise ValueError("selectionStamp is invalid")
+        settings["selectionStamp"] = selection_stamp
         settings["revision"] = max(0, int(settings.get("revision", 0)))
         return settings
 
@@ -107,7 +123,7 @@ class GallerySettingsStore:
             raise ValueError("settings update must be an object")
         with self._lock:
             settings = self.load()
-            for key in ("defaultSource", "blacklist", "promptDefaults", "tooltip", "timeout", "cacheBudgetMiB"):
+            for key in ("defaultSource", "blacklist", "promptDefaults", "tooltip", "selectionStamp", "timeout", "cacheBudgetMiB"):
                 if key in update:
                     settings[key] = copy.deepcopy(update[key])
             credential_update = update.get("credentials", {})

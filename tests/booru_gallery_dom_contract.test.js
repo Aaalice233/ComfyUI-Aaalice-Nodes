@@ -46,6 +46,8 @@ test("gallery restores every workflow-owned browsing state after configuration",
 	assert.match(source, /node\._aaGalleryController\.search\(\{ reset: true, page: state\.navigation\.page \}\)/);
 	assert.match(source, /loadedGraphNode\(node\) \{ if \(isGallery\(node\)\) \{ setupNodeSafely\(node\); restoreNode\(node\); \} \}/);
 	assert.match(source, /if \(\(!reset && loading\) \|\| \(ended && !reset\)\) return/);
+	assert.match(source, /setLoading\(true\);\s*if \(reset\) \{[^}]*masonryController\.setItems\(\[\]/s);
+	assert.match(source, /credentialsRequired[\s\S]*setLoading\(false\);\s*return;/);
 });
 
 test("gallery toolbar gives each action one clear visual responsibility", () => {
@@ -150,16 +152,52 @@ test("favorite entry stays visible before login and explains unavailable writes"
 	assert.match(theme, /\.aa-gallery-favorite-notice \{/);
 });
 
-test("selected gallery cards use a centered confirmation mark and a full-image dim layer", () => {
+test("selected gallery cards use configurable approval stamps and a clear blue highlight", () => {
 	assert.match(source, /el\("div", "aa-gallery-card__selected-layer"\)/);
-	assert.match(source, /className: "aa-gallery-card__selection"[^]*icon\("statusCheck"\)/);
-	assert.match(source, /selectionOrder\.textContent = selected \? String\(order \+ 1\) : ""/);
-	assert.match(theme, /\.aa-gallery-card__selected-layer \{[^}]*inset: 0;[^}]*opacity: 0;[^}]*background: color-mix/);
+	assert.match(source, /const SELECTION_STAMPS = \[[^\]]+"exclusiveCertification"/);
+	assert.match(source, /function createSelectionStamp\(initialStyle, \{ preview = false \} = \{\}\)/);
+	assert.match(source, /selectionStamp\.setStyle\(settings\?\.selectionStamp\)/);
+	assert.match(source, /stateFor\(node\)\.selections\.some\(\(item\) => selectionKey\(item\) === `\$\{post\.source\}:\$\{post\.postId\}`\)/);
+	assert.doesNotMatch(source, /selectionOrder|selection-order|selectionState|selection-state/);
+	assert.match(theme, /\.aa-gallery-card__selected-layer \{[^}]*inset: 0;[^}]*opacity: 0;[^}]*var\(--p-blue-500[^}]*mix-blend-mode: screen/);
 	assert.doesNotMatch(theme, /\.aa-gallery-card__selected-layer \{[^}]*backdrop-filter/);
 	assert.match(theme, /\.aa-gallery-card__selection \{[^}]*top: 50%;[^}]*left: 50%;[^}]*opacity: 0;/);
-	assert.match(theme, /\.aa-gallery-card__selection \{[^}]*width: 34px;[^}]*height: 34px/);
-	assert.match(theme, /\.aa-gallery-card__selection-order \{[^}]*right: -6px;[^}]*bottom: -5px/);
-	assert.match(theme, /\.aa-gallery-card\.is-selected \.aa-gallery-card__selection \{[^}]*opacity: 1;/);
+	assert.match(theme, /\.aa-gallery-card__selection \{[^}]*width: 58px;[^}]*height: 58px;[^}]*border: 2px solid currentColor/);
+	assert.match(theme, /\.aa-gallery-card\.is-selected \.aa-gallery-card__image \{ filter: brightness\(1\.08\) saturate\(1\.06\); \}/);
+	assert.doesNotMatch(theme, /selection-order|selection-state/);
+	assert.match(theme, /\.aa-gallery-card__selection \{[^}]*--aa-gallery-selection-mark-scale: 1\.18;/);
+	assert.match(theme, /\.aa-gallery-card\.is-selected \.aa-gallery-card__selection \{[^}]*opacity: \.94;[^}]*scale\(var\(--aa-gallery-selection-mark-scale\)\)/);
+	assert.doesNotMatch(theme, /\.aa-gallery-card\.is-selected \.aa-gallery-card__selection(?:\[|:|\s|\{)[^{}]*\{[^}]*scale\(1\)/);
+	for (const style of ["approved", "pass", "qa", "audit", "certified", "verified", "selected", "quality", "accepted", "official", "checked", "pure", "crown"]) assert.match(theme, new RegExp(`data-stamp="${style}"`));
+	for (const style of ["inspectionDate", "inspectionReverse", "passDate", "qaDate", "reviewBadge", "birthday", "organic", "silverCapital", "visa", "hotPick", "soldOut", "hot", "nationwideShipping", "nationwideFlight", "sfShipping", "qualityGuarantee", "praise", "delicacySquare", "traditionVertical", "chinaCuisine", "ruyi", "snowCuisine", "traditionCircle", "delicacyWide", "traditionWide", "auspicious", "exclusiveCertification"]) assert.match(source, new RegExp(`"${style}"`));
+	assert.match(source, /function soldOutPostalArt\(\)/);
+	assert.match(source, /XIANYU/); assert.match(source, /卖掉了/); assert.match(source, /SOLD OUT/);
+	assert.match(source, /const SELECTION_STAMP_ART = Object\.freeze\(\{[^}]*soldOutPostal: soldOutPostalArt,[^}]*quarantineQualified: quarantineQualifiedArt,/s);
+	assert.doesNotMatch(source, /anime100|animeStampArt|aa-gallery-stamp__anime/);
+	assert.doesNotMatch(theme, /anime100|aa-gallery-stamp__anime/);
+	assert.match(source, /const createArt = SELECTION_STAMP_ART\[style\];[^}]*art\.replaceChildren\(\.\.\.\(createArt \? \[createArt\(\)\] : \[\]\)\);/s);
+	assert.doesNotMatch(source, /\.hidden = style !==/);
+	assert.match(theme, /\.aa-gallery-stamp__art \{ display: contents; \}/);
+	assert.match(theme, /data-stamp="soldOutPostal"[^}]*--aa-gallery-stamp: var\(--p-gray-500/);
+	assert.match(source, /function quarantineQualifiedArt\(\)/);
+	assert.match(source, /<text x="32" y="29">检疫<\/text><text x="32" y="51">合格<\/text>/);
+	assert.match(theme, /data-stamp="quarantineQualified"[^}]*rotate\(-5deg\)/);
+	assert.match(source, /traditionVertical: \["", "传\\n统\\n文\\n化", ""\]/);
+	assert.match(source, /ruyi: \["", "如\\n意", ""\]/);
+	assert.match(source, /auspicious: \["", "吉\\n祥", ""\]/);
+	assert.match(source, /const TRADITIONAL_SEAL_SPECS = Object\.freeze/);
+	assert.match(source, /function traditionalSealArt\(style\)/);
+	assert.match(source, /Object\.keys\(TRADITIONAL_SEAL_SPECS\).*traditionalSealArt\(style\)/);
+	assert.doesNotMatch(source, /maskId|<mask|mask="url/);
+	assert.doesNotMatch(theme, /mask-composite|stroke-dasharray|repeating-linear-gradient\(107deg/);
+	assert.match(theme, /\.aa-gallery-stamp__traditional \{[^}]*inset: 0;[^}]*width: 100%;[^}]*height: 100%/);
+	assert.match(theme, /\.aa-gallery-stamp__traditional text \{[^}]*font-family: "Microsoft YaHei", "SimHei", sans-serif;[^}]*dominant-baseline: central;/);
+	assert.match(theme, /\.aa-gallery-card__selection\[data-stamp="reviewBadge"\] \.aa-gallery-stamp__main,[^}]*width: calc\(100% - 4px\);[^}]*font-size: 10\.5px;/);
+	assert.match(theme, /\.aa-gallery-settings__stamp-option \{[^}]*overflow: visible/);
+	assert.match(theme, /\.aa-gallery-settings__stamp-option \{[^}]*min-height: 112px/);
+	assert.match(theme, /\.aa-gallery-card__selection\.is-preview \{[^}]*scale\(1\.06\)/);
+	assert.match(source, /className: "aa-gallery-settings__stamp-picker"/);
+	assert.match(source, /selectionStamp: selectedStamp/);
 });
 
 test("project UI rules require visible features to be designed, not merely functional", () => {

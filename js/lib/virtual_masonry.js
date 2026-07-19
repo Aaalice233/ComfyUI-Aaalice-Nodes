@@ -91,8 +91,8 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 	}) : null;
 	container.addEventListener("scroll", schedule, { passive: true }); resizeObserver?.observe(container);
 	const controller = {
-		setItems(next, { preserveScroll = true } = {}) { if (!preserveScroll) container.scrollTop = 0; layout.setItems(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); },
-		append(next) { layout.append(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); },
+		setItems(next, { preserveScroll = true } = {}) { if (!preserveScroll) container.scrollTop = 0; layout.setItems(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); schedule(); },
+		append(next) { layout.append(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); schedule(); },
 		updateItemSize(key, width, height) { const item = layout.items.find((candidate) => `${candidate.source}:${candidate.postId}` === key); if (!item || !(width > 0) || !(height > 0) || (item.width === width && item.height === height)) return; item.width = width; item.height = height; sizesDirty = true; schedule(); },
 		refresh() { draw(true); },
 		get mountedCount() { return mounted.size; }, get layout() { return layout; },

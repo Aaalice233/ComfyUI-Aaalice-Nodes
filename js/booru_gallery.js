@@ -45,6 +45,88 @@ function ratingTone(value) {
 function ratingLabel(value) { const key = ratingKey(value); return label(`rating.${key}`, String(value || "—")); }
 function ratingIcon(value) { return ({ general: "ratingGeneral", safe: "ratingGeneral", sensitive: "ratingSensitive", questionable: "ratingQuestionable", explicit: "ratingExplicit" })[ratingTone(value)] || "statusIdle"; }
 function sortLabel(value) { return label(`collection.${value}`, String(value)); }
+const SELECTION_STAMPS = [
+	"inspection", "approved", "pass", "qa", "audit", "certified", "verified", "selected", "quality", "accepted", "official", "checked", "pure", "crown",
+	"inspectionDate", "inspectionReverse", "passDate", "qaDate", "reviewBadge", "birthday", "organic", "silverCapital", "visa", "hotPick", "soldOut", "hot", "nationwideShipping", "nationwideFlight",
+	"sfShipping", "qualityGuarantee", "praise", "delicacySquare", "traditionVertical", "chinaCuisine", "ruyi", "snowCuisine", "traditionCircle", "delicacyWide", "traditionWide", "auspicious", "exclusiveCertification", "soldOutPostal", "quarantineQualified",
+];
+function selectionStampCopy(style) {
+	return {
+		inspection: ["NO.01", label("stamp.inspection", "INSPECTED"), label("stamp.approved", "APPROVED")], approved: ["APPROVED", label("stamp.approved", "APPROVED"), "PASS"],
+		pass: ["QUALITY", "PASS", "NO.02"], qa: ["QA 01", label("stamp.quality", "QUALITY"), "PASS"], audit: ["AUDIT", label("stamp.audit", "AUDITED"), "OK"],
+		certified: ["100%", label("stamp.certified", "CERTIFIED"), "PASS"], verified: ["CHECK", label("stamp.verified", "VERIFIED"), "OK"],
+		selected: ["PICK", label("stamp.selected", "SELECTED"), "✓"], quality: ["QA", label("stamp.quality", "QUALITY"), "100%"],
+		accepted: ["REVIEW", label("stamp.accepted", "ACCEPTED"), "PASS"], official: ["OFFICIAL", label("stamp.official", "OFFICIAL"), "SEAL"],
+		checked: ["CHECK", label("stamp.checked", "CHECKED"), "✓"], pure: ["100%", label("stamp.pure", "PURE"), "PASS"],
+		crown: ["♛", label("stamp.crown", "PREMIUM"), "PASS"],
+		inspectionDate: ["检验01", "2020.03.10", "合格"], inspectionReverse: ["合格", "2020.03.10", "检01"], passDate: ["PASS", "2020.03.10", "检02"], qaDate: ["QA01", "2020.03.10", "PASS"],
+		reviewBadge: ["", "审核通过", ""], birthday: ["HAPPY BIRTHDAY", "生日快乐", "HAPPY BIRTHDAY"], organic: ["百分百", "原生态", "100% PURE"],
+		silverCapital: ["♛", "官银资本", "OFFICIAL"], visa: ["", "VISA", ""], hotPick: ["爆款推荐", "HOT SALE", "爆款推荐"], soldOut: ["100%", "今日已售罄", "SOLD OUT"],
+		hot: ["", "爆", ""], nationwideShipping: ["全国", "全国包邮", "包邮"], nationwideFlight: ["全国", "全国可飞", "可飞"], sfShipping: ["顺丰", "顺丰包邮", "包邮"], qualityGuarantee: ["品质", "品质保证", "保证"],
+		praise: ["好评", "好评如潮", "如潮"], delicacySquare: ["", "美味\n佳肴", ""], traditionVertical: ["", "传\n统\n文\n化", ""], chinaCuisine: ["", "中国\n美味", ""],
+		ruyi: ["", "如\n意", ""], snowCuisine: ["", "雪尖\n美食", ""], traditionCircle: ["", "传统\n文化", ""], delicacyWide: ["", "美味佳肴", ""], traditionWide: ["", "传统文化", ""],
+		auspicious: ["", "吉\n祥", ""], exclusiveCertification: ["", "专属认证", ""], soldOutPostal: ["", "", ""], quarantineQualified: ["", "", ""],
+	}[style] || ["NO.01", label("stamp.inspection", "INSPECTED"), label("stamp.approved", "APPROVED")];
+}
+function selectionStampLabel(style) {
+	if (style === "soldOutPostal") return label("stampSoldOutPostal", "Xianyu Sold Out Postmark");
+	if (style === "quarantineQualified") return label("stampQuarantineQualified", "Quarantine Qualified");
+	return label(`stamp.${style}`, style);
+}
+function soldOutPostalArt() {
+	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 104 72"); svg.setAttribute("class", "aa-gallery-stamp__postal"); svg.setAttribute("aria-hidden", "true");
+	svg.innerHTML = '<g class="aa-gallery-stamp__postal-ring"><circle cx="34" cy="36" r="27"/><circle cx="34" cy="36" r="22"/></g><g class="aa-gallery-stamp__postal-waves"><path d="M58 20c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M59 28c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M59 36c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M58 44c10-6 17 4 28-2 6-3 10-7 16-9"/></g><text class="aa-gallery-stamp__postal-xianyu" x="34" y="20">XIANYU</text><text class="aa-gallery-stamp__postal-sold" x="34" y="59">SOLD OUT</text><g class="aa-gallery-stamp__postal-board" transform="rotate(-10 36 36)"><rect x="5" y="25" width="65" height="27" rx="3"/><rect x="8" y="28" width="59" height="21" rx="2"/><text x="37" y="44">卖掉了</text></g>';
+	return svg;
+}
+function quarantineQualifiedArt() {
+	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 64 64"); svg.setAttribute("class", "aa-gallery-stamp__quarantine"); svg.setAttribute("aria-hidden", "true");
+	svg.innerHTML = '<g class="aa-gallery-stamp__quarantine-rings"><circle cx="32" cy="32" r="29"/><circle cx="32" cy="32" r="25.5"/></g><text x="32" y="29">检疫</text><text x="32" y="51">合格</text>';
+	return svg;
+}
+const TRADITIONAL_SEAL_SPECS = Object.freeze({
+	delicacySquare: { shape: "square", lines: ["美味", "佳肴"] },
+	traditionVertical: { shape: "vertical", lines: ["传", "统", "文", "化"] },
+	chinaCuisine: { shape: "square", lines: ["中国", "美味"] },
+	ruyi: { shape: "vertical", lines: ["如", "意"] },
+	snowCuisine: { shape: "square", lines: ["雪尖", "美食"] },
+	traditionCircle: { shape: "circle", lines: ["传统", "文化"] },
+	delicacyWide: { shape: "wide", lines: ["美味佳肴"] },
+	traditionWide: { shape: "wide", lines: ["传统文化"] },
+	auspicious: { shape: "vertical", lines: ["吉", "祥"] },
+});
+function traditionalSealArt(style) {
+	const spec = TRADITIONAL_SEAL_SPECS[style];
+	const dimensions = spec.shape === "vertical" ? [40, 68] : spec.shape === "wide" ? [76, 42] : [64, 64];
+	const [width, height] = dimensions;
+	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", `0 0 ${width} ${height}`); svg.setAttribute("class", "aa-gallery-stamp__traditional"); svg.setAttribute("aria-hidden", "true");
+	const outline = spec.shape === "circle"
+		? `<circle cx="32" cy="32" r="29"/><circle class="aa-gallery-stamp__traditional-inset" cx="32" cy="32" r="25"/>`
+		: `<rect x="2" y="2" width="${width - 4}" height="${height - 4}" rx="${spec.shape === "wide" ? 5 : 7}"/><rect class="aa-gallery-stamp__traditional-inset" x="5" y="5" width="${width - 10}" height="${height - 10}" rx="${spec.shape === "wide" ? 3 : 5}"/>`;
+	const fontSize = spec.shape === "vertical" ? (spec.lines.length === 4 ? 13 : 21) : spec.shape === "wide" ? 18 : 21;
+	const lineHeight = spec.shape === "vertical" && spec.lines.length === 4 ? 14 : fontSize + 3;
+	const totalHeight = (spec.lines.length - 1) * lineHeight; const firstY = height / 2 - totalHeight / 2;
+	const text = spec.lines.map((line, index) => `<text x="${width / 2}" y="${firstY + index * lineHeight}" font-size="${fontSize}">${line}</text>`).join("");
+	svg.innerHTML = `<g class="aa-gallery-stamp__traditional-ink">${outline}${text}</g>`;
+	return svg;
+}
+const SELECTION_STAMP_ART = Object.freeze({
+	soldOutPostal: soldOutPostalArt,
+	quarantineQualified: quarantineQualifiedArt,
+	...Object.fromEntries(Object.keys(TRADITIONAL_SEAL_SPECS).map((style) => [style, () => traditionalSealArt(style)])),
+});
+function createSelectionStamp(initialStyle, { preview = false } = {}) {
+	const top = el("span", "aa-gallery-stamp__top"); const main = el("span", "aa-gallery-stamp__main"); const bottom = el("span", "aa-gallery-stamp__bottom");
+	const art = el("span", "aa-gallery-stamp__art");
+	const root = el("span", { className: `aa-gallery-card__selection${preview ? " is-preview" : ""}`, attrs: { "aria-hidden": "true" }, children: [top, main, bottom, art] });
+	const setStyle = (value) => {
+		const style = SELECTION_STAMPS.includes(value) ? value : "inspection";
+		root.dataset.stamp = style;
+		[top.textContent, main.textContent, bottom.textContent] = selectionStampCopy(style);
+		const createArt = SELECTION_STAMP_ART[style];
+		art.replaceChildren(...(createArt ? [createArt()] : []));
+	};
+	setStyle(initialStyle); return { root, setStyle };
+}
 function effectivePrompt(node) {
 	return { ...stateFor(node).prompt, excludedTags: [...(settings?.blacklist || [])] };
 }
@@ -286,8 +368,7 @@ function createGalleryCard(node, controller, post, index) {
 	image.addEventListener("load", () => { if (image.naturalWidth > 0 && image.naturalHeight > 0) controller.updateSize(post, image.naturalWidth, image.naturalHeight); });
 	image.addEventListener("error", () => { void controller.recoverPreview(post, image); });
 	image.src = proxyUrl(post.source, post.previewUrl);
-	const selectionOrder = el("span", "aa-gallery-card__selection-order");
-	const badge = el("span", { className: "aa-gallery-card__selection", attrs: { "aria-hidden": "true" }, children: [icon("statusCheck"), selectionOrder] });
+	const selectionStamp = createSelectionStamp(settings?.selectionStamp);
 	const selectedLayer = el("div", "aa-gallery-card__selected-layer");
 	const hasRating = Boolean(post.rating) && Boolean(capability(post.source)?.ratings?.length);
 	const rating = hasRating ? el("span", { className: "aa-gallery-card__rating", attrs: { "data-rating": ratingTone(post.rating) }, text: ratingLabel(post.rating) }) : null;
@@ -318,12 +399,13 @@ function createGalleryCard(node, controller, post, index) {
 	const actionControls = [editAction, ...(favoriteAction ? [favoriteAction] : []), detailAction];
 	actions.append(...actionControls);
 	card._aaVirtualMasonryLayout = (width, height) => { card.dataset.actionsLayout = galleryCardActionLayout(width, height, actionControls.length); };
-	surface.append(image, selectedLayer, el("div", { className: "aa-gallery-card__shade" }), ...(rating ? [rating] : []), badge, actions);
+	surface.append(image, selectedLayer, el("div", { className: "aa-gallery-card__shade" }), ...(rating ? [rating] : []), selectionStamp.root, actions);
 	card.append(surface);
 	const update = () => {
-		const order = stateFor(node).selections.findIndex((item) => selectionKey(item) === `${post.source}:${post.postId}`); const selected = order >= 0;
+		const selected = stateFor(node).selections.some((item) => selectionKey(item) === `${post.source}:${post.postId}`);
 		const previousSelected = card.dataset.selected;
-		card.classList.toggle("is-selected", selected); selectionOrder.textContent = selected ? String(order + 1) : "";
+		card.classList.toggle("is-selected", selected);
+		selectionStamp.setStyle(settings?.selectionStamp);
 		card.dataset.selected = String(selected);
 		if (previousSelected != null && previousSelected !== String(selected)) card.classList.add("is-selection-feedback");
 		if (favoriteAction) { favoriteAction.classList.toggle("is-active", Boolean(post.favorite)); favoriteAction.setAttribute("aria-label", post.favorite ? label("card.unfavorite", "Remove favorite") : label("card.favorite", "Favorite")); favoriteAction.title = favoriteAction.getAttribute("aria-label"); }
@@ -679,14 +761,17 @@ function buildController(node, elements) {
 	const search = async ({ reset = false, page = null } = {}) => {
 		if ((!reset && loading) || (ended && !reset)) return;
 		const requestedPage = reset ? Math.max(1, Math.floor(Number(page ?? stateFor(node).navigation.page) || 1)) : null;
+		// Mark the request active before clearing the masonry. setItems() draws synchronously
+		// and may report near-end; that callback must not start a competing first-page request.
+		setLoading(true);
 		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); clearError(); rememberPage(requestedPage); }
 		else requestController ||= new AbortController();
 		const currentGeneration = generation; const state = stateFor(node);
 		if (capability(state.source)?.authRequired && !hasSourceCredentials(state.source)) {
 			showError(new Error(label("error.credentialsRequired", "This source requires account credentials. Click here to open Gallery settings.")));
+			setLoading(false);
 			return;
 		}
-		setLoading(true);
 		try {
 			const favorites = state.filters.feed === "favorites";
 			const params = new URLSearchParams({ source: state.source, limit: "60" });
@@ -1222,6 +1307,16 @@ async function openSettingsDialog() {
 	const timeout = settingsInput("number", String(settings.timeout)); timeout.min = "3"; timeout.max = "300";
 	const budget = settingsInput("number", String(settings.cacheBudgetMiB)); budget.min = "128"; budget.max = "32768";
 	const tooltip = checkboxControl({ checked: settings.tooltip, label: label("settings.tooltip", "Show hover details") });
+	let selectedStamp = SELECTION_STAMPS.includes(settings.selectionStamp) ? settings.selectionStamp : "inspection";
+	const stampButtons = new Map();
+	const stampPicker = el("div", { className: "aa-gallery-settings__stamp-picker", attrs: { role: "radiogroup", "aria-label": label("settings.selectionStamp", "Selection stamp") } });
+	const setStamp = (value) => { selectedStamp = value; for (const [style, control] of stampButtons) { const active = style === value; control.classList.toggle("is-active", active); control.setAttribute("aria-checked", String(active)); control.tabIndex = active ? 0 : -1; } };
+	for (const style of SELECTION_STAMPS) {
+		const preview = createSelectionStamp(style, { preview: true }).root;
+		const control = el("button", { className: "aa-gallery-settings__stamp-option", attrs: { type: "button", role: "radio", "aria-label": selectionStampLabel(style) }, children: [preview, el("span", null, selectionStampLabel(style))] });
+		control.addEventListener("click", () => setStamp(style)); stampButtons.set(style, control); stampPicker.append(control);
+	}
+	setStamp(selectedStamp);
 	const sourceIsConfigured = (cap) => (cap.authFields || []).length > 0 && (cap.authFields || []).every((name) => settings.credentialStatus?.[cap.source]?.[`has${name[0].toUpperCase()}${name.slice(1)}`]);
 	const sourceViews = capabilities.map((cap) => {
 		const authFields = cap.authFields || [];
@@ -1256,7 +1351,7 @@ async function openSettingsDialog() {
 		el("header", { children: [el("span", { className: "aa-gallery-settings__blacklist-icon", children: [icon("lock")] }), el("strong", null, label("settings.blacklist", "Content blacklist")), blacklistCount] }),
 		blacklist,
 	] });
-	const browsePanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "browse" }, children: [settingsSectionHeader("filter", label("settings.browseTitle", "Browsing defaults")), el("div", { className: "aa-gallery-settings__form-grid", children: [field({ label: label("settings.defaultSource", "Default source"), control: defaultSource }), el("div", { className: "aa-gallery-settings__toggle-card", children: [el("strong", null, label("settings.tooltip", "Show hover details")), tooltip] })] })] });
+	const browsePanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "browse" }, children: [settingsSectionHeader("filter", label("settings.browseTitle", "Browsing defaults")), el("div", { className: "aa-gallery-settings__form-grid", children: [field({ label: label("settings.defaultSource", "Default source"), control: defaultSource }), el("div", { className: "aa-gallery-settings__toggle-card", children: [el("strong", null, label("settings.tooltip", "Show hover details")), tooltip] })] }), field({ label: label("settings.selectionStamp", "Selection stamp"), hint: label("settings.selectionStampHint", "Applied to selected cards in every Gallery node."), control: stampPicker })] });
 	const blacklistPanel = el("section", { className: "aa-gallery-settings__page aa-gallery-settings__blacklist-page", attrs: { "data-page": "blacklist" }, children: [blacklistCard] });
 	const promptPanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "prompt" }, children: [settingsSectionHeader("tag", label("settings.promptTitle", "Prompt defaults")), field({ label: label("prompt.categories", "Categories"), control: defaultCategories }), el("div", { className: "aa-gallery-settings__switches", children: [el("label", { className: "aa-gallery-check-row", children: [defaultUnderscores, el("span", null, label("prompt.underscores", "Replace underscores with spaces"))] }), el("label", { className: "aa-gallery-check-row", children: [defaultParentheses, el("span", null, label("prompt.parentheses", "Escape parentheses"))] })] })] });
 	const performancePanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "performance" }, children: [settingsSectionHeader("refresh", label("settings.performanceTitle", "Network & storage")), el("div", { className: "aa-gallery-settings__form-grid", children: [field({ label: label("settings.timeout", "Request timeout (seconds)"), control: timeout }), field({ label: label("settings.cacheBudget", "Original cache budget (MiB)"), control: budget })] }), el("div", { className: "aa-gallery-settings__cache-card", children: [el("span", { children: [icon("delete")] }), el("div", { children: [el("strong", null, label("settings.clearCache", "Clear Gallery cache")), el("small", null, label("settings.clearCacheHint", "Removes cached originals and metadata; your selections are not affected."))] }), clear] })] });
@@ -1294,7 +1389,7 @@ async function openSettingsDialog() {
 	nav.append(el("div", { className: "aa-gallery-settings__nav-summary", children: [el("strong", null, label("settings.accountCount", "{count} accounts ready").replace("{count}", String(configuredCount)))] }));
 	setPage("accounts");
 	const body = el("div", { className: "aa-gallery-settings", children: [nav, el("div", { className: "aa-gallery-settings__pages", children: [accountsPanel, browsePanel, blacklistPanel, promptPanel, performancePanel] })] });
-	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true" }, tooltip: tooltip.getAttribute("aria-checked") === "true", timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); for (const galleryNode of app.graph?._nodes || []) { if (!isGallery(galleryNode)) continue; galleryNode._aaGalleryController?.renderSelected(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
+	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true" }, tooltip: tooltip.getAttribute("aria-checked") === "true", selectionStamp: selectedStamp, timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); for (const galleryNode of app.graph?._nodes || []) { if (!isGallery(galleryNode)) continue; galleryNode._aaGalleryController?.renderSelected(); galleryNode._aaGalleryController?.refreshCards(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
 	dialog = createDialog({ title: label("settings.title", "Booru Gallery"), body, footer: el("div", { className: "aa-gallery-settings__footer", children: [status, save] }), size: "lg", className: "aa-gallery-settings-dialog", confirmOnEnter: false });
 }
 

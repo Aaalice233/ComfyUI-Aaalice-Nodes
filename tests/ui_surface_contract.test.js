@@ -56,7 +56,9 @@ test("all Aaalice hover and focus states suppress colored borders globally", () 
 });
 
 test("static icons use unboxed glyph styling while icon buttons retain hit surfaces", () => {
-	assert.match(theme, /:is\(\[class\$="__icon"\], \[class\*="__icon "\]\):not\(\.aa-ui-icon, \.aa-ui-button\),[\s\S]*\.aa-gallery-clear-confirm > \.aa-ui-icon \{[^}]*border-color: transparent !important;[^}]*background: transparent !important;[^}]*box-shadow: none !important;[^}]*filter: drop-shadow/);
+	assert.match(theme, /:is\(\[class\$="__icon"\], \[class\*="__icon "\]\):not\(\.aa-ui-icon, \.aa-ui-button\),[\s\S]*\.aa-gallery-clear-confirm > \.aa-ui-icon \{[^}]*padding: 0 !important;[^}]*border: 0 !important;[^}]*border-radius: 0 !important;[^}]*background: transparent !important;[^}]*box-shadow: none !important;[^}]*filter: drop-shadow/);
+	assert.match(theme, /\.aa-gallery-settings__section-icon \{[^}]*width: 16px;[^}]*height: 16px;[^}]*filter: drop-shadow/);
+	assert.doesNotMatch(theme, /\.aa-gallery-settings__section-icon \{[^}]*(?:border|border-radius|background):/);
 	assert.match(theme, /\.aa-gallery-settings__source-mark > \.aa-ui-icon \{[^}]*stroke-width: 1\.85/);
 	assert.match(theme, /:not\(\.aa-ui-icon, \.aa-ui-button\)/);
 });
