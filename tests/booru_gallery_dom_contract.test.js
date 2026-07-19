@@ -18,7 +18,14 @@ test("package entry imports the Booru Gallery extension", () => {
 test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.equal((source.match(/className: "aa-gallery-toolbar"/g) || []).length, 1);
 	assert.match(source, /createSearchControl/); assert.match(source, /input\.type = "search"/); assert.match(source, /classList\.toggle\("is-open"/);
+	assert.match(source, /searchToggleButton\(\{ label: label\("search\.label"/);
+	assert.match(source, /input\.className = "aa-gallery-search__input aa-ui-search-input"/);
+	assert.match(source, /toggle\.setSearchValue\(input\.value/);
+	assert.match(source, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
 	assert.match(source, /toggle\.hidden = open/);
+	assert.match(source, /if \(!open && input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\)/);
+	assert.match(source, /if \(!composing && !input\.value\.trim\(\) && searchQuery\(stateFor\(node\)\)\) submit\(\)/);
+	assert.match(source, /_aaGalleryController\?\.search\(\{ reset: true, page: 1 \}\)/);
 	assert.match(source, /children: \[refresh, openSettings, searchControl\.root, searchControl\.toggle\]/);
 	assert.match(theme, /\.aa-gallery\.is-searching \.aa-gallery-toolbar__page-actions, \.aa-gallery\.is-searching \.aa-gallery-refresh, \.aa-gallery\.is-searching \.aa-gallery-open-settings \{ display: none; \}/);
 	assert.match(theme, /\.aa-gallery\.is-searching \.aa-gallery-toolbar__spacer \{ display: none; \}/);
@@ -27,6 +34,18 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button \{[^}]*width: 22px;[^}]*height: 22px;[^}]*border-radius: 50%;[^}]*transform: none;/s);
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button:hover:not\(:disabled\) \{[^}]*background: color-mix\([^}]*transform: none;/s);
 	assert.match(theme, /\.aa-gallery-search \{[^}]*padding: 3px 3px 3px 9px;[^}]*overflow: hidden;/s);
+});
+
+test("gallery restores every workflow-owned browsing state after configuration", () => {
+	assert.match(agents, /`onConfigure` 不是工作流恢复完成的可靠终点/);
+	assert.match(agents, /必须在 `loadedGraphNode` 再以 `node\.properties` 为最终真源执行一次幂等恢复/);
+	assert.match(source, /if \(persist\) transact\(node, \(state\) => \{ state\.view = mode; \}\)/);
+	assert.match(source, /function restoreNode\(node\)/);
+	assert.match(source, /node\._aaGallerySource\.setValue\(state\.source\)/);
+	assert.match(source, /node\._aaGalleryController\.setMode\(state\.view, \{ persist: false \}\)/);
+	assert.match(source, /node\._aaGalleryController\.search\(\{ reset: true, page: state\.navigation\.page \}\)/);
+	assert.match(source, /loadedGraphNode\(node\) \{ if \(isGallery\(node\)\) \{ setupNodeSafely\(node\); restoreNode\(node\); \} \}/);
+	assert.match(source, /if \(\(!reset && loading\) \|\| \(ended && !reset\)\) return/);
 });
 
 test("gallery toolbar gives each action one clear visual responsibility", () => {
@@ -59,7 +78,7 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 });
 
 test("page navigation uses a compact custom control instead of a native number form", () => {
-	assert.match(source, /className: "aa-gallery-page-popover", width: 196/);
+	assert.match(source, /className: "aa-gallery-page-popover", width: 224/);
 	assert.match(source, /input\.type = "text"; input\.inputMode = "numeric"; input\.pattern = "\[0-9\]\*"/);
 	assert.doesNotMatch(source, /input\.type = "number"/);
 	assert.doesNotMatch(source, /aa-gallery-page-popover__(?:hero-icon|header|heading|current|steps|jump)/);
@@ -70,11 +89,11 @@ test("page navigation uses a compact custom control instead of a native number f
 	assert.match(source, /className: "aa-gallery-page-popover__rail", children: \[previous, field, next\]/);
 	assert.match(source, /label\("page\.unit", "p\."\)/);
 	assert.match(source, /queueMicrotask\(\(\) => \{ input\.focus/);
-	assert.match(theme, /\.aa-gallery-page-popover \{[^}]*padding: 7px;[^}]*border-radius: 11px;/);
-	assert.match(theme, /\.aa-gallery-page-popover__rail \{[^}]*grid-template-columns: 30px minmax\(92px, 1fr\) 30px/);
+	assert.match(theme, /\.aa-gallery-page-popover \{[^}]*padding: 9px;[^}]*border-radius: 12px;/);
+	assert.match(theme, /\.aa-gallery-page-popover__rail \{[^}]*grid-template-columns: 36px minmax\(116px, 1fr\) 36px/);
 	assert.match(theme, /\.aa-gallery-page-popover__field:focus-within/);
-	assert.match(theme, /\.aa-gallery-page-popover__input \{[^}]*border: 0;[^}]*text-align: center;/);
-	assert.match(theme, /\.aa-gallery-page-popover__go\.aa-ui-button \{[^}]*width: 26px;[^}]*border: 0;[^}]*border-radius: 999px;[^}]*background: var\(--aa-ui-node-accent-soft\)/);
+	assert.match(theme, /\.aa-gallery-page-popover__input \{[^}]*font-size: 12px;[^}]*text-align: right;/);
+	assert.match(theme, /\.aa-gallery-page-popover__go\.aa-ui-button \{[^}]*width: 30px;[^}]*border: 0;[^}]*border-radius: 999px;[^}]*background: var\(--aa-ui-node-accent-soft\)/);
 });
 
 test("gallery refresh and settings utilities expose their real state and destination", () => {
@@ -187,6 +206,12 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.match(source, /if \(!content\.isConnected \|\| !tooltip\.isOpenFor\(anchor\)\) return/);
 	assert.match(source, /placement: "side"/);
 	assert.match(source, /detail\.sampleUrl \|\| detail\.previewUrl/);
+	assert.match(source, /const detailCache = new Map\(\); const previewCache = new Map\(\); let previewGeneration = 0/);
+	assert.match(source, /for \(const post of visiblePosts\.slice\(0, 12\)\)/);
+	assert.match(source, /onVisibleItemsChange: \(items\) => controller\?\.prefetchVisible\(items\)/);
+	assert.match(source, /while \(previewCache\.size > 16\)/);
+	assert.match(source, /if \(cachedImage\?\.ready\) showSample\(\)/);
+	assert.match(source, /generation \+= 1; rotatePreviewCache\(\); posts = \[\]/);
 	assert.match(source, /className: "aa-gallery-hover__loading"[^]*children: \[icon\("loading"\)\]/);
 	assert.match(source, /let waitingForLargerPreview = true/);
 	assert.match(source, /else \{ waitingForLargerPreview = false; loading\.hidden = true; \}/);
@@ -196,10 +221,11 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.match(theme, /\.aa-gallery-hover-tooltip\.aa-ui-tooltip \{[^}]*width: min\(320px/);
 	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*max-height: 420px/);
 	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*position: absolute;[^}]*bottom: 0;[^}]*linear-gradient/);
-	assert.match(theme, /\.aa-gallery-hover__info dl \{[^}]*display: flex/);
-	assert.match(theme, /\.aa-gallery-hover__info dt \{ font-size: 10px; \}/);
-	assert.match(theme, /\.aa-gallery-hover__info dd \{[^}]*font-size: 10px;/);
-	assert.match(theme, /\.aa-gallery-hover__tags \{[^}]*display: flex/);
+	assert.match(theme, /\.aa-gallery-hover__info dl \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+	assert.match(theme, /\.aa-gallery-hover__info dl > div \{[^}]*border: 0;[^}]*border-radius: 7px/);
+	assert.match(theme, /\.aa-gallery-hover__info dt \{[^}]*font-size: 10px;[^}]*white-space: nowrap/);
+	assert.match(theme, /\.aa-gallery-hover__info dd \{[^}]*font-size: 11px;/);
+	assert.match(theme, /\.aa-gallery-hover__tags \{[^}]*display: grid;[^}]*repeat\(3, minmax\(0, 1fr\)\)/);
 	assert.match(theme, /\.aa-gallery-hover__tag-row > p \{[^}]*font-size: 10px;/);
 	assert.match(theme, /\.aa-gallery-hover__tag-row\.is-character/);
 	assert.match(theme, /\.aa-gallery-hover__loading \{[^}]*width: 24px;[^}]*height: 24px;[^}]*border: 0;[^}]*border-radius: 999px;[^}]*background: color-mix/);
@@ -248,6 +274,9 @@ test("gallery rating filter stays focused, localized, and semantically colored",
 	assert.match(theme, /\.aa-gallery-filter-ratings \.aa-ui-multiselect__leading-icon/);
 	assert.doesNotMatch(filterSource, /galleryPopoverHeader|filter\.sort|sortPanel|listboxControl/);
 	assert.match(filterSource, /label: ratingLabel\(value\), iconName: ratingIcon\(value\), attrs: \{ "data-rating": ratingTone\(value\) \}/);
+	assert.match(filterSource, /onChange: \(values\) => \{ selectedRatings = values; transact\(node, \(current\) => \{ current\.filters\.ratings = values; \}\); \}/);
+	assert.doesNotMatch(filterSource, /current\.filters\.feed = "search"|current\.filters\.period = ""/);
+	assert.match(source, /if \(state\.filters\.feed === "ranking"\) \{ params\.delete\("query"\); params\.delete\("sort"\); params\.set\("period", state\.filters\.period\); \}/);
 	assert.match(filterSource, /className: "aa-gallery-filter-popover__header"/);
 	assert.match(filterSource, /className: "aa-gallery-filter-ratings"/);
 	assert.match(source, /function ratingLabel\(value\)/);
@@ -359,7 +388,9 @@ test("selected count and clear action live in the main toolbar", () => {
 	assert.match(toolbarSource, /tabs\.querySelector\('\[data-value="selected"\]'\)\?\.append\(selectedCount\)/);
 	assert.match(toolbarSource, /children: \[source, tabs, clear,/);
 	assert.match(source, /elements\.selectedCount\.textContent = String\(count\)/);
-	assert.match(theme, /\.aa-gallery-view-switcher__count \{[^}]*min-width: 18px;[^}]*font-size: 10px;[^}]*font-weight: 800/);
+	assert.match(theme, /\.aa-gallery-view-switcher__count \{[^}]*min-width: 18px;[^}]*border: 0;[^}]*font-size: 10px;[^}]*font-weight: 800/);
+	const countStyle = theme.match(/\.aa-gallery-view-switcher__count \{([^}]*)\}/)?.[1] || "";
+	assert.doesNotMatch(countStyle, /0 0 0 1px/);
 	assert.match(theme, /\.aa-gallery:not\(\[data-mode="selected"\]\) \.aa-gallery-selected__clear \{ display: none; \}/);
 	assert.doesNotMatch(selectedSource, /aa-gallery-selected__toolbar|aa-gallery-selected__status|aa-gallery-selected__copy/);
 	assert.doesNotMatch(theme, /\.aa-gallery-selected__toolbar|\.aa-gallery-selected__lead|\.aa-gallery-selected__status|\.aa-gallery-selected__copy/);
@@ -497,6 +528,7 @@ test("gallery settings use focused sections and explicit account states", () => 
 	const settingsSource = source.slice(source.indexOf("async function openSettingsDialog"), source.indexOf("app.registerExtension"));
 	assert.doesNotMatch(settingsSource, /settings\.excluded|Default excluded prompt tags|promptDefaults\?\.excludedTags/);
 	assert.match(settingsSource, /className: "aa-gallery-settings__page aa-gallery-settings__blacklist-page"/);
+	assert.doesNotMatch(settingsSource, /defaultRatings|defaultRating|aa-gallery-settings__rating/);
 	assert.match(settingsSource, /value: "blacklist", label: label\("settings\.blacklist"/);
 	assert.match(settingsSource, /children: \[accountsPanel, browsePanel, blacklistPanel, promptPanel, performancePanel\]/);
 	assert.doesNotMatch(settingsSource.slice(settingsSource.indexOf('data-page": "browse"'), settingsSource.indexOf('data-page": "blacklist"')), /blacklistCard/);
@@ -508,7 +540,6 @@ test("gallery settings use focused sections and explicit account states", () => 
 	assert.match(theme, /aa-gallery-settings-page-in/);
 	assert.match(theme, /\.aa-gallery-settings \{[^}]*grid-template-columns: 150px minmax\(0, 1fr\)/);
 	assert.match(theme, /\.aa-gallery-settings__source-workspace \{[^}]*grid-template-columns: 184px minmax\(0, 1fr\)/);
-	assert.match(theme, /\.aa-gallery-settings__rating\.aa-ui-multiselect \{[^}]*grid-template-columns: repeat\(2/);
 	assert.match(theme, /\.aa-gallery-settings__section-header strong \{[^}]*font-size: 12px/);
 	assert.doesNotMatch(settingsSource, /aa-gallery-settings__blacklist-card[\s\S]*el\("footer"/);
 	assert.match(theme, /\.aa-gallery-settings__blacklist-card \{[^}]*border: 0;[^}]*background: color-mix/);

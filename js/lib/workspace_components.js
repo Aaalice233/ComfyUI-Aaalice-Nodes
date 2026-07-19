@@ -1,6 +1,6 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, segmentedControl } from "./ui.js";
+import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, searchToggleButton, segmentedControl } from "./ui.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [] }) {
@@ -171,15 +171,14 @@ export function createTransferResult({ title, description, count = null, countLa
 }
 
 export function createCollapsibleSearch({ open = false, value = "", label, closeLabel = label, placeholder, disabled = false, focus = false, onToggle, onInput }) {
-	const toggle = iconButton({ iconName: "search", label: value ? `${label}: ${value}` : label, active: open || Boolean(value), variant: "ghost", disabled, onClick: () => onToggle?.(!open) });
-	toggle.setAttribute("aria-expanded", String(open));
+	const toggle = searchToggleButton({ label, value, open, disabled, onClick: () => onToggle?.(!open) });
 	if (!open) return { toggle, panel: null, input: null };
-	const input = document.createElement("input"); input.type = "search"; input.value = value; input.placeholder = placeholder; input.setAttribute("aria-label", label);
-	input.addEventListener("input", () => onInput?.(input.value));
+	const input = document.createElement("input"); input.type = "search"; input.className = "aa-ui-search-input"; input.value = value; input.placeholder = placeholder; input.setAttribute("aria-label", label);
+	input.addEventListener("input", () => { toggle.setSearchValue(input.value); onInput?.(input.value); });
 	input.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); onToggle?.(false); } });
 	const panel = el("div", { className: "aa-workspace-search", children: [
 		icon("search"), input,
-		iconButton({ iconName: "close", label: closeLabel, variant: "ghost", onClick: () => onToggle?.(false) }),
+		iconButton({ iconName: "arrowRight", label: closeLabel, className: "aa-ui-search-collapse", variant: "ghost", onClick: () => onToggle?.(false) }),
 	] });
 	if (focus) queueMicrotask(() => { if (input.isConnected) { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); } });
 	return { toggle, panel, input };

@@ -4,6 +4,12 @@ export const GALLERY_STATE_VERSION = 1;
 export const GALLERY_CATEGORIES = ["artist", "copyright", "character", "general", "meta"];
 export const DEFAULT_PROMPT_CATEGORIES = ["copyright", "character", "general"];
 
+export function defaultGalleryRatings(source) {
+	if (source === "aitag") return [];
+	if (source === "gelbooru" || source === "safebooru") return ["safe"];
+	return ["general"];
+}
+
 function strings(value) {
 	const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,\n]/) : [];
 	return [...new Set(source.map((item) => String(item).trim()).filter(Boolean))];
@@ -33,8 +39,8 @@ export function defaultGalleryState(settings = {}) {
 	const source = ["danbooru", "gelbooru", "safebooru", "aitag"].includes(settings.defaultSource) ? settings.defaultSource : "danbooru";
 	const defaults = settings.promptDefaults || {};
 	return {
-		version: GALLERY_STATE_VERSION, source, query: "",
-		filters: { ratings: strings(settings.defaultRatings?.[source] || (source === "safebooru" ? ["safe"] : source === "aitag" ? [] : ["general"])), sort: source === "aitag" ? "new" : "latest", feed: "search", period: "" },
+		version: GALLERY_STATE_VERSION, source, query: "", view: "browse",
+		filters: { ratings: defaultGalleryRatings(source), sort: source === "aitag" ? "new" : "latest", feed: "search", period: "" },
 		navigation: { page: 1 },
 		prompt: {
 			categories: strings(defaults.categories || DEFAULT_PROMPT_CATEGORIES).filter((item) => GALLERY_CATEGORIES.includes(item)),
@@ -58,7 +64,7 @@ export function normalizeGalleryState(value, settings = {}) {
 	const legacyMonthly = source === "aitag" && value.filters?.sort === "monthly";
 	const feed = value.filters?.feed === "favorites" ? "favorites" : value.filters?.feed === "ranking" || legacyMonthly ? "ranking" : "search";
 	return {
-		version: GALLERY_STATE_VERSION, source, query: String(value.query || ""),
+		version: GALLERY_STATE_VERSION, source, query: String(value.query || ""), view: value.view === "selected" ? "selected" : "browse",
 		filters: { ratings: strings(value.filters?.ratings), sort: legacyMonthly ? "new" : String(value.filters?.sort || "latest"), feed,
 			period: feed === "ranking" ? String(value.filters?.period || "month") : "" },
 		navigation: { page: Math.max(1, Math.floor(Number(value.navigation?.page) || 1)) },

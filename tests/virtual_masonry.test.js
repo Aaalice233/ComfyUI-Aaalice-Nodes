@@ -42,3 +42,8 @@ test("mounted cards receive their real display geometry for adaptive overlays", 
 	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
 	assert.match(source, /element\._aaVirtualMasonryLayout\?\.\(placement\.width, placement\.height\)/);
 });
+
+test("masonry reports overscanned visible items for bounded media prefetch", () => {
+	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
+	assert.match(source, /onVisibleItemsChange\?\.\(layout\.visible\(container\.scrollTop, container\.clientHeight \|\| 1, 0\.25\)\.map\(\(placement\) => placement\.item\)\)/);
+});

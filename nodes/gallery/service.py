@@ -19,7 +19,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageOps
 
-from .adapters import ADAPTERS, GalleryPostDetail, adapter_for
+from .adapters import ADAPTERS, GalleryPage, GalleryPostDetail, adapter_for, rating_matches
 from .settings import get_gallery_settings_store
 
 T = TypeVar("T")
@@ -142,23 +142,29 @@ class GalleryService:
         self.search_cache.put(key, page)
         return page.json()
 
-    async def ranking(self, source: str, period: str, cursor: str | None,
+    async def ranking(self, source: str, period: str, ratings: list[str], cursor: str | None,
                       limit: int, page: int | None = None) -> dict[str, Any]:
         adapter = adapter_for(source)
         if period not in adapter.capabilities.ranking_periods:
             raise ValueError(f"{source} does not support {period} rankings")
+        invalid_ratings = set(ratings) - set(adapter.capabilities.ratings)
+        if invalid_ratings:
+            raise ValueError(f"{source} does not support ratings: {', '.join(sorted(invalid_ratings))}")
         if page is not None:
             if not adapter.capabilities.page_jump:
                 raise ValueError(f"{source} does not support direct page navigation")
             cursor = adapter.cursor_for_page(page)
         limit = min(max(1, int(limit)), adapter.capabilities.max_page_size)
         blacklist = self._blacklist()
-        key = repr(("ranking", source, period, cursor, limit, blacklist))
+        key = repr(("ranking", source, period, tuple(ratings), cursor, limit, blacklist))
         cached = self.search_cache.get(key)
         if cached is not None:
             return cached.json()
         async with self._session() as session:
             result = await adapter.ranking(session, period, cursor, limit, self._credentials(source), blacklist)
+        if ratings:
+            result = GalleryPage(tuple(post for post in result.posts if rating_matches(source, post.rating, ratings)),
+                                 result.next_cursor, result.ended, result.warnings, result.page)
         self.search_cache.put(key, result)
         return result.json()
 

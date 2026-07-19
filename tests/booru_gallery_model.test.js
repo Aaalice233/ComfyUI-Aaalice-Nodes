@@ -1,8 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { finalPrompt, galleryPayload, normalizeGalleryState, selectionKey } from "../js/lib/booru_gallery_model.js";
+import { defaultGalleryRatings, finalPrompt, galleryPayload, normalizeGalleryState, selectionKey } from "../js/lib/booru_gallery_model.js";
 
 const selected = (source, postId) => ({ source, postId, mediaUrl: `https://media.test/${postId}.jpg`, previewUrl: `https://preview.test/${postId}.jpg`, originalTags: { copyright: ["series_a"], character: ["hero_(a)"], general: ["blue_hair"] } });
+
+test("new galleries use fixed safe rating defaults instead of shared settings", () => {
+	assert.deepEqual(defaultGalleryRatings("danbooru"), ["general"]);
+	assert.deepEqual(defaultGalleryRatings("gelbooru"), ["safe"]);
+	assert.deepEqual(defaultGalleryRatings("safebooru"), ["safe"]);
+	assert.deepEqual(defaultGalleryRatings("aitag"), []);
+	assert.deepEqual(normalizeGalleryState(null, { defaultRatings: { danbooru: ["explicit"] } }).filters.ratings, ["general"]);
+});
+
+test("saved node ratings survive normalization independently from defaults", () => {
+	const state = normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: { ratings: ["general", "questionable", "explicit"] }, selections: [] });
+	assert.deepEqual(state.filters.ratings, ["general", "questionable", "explicit"]);
+});
+
+test("gallery view is workflow state while legacy workflows default to browsing", () => {
+	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", view: "selected", prompt: {}, filters: {}, selections: [] }).view, "selected");
+	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [] }).view, "browse");
+});
 
 test("gallery state deduplicates only source plus post id and preserves order", () => {
 	const state = normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [selected("danbooru", 2), selected("danbooru", 2), selected("gelbooru", 2)] });

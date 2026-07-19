@@ -18,6 +18,7 @@ const taglistControl = readFileSync(join(ROOT, "js", "lib", "controls", "taglist
 const imageControl = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
 const controlRegistry = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
+const uiSource = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
 const dashboardComponents = readFileSync(join(ROOT, "js", "lib", "dashboard_components.js"), "utf8");
 const dashboardInteractions = readFileSync(join(ROOT, "js", "lib", "dashboard_interactions.js"), "utf8");
 const dashboardCommands = readFileSync(join(ROOT, "js", "lib", "dashboard_commands.js"), "utf8");
@@ -257,12 +258,20 @@ test("workspace uses event-driven refresh without polling", () => {
 
 test("dashboard and library searches share a collapsible event-driven control", () => {
 	assert.match(components, /export function createCollapsibleSearch/);
-	assert.match(components, /aria-expanded/);
+	assert.match(components, /searchToggleButton\(\{ label, value, open, disabled/);
+	assert.match(components, /input\.className = "aa-ui-search-input"/);
+	assert.match(components, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
+	assert.match(uiSource, /export function searchToggleButton/);
+	assert.doesNotMatch(uiSource, /searchApplied/);
+	assert.match(uiSource, /control\.replaceChildren\(icon\("search"\)\)/);
+	assert.match(uiSource, /className: "aa-ui-search-summary__query"/);
+	assert.match(uiSource, /control\.setAttribute\("aria-expanded"/);
 	assert.match(components, /event\.key === "Escape"/);
 	assert.match(components, /queueMicrotask/);
 	assert.match(workspace, /workspaceViewState = \{/);
 	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false, pageRailExpanded: false, selectedItemIds: new Set\(\)/);
 	assert.match(workspace, /viewState\.searchOpen = open; viewState\.focusSearch = open/);
+	assert.doesNotMatch(workspace, /if \(!open\) viewState\.query = ""/);
 	assert.doesNotMatch(workspace, /container\._aaalice(?:Dashboard|Library)(?:Query|SearchOpen|SearchShouldFocus)/);
 	assert.match(workspace, /disabled: !page \|\| editMode/);
 	assert.match(workspace, /item\.dataset\.searchText/);
@@ -386,7 +395,10 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /aa-prompt-selector-toolbar/);
 	assert.match(selector, /aa-prompt-selector-search-toggle/);
+	assert.match(selector, /searchToggleButton\(\{ label:[^}]*value: query/);
+	assert.match(selector, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
 	assert.match(selector, /aa-prompt-selector-search/);
+	assert.match(selector, /search\.className = "aa-ui-search-input"/);
 	assert.match(selector, /queueMicrotask/);
 	assert.match(selector, /list\._aaaliceVirtualList\?\.setItems\(filteredEntries\(node, stateFor\(node\)\), \{ preserveScroll: false \}\)/);
 	assert.match(selector, /mountPromptEntries/);

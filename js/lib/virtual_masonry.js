@@ -57,7 +57,7 @@ export class VirtualMasonryLayout {
 	}
 }
 
-export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibleIndexChange, nearEndDistance = 900, overscanRatio = 0.75, ...layoutOptions } = {}) {
+export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibleIndexChange, onVisibleItemsChange, nearEndDistance = 900, overscanRatio = 0.75, ...layoutOptions } = {}) {
 	container._aaaliceVirtualMasonry?.destroy(); container.classList.add("aa-virtual-masonry");
 	const spacer = document.createElement("div"); spacer.className = "aa-virtual-masonry__spacer"; container.replaceChildren(spacer);
 	const layout = new VirtualMasonryLayout({ width: container.clientWidth || 1, ...layoutOptions });
@@ -74,6 +74,7 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 		}
 		const firstVisible = layout.visible(container.scrollTop, 1, 0)[0]?.index ?? -1;
 		if (firstVisible !== visibleIndex) { visibleIndex = firstVisible; onVisibleIndexChange?.(firstVisible); }
+		onVisibleItemsChange?.(layout.visible(container.scrollTop, container.clientHeight || 1, 0.25).map((placement) => placement.item));
 		const remaining = layout.totalHeight - (container.scrollTop + container.clientHeight);
 		if (remaining <= nearEndDistance && nearEndArmed) { nearEndArmed = false; onNearEnd?.(); }
 		else if (remaining > nearEndDistance * 1.5) nearEndArmed = true;

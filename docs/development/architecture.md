@@ -82,6 +82,8 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 交互节点覆盖 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描，并幂等挂载。DOM widget 同步创建；异步 i18n 就绪后只更新文案和重绘。
 
+挂载和状态恢复是两个独立职责：`nodeCreated` 或 setup 可以先用默认状态建立 DOM，但 `onConfigure` 只能作为早期同步，不能假定此时工作流恢复已经结束。`loadedGraphNode` 必须即使在组件已挂载时也重新读取 `node.properties`，同步所有受持久状态控制的 DOM，并重新计算或请求派生内容。初始化期间已经发出的异步请求必须用 `AbortController` 或 generation 机制失效；否则默认请求可能晚于恢复请求返回，让界面看似回到默认值，而手动刷新后才恢复正确状态。
+
 ### ParameterPanel
 
 1. 结构编辑器统一校验草稿并确认受影响连线。

@@ -586,7 +586,7 @@ function renderDashboard(container, host) {
 	const search = createCollapsibleSearch({
 		open: searchOpen, value: query, disabled: !page || editMode, focus: focusSearch,
 		label: t("aaalice.workspace.search.parameters", "Search parameters"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.search.parametersPlaceholder", "Search the current page"),
-		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; if (!open) viewState.query = ""; scheduleRender(); },
+		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; scheduleRender(); },
 		onInput: (value) => { viewState.query = value; applyDashboardSearch(value); },
 	});
 	const addSeparatorToPage = () => {
@@ -1076,7 +1076,7 @@ function renderLibrary(container) {
 	const search = createCollapsibleSearch({
 		open: searchOpen, value: query, focus: focusSearch,
 		label: t("aaalice.workspace.search.library", "Search prompt library"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.search.library", "Search prompt library"),
-		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; if (!open) viewState.query = ""; scheduleRender(); },
+		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; scheduleRender(); },
 		onInput: (value) => { query = value; viewState.query = value; drawEntries(); },
 	});
 	const category = selectControl({ ariaLabel: t("aaalice.promptSelector.allCategories", "All categories"), value: categoryId, className: "aa-library-filter-select", options: [{ label: t("aaalice.promptSelector.allCategories", "All categories"), value: "" }, ...promptLibraryStore.snapshot.categories.map(categorySelectOption)], onChange: (value) => { viewState.categoryId = value; scheduleRender(); } });

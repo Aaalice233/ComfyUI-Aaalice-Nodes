@@ -215,6 +215,23 @@
 .aa-ui-button[hidden] { display: none !important; }
 .aa-ui-button--md { min-height: 32px; padding: 6px 12px; }
 .aa-ui-button--icon { width: 30px; height: 30px; padding: 0; }
+.aa-ui-search-toggle { position: relative; overflow: visible; }
+.aa-ui-search-toggle.has-query { border-color: transparent; background: color-mix(in srgb, var(--aa-ui-accent) 13%, var(--aa-ui-control)); box-shadow: var(--aa-ui-edge-shadow-active); color: color-mix(in srgb, var(--aa-ui-accent) 82%, var(--aa-ui-text)); }
+.aa-ui-search-toggle.has-query::after { position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--aa-ui-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-control) 88%, transparent), 0 2px 6px color-mix(in srgb, var(--aa-ui-accent) 45%, transparent); content: ""; pointer-events: none; }
+.aa-ui-search-collapse.aa-ui-button { color: color-mix(in srgb, var(--aa-ui-muted) 82%, var(--aa-ui-text)); }
+.aa-ui-search-collapse.aa-ui-button > .aa-ui-icon { width: 14px; height: 14px; transition: transform .14s cubic-bezier(.2, .78, .22, 1); }
+.aa-ui-search-collapse.aa-ui-button:hover:not(:disabled), .aa-ui-search-collapse.aa-ui-button:focus-visible { border-color: transparent; background: color-mix(in srgb, var(--aa-ui-accent) 9%, var(--aa-ui-control)); box-shadow: var(--aa-ui-edge-shadow-soft); color: var(--aa-ui-accent); }
+.aa-ui-search-collapse.aa-ui-button:hover:not(:disabled) > .aa-ui-icon { transform: translateX(2px); }
+.aa-ui-search-input::-webkit-search-cancel-button { width: 20px; height: 20px; flex: 0 0 auto; appearance: none; -webkit-appearance: none; border-radius: 6px; background-color: transparent; background-image: linear-gradient(45deg, transparent 44%, currentColor 45% 55%, transparent 56%), linear-gradient(-45deg, transparent 44%, currentColor 45% 55%, transparent 56%); background-position: center; background-size: 10px 10px; background-repeat: no-repeat; color: var(--aa-ui-muted); opacity: .68; cursor: pointer; transition: background-color .14s ease, color .14s ease, opacity .14s ease, transform .14s cubic-bezier(.2, .78, .22, 1), box-shadow .14s ease; }
+.aa-ui-search-input::-webkit-search-cancel-button:hover { background-color: color-mix(in srgb, var(--aa-ui-accent) 12%, transparent); box-shadow: var(--aa-ui-edge-shadow-soft); color: var(--aa-ui-accent); opacity: 1; transform: scale(1.08); }
+.aa-ui-search-input::-webkit-search-cancel-button:active { background-color: color-mix(in srgb, var(--aa-ui-accent) 18%, transparent); transform: scale(.94); }
+.aa-ui-search-summary-tooltip.aa-ui-tooltip { width: max-content; min-width: 180px; max-width: min(360px, calc(100vw - 24px)); padding: 8px 10px; border-color: transparent; border-radius: 10px; background: color-mix(in srgb, var(--aa-ui-surface) 97%, var(--aa-ui-accent)); box-shadow: var(--aa-ui-edge-shadow), 0 12px 30px rgb(0 0 0 / .28); }
+.aa-ui-search-summary { display: grid; min-width: 0; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 8px; }
+.aa-ui-search-summary__icon { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--aa-ui-accent) 12%, var(--aa-ui-control)); box-shadow: var(--aa-ui-edge-shadow-soft); color: var(--aa-ui-accent); }
+.aa-ui-search-summary__icon > .aa-ui-icon { width: 15px; height: 15px; }
+.aa-ui-search-summary > div { display: grid; min-width: 0; gap: 2px; }
+.aa-ui-search-summary strong { color: var(--aa-ui-muted); font-size: 10px; font-weight: 620; }
+.aa-ui-search-summary__query { max-width: 300px; overflow: hidden; color: var(--aa-ui-text); font-size: 11px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; white-space: normal; }
 .aa-ui-button--primary { background: var(--aa-ui-accent); color: var(--aa-ui-accent-text); }
 .aa-ui-button--danger { border-color: transparent; background: color-mix(in srgb, var(--aa-ui-danger) 82%, var(--aa-ui-surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--aa-ui-danger) 48%, transparent), 0 3px 8px color-mix(in srgb, var(--aa-ui-danger) 14%, rgb(0 0 0 / .16)); color: var(--aa-ui-on-media); }
 .aa-ui-button--secondary { border-color: transparent; background: var(--aa-ui-control); box-shadow: var(--aa-ui-edge-shadow-soft); color: var(--aa-ui-text); }

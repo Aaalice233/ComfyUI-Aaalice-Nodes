@@ -14,7 +14,7 @@ import {
 	normalizePromptSelectorState, resolvePromptSelections, setPromptWeight,
 	togglePromptSelection,
 } from "./lib/prompt_selector_model.js";
-import { button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate, selectControl } from "./lib/ui.js";
+import { button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate, searchToggleButton, selectControl } from "./lib/ui.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import { openPromptLibraryEntryEditor, openWorkspace } from "./workspace.js";
 
@@ -242,7 +242,7 @@ function render(node) {
 	const searchOpen = Boolean(node._aaalicePromptSearchOpen);
 	const toolbar = el("div", { className: `aa-prompt-selector-toolbar${searchOpen ? " is-searching" : ""}`, attrs: { role: "search", "aria-label": t("aaalice.promptSelector.filters", "Prompt filters") } });
 	if (searchOpen) {
-		const search = document.createElement("input"); search.type = "search"; search.placeholder = t("aaalice.promptSelector.search", "Search prompt library"); search.value = query;
+		const search = document.createElement("input"); search.type = "search"; search.className = "aa-ui-search-input"; search.placeholder = t("aaalice.promptSelector.search", "Search prompt library"); search.value = query;
 		search.addEventListener("input", () => {
 			node._aaalicePromptQuery = search.value;
 			if (node._aaalicePromptFilterFrame) return;
@@ -253,7 +253,7 @@ function render(node) {
 		});
 		search.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); node._aaalicePromptSearchOpen = false; render(node); } });
 		const searchPanel = el("div", { className: "aa-prompt-selector-search", children: [icon("search"), search,
-			iconButton({ iconName: "close", label: t("aaalice.promptSelector.collapseSearch", "Collapse search"), variant: "ghost", onClick: () => { node._aaalicePromptSearchOpen = false; render(node); } }),
+			iconButton({ iconName: "arrowRight", label: t("aaalice.promptSelector.collapseSearch", "Collapse search"), className: "aa-ui-search-collapse", variant: "ghost", onClick: () => { node._aaalicePromptSearchOpen = false; render(node); } }),
 		] });
 		toolbar.append(searchPanel);
 		if (node._aaalicePromptSearchShouldFocus) {
@@ -261,8 +261,7 @@ function render(node) {
 			queueMicrotask(() => { if (search.isConnected) { search.focus({ preventScroll: true }); search.setSelectionRange(search.value.length, search.value.length); } });
 		}
 	} else {
-		const searchLabel = query ? `${t("aaalice.promptSelector.search", "Search prompt library")}: ${query}` : t("aaalice.promptSelector.openSearch", "Open search");
-		const searchButton = iconButton({ iconName: "search", label: searchLabel, active: Boolean(query), variant: "secondary", className: "aa-prompt-selector-search-toggle", onClick: () => { node._aaalicePromptSearchOpen = true; node._aaalicePromptSearchShouldFocus = true; render(node); } });
+		const searchButton = searchToggleButton({ label: t("aaalice.promptSelector.search", "Search prompt library"), value: query, className: "aa-prompt-selector-search-toggle", onClick: () => { node._aaalicePromptSearchOpen = true; node._aaalicePromptSearchShouldFocus = true; render(node); } });
 		searchButton.setAttribute("aria-pressed", String(Boolean(query)));
 		const categoryFilter = promptFilterSelect({ label: t("aaalice.promptSelector.allCategories", "All categories"), value: node._aaalicePromptCategory, options: promptLibraryStore.snapshot.categories, selectedCounts: selectedCategoryCounts, totalSelected: state.selections.length, onChange: (value) => { node._aaalicePromptCategory = value; node._aaalicePromptResetScroll = true; render(node); } });
 		bindSelectionSummary(categoryFilter.control, () => categorySelectionSummary(state));

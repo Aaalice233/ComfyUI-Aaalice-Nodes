@@ -2,12 +2,12 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
-import { finalPrompt, galleryPayload, GALLERY_CATEGORIES, normalizeGalleryState, normalizeTagGroups, selectionFromDetail, selectionKey } from "./lib/booru_gallery_model.js";
+import { defaultGalleryRatings, finalPrompt, galleryPayload, GALLERY_CATEGORIES, normalizeGalleryState, normalizeTagGroups, selectionFromDetail, selectionKey } from "./lib/booru_gallery_model.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { mountVirtualList } from "./lib/virtual_list.js";
 import { mountVirtualMasonry } from "./lib/virtual_masonry.js";
-import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, isolate, listboxControl, multiSelectControl, segmentedControl } from "./lib/ui.js";
+import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, isolate, listboxControl, multiSelectControl, searchToggleButton, segmentedControl } from "./lib/ui.js";
 import { createTagPillList } from "./lib/controls/tag_pills.js";
 
 const NODE = "BooruGalleryNode";
@@ -163,21 +163,24 @@ async function addGlobalBlacklistTag(tag) {
 
 function createSearchControl(node) {
 	const root = el("div", "aa-gallery-search");
-	const input = document.createElement("input"); input.type = "search"; input.className = "aa-gallery-search__input";
+	const input = document.createElement("input"); input.type = "search"; input.className = "aa-gallery-search__input aa-ui-search-input";
 	input.placeholder = label("search.placeholder", "Search tags…"); input.setAttribute("aria-label", label("search.label", "Search posts"));
-	const close = iconButton({ iconName: "close", label: label("search.close", "Close search"), variant: "ghost", onClick: () => setOpen(false) });
+	const close = iconButton({ iconName: "arrowRight", label: label("search.close", "Close search"), className: "aa-ui-search-collapse", variant: "ghost", onClick: () => setOpen(false) });
 	root.append(icon("search"), input, close);
-	const toggle = iconButton({ iconName: "search", label: label("search.label", "Search posts"), variant: "ghost", onClick: () => setOpen(true) });
+	const toggle = searchToggleButton({ label: label("search.label", "Search posts"), onClick: () => setOpen(true) });
 	let open = false; let composing = false;
-	const setOpen = (next) => {
-		open = Boolean(next); root.classList.toggle("is-open", open); toggle.hidden = open; node._aaGalleryRoot?.classList.toggle("is-searching", open);
-		if (open) queueMicrotask(() => { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); });
-	};
 	const submit = () => {
 		transact(node, (state) => { state.query = input.value.trim(); state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; });
+		toggle.setSearchValue(input.value.trim());
 		node._aaGalleryCollection?.setValue(`sort:${stateFor(node).filters.sort}`);
 		node._aaGalleryPage?.setPage(1);
 		node._aaGalleryController?.search({ reset: true, page: 1 });
+	};
+	const setOpen = (next) => {
+		open = Boolean(next);
+		if (!open && input.value.trim() !== searchQuery(stateFor(node))) submit();
+		root.classList.toggle("is-open", open); toggle.hidden = open; toggle.setSearchOpen(open); node._aaGalleryRoot?.classList.toggle("is-searching", open);
+		if (open) queueMicrotask(() => { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); });
 	};
 	const addTag = (tag, maxTags = null) => {
 		const value = String(tag || "").trim();
@@ -193,12 +196,17 @@ function createSearchControl(node) {
 		submit();
 		return true;
 	};
-	input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; });
+	const syncInput = () => {
+		toggle.setSearchValue(input.value);
+		if (!composing && !input.value.trim() && searchQuery(stateFor(node))) submit();
+	};
+	input.addEventListener("input", syncInput);
+	input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; syncInput(); });
 	input.addEventListener("keydown", (event) => {
 		if (event.key === "Escape") { event.preventDefault(); setOpen(false); }
 		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});
-	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; } };
+	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
 }
 
 function openClearSelectionDialog(node, controller) {
@@ -514,6 +522,28 @@ function createSelectedRow(node, controller, selection, index) {
 
 function buildController(node, elements) {
 	let posts = []; let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; const sessionEdits = new Map();
+	const detailCache = new Map(); const previewCache = new Map(); let previewGeneration = 0;
+	const touchCache = (cache, key, value) => { cache.delete(key); cache.set(key, value); return value; };
+	const trimCache = (cache, maximum) => { while (cache.size > maximum) cache.delete(cache.keys().next().value); };
+	const trimPreviewCache = () => { while (previewCache.size > 16) { const key = previewCache.keys().next().value; const entry = previewCache.get(key); if (!entry.ready) entry.loader.src = ""; previewCache.delete(key); } };
+	const rotatePreviewCache = () => {
+		previewGeneration += 1;
+		for (const entry of previewCache.values()) if (!entry.ready) entry.loader.src = "";
+		previewCache.clear();
+	};
+	const cacheImage = (src) => {
+		if (!src) return null;
+		const cached = previewCache.get(src); if (cached) return touchCache(previewCache, src, cached);
+		const cacheGeneration = previewGeneration; const loader = new Image(); loader.decoding = "async";
+		const entry = { loader, ready: false, promise: null };
+		entry.promise = new Promise((resolve, reject) => {
+			loader.addEventListener("load", () => resolve(src), { once: true });
+			loader.addEventListener("error", () => reject(new Error(`Gallery preview failed: ${src}`)), { once: true });
+			loader.src = src;
+		}).then((value) => { if (cacheGeneration === previewGeneration && previewCache.get(src) === entry) entry.ready = true; return value; })
+			.catch((error) => { if (previewCache.get(src) === entry) previewCache.delete(src); throw error; });
+		previewCache.set(src, entry); trimPreviewCache(); return entry;
+	};
 	let selectedDragFrom = null;
 	let selectedDropInsertBefore = null;
 	const tooltip = createTooltip({ delay: 0, closeDelay: 120 });
@@ -631,12 +661,14 @@ function buildController(node, elements) {
 		if (elements.selectedClear) elements.selectedClear.disabled = count === 0;
 		elements.emptySelected.hidden = count > 0;
 	};
-	const setMode = (mode) => {
+	const setMode = (mode, { persist = true } = {}) => {
+		mode = mode === "selected" ? "selected" : "browse";
 		if (elements.mode === mode) return;
 		tooltip.hide();
 		endSelectedDrag();
 		elements.mode = mode;
 		elements.root.dataset.mode = mode;
+		if (persist) transact(node, (state) => { state.view = mode; });
 		renderSelected();
 	};
 	const rememberPage = (page) => {
@@ -645,9 +677,9 @@ function buildController(node, elements) {
 		state.navigation.page = value; elements.pageControl?.setPage(value); node.graph?.change?.(); node.graph?.setDirtyCanvas?.(true, false);
 	};
 	const search = async ({ reset = false, page = null } = {}) => {
-		if (loading || (ended && !reset)) return;
+		if ((!reset && loading) || (ended && !reset)) return;
 		const requestedPage = reset ? Math.max(1, Math.floor(Number(page ?? stateFor(node).navigation.page) || 1)) : null;
-		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; posts = []; pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); clearError(); rememberPage(requestedPage); }
+		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); clearError(); rememberPage(requestedPage); }
 		else requestController ||= new AbortController();
 		const currentGeneration = generation; const state = stateFor(node);
 		if (capability(state.source)?.authRequired && !hasSourceCredentials(state.source)) {
@@ -661,7 +693,7 @@ function buildController(node, elements) {
 			if (!favorites) { params.set("query", searchQuery(state)); params.set("sort", state.filters.sort); for (const rating of state.filters.ratings) params.append("rating", rating); }
 			if (requestedPage != null) params.set("page", String(requestedPage)); else if (nextCursor) params.set("cursor", nextCursor);
 			const endpoint = favorites ? "favorites" : state.filters.feed === "ranking" ? "ranking" : "search";
-			if (state.filters.feed === "ranking") { params.delete("query"); params.delete("sort"); params.delete("rating"); params.set("period", state.filters.period); }
+			if (state.filters.feed === "ranking") { params.delete("query"); params.delete("sort"); params.set("period", state.filters.period); }
 			const resultPage = await jsonRequest(`${API}/${endpoint}?${params}`, { signal: requestController.signal });
 			if (currentGeneration !== generation || requestController.signal.aborted) return;
 			const knownPostKeys = new Set(posts.map((post) => `${post.source}:${post.postId}`));
@@ -678,10 +710,21 @@ function buildController(node, elements) {
 		const segment = pageSegments.find((item) => index >= item.start && index < item.end);
 		if (segment) rememberPage(segment.page);
 	};
-	const getDetail = async (post) => {
-		const response = await jsonRequest(`${API}/detail?${new URLSearchParams({ source: post.source, postId: post.postId })}`);
-		if (!response.mediaUrl || !STATIC_EXTENSIONS.has(String(response.fileExt).toLowerCase())) throw new Error(label("error.staticOnly", "Only static JPG, PNG, WebP, and GIF posts can be selected."));
-		return response;
+	const getDetail = (post) => {
+		const key = `${post.source}:${post.postId}`; const cached = detailCache.get(key); if (cached) return touchCache(detailCache, key, cached);
+		const request = jsonRequest(`${API}/detail?${new URLSearchParams({ source: post.source, postId: post.postId })}`).then((response) => {
+			if (!response.mediaUrl || !STATIC_EXTENSIONS.has(String(response.fileExt).toLowerCase())) throw new Error(label("error.staticOnly", "Only static JPG, PNG, WebP, and GIF posts can be selected."));
+			return response;
+		}).catch((error) => { if (detailCache.get(key) === request) detailCache.delete(key); throw error; });
+		detailCache.set(key, request); trimCache(detailCache, 128); return request;
+	};
+	const prefetchVisible = (visiblePosts) => {
+		const cacheGeneration = previewGeneration;
+		for (const post of visiblePosts.slice(0, 12)) void getDetail(post).then((detail) => {
+			if (cacheGeneration !== previewGeneration) return;
+			const sampleUrl = detail.sampleUrl || detail.previewUrl;
+			if (sampleUrl) void cacheImage(proxyUrl(detail.source, sampleUrl))?.promise.catch(() => {});
+		}).catch(() => {});
 	};
 	const recoverPreview = async (post, image) => {
 		if (post.source !== "aitag" || image.dataset.previewRecovery) return;
@@ -758,7 +801,12 @@ function buildController(node, elements) {
 				row.querySelector("p").textContent = values.slice(0, 2).join(" · ");
 			}
 			const sampleUrl = detail.sampleUrl || detail.previewUrl;
-			if (sampleUrl && sampleUrl !== post.previewUrl) { usingPreview = false; loading.hidden = false; image.src = proxyUrl(detail.source, sampleUrl); }
+			if (sampleUrl && sampleUrl !== post.previewUrl) {
+				const sampleSrc = proxyUrl(detail.source, sampleUrl); const cachedImage = cacheImage(sampleSrc);
+				const showSample = () => { if (!content.isConnected || !tooltip.isOpenFor(anchor)) return; usingPreview = false; waitingForLargerPreview = false; loading.hidden = true; image.src = sampleSrc; tooltip.reposition(); };
+				if (cachedImage?.ready) showSample();
+				else { loading.hidden = false; void cachedImage?.promise.then(showSample).catch(() => { waitingForLargerPreview = false; loading.hidden = true; }); }
+			}
 			else { waitingForLargerPreview = false; loading.hidden = true; }
 			tooltip.reposition();
 		}).catch(() => { waitingForLargerPreview = false; loading.hidden = true; });
@@ -783,7 +831,8 @@ function buildController(node, elements) {
 			renderSelected();
 			return detailTokens(category);
 		};
-		const image = el("img", { className: "aa-gallery-detail__image", attrs: { src: proxyUrl(detail.source, detail.mediaUrl), alt: `${detail.source} #${detail.postId}` } });
+		const detailImageSrc = proxyUrl(detail.source, detail.mediaUrl); void cacheImage(detailImageSrc)?.promise.catch(() => {});
+		const image = el("img", { className: "aa-gallery-detail__image", attrs: { src: detailImageSrc, alt: `${detail.source} #${detail.postId}` } });
 		const actions = [];
 		let dialog; actions.push(button({ className: `aa-gallery-detail__action is-selection${selected ? " is-selected" : ""}`, label: selected ? label("detail.remove", "Remove selection") : label("detail.select", "Select"), variant: selected ? "danger" : "primary", onClick: async () => { await toggleSelection(detail); dialog.close(); } }));
 		actions.push(button({ className: "aa-gallery-detail__action is-source", label: label("detail.source", "Open source"), iconName: "link", variant: "ghost", onClick: () => window.open(detail.postUrl, "_blank", "noopener") }));
@@ -903,6 +952,7 @@ function buildController(node, elements) {
 		search,
 		jumpToPage(page) { return search({ reset: true, page }); },
 		visibleIndexChanged,
+		prefetchVisible,
 		toggleSelection,
 		toggleFavorite,
 		recoverPreview,
@@ -922,6 +972,7 @@ function buildController(node, elements) {
 			tooltip.destroy();
 			elements.masonryController.destroy();
 			elements.selectedList.destroy();
+			detailCache.clear(); rotatePreviewCache();
 		},
 	};
 }
@@ -936,9 +987,9 @@ function openFilter(node, anchor) {
 		options: ratingOptions.map((value) => ({ value, label: ratingLabel(value), iconName: ratingIcon(value), attrs: { "data-rating": ratingTone(value) } })),
 		values: selectedRatings,
 		ariaLabel: label("filter.rating", "Rating"),
-		onChange: (values) => { selectedRatings = values; },
+		onChange: (values) => { selectedRatings = values; transact(node, (current) => { current.filters.ratings = values; }); },
 	});
-	const apply = button({ label: label("filter.apply", "Apply"), iconName: "statusCheck", variant: "primary", onClick: () => { transact(node, (current) => { current.filters.ratings = selectedRatings; current.filters.feed = "search"; current.filters.period = ""; current.navigation.page = 1; }); node._aaGalleryCollection?.setValue(`sort:${stateFor(node).filters.sort}`); node._aaGalleryPage?.setPage(1); popover.close(); node._aaGalleryController.search({ reset: true, page: 1 }); } });
+	const apply = button({ label: label("filter.apply", "Apply"), iconName: "statusCheck", variant: "primary", onClick: () => { transact(node, (current) => { current.filters.ratings = selectedRatings; current.navigation.page = 1; }); node._aaGalleryCollection?.setValue(collectionValue(stateFor(node))); node._aaGalleryPage?.setPage(1); popover.close(); node._aaGalleryController.search({ reset: true, page: 1 }); } });
 	const header = el("header", { className: "aa-gallery-filter-popover__header", children: [
 		el("span", { className: "aa-gallery-filter-popover__icon", children: [icon("filter")] }),
 		el("strong", null, label("filter.rating", "Rating")),
@@ -956,7 +1007,7 @@ function createPageControl(node) {
 	control.setPage = (page) => { currentPage = Math.max(1, Math.floor(Number(page) || 1)); sync(); };
 	control.addEventListener("click", () => {
 		control.classList.add("is-open"); control.setAttribute("aria-expanded", "true");
-		const popover = createAnchoredPopover({ anchor: control, ariaLabel: label("page.title", "Page navigation"), className: "aa-gallery-page-popover", width: 196, onClose: () => { control.classList.remove("is-open"); control.setAttribute("aria-expanded", "false"); } });
+		const popover = createAnchoredPopover({ anchor: control, ariaLabel: label("page.title", "Page navigation"), className: "aa-gallery-page-popover", width: 224, onClose: () => { control.classList.remove("is-open"); control.setAttribute("aria-expanded", "false"); } });
 		const input = document.createElement("input"); input.type = "text"; input.inputMode = "numeric"; input.pattern = "[0-9]*"; input.autocomplete = "off"; input.value = String(currentPage); input.className = "aa-gallery-page-popover__input"; input.setAttribute("aria-label", label("page.input", "Page number"));
 		const jump = () => { const page = Math.max(1, Math.floor(Number(input.value) || 1)); control.setPage(page); popover.close(); void node._aaGalleryController?.jumpToPage(page); };
 		input.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); jump(); } });
@@ -1001,12 +1052,12 @@ function openPromptOptions(node, anchor) {
 
 function setupNode(node, { initializeSize = false } = {}) {
 	if (!isGallery(node) || node._aaGalleryMounted) return; node._aaGalleryMounted = true; stateFor(node);
-	const root = isolate(el("div", { className: "aa-gallery", attrs: { "data-mode": "browse" } }));
+	const root = isolate(el("div", { className: "aa-gallery", attrs: { "data-mode": stateFor(node).view } }));
 	root.dataset.source = stateFor(node).source;
 	let collection = null;
-	const source = listboxControl({ className: "aa-gallery-source-select", options: capabilities.map((item) => ({ value: item.source, label: item.displayName })), value: stateFor(node).source, ariaLabel: label("source", "Source"), onChange: (value) => { transact(node, (state) => { state.source = value; state.filters.ratings = settings?.defaultRatings?.[value] || []; state.filters.sort = capability(value)?.sortValues?.[0] || "latest"; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); root.dataset.source = value; pageControl?.setPage(1); collection?.setOptions(collectionOptions(value), collectionValue(stateFor(node))); controller.search({ reset: true, page: 1 }); } });
+	const source = listboxControl({ className: "aa-gallery-source-select", options: capabilities.map((item) => ({ value: item.source, label: item.displayName })), value: stateFor(node).source, ariaLabel: label("source", "Source"), onChange: (value) => { transact(node, (state) => { state.source = value; state.filters.ratings = defaultGalleryRatings(value); state.filters.sort = capability(value)?.sortValues?.[0] || "latest"; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); root.dataset.source = value; pageControl?.setPage(1); collection?.setOptions(collectionOptions(value), collectionValue(stateFor(node))); controller.search({ reset: true, page: 1 }); } });
 	collection = listboxControl({ className: "aa-gallery-collection-select", options: collectionOptions(stateFor(node).source), value: collectionValue(stateFor(node)), ariaLabel: label("collection.label", "Gallery collection"), onChange: (value) => { transact(node, (state) => { if (value === "favorites") { state.filters.feed = "favorites"; state.filters.period = ""; } else if (value.startsWith("ranking:")) { state.filters.feed = "ranking"; state.filters.period = value.slice("ranking:".length); } else { state.filters.feed = "search"; state.filters.period = ""; state.filters.sort = value.slice("sort:".length); } state.navigation.page = 1; }); pageControl?.setPage(1); controller.search({ reset: true, page: 1 }); } });
-	const tabs = segmentedControl({ className: "aa-gallery-view-switcher", value: "browse", options: [{ value: "browse", label: label("tab.browse", "Browse"), iconName: "layout" }, { value: "selected", label: label("tab.selected", "Selected"), iconName: "statusCheck" }], ariaLabel: label("tab.label", "Gallery view"), onChange: (value) => controller.setMode(value) });
+	const tabs = segmentedControl({ className: "aa-gallery-view-switcher", value: stateFor(node).view, options: [{ value: "browse", label: label("tab.browse", "Browse"), iconName: "layout" }, { value: "selected", label: label("tab.selected", "Selected"), iconName: "statusCheck" }], ariaLabel: label("tab.label", "Gallery view"), onChange: (value) => controller.setMode(value) });
 	const selectedCount = el("span", { className: "aa-gallery-view-switcher__count", attrs: { "aria-label": label("selected.outputHint", "{count} outputs").replace("{count}", "0") }, text: "0" });
 	tabs.querySelector('[data-value="selected"]')?.append(selectedCount);
 	const clear = iconButton({
@@ -1071,12 +1122,12 @@ function setupNode(node, { initializeSize = false } = {}) {
 		selectedListRoot,
 		selectedDropIndicator,
 		emptySelected,
-		mode: "browse",
+		mode: stateFor(node).view,
 		pageControl,
 		searchControl,
 		masonryController: null,
 	};
-	elements.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index), onNearEnd: () => controller?.search(), onVisibleIndexChange: (index) => controller?.visibleIndexChanged(index), minCardWidth: 144, gap: 6, maxColumns: 5 });
+	elements.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index), onNearEnd: () => controller?.search(), onVisibleIndexChange: (index) => controller?.visibleIndexChanged(index), onVisibleItemsChange: (items) => controller?.prefetchVisible(items), minCardWidth: 144, gap: 6, maxColumns: 5 });
 	elements.selectedList = mountVirtualList(selectedListRoot, {
 		rowHeight: 96,
 		gap: 7,
@@ -1092,7 +1143,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	selectedListRoot.addEventListener("dragover", (event) => controller?.handleSelectedDragOver(event));
 	selectedListRoot.addEventListener("drop", (event) => controller?.handleSelectedDrop(event));
 	selectedListRoot.addEventListener("dragleave", (event) => controller?.handleSelectedDragLeave(event));
-	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
+	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
 	error.addEventListener("click", () => {
 		const sourceName = stateFor(node).source;
 		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) openGallerySettings();
@@ -1105,7 +1156,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		if (Array.isArray(this.size)) this.size[0] = Math.max(MIN_SIZE[0], Number(this.size[0]) || 0);
 		return previousResize?.apply(this, arguments);
 	};
-	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); this.properties[PROPERTY] = normalizeGalleryState(this.properties?.[PROPERTY], settings || {}); searchControl.sync(); collection.setOptions(collectionOptions(stateFor(this).source), collectionValue(stateFor(this))); pageControl.setPage(stateFor(this).navigation.page); controller.renderSelected(); node._aaGalleryAccent?.sync?.(); return result; };
+	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); restoreNode(this); return result; };
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
 	const previousRemoved = node.onRemoved; node.onRemoved = function () {
 		controller.destroy();
@@ -1116,6 +1167,21 @@ function setupNode(node, { initializeSize = false } = {}) {
 		return previousRemoved?.apply(this, arguments);
 	};
 	controller.renderSelected(); controller.search({ reset: true, page: stateFor(node).navigation.page }); if (initializeSize) node.setSize?.(DEFAULT_SIZE);
+}
+
+function restoreNode(node) {
+	if (!node?._aaGalleryMounted || !node._aaGalleryController) return;
+	node.properties[PROPERTY] = normalizeGalleryState(node.properties?.[PROPERTY], settings || {});
+	const state = stateFor(node);
+	node._aaGalleryRoot.dataset.source = state.source;
+	node._aaGallerySource.setValue(state.source);
+	node._aaGallerySearch.sync();
+	node._aaGalleryCollection.setOptions(collectionOptions(state.source), collectionValue(state));
+	node._aaGalleryPage.setPage(state.navigation.page);
+	node._aaGalleryController.setMode(state.view, { persist: false });
+	node._aaGalleryController.renderSelected();
+	void node._aaGalleryController.search({ reset: true, page: state.navigation.page });
+	node._aaGalleryAccent?.sync?.();
 }
 
 function setupNodeSafely(node, options) {
@@ -1140,11 +1206,10 @@ function settingsSectionHeader(iconName, title) {
 function credentialLabel(name) { return label(`settings.credential.${name}`, name); }
 
 async function openSettingsDialog() {
-	await loadSetup({ force: true }); const sourceInputs = {}; const sourceClears = {}; const ratingDefaults = {};
+	await loadSetup({ force: true }); const sourceInputs = {}; const sourceClears = {};
 	for (const cap of capabilities) {
 		sourceClears[cap.source] = new Set();
 		sourceInputs[cap.source] = Object.fromEntries((cap.authFields || []).map((name) => { const input = settingsInput(name.toLowerCase().includes("key") ? "password" : "text"); const statusName = `has${name[0].toUpperCase()}${name.slice(1)}`; input.placeholder = settings.credentialStatus?.[cap.source]?.[statusName] ? label("settings.keepCredential", "Configured; leave blank to keep") : name; return [name, input]; }));
-		ratingDefaults[cap.source] = multiSelectControl({ className: "aa-gallery-settings__rating", options: (cap.ratings || []).map((value) => ({ value, label: ratingLabel(value), attrs: { "data-rating": ratingTone(value) } })), values: settings.defaultRatings?.[cap.source] || [], ariaLabel: `${cap.displayName} ${label("filter.rating", "Rating")}` });
 	}
 	const defaultSource = listboxControl({ options: capabilities.map((cap) => ({ value: cap.source, label: cap.displayName })), value: settings.defaultSource, ariaLabel: label("settings.defaultSource", "Default source") });
 	const blacklist = document.createElement("textarea"); blacklist.className = "aa-ui-input aa-gallery-settings__blacklist-input"; blacklist.value = (settings.blacklist || []).join("\n"); blacklist.placeholder = label("settings.blacklistPlaceholder", "watermark\ntext\nmale_focus"); blacklist.setAttribute("aria-label", label("settings.blacklist", "Content blacklist")); blacklist.title = label("prompt.excludeHint", "Global: hides matching posts and removes the tags from output prompts");
@@ -1178,7 +1243,6 @@ async function openSettingsDialog() {
 			el("header", { children: [el("div", { className: "aa-gallery-settings__source-identity", children: [el("span", { className: "aa-gallery-settings__source-mark", children: [icon(configured ? "statusCheck" : authFields.length ? "lock" : "statusIdle")] }), el("div", { children: [el("strong", null, cap.displayName), el("small", null, cap.source)] })] }), el("span", { className: "aa-gallery-settings__source-state", children: [el("i"), stateText] })] }),
 			el("div", { className: "aa-gallery-settings__capabilities", children: (abilityLabels.length ? abilityLabels : [label("settings.publicOnly", "Public access")]).map((value) => el("span", null, value)) }),
 			...(credentialFields.length ? [el("div", { className: "aa-gallery-settings__credentials", children: credentialFields })] : [el("p", { className: "aa-gallery-settings__public-note", text: label("settings.publicHint", "No account is required for this source.") })]),
-			...((cap.ratings || []).length ? [field({ label: label("settings.defaultRating", "Default Rating"), control: ratingDefaults[cap.source] })] : []),
 			el("div", { className: "aa-gallery-settings__actions", children: [test, status] }),
 		] });
 		const tab = button({ className: `aa-gallery-settings__source-tab ${configured ? "is-configured" : authFields.length ? "needs-setup" : "is-public"}`, label: cap.displayName, iconName: configured ? "statusCheck" : authFields.length ? "lock" : "statusIdle", variant: "ghost", size: "sm" });
@@ -1230,7 +1294,7 @@ async function openSettingsDialog() {
 	nav.append(el("div", { className: "aa-gallery-settings__nav-summary", children: [el("strong", null, label("settings.accountCount", "{count} accounts ready").replace("{count}", String(configuredCount)))] }));
 	setPage("accounts");
 	const body = el("div", { className: "aa-gallery-settings", children: [nav, el("div", { className: "aa-gallery-settings__pages", children: [accountsPanel, browsePanel, blacklistPanel, promptPanel, performancePanel] })] });
-	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, defaultRatings: Object.fromEntries(Object.entries(ratingDefaults).map(([sourceName, control]) => [sourceName, control.values()])), blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true" }, tooltip: tooltip.getAttribute("aria-checked") === "true", timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); for (const galleryNode of app.graph?._nodes || []) { if (!isGallery(galleryNode)) continue; galleryNode._aaGalleryController?.renderSelected(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
+	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true" }, tooltip: tooltip.getAttribute("aria-checked") === "true", timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); for (const galleryNode of app.graph?._nodes || []) { if (!isGallery(galleryNode)) continue; galleryNode._aaGalleryController?.renderSelected(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
 	dialog = createDialog({ title: label("settings.title", "Booru Gallery"), body, footer: el("div", { className: "aa-gallery-settings__footer", children: [status, save] }), size: "lg", className: "aa-gallery-settings-dialog", confirmOnEnter: false });
 }
 
@@ -1254,6 +1318,6 @@ app.registerExtension({
 	async init() { await ensureI18nReady(); await loadSetup(); registerSettings(); },
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isGallery(node)) setupNodeSafely(node, { initializeSize: true }); },
-	loadedGraphNode(node) { if (isGallery(node)) setupNodeSafely(node); },
+	loadedGraphNode(node) { if (isGallery(node)) { setupNodeSafely(node); restoreNode(node); } },
 	setup() { installPromptHook(); for (const node of app.graph?._nodes || []) if (isGallery(node)) setupNodeSafely(node); },
 });

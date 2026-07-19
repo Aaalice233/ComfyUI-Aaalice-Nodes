@@ -344,7 +344,41 @@ export function button({
 }
 
 export function iconButton({ iconName, label, ...options }) {
-	return button({ ...options, iconName, ariaLabel: label, title: options.title || label, size: options.size || "icon" });
+	return button({ ...options, iconName, ariaLabel: label, title: Object.hasOwn(options, "title") ? options.title : label, size: options.size || "icon" });
+}
+
+/** Shared collapsed-search trigger with persistent-query state and an accessible query preview. */
+export function searchToggleButton({ label, value = "", open = false, disabled = false, className = "", onClick = null } = {}) {
+	let query = String(value || "");
+	let expanded = Boolean(open);
+	const tooltip = createTooltip({ delay: 140 });
+	const control = iconButton({ iconName: "search", label, title: null, variant: "ghost", disabled, className: `aa-ui-search-toggle${className ? ` ${className}` : ""}`, onClick });
+	const tooltipContent = () => {
+		if (!query) return label;
+		return el("div", { className: "aa-ui-search-summary", children: [
+			el("span", { className: "aa-ui-search-summary__icon", children: [icon("search")] }),
+			el("div", { children: [el("strong", null, label), el("span", { className: "aa-ui-search-summary__query", text: query })] }),
+		] });
+	};
+	const sync = () => {
+		const hasQuery = Boolean(query.trim());
+		control.classList.toggle("has-query", hasQuery);
+		control.classList.toggle("is-active", expanded || hasQuery);
+		control.dataset.searchState = hasQuery ? "applied" : "empty";
+		control.setAttribute("aria-expanded", String(expanded));
+		control.setAttribute("aria-label", hasQuery ? `${label}: ${query}` : label);
+		control.replaceChildren(icon("search"));
+	};
+	control.addEventListener("mouseenter", () => tooltip.show(control, tooltipContent, { className: "aa-ui-search-summary-tooltip" }));
+	control.addEventListener("mouseleave", tooltip.hide);
+	control.addEventListener("focus", () => tooltip.show(control, tooltipContent, { className: "aa-ui-search-summary-tooltip" }));
+	control.addEventListener("blur", tooltip.hide);
+	control.addEventListener("click", tooltip.hide);
+	control.setSearchValue = (nextValue) => { query = String(nextValue || ""); sync(); };
+	control.setSearchOpen = (nextOpen) => { expanded = Boolean(nextOpen); sync(); };
+	control.destroySearchToggle = tooltip.destroy;
+	sync();
+	return control;
 }
 
 export function segmentedControl({ value, options = [], ariaLabel, onChange = null, className = "", thumbClassName = "", dataAttribute = "value" } = {}) {

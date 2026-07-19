@@ -17,7 +17,6 @@ def default_settings() -> dict[str, Any]:
         "version": 1,
         "revision": 0,
         "defaultSource": "danbooru",
-        "defaultRatings": {"danbooru": ["general"], "gelbooru": ["safe"], "safebooru": ["safe"], "aitag": []},
         "blacklist": [],
         "promptDefaults": {"categories": list(DEFAULT_PROMPT_CATEGORIES), "replaceUnderscores": False,
                            "escapeParentheses": False},
@@ -81,25 +80,6 @@ class GallerySettingsStore:
         settings["timeout"] = timeout
         settings["cacheBudgetMiB"] = budget
         settings["blacklist"] = _string_list(settings.get("blacklist", []), "blacklist")
-        rating_options = {
-            "danbooru": {"general", "sensitive", "questionable", "explicit"},
-            "gelbooru": {"safe", "questionable", "explicit"},
-            "safebooru": {"safe"},
-            "aitag": set(),
-        }
-        raw_ratings = settings.get("defaultRatings")
-        if not isinstance(raw_ratings, dict):
-            raise ValueError("defaultRatings must be an object")
-        normalized_ratings: dict[str, list[str]] = {}
-        for source, allowed in rating_options.items():
-            values = _string_list(raw_ratings.get(source, []), f"defaultRatings.{source}")
-            if source == "gelbooru":
-                values = ["safe" if value == "general" else value for value in values if value != "sensitive"]
-                values = list(dict.fromkeys(values))
-            if set(values) - allowed:
-                raise ValueError(f"defaultRatings.{source} contains unsupported values")
-            normalized_ratings[source] = values
-        settings["defaultRatings"] = normalized_ratings
         prompt = settings.get("promptDefaults")
         if not isinstance(prompt, dict):
             raise ValueError("promptDefaults must be an object")
@@ -127,7 +107,7 @@ class GallerySettingsStore:
             raise ValueError("settings update must be an object")
         with self._lock:
             settings = self.load()
-            for key in ("defaultSource", "defaultRatings", "blacklist", "promptDefaults", "tooltip", "timeout", "cacheBudgetMiB"):
+            for key in ("defaultSource", "blacklist", "promptDefaults", "tooltip", "timeout", "cacheBudgetMiB"):
                 if key in update:
                     settings[key] = copy.deepcopy(update[key])
             credential_update = update.get("credentials", {})

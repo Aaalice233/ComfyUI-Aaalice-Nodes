@@ -231,7 +231,7 @@ def _int(value: Any) -> int:
         return 0
 
 
-def _rating_matches(source: str, value: str, ratings: list[str]) -> bool:
+def rating_matches(source: str, value: str, ratings: list[str]) -> bool:
     if not ratings:
         return True
     aliases = ({"g": "general", "s": "sensitive", "q": "questionable", "e": "explicit"}
@@ -273,7 +273,7 @@ class DanbooruAdapter(BooruAdapter):
         if not isinstance(raw, list):
             raise RuntimeError("danbooru search response must be a list")
         posts = tuple(post for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist)
-                      for post in (self._summary(item),) if _rating_matches(self.source, post.rating, ratings))
+                      for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
         return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, page=page)
 
     async def ranking(self, session, period, cursor, limit, credentials, blacklist=()):
@@ -379,7 +379,7 @@ class GelbooruAdapter(BooruAdapter):
         size = min(max(1, limit), 100)
         raw = await self._posts(session, {"tags": tags, "pid": pid, "limit": size}, credentials)
         posts = tuple(post for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist)
-                      for post in (self._summary(item),) if _rating_matches(self.source, post.rating, ratings))
+                      for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
         return GalleryPage(posts, str(pid + 1) if len(raw) == size else None, len(raw) < size, page=pid + 1)
 
     async def get_post(self, session, post_id, credentials):

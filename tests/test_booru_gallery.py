@@ -235,14 +235,15 @@ class GalleryAdapterTests(unittest.TestCase):
 
 
 class GallerySettingsTests(unittest.TestCase):
-    def test_legacy_gelbooru_ratings_normalize_to_current_site_values(self):
+    def test_legacy_default_ratings_are_not_exposed_or_saved(self):
         with tempfile.TemporaryDirectory() as directory:
             store = GallerySettingsStore(Path(directory) / "gallery.json")
             path = store.path
             value = default_settings()
-            value["defaultRatings"]["gelbooru"] = ["general", "sensitive", "explicit"]
+            value["defaultRatings"] = {"danbooru": ["explicit"]}
             path.write_text(json.dumps(value), encoding="utf-8")
-            self.assertEqual(store.load()["defaultRatings"]["gelbooru"], ["safe", "explicit"])
+            self.assertNotIn("defaultRatings", store.load())
+            self.assertNotIn("defaultRatings", store.save({"defaultRatings": {"danbooru": ["explicit"]}}))
 
     def test_secrets_are_redacted_preserved_and_explicitly_cleared(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -279,6 +280,24 @@ class GallerySettingsTests(unittest.TestCase):
 
 
 class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_ranking_applies_ratings_and_separates_cache_entries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            service = GalleryService(Path(directory))
+            adapter = DanbooruAdapter()
+            posts = (
+                adapter._summary({"id": 1, "rating": "g", "preview_file_url": "https://cdn.donmai.us/1.jpg"}),
+                adapter._summary({"id": 2, "rating": "e", "preview_file_url": "https://cdn.donmai.us/2.jpg"}),
+            )
+            adapter.ranking = AsyncMock(return_value=GalleryPage(posts, None, True))
+            store = MagicMock()
+            store.load.return_value = {"timeout": 30, "blacklist": [], "credentials": {"danbooru": {}}}
+            with patch("nodes.gallery.service.adapter_for", return_value=adapter), patch("nodes.gallery.service.get_gallery_settings_store", return_value=store):
+                general = await service.ranking("danbooru", "week", ["general"], None, 60)
+                explicit = await service.ranking("danbooru", "week", ["explicit"], None, 60)
+                self.assertEqual([post["postId"] for post in general["posts"]], ["1"])
+                self.assertEqual([post["postId"] for post in explicit["posts"]], ["2"])
+                self.assertEqual(adapter.ranking.await_count, 2)
+
     async def test_service_injects_blacklist_into_adapter_and_cache_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             service = GalleryService(Path(directory))

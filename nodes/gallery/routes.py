@@ -45,9 +45,10 @@ async def search(request):
 
 async def ranking(request):
     try:
+        ratings = [item for item in request.query.getall("rating", []) if item]
         page = int(request.query["page"]) if request.query.get("page") else None
         result = await get_gallery_service().ranking(request.query.get("source", ""), request.query.get("period", ""),
-                                                     request.query.get("cursor") or None,
+                                                     ratings, request.query.get("cursor") or None,
                                                      int(request.query.get("limit", "60")), page)
         return web.json_response(result)
     except Exception as exc:
