@@ -158,7 +158,7 @@ test("gallery cards omit visible post identity and keep only useful hover metada
 	assert.doesNotMatch(source, /aa-gallery-card__resolution/);
 	assert.doesNotMatch(theme, /aa-gallery-card__resolution/);
 	for (const rating of ["safe", "sensitive", "questionable", "explicit"]) assert.match(theme, new RegExp(`data-rating="${rating}"`));
-	assert.match(theme, /\.aa-gallery-card \{[^}]*border-radius: 6px;/);
+	assert.match(theme, /\.aa-gallery-card \{[^}]*border-radius: 8px;/);
 });
 
 test("AI TAG cards recover an exact preview lazily and never render an empty rating pill", () => {
@@ -359,7 +359,7 @@ test("gallery settings use focused sections and explicit account states", () => 
 	assert.match(source, /needs-setup/);
 	assert.match(source, /is-testing/);
 	assert.match(source, /className: "aa-gallery-settings__nav-item"/);
-	assert.match(source, /className: "aa-gallery-settings__source-tab"/);
+	assert.match(source, /className: `aa-gallery-settings__source-tab /);
 	assert.match(source, /className: "aa-gallery-settings__source-workspace"/);
 	assert.match(source, /function settingsSectionHeader\(iconName, title\)/);
 	assert.doesNotMatch(source, /settingsSectionHeader\([^\n]*settings\.(?:sourcesHint|browseHint|promptHint|performanceHint)/);

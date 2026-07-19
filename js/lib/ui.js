@@ -91,12 +91,29 @@ function updateDescribedBy(anchor, id, add) {
 	updateTokenAttribute(anchor, "aria-describedby", id, add);
 }
 
-function placeTooltip(root, anchor, preferredPlacement = "auto") {
+function placeTooltip(root, anchor, preferredPlacement = "auto", cursorPoint = null) {
 	if (!root?.isConnected || !anchor?.isConnected) return;
 	const margin = 10;
 	const gap = 8;
 	const anchorRect = anchor.getBoundingClientRect();
 	const tooltipRect = root.getBoundingClientRect();
+	if (preferredPlacement === "cursor") {
+		const point = cursorPoint && Number.isFinite(cursorPoint.x) && Number.isFinite(cursorPoint.y)
+			? cursorPoint
+			: { x: anchorRect.left + (anchorRect.width / 2), y: anchorRect.top + (anchorRect.height / 2) };
+		const offsetX = 14;
+		const offsetY = 18;
+		let left = point.x + offsetX;
+		let top = point.y + offsetY;
+		if (left + tooltipRect.width > window.innerWidth - margin) left = point.x - tooltipRect.width - offsetX;
+		if (top + tooltipRect.height > window.innerHeight - margin) top = point.y - tooltipRect.height - 12;
+		left = Math.max(margin, Math.min(window.innerWidth - tooltipRect.width - margin, left));
+		top = Math.max(margin, Math.min(window.innerHeight - tooltipRect.height - margin, top));
+		root.dataset.placement = "cursor";
+		root.style.left = `${left}px`;
+		root.style.top = `${top}px`;
+		return;
+	}
 	if (preferredPlacement === "side") {
 		const roomRight = window.innerWidth - anchorRect.right - margin;
 		const roomLeft = anchorRect.left - margin;
@@ -145,12 +162,13 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 	let interactive = false;
 	let previousExpanded = null;
 	let preferredPlacement = "auto";
+	let cursorPoint = null;
 
 	const schedulePosition = () => {
 		if (positionFrame) return;
 		positionFrame = requestAnimationFrame(() => {
 			positionFrame = 0;
-			placeTooltip(root, anchor, preferredPlacement);
+			placeTooltip(root, anchor, preferredPlacement, cursorPoint);
 		});
 	};
 	const cancelScheduledHide = () => {
@@ -192,6 +210,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		interactive = false;
 		previousExpanded = null;
 		preferredPlacement = "auto";
+		cursorPoint = null;
 		if (activeTooltip?.hide === hide) activeTooltip = null;
 	};
 	const scheduleHide = () => {
@@ -206,7 +225,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		if (activeTooltip && activeTooltip !== controller) activeTooltip.hide();
 		activeTooltip = controller;
 	};
-	const mount = (nextAnchor, content, { className = "", contentMode = "auto", interactive: nextInteractive = false, onMount = null, placement = "auto" } = {}) => {
+	const mount = (nextAnchor, content, { className = "", contentMode = "auto", interactive: nextInteractive = false, onMount = null, placement = "auto", point = null } = {}) => {
 		const resolved = typeof content === "function" ? content() : content;
 		if (!nextAnchor?.isConnected || resolved == null || resolved === "") {
 			if (activeTooltip === controller) activeTooltip = null;
@@ -221,6 +240,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		claimActive();
 		interactive = Boolean(nextInteractive);
 		preferredPlacement = placement;
+		cursorPoint = point && Number.isFinite(point.x) && Number.isFinite(point.y) ? { x: point.x, y: point.y } : null;
 		const accessibleLabel = nextAnchor.getAttribute("aria-label") || nextAnchor.textContent?.trim() || null;
 		root = el("div", {
 			className: `aa-ui-tooltip${interactive ? " is-interactive" : ""}${className ? ` ${className}` : ""}`,
@@ -245,7 +265,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 			mountedRoot.addEventListener("focusout", (event) => { if (!mountedRoot.contains(event.relatedTarget)) scheduleHide(); });
 		} else updateDescribedBy(anchor, root.id, true);
 		onMount?.(root);
-		placeTooltip(root, anchor, preferredPlacement);
+		placeTooltip(root, anchor, preferredPlacement, cursorPoint);
 		window.addEventListener("resize", schedulePosition);
 		window.addEventListener("scroll", schedulePosition, true);
 		document.addEventListener("keydown", keydown, true);

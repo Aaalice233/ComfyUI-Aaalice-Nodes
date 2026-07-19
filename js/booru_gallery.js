@@ -263,35 +263,294 @@ function createGalleryCard(node, controller, post, index) {
 	return card;
 }
 
+function moveSelectionIndex(from, insertBefore) {
+	const source = Math.floor(Number(from));
+	const target = Math.floor(Number(insertBefore));
+	if (!Number.isInteger(source) || !Number.isInteger(target) || source < 0 || target < 0) return null;
+	if (target === source || target === source + 1) return null;
+	return target > source ? target - 1 : target;
+}
+
+function selectedDropEdge(row, clientY) {
+	const rect = row.getBoundingClientRect();
+	const before = clientY < rect.top + (rect.height / 2);
+	const index = Math.floor(Number(row.dataset.index));
+	if (!Number.isInteger(index) || index < 0) return null;
+	return { row, before, index, insertBefore: before ? index : index + 1 };
+}
+
+function resolveSelectedDropTarget(listRoot, clientY) {
+	const rows = [...listRoot.querySelectorAll(".aa-gallery-selected-row")];
+	if (!rows.length) return null;
+	for (const row of rows) {
+		const rect = row.getBoundingClientRect();
+		if (clientY < rect.top + (rect.height / 2)) return selectedDropEdge(row, rect.top);
+		if (clientY <= rect.bottom) return selectedDropEdge(row, rect.bottom);
+	}
+	const last = rows.at(-1);
+	return selectedDropEdge(last, last.getBoundingClientRect().bottom);
+}
+
+function selectedPromptHoverContent(selection, index, promptText) {
+	const tags = selection.editedTags || selection.originalTags;
+	const count = tagCount(tags);
+	const empty = !promptText;
+	const chips = [
+		dimensions(selection),
+		selection.rating ? ratingLabel(selection.rating) : "",
+		selection.fileExt?.toUpperCase() || "",
+		label("selected.tagCount", `${count} tags`).replace("{count}", String(count)),
+	].filter(Boolean);
+	return el("article", { className: "aa-gallery-selected-prompt", attrs: { "data-source": selection.source }, children: [
+		el("header", { className: "aa-gallery-selected-prompt__header", children: [
+			el("span", { className: "aa-gallery-selected-prompt__order", text: String(index + 1) }),
+			el("div", { className: "aa-gallery-selected-prompt__title", children: [
+				el("strong", null, `${selection.source} #${selection.postId}`),
+				el("div", { className: "aa-gallery-selected-prompt__meta", children: chips.map((chip) => el("span", null, chip)) }),
+			] }),
+		] }),
+		empty
+			? el("p", { className: "aa-gallery-selected-prompt__empty", text: label("selected.noPrompt", "No prompt tags in the current category selection") })
+			: el("p", { className: "aa-gallery-selected-prompt__text", text: promptText }),
+	] });
+}
+
 function createSelectedRow(node, controller, selection, index) {
 	const promptText = finalPrompt(selection, stateFor(node).prompt);
-	const root = el("div", { className: "aa-gallery-selected-row", attrs: { draggable: true }, children: [
-		el("span", { className: "aa-gallery-selected-row__drag", attrs: { "aria-hidden": "true" }, children: [icon("drag")] }),
-		el("span", "aa-gallery-selected-row__order", String(index + 1)),
-		el("img", { className: "aa-gallery-selected-row__thumb", attrs: { src: proxyUrl(selection.source, selection.previewUrl), alt: "", loading: "lazy", decoding: "async" } }),
-		el("div", { className: "aa-gallery-selected-row__copy", children: [
-			el("div", { className: "aa-gallery-selected-row__title", children: [el("strong", null, `${selection.source} #${selection.postId}`), el("span", "aa-gallery-selected-row__format", selection.fileExt?.toUpperCase() || "IMAGE")] }),
-			el("small", null, [dimensions(selection), selection.rating, label("selected.tagCount", `${tagCount(selection.editedTags || selection.originalTags)} tags`).replace("{count}", String(tagCount(selection.editedTags || selection.originalTags)))].filter(Boolean).join(" · ")),
-			el("p", { className: "aa-gallery-selected-row__prompt", text: promptText || label("selected.noPrompt", "No prompt tags in the current category selection") }),
-		] }),
-		iconButton({ iconName: "edit", label: label("selected.edit", "Edit tags"), variant: "ghost", onClick: () => controller.openEditor(index) }),
-		iconButton({ iconName: "delete", label: label("selected.remove", "Remove"), variant: "ghost", onClick: () => { transact(node, (state) => state.selections.splice(index, 1)); controller.renderSelected(); controller.refreshCards(); } }),
-	] });
-	root.addEventListener("dragstart", (event) => { event.dataTransfer.setData("text/x-aa-gallery-index", String(index)); event.dataTransfer.effectAllowed = "move"; });
-	root.addEventListener("dragover", (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; });
-	root.addEventListener("drop", (event) => { event.preventDefault(); const from = Number(event.dataTransfer.getData("text/x-aa-gallery-index")); if (!Number.isInteger(from) || from === index) return; transact(node, (state) => { const [item] = state.selections.splice(from, 1); state.selections.splice(index, 0, item); }); controller.renderSelected(); controller.refreshCards(); });
+	const thumb = el("img", {
+		className: "aa-gallery-selected-row__thumb",
+		attrs: {
+			src: proxyUrl(selection.source, selection.previewUrl),
+			alt: "",
+			loading: "lazy",
+			decoding: "async",
+		},
+	});
+	const copy = el("div", {
+		className: "aa-gallery-selected-row__copy",
+		attrs: {
+			tabindex: "0",
+			role: "group",
+			"aria-label": label("selected.promptHover", "Hover to view full prompt"),
+		},
+		children: [
+			el("div", { className: "aa-gallery-selected-row__title", children: [
+				el("strong", null, `${selection.source} #${selection.postId}`),
+				el("span", "aa-gallery-selected-row__format", selection.fileExt?.toUpperCase() || "IMAGE"),
+			] }),
+			el("small", null, [
+				dimensions(selection),
+				selection.rating,
+				label("selected.tagCount", `${tagCount(selection.editedTags || selection.originalTags)} tags`)
+					.replace("{count}", String(tagCount(selection.editedTags || selection.originalTags))),
+			].filter(Boolean).join(" · ")),
+			el("p", {
+				className: "aa-gallery-selected-row__prompt",
+				text: promptText || label("selected.noPrompt", "No prompt tags in the current category selection"),
+			}),
+		],
+	});
+	const root = el("div", {
+		className: "aa-gallery-selected-row",
+		attrs: { draggable: true, "data-source": selection.source, "data-index": String(index) },
+		children: [
+			el("span", { className: "aa-gallery-selected-row__drag", attrs: { "aria-hidden": "true" }, children: [icon("drag")] }),
+			el("span", "aa-gallery-selected-row__order", String(index + 1)),
+			thumb,
+			copy,
+			iconButton({ iconName: "edit", label: label("selected.edit", "Edit tags"), variant: "ghost", onClick: () => controller.openEditor(index) }),
+			iconButton({
+				iconName: "delete",
+				label: label("selected.remove", "Remove"),
+				variant: "ghost",
+				onClick: () => {
+					transact(node, (state) => state.selections.splice(index, 1));
+					controller.renderSelected();
+					controller.refreshCards();
+				},
+			}),
+		],
+	});
+	if (controller.selectedDragFrom === index) root.classList.add("is-dragging");
+	let imageHoverTimer = 0;
+	let promptHoverTimer = 0;
+	let pointer = null;
+	const clearImageHover = () => { clearTimeout(imageHoverTimer); imageHoverTimer = 0; };
+	const clearPromptHover = () => { clearTimeout(promptHoverTimer); promptHoverTimer = 0; };
+	const hideHover = () => {
+		clearImageHover();
+		clearPromptHover();
+		controller.tooltip.hide();
+	};
+	const rememberPointer = (event) => {
+		if (!Number.isFinite(event?.clientX) || !Number.isFinite(event?.clientY)) return;
+		pointer = { x: event.clientX, y: event.clientY };
+	};
+	thumb.addEventListener("mouseenter", () => {
+		if (!settings?.tooltip) return;
+		clearImageHover();
+		clearPromptHover();
+		imageHoverTimer = setTimeout(() => controller.showHover(thumb, selection), 280);
+	});
+	thumb.addEventListener("mouseleave", () => {
+		clearImageHover();
+		if (controller.tooltip.isOpenFor(thumb)) controller.tooltip.hide();
+	});
+	const showPromptHover = (immediate = false) => {
+		if (controller.tooltip.isOpenFor(copy)) {
+			controller.tooltip.cancelScheduledHide();
+			return;
+		}
+		const reveal = () => controller.showPromptHover(copy, selection, index, promptText, pointer);
+		if (immediate) reveal();
+		else {
+			clearPromptHover();
+			promptHoverTimer = setTimeout(reveal, 180);
+		}
+	};
+	copy.addEventListener("pointerenter", rememberPointer);
+	copy.addEventListener("pointermove", rememberPointer);
+	copy.addEventListener("mouseenter", (event) => {
+		rememberPointer(event);
+		showPromptHover(false);
+	});
+	copy.addEventListener("mouseleave", () => {
+		clearPromptHover();
+		if (controller.tooltip.isOpenFor(copy)) controller.tooltip.scheduleHide();
+	});
+	copy.addEventListener("focusin", () => showPromptHover(true));
+	copy.addEventListener("focusout", (event) => {
+		if (copy.contains(event.relatedTarget)) return;
+		clearPromptHover();
+		if (controller.tooltip.isOpenFor(copy)) controller.tooltip.scheduleHide();
+	});
+	root.addEventListener("dragstart", (event) => {
+		hideHover();
+		event.dataTransfer.setData("text/x-aa-gallery-index", String(index));
+		event.dataTransfer.effectAllowed = "move";
+		try { event.dataTransfer.setData("text/plain", String(index)); } catch { /* some hosts only expose plain text */ }
+		controller.beginSelectedDrag(index, root);
+	});
+	root.addEventListener("dragend", () => controller.endSelectedDrag());
 	return root;
 }
 
 function buildController(node, elements) {
 	let posts = []; let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; const sessionEdits = new Map();
+	let selectedDragFrom = null;
+	let selectedDropInsertBefore = null;
 	const tooltip = createTooltip({ delay: 0, closeDelay: 120 });
 	const showError = (error) => { elements.errorLabel.textContent = error?.message || String(error); elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error); };
 	const clearError = () => { elements.error.hidden = true; elements.errorLabel.textContent = ""; };
 	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; };
 	const refreshCards = () => elements.masonry.querySelectorAll(".aa-gallery-card").forEach((card) => card._aaGalleryUpdate?.());
-	const renderSelected = () => { const count = stateFor(node).selections.length; elements.selectedList.setItems(stateFor(node).selections, { preserveScroll: true }); elements.tabs.setValue(elements.mode); elements.selectedMeta.textContent = label("selected.outputHint", `${count} ordered image and Prompt pairs`).replace("{count}", String(count)); elements.emptySelected.hidden = count > 0; };
-	const setMode = (mode) => { if (elements.mode === mode) return; elements.mode = mode; elements.root.dataset.mode = mode; renderSelected(); };
+	const hideSelectedDropIndicator = () => {
+		selectedDropInsertBefore = null;
+		const indicator = elements.selectedDropIndicator;
+		if (!indicator) return;
+		indicator.hidden = true;
+		indicator.classList.remove("is-visible");
+		indicator.style.removeProperty("left");
+		indicator.style.removeProperty("width");
+		indicator.style.removeProperty("top");
+	};
+	const clearSelectedDragClasses = () => {
+		elements.selectedListRoot?.querySelectorAll(".aa-gallery-selected-row.is-dragging, .aa-gallery-selected-row.is-drop-before, .aa-gallery-selected-row.is-drop-after")
+			.forEach((row) => row.classList.remove("is-dragging", "is-drop-before", "is-drop-after"));
+	};
+	const endSelectedDrag = () => {
+		selectedDragFrom = null;
+		hideSelectedDropIndicator();
+		clearSelectedDragClasses();
+		elements.selectedListRoot?.classList.remove("is-reordering");
+	};
+	const beginSelectedDrag = (index, row) => {
+		selectedDragFrom = index;
+		selectedDropInsertBefore = null;
+		elements.selectedListRoot?.classList.add("is-reordering");
+		clearSelectedDragClasses();
+		row?.classList.add("is-dragging");
+		hideSelectedDropIndicator();
+	};
+	const showSelectedDropIndicator = (target) => {
+		const indicator = elements.selectedDropIndicator;
+		if (!indicator || !target?.row) {
+			hideSelectedDropIndicator();
+			return;
+		}
+		const rect = target.row.getBoundingClientRect();
+		const y = target.before ? rect.top : rect.bottom;
+		indicator.hidden = false;
+		indicator.classList.add("is-visible");
+		indicator.style.left = `${Math.round(rect.left + 10)}px`;
+		indicator.style.width = `${Math.max(48, Math.round(rect.width - 20))}px`;
+		indicator.style.top = `${Math.round(y - 1.5)}px`;
+		elements.selectedListRoot?.querySelectorAll(".aa-gallery-selected-row.is-drop-before, .aa-gallery-selected-row.is-drop-after")
+			.forEach((row) => row.classList.remove("is-drop-before", "is-drop-after"));
+		target.row.classList.toggle("is-drop-before", target.before);
+		target.row.classList.toggle("is-drop-after", !target.before);
+	};
+	const handleSelectedDragOver = (event) => {
+		if (selectedDragFrom == null || !elements.selectedListRoot) return;
+		event.preventDefault();
+		event.dataTransfer.dropEffect = "move";
+		const target = resolveSelectedDropTarget(elements.selectedListRoot, event.clientY);
+		if (!target) {
+			hideSelectedDropIndicator();
+			return;
+		}
+		const dest = moveSelectionIndex(selectedDragFrom, target.insertBefore);
+		selectedDropInsertBefore = dest == null ? null : target.insertBefore;
+		if (dest == null) {
+			hideSelectedDropIndicator();
+			elements.selectedListRoot.querySelectorAll(".aa-gallery-selected-row.is-drop-before, .aa-gallery-selected-row.is-drop-after")
+				.forEach((row) => row.classList.remove("is-drop-before", "is-drop-after"));
+			return;
+		}
+		showSelectedDropIndicator(target);
+	};
+	const handleSelectedDrop = (event) => {
+		if (selectedDragFrom == null || !elements.selectedListRoot) return;
+		event.preventDefault();
+		const rawFrom = event.dataTransfer.getData("text/x-aa-gallery-index") || event.dataTransfer.getData("text/plain");
+		const from = Number.isInteger(selectedDragFrom) ? selectedDragFrom : Number(rawFrom);
+		const target = resolveSelectedDropTarget(elements.selectedListRoot, event.clientY);
+		const insertBefore = target?.insertBefore ?? selectedDropInsertBefore;
+		const dest = moveSelectionIndex(from, insertBefore);
+		endSelectedDrag();
+		if (dest == null) return;
+		transact(node, (state) => {
+			if (from < 0 || from >= state.selections.length || dest < 0 || dest >= state.selections.length) return;
+			const [item] = state.selections.splice(from, 1);
+			state.selections.splice(dest, 0, item);
+		});
+		renderSelected();
+		refreshCards();
+	};
+	const handleSelectedDragLeave = (event) => {
+		if (!elements.selectedListRoot || selectedDragFrom == null) return;
+		if (elements.selectedListRoot.contains(event.relatedTarget)) return;
+		hideSelectedDropIndicator();
+		elements.selectedListRoot.querySelectorAll(".aa-gallery-selected-row.is-drop-before, .aa-gallery-selected-row.is-drop-after")
+			.forEach((row) => row.classList.remove("is-drop-before", "is-drop-after"));
+	};
+	const renderSelected = () => {
+		tooltip.hide();
+		if (selectedDragFrom == null) endSelectedDrag();
+		const count = stateFor(node).selections.length;
+		elements.selectedList.setItems(stateFor(node).selections, { preserveScroll: true });
+		elements.tabs.setValue(elements.mode);
+		elements.selectedMeta.textContent = label("selected.outputHint", `${count} ordered image and Prompt pairs`).replace("{count}", String(count));
+		elements.emptySelected.hidden = count > 0;
+	};
+	const setMode = (mode) => {
+		if (elements.mode === mode) return;
+		tooltip.hide();
+		endSelectedDrag();
+		elements.mode = mode;
+		elements.root.dataset.mode = mode;
+		renderSelected();
+	};
 	const rememberPage = (page) => {
 		const value = Math.max(1, Math.floor(Number(page) || 1));
 		const state = stateFor(node); if (state.navigation.page === value) return;
@@ -416,6 +675,17 @@ function buildController(node, elements) {
 			tooltip.reposition();
 		}).catch(() => { waitingForLargerPreview = false; loading.hidden = true; });
 	};
+	const showPromptHover = (anchor, selection, index, promptText, point = null) => {
+		const hasPoint = point && Number.isFinite(point.x) && Number.isFinite(point.y);
+		tooltip.show(anchor, selectedPromptHoverContent(selection, index, promptText), {
+			className: "aa-gallery-selected-prompt-tooltip",
+			contentMode: "dom",
+			immediate: true,
+			interactive: true,
+			placement: hasPoint ? "cursor" : "auto",
+			point: hasPoint ? point : null,
+		});
+	};
 	const openDetail = async (post) => {
 		const detail = await getDetail(post); const key = `${post.source}:${post.postId}`; const selected = stateFor(node).selections.some((item) => selectionKey(item) === key);
 		const image = el("img", { className: "aa-gallery-detail__image", attrs: { src: proxyUrl(detail.source, detail.mediaUrl), alt: `${detail.source} #${detail.postId}` } });
@@ -433,7 +703,7 @@ function buildController(node, elements) {
 			["tags", label("detail.tags", "Tags"), String(tagTotal)],
 		];
 		const inspector = el("aside", { className: "aa-gallery-detail__inspector", children: [
-			el("header", { className: "aa-gallery-detail__header", children: [el("span", "aa-gallery-detail__source", detail.source), el("div", { children: [el("strong", null, `#${detail.postId}`), el("small", null, label("detail.localOnly", "Local selection and tag edits only"))] })] }),
+			el("header", { className: "aa-gallery-detail__header", children: [el("span", { className: "aa-gallery-detail__source", attrs: { "data-source": detail.source }, text: detail.source }), el("div", { children: [el("strong", null, `#${detail.postId}`), el("small", null, label("detail.localOnly", "Local selection and tag edits only"))] })] }),
 			el("dl", { className: "aa-gallery-detail__facts", children: facts.map(([fact, term, value]) => el("div", { attrs: { "data-fact": fact }, children: [el("dt", null, term), el("dd", null, value)] })) }),
 			el("div", { className: "aa-gallery-detail__tag-groups", children: GALLERY_CATEGORIES.map((category) => {
 				const tags = detail.tags?.[category] || [];
@@ -465,7 +735,7 @@ function buildController(node, elements) {
 		for (const view of categoryViews) view.tab.addEventListener("click", () => setCategory(view.category));
 		categoryNav.addEventListener("keydown", (event) => { if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const current = Math.max(0, categoryViews.findIndex(({ tab }) => tab === document.activeElement)); const next = event.key === "Home" ? 0 : event.key === "End" ? categoryViews.length - 1 : (current + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + categoryViews.length) % categoryViews.length; setCategory(categoryViews[next].category); categoryViews[next].tab.focus({ preventScroll: true }); });
 		setCategory(groups.general?.length ? "general" : categoryViews.find(({ category }) => groups[category]?.length)?.category || "general");
-		const editorContext = el("header", { className: "aa-gallery-tag-editor__context", children: [el("img", { attrs: { src: proxyUrl(selection.source, selection.previewUrl), alt: "" } }), el("div", { children: [el("div", { className: "aa-gallery-tag-editor__identity", children: [el("span", null, selection.source), el("strong", null, `#${selection.postId}`)] }), el("small", null, label("editor.hint", "One tag per line. Changes stay in this workflow selection."))] })] });
+		const editorContext = el("header", { className: "aa-gallery-tag-editor__context", children: [el("img", { attrs: { src: proxyUrl(selection.source, selection.previewUrl), alt: "" } }), el("div", { children: [el("div", { className: "aa-gallery-tag-editor__identity", children: [el("span", { attrs: { "data-source": selection.source }, text: selection.source }), el("strong", null, `#${selection.postId}`)] }), el("small", null, label("editor.hint", "One tag per line. Changes stay in this workflow selection."))] })] });
 		const body = el("div", { className: "aa-gallery-tag-editor", children: [editorContext, el("div", { className: "aa-gallery-tag-editor__workspace", children: [categoryNav, categoryPanels] })] }); let dialog;
 		const values = () => Object.fromEntries(GALLERY_CATEGORIES.map((category) => [category, inputs[category].value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)]));
 		const restore = button({ label: label("editor.restore", "Restore original"), iconName: "refresh", variant: "ghost", onClick: () => { for (const category of GALLERY_CATEGORIES) { inputs[category].value = selection.originalTags[category].join("\n"); inputs[category].dispatchEvent(new Event("input")); } } });
@@ -473,9 +743,39 @@ function buildController(node, elements) {
 		const save = button({ label: label("editor.save", "Save local tags"), variant: "primary", onClick: () => { const edited = values(); if (selectedIndex >= 0) transact(node, (state) => { state.selections[selectedIndex].editedTags = edited; }); else sessionEdits.set(key, edited); renderSelected(); dialog.close(); } });
 		dialog = createDialog({ title: label("editor.title", "Edit local tags"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: [restore, copy, save] }), size: "lg", className: "aa-gallery-tag-editor-dialog", confirmOnEnter: false });
 	};
-	return { tooltip, search, jumpToPage(page) { return search({ reset: true, page }); }, visibleIndexChanged, toggleSelection, toggleFavorite, recoverPreview, showHover, openDetail, openEditor, renderSelected, refreshCards, setMode, showError,
+	return {
+		tooltip,
+		get selectedDragFrom() { return selectedDragFrom; },
+		beginSelectedDrag,
+		endSelectedDrag,
+		handleSelectedDragOver,
+		handleSelectedDrop,
+		handleSelectedDragLeave,
+		search,
+		jumpToPage(page) { return search({ reset: true, page }); },
+		visibleIndexChanged,
+		toggleSelection,
+		toggleFavorite,
+		recoverPreview,
+		showHover,
+		showPromptHover,
+		openDetail,
+		openEditor,
+		renderSelected,
+		refreshCards,
+		setMode,
+		showError,
 		updateSize(post, width, height) { elements.masonryController.updateItemSize(`${post.source}:${post.postId}`, width, height); },
-		destroy() { generation += 1; requestController?.abort(); tooltip.destroy(); elements.masonryController.destroy(); elements.selectedList.destroy(); } };
+		destroy() {
+			generation += 1;
+			requestController?.abort();
+			endSelectedDrag();
+			elements.selectedDropIndicator?.remove();
+			tooltip.destroy();
+			elements.masonryController.destroy();
+			elements.selectedList.destroy();
+		},
+	};
 }
 
 function openFilter(node, anchor) {
@@ -577,16 +877,59 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const error = el("button", { className: "aa-gallery-status is-error", attrs: { type: "button", "aria-live": "assertive" }, children: [icon("statusWarning"), errorLabel] }); error.hidden = true;
 	const end = el("div", { className: "aa-gallery-status is-end", attrs: { role: "status" }, children: [icon("statusCheck"), el("span", null, label("end", "End of results"))] }); end.hidden = true;
 	const selected = el("div", "aa-gallery-selected"); const selectedListRoot = el("div", "aa-gallery-selected__list");
+	const selectedDropIndicator = el("div", {
+		className: "aa-gallery-selected-drop-indicator",
+		attrs: {
+			hidden: true,
+			"aria-hidden": "true",
+		},
+		children: [
+			el("span", "aa-gallery-selected-drop-indicator__cap"),
+			el("span", "aa-gallery-selected-drop-indicator__line"),
+			el("span", "aa-gallery-selected-drop-indicator__cap"),
+		],
+	});
 	const emptySelected = el("div", { className: "aa-gallery-selected__empty", children: [el("span", { className: "aa-gallery-selected__empty-icon", children: [icon("statusCheck")] }), el("strong", null, label("selected.emptyTitle", "Build your output set")), el("p", null, label("selected.empty", "Select posts from the waterfall to build an ordered output."))] });
 	const selectedMeta = el("small", "aa-gallery-selected__meta");
 	const clear = button({ label: label("selected.clear", "Clear"), iconName: "delete", variant: "ghost", size: "sm", onClick: () => { if (!stateFor(node).selections.length || !confirm(label("selected.clearConfirm", "Clear all selected posts?"))) return; transact(node, (state) => { state.selections = []; }); controller.renderSelected(); controller.refreshCards(); } });
 	selected.append(el("div", { className: "aa-gallery-selected__toolbar", children: [el("div", { children: [el("strong", null, label("selected.title", "Ordered selection")), selectedMeta] }), el("span", "aa-gallery-toolbar__spacer"), clear] }), selectedListRoot, emptySelected);
+	document.body.append(selectedDropIndicator);
 	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end] }), selected);
 	let controller = null;
-	const elements = { root, masonry, loading, error, errorLabel, end, tabs, selectedMeta, selectedList: null, emptySelected, mode: "browse", pageControl, masonryController: null };
+	const elements = {
+		root,
+		masonry,
+		loading,
+		error,
+		errorLabel,
+		end,
+		tabs,
+		selectedMeta,
+		selectedList: null,
+		selectedListRoot,
+		selectedDropIndicator,
+		emptySelected,
+		mode: "browse",
+		pageControl,
+		masonryController: null,
+	};
 	elements.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index), onNearEnd: () => controller?.search(), onVisibleIndexChange: (index) => controller?.visibleIndexChanged(index), minCardWidth: 144, gap: 6, maxColumns: 5 });
-	elements.selectedList = mountVirtualList(selectedListRoot, { rowHeight: 96, gap: 7, overscan: 5, renderItem: (item, index) => createSelectedRow(node, controller, item, index) });
-	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryAccent = bindNodeAccent(node, root);
+	elements.selectedList = mountVirtualList(selectedListRoot, {
+		rowHeight: 96,
+		gap: 7,
+		overscan: 5,
+		onBeforeRender: () => controller?.tooltip?.hide(),
+		renderItem: (item, index) => createSelectedRow(node, controller, item, index),
+	});
+	selectedListRoot.addEventListener("scroll", () => {
+		controller?.tooltip?.hide();
+		// Keep the drag session; only hide the stale fixed marker until the next dragover.
+		if (controller?.selectedDragFrom != null) controller.handleSelectedDragLeave({ relatedTarget: null });
+	}, { passive: true });
+	selectedListRoot.addEventListener("dragover", (event) => controller?.handleSelectedDragOver(event));
+	selectedListRoot.addEventListener("drop", (event) => controller?.handleSelectedDrop(event));
+	selectedListRoot.addEventListener("dragleave", (event) => controller?.handleSelectedDragLeave(event));
+	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
 	error.addEventListener("click", () => {
 		const sourceName = stateFor(node).source;
 		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) void openComfySettings();
@@ -596,7 +939,14 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
 	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); this.properties[PROPERTY] = normalizeGalleryState(this.properties?.[PROPERTY], settings || {}); searchControl.sync(); collection.setOptions(collectionOptions(stateFor(this).source), collectionValue(stateFor(this))); pageControl.setPage(stateFor(this).navigation.page); controller.renderSelected(); node._aaGalleryAccent?.sync?.(); return result; };
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
-	const previousRemoved = node.onRemoved; node.onRemoved = function () { controller.destroy(); cleanupDomWidgetResizePassthrough(this); this._aaGalleryAccent?.dispose?.(); root.remove(); return previousRemoved?.apply(this, arguments); };
+	const previousRemoved = node.onRemoved; node.onRemoved = function () {
+		controller.destroy();
+		selectedDropIndicator.remove();
+		cleanupDomWidgetResizePassthrough(this);
+		this._aaGalleryAccent?.dispose?.();
+		root.remove();
+		return previousRemoved?.apply(this, arguments);
+	};
 	controller.renderSelected(); controller.search({ reset: true, page: stateFor(node).navigation.page }); if (initializeSize) node.setSize?.(DEFAULT_SIZE);
 }
 
@@ -657,14 +1007,14 @@ async function openSettingsDialog() {
 			return el("div", { className: "aa-gallery-settings__credential", children: [field({ label: credentialLabel(name), control: input }), clearCredential] });
 		});
 		const abilityLabels = [cap.favoriteRead ? label("settings.favoriteRead", "Favorite read") : "", cap.favoriteWrite ? label("settings.favoriteWrite", "Favorite write") : "", cap.categorizedTags ? label("settings.tagGroups", "Tag groups") : "", (cap.rankingPeriods || []).length ? label("settings.rankings", "Rankings") : ""].filter(Boolean);
-		const panel = el("section", { className: `aa-gallery-settings__source ${configured ? "is-configured" : authFields.length ? "needs-setup" : "is-public"}`, attrs: { role: "tabpanel", tabindex: "0" }, children: [
+		const panel = el("section", { className: `aa-gallery-settings__source ${configured ? "is-configured" : authFields.length ? "needs-setup" : "is-public"}`, attrs: { role: "tabpanel", tabindex: "0", "data-source": cap.source }, children: [
 			el("header", { children: [el("div", { className: "aa-gallery-settings__source-identity", children: [el("span", { className: "aa-gallery-settings__source-mark", children: [icon(configured ? "statusCheck" : authFields.length ? "lock" : "statusIdle")] }), el("div", { children: [el("strong", null, cap.displayName), el("small", null, cap.source)] })] }), el("span", { className: "aa-gallery-settings__source-state", children: [el("i"), stateText] })] }),
 			el("div", { className: "aa-gallery-settings__capabilities", children: (abilityLabels.length ? abilityLabels : [label("settings.publicOnly", "Public access")]).map((value) => el("span", null, value)) }),
 			...(credentialFields.length ? [el("div", { className: "aa-gallery-settings__credentials", children: credentialFields })] : [el("p", { className: "aa-gallery-settings__public-note", text: label("settings.publicHint", "No account is required for this source.") })]),
 			...((cap.ratings || []).length ? [field({ label: label("settings.defaultRating", "Default Rating"), control: ratingDefaults[cap.source] })] : []),
 			el("div", { className: "aa-gallery-settings__actions", children: [test, status] }),
 		] });
-		const tab = button({ className: "aa-gallery-settings__source-tab", label: cap.displayName, iconName: configured ? "statusCheck" : authFields.length ? "lock" : "statusIdle", variant: "ghost", size: "sm" });
+		const tab = button({ className: `aa-gallery-settings__source-tab ${configured ? "is-configured" : authFields.length ? "needs-setup" : "is-public"}`, label: cap.displayName, iconName: configured ? "statusCheck" : authFields.length ? "lock" : "statusIdle", variant: "ghost", size: "sm" });
 		const sourceId = cap.source.replace(/[^a-z0-9_-]/gi, "-"); tab.id = `aa-gallery-source-tab-${sourceId}`; panel.id = `aa-gallery-source-panel-${sourceId}`;
 		tab.dataset.source = cap.source; tab.setAttribute("role", "tab"); tab.setAttribute("aria-controls", panel.id); panel.setAttribute("aria-labelledby", tab.id); tab.append(el("span", { className: "aa-gallery-settings__source-tab-state", text: stateText }));
 		return { cap, panel, tab, configured };
