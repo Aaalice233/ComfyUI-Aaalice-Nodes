@@ -42,3 +42,9 @@ test("payload is an independent immutable queue snapshot", () => {
 	assert.deepEqual(payload.selections[0].originalTags.general, ["blue_hair"]);
 	assert.deepEqual(payload.prompts, ["blue_hair"]);
 });
+
+test("excluded tags are one global payload input instead of workflow state", () => {
+	const state = normalizeGalleryState({ prompt: { excludedTags: ["stale_local"] }, selections: [selected("danbooru", 1)] });
+	assert.equal("excludedTags" in state.prompt, false);
+	assert.deepEqual(galleryPayload(state, ["global_tag"]).prompt.excludedTags, ["global_tag"]);
+});

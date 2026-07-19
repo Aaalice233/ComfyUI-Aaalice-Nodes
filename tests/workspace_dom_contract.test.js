@@ -490,7 +490,7 @@ test("dashboard toolbar identifies the current page in its available space", () 
 
 test("detached context menus retain theme tokens and visible hover feedback", () => {
 	assert.match(uiStyles, /\.aa-ui-popover,\s*\n\.aa-ui-context-menu,\s*\n\.aa-ui-tooltip/);
-	assert.match(uiStyles, /\.aa-ui-context-menu__item\.aa-ui-button:hover:not\(:disabled\)[^}]*border-color:[^}]*background: color-mix\(in srgb, var\(--aa-ui-accent\) 14%, var\(--aa-ui-control\)\)/);
+	assert.match(uiStyles, /\.aa-ui-context-menu__item\.aa-ui-button:hover:not\(:disabled\)[^}]*border-color: transparent;[^}]*background: color-mix\(in srgb, var\(--aa-ui-accent\) 14%, var\(--aa-ui-control\)\)[^}]*box-shadow: none/);
 });
 
 test("layout editing keeps creation and layout tools in the primary toolbar", () => {

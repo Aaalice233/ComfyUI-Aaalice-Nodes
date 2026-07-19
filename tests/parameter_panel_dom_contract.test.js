@@ -43,12 +43,12 @@ test("shared tooltips own timing, viewport placement and accessible cleanup", ()
 	assert.match(uiSource, /if \(!root\) \{\s*hide\(\);/);
 	assert.match(styles, /\.aa-ui-tooltip\.is-interactive\s*\{[^}]*pointer-events:\s*auto/);
 	assert.match(styles, /\.aa-ui-tooltip\.is-interactive a:focus-visible/);
-	assert.match(styles, /\.aa-ui-tooltip\s*\{[\s\S]*background:\s*var\(--aa-ui-tooltip-surface\)[\s\S]*box-shadow:\s*0 8px 22px/);
+	assert.match(styles, /\.aa-ui-tooltip\s*\{[\s\S]*background:\s*var\(--aa-ui-tooltip-surface\)[\s\S]*box-shadow:\s*var\(--aa-ui-edge-shadow\), 0 8px 22px/);
 	assert.match(styles, /\.aa-ui-tooltip::before\s*\{[\s\S]*var\(--aa-ui-tooltip-arrow-x/);
 	assert.match(styles, /\.aa-ui-tooltip\[data-placement="below"\]::before/);
 	assert.match(styles, /\.aa-ui-tooltip\[data-placement="right"\]::before/);
 	assert.match(styles, /\.aa-ui-tooltip\[data-placement="left"\]::before/);
-	assert.match(styles, /inset 0 1px 0/);
+	assert.match(styles, /\.aa-ui-tooltip\s*\{[\s\S]*border:\s*1px solid transparent/);
 	assert.doesNotMatch(styles, /aa-ui-tooltip-in[^}]*scale\(/);
 	assert.match(styles, /prefers-reduced-motion:\s*reduce[\s\S]*\.aa-ui-tooltip/);
 });

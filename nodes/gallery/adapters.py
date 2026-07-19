@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import aiohttp
 
 TAG_CATEGORIES = ("artist", "copyright", "character", "general", "meta")
+STATIC_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "webp", "gif"})
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,8 @@ class GalleryCapabilities:
     detail_hydration: bool = True
     download: bool = True
     auth_required: bool = False
+    tag_search: bool = False
+    max_search_tags: int | None = None
 
     def json(self) -> dict[str, Any]:
         return {
@@ -49,6 +52,8 @@ class GalleryCapabilities:
             "detailHydration": self.detail_hydration,
             "download": self.download,
             "authRequired": self.auth_required,
+            "tagSearch": self.tag_search,
+            "maxSearchTags": self.max_search_tags,
         }
 
 
@@ -201,6 +206,18 @@ def _is_blacklisted(post: dict[str, Any], blacklist: tuple[str, ...]) -> bool:
     return bool(tags.intersection(tag.casefold() for tag in blacklist))
 
 
+def _is_supported_static_post(post: dict[str, Any]) -> bool:
+    explicit = str(post.get("file_ext") or post.get("extension") or "").strip().lower().lstrip(".")
+    if explicit:
+        return explicit in STATIC_IMAGE_EXTENSIONS
+    for key in ("file_url", "source", "image"):
+        path = urlparse(str(post.get(key) or "")).path
+        suffix = path.rsplit("/", 1)[-1].rsplit(".", 1)
+        if len(suffix) == 2 and suffix[1]:
+            return suffix[1].lower() in STATIC_IMAGE_EXTENSIONS
+    return True
+
+
 def _with_blacklist(query: str, blacklist: tuple[str, ...]) -> str:
     # Query operators are not tags. Unsafe values still receive exact local filtering.
     exclusions = (f"-{tag}" for tag in blacklist if re.fullmatch(r"[^\s:]+", tag) and not tag.startswith("-"))
@@ -214,11 +231,21 @@ def _int(value: Any) -> int:
         return 0
 
 
+def _rating_matches(source: str, value: str, ratings: list[str]) -> bool:
+    if not ratings:
+        return True
+    aliases = ({"g": "general", "s": "sensitive", "q": "questionable", "e": "explicit"}
+               if source == "danbooru" else
+               {"g": "safe", "general": "safe", "s": "safe", "q": "questionable", "e": "explicit"})
+    return aliases.get(str(value).strip().lower(), str(value).strip().lower()) in ratings
+
+
 class DanbooruAdapter(BooruAdapter):
     source = "danbooru"
     capabilities = GalleryCapabilities(source, "Danbooru", ("general", "sensitive", "questionable", "explicit"),
                                        ("latest", "score", "favcount", "random"), "page", 200,
-                                       ("username", "apiKey"), True, True, True, ("day", "week", "month"))
+                                       ("username", "apiKey"), True, True, True, ("day", "week", "month"),
+                                       tag_search=True, max_search_tags=2)
     media_hosts = frozenset({"cdn.donmai.us", "danbooru.donmai.us"})
     base = "https://danbooru.donmai.us"
 
@@ -245,7 +272,8 @@ class DanbooruAdapter(BooruAdapter):
         raw = await self._get_json(session, f"{self.base}/posts.json", params={"tags": tags, "page": page, "limit": size, **self.auth_params(credentials)})
         if not isinstance(raw, list):
             raise RuntimeError("danbooru search response must be a list")
-        posts = tuple(self._summary(item) for item in raw if isinstance(item, dict) and item.get("id") and not _is_blacklisted(item, blacklist))
+        posts = tuple(post for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist)
+                      for post in (self._summary(item),) if _rating_matches(self.source, post.rating, ratings))
         return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, page=page)
 
     async def ranking(self, session, period, cursor, limit, credentials, blacklist=()):
@@ -258,7 +286,7 @@ class DanbooruAdapter(BooruAdapter):
         })
         if not isinstance(raw, list):
             raise RuntimeError("danbooru ranking response must be a list")
-        posts = tuple(self._summary(item) for item in raw if isinstance(item, dict) and item.get("id") and not _is_blacklisted(item, blacklist))
+        posts = tuple(self._summary(item) for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist))
         return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, page=page)
 
     async def get_post(self, session, post_id, credentials):
@@ -311,7 +339,7 @@ class GelbooruAdapter(BooruAdapter):
     source = "gelbooru"
     capabilities = GalleryCapabilities(source, "Gelbooru", ("safe", "questionable", "explicit"),
                                        ("latest", "score"), "pid", 100, ("userId", "apiKey"), True, True, False,
-                                       auth_required=True)
+                                       auth_required=True, tag_search=True)
     media_hosts = frozenset({"gelbooru.com", "img3.gelbooru.com", "img4.gelbooru.com"})
     base = "https://gelbooru.com/index.php"
 
@@ -350,7 +378,8 @@ class GelbooruAdapter(BooruAdapter):
             tags = f"{tags} sort:score:desc".strip()
         size = min(max(1, limit), 100)
         raw = await self._posts(session, {"tags": tags, "pid": pid, "limit": size}, credentials)
-        posts = tuple(self._summary(item) for item in raw if isinstance(item, dict) and item.get("id") and not _is_blacklisted(item, blacklist))
+        posts = tuple(post for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist)
+                      for post in (self._summary(item),) if _rating_matches(self.source, post.rating, ratings))
         return GalleryPage(posts, str(pid + 1) if len(raw) == size else None, len(raw) < size, page=pid + 1)
 
     async def get_post(self, session, post_id, credentials):
@@ -390,7 +419,7 @@ class GelbooruAdapter(BooruAdapter):
 class SafebooruAdapter(GelbooruAdapter):
     source = "safebooru"
     capabilities = GalleryCapabilities(source, "Safebooru", ("safe",), ("latest", "score"), "pid", 1000,
-                                       (), True, False, False)
+                                       (), True, False, False, tag_search=True)
     media_hosts = frozenset({"safebooru.org", "images.safebooru.org"})
     base = "https://safebooru.org/index.php"
 
@@ -411,7 +440,7 @@ class AITagAdapter(BooruAdapter):
     """Public AI TAG gallery API; prompt metadata is normalized as General tags."""
 
     source = "aitag"
-    capabilities = GalleryCapabilities(source, "AI TAG", (), ("new",), "page", 60, (), False, False, False, ("month",))
+    capabilities = GalleryCapabilities(source, "AI TAG", (), ("new",), "page", 60, (), False, False, False, ("month",), tag_search=True)
     media_hosts = frozenset({"ai-img.10118899.xyz"})
     base = "https://aitag.win"
     asset_base = "https://ai-img.10118899.xyz/"

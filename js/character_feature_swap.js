@@ -9,7 +9,7 @@ import {
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
-import { button, createDialog, el, field, isolate } from "./lib/ui.js";
+import { button, createDialog, el, field, iconButton, isolate } from "./lib/ui.js";
 
 const NODE = "CharacterFeatureSwapNode";
 const PROPERTY = "characterFeatureSwap";
@@ -86,6 +86,13 @@ async function refreshPublicSettings({ force = false } = {}) {
 	return publicSettingsRequest;
 }
 
+function openCharacterSwapSettings() {
+	void openSettingsDialog().catch((error) => {
+		console.error("[Aaalice] Character Feature Swap settings failed", error);
+		app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.characterSwap.settings.title", "Character Feature Swap"), detail: error.message });
+	});
+}
+
 function render(node) {
 	if (!node._aaaliceCharacterSwapControl) return;
 	node._aaaliceCharacterSwapLabel.textContent = t("aaalice.characterSwap.features.label", "Replace features");
@@ -105,9 +112,11 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const modelValue = el("span", { className: "aaalice-character-swap-summary-value", text: "—" });
 	const thinkingLabelElement = el("span", { className: "aaalice-character-swap-summary-label", text: t("aaalice.characterSwap.features.thinking", "Thinking") });
 	const thinkingValue = el("span", { className: "aaalice-character-swap-summary-value", text: "—" });
+	const settingsButton = iconButton({ className: "aaalice-character-swap-settings-trigger", iconName: "settings", label: t("aaalice.characterSwap.settings.open", "Configure LLM…"), variant: "ghost", onClick: openCharacterSwapSettings });
 	const summary = el("div", { className: "aaalice-character-swap-summary", children: [
 		el("div", { className: "aaalice-character-swap-summary-item", children: [modelLabel, modelValue] }),
 		el("div", { className: "aaalice-character-swap-summary-item", children: [thinkingLabelElement, thinkingValue] }),
+		settingsButton,
 	] });
 	const control = createTagListControl({
 		value: stateFor(node).features,
@@ -282,7 +291,7 @@ function registerSettingsEntry() {
 		type: () => {
 			const row = document.createElement("tr");
 			const cell = document.createElement("td"); cell.colSpan = 2;
-			cell.append(button({ label: t("aaalice.characterSwap.settings.open", "Configure LLM…"), onClick: () => openSettingsDialog().catch((error) => console.error("[Aaalice] Character Feature Swap settings failed", error)) }));
+			cell.append(button({ label: t("aaalice.characterSwap.settings.open", "Configure LLM…"), onClick: openCharacterSwapSettings }));
 			row.append(cell); return row;
 		},
 	});

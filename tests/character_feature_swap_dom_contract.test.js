@@ -39,10 +39,13 @@ test("shows the current model and localized thinking effort on the node", () => 
 	assert.match(source, /className: "aaalice-character-swap-summary"/);
 	assert.match(source, /aaalice\.characterSwap\.features\.model/);
 	assert.match(source, /aaalice\.characterSwap\.features\.thinking/);
+	assert.match(source, /className: "aaalice-character-swap-settings-trigger"/);
+	assert.match(source, /onClick: openCharacterSwapSettings/);
 	assert.match(source, /renderSettingsSummary\(node\)/);
 	assert.match(source, /applyPublicSettings\(savedSettings\)/);
 	assert.match(source, /refreshPublicSettings\(\{ force: true \}\)/);
-	assert.match(theme, /\.aaalice-character-swap-summary \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/);
+	assert.match(theme, /\.aaalice-character-swap-summary \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto 24px;/);
+	assert.match(theme, /\.aaalice-character-swap-settings-trigger\.aa-ui-button \{[^}]*width: 22px;[^}]*pointer-events: auto;/);
 	assert.match(theme, /\.aaalice-character-swap-summary-value \{[^}]*text-overflow: ellipsis;/);
 });
 

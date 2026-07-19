@@ -20,7 +20,7 @@ def default_settings() -> dict[str, Any]:
         "defaultRatings": {"danbooru": ["general"], "gelbooru": ["safe"], "safebooru": ["safe"], "aitag": []},
         "blacklist": [],
         "promptDefaults": {"categories": list(DEFAULT_PROMPT_CATEGORIES), "replaceUnderscores": False,
-                           "escapeParentheses": False, "excludedTags": []},
+                           "escapeParentheses": False},
         "tooltip": True,
         "timeout": 30,
         "cacheBudgetMiB": 1024,
@@ -104,7 +104,9 @@ class GallerySettingsStore:
         if not isinstance(prompt, dict):
             raise ValueError("promptDefaults must be an object")
         prompt["categories"] = [item for item in _string_list(prompt.get("categories", []), "prompt categories") if item in CATEGORY_ORDER]
-        prompt["excludedTags"] = _string_list(prompt.get("excludedTags", []), "excludedTags")
+        legacy_excluded = _string_list(prompt.get("excludedTags", []), "excludedTags")
+        settings["blacklist"] = list(dict.fromkeys([*settings["blacklist"], *legacy_excluded]))
+        prompt.pop("excludedTags", None)
         prompt["replaceUnderscores"] = bool(prompt.get("replaceUnderscores", False))
         prompt["escapeParentheses"] = bool(prompt.get("escapeParentheses", False))
         settings["tooltip"] = bool(settings.get("tooltip", True))

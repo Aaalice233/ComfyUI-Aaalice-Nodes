@@ -8,12 +8,13 @@ import { bindNodeAccent } from "./lib/node_accent.js";
 import { mountVirtualList } from "./lib/virtual_list.js";
 import { mountVirtualMasonry } from "./lib/virtual_masonry.js";
 import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, isolate, listboxControl, multiSelectControl, segmentedControl } from "./lib/ui.js";
+import { createTagPillList } from "./lib/controls/tag_pills.js";
 
 const NODE = "BooruGalleryNode";
 const PROPERTY = "booruGalleryState";
 const API = "/aaalice/booru-gallery";
 const DEFAULT_SIZE = [760, 720];
-const MIN_SIZE = [480, 300];
+const MIN_SIZE = [620, 300];
 const STATIC_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
 let settings = null;
@@ -42,7 +43,33 @@ function ratingTone(value) {
 	return ["general", "safe", "sensitive", "questionable", "explicit"].includes(rating) ? rating : "unknown";
 }
 function ratingLabel(value) { const key = ratingKey(value); return label(`rating.${key}`, String(value || "—")); }
+function ratingIcon(value) { return ({ general: "ratingGeneral", safe: "ratingGeneral", sensitive: "ratingSensitive", questionable: "ratingQuestionable", explicit: "ratingExplicit" })[ratingTone(value)] || "statusIdle"; }
 function sortLabel(value) { return label(`collection.${value}`, String(value)); }
+function effectivePrompt(node) {
+	return { ...stateFor(node).prompt, excludedTags: [...(settings?.blacklist || [])] };
+}
+
+async function saveGlobalBlacklist(value) {
+	const blacklist = Array.isArray(value) ? [...new Set(value.map((tag) => String(tag).trim()).filter(Boolean))] : tagLines(value);
+	settings = await jsonRequest(`${API}/settings/save`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ blacklist }),
+	});
+	const searches = [];
+	for (const galleryNode of app.graph?._nodes || []) {
+		if (!isGallery(galleryNode)) continue;
+		if (stateFor(galleryNode).selections.some((selection) => blacklist.some((tag) => selectionContainsTag(selection, tag)))) {
+			transact(galleryNode, (state) => { state.selections = state.selections.filter((selection) => !blacklist.some((tag) => selectionContainsTag(selection, tag))); });
+		}
+		galleryNode._aaGalleryController?.renderSelected();
+		galleryNode._aaGalleryController?.refreshCards();
+		const request = galleryNode._aaGalleryController?.search({ reset: true, page: 1 });
+		if (request) searches.push(request);
+	}
+	await Promise.all(searches);
+	return blacklist;
+}
 function collectionOptions(source) {
 	const cap = capability(source);
 	const sortIcons = { latest: "statusIdle", new: "statusIdle", score: "statusCheck", favcount: "favorite", random: "refresh" };
@@ -62,18 +89,11 @@ function hasSourceCredentials(source) {
 	return fields.every((name) => status[`has${name[0].toUpperCase()}${name.slice(1)}`]);
 }
 
-async function openComfySettings() {
-	const command = app.extensionManager?.command?.commands?.find?.((item) => item.id === "Comfy.ShowSettingsDialog");
-	try {
-		if (typeof command?.function === "function") { await command.function(); return true; }
-		if (typeof app.ui?.settings?.show === "function") { await app.ui.settings.show(); return true; }
-	} catch (error) {
-		console.error("[Aaalice] Failed to open ComfyUI settings", error);
-	}
-	const detail = label("settings.pathHint", "Click the gear in the lower-left corner, then open Aaalice Nodes → Booru Gallery to configure accounts and Gallery settings.");
-	if (app.extensionManager?.toast?.add) app.extensionManager.toast.add({ severity: "warn", summary: label("settings.openFailed", "Open ComfyUI settings"), detail });
-	else window.alert(detail);
-	return false;
+function openGallerySettings() {
+	void openSettingsDialog().catch((error) => {
+		console.error("[Aaalice] Gallery settings failed", error);
+		app.extensionManager?.toast?.add?.({ severity: "error", summary: label("settings.title", "Booru Gallery"), detail: error.message });
+	});
 }
 
 function showFavoriteNotice(source, reason) {
@@ -87,7 +107,7 @@ function showFavoriteNotice(source, reason) {
 	] });
 	const close = button({ label: label("card.favoriteDismiss", "Got it"), variant: "ghost", onClick: () => dialog.close() });
 	const actions = [close];
-	if (needsLogin) actions.push(button({ label: label("card.favoriteConfigure", "Configure account"), iconName: "settings", variant: "primary", onClick: () => { dialog.close(); void openComfySettings(); } }));
+	if (needsLogin) actions.push(button({ label: label("card.favoriteConfigure", "Configure account"), iconName: "settings", variant: "primary", onClick: () => { dialog.close(); openGallerySettings(); } }));
 	dialog = createDialog({ title: needsLogin ? label("card.favoriteLoginTitle", "Account required") : label("card.favoriteReadOnlyTitle", "Favorites are read-only"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: actions }), size: "compact" });
 }
 
@@ -128,6 +148,19 @@ function proxyUrl(source, url) { return `${API}/media?${new URLSearchParams({ so
 function searchQuery(state) { return state.query.trim(); }
 function tagLines(value) { return [...new Set(String(value || "").split(/\n/).map((tag) => tag.trim()).filter(Boolean))]; }
 
+function selectionContainsTag(selection, tag) {
+	const target = String(tag).toLocaleLowerCase();
+	const groups = normalizeTagGroups(selection.originalTags || selection.editedTags);
+	return GALLERY_CATEGORIES.some((category) => groups[category].some((value) => String(value).toLocaleLowerCase() === target));
+}
+
+async function addGlobalBlacklistTag(tag) {
+	const value = String(tag || "").trim();
+	if (!value) return;
+	const current = settings?.blacklist || [];
+	if (!current.some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase())) await saveGlobalBlacklist([...current, value]);
+}
+
 function createSearchControl(node) {
 	const root = el("div", "aa-gallery-search");
 	const input = document.createElement("input"); input.type = "search"; input.className = "aa-gallery-search__input";
@@ -140,12 +173,52 @@ function createSearchControl(node) {
 		open = Boolean(next); root.classList.toggle("is-open", open); toggle.hidden = open; node._aaGalleryRoot?.classList.toggle("is-searching", open);
 		if (open) queueMicrotask(() => { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); });
 	};
+	const submit = () => {
+		transact(node, (state) => { state.query = input.value.trim(); state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; });
+		node._aaGalleryCollection?.setValue(`sort:${stateFor(node).filters.sort}`);
+		node._aaGalleryPage?.setPage(1);
+		node._aaGalleryController?.search({ reset: true, page: 1 });
+	};
+	const addTag = (tag, maxTags = null) => {
+		const value = String(tag || "").trim();
+		if (!value) return false;
+		setOpen(true);
+		const terms = input.value.trim().match(/"[^"]+"|'[^']+'|\S+/g) || [];
+		if (terms.some((term) => term.replace(/^(["'])|(["'])$/g, "").toLocaleLowerCase() === value.toLocaleLowerCase())) return true;
+		if (Number.isInteger(maxTags) && terms.length >= maxTags) {
+			app.extensionManager.toast.add({ severity: "warning", summary: label("search.limitTitle", "Search limit"), detail: label("search.tagLimit", "This source supports up to {count} tags per search.").replace("{count}", String(maxTags)) });
+			return false;
+		}
+		input.value = [...terms, value].join(" ");
+		submit();
+		return true;
+	};
 	input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; });
 	input.addEventListener("keydown", (event) => {
 		if (event.key === "Escape") { event.preventDefault(); setOpen(false); }
-		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); transact(node, (state) => { state.query = input.value.trim(); state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); node._aaGalleryCollection?.setValue(`sort:${stateFor(node).filters.sort}`); node._aaGalleryPage?.setPage(1); node._aaGalleryController?.search({ reset: true, page: 1 }); }
+		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});
-	return { root, input, toggle, setOpen, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; } };
+	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; } };
+}
+
+function openClearSelectionDialog(node, controller) {
+	if (!stateFor(node).selections.length) return;
+	let dialog;
+	const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() });
+	const clear = button({ label: label("selected.clearAction", "Clear selection"), iconName: "delete", variant: "danger", onClick: () => {
+		transact(node, (state) => { state.selections = []; });
+		controller.renderSelected();
+		controller.refreshCards();
+		dialog.close();
+	} });
+	dialog = createDialog({
+		title: label("selected.clearTitle", "Clear selected posts"),
+		body: el("div", { className: "aa-gallery-clear-confirm", children: [icon("delete"), el("p", null, label("selected.clearConfirm", "Clear all selected posts?"))] }),
+		footer: el("div", { className: "aa-gallery-dialog-actions", children: [cancel, clear] }),
+		size: "compact",
+		className: "aa-gallery-clear-confirm-dialog",
+		confirmOnEnter: false,
+	});
 }
 
 function installGalleryCardMotion(card) {
@@ -291,32 +364,68 @@ function resolveSelectedDropTarget(listRoot, clientY) {
 	return selectedDropEdge(last, last.getBoundingClientRect().bottom);
 }
 
-function selectedPromptHoverContent(selection, index, promptText) {
-	const tags = selection.editedTags || selection.originalTags;
-	const count = tagCount(tags);
-	const empty = !promptText;
-	const chips = [
-		dimensions(selection),
-		selection.rating ? ratingLabel(selection.rating) : "",
-		selection.fileExt?.toUpperCase() || "",
-		label("selected.tagCount", `${count} tags`).replace("{count}", String(count)),
-	].filter(Boolean);
-	return el("article", { className: "aa-gallery-selected-prompt", attrs: { "data-source": selection.source }, children: [
-		el("header", { className: "aa-gallery-selected-prompt__header", children: [
-			el("span", { className: "aa-gallery-selected-prompt__order", text: String(index + 1) }),
-			el("div", { className: "aa-gallery-selected-prompt__title", children: [
-				el("strong", null, `${selection.source} #${selection.postId}`),
-				el("div", { className: "aa-gallery-selected-prompt__meta", children: chips.map((chip) => el("span", null, chip)) }),
-			] }),
-		] }),
-		empty
-			? el("p", { className: "aa-gallery-selected-prompt__empty", text: label("selected.noPrompt", "No prompt tags in the current category selection") })
-			: el("p", { className: "aa-gallery-selected-prompt__text", text: promptText }),
+function selectedPromptTokens(selection, promptConfig) {
+	const groups = selection.editedTags || selection.originalTags || {};
+	const categories = new Set(promptConfig?.categories || []);
+	const excluded = new Set(promptConfig?.excludedTags || []);
+	const seen = new Set();
+	const tokens = [];
+	for (const category of GALLERY_CATEGORIES) {
+		if (!categories.has(category)) continue;
+		for (const tag of groups[category] || []) {
+			if (seen.has(tag) || excluded.has(tag)) continue;
+			seen.add(tag);
+			let text = promptConfig?.replaceUnderscores ? tag.replaceAll("_", " ") : tag;
+			if (promptConfig?.escapeParentheses) text = text.replaceAll("(", "\\(").replaceAll(")", "\\)");
+			tokens.push({ category, raw: tag, text });
+		}
+	}
+	return tokens;
+}
+
+function createGalleryTagPills(options = {}) {
+	return createTagPillList({
+		...options,
+		labels: {
+			menu: label("detail.tagMenu", "Tag actions"),
+			menuHint: label("detail.tagMenu", "Right-click for tag actions"),
+			editableMenuHint: label("detail.editableTagMenu", "Click to edit · Right-click for tag actions · {tag}"),
+			editValue: label("selected.editTagValue", "Edit tag value"),
+			edit: label("selected.edit", "Edit tag"),
+			addToSearch: label("detail.addToSearch", "Add to search"),
+			remove: label("selected.removeTag", "Remove {tag}"),
+			...(options.labels || {}),
+		},
+	});
+}
+function selectedRowTagPreview(tokens) {
+	return el("div", { className: "aa-gallery-selected-row__tags", attrs: { "aria-hidden": "true" }, children: [
+		...tokens.map((token) => el("span", { attrs: { "data-category": token.category }, text: token.text })),
 	] });
 }
 
+function selectedRowCopyContent(selection, promptConfig) {
+	const promptText = finalPrompt(selection, promptConfig);
+	const promptTokens = selectedPromptTokens(selection, promptConfig);
+	const count = tagCount(selection.editedTags || selection.originalTags);
+	return [
+		el("div", { className: "aa-gallery-selected-row__title", children: [
+			el("strong", null, `${selection.source} #${selection.postId}`),
+			el("span", "aa-gallery-selected-row__format", selection.fileExt?.toUpperCase() || "IMAGE"),
+		] }),
+		el("small", { className: "aa-gallery-selected-row__meta", text: [
+			dimensions(selection),
+			selection.rating ? ratingLabel(selection.rating) : "",
+			label("selected.tagCount", `${count} tags`).replace("{count}", String(count)),
+		].filter(Boolean).join(" · ") }),
+		promptTokens.length
+			? selectedRowTagPreview(promptTokens)
+			: el("p", { className: "aa-gallery-selected-row__prompt", text: promptText || label("selected.noPrompt", "No prompt tags in the current category selection") }),
+	];
+}
+
 function createSelectedRow(node, controller, selection, index) {
-	const promptText = finalPrompt(selection, stateFor(node).prompt);
+	const promptConfig = effectivePrompt(node);
 	const thumb = el("img", {
 		className: "aa-gallery-selected-row__thumb",
 		attrs: {
@@ -326,103 +435,71 @@ function createSelectedRow(node, controller, selection, index) {
 			decoding: "async",
 		},
 	});
-	const copy = el("div", {
+	const copy = el("button", {
 		className: "aa-gallery-selected-row__copy",
 		attrs: {
-			tabindex: "0",
-			role: "group",
-			"aria-label": label("selected.promptHover", "Hover to view full prompt"),
+			type: "button",
+			"aria-label": label("card.detail", "View details"),
+			title: label("card.detail", "View details"),
 		},
-		children: [
-			el("div", { className: "aa-gallery-selected-row__title", children: [
-				el("strong", null, `${selection.source} #${selection.postId}`),
-				el("span", "aa-gallery-selected-row__format", selection.fileExt?.toUpperCase() || "IMAGE"),
-			] }),
-			el("small", null, [
-				dimensions(selection),
-				selection.rating,
-				label("selected.tagCount", `${tagCount(selection.editedTags || selection.originalTags)} tags`)
-					.replace("{count}", String(tagCount(selection.editedTags || selection.originalTags))),
-			].filter(Boolean).join(" · ")),
-			el("p", {
-				className: "aa-gallery-selected-row__prompt",
-				text: promptText || label("selected.noPrompt", "No prompt tags in the current category selection"),
-			}),
-		],
+		children: selectedRowCopyContent(selection, promptConfig),
+	});
+	const remove = iconButton({
+		className: "aa-gallery-selected-row__remove",
+		iconName: "delete",
+		label: label("selected.remove", "Remove"),
+		variant: "ghost",
+		onClick: (event) => {
+			event.stopPropagation();
+			transact(node, (state) => state.selections.splice(index, 1));
+			controller.renderSelected();
+			controller.refreshCards();
+		},
+	});
+	const actions = el("div", {
+		className: "aa-gallery-selected-row__actions",
+		attrs: { "aria-label": label("selected.remove", "Remove") },
+		children: [remove],
 	});
 	const root = el("div", {
 		className: "aa-gallery-selected-row",
-		attrs: { draggable: true, "data-source": selection.source, "data-index": String(index) },
+		attrs: {
+			"data-source": selection.source,
+			"data-index": String(index),
+			"data-rank": index < 3 ? String(index + 1) : "other",
+			draggable: true,
+			title: label("selected.reorder", "Drag to reorder"),
+		},
 		children: [
-			el("span", { className: "aa-gallery-selected-row__drag", attrs: { "aria-hidden": "true" }, children: [icon("drag")] }),
-			el("span", "aa-gallery-selected-row__order", String(index + 1)),
 			thumb,
 			copy,
-			iconButton({ iconName: "edit", label: label("selected.edit", "Edit tags"), variant: "ghost", onClick: () => controller.openEditor(index) }),
-			iconButton({
-				iconName: "delete",
-				label: label("selected.remove", "Remove"),
-				variant: "ghost",
-				onClick: () => {
-					transact(node, (state) => state.selections.splice(index, 1));
-					controller.renderSelected();
-					controller.refreshCards();
-				},
-			}),
+			el("span", "aa-gallery-selected-row__order", String(index + 1)),
+			actions,
 		],
 	});
 	if (controller.selectedDragFrom === index) root.classList.add("is-dragging");
 	let imageHoverTimer = 0;
-	let promptHoverTimer = 0;
-	let pointer = null;
 	const clearImageHover = () => { clearTimeout(imageHoverTimer); imageHoverTimer = 0; };
-	const clearPromptHover = () => { clearTimeout(promptHoverTimer); promptHoverTimer = 0; };
 	const hideHover = () => {
 		clearImageHover();
-		clearPromptHover();
 		controller.tooltip.hide();
 	};
-	const rememberPointer = (event) => {
-		if (!Number.isFinite(event?.clientX) || !Number.isFinite(event?.clientY)) return;
-		pointer = { x: event.clientX, y: event.clientY };
+	const openSelectedDetail = () => {
+		hideHover();
+		controller.openDetail(selection).catch(controller.showError);
 	};
 	thumb.addEventListener("mouseenter", () => {
 		if (!settings?.tooltip) return;
 		clearImageHover();
-		clearPromptHover();
 		imageHoverTimer = setTimeout(() => controller.showHover(thumb, selection), 280);
 	});
 	thumb.addEventListener("mouseleave", () => {
 		clearImageHover();
 		if (controller.tooltip.isOpenFor(thumb)) controller.tooltip.hide();
 	});
-	const showPromptHover = (immediate = false) => {
-		if (controller.tooltip.isOpenFor(copy)) {
-			controller.tooltip.cancelScheduledHide();
-			return;
-		}
-		const reveal = () => controller.showPromptHover(copy, selection, index, promptText, pointer);
-		if (immediate) reveal();
-		else {
-			clearPromptHover();
-			promptHoverTimer = setTimeout(reveal, 180);
-		}
-	};
-	copy.addEventListener("pointerenter", rememberPointer);
-	copy.addEventListener("pointermove", rememberPointer);
-	copy.addEventListener("mouseenter", (event) => {
-		rememberPointer(event);
-		showPromptHover(false);
-	});
-	copy.addEventListener("mouseleave", () => {
-		clearPromptHover();
-		if (controller.tooltip.isOpenFor(copy)) controller.tooltip.scheduleHide();
-	});
-	copy.addEventListener("focusin", () => showPromptHover(true));
-	copy.addEventListener("focusout", (event) => {
-		if (copy.contains(event.relatedTarget)) return;
-		clearPromptHover();
-		if (controller.tooltip.isOpenFor(copy)) controller.tooltip.scheduleHide();
+	copy.addEventListener("click", (event) => {
+		event.preventDefault();
+		openSelectedDetail();
 	});
 	root.addEventListener("dragstart", (event) => {
 		hideHover();
@@ -443,6 +520,13 @@ function buildController(node, elements) {
 	const showError = (error) => { elements.errorLabel.textContent = error?.message || String(error); elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error); };
 	const clearError = () => { elements.error.hidden = true; elements.errorLabel.textContent = ""; };
 	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; };
+	const addTagToSearch = (tag) => {
+		const source = stateFor(node).source;
+		const cap = capability(source);
+		if (!cap?.tagSearch) return false;
+		const maxTags = source === "danbooru" && hasSourceCredentials(source) ? null : cap.maxSearchTags;
+		return elements.searchControl.addTag(tag, maxTags);
+	};
 	const refreshCards = () => elements.masonry.querySelectorAll(".aa-gallery-card").forEach((card) => card._aaGalleryUpdate?.());
 	const hideSelectedDropIndicator = () => {
 		selectedDropInsertBefore = null;
@@ -540,7 +624,11 @@ function buildController(node, elements) {
 		const count = stateFor(node).selections.length;
 		elements.selectedList.setItems(stateFor(node).selections, { preserveScroll: true });
 		elements.tabs.setValue(elements.mode);
-		elements.selectedMeta.textContent = label("selected.outputHint", `${count} ordered image and Prompt pairs`).replace("{count}", String(count));
+		if (elements.selectedCount) {
+			elements.selectedCount.textContent = String(count);
+			elements.selectedCount.setAttribute("aria-label", label("selected.outputHint", "{count} outputs").replace("{count}", String(count)));
+		}
+		if (elements.selectedClear) elements.selectedClear.disabled = count === 0;
 		elements.emptySelected.hidden = count > 0;
 	};
 	const setMode = (mode) => {
@@ -675,19 +763,26 @@ function buildController(node, elements) {
 			tooltip.reposition();
 		}).catch(() => { waitingForLargerPreview = false; loading.hidden = true; });
 	};
-	const showPromptHover = (anchor, selection, index, promptText, point = null) => {
-		const hasPoint = point && Number.isFinite(point.x) && Number.isFinite(point.y);
-		tooltip.show(anchor, selectedPromptHoverContent(selection, index, promptText), {
-			className: "aa-gallery-selected-prompt-tooltip",
-			contentMode: "dom",
-			immediate: true,
-			interactive: true,
-			placement: hasPoint ? "cursor" : "auto",
-			point: hasPoint ? point : null,
-		});
-	};
 	const openDetail = async (post) => {
 		const detail = await getDetail(post); const key = `${post.source}:${post.postId}`; const selected = stateFor(node).selections.some((item) => selectionKey(item) === key);
+		const selectedSnapshot = stateFor(node).selections.find((item) => selectionKey(item) === key);
+		const detailDrafts = normalizeTagGroups(selectedSnapshot?.editedTags || sessionEdits.get(key) || detail.tags);
+		const detailCounts = {};
+		const detailTokens = (category) => detailDrafts[category].map((tag) => ({ category, raw: tag, text: tag }));
+		const mutateDetailTag = (category, mutation) => {
+			if (mutation.type !== "rename") return null;
+			const index = detailDrafts[category].indexOf(mutation.raw);
+			const value = String(mutation.value || "").trim();
+			if (index < 0 || !value) return null;
+			detailDrafts[category][index] = value;
+			detailDrafts[category] = [...new Set(detailDrafts[category])];
+			const editedTags = normalizeTagGroups(detailDrafts);
+			if (selectedSnapshot) transact(node, (state) => { const current = state.selections.find((item) => selectionKey(item) === key); if (current) current.editedTags = editedTags; });
+			else sessionEdits.set(key, editedTags);
+			if (detailCounts[category]) detailCounts[category].textContent = String(detailDrafts[category].length);
+			renderSelected();
+			return detailTokens(category);
+		};
 		const image = el("img", { className: "aa-gallery-detail__image", attrs: { src: proxyUrl(detail.source, detail.mediaUrl), alt: `${detail.source} #${detail.postId}` } });
 		const actions = [];
 		let dialog; actions.push(button({ className: `aa-gallery-detail__action is-selection${selected ? " is-selected" : ""}`, label: selected ? label("detail.remove", "Remove selection") : label("detail.select", "Select"), variant: selected ? "danger" : "primary", onClick: async () => { await toggleSelection(detail); dialog.close(); } }));
@@ -703,11 +798,31 @@ function buildController(node, elements) {
 			["tags", label("detail.tags", "Tags"), String(tagTotal)],
 		];
 		const inspector = el("aside", { className: "aa-gallery-detail__inspector", children: [
-			el("header", { className: "aa-gallery-detail__header", children: [el("span", { className: "aa-gallery-detail__source", attrs: { "data-source": detail.source }, text: detail.source }), el("div", { children: [el("strong", null, `#${detail.postId}`), el("small", null, label("detail.localOnly", "Local selection and tag edits only"))] })] }),
+			el("header", { className: "aa-gallery-detail__header", children: [el("span", { className: "aa-gallery-detail__source", attrs: { "data-source": detail.source }, text: detail.source }), el("strong", null, `#${detail.postId}`)] }),
 			el("dl", { className: "aa-gallery-detail__facts", children: facts.map(([fact, term, value]) => el("div", { attrs: { "data-fact": fact }, children: [el("dt", null, term), el("dd", null, value)] })) }),
 			el("div", { className: "aa-gallery-detail__tag-groups", children: GALLERY_CATEGORIES.map((category) => {
-				const tags = detail.tags?.[category] || [];
-				return el("section", { className: "aa-gallery-detail__tag-group", attrs: { "data-category": category }, children: [sectionHeading(label(`category.${category}`, category), String(tags.length)), el("div", { className: "aa-gallery-detail__tag-list", children: tags.length ? tags.map((tag) => el("span", null, tag)) : [el("small", null, label("detail.noTags", "No tags"))] })] });
+				const heading = sectionHeading(label(`category.${category}`, category), String(detailDrafts[category].length));
+				detailCounts[category] = heading.querySelector("small");
+				return el("section", { className: "aa-gallery-detail__tag-group", attrs: { "data-category": category }, children: [
+					heading,
+					createGalleryTagPills({
+						tokens: detailTokens(category),
+						ariaLabel: label(`category.${category}`, category),
+						emptyText: label("detail.noTags", "No tags"),
+						onMutate: (mutation) => mutateDetailTag(category, mutation),
+						contextMenuItems: (token, { edit }) => [
+							{ label: label("detail.editTag", "Edit tag"), iconName: "edit", onSelect: edit },
+							{ label: label("detail.addToSearch", "Add to search"), iconName: "search", disabled: !cap?.tagSearch, onSelect: () => addTagToSearch(token.raw) },
+							{ label: label("detail.blockTag", "Block tag"), iconName: "filter", danger: true, onSelect: async () => {
+								dialog.close();
+								try {
+									await addGlobalBlacklistTag(token.raw);
+									app.extensionManager.toast.add({ severity: "success", summary: label("settings.blacklist", "Content blacklist"), detail: label("detail.blacklistAdded", "Posts tagged {tag} are now hidden").replace("{tag}", token.raw) });
+								} catch (error) { showError(error); }
+							} },
+						],
+					}),
+				] });
 			}) }),
 		] });
 		const body = el("div", { className: "aa-gallery-detail", children: [el("div", { className: "aa-gallery-detail__media", children: [image] }), inspector] });
@@ -718,13 +833,47 @@ function buildController(node, elements) {
 		let selection = selectedIndex >= 0 ? stateFor(node).selections[selectedIndex] : null; const key = selection ? selectionKey(selection) : `${target.source}:${target.postId}`;
 		if (!selection) { const detail = await getDetail(target); selection = selectionFromDetail(detail, sessionEdits.get(key)); }
 		if (!selection) throw new Error(label("error.incomplete", "The post detail is incomplete.")); const groups = normalizeTagGroups(selection.editedTags || selection.originalTags);
+		const drafts = normalizeTagGroups(groups);
 		const counts = {};
-		const inputs = Object.fromEntries(GALLERY_CATEGORIES.map((category) => { const control = document.createElement("textarea"); control.className = "aa-ui-input aa-gallery-tag-editor__input"; control.value = groups[category].join("\n"); return [category, control]; }));
+		const pillLists = {};
+		const tokensFor = (category) => drafts[category].map((tag) => ({ category, raw: tag, text: tag }));
+		const updateCount = (category) => {
+			const next = String(drafts[category].length);
+			if (!counts[category] || counts[category].textContent === next) return;
+			counts[category].textContent = next;
+			counts[category].classList.remove("is-updated");
+			void counts[category].offsetWidth;
+			counts[category].classList.add("is-updated");
+		};
+		const mutateDraft = (category, mutation) => {
+			const values = [...drafts[category]];
+			if (mutation.type === "add") values.push(...mutation.values);
+			else {
+				const index = values.indexOf(mutation.raw);
+				if (index < 0) return null;
+				if (mutation.type === "remove") values.splice(index, 1);
+				else if (mutation.type === "rename") values[index] = mutation.value;
+				else return null;
+			}
+			drafts[category] = [...new Set(values.map((tag) => String(tag).trim()).filter(Boolean))];
+			updateCount(category);
+			return tokensFor(category);
+		};
 		const categoryViews = GALLERY_CATEGORIES.map((category) => {
 			counts[category] = el("span", "aa-gallery-tag-editor__count", String(groups[category].length));
 			counts[category].addEventListener("animationend", () => counts[category].classList.remove("is-updated"));
-			inputs[category].addEventListener("input", () => { const next = String(inputs[category].value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean).length); if (counts[category].textContent === next) return; counts[category].textContent = next; counts[category].classList.remove("is-updated"); void counts[category].offsetWidth; counts[category].classList.add("is-updated"); });
-			const panel = el("section", { className: "aa-gallery-tag-editor__category", attrs: { "data-category": category, role: "tabpanel" }, children: [el("header", { children: [el("strong", null, label(`category.${category}`, category)), el("small", null, label("editor.lineHint", "One tag per line"))] }), inputs[category]] });
+			pillLists[category] = createGalleryTagPills({
+				tokens: tokensFor(category),
+				editable: true,
+				allowAdd: true,
+				category,
+				ariaLabel: label(`category.${category}`, category),
+				addPlaceholder: label("editor.addPlaceholder", "+ Add tag"),
+				onSearchTag: addTagToSearch,
+				searchDisabled: !capability(stateFor(node).source)?.tagSearch,
+				onMutate: (mutation) => mutateDraft(category, mutation),
+			});
+			const panel = el("section", { className: "aa-gallery-tag-editor__category", attrs: { "data-category": category, role: "tabpanel" }, children: [el("header", { children: [el("strong", null, label(`category.${category}`, category)), el("small", null, label("editor.pillHint", "Click to edit · Right-click to remove · Enter to add"))] }), pillLists[category]] });
 			const tab = button({ className: "aa-gallery-tag-editor__category-tab", label: label(`category.${category}`, category), variant: "ghost", size: "sm" });
 			const categoryId = `aa-gallery-editor-${category}`; tab.id = `${categoryId}-tab`; panel.id = `${categoryId}-panel`; tab.dataset.category = category; tab.setAttribute("role", "tab"); tab.setAttribute("aria-controls", panel.id); panel.setAttribute("aria-labelledby", tab.id); tab.prepend(el("span", { className: "aa-gallery-tag-editor__category-dot", attrs: { "aria-hidden": "true" } })); tab.append(counts[category]);
 			return { category, panel, tab };
@@ -735,11 +884,11 @@ function buildController(node, elements) {
 		for (const view of categoryViews) view.tab.addEventListener("click", () => setCategory(view.category));
 		categoryNav.addEventListener("keydown", (event) => { if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const current = Math.max(0, categoryViews.findIndex(({ tab }) => tab === document.activeElement)); const next = event.key === "Home" ? 0 : event.key === "End" ? categoryViews.length - 1 : (current + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + categoryViews.length) % categoryViews.length; setCategory(categoryViews[next].category); categoryViews[next].tab.focus({ preventScroll: true }); });
 		setCategory(groups.general?.length ? "general" : categoryViews.find(({ category }) => groups[category]?.length)?.category || "general");
-		const editorContext = el("header", { className: "aa-gallery-tag-editor__context", children: [el("img", { attrs: { src: proxyUrl(selection.source, selection.previewUrl), alt: "" } }), el("div", { children: [el("div", { className: "aa-gallery-tag-editor__identity", children: [el("span", { attrs: { "data-source": selection.source }, text: selection.source }), el("strong", null, `#${selection.postId}`)] }), el("small", null, label("editor.hint", "One tag per line. Changes stay in this workflow selection."))] })] });
+		const editorContext = el("header", { className: "aa-gallery-tag-editor__context", children: [el("img", { attrs: { src: proxyUrl(selection.source, selection.previewUrl), alt: "" } }), el("div", { children: [el("div", { className: "aa-gallery-tag-editor__identity", children: [el("span", { attrs: { "data-source": selection.source }, text: selection.source }), el("strong", null, `#${selection.postId}`)] }), el("small", null, label("editor.hint", "Changes stay in this workflow selection."))] })] });
 		const body = el("div", { className: "aa-gallery-tag-editor", children: [editorContext, el("div", { className: "aa-gallery-tag-editor__workspace", children: [categoryNav, categoryPanels] })] }); let dialog;
-		const values = () => Object.fromEntries(GALLERY_CATEGORIES.map((category) => [category, inputs[category].value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)]));
-		const restore = button({ label: label("editor.restore", "Restore original"), iconName: "refresh", variant: "ghost", onClick: () => { for (const category of GALLERY_CATEGORIES) { inputs[category].value = selection.originalTags[category].join("\n"); inputs[category].dispatchEvent(new Event("input")); } } });
-		const copy = button({ label: label("editor.copy", "Copy prompt"), iconName: "copy", variant: "ghost", onClick: () => navigator.clipboard.writeText(finalPrompt({ ...selection, editedTags: values() }, stateFor(node).prompt)) });
+		const values = () => normalizeTagGroups(drafts);
+		const restore = button({ label: label("editor.restore", "Restore original"), iconName: "refresh", variant: "ghost", onClick: () => { for (const category of GALLERY_CATEGORIES) { drafts[category] = [...selection.originalTags[category]]; pillLists[category].setTokens(tokensFor(category)); updateCount(category); } } });
+		const copy = button({ label: label("editor.copy", "Copy prompt"), iconName: "copy", variant: "ghost", onClick: () => navigator.clipboard.writeText(finalPrompt({ ...selection, editedTags: values() }, effectivePrompt(node))) });
 		const save = button({ label: label("editor.save", "Save local tags"), variant: "primary", onClick: () => { const edited = values(); if (selectedIndex >= 0) transact(node, (state) => { state.selections[selectedIndex].editedTags = edited; }); else sessionEdits.set(key, edited); renderSelected(); dialog.close(); } });
 		dialog = createDialog({ title: label("editor.title", "Edit local tags"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: [restore, copy, save] }), size: "lg", className: "aa-gallery-tag-editor-dialog", confirmOnEnter: false });
 	};
@@ -758,7 +907,6 @@ function buildController(node, elements) {
 		toggleFavorite,
 		recoverPreview,
 		showHover,
-		showPromptHover,
 		openDetail,
 		openEditor,
 		renderSelected,
@@ -785,7 +933,7 @@ function openFilter(node, anchor) {
 	let selectedRatings = [...state.filters.ratings];
 	const ratings = multiSelectControl({
 		className: "aa-gallery-filter-ratings",
-		options: ratingOptions.map((value) => ({ value, label: ratingLabel(value), attrs: { "data-rating": ratingTone(value) } })),
+		options: ratingOptions.map((value) => ({ value, label: ratingLabel(value), iconName: ratingIcon(value), attrs: { "data-rating": ratingTone(value) } })),
 		values: selectedRatings,
 		ariaLabel: label("filter.rating", "Rating"),
 		onChange: (values) => { selectedRatings = values; },
@@ -823,15 +971,21 @@ function createPageControl(node) {
 }
 
 function openPromptOptions(node, anchor) {
-	const prompt = stateFor(node).prompt; anchor.classList.add("is-open"); anchor.setAttribute("aria-expanded", "true"); const popover = createAnchoredPopover({ anchor, ariaLabel: label("prompt.title", "Prompt processing"), className: "aa-gallery-prompt-popover", width: 360, onClose: () => { anchor.classList.remove("is-open"); anchor.setAttribute("aria-expanded", "false"); } });
+	const prompt = effectivePrompt(node); anchor.classList.add("is-open"); anchor.setAttribute("aria-expanded", "true"); const popover = createAnchoredPopover({ anchor, ariaLabel: label("prompt.title", "Prompt processing"), className: "aa-gallery-prompt-popover", width: 360, onClose: () => { anchor.classList.remove("is-open"); anchor.setAttribute("aria-expanded", "false"); } });
 	const categories = multiSelectControl({ className: "aa-gallery-prompt-categories", options: GALLERY_CATEGORIES.map((value) => ({ value, label: label(`category.${value}`, value), attrs: { "data-category": value } })), values: prompt.categories, ariaLabel: label("prompt.categories", "Categories"), onChange: (values) => transact(node, (state) => { state.prompt.categories = values; }) });
 	const underscores = checkboxControl({ checked: prompt.replaceUnderscores, label: label("prompt.underscores", "Replace underscores with spaces"), onChange: (value) => transact(node, (state) => { state.prompt.replaceUnderscores = value; }) });
 	const parentheses = checkboxControl({ checked: prompt.escapeParentheses, label: label("prompt.parentheses", "Escape parentheses"), onChange: (value) => transact(node, (state) => { state.prompt.escapeParentheses = value; }) });
-	const excluded = document.createElement("textarea"); excluded.className = "aa-ui-input aa-gallery-prompt-excluded"; excluded.value = prompt.excludedTags.join("\n"); excluded.placeholder = label("prompt.excludePlaceholder", "e.g. watermark, text focus"); excluded.addEventListener("change", () => transact(node, (state) => { state.prompt.excludedTags = [...new Set(excluded.value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean))]; }));
-	const transformOption = (control, title, hint) => el("label", { className: "aa-gallery-prompt-transform", children: [control, el("span", { children: [el("strong", null, title), el("small", null, hint)] })] });
+	const excluded = document.createElement("textarea"); excluded.className = "aa-ui-input aa-gallery-prompt-excluded"; excluded.value = (settings?.blacklist || []).join("\n"); excluded.placeholder = label("prompt.excludePlaceholder", "e.g. watermark, text focus"); excluded.title = label("prompt.excludeHint", "Shared by every Gallery node and source");
+	excluded.addEventListener("change", async () => {
+		excluded.disabled = true;
+		try { excluded.value = (await saveGlobalBlacklist(excluded.value)).join("\n"); excluded.setAttribute("aria-invalid", "false"); }
+		catch (error) { excluded.setAttribute("aria-invalid", "true"); console.error("[Aaalice] Failed to save the global blacklist", error); }
+		finally { excluded.disabled = false; }
+	});
+	const transformOption = (control, title) => el("label", { className: "aa-gallery-prompt-transform", children: [control, el("strong", null, title)] });
 	const panels = {
 		categories: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "categories" }, children: [categories] }),
-		format: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "format" }, children: [el("div", { className: "aa-gallery-prompt-switches", children: [transformOption(underscores, label("prompt.underscores", "Replace underscores with spaces"), label("prompt.underscoresHint", "Makes tags read like normal words")), transformOption(parentheses, label("prompt.parentheses", "Escape parentheses"), label("prompt.parenthesesHint", "Keeps weighting syntax literal"))] })] }),
+		format: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "format" }, children: [el("div", { className: "aa-gallery-prompt-switches", children: [transformOption(underscores, label("prompt.underscores", "Replace underscores with spaces")), transformOption(parentheses, label("prompt.parentheses", "Escape parentheses"))] })] }),
 		exclude: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "exclude" }, children: [excluded] }),
 	};
 	const showPanel = (value) => { for (const [name, panel] of Object.entries(panels)) panel.hidden = name !== value; popover.reposition(); };
@@ -853,6 +1007,15 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const source = listboxControl({ className: "aa-gallery-source-select", options: capabilities.map((item) => ({ value: item.source, label: item.displayName })), value: stateFor(node).source, ariaLabel: label("source", "Source"), onChange: (value) => { transact(node, (state) => { state.source = value; state.filters.ratings = settings?.defaultRatings?.[value] || []; state.filters.sort = capability(value)?.sortValues?.[0] || "latest"; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); root.dataset.source = value; pageControl?.setPage(1); collection?.setOptions(collectionOptions(value), collectionValue(stateFor(node))); controller.search({ reset: true, page: 1 }); } });
 	collection = listboxControl({ className: "aa-gallery-collection-select", options: collectionOptions(stateFor(node).source), value: collectionValue(stateFor(node)), ariaLabel: label("collection.label", "Gallery collection"), onChange: (value) => { transact(node, (state) => { if (value === "favorites") { state.filters.feed = "favorites"; state.filters.period = ""; } else if (value.startsWith("ranking:")) { state.filters.feed = "ranking"; state.filters.period = value.slice("ranking:".length); } else { state.filters.feed = "search"; state.filters.period = ""; state.filters.sort = value.slice("sort:".length); } state.navigation.page = 1; }); pageControl?.setPage(1); controller.search({ reset: true, page: 1 }); } });
 	const tabs = segmentedControl({ className: "aa-gallery-view-switcher", value: "browse", options: [{ value: "browse", label: label("tab.browse", "Browse"), iconName: "layout" }, { value: "selected", label: label("tab.selected", "Selected"), iconName: "statusCheck" }], ariaLabel: label("tab.label", "Gallery view"), onChange: (value) => controller.setMode(value) });
+	const selectedCount = el("span", { className: "aa-gallery-view-switcher__count", attrs: { "aria-label": label("selected.outputHint", "{count} outputs").replace("{count}", "0") }, text: "0" });
+	tabs.querySelector('[data-value="selected"]')?.append(selectedCount);
+	const clear = iconButton({
+		className: "aa-gallery-selected__clear",
+		label: label("selected.clear", "Clear"),
+		iconName: "delete",
+		variant: "ghost",
+		onClick: () => openClearSelectionDialog(node, controller),
+	});
 	const filter = button({ className: "aa-gallery-toolbar-action is-filter", iconName: "filter", label: label("filter.title", "Filters"), title: label("filter.title", "Filters"), variant: "ghost", size: "sm", onClick: () => openFilter(node, filter) });
 	const prompt = button({ className: "aa-gallery-toolbar-action is-prompt", iconName: "tag", label: label("prompt.short", "Prompt"), title: label("prompt.title", "Prompt processing"), variant: "ghost", size: "sm", onClick: () => openPromptOptions(node, prompt) });
 	const pageControl = createPageControl(node);
@@ -865,12 +1028,12 @@ function setupNode(node, { initializeSize = false } = {}) {
 		try { await controller.search({ reset: true }); }
 		finally { refreshing = false; refresh.disabled = false; refresh.classList.remove("is-refreshing"); refresh.setAttribute("aria-label", label("reload", "Reload search")); refresh.title = label("reload", "Reload search"); }
 	} });
-	const openSettings = iconButton({ className: "aa-gallery-open-settings", iconName: "settings", label: label("settings.openComfy", "Open ComfyUI settings"), variant: "ghost", onClick: () => { void openComfySettings(); } });
+	const openSettings = iconButton({ className: "aa-gallery-open-settings", iconName: "settings", label: label("settings.open", "Configure Gallery…"), variant: "ghost", onClick: openGallerySettings });
 	const browseNavigation = el("div", { className: "aa-gallery-toolbar__navigation", children: [collection, pageControl] });
 	const browseTools = el("div", { className: "aa-gallery-toolbar__tools", children: [filter, prompt] });
 	const pageActions = el("div", { className: "aa-gallery-toolbar__page-actions", attrs: { role: "group", "aria-label": label("toolbarActions", "Browse tools") }, children: [browseNavigation, browseTools] });
 	const utilityActions = el("div", { className: "aa-gallery-toolbar__utilities", children: [refresh, openSettings, searchControl.root, searchControl.toggle] });
-	const toolbar = el("header", { className: "aa-gallery-toolbar", attrs: { role: "toolbar", "aria-label": label("toolbar", "Booru Gallery") }, children: [source, tabs, el("span", "aa-gallery-toolbar__spacer"), pageActions, utilityActions] });
+	const toolbar = el("header", { className: "aa-gallery-toolbar", attrs: { role: "toolbar", "aria-label": label("toolbar", "Booru Gallery") }, children: [source, tabs, clear, el("span", "aa-gallery-toolbar__spacer"), pageActions, utilityActions] });
 	const masonry = el("div", { className: "aa-gallery-masonry", attrs: { tabindex: 0 } });
 	const loading = el("div", { className: "aa-gallery-status is-loading", attrs: { role: "status", "aria-live": "polite" }, children: [icon("refresh"), el("span", null, label("loading", "Loading…"))] }); loading.hidden = true;
 	const errorLabel = el("span");
@@ -890,9 +1053,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		],
 	});
 	const emptySelected = el("div", { className: "aa-gallery-selected__empty", children: [el("span", { className: "aa-gallery-selected__empty-icon", children: [icon("statusCheck")] }), el("strong", null, label("selected.emptyTitle", "Build your output set")), el("p", null, label("selected.empty", "Select posts from the waterfall to build an ordered output."))] });
-	const selectedMeta = el("small", "aa-gallery-selected__meta");
-	const clear = button({ label: label("selected.clear", "Clear"), iconName: "delete", variant: "ghost", size: "sm", onClick: () => { if (!stateFor(node).selections.length || !confirm(label("selected.clearConfirm", "Clear all selected posts?"))) return; transact(node, (state) => { state.selections = []; }); controller.renderSelected(); controller.refreshCards(); } });
-	selected.append(el("div", { className: "aa-gallery-selected__toolbar", children: [el("div", { children: [el("strong", null, label("selected.title", "Ordered selection")), selectedMeta] }), el("span", "aa-gallery-toolbar__spacer"), clear] }), selectedListRoot, emptySelected);
+	selected.append(selectedListRoot, emptySelected);
 	document.body.append(selectedDropIndicator);
 	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end] }), selected);
 	let controller = null;
@@ -904,13 +1065,15 @@ function setupNode(node, { initializeSize = false } = {}) {
 		errorLabel,
 		end,
 		tabs,
-		selectedMeta,
+		selectedCount,
+		selectedClear: clear,
 		selectedList: null,
 		selectedListRoot,
 		selectedDropIndicator,
 		emptySelected,
 		mode: "browse",
 		pageControl,
+		searchControl,
 		masonryController: null,
 	};
 	elements.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index), onNearEnd: () => controller?.search(), onVisibleIndexChange: (index) => controller?.visibleIndexChanged(index), minCardWidth: 144, gap: 6, maxColumns: 5 });
@@ -932,11 +1095,16 @@ function setupNode(node, { initializeSize = false } = {}) {
 	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
 	error.addEventListener("click", () => {
 		const sourceName = stateFor(node).source;
-		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) void openComfySettings();
+		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) openGallerySettings();
 		else controller.search();
 	});
 	node.addDOMWidget("aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
+	const previousResize = node.onResize; node.onResize = function (size) {
+		if (Array.isArray(size)) size[0] = Math.max(MIN_SIZE[0], Number(size[0]) || 0);
+		if (Array.isArray(this.size)) this.size[0] = Math.max(MIN_SIZE[0], Number(this.size[0]) || 0);
+		return previousResize?.apply(this, arguments);
+	};
 	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); this.properties[PROPERTY] = normalizeGalleryState(this.properties?.[PROPERTY], settings || {}); searchControl.sync(); collection.setOptions(collectionOptions(stateFor(this).source), collectionValue(stateFor(this))); pageControl.setPage(stateFor(this).navigation.page); controller.renderSelected(); node._aaGalleryAccent?.sync?.(); return result; };
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
 	const previousRemoved = node.onRemoved; node.onRemoved = function () {
@@ -979,11 +1147,10 @@ async function openSettingsDialog() {
 		ratingDefaults[cap.source] = multiSelectControl({ className: "aa-gallery-settings__rating", options: (cap.ratings || []).map((value) => ({ value, label: ratingLabel(value), attrs: { "data-rating": ratingTone(value) } })), values: settings.defaultRatings?.[cap.source] || [], ariaLabel: `${cap.displayName} ${label("filter.rating", "Rating")}` });
 	}
 	const defaultSource = listboxControl({ options: capabilities.map((cap) => ({ value: cap.source, label: cap.displayName })), value: settings.defaultSource, ariaLabel: label("settings.defaultSource", "Default source") });
-	const blacklist = document.createElement("textarea"); blacklist.className = "aa-ui-input aa-gallery-settings__blacklist-input"; blacklist.value = (settings.blacklist || []).join("\n"); blacklist.placeholder = label("settings.blacklistPlaceholder", "watermark\ntext\nmale_focus"); blacklist.setAttribute("aria-label", label("settings.blacklist", "Content blacklist"));
+	const blacklist = document.createElement("textarea"); blacklist.className = "aa-ui-input aa-gallery-settings__blacklist-input"; blacklist.value = (settings.blacklist || []).join("\n"); blacklist.placeholder = label("settings.blacklistPlaceholder", "watermark\ntext\nmale_focus"); blacklist.setAttribute("aria-label", label("settings.blacklist", "Content blacklist")); blacklist.title = label("prompt.excludeHint", "Global: hides matching posts and removes the tags from output prompts");
 	const blacklistCount = el("span", { className: "aa-gallery-settings__blacklist-count", attrs: { "aria-live": "polite" } });
 	const syncBlacklistCount = () => { const next = tagLines(blacklist.value).length; blacklistCount.textContent = label("settings.blacklistCount", "{count} blocked tags").replace("{count}", String(next)); blacklistCount.classList.toggle("is-active", next > 0); };
 	blacklist.addEventListener("input", syncBlacklistCount); syncBlacklistCount();
-	const excluded = document.createElement("textarea"); excluded.className = "aa-ui-input"; excluded.value = (settings.promptDefaults?.excludedTags || []).join("\n");
 	const defaultCategories = multiSelectControl({ className: "aa-gallery-prompt-categories aa-gallery-settings__prompt-categories", options: GALLERY_CATEGORIES.map((value) => ({ value, label: label(`category.${value}`, value), attrs: { "data-category": value } })), values: settings.promptDefaults?.categories || [], ariaLabel: label("prompt.categories", "Categories") });
 	const defaultUnderscores = checkboxControl({ checked: settings.promptDefaults?.replaceUnderscores, label: label("prompt.underscores", "Replace underscores with spaces") });
 	const defaultParentheses = checkboxControl({ checked: settings.promptDefaults?.escapeParentheses, label: label("prompt.parentheses", "Escape parentheses") });
@@ -1024,10 +1191,10 @@ async function openSettingsDialog() {
 	const blacklistCard = el("section", { className: "aa-gallery-settings__blacklist-card", children: [
 		el("header", { children: [el("span", { className: "aa-gallery-settings__blacklist-icon", children: [icon("lock")] }), el("strong", null, label("settings.blacklist", "Content blacklist")), blacklistCount] }),
 		blacklist,
-		el("footer", { children: [el("span", null, label("settings.blacklistScope", "Search · Rankings · Favorites")), el("small", null, label("settings.blacklistHint", "One exact site tag per line. This hides posts; it does not change generated prompts."))] }),
 	] });
-	const browsePanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "browse" }, children: [settingsSectionHeader("filter", label("settings.browseTitle", "Browsing defaults")), el("div", { className: "aa-gallery-settings__form-grid", children: [field({ label: label("settings.defaultSource", "Default source"), control: defaultSource }), el("div", { className: "aa-gallery-settings__toggle-card", children: [el("strong", null, label("settings.tooltip", "Show hover details")), tooltip] })] }), blacklistCard] });
-	const promptPanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "prompt" }, children: [settingsSectionHeader("tag", label("settings.promptTitle", "Prompt defaults")), field({ label: label("prompt.categories", "Categories"), control: defaultCategories }), el("div", { className: "aa-gallery-settings__switches", children: [el("label", { className: "aa-gallery-check-row", children: [defaultUnderscores, el("span", null, label("prompt.underscores", "Replace underscores with spaces"))] }), el("label", { className: "aa-gallery-check-row", children: [defaultParentheses, el("span", null, label("prompt.parentheses", "Escape parentheses"))] })] }), field({ label: label("settings.excluded", "Default excluded prompt tags"), hint: label("prompt.excludeHint", "Exact tag matches, separated by commas or lines"), control: excluded })] });
+	const browsePanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "browse" }, children: [settingsSectionHeader("filter", label("settings.browseTitle", "Browsing defaults")), el("div", { className: "aa-gallery-settings__form-grid", children: [field({ label: label("settings.defaultSource", "Default source"), control: defaultSource }), el("div", { className: "aa-gallery-settings__toggle-card", children: [el("strong", null, label("settings.tooltip", "Show hover details")), tooltip] })] })] });
+	const blacklistPanel = el("section", { className: "aa-gallery-settings__page aa-gallery-settings__blacklist-page", attrs: { "data-page": "blacklist" }, children: [blacklistCard] });
+	const promptPanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "prompt" }, children: [settingsSectionHeader("tag", label("settings.promptTitle", "Prompt defaults")), field({ label: label("prompt.categories", "Categories"), control: defaultCategories }), el("div", { className: "aa-gallery-settings__switches", children: [el("label", { className: "aa-gallery-check-row", children: [defaultUnderscores, el("span", null, label("prompt.underscores", "Replace underscores with spaces"))] }), el("label", { className: "aa-gallery-check-row", children: [defaultParentheses, el("span", null, label("prompt.parentheses", "Escape parentheses"))] })] })] });
 	const performancePanel = el("section", { className: "aa-gallery-settings__page", attrs: { "data-page": "performance" }, children: [settingsSectionHeader("refresh", label("settings.performanceTitle", "Network & storage")), el("div", { className: "aa-gallery-settings__form-grid", children: [field({ label: label("settings.timeout", "Request timeout (seconds)"), control: timeout }), field({ label: label("settings.cacheBudget", "Original cache budget (MiB)"), control: budget })] }), el("div", { className: "aa-gallery-settings__cache-card", children: [el("span", { children: [icon("delete")] }), el("div", { children: [el("strong", null, label("settings.clearCache", "Clear Gallery cache")), el("small", null, label("settings.clearCacheHint", "Removes cached originals and metadata; your selections are not affected."))] }), clear] })] });
 	const sourceList = el("div", { className: "aa-gallery-settings__source-list", attrs: { role: "tablist", "aria-label": label("settings.sourcesTitle", "Sources & accounts") }, children: sourceViews.map(({ tab }) => tab) });
 	const sourceDetail = el("div", { className: "aa-gallery-settings__source-detail", children: sourceViews.map(({ panel }) => panel) });
@@ -1045,9 +1212,10 @@ async function openSettingsDialog() {
 		setSource(sourceViews[next].cap.source); sourceViews[next].tab.focus({ preventScroll: true });
 	});
 	setSource(sourceViews.find(({ configured }) => configured)?.cap.source || sourceViews[0]?.cap.source);
-	const pages = { accounts: accountsPanel, browse: browsePanel, prompt: promptPanel, performance: performancePanel };
+	const pages = { accounts: accountsPanel, browse: browsePanel, blacklist: blacklistPanel, prompt: promptPanel, performance: performancePanel };
 	const navItems = [
 		{ value: "accounts", label: label("settings.navAccounts", "Accounts"), iconName: "lock" }, { value: "browse", label: label("settings.navBrowse", "Browsing"), iconName: "filter" },
+		{ value: "blacklist", label: label("settings.blacklist", "Content blacklist"), iconName: "delete" },
 		{ value: "prompt", label: label("settings.navPrompt", "Prompt"), iconName: "tag" }, { value: "performance", label: label("settings.navPerformance", "Storage"), iconName: "storage" },
 	];
 	const navButtons = new Map();
@@ -1057,12 +1225,12 @@ async function openSettingsDialog() {
 	};
 	const nav = el("nav", { className: "aa-gallery-settings__nav", attrs: { "aria-label": label("settings.navigation", "Settings sections") } });
 	for (const item of navItems) { const control = button({ className: "aa-gallery-settings__nav-item", label: item.label, iconName: item.iconName, variant: "ghost", size: "sm", onClick: () => setPage(item.value) }); navButtons.set(item.value, control); nav.append(control); }
-	browsePanel.hidden = true; promptPanel.hidden = true; performancePanel.hidden = true;
+	browsePanel.hidden = true; blacklistPanel.hidden = true; promptPanel.hidden = true; performancePanel.hidden = true;
 	const configuredCount = capabilities.filter(sourceIsConfigured).length;
 	nav.append(el("div", { className: "aa-gallery-settings__nav-summary", children: [el("strong", null, label("settings.accountCount", "{count} accounts ready").replace("{count}", String(configuredCount)))] }));
 	setPage("accounts");
-	const body = el("div", { className: "aa-gallery-settings", children: [nav, el("div", { className: "aa-gallery-settings__pages", children: [accountsPanel, browsePanel, promptPanel, performancePanel] })] });
-	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, defaultRatings: Object.fromEntries(Object.entries(ratingDefaults).map(([sourceName, control]) => [sourceName, control.values()])), blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true", excludedTags: excluded.value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean) }, tooltip: tooltip.getAttribute("aria-checked") === "true", timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) { for (const galleryNode of app.graph?._nodes || []) { if (isGallery(galleryNode)) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
+	const body = el("div", { className: "aa-gallery-settings", children: [nav, el("div", { className: "aa-gallery-settings__pages", children: [accountsPanel, browsePanel, blacklistPanel, promptPanel, performancePanel] })] });
+	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, defaultRatings: Object.fromEntries(Object.entries(ratingDefaults).map(([sourceName, control]) => [sourceName, control.values()])), blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true" }, tooltip: tooltip.getAttribute("aria-checked") === "true", timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); for (const galleryNode of app.graph?._nodes || []) { if (!isGallery(galleryNode)) continue; galleryNode._aaGalleryController?.renderSelected(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
 	dialog = createDialog({ title: label("settings.title", "Booru Gallery"), body, footer: el("div", { className: "aa-gallery-settings__footer", children: [status, save] }), size: "lg", className: "aa-gallery-settings-dialog", confirmOnEnter: false });
 }
 
@@ -1076,7 +1244,7 @@ function registerSettings() {
 
 function installPromptHook() {
 	if (app._aaGalleryPromptHook) return; app._aaGalleryPromptHook = true; const original = app.graphToPrompt?.bind(app); if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable for BooruGalleryNode");
-	app.graphToPrompt = async function (...args) { const result = await original(...args); const output = result?.output ?? result; for (const node of app.graph?._nodes || []) { if (!isGallery(node)) continue; const promptNode = output?.[String(node.id)]; if (!promptNode) continue; promptNode.inputs ||= {}; promptNode.inputs.gallery_payload = JSON.stringify(galleryPayload(stateFor(node))); } return result; };
+	app.graphToPrompt = async function (...args) { const result = await original(...args); const output = result?.output ?? result; for (const node of app.graph?._nodes || []) { if (!isGallery(node)) continue; const promptNode = output?.[String(node.id)]; if (!promptNode) continue; promptNode.inputs ||= {}; promptNode.inputs.gallery_payload = JSON.stringify(galleryPayload(stateFor(node), settings?.blacklist)); } return result; };
 }
 
 function hookPrototype(nodeType) { if (!nodeType || nodeType.__aaaliceBooruGallery) return; nodeType.__aaaliceBooruGallery = true; const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); setupNodeSafely(this, { initializeSize: true }); return result; }; }

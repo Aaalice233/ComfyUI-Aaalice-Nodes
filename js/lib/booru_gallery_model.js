@@ -39,7 +39,6 @@ export function defaultGalleryState(settings = {}) {
 		prompt: {
 			categories: strings(defaults.categories || DEFAULT_PROMPT_CATEGORIES).filter((item) => GALLERY_CATEGORIES.includes(item)),
 			replaceUnderscores: Boolean(defaults.replaceUnderscores), escapeParentheses: Boolean(defaults.escapeParentheses),
-			excludedTags: strings(defaults.excludedTags),
 		},
 		selections: [],
 	};
@@ -64,7 +63,7 @@ export function normalizeGalleryState(value, settings = {}) {
 			period: feed === "ranking" ? String(value.filters?.period || "month") : "" },
 		navigation: { page: Math.max(1, Math.floor(Number(value.navigation?.page) || 1)) },
 		prompt: { categories, replaceUnderscores: Boolean(value.prompt?.replaceUnderscores),
-			escapeParentheses: Boolean(value.prompt?.escapeParentheses), excludedTags: strings(value.prompt?.excludedTags) },
+			escapeParentheses: Boolean(value.prompt?.escapeParentheses) },
 		selections,
 	};
 }
@@ -87,10 +86,11 @@ export function finalPrompt(selection, prompt) {
 	return result.join(", ");
 }
 
-export function galleryPayload(state) {
+export function galleryPayload(state, excludedTags = []) {
 	const normalized = normalizeGalleryState(state);
-	return { version: 1, prompt: structuredClone(normalized.prompt), selections: normalized.selections.map((item) => structuredClone(item)),
-		prompts: normalized.selections.map((item) => finalPrompt(item, normalized.prompt)) };
+	const prompt = { ...structuredClone(normalized.prompt), excludedTags: strings(excludedTags) };
+	return { version: 1, prompt, selections: normalized.selections.map((item) => structuredClone(item)),
+		prompts: normalized.selections.map((item) => finalPrompt(item, prompt)) };
 }
 
 export function selectionFromDetail(detail, editedTags = null) {

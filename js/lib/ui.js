@@ -26,6 +26,10 @@ const ICON_PATHS = {
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	moveDown: "m7 10 5 5 5-5",
 	refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
+	ratingGeneral: "M12 3 5 6v5c0 4.2 2.9 6.6 7 8 4.1-1.4 7-3.8 7-8V9l-7-6Zm-3 9 2 2 4-4",
+	ratingSensitive: "M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Zm9.5 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+	ratingQuestionable: "M12 18h.01M9.4 9a2.7 2.7 0 1 1 4.2 2.25c-1.1.75-1.6 1.25-1.6 2.25M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
+	ratingExplicit: "M13 2s1 4-2 6c-2 1.4-4 3.4-4 6a5 5 0 0 0 10 0c0-2-1-3.8-2.5-5.2.2 2.2-.8 3.2-1.7 3.8.8-3.7-1.8-5.5.2-10.6Z",
 	search: "m21 21-4.35-4.35M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
 	settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.73v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.73l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
 	statusCheck: "m5 12 4 4L19 6",
@@ -441,6 +445,7 @@ export function multiSelectControl({ options = [], values = [], ariaLabel = "", 
 		const value = String(option.value);
 		const choice = el("button", { className: "aa-ui-multiselect__option", attrs: { ...(option.attrs || {}), type: "button", "aria-pressed": "false" }, children: [
 			el("span", { className: "aa-ui-multiselect__status", attrs: { "aria-hidden": "true" }, children: [icon("statusCheck")] }),
+			...(option.iconName ? [el("span", { className: "aa-ui-multiselect__leading-icon", attrs: { "aria-hidden": "true" }, children: [icon(option.iconName)] })] : []),
 			el("span", "aa-ui-multiselect__label", option.label),
 		] });
 		choice.disabled = disabled;

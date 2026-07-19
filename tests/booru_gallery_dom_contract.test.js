@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const source = fs.readFileSync(new URL("../js/booru_gallery.js", import.meta.url), "utf8");
+const tagPillsSource = fs.readFileSync(new URL("../js/lib/controls/tag_pills.js", import.meta.url), "utf8");
 const extensionSource = fs.readFileSync(new URL("../js/extension.js", import.meta.url), "utf8");
 const theme = fs.readFileSync(new URL("../js/lib/theme.css", import.meta.url), "utf8");
 const uiStyles = fs.readFileSync(new URL("../js/lib/ui.css", import.meta.url), "utf8");
@@ -41,6 +42,8 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.doesNotMatch(source, /iconName: "more"/);
 	assert.match(source, /className: "aa-gallery-refresh", iconName: "refresh"/);
 	assert.match(source, /className: "aa-gallery-open-settings", iconName: "settings"/);
+	assert.match(source, /className: "aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
+	assert.doesNotMatch(source, /Comfy\.ShowSettingsDialog|app\.ui\?\.settings\?\.show|openComfySettings/);
 	assert.match(source, /children: \[refresh, openSettings, searchControl\.root, searchControl\.toggle\]/);
 	assert.match(source, /className: "aa-gallery-toolbar__page-actions"/);
 	assert.match(source, /className: "aa-gallery-toolbar__navigation", children: \[collection, pageControl\]/);
@@ -80,9 +83,9 @@ test("gallery refresh and settings utilities expose their real state and destina
 	assert.match(source, /await controller\.search\(\{ reset: true \}\)/);
 	assert.match(source, /finally \{ refreshing = false; refresh\.disabled = false; refresh\.classList\.remove\("is-refreshing"\)/);
 	assert.match(theme, /\.aa-gallery-refresh\.is-refreshing \.aa-ui-icon \{ animation: aa-gallery-status-spin \.72s linear infinite; \}/);
-	assert.match(source, /item\.id === "Comfy\.ShowSettingsDialog"/);
-	assert.match(source, /typeof app\.ui\?\.settings\?\.show === "function"/);
-	assert.match(source, /settings\.pathHint/);
+	assert.match(source, /function openGallerySettings\(\) \{[^]*openSettingsDialog\(\)/);
+	assert.match(source, /className: "aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
+	assert.doesNotMatch(source, /Comfy\.ShowSettingsDialog|app\.ui\?\.settings\?\.show|settings\.pathHint/);
 });
 
 test("browse and selected switcher states use distinct semantic colors", () => {
@@ -123,7 +126,7 @@ test("favorite entry stays visible before login and explains unavailable writes"
 	assert.match(source, /favoriteCapability\?\.favoriteRead \|\| favoriteCapability\?\.favoriteWrite/);
 	assert.match(source, /if \(!hasSourceCredentials\(source\)\) \{ showFavoriteNotice\(source, "login"\); return false; \}/);
 	assert.match(source, /label\("card\.favoriteConfigure", "Configure account"\)/);
-	assert.match(source, /dialog\.close\(\); void openComfySettings\(\)/);
+	assert.match(source, /dialog\.close\(\); openGallerySettings\(\)/);
 	assert.match(source, /if \(!cap\?\.favoriteWrite\) \{ showFavoriteNotice\(source, "readOnly"\); return false; \}/);
 	assert.match(theme, /\.aa-gallery-favorite-notice \{/);
 });
@@ -171,7 +174,7 @@ test("AI TAG cards recover an exact preview lazily and never render an empty rat
 test("credential-required sources route the empty state to Gallery settings", () => {
 	assert.match(source, /capability\(state\.source\)\?\.authRequired && !hasSourceCredentials\(state\.source\)/);
 	assert.match(source, /error\.credentialsRequired/);
-	assert.match(source, /if \(capability\(sourceName\)\?\.authRequired && !hasSourceCredentials\(sourceName\)\) void openComfySettings\(\)/);
+	assert.match(source, /if \(capability\(sourceName\)\?\.authRequired && !hasSourceCredentials\(sourceName\)\) openGallerySettings\(\)/);
 });
 
 test("gallery hover follows the launcher side-preview pattern without downloading the original", () => {
@@ -194,10 +197,10 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*max-height: 420px/);
 	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*position: absolute;[^}]*bottom: 0;[^}]*linear-gradient/);
 	assert.match(theme, /\.aa-gallery-hover__info dl \{[^}]*display: flex/);
-	assert.match(theme, /\.aa-gallery-hover__info dt \{ font-size: 8\.5px; \}/);
-	assert.match(theme, /\.aa-gallery-hover__info dd \{[^}]*font-size: 9px;/);
+	assert.match(theme, /\.aa-gallery-hover__info dt \{ font-size: 10px; \}/);
+	assert.match(theme, /\.aa-gallery-hover__info dd \{[^}]*font-size: 10px;/);
 	assert.match(theme, /\.aa-gallery-hover__tags \{[^}]*display: flex/);
-	assert.match(theme, /\.aa-gallery-hover__tag-row > p \{[^}]*font-size: 8\.5px;/);
+	assert.match(theme, /\.aa-gallery-hover__tag-row > p \{[^}]*font-size: 10px;/);
 	assert.match(theme, /\.aa-gallery-hover__tag-row\.is-character/);
 	assert.match(theme, /\.aa-gallery-hover__loading \{[^}]*width: 24px;[^}]*height: 24px;[^}]*border: 0;[^}]*border-radius: 999px;[^}]*background: color-mix/);
 	assert.match(theme, /\.aa-gallery-hover__rating \{[^}]*position: absolute;[^}]*top: 8px;[^}]*left: 8px;/);
@@ -241,8 +244,10 @@ test("gallery rating filter stays focused, localized, and semantically colored",
 	const filterSource = source.slice(source.indexOf("function openFilter"), source.indexOf("function createPageControl"));
 	assert.match(filterSource, /className: "aa-gallery-filter-popover", width: 300/);
 	assert.match(source, /className: "aa-gallery-prompt-popover", width: 360/);
+	for (const iconName of ["ratingGeneral", "ratingSensitive", "ratingQuestionable", "ratingExplicit"]) assert.match(source, new RegExp(iconName));
+	assert.match(theme, /\.aa-gallery-filter-ratings \.aa-ui-multiselect__leading-icon/);
 	assert.doesNotMatch(filterSource, /galleryPopoverHeader|filter\.sort|sortPanel|listboxControl/);
-	assert.match(filterSource, /label: ratingLabel\(value\), attrs: \{ "data-rating": ratingTone\(value\) \}/);
+	assert.match(filterSource, /label: ratingLabel\(value\), iconName: ratingIcon\(value\), attrs: \{ "data-rating": ratingTone\(value\) \}/);
 	assert.match(filterSource, /className: "aa-gallery-filter-popover__header"/);
 	assert.match(filterSource, /className: "aa-gallery-filter-ratings"/);
 	assert.match(source, /function ratingLabel\(value\)/);
@@ -267,9 +272,17 @@ test("gallery prompt settings use compact pages and category-specific colors", (
 	for (const panel of ["categories", "format", "exclude"]) assert.match(promptSource, new RegExp(`"data-panel": "${panel}"`));
 	assert.match(promptSource, /panel\.hidden = name !== value/);
 	assert.match(promptSource, /attrs: \{ "data-category": value \}/);
+	assert.match(promptSource, /excluded\.value = \(settings\?\.blacklist \|\| \[\]\)\.join\("\\n"\)/);
+	assert.match(promptSource, /saveGlobalBlacklist\(excluded\.value\)/);
+	assert.doesNotMatch(promptSource, /state\.prompt\.excludedTags/);
+	assert.doesNotMatch(promptSource, /underscoresHint|parenthesesHint|el\("small"/);
 	assert.doesNotMatch(promptSource, /aa-gallery-tool-section|aa-gallery-prompt-layout__lower|aa-gallery-tool-popover__footer/);
 	assert.match(theme, /\.aa-gallery-prompt-popover__body \{[^}]*min-height: 128px/);
 	assert.match(theme, /\.aa-gallery-prompt-panel\[hidden\] \{ display: none !important; \}/);
+	assert.match(theme, /\.aa-gallery-prompt-panel\[data-panel="exclude"\] \{[^}]*height: 128px/);
+	assert.match(theme, /\.aa-gallery-prompt-excluded \{[^}]*width: 100%;[^}]*height: 100%/);
+	assert.match(theme, /\.aa-gallery-prompt-transform strong \{[^}]*font-size: 11\.5px/);
+	assert.doesNotMatch(theme, /\.aa-gallery-prompt-transform small/);
 	assert.match(theme, /\.aa-gallery-prompt-categories\.aa-ui-multiselect \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
 	for (const category of ["artist", "copyright", "character", "general", "meta"]) {
 		assert.match(theme, new RegExp(`\\.aa-gallery-prompt-categories \\.aa-ui-multiselect__option\\[data-category="${category}"\\]`));
@@ -285,7 +298,7 @@ test("gallery status cannot render as an unexplained empty capsule", () => {
 });
 
 test("gallery injects queue snapshots and cleans all event-driven resources", () => {
-	assert.match(source, /graphToPrompt/); assert.match(source, /JSON\.stringify\(galleryPayload/);
+	assert.match(source, /graphToPrompt/); assert.match(source, /galleryPayload\(stateFor\(node\), settings\?\.blacklist\)/);
 	assert.match(source, /requestController\?\.abort/); assert.match(source, /controller\.destroy\(\)/); assert.doesNotMatch(source, /setInterval/);
 	assert.doesNotMatch(source, /queue-prompt|QueueButton|promptButton/);
 });
@@ -304,9 +317,10 @@ test("synchronous masonry startup cannot call an uninitialized controller", () =
 });
 
 test("gallery keeps both native bottom resize corners free and can shrink after growing", () => {
-	assert.match(source, /const MIN_SIZE = \[480, 300\]/);
+	assert.match(source, /const MIN_SIZE = \[620, 300\]/);
 	assert.match(source, /getMinHeight: \(\) => MIN_SIZE\[1\]/);
 	assert.match(source, /return \[Math\.max\(MIN_SIZE\[0\], Number\(size\[0\]\) \|\| 0\), MIN_SIZE\[1\]\]/);
+	assert.match(source, /node\.onResize = function \(size\)[\s\S]*size\[0\] = Math\.max\(MIN_SIZE\[0\]/);
 	assert.doesNotMatch(source, /root\.(?:scrollHeight|clientHeight)/);
 	assert.match(theme, /\.dom-widget:has\(> \.aa-gallery\) \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-gallery\.is-resizing, \.aa-gallery\.is-resizing \* \{ pointer-events: none !important;/);
@@ -324,6 +338,104 @@ test("gallery redesign covers every primary surface", () => {
 	]) assert.match(source, new RegExp(className));
 });
 
+test("post detail uses layered surfaces instead of line-based separators", () => {
+	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
+	assert.doesNotMatch(detailSource, /detail\.localOnly|aa-gallery-detail__header[\s\S]*el\("small"/);
+	assert.match(theme, /\.aa-gallery-detail__header \{[^}]*border: 0;[^}]*border-radius: 11px;[^}]*box-shadow:/);
+	assert.match(theme, /\.aa-gallery-detail__facts \{[^}]*gap: 5px;[^}]*border: 0;[^}]*border-radius: 12px;[^}]*box-shadow:/);
+	assert.match(theme, /\.aa-gallery-detail__facts > div \{[^}]*border: 0;[^}]*border-radius: 8px;[^}]*box-shadow:/);
+	assert.match(theme, /\.aa-gallery-detail__tag-group \{[^}]*border: 0;[^}]*border-radius: 12px;[^}]*box-shadow:/);
+	const detailStyles = theme.slice(theme.indexOf(".aa-gallery-detail-dialog"), theme.indexOf(".aa-gallery-tag-editor-dialog"));
+	assert.doesNotMatch(detailStyles, /border-(?:top|right|bottom|left):\s*1px/);
+	assert.match(theme, /\.aa-gallery-detail__tag-group \.aa-gallery-tag-pill \{[^}]*border: 0;[^}]*background: color-mix\(in srgb, var\(--aa-gallery-category-tone\) 10%/);
+	assert.match(theme, /\.aa-gallery-detail__tag-group \.aa-gallery-section-heading strong::before/);
+	assert.match(theme, /\.aa-gallery-detail__action\.is-selection \{[^}]*order: 10/);
+});
+
+test("selected count and clear action live in the main toolbar", () => {
+	const selectedSource = source.slice(source.indexOf("const emptySelected ="), source.indexOf("document.body.append(selectedDropIndicator)"));
+	const toolbarSource = source.slice(source.indexOf("const tabs = segmentedControl"), source.indexOf("const masonry ="));
+	assert.match(toolbarSource, /className: "aa-gallery-view-switcher__count"/);
+	assert.match(toolbarSource, /tabs\.querySelector\('\[data-value="selected"\]'\)\?\.append\(selectedCount\)/);
+	assert.match(toolbarSource, /children: \[source, tabs, clear,/);
+	assert.match(source, /elements\.selectedCount\.textContent = String\(count\)/);
+	assert.match(theme, /\.aa-gallery-view-switcher__count \{[^}]*min-width: 18px;[^}]*font-size: 10px;[^}]*font-weight: 800/);
+	assert.match(theme, /\.aa-gallery:not\(\[data-mode="selected"\]\) \.aa-gallery-selected__clear \{ display: none; \}/);
+	assert.doesNotMatch(selectedSource, /aa-gallery-selected__toolbar|aa-gallery-selected__status|aa-gallery-selected__copy/);
+	assert.doesNotMatch(theme, /\.aa-gallery-selected__toolbar|\.aa-gallery-selected__lead|\.aa-gallery-selected__status|\.aa-gallery-selected__copy/);
+	assert.doesNotMatch(source, /\b(?:globalThis\.)?confirm\s*\(/);
+	assert.match(source, /function openClearSelectionDialog\(node, controller\)/);
+	assert.match(source, /className: "aa-gallery-clear-confirm"/);
+	assert.match(source, /onClick: \(\) => openClearSelectionDialog\(node, controller\)/);
+	for (const locale of [enLocale, zhLocale]) assert.equal(typeof locale.aaalice.gallery.selected.reorderHint, "string");
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.selected.clearTitle, "string");
+		assert.equal(typeof locale.aaalice.gallery.selected.clearAction, "string");
+	}
+});
+
+test("selected rows use the full available width for tag previews", () => {
+	const previewSource = source.slice(source.indexOf("function selectedRowTagPreview"), source.indexOf("function selectedRowCopyContent"));
+	assert.match(previewSource, /tokens\.map\(/);
+	assert.doesNotMatch(previewSource, /slice\(0,\s*4\)|className: "is-more"/);
+	assert.match(theme, /\.aa-gallery-selected-row__tags \{[^}]*overflow: hidden/);
+});
+
+test("selected row text reuses post details instead of opening a prompt tooltip", () => {
+	const rowSource = source.slice(source.indexOf("function createSelectedRow"), source.indexOf("function buildController"));
+	assert.match(rowSource, /controller\.openDetail\(selection\)\.catch\(controller\.showError\)/);
+	assert.match(rowSource, /label\("card\.detail", "View details"\)/);
+	assert.doesNotMatch(rowSource, /showPromptHover|promptHoverTimer|pointermove/);
+	assert.doesNotMatch(source, /function selectedPromptHoverContent|aa-gallery-selected-prompt-tooltip/);
+	assert.doesNotMatch(theme, /\.aa-gallery-selected-prompt/);
+});
+
+test("selected rows share one protected trailing slot between order and removal", () => {
+	const rowSource = source.slice(source.indexOf("function createSelectedRow"), source.indexOf("function buildController"));
+	assert.doesNotMatch(rowSource, /aa-gallery-selected-row__drag/);
+	assert.match(rowSource, /className: "aa-gallery-selected-row"[\s\S]*draggable: true/);
+	assert.match(rowSource, /"data-rank": index < 3 \? String\(index \+ 1\) : "other"/);
+	assert.match(theme, /\.aa-gallery-selected-row \{[^}]*padding: 6px 44px 6px 8px/);
+	assert.match(theme, /\.aa-gallery-selected-row__order \{[^}]*position: absolute;[^}]*right: 10px/);
+	assert.match(theme, /\.aa-gallery-selected-row__order \{[^}]*border: 0;[^}]*box-shadow:/);
+	for (const rank of ["1", "2", "3"]) assert.match(theme, new RegExp(`selected-row\\[data-rank="${rank}"\\] \\.aa-gallery-selected-row__order`));
+	assert.match(theme, /\.aa-gallery-selected-row:hover \.aa-gallery-selected-row__order[^}]*opacity: 0/);
+	assert.match(theme, /\.aa-gallery-selected-row__remove\.aa-ui-button \{[^}]*border-radius: 50%/);
+});
+
+test("gallery tag pills keep clean capsules and route operations through context menus", () => {
+	const pillsSource = tagPillsSource;
+	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
+	assert.match(source, /import \{ createTagPillList \} from "\.\/lib\/controls\/tag_pills\.js"/);
+	assert.match(pillsSource, /className: `aa-ui-tag-pill aa-gallery-tag-pill\$\{hasContextMenu/);
+	assert.match(pillsSource, /"data-category": token\.category/);
+	assert.match(pillsSource, /pill\.addEventListener\("click", beginEdit\)/);
+	assert.match(pillsSource, /pill\.addEventListener\("contextmenu"/);
+	assert.match(pillsSource, /type: "remove"/);
+	assert.match(pillsSource, /createContextMenu\(\{ x, y/);
+	assert.doesNotMatch(pillsSource, /dblclick|tag-pill__remove|tag-pill__action|icon\("lock"\)/);
+	assert.match(detailSource, /createGalleryTagPills\(\{/);
+	assert.doesNotMatch(detailSource, /editable: true/);
+	assert.match(detailSource, /contextMenuItems: \(token, \{ edit \}\)/);
+	assert.match(detailSource, /label\("detail\.editTag"/);
+	assert.match(detailSource, /label\("detail\.blockTag"/);
+	assert.match(detailSource, /label\("detail\.addToSearch"/);
+	assert.match(detailSource, /disabled: !cap\?\.tagSearch/);
+	assert.match(detailSource, /onMutate: \(mutation\) => mutateDetailTag/);
+	assert.match(detailSource, /dialog\.close\(\);[\s\S]*addGlobalBlacklistTag\(token\.raw\)/);
+	assert.match(pillsSource, /const pill = el\("div"/);
+	for (const category of ["artist", "copyright", "character", "general", "meta"]) {
+		assert.match(theme, new RegExp(`\\.aa-gallery-tag-pill\\[data-category="${category}"\\]`));
+	}
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.selected.editTag, "string");
+		assert.equal(typeof locale.aaalice.gallery.selected.removeTag, "string");
+		assert.equal(typeof locale.aaalice.gallery.detail.editTag, "string");
+		assert.equal(typeof locale.aaalice.gallery.detail.blockTag, "string");
+		assert.equal(typeof locale.aaalice.gallery.detail.blacklistAdded, "string");
+	}
+});
+
 test("post details use maintainable semantic color hooks", () => {
 	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
 	for (const fact of ["resolution", "format", "tags"]) assert.match(detailSource, new RegExp(`\\["${fact}",`));
@@ -333,8 +445,9 @@ test("post details use maintainable semantic color hooks", () => {
 	for (const action of ["is-source", "is-original", "is-favorite"]) assert.match(detailSource, new RegExp(action));
 });
 
-test("local tag editor focuses one color-coded category without rebuilding inputs", () => {
-	const editorSource = source.slice(source.indexOf("const openEditor ="), source.indexOf("return { tooltip, search"));
+test("local tag editor focuses one color-coded category with reusable editable pills", () => {
+	const editorStart = source.indexOf("const openEditor =");
+	const editorSource = source.slice(editorStart, source.indexOf("\n\treturn {", editorStart));
 	assert.match(editorSource, /className: "aa-gallery-tag-editor__category-tab"/);
 	assert.match(editorSource, /className: "aa-gallery-tag-editor__category"/);
 	assert.match(editorSource, /view\.panel\.hidden = !active/);
@@ -342,10 +455,28 @@ test("local tag editor focuses one color-coded category without rebuilding input
 	assert.match(editorSource, /setCategory\(groups\.general\?\.length \? "general"/);
 	assert.match(editorSource, /title: label\("editor\.title", "Edit local tags"\)/);
 	assert.doesNotMatch(editorSource, /title: `\$\{label\("editor\.title"/);
+	assert.match(editorSource, /createGalleryTagPills\(\{/);
+	assert.match(editorSource, /editable: true/);
+	assert.match(editorSource, /allowAdd: true/);
+	assert.match(editorSource, /mutation\.type === "add"/);
+	assert.match(editorSource, /pillLists\[category\]\.setTokens/);
+	assert.match(tagPillsSource, /input\.spellcheck = false/);
+	assert.match(tagPillsSource, /className: "aa-ui-tag-pills__add-trigger aa-gallery-tag-pills__add-trigger"/);
+	assert.match(tagPillsSource, /add\.replaceWith\(input\)/);
+	assert.doesNotMatch(editorSource, /createElement\("textarea"\)|aa-gallery-tag-editor__input/);
 	for (const category of ["artist", "copyright", "character", "general", "meta"]) assert.match(theme, new RegExp(`category-tab\\[data-category="${category}"\\]`));
 	assert.match(theme, /\.aa-gallery-tag-editor__workspace \{[^}]*grid-template-columns: 158px minmax\(0, 1fr\)/);
-	assert.match(theme, /\.aa-gallery-tag-editor__input\.aa-ui-input \{[^}]*height: 100%;[^}]*resize: none/);
+	assert.match(theme, /\.aa-gallery-tag-editor__category > \.aa-gallery-tag-pills \{[^}]*height: 100%;[^}]*overflow: auto/);
+	assert.match(theme, /\.aa-gallery-tag-pills__add \{[^}]*width: 12ch;[^}]*flex: 0 0 auto;[^}]*border: 1px solid/);
+	assert.match(theme, /\.aa-gallery-tag-pills__add-trigger\.aa-ui-button \{[^}]*width: 25px;[^}]*border-radius: 999px/);
+	assert.match(theme, /\.aa-gallery-tag-pill\.is-editing,[^{]*\{[^}]*border-color: transparent !important;[^}]*box-shadow: inset/);
+	assert.match(theme, /\.aa-gallery-tag-pill__input,[^{]*:focus-visible \{[^}]*border: 0 !important;[^}]*box-shadow: none !important/);
+	assert.doesNotMatch(theme, /\.aa-gallery-tag-pill:focus-visible,[^{]*\{[^}]*0 0 0 2px/);
 	assert.doesNotMatch(theme, /aa-gallery-tag-editor__grid|aa-gallery-tag-editor__hero/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.editor.pillHint, "string");
+		assert.equal(typeof locale.aaalice.gallery.editor.addPlaceholder, "string");
+	}
 });
 
 test("gallery settings use focused sections and explicit account states", () => {
@@ -363,6 +494,12 @@ test("gallery settings use focused sections and explicit account states", () => 
 	assert.match(source, /className: "aa-gallery-settings__source-workspace"/);
 	assert.match(source, /function settingsSectionHeader\(iconName, title\)/);
 	assert.doesNotMatch(source, /settingsSectionHeader\([^\n]*settings\.(?:sourcesHint|browseHint|promptHint|performanceHint)/);
+	const settingsSource = source.slice(source.indexOf("async function openSettingsDialog"), source.indexOf("app.registerExtension"));
+	assert.doesNotMatch(settingsSource, /settings\.excluded|Default excluded prompt tags|promptDefaults\?\.excludedTags/);
+	assert.match(settingsSource, /className: "aa-gallery-settings__page aa-gallery-settings__blacklist-page"/);
+	assert.match(settingsSource, /value: "blacklist", label: label\("settings\.blacklist"/);
+	assert.match(settingsSource, /children: \[accountsPanel, browsePanel, blacklistPanel, promptPanel, performancePanel\]/);
+	assert.doesNotMatch(settingsSource.slice(settingsSource.indexOf('data-page": "browse"'), settingsSource.indexOf('data-page": "blacklist"')), /blacklistCard/);
 	assert.doesNotMatch(source, /className: "aa-gallery-settings__toggle-card"[^\n]*settings\.tooltipHint/);
 	assert.doesNotMatch(source, /className: "aa-gallery-settings__blacklist-icon"[^\n]*settings\.blacklistIntro/);
 	assert.match(source, /panel\.hidden = !active; tab\.classList\.toggle\("is-active", active\)/);
@@ -373,7 +510,8 @@ test("gallery settings use focused sections and explicit account states", () => 
 	assert.match(theme, /\.aa-gallery-settings__source-workspace \{[^}]*grid-template-columns: 184px minmax\(0, 1fr\)/);
 	assert.match(theme, /\.aa-gallery-settings__rating\.aa-ui-multiselect \{[^}]*grid-template-columns: repeat\(2/);
 	assert.match(theme, /\.aa-gallery-settings__section-header strong \{[^}]*font-size: 12px/);
-	assert.match(theme, /\.aa-gallery-settings__blacklist-card > footer small \{[^}]*font-size: 9px/);
+	assert.doesNotMatch(settingsSource, /aa-gallery-settings__blacklist-card[\s\S]*el\("footer"/);
+	assert.match(theme, /\.aa-gallery-settings__blacklist-card \{[^}]*border: 0;[^}]*background: color-mix/);
 	assert.doesNotMatch(theme, /aa-gallery-settings__hero|aa-gallery-settings__source-grid/);
 	assert.match(settingsEntrySource, /cell\.append\(button\(\{ label: label\("settings\.open", "Configure Gallery…"\)/);
 	assert.doesNotMatch(settingsEntrySource, /aa-gallery-settings-entry|settings\.introTitle|variant: "primary"/);
@@ -385,8 +523,8 @@ test("gallery settings use focused sections and explicit account states", () => 
 });
 
 test("shared inputs override native beveled browser styling", () => {
-	assert.match(uiStyles, /\.aa-ui-input\.aa-ui-input \{[^}]*appearance: none;[^}]*-webkit-appearance: none;[^}]*border: 1px solid[^}]*border-radius: 8px;[^}]*box-shadow: none;/s);
-	assert.match(uiStyles, /\.aa-ui-input\.aa-ui-input:focus[^}]*box-shadow: 0 0 0 3px/s);
+	assert.match(uiStyles, /\.aa-ui-input\.aa-ui-input \{[^}]*appearance: none;[^}]*-webkit-appearance: none;[^}]*border: 1px solid transparent;[^}]*border-radius: 8px;[^}]*box-shadow: var\(--aa-ui-edge-shadow-inset\)/s);
+	assert.match(uiStyles, /\.aa-ui-input\.aa-ui-input:focus[^}]*box-shadow: var\(--aa-ui-edge-shadow-active\), 0 0 0 3px/s);
 	assert.match(uiStyles, /\.aa-ui-input\.aa-ui-input:-webkit-autofill[^}]*-webkit-text-fill-color: var\(--aa-ui-text\)/s);
 });
 

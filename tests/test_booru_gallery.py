@@ -69,6 +69,9 @@ class GalleryAdapterTests(unittest.TestCase):
         self.assertEqual(danbooru["rankingPeriods"], ["day", "week", "month"])
         self.assertEqual(AITagAdapter.capabilities.json()["rankingPeriods"], ["month"])
         self.assertTrue(danbooru["pageJump"])
+        self.assertTrue(danbooru["tagSearch"])
+        self.assertEqual(danbooru["maxSearchTags"], 2)
+        self.assertIsNone(gelbooru["maxSearchTags"])
 
     def test_indexed_page_conversion_is_adapter_owned(self):
         self.assertEqual(DanbooruAdapter().cursor_for_page(7), "7")
@@ -100,6 +103,33 @@ class GalleryAdapterTests(unittest.TestCase):
             self.assertIn("-watermark", params["tags"])
             self.assertIn("-text", params["tags"])
             self.assertEqual([post.post_id for post in page.posts], ["8"])
+        import asyncio
+        asyncio.run(run())
+
+    def test_danbooru_rating_filter_is_enforced_on_returned_posts(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            adapter._get_json = AsyncMock(return_value=[
+                {"id": 7, "rating": "g", "preview_file_url": "https://cdn.donmai.us/7.jpg"},
+                {"id": 8, "rating": "e", "preview_file_url": "https://cdn.donmai.us/8.jpg"},
+            ])
+            page = await adapter.search(None, "", ["general"], "latest", None, 20, {})
+            self.assertEqual([post.post_id for post in page.posts], ["7"])
+            self.assertIn("rating:general", adapter._get_json.await_args.kwargs["params"]["tags"])
+        import asyncio
+        asyncio.run(run())
+
+    def test_danbooru_omits_video_posts_before_they_reach_the_gallery(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            adapter._get_json = AsyncMock(return_value=[
+                {"id": 7, "file_ext": "jpg", "preview_file_url": "https://cdn.donmai.us/7.jpg"},
+                {"id": 8, "file_ext": "mp4", "preview_file_url": "https://cdn.donmai.us/8.jpg"},
+                {"id": 9, "file_ext": "webm", "preview_file_url": "https://cdn.donmai.us/9.jpg"},
+                {"id": 10, "file_ext": "gif", "preview_file_url": "https://cdn.donmai.us/10.jpg"},
+            ])
+            page = await adapter.search(None, "", [], "latest", None, 20, {})
+            self.assertEqual([post.post_id for post in page.posts], ["7", "10"])
         import asyncio
         asyncio.run(run())
 
@@ -227,9 +257,25 @@ class GallerySettingsTests(unittest.TestCase):
 
     def test_blacklist_is_trimmed_deduplicated_and_kept_out_of_workflows(self):
         with tempfile.TemporaryDirectory() as directory:
-            store = GallerySettingsStore(Path(directory) / "gallery.json")
+            path = Path(directory) / "gallery.json"
+            store = GallerySettingsStore(path)
             public = store.save({"blacklist": [" watermark ", "text", "watermark", ""]})
             self.assertEqual(public["blacklist"], ["watermark", "text"])
+            workflow = {"nodes": [{"type": "BooruGalleryNode", "properties": {"booruGalleryState": {"version": 1}}}]}
+            reloaded = GallerySettingsStore(path)
+            self.assertEqual(reloaded.load()["blacklist"], ["watermark", "text"])
+            self.assertNotIn("blacklist", json.dumps(workflow))
+
+    def test_legacy_prompt_exclusions_migrate_into_the_single_global_blacklist(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "gallery.json"
+            value = default_settings()
+            value["blacklist"] = ["watermark"]
+            value["promptDefaults"]["excludedTags"] = ["text_focus", "watermark"]
+            path.write_text(json.dumps(value), encoding="utf-8")
+            loaded = GallerySettingsStore(path).load()
+            self.assertEqual(loaded["blacklist"], ["watermark", "text_focus"])
+            self.assertNotIn("excludedTags", loaded["promptDefaults"])
 
 
 class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
