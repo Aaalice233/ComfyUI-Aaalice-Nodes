@@ -77,6 +77,12 @@ test("places compact manual inputs inside the drag stage footer", () => {
 	assert.doesNotMatch(source, /aa-resolution-output-fields/);
 });
 
+test("allows every canvas range and previews automatic fitting", () => {
+	assert.match(source, /fitCanvasLimit\(state, limit, personalPresets\)/);
+	assert.match(source, /`\$\{state\.width\}×\$\{state\.height\} → \$\{fitted\.width\}×\$\{fitted\.height\}`/);
+	assert.doesNotMatch(source, /disabled:\s*limit < required/);
+});
+
 test("reserves the bottom resize corners and keeps the preset trigger compact", () => {
 	assert.match(styles, /\.dom-widget:has\(> \.aa-resolution-preset\) \{ pointer-events: none !important; \}/);
 	assert.match(styles, /\.aa-resolution-preset\.is-resizing, \.aa-resolution-preset\.is-resizing \* \{ pointer-events: none !important;/);

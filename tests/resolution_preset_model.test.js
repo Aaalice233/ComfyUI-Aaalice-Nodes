@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-	ALIGNMENTS, BUILTIN_PRESETS, alignDimension, canvasDimensions, normalizeResolutionState,
+	ALIGNMENTS, BUILTIN_PRESETS, alignDimension, canvasDimensions, fitCanvasLimit, normalizeResolutionState,
 	requiredCanvasMax, resolutionPayload, resolutionSummary, selectPreset, selectionFractions, updateDimensions,
 } from "../js/lib/resolution_preset_model.js";
 
@@ -43,6 +43,12 @@ test("preset selection restores dimensions and alignment while manual edits clea
 	assert.equal(edited.presetId, null);
 	assert.equal(edited.width, 896);
 	assert.ok(ALIGNMENTS.includes(edited.alignment));
+});
+
+test("selecting a smaller canvas range proportionally fits aligned dimensions", () => {
+	const state = normalizeResolutionState({ version: 1, width: 4096, height: 3072, alignment: 16, canvasMax: 4096 });
+	assert.deepEqual(fitCanvasLimit(state, 2048), { version: 1, width: 2048, height: 1536, alignment: 16, canvasMax: 2048, presetId: null });
+	assert.deepEqual(fitCanvasLimit(state, 8192), { ...state, canvasMax: 8192 });
 });
 
 test("summarizes exact ratio and megapixels without affecting execution", () => {

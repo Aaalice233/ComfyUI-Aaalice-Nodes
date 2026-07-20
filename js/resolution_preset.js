@@ -6,8 +6,8 @@ import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } 
 import { bindNodeAccent } from "./lib/node_accent.js";
 import {
 	ALIGNMENTS, BUILTIN_PRESETS, CANVAS_LIMITS, MAX_RESOLUTION, MIN_RESOLUTION,
-	allPresets, alignDimension, canvasDimensions, normalizePersonalPresets,
-	normalizeResolutionState, requiredCanvasMax, resolutionPayload, resolutionSummary,
+	allPresets, alignDimension, canvasDimensions, fitCanvasLimit, normalizePersonalPresets,
+	normalizeResolutionState, resolutionPayload, resolutionSummary,
 	presetMatches, selectPreset, selectionFractions, updateDimensions,
 } from "./lib/resolution_preset_model.js";
 import { button, createAnchoredPopover, createDialog, el, field, iconButton, isolate } from "./lib/ui.js";
@@ -136,13 +136,16 @@ function openAlignmentPopover(node, anchor) {
 }
 
 function openRangePopover(node, anchor) {
-	const popover = setPopover(node, createAnchoredPopover({ anchor, ariaLabel: label("range.title", "Drag range"), className: "aa-resolution-choice-popover", width: 220 }));
-	const state = stateFor(node); const required = requiredCanvasMax(state.width, state.height);
+	const popover = setPopover(node, createAnchoredPopover({ anchor, ariaLabel: label("range.title", "Canvas range"), className: "aa-resolution-choice-popover", width: 260 }));
+	const state = stateFor(node);
 	for (const limit of CANVAS_LIMITS) {
-		const control = button({ label: `${limit} px`, variant: "ghost", size: "sm", disabled: limit < required, className: `aa-resolution-choice${limit === state.canvasMax ? " is-active" : ""}`, onClick: () => {
-			commit(node, () => { stateFor(node).canvasMax = limit; }); popover.close();
+		const fitted = fitCanvasLimit(state, limit, personalPresets);
+		const changesSize = fitted.width !== state.width || fitted.height !== state.height;
+		const detail = changesSize ? `${state.width}×${state.height} → ${fitted.width}×${fitted.height}` : (limit === state.canvasMax ? "✓" : "");
+		const control = button({ label: `${limit} px`, variant: "ghost", size: "sm", className: `aa-resolution-choice${limit === state.canvasMax ? " is-active" : ""}`, onClick: () => {
+			commit(node, () => { node.properties[PROPERTY] = fitCanvasLimit(stateFor(node), limit, personalPresets); }); popover.close();
 		} });
-		control.append(el("span", "aa-resolution-choice__detail", limit === state.canvasMax ? "✓" : "")); popover.root.append(control);
+		control.append(el("span", "aa-resolution-choice__detail", detail)); popover.root.append(control);
 	}
 }
 

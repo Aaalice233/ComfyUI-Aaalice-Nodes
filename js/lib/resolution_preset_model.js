@@ -96,6 +96,18 @@ export function selectPreset(state, preset) {
 	return { version: 1, width, height, alignment, canvasMax: Math.max(state.canvasMax, requiredCanvasMax(width, height)), presetId: preset?.id || null };
 }
 
+export function fitCanvasLimit(state, limit, personal = []) {
+	const canvasMax = CANVAS_LIMITS.includes(Number(limit)) ? Number(limit) : state.canvasMax;
+	const largestDimension = Math.max(state.width, state.height);
+	if (largestDimension <= canvasMax) return { ...state, canvasMax };
+
+	const scale = canvasMax / largestDimension;
+	const width = alignDimension(state.width * scale, state.alignment);
+	const height = alignDimension(state.height * scale, state.alignment);
+	const matched = matchingPreset(width, height, state.alignment, allPresets(personal));
+	return { version: 1, width, height, alignment: state.alignment, canvasMax, presetId: matched?.id || null };
+}
+
 export function canvasDimensions(state, widthFraction, heightFraction, mode = "both") {
 	const minimum = Math.ceil(MIN_RESOLUTION / state.alignment) * state.alignment;
 	const span = state.canvasMax - minimum;

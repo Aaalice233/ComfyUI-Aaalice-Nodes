@@ -10,7 +10,7 @@
       "groups": { "square": "正方形", "portrait": "竖版", "landscape": "横版", "personal": "我的预设" },
       "preset": { "choose": "选择分辨率", "custom": "自定义", "empty": "还没有个人预设", "unavailable": "个人预设暂不可用", "saveCurrent": "保存当前分辨率", "manage": "管理分辨率预设", "name": "名称", "saved": "预设已保存", "saveTitle": "保存分辨率预设", "rename": "编辑预设", "deleteConfirm": "删除“{name}”？此操作无法撤销。", "deleteTitle": "删除预设" },
       "alignment": { "title": "像素对齐", "chip": "{value} px 对齐" },
-      "range": { "title": "拖拽范围", "chip": "最大 {value}" },
+      "range": { "title": "画板最大范围", "chip": "最大 {value}" },
       "canvas": { "widthHandle": "拖动调整宽度", "heightHandle": "拖动调整高度", "bothHandle": "拖动同时调整宽度和高度" },
       "input": { "width": "宽度", "height": "高度", "rangeError": "请输入有效的分辨率", "alignmentError": "需要是 {alignment} 的倍数", "useSuggestion": "使用 {value}" },
       "actions": { "swap": "交换宽度和高度", "cancel": "取消", "save": "保存", "saveChanges": "保存修改", "delete": "删除", "done": "完成" }

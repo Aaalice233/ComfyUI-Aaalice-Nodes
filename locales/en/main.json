@@ -10,7 +10,7 @@
       "groups": { "square": "Square", "portrait": "Portrait", "landscape": "Landscape", "personal": "My presets" },
       "preset": { "choose": "Choose resolution", "custom": "Custom", "empty": "No personal presets", "unavailable": "Personal presets unavailable", "saveCurrent": "Save current", "manage": "Manage presets", "name": "Name", "saved": "Preset saved", "saveTitle": "Save resolution preset", "rename": "Edit preset", "deleteConfirm": "Delete \"{name}\"? This cannot be undone.", "deleteTitle": "Delete preset" },
       "alignment": { "title": "Pixel alignment", "chip": "{value} px aligned" },
-      "range": { "title": "Drag range", "chip": "Max {value}" },
+      "range": { "title": "Maximum canvas range", "chip": "Max {value}" },
       "canvas": { "widthHandle": "Drag to adjust width", "heightHandle": "Drag to adjust height", "bothHandle": "Drag to adjust width and height" },
       "input": { "width": "Width", "height": "Height", "rangeError": "Enter a valid resolution", "alignmentError": "Must be divisible by {alignment}", "useSuggestion": "Use {value}" },
       "actions": { "swap": "Swap width and height", "cancel": "Cancel", "save": "Save", "saveChanges": "Save changes", "delete": "Delete", "done": "Done" }
