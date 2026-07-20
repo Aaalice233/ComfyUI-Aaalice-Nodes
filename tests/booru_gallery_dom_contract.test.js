@@ -180,8 +180,11 @@ test("selected gallery cards use configurable approval stamps and a clear blue h
 	assert.match(theme, /\.aa-gallery-stamp__art \{ display: contents; \}/);
 	assert.match(theme, /data-stamp="soldOutPostal"[^}]*--aa-gallery-stamp: var\(--p-gray-500/);
 	assert.match(source, /function quarantineQualifiedArt\(\)/);
-	assert.match(source, /<text x="32" y="29">检疫<\/text><text x="32" y="51">合格<\/text>/);
-	assert.match(theme, /data-stamp="quarantineQualified"[^}]*rotate\(-5deg\)/);
+	assert.match(source, /aa-gallery-stamp__quarantine-copy[^']*<text x="32" y="25">检疫<\/text><text x="32" y="45">合格<\/text>/);
+	assert.doesNotMatch(source, /aa-gallery-stamp__postal-board" transform="rotate/);
+	assert.doesNotMatch(theme, /aa-gallery-(?:card__selection|stamp__main)[^{}]*\{[^}]*rotate\(/);
+	assert.match(theme, /data-stamp="quarantineQualified"[^}]*border: 0;[^}]*drop-shadow/);
+	assert.match(theme, /aa-gallery-stamp__quarantine text[^}]*font-size: 19px;[^}]*dominant-baseline: middle/);
 	assert.match(source, /traditionVertical: \["", "传\\n统\\n文\\n化", ""\]/);
 	assert.match(source, /ruyi: \["", "如\\n意", ""\]/);
 	assert.match(source, /auspicious: \["", "吉\\n祥", ""\]/);

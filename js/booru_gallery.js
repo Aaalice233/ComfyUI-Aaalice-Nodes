@@ -75,12 +75,12 @@ function selectionStampLabel(style) {
 }
 function soldOutPostalArt() {
 	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 104 72"); svg.setAttribute("class", "aa-gallery-stamp__postal"); svg.setAttribute("aria-hidden", "true");
-	svg.innerHTML = '<g class="aa-gallery-stamp__postal-ring"><circle cx="34" cy="36" r="27"/><circle cx="34" cy="36" r="22"/></g><g class="aa-gallery-stamp__postal-waves"><path d="M58 20c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M59 28c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M59 36c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M58 44c10-6 17 4 28-2 6-3 10-7 16-9"/></g><text class="aa-gallery-stamp__postal-xianyu" x="34" y="20">XIANYU</text><text class="aa-gallery-stamp__postal-sold" x="34" y="59">SOLD OUT</text><g class="aa-gallery-stamp__postal-board" transform="rotate(-10 36 36)"><rect x="5" y="25" width="65" height="27" rx="3"/><rect x="8" y="28" width="59" height="21" rx="2"/><text x="37" y="44">卖掉了</text></g>';
+	svg.innerHTML = '<g class="aa-gallery-stamp__postal-ring"><circle cx="34" cy="36" r="27"/><circle cx="34" cy="36" r="22"/></g><g class="aa-gallery-stamp__postal-waves"><path d="M58 20c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M59 28c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M59 36c10-6 17 4 28-2 6-3 10-7 16-9"/><path d="M58 44c10-6 17 4 28-2 6-3 10-7 16-9"/></g><text class="aa-gallery-stamp__postal-xianyu" x="34" y="20">XIANYU</text><text class="aa-gallery-stamp__postal-sold" x="34" y="59">SOLD OUT</text><g class="aa-gallery-stamp__postal-board"><rect x="5" y="25" width="65" height="27" rx="3"/><rect x="8" y="28" width="59" height="21" rx="2"/><text x="37" y="44">卖掉了</text></g>';
 	return svg;
 }
 function quarantineQualifiedArt() {
 	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 64 64"); svg.setAttribute("class", "aa-gallery-stamp__quarantine"); svg.setAttribute("aria-hidden", "true");
-	svg.innerHTML = '<g class="aa-gallery-stamp__quarantine-rings"><circle cx="32" cy="32" r="29"/><circle cx="32" cy="32" r="25.5"/></g><text x="32" y="29">检疫</text><text x="32" y="51">合格</text>';
+	svg.innerHTML = '<g class="aa-gallery-stamp__quarantine-rings"><circle cx="32" cy="32" r="29"/><circle cx="32" cy="32" r="25"/></g><g class="aa-gallery-stamp__quarantine-copy"><text x="32" y="25">检疫</text><text x="32" y="45">合格</text></g>';
 	return svg;
 }
 const TRADITIONAL_SEAL_SPECS = Object.freeze({
@@ -102,7 +102,7 @@ function traditionalSealArt(style) {
 	const outline = spec.shape === "circle"
 		? `<circle cx="32" cy="32" r="29"/><circle class="aa-gallery-stamp__traditional-inset" cx="32" cy="32" r="25"/>`
 		: `<rect x="2" y="2" width="${width - 4}" height="${height - 4}" rx="${spec.shape === "wide" ? 5 : 7}"/><rect class="aa-gallery-stamp__traditional-inset" x="5" y="5" width="${width - 10}" height="${height - 10}" rx="${spec.shape === "wide" ? 3 : 5}"/>`;
-	const fontSize = spec.shape === "vertical" ? (spec.lines.length === 4 ? 13 : 21) : spec.shape === "wide" ? 18 : 21;
+	const fontSize = spec.shape === "vertical" ? (spec.lines.length === 4 ? 13 : 19) : spec.shape === "wide" ? 16 : 20;
 	const lineHeight = spec.shape === "vertical" && spec.lines.length === 4 ? 14 : fontSize + 3;
 	const totalHeight = (spec.lines.length - 1) * lineHeight; const firstY = height / 2 - totalHeight / 2;
 	const text = spec.lines.map((line, index) => `<text x="${width / 2}" y="${firstY + index * lineHeight}" font-size="${fontSize}">${line}</text>`).join("");
