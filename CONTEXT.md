@@ -82,6 +82,10 @@
 
 - **Pixel Alignment（像素对齐）**：宽高必须落在指定像素步长的整数倍上；本节点支持 8、16、32 与 64 px。避免使用 Megapixel Scale、Model Resolution。
 
+- **Krita Bridge（Krita 桥接器）**：随包提供、由用户显式安装到 Krita 的共享本机插件。它只负责执行短请求并交换请求关联的媒体快照，不负责启动、关闭或定位 Krita。
+
+- **Krita Snapshot（Krita 快照）**：一次执行从 Krita 当前活动文档读取的可见合成图、文档元数据与选区蒙版。它是瞬时执行结果，不是工作流状态或可持续编辑会话。
+
 - **Branch Key（分支键）**：用户可见、区分大小写并用于精确选择分支的稳定字符串。避免使用 Branch Index、display label。
 
 - **Route Identity（路由身份）**：分支连接在重命名和重排中的稳定身份；Branch Key 和槽位顺序都不是身份。

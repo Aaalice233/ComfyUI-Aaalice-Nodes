@@ -82,6 +82,13 @@ test("parameter enum uses a sliding selection indicator", () => {
 	assert.match(themeSource, /\.aa-control-choice-indicator\s*\{[^}]*var\(--aa-control-item-tone/s);
 });
 
+test("parameter panel deletion destroys shared controls without calling removed observer helpers", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+
+	assert.match(panelSource, /node\.onRemoved = function \(\) \{[\s\S]*destroyRenderedControls\(root\)/);
+	assert.doesNotMatch(panelSource, /disconnectSegmentObservers/);
+});
+
 test("parameter labels keep a small gap above their controls", () => {
 	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");

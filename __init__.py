@@ -2,7 +2,7 @@
 
 ComfyUI 加载本目录时导入此模块：
 - V3：`comfy_entrypoint()` → `ComfyExtension.get_node_list`
-- 前端：`WEB_DIRECTORY` 下全部 `.js` 自动加载
+- 前端：`WEB_DIRECTORY` 公开静态资源，`js/extension.js` 是唯一业务入口
 - i18n：`locales/{en,zh}/` 由 ComfyUI 扫描 `/api/i18n` 合并，无需在此注册
 """
 
@@ -27,11 +27,13 @@ class AaaliceNodesExtension(ComfyExtension):
 
 async def comfy_entrypoint() -> AaaliceNodesExtension:
     from .nodes.gallery.routes import register_gallery_routes
+    from .nodes.krita.routes import register_krita_routes
     from .nodes.prompt.character_feature_swap_routes import register_character_feature_swap_routes
     from .nodes.prompt.prompt_library_routes import register_prompt_library_routes
     from .nodes.tools.resolution_preset_routes import register_resolution_preset_routes
 
     register_gallery_routes()
+    register_krita_routes()
     register_character_feature_swap_routes()
     register_prompt_library_routes()
     register_resolution_preset_routes()

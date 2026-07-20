@@ -112,6 +112,15 @@
       "1": { "name": "Height", "tooltip": "Selected height in pixels." }
     }
   },
+  "FetchFromKrita": {
+    "display_name": "🎨 Fetch from Krita",
+    "description": "Read the active Krita document and its current selection when this node executes.",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "Image", "tooltip": "Visible composite of the active Krita document." },
+      "1": { "name": "Mask", "tooltip": "Current Krita selection, or an empty mask when no selection exists." }
+    }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ Quick Group Manager",
     "description": "Quickly enable, mute, or bypass visual groups with color scopes, ordering, and linkage rules.",

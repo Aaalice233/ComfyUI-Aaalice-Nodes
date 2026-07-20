@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 进度：`11 / 17` 个节点
-- 下一项：#24 `FetchFromKrita`
+- 进度：`12 / 16` 个节点
+- 下一项：#9 `SimpleLoadImage`
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
 - `ParameterReceiver` 承接 #16 的职责，旧名称为 `ParameterBreak`。
@@ -25,6 +25,7 @@
 | 16 | `ParameterReceiver` | control | 按当前绑定动态接收并透传面板对应的 KJ Get。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
+| 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
 
 ## 不再重置
 
@@ -37,17 +38,16 @@
 | 17 | `GroupIsEnabled` | 仅查询组启用状态，独立节点的实用价值不足。 |
 | 19 | `GroupIgnoreManager` | 静音与绕过职责已合并到 #18 `QuickGroupManager`。 |
 | 22 | `MultiCharacterEditorNode` | 当前不需要多角色提示词编辑能力。 |
+| 25 | `SendToKrita` | 当前工作方式只需在 Krita 中提前准备活动文档和选区，再由 `FetchFromKrita` 执行时读取；不需要反向发送节点。 |
 
 ## 节点队列
 
 | 顺序 | # | 旧节点 ID | 领域 | 目标职责 |
 |---:|---:|---|---|---|
-| 1 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
-| 2 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容，与 #24 配套实现。 |
-| 3 | 9 | `SimpleLoadImage` | tools | 加载本地图像和 mask。 |
-| 4 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
-| 5 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
-| 6 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
+| 1 | 9 | `SimpleLoadImage` | tools | 加载本地图像和 mask。 |
+| 2 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
+| 3 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
+| 4 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
 
 ## 非节点队列
 

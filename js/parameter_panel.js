@@ -806,7 +806,7 @@ function setupParameterPanel(node, loaded = false) {
 		this._aaaliceParameterAccent?.dispose();
 		this._aaaliceParameterAccent = null;
 		cleanupDomWidgetResizePassthrough(this);
-		disconnectSegmentObservers(root);
+		destroyRenderedControls(root);
 		window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_CHANGED, { detail: { nodeId: this.id, node: this, removed: true } }));
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onChange);
 		return previousRemoved?.apply(this, arguments);

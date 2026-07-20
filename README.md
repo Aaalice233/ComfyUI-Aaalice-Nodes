@@ -66,6 +66,7 @@ pip install -r requirements.txt
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | Transfer selected character features while preserving the original prompt's language and format. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
+| `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
 
 <details>
 <summary><strong>EnumSwitch — lazy enum routing</strong></summary>
@@ -86,6 +87,17 @@ Choose one of nine model-neutral built-in sizes, save personal presets, enter wi
 Alignment can be set to 8, 16, 32, or 64 pixels. Invalid direct input keeps the previous value and offers the nearest legal size. The drag range can be 2048, 4096, or 8192 and expands automatically when a completed edit needs more space. Personal presets retain their own alignment and are stored in the current ComfyUI user directory.
 
 The ratio and megapixel text are read-only summaries. This node does not calculate a target size from megapixels, recommend models, create images or Latents, or perform cropping, scaling, or batching. Use ComfyUI's `ResolutionSelector` when ratio-plus-megapixel calculation is the desired workflow.
+
+</details>
+
+<details>
+<summary><strong>FetchFromKrita — execution-time Krita snapshot</strong></summary>
+
+The node has no inputs. Every execution reads the visible composite of Krita's current active document and returns it as `IMAGE`; the current selection is returned as a same-size `MASK`. With no selection, the mask is fully black. A real selection that happens to be fully black remains a valid selection instead of being treated as absent.
+
+Close Krita, then open **ComfyUI Settings → Aaalice Nodes → Krita** to install and enable, or repair and re-enable, the bundled `Aaalice Comfy Bridge`. The action updates Krita's plugin setting automatically; start Krita afterward and test the connection. Bridge status and the last fetch summary are interface-only and never enter workflow JSON.
+
+Krita, ComfyUI, and the Bridge must run on the same machine. Missing Bridge, offline Krita, no active document, incompatible protocol, export failure, timeout, or invalid media fails the node explicitly; it never returns an old snapshot, placeholder image, or fallback input. The node does not launch or close Krita, choose among documents or layers, wait for editing, or provide a two-way editing session.
 
 </details>
 
@@ -209,6 +221,7 @@ The **Library** workspace manages entries, flat categories, multi-membership fav
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
 - CharacterFeatureSwapNode supports only the official DeepSeek API and requires a valid DeepSeek API key and available model; API availability, billing, privacy, and output quality are controlled by DeepSeek.
 - BooruGalleryNode depends on third-party site APIs and media hosts. Network availability, credentials, site limits, post metadata, and favorite behavior remain controlled by each site; only static JPG, PNG, WebP, and GIF posts are selectable.
+- FetchFromKrita requires a locally running Krita with the bundled Bridge enabled and an active document. It supports one active-document snapshot per execution and no remote or persistent editing session.
 - Prompt-library data lives in the current ComfyUI user directory and is not embedded in workflows; export it separately when moving workflows between installations.
 - Dashboard bindings automatically support simple native scalar/text/combo nodes, Aaalice parameters, and public subgraph widgets. A node containing an unknown custom widget or DOM panel is not partially projected; it requires an explicit adapter.
 

@@ -112,6 +112,15 @@
       "1": { "name": "高度", "tooltip": "选中的像素高度。" }
     }
   },
+  "FetchFromKrita": {
+    "display_name": "🎨 从 Krita 获取",
+    "description": "节点执行时读取 Krita 当前活动文档及其选区。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "图像", "tooltip": "Krita 当前活动文档的可见合成图。" },
+      "1": { "name": "蒙版", "tooltip": "Krita 当前选区；没有选区时输出空蒙版。" }
+    }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ 快速组管理器",
     "description": "按颜色范围快速启用、静音或绕过可视组，并配置排序与联动规则。",

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=Krita/PythonPlugin
+X-KDE-Library=aaalice_comfy_bridge
+X-Python-2-Compatible=false
+Name=Aaalice Comfy Bridge
+Comment=Exchange active Krita document snapshots with ComfyUI Aaalice Nodes

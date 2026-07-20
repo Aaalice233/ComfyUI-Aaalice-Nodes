@@ -14,6 +14,7 @@ _DOMAIN_MODULES = (
     "control",
     "prompt",
     "gallery",
+    "krita",
 )
 
 

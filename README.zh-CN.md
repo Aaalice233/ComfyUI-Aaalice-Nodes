@@ -66,6 +66,7 @@ pip install -r requirements.txt
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序并加权输出可复用提示词条。 |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | 从参考角色迁移选中特征，并保持原提示词的语言和格式。 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 在 Danbooru、Gelbooru、Safebooru 与 AI TAG 的虚拟瀑布流中搜索，并按顺序输出图片与对应提示词。 |
+| `FetchFromKrita` | `Aaalice/krita` | 将 Krita 当前活动文档的可见合成图与选区读取为 `IMAGE` 和 `MASK`。 |
 
 <details>
 <summary><strong>EnumSwitch — 惰性枚举选通</strong></summary>
@@ -86,6 +87,17 @@ pip install -r requirements.txt
 像素对齐支持 8、16、32、64 四档。手动输入不合法时会保留旧值，并给出最近合法尺寸的一键采用入口。拖拽范围支持 2048、4096、8192；完成编辑后，如果当前范围容纳不下新尺寸，会自动升到合适档位。个人预设会保存自身的对齐方式，并存入当前 ComfyUI 用户目录。
 
 宽高比和百万像素只用于只读辨认。本节点不会按百万像素计算目标尺寸、推荐模型、创建图像或 Latent，也不负责裁剪、缩放和 batch。需要“宽高比 + 百万像素”计算时，请使用 ComfyUI 官方 `ResolutionSelector`。
+
+</details>
+
+<details>
+<summary><strong>FetchFromKrita — 执行时获取 Krita 快照</strong></summary>
+
+节点没有输入。每次执行都会读取 Krita 当前活动文档的可见合成图并输出 `IMAGE`，同时把当前选区输出为同尺寸 `MASK`。没有选区时输出全黑蒙版；确实存在但内容全黑的选区仍会被保留为合法选区，不会被误判为“无选区”。
+
+先关闭 Krita，再前往 **ComfyUI 设置 → Aaalice Nodes → Krita** 安装并启用或修复并重新启用随包提供的 `Aaalice Comfy Bridge`。该操作会自动更新 Krita 的插件开关；之后启动 Krita 并测试连接即可。Bridge 状态和最近一次获取摘要只用于界面反馈，不会写入工作流 JSON。
+
+Krita、ComfyUI 与 Bridge 必须运行在同一台机器上。Bridge 缺失、Krita 未连接、没有活动文档、协议不兼容、导出失败、超时或媒体无效都会让节点明确失败；节点不会返回旧快照、占位图或备用输入。它不启动或关闭 Krita，不选择文档或图层，不等待编辑，也不提供双向编辑会话。
 
 </details>
 
@@ -209,6 +221,7 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 - SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
 - CharacterFeatureSwapNode 仅支持 DeepSeek 官方 API，需要有效的 DeepSeek API Key 和可用模型；API 可用性、费用、隐私与输出质量由 DeepSeek 决定。
 - BooruGalleryNode 依赖第三方站点 API 与媒体主机；网络、凭据、站点限制、帖子元数据和收藏行为由各站点控制。只能选择静态 JPG、PNG、WebP 和 GIF 帖子。
+- FetchFromKrita 需要本机 Krita 正在运行、随包 Bridge 已启用且存在活动文档。每次执行只读取一个活动文档，不支持远程或持续编辑会话。
 - 词库保存在当前 ComfyUI 用户目录，不会嵌入工作流；跨安装迁移工作流时需要单独导出词库。
 - 侧边栏自动支持简单原生标量、文本和下拉节点、Aaalice 参数及子图公开 widget。只要节点含未知自定义 widget 或 DOM 面板，就不会自动做不完整投影，必须使用显式适配器。
 

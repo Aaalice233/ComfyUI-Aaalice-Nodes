@@ -11,6 +11,7 @@ import "./prompt_selector.js";
 import "./character_feature_swap.js";
 import "./booru_gallery.js";
 import "./resolution_preset.js";
+import "./fetch_from_krita.js";
 import "./workspace.js";
 
 function injectStyles() {
