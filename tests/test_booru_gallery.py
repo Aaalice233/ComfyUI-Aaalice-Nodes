@@ -238,7 +238,7 @@ class GallerySettingsTests(unittest.TestCase):
     def test_selection_stamp_is_global_persisted_and_validated(self):
         with tempfile.TemporaryDirectory() as directory:
             store = GallerySettingsStore(Path(directory) / "gallery.json")
-            self.assertEqual(store.load()["selectionStamp"], "inspection")
+            self.assertEqual(store.load()["selectionStamp"], "quarantineQualified")
             self.assertEqual(store.save({"selectionStamp": "nationwideFlight"})["selectionStamp"], "nationwideFlight")
             self.assertEqual(GallerySettingsStore(store.path).load()["selectionStamp"], "nationwideFlight")
             self.assertEqual(store.save({"selectionStamp": "quarantineQualified"})["selectionStamp"], "quarantineQualified")

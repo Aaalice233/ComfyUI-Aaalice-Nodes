@@ -43,6 +43,106 @@ function ratingTone(value) {
 	return ["general", "safe", "sensitive", "questionable", "explicit"].includes(rating) ? rating : "unknown";
 }
 function ratingLabel(value) { const key = ratingKey(value); return label(`rating.${key}`, String(value || "—")); }
+
+function createDetailImageViewer({ previewSrc, originalSrc, alt }) {
+	const MIN_SCALE = 1; const MAX_SCALE = 8; const BUTTON_STEP = 1.35;
+	let scale = MIN_SCALE; let offsetX = 0; let offsetY = 0; let activePointer = null; let dragX = 0; let dragY = 0; let loadToken = 0; let originalLoader = null; let destroyed = false;
+	previewSrc ||= originalSrc;
+	const image = el("img", { className: "aa-gallery-detail__image", attrs: { src: previewSrc, alt } }); image.dataset.quality = previewSrc === originalSrc ? "original" : "preview";
+	const viewport = el("div", { className: "aa-gallery-detail__viewport", attrs: { tabindex: "0", role: "group", "aria-label": label("detail.viewer", "Image viewer. Scroll to zoom, then drag to move. Double-click to reset.") }, children: [image] });
+	const zoomValue = el("output", { className: "aa-gallery-detail__zoom-value", text: "100%" });
+	const clampOffsets = () => {
+		const width = viewport.clientWidth; const height = viewport.clientHeight;
+		if (!width || !height || !image.naturalWidth || !image.naturalHeight || scale <= MIN_SCALE) { offsetX = 0; offsetY = 0; return; }
+		const fittedScale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+		const fittedWidth = image.naturalWidth * fittedScale; const fittedHeight = image.naturalHeight * fittedScale;
+		const maxX = Math.max(0, (fittedWidth * scale - width) / 2); const maxY = Math.max(0, (fittedHeight * scale - height) / 2);
+		offsetX = Math.max(-maxX, Math.min(maxX, offsetX)); offsetY = Math.max(-maxY, Math.min(maxY, offsetY));
+	};
+	let zoomOut; let zoomIn;
+	const render = () => {
+		clampOffsets();
+		image.style.setProperty("--aa-gallery-detail-scale", String(scale));
+		image.style.setProperty("--aa-gallery-detail-offset-x", `${offsetX}px`);
+		image.style.setProperty("--aa-gallery-detail-offset-y", `${offsetY}px`);
+		viewport.classList.toggle("is-zoomed", scale > MIN_SCALE);
+		zoomValue.value = `${Math.round(scale * 100)}%`; zoomValue.textContent = zoomValue.value;
+		if (zoomOut) zoomOut.disabled = scale <= MIN_SCALE; if (zoomIn) zoomIn.disabled = scale >= MAX_SCALE;
+	};
+	const setScale = (nextScale, clientX = null, clientY = null) => {
+		const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
+		if (next === scale) return;
+		const rect = viewport.getBoundingClientRect();
+		const pointerX = (clientX ?? (rect.left + rect.width / 2)) - rect.left - rect.width / 2;
+		const pointerY = (clientY ?? (rect.top + rect.height / 2)) - rect.top - rect.height / 2;
+		const ratio = next / scale;
+		offsetX = pointerX - (pointerX - offsetX) * ratio; offsetY = pointerY - (pointerY - offsetY) * ratio; scale = next; render();
+	};
+	const reset = () => { scale = MIN_SCALE; offsetX = 0; offsetY = 0; render(); };
+	zoomOut = iconButton({ iconName: "zoomOut", label: label("detail.zoomOut", "Zoom out"), variant: "ghost", onClick: () => setScale(scale / BUTTON_STEP) });
+	const fit = iconButton({ iconName: "fit", label: label("detail.resetView", "Reset view"), variant: "ghost", onClick: reset });
+	zoomIn = iconButton({ iconName: "zoomIn", label: label("detail.zoomIn", "Zoom in"), variant: "ghost", onClick: () => setScale(scale * BUTTON_STEP) });
+	const controls = el("div", { className: "aa-gallery-detail__viewer-controls", attrs: { role: "group", "aria-label": label("detail.viewerControls", "Image view controls") }, children: [zoomOut, zoomValue, fit, zoomIn] });
+	const statusIcon = el("span", { className: "aa-gallery-detail__media-status-icon", attrs: { "aria-hidden": "true" } });
+	const statusText = el("span", "aa-gallery-detail__media-status-text");
+	const retry = iconButton({ iconName: "refresh", label: label("detail.retryOriginal", "Retry original"), variant: "ghost" });
+	const status = el("div", { className: "aa-gallery-detail__media-status", attrs: { role: "status", "aria-live": "polite" }, children: [statusIcon, statusText, retry] });
+	const setLoadState = (state, text) => {
+		status.hidden = state === "ready"; status.dataset.state = state; statusText.textContent = text || ""; retry.hidden = state !== "error";
+		statusIcon.replaceChildren(icon(state === "error" ? "statusError" : "loading"));
+	};
+	const loadOriginal = () => {
+		if (destroyed || !originalSrc) return;
+		const token = ++loadToken;
+		setLoadState("loading", label("detail.loadingOriginal", "Loading original…"));
+		if (previewSrc === originalSrc) {
+			image.dataset.quality = "original"; image.removeAttribute("src");
+			requestAnimationFrame(() => { if (!destroyed && token === loadToken) image.src = originalSrc; });
+			return;
+		}
+		if (originalLoader) originalLoader.src = "";
+		const loader = new Image(); originalLoader = loader; loader.decoding = "async";
+		loader.addEventListener("load", () => {
+			if (destroyed || token !== loadToken) return;
+			originalLoader = null; image.dataset.quality = "original"; image.src = originalSrc;
+		}, { once: true });
+		loader.addEventListener("error", () => {
+			if (destroyed || token !== loadToken) return;
+			originalLoader = null; setLoadState("error", label("detail.originalFailed", "Original image failed to load. Preview kept."));
+		}, { once: true });
+		loader.src = originalSrc;
+	};
+	retry.addEventListener("click", loadOriginal);
+	viewport.addEventListener("wheel", (event) => { event.preventDefault(); setScale(scale * Math.exp(-event.deltaY * 0.0015), event.clientX, event.clientY); }, { passive: false });
+	viewport.addEventListener("pointerdown", (event) => {
+		viewport.focus({ preventScroll: true });
+		if (event.button !== 0 || scale <= MIN_SCALE) return;
+		event.preventDefault(); activePointer = event.pointerId; dragX = event.clientX - offsetX; dragY = event.clientY - offsetY; viewport.setPointerCapture(event.pointerId); viewport.classList.add("is-dragging");
+	});
+	viewport.addEventListener("pointermove", (event) => { if (event.pointerId !== activePointer) return; offsetX = event.clientX - dragX; offsetY = event.clientY - dragY; render(); });
+	const endDrag = (event) => { if (event.pointerId !== activePointer) return; activePointer = null; viewport.classList.remove("is-dragging"); if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId); };
+	viewport.addEventListener("pointerup", endDrag); viewport.addEventListener("pointercancel", endDrag);
+	viewport.addEventListener("dblclick", reset);
+	viewport.addEventListener("keydown", (event) => {
+		if (["+", "="].includes(event.key)) { event.preventDefault(); setScale(scale * BUTTON_STEP); return; }
+		if (event.key === "-") { event.preventDefault(); setScale(scale / BUTTON_STEP); return; }
+		if (event.key === "0") { event.preventDefault(); reset(); return; }
+		const movement = { ArrowLeft: [36, 0], ArrowRight: [-36, 0], ArrowUp: [0, 36], ArrowDown: [0, -36] }[event.key];
+		if (!movement || scale <= MIN_SCALE) return;
+		event.preventDefault(); offsetX += movement[0]; offsetY += movement[1]; render();
+	});
+	image.addEventListener("load", () => { render(); if (image.dataset.quality === "original") setLoadState("ready"); });
+	image.addEventListener("error", () => {
+		if (image.dataset.quality !== "original") return;
+		if (previewSrc && previewSrc !== originalSrc) { image.dataset.quality = "preview"; image.src = previewSrc; }
+		setLoadState("error", label("detail.originalFailed", "Original image failed to load. Preview kept."));
+	});
+	image.draggable = false; render(); loadOriginal();
+	return {
+		root: el("div", { className: "aa-gallery-detail__media", children: [viewport, status, controls] }),
+		destroy() { destroyed = true; loadToken += 1; if (originalLoader && !originalLoader.complete) originalLoader.src = ""; originalLoader = null; image.removeAttribute("src"); },
+	};
+}
 function ratingIcon(value) { return ({ general: "ratingGeneral", safe: "ratingGeneral", sensitive: "ratingSensitive", questionable: "ratingQuestionable", explicit: "ratingExplicit" })[ratingTone(value)] || "statusIdle"; }
 function sortLabel(value) { return label(`collection.${value}`, String(value)); }
 const SELECTION_STAMPS = [
@@ -603,13 +703,14 @@ function createSelectedRow(node, controller, selection, index) {
 }
 
 function buildController(node, elements) {
-	let posts = []; let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; const sessionEdits = new Map();
-	const detailCache = new Map(); const previewCache = new Map(); let previewGeneration = 0;
+	let posts = []; let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; let detailDialogGeneration = 0; let destroyed = false; let activeDetailDialog = null; const sessionEdits = new Map();
+	const detailCache = new Map(); const previewCache = new Map(); let previewGeneration = 0; let previewPrefetchActive = 0; const previewPrefetchQueue = []; const previewPrefetchPending = new Set(); const prefetchedPreviewSources = new Map();
 	const touchCache = (cache, key, value) => { cache.delete(key); cache.set(key, value); return value; };
 	const trimCache = (cache, maximum) => { while (cache.size > maximum) cache.delete(cache.keys().next().value); };
 	const trimPreviewCache = () => { while (previewCache.size > 16) { const key = previewCache.keys().next().value; const entry = previewCache.get(key); if (!entry.ready) entry.loader.src = ""; previewCache.delete(key); } };
 	const rotatePreviewCache = () => {
 		previewGeneration += 1;
+		previewPrefetchQueue.length = 0; previewPrefetchPending.clear(); prefetchedPreviewSources.clear();
 		for (const entry of previewCache.values()) if (!entry.ready) entry.loader.src = "";
 		previewCache.clear();
 	};
@@ -803,13 +904,31 @@ function buildController(node, elements) {
 		}).catch((error) => { if (detailCache.get(key) === request) detailCache.delete(key); throw error; });
 		detailCache.set(key, request); trimCache(detailCache, 128); return request;
 	};
+	const drainPreviewPrefetch = () => {
+		while (!destroyed && previewPrefetchActive < 4 && previewPrefetchQueue.length) {
+			const task = previewPrefetchQueue.shift();
+			if (task.generation !== previewGeneration) { previewPrefetchPending.delete(task.key); continue; }
+			previewPrefetchActive += 1;
+			void getDetail(task.post).then((detail) => {
+				if (destroyed || task.generation !== previewGeneration) return;
+				const sampleUrl = detail.sampleUrl || detail.previewUrl;
+				if (!sampleUrl) return;
+				const sampleSrc = proxyUrl(detail.source, sampleUrl); prefetchedPreviewSources.set(task.key, sampleSrc);
+				return cacheImage(sampleSrc)?.promise;
+			}).catch(() => {
+				if (task.generation === previewGeneration) prefetchedPreviewSources.delete(task.key);
+			}).finally(() => {
+				previewPrefetchActive -= 1; previewPrefetchPending.delete(task.key); drainPreviewPrefetch();
+			});
+		}
+	};
 	const prefetchVisible = (visiblePosts) => {
-		const cacheGeneration = previewGeneration;
-		for (const post of visiblePosts.slice(0, 12)) void getDetail(post).then((detail) => {
-			if (cacheGeneration !== previewGeneration) return;
-			const sampleUrl = detail.sampleUrl || detail.previewUrl;
-			if (sampleUrl) void cacheImage(proxyUrl(detail.source, sampleUrl))?.promise.catch(() => {});
-		}).catch(() => {});
+		for (const post of visiblePosts.slice(0, 12)) {
+			const key = `${post.source}:${post.postId}`; const prefetchedSrc = prefetchedPreviewSources.get(key);
+			if (previewPrefetchPending.has(key) || (prefetchedSrc && previewCache.has(prefetchedSrc))) continue;
+			previewPrefetchPending.add(key); previewPrefetchQueue.push({ key, post, generation: previewGeneration });
+		}
+		drainPreviewPrefetch();
 	};
 	const recoverPreview = async (post, image) => {
 		if (post.source !== "aitag" || image.dataset.previewRecovery) return;
@@ -897,7 +1016,9 @@ function buildController(node, elements) {
 		}).catch(() => { waitingForLargerPreview = false; loading.hidden = true; });
 	};
 	const openDetail = async (post) => {
+		const openGeneration = ++detailDialogGeneration; activeDetailDialog?.close(); activeDetailDialog = null;
 		const detail = await getDetail(post); const key = `${post.source}:${post.postId}`; const selected = stateFor(node).selections.some((item) => selectionKey(item) === key);
+		if (destroyed || openGeneration !== detailDialogGeneration) return;
 		const selectedSnapshot = stateFor(node).selections.find((item) => selectionKey(item) === key);
 		const detailDrafts = normalizeTagGroups(selectedSnapshot?.editedTags || sessionEdits.get(key) || detail.tags);
 		const detailCounts = {};
@@ -916,8 +1037,8 @@ function buildController(node, elements) {
 			renderSelected();
 			return detailTokens(category);
 		};
-		const detailImageSrc = proxyUrl(detail.source, detail.mediaUrl); void cacheImage(detailImageSrc)?.promise.catch(() => {});
-		const image = el("img", { className: "aa-gallery-detail__image", attrs: { src: detailImageSrc, alt: `${detail.source} #${detail.postId}` } });
+		const previewUrl = detail.sampleUrl || detail.previewUrl || post.previewUrl || detail.mediaUrl;
+		const viewer = createDetailImageViewer({ previewSrc: proxyUrl(detail.source, previewUrl), originalSrc: proxyUrl(detail.source, detail.mediaUrl), alt: `${detail.source} #${detail.postId}` });
 		const actions = [];
 		let dialog; actions.push(button({ className: `aa-gallery-detail__action is-selection${selected ? " is-selected" : ""}`, label: selected ? label("detail.remove", "Remove selection") : label("detail.select", "Select"), variant: selected ? "danger" : "primary", onClick: async () => { await toggleSelection(detail); dialog.close(); } }));
 		actions.push(button({ className: "aa-gallery-detail__action is-source", label: label("detail.source", "Open source"), iconName: "link", variant: "ghost", onClick: () => window.open(detail.postUrl, "_blank", "noopener") }));
@@ -959,8 +1080,9 @@ function buildController(node, elements) {
 				] });
 			}) }),
 		] });
-		const body = el("div", { className: "aa-gallery-detail", children: [el("div", { className: "aa-gallery-detail__media", children: [image] }), inspector] });
-		dialog = createDialog({ title: label("detail.title", "Post details"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: actions }), size: "lg", className: "aa-gallery-detail-dialog", confirmOnEnter: false });
+		const body = el("div", { className: "aa-gallery-detail", children: [viewer.root, inspector] });
+		dialog = createDialog({ title: label("detail.title", "Post details"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: actions }), size: "lg", className: "aa-gallery-detail-dialog", confirmOnEnter: false, onClose: () => { viewer.destroy(); if (activeDetailDialog === dialog) activeDetailDialog = null; } });
+		activeDetailDialog = dialog;
 	};
 	const openEditor = async (target) => {
 		const selectedIndex = typeof target === "number" ? target : stateFor(node).selections.findIndex((item) => selectionKey(item) === `${target.source}:${target.postId}`);
@@ -1050,8 +1172,9 @@ function buildController(node, elements) {
 		showError,
 		updateSize(post, width, height) { elements.masonryController.updateItemSize(`${post.source}:${post.postId}`, width, height); },
 		destroy() {
-			generation += 1;
+			destroyed = true; generation += 1; detailDialogGeneration += 1;
 			requestController?.abort();
+			activeDetailDialog?.close(); activeDetailDialog = null;
 			endSelectedDrag();
 			elements.selectedDropIndicator?.remove();
 			tooltip.destroy();
@@ -1307,7 +1430,7 @@ async function openSettingsDialog() {
 	const timeout = settingsInput("number", String(settings.timeout)); timeout.min = "3"; timeout.max = "300";
 	const budget = settingsInput("number", String(settings.cacheBudgetMiB)); budget.min = "128"; budget.max = "32768";
 	const tooltip = checkboxControl({ checked: settings.tooltip, label: label("settings.tooltip", "Show hover details") });
-	let selectedStamp = SELECTION_STAMPS.includes(settings.selectionStamp) ? settings.selectionStamp : "inspection";
+	let selectedStamp = SELECTION_STAMPS.includes(settings.selectionStamp) ? settings.selectionStamp : "quarantineQualified";
 	const stampButtons = new Map();
 	const stampPicker = el("div", { className: "aa-gallery-settings__stamp-picker", attrs: { role: "radiogroup", "aria-label": label("settings.selectionStamp", "Selection stamp") } });
 	const setStamp = (value) => { selectedStamp = value; for (const [style, control] of stampButtons) { const active = style === value; control.classList.toggle("is-active", active); control.setAttribute("aria-checked", String(active)); control.tabIndex = active ? 0 : -1; } };

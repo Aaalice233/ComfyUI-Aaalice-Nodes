@@ -180,6 +180,7 @@ test("selected gallery cards use configurable approval stamps and a clear blue h
 	assert.match(theme, /\.aa-gallery-stamp__art \{ display: contents; \}/);
 	assert.match(theme, /data-stamp="soldOutPostal"[^}]*--aa-gallery-stamp: var\(--p-gray-500/);
 	assert.match(source, /function quarantineQualifiedArt\(\)/);
+	assert.match(source, /SELECTION_STAMPS\.includes\(settings\.selectionStamp\) \? settings\.selectionStamp : "quarantineQualified"/);
 	assert.match(source, /aa-gallery-stamp__quarantine-copy[^']*<text x="32" y="25">检疫<\/text><text x="32" y="45">合格<\/text>/);
 	assert.doesNotMatch(source, /aa-gallery-stamp__postal-board" transform="rotate/);
 	assert.doesNotMatch(theme, /aa-gallery-(?:card__selection|stamp__main)[^{}]*\{[^}]*rotate\(/);
@@ -247,10 +248,14 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.match(source, /if \(!content\.isConnected \|\| !tooltip\.isOpenFor\(anchor\)\) return/);
 	assert.match(source, /placement: "side"/);
 	assert.match(source, /detail\.sampleUrl \|\| detail\.previewUrl/);
-	assert.match(source, /const detailCache = new Map\(\); const previewCache = new Map\(\); let previewGeneration = 0/);
+	assert.match(source, /const detailCache = new Map\(\); const previewCache = new Map\(\); let previewGeneration = 0; let previewPrefetchActive = 0/);
 	assert.match(source, /for \(const post of visiblePosts\.slice\(0, 12\)\)/);
 	assert.match(source, /onVisibleItemsChange: \(items\) => controller\?\.prefetchVisible\(items\)/);
 	assert.match(source, /while \(previewCache\.size > 16\)/);
+	assert.match(source, /previewPrefetchActive < 4/);
+	assert.match(source, /previewPrefetchPending\.has\(key\)/);
+	assert.match(source, /prefetchedSrc && previewCache\.has\(prefetchedSrc\)/);
+	assert.match(source, /previewPrefetchQueue\.length = 0; previewPrefetchPending\.clear\(\); prefetchedPreviewSources\.clear\(\)/);
 	assert.match(source, /if \(cachedImage\?\.ready\) showSample\(\)/);
 	assert.match(source, /generation \+= 1; rotatePreviewCache\(\); posts = \[\]/);
 	assert.match(source, /className: "aa-gallery-hover__loading"[^]*children: \[icon\("loading"\)\]/);
@@ -420,6 +425,37 @@ test("post detail uses layered surfaces instead of line-based separators", () =>
 	assert.match(theme, /\.aa-gallery-detail__tag-group \.aa-gallery-tag-pill \{[^}]*border: 0;[^}]*background: color-mix\(in srgb, var\(--aa-gallery-category-tone\) 10%/);
 	assert.match(theme, /\.aa-gallery-detail__tag-group \.aa-gallery-section-heading strong::before/);
 	assert.match(theme, /\.aa-gallery-detail__action\.is-selection \{[^}]*order: 10/);
+});
+
+test("post detail image viewer supports zoom, pan, reset, and keyboard control", () => {
+	const viewerSource = source.slice(source.indexOf("function createDetailImageViewer"), source.indexOf("function ratingIcon"));
+	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
+	assert.match(viewerSource, /const MIN_SCALE = 1; const MAX_SCALE = 8;/);
+	assert.match(viewerSource, /addEventListener\("wheel"/);
+	assert.match(viewerSource, /Math\.exp\(-event\.deltaY \* 0\.0015\), event\.clientX, event\.clientY/);
+	assert.match(viewerSource, /\{ passive: false \}/);
+	assert.match(viewerSource, /setPointerCapture\(event\.pointerId\)/);
+	assert.match(viewerSource, /addEventListener\("pointermove"/);
+	assert.match(viewerSource, /addEventListener\("dblclick", reset\)/);
+	assert.match(viewerSource, /\["\+", "="\]\.includes\(event\.key\)/);
+	assert.match(viewerSource, /ArrowLeft: \[36, 0\][^\n]*ArrowDown: \[0, -36\]/);
+	assert.match(viewerSource, /fittedWidth \* scale - width/);
+	assert.match(viewerSource, /function createDetailImageViewer\(\{ previewSrc, originalSrc, alt \}\)/);
+	assert.match(detailSource, /detail\.sampleUrl \|\| detail\.previewUrl \|\| post\.previewUrl \|\| detail\.mediaUrl/);
+	assert.match(detailSource, /createDetailImageViewer\(\{ previewSrc: proxyUrl\(detail\.source, previewUrl\), originalSrc: proxyUrl\(detail\.source, detail\.mediaUrl\)/);
+	assert.match(viewerSource, /const loader = new Image\(\); originalLoader = loader/);
+	assert.match(viewerSource, /setLoadState\("error", label\("detail\.originalFailed"/);
+	assert.match(viewerSource, /retry\.addEventListener\("click", loadOriginal\)/);
+	assert.match(detailSource, /onClose: \(\) => \{ viewer\.destroy\(\)/);
+	assert.doesNotMatch(detailSource, /cacheImage\([^\n]*detail\.mediaUrl/);
+	assert.match(theme, /\.aa-gallery-detail__viewport \{[^}]*position: absolute;[^}]*overflow: hidden;[^}]*touch-action: none/);
+	assert.match(theme, /\.aa-gallery-detail__image \{[^}]*translate3d\(var\(--aa-gallery-detail-offset-x[^}]*scale\(var\(--aa-gallery-detail-scale/);
+	assert.match(theme, /\.aa-gallery-detail__viewer-controls \{[^}]*position: absolute;[^}]*bottom: 10px;[^}]*left: 10px;[^}]*backdrop-filter: blur\(10px\)/);
+	assert.match(theme, /\.aa-gallery-detail__media-status \{[^}]*position: absolute;[^}]*top: 10px;[^}]*left: 10px/);
+	assert.match(theme, /\.aa-gallery-detail__media-status\[data-state="error"\]/);
+	for (const locale of [enLocale, zhLocale]) {
+		for (const key of ["viewer", "viewerControls", "zoomIn", "zoomOut", "resetView", "loadingOriginal", "originalFailed", "retryOriginal"]) assert.equal(typeof locale.aaalice.gallery.detail[key], "string");
+	}
 });
 
 test("selected count and clear action live in the main toolbar", () => {

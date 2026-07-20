@@ -26,6 +26,9 @@ const ICON_PATHS = {
 	note: "M5 4h14v13H9l-4 3V4Zm4 5h6m-6 4h4",
 	moveDown: "m7 10 5 5 5-5",
 	refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
+	fit: "M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5",
+	zoomIn: "M11 8v6m-3-3h6m7 10-4.35-4.35M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
+	zoomOut: "M8 11h6m7 10-4.35-4.35M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
 	ratingGeneral: "M12 3 5 6v5c0 4.2 2.9 6.6 7 8 4.1-1.4 7-3.8 7-8V9l-7-6Zm-3 9 2 2 4-4",
 	ratingSensitive: "M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Zm9.5 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
 	ratingQuestionable: "M12 18h.01M9.4 9a2.7 2.7 0 1 1 4.2 2.25c-1.1.75-1.6 1.25-1.6 2.25M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
@@ -795,6 +798,7 @@ export function createDialog({
 	closeOnBackdrop = true,
 	confirmOnEnter = true,
 	onRequestClose = null,
+	onClose = null,
 } = {}) {
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 	const titleId = `aaalice-dialog-${Math.random().toString(36).slice(2)}`;
@@ -822,7 +826,8 @@ export function createDialog({
 		closed = true;
 		document.removeEventListener("keydown", keydown);
 		overlay.remove();
-		previousFocus?.focus?.({ preventScroll: true });
+		try { onClose?.(value); }
+		finally { previousFocus?.focus?.({ preventScroll: true }); }
 	};
 	const requestClose = async (value = null) => {
 		if (closed) return;

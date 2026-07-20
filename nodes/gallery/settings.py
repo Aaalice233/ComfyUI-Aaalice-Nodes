@@ -32,7 +32,7 @@ def default_settings() -> dict[str, Any]:
         "promptDefaults": {"categories": list(DEFAULT_PROMPT_CATEGORIES), "replaceUnderscores": False,
                            "escapeParentheses": False},
         "tooltip": True,
-        "selectionStamp": "inspection",
+        "selectionStamp": "quarantineQualified",
         "timeout": 30,
         "cacheBudgetMiB": 1024,
         "credentials": {
@@ -102,7 +102,7 @@ class GallerySettingsStore:
         prompt["replaceUnderscores"] = bool(prompt.get("replaceUnderscores", False))
         prompt["escapeParentheses"] = bool(prompt.get("escapeParentheses", False))
         settings["tooltip"] = bool(settings.get("tooltip", True))
-        selection_stamp = str(settings.get("selectionStamp", "inspection"))
+        selection_stamp = str(settings.get("selectionStamp", "quarantineQualified"))
         if selection_stamp not in SELECTION_STAMPS:
             raise ValueError("selectionStamp is invalid")
         settings["selectionStamp"] = selection_stamp

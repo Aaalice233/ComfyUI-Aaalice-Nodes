@@ -82,6 +82,8 @@ test("shared dialogs mount immediately without obsolete open calls", () => {
 	assert.match(ui, /event\.key === "Escape"/);
 	assert.match(ui, /event\.key === "Escape" && open[\s\S]*?event\.stopPropagation\(\)[\s\S]*?setOpen\(false\)/);
 	assert.match(ui, /requestClose\(null\)/);
+	assert.match(ui, /onClose = null/);
+	assert.match(ui, /try \{ onClose\?\.\(value\); \}/);
 	assert.match(uiStyles, /\.aa-ui-dialog--compact \{ width: min\(420px, 96vw\); \}/);
 	assert.doesNotMatch(workspace, /dialog\.open\(\)/);
 	assert.doesNotMatch(selector, /dialog\.open\(\)/);
