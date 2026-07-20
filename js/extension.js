@@ -10,6 +10,7 @@ import "./prompt_cleaning_maid.js";
 import "./prompt_selector.js";
 import "./character_feature_swap.js";
 import "./booru_gallery.js";
+import "./resolution_preset.js";
 import "./workspace.js";
 
 function injectStyles() {

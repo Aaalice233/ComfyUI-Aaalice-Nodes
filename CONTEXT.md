@@ -78,6 +78,10 @@
 
 - **EnumSwitch（枚举选通）**：根据一个精确字符串 key，只执行并输出对应分支的控制节点。避免使用 Fallback Switch、Value Switch。
 
+- **ResolutionPreset（分辨率预设）**：通过内置预设、个人预设、精确输入或二维拖拽选择并输出确定宽高的工具节点。它不按百万像素推算尺寸，也不生成、裁剪或缩放图像。
+
+- **Pixel Alignment（像素对齐）**：宽高必须落在指定像素步长的整数倍上；本节点支持 8、16、32 与 64 px。避免使用 Megapixel Scale、Model Resolution。
+
 - **Branch Key（分支键）**：用户可见、区分大小写并用于精确选择分支的稳定字符串。避免使用 Branch Index、display label。
 
 - **Route Identity（路由身份）**：分支连接在重命名和重排中的稳定身份；Branch Key 和槽位顺序都不是身份。

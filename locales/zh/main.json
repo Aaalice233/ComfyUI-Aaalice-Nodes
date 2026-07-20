@@ -5,6 +5,16 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
+    "resolutionPreset": {
+      "title": "分辨率预设",
+      "groups": { "square": "正方形", "portrait": "竖版", "landscape": "横版", "personal": "我的预设" },
+      "preset": { "choose": "选择分辨率", "custom": "自定义", "empty": "还没有个人预设", "unavailable": "个人预设暂不可用", "saveCurrent": "保存当前分辨率", "manage": "管理分辨率预设", "name": "名称", "saved": "预设已保存", "saveTitle": "保存分辨率预设", "rename": "编辑预设", "deleteConfirm": "删除“{name}”？此操作无法撤销。", "deleteTitle": "删除预设" },
+      "alignment": { "title": "像素对齐", "chip": "{value} px 对齐" },
+      "range": { "title": "拖拽范围", "chip": "最大 {value}" },
+      "canvas": { "widthHandle": "拖动调整宽度", "heightHandle": "拖动调整高度", "bothHandle": "拖动同时调整宽度和高度" },
+      "input": { "width": "宽度", "height": "高度", "rangeError": "请输入有效的分辨率", "alignmentError": "需要是 {alignment} 的倍数", "useSuggestion": "使用 {value}" },
+      "actions": { "swap": "交换宽度和高度", "cancel": "取消", "save": "保存", "saveChanges": "保存修改", "delete": "删除", "done": "完成" }
+    },
     "promptSelector": {
       "search": "搜索词库", "allCategories": "全部分类", "allCollections": "全部收藏夹",
       "filters": "提示词筛选", "openSearch": "展开搜索", "collapseSearch": "收起搜索", "showSelected": "仅显示已选词条", "showAll": "显示全部匹配词条", "noResultsTitle": "没有找到提示词", "noResults": "没有符合条件的词条。", "manageLibrary": "管理词库", "emptySelected": "尚未选择提示词。", "clearAll": "清空已选",

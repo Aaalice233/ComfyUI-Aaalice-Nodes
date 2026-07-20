@@ -103,6 +103,15 @@
       "1": { "name": "Prompts", "tooltip": "Processed prompts paired one-to-one with Images." }
     }
   },
+  "ResolutionPreset": {
+    "display_name": "📐 Resolution Preset",
+    "description": "Choose an exact aligned width and height with presets, direct input, or a draggable canvas.",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "Width", "tooltip": "Selected width in pixels." },
+      "1": { "name": "Height", "tooltip": "Selected height in pixels." }
+    }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ Quick Group Manager",
     "description": "Quickly enable, mute, or bypass visual groups with color scopes, ordering, and linkage rules.",

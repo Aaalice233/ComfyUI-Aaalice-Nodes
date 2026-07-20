@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 进度：`10 / 20` 个节点
-- 下一项：#22 `MultiCharacterEditorNode`
+- 进度：`11 / 17` 个节点
+- 下一项：#24 `FetchFromKrita`
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
 - `ParameterReceiver` 承接 #16 的职责，旧名称为 `ParameterBreak`。
@@ -17,6 +17,7 @@
 | 1 | `SimpleStringSplit` | tools | 将文本拆分为清理后的字符串 list。 |
 | 3 | `EnumSwitch` | tools | 按精确字符串 key 惰性选通同类型分支。 |
 | 4 | `SimpleNotify` | tools | 在透明透传执行点提醒一次。 |
+| 8 | `ResolutionPreset` | tools | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
 | 10 | `PromptCleaningMaid` | prompt | 原样透传，或按显式格式保守清理自然语言、规范化并去重标签列表。 |
 | 11 | `PromptSelector` | prompt | 从独立词库跨分类选择、排序并加权输出提示词。 |
 | 12 | `CharacterFeatureSwapNode` | prompt | 通过 DeepSeek 官方 API 迁移当前节点选中的单角色特征。 |
@@ -31,23 +32,22 @@
 |---:|---|---|
 | 2 | `SimpleValueSwitch` | 实用价值不足，不在当前范围内。 |
 | 5 | `WorkflowDescription` | ComfyUI 已原生提供 `MarkdownNote`，无需重复实现。 |
+| 7 | `ModelNameExtractor` | 当前不需要单独提取模型名称。 |
+| 14 | `SimpleCheckpointLoaderWithName` | 当前不需要额外提供模型名称和预览的检查点加载节点。 |
 | 17 | `GroupIsEnabled` | 仅查询组启用状态，独立节点的实用价值不足。 |
 | 19 | `GroupIgnoreManager` | 静音与绕过职责已合并到 #18 `QuickGroupManager`。 |
+| 22 | `MultiCharacterEditorNode` | 当前不需要多角色提示词编辑能力。 |
 
 ## 节点队列
 
 | 顺序 | # | 旧节点 ID | 领域 | 目标职责 |
 |---:|---:|---|---|---|
-| 1 | 22 | `MultiCharacterEditorNode` | gallery | 编辑多角色提示词。 |
-| 2 | 7 | `ModelNameExtractor` | tools | 提取可读模型名。 |
-| 3 | 14 | `SimpleCheckpointLoaderWithName` | media | 加载模型并输出名称与预览。 |
-| 4 | 8 | `ResolutionMasterSimplify` | tools | 提供分辨率与尺寸辅助。 |
-| 5 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
-| 6 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容，与 #24 配套实现。 |
-| 7 | 9 | `SimpleLoadImage` | tools | 加载本地图像和 mask。 |
-| 8 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
-| 9 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
-| 10 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
+| 1 | 24 | `FetchFromKrita` | krita | 从 Krita 拉取内容。 |
+| 2 | 25 | `OpenInKrita` | krita | 在 Krita 中打开内容，与 #24 配套实现。 |
+| 3 | 9 | `SimpleLoadImage` | tools | 加载本地图像和 mask。 |
+| 4 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
+| 5 | 13 | `SimpleImageCompare` | media | 交互对比图像。 |
+| 6 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
 
 ## 非节点队列
 

@@ -28,6 +28,7 @@
 | [UI 设计系统](design/ui-system.md) | 原生节点分层、节点颜色、主题 token、共享组件、尺度、状态和可访问性 |
 | [参数系统](design/parameter-system.md) | ParameterPanel、ParameterReceiver、结构编辑器和双模式布局 |
 | [QuickGroupManager](design/quick-group-manager.md) | 顶栏、组列表、过滤、排序、联动和自适应尺寸 |
+| [ResolutionPreset](design/resolution-preset.md) | 精确宽高、画幅坐标板、像素对齐、范围和个人预设管理 |
 | [PromptSelector、词库与 DIY 侧边栏](design/prompt-selector-workspace.md) | 提示词选择、词库管理、页面布局、参数卡片和子图公开参数 |
 | [Booru Gallery](design/booru-gallery.md) | 多站点能力、单行顶栏、虚拟瀑布流、选择、详情、本地标签编辑和设置 |
 

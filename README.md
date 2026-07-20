@@ -59,6 +59,7 @@ pip install -r requirements.txt
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `QuickGroupManager` | `Aaalice/control` | Enable, mute, or bypass color-scoped visual groups with ordering and linkage rules. |
 | `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
+| `ResolutionPreset` | `Aaalice/tools` | Pick an exact aligned width and height with presets, direct input, or a draggable canvas. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
 | `PromptCleaningMaid` | `Aaalice/prompt` | Quickly disable cleaning, safely clean natural-language prompts, or normalize and deduplicate flat tag lists. |
@@ -74,6 +75,17 @@ pip install -r requirements.txt
 - Only the selected lazy branch executes, and every branch shares one inferred connection type.
 - Right-click and choose **⚙️ Edit Branches…** for standalone use.
 - A direct enum/dropdown output from ParameterPanel or ParameterReceiver is detected automatically. When its options change, the warning icon offers an explicit sync that preserves unchanged branch links.
+
+</details>
+
+<details>
+<summary><strong>ResolutionPreset — exact aligned dimensions</strong></summary>
+
+Choose one of nine model-neutral built-in sizes, save personal presets, enter width and height directly, or drag the width, height, and corner handles on the canvas. The node outputs exact `INT` width and height values and can be connected to nodes such as `EmptyLatentImage`.
+
+Alignment can be set to 8, 16, 32, or 64 pixels. Invalid direct input keeps the previous value and offers the nearest legal size. The drag range can be 2048, 4096, or 8192 and expands automatically when a completed edit needs more space. Personal presets retain their own alignment and are stored in the current ComfyUI user directory.
+
+The ratio and megapixel text are read-only summaries. This node does not calculate a target size from megapixels, recommend models, create images or Latents, or perform cropping, scaling, or batching. Use ComfyUI's `ResolutionSelector` when ratio-plus-megapixel calculation is the desired workflow.
 
 </details>
 

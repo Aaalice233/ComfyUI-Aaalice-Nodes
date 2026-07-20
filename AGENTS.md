@@ -54,6 +54,7 @@
 | 前端视觉、组件、主题或可访问性 | @docs/design/ui-system.md |
 | ParameterPanel / ParameterReceiver 交互与布局 | @docs/design/parameter-system.md |
 | QuickGroupManager 交互与布局 | @docs/design/quick-group-manager.md |
+| ResolutionPreset、画幅坐标板或个人分辨率预设 | @docs/design/resolution-preset.md |
 | BooruGalleryNode、多站点画廊或虚拟瀑布流 | @docs/design/booru-gallery.md、@docs/adr/0010-booru-gallery-capability-snapshots-masonry.md |
 | PromptSelector、词库或 DIY 侧边栏 | @docs/design/prompt-selector-workspace.md、@docs/adr/0007-independent-prompt-library-live-references.md、@docs/adr/0008-stable-dashboard-control-bindings.md |
 | 参数身份、序列化真源、接收器同步或动态槽协议 | @docs/adr/README.md、@docs/adr/0002-parameter-stable-id-direct-output-rebind.md、@docs/adr/0003-workflow-serialization-source-of-truth.md、@docs/adr/0004-parameter-receiver-explicit-get-sync.md、@docs/adr/0006-dynamic-native-business-slots.md |

@@ -103,6 +103,15 @@
       "1": { "name": "提示词", "tooltip": "与图片一一对应的处理后提示词。" }
     }
   },
+  "ResolutionPreset": {
+    "display_name": "📐 分辨率预设",
+    "description": "通过预设、精确输入或拖拽画布选择经过像素对齐的宽度和高度。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "宽度", "tooltip": "选中的像素宽度。" },
+      "1": { "name": "高度", "tooltip": "选中的像素高度。" }
+    }
+  },
   "QuickGroupManager": {
     "display_name": "⚡ 快速组管理器",
     "description": "按颜色范围快速启用、静音或绕过可视组，并配置排序与联动规则。",

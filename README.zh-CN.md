@@ -59,6 +59,7 @@ pip install -r requirements.txt
 | `ParameterReceiver` | `Aaalice/control` | 绑定 ParameterPanel，将对应的 KJ Get 收束到一个紧凑输出节点。 |
 | `QuickGroupManager` | `Aaalice/control` | 按颜色范围启用、静音或绕过可视组，并配置排序与联动规则。 |
 | `EnumSwitch` | `Aaalice/tools` | 根据精确匹配的字符串，只执行并输出对应分支。 |
+| `ResolutionPreset` | `Aaalice/tools` | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 执行到达时按开关发送桌面通知和提示音，并原样透传输入值。 |
 | `PromptCleaningMaid` | `Aaalice/prompt` | 快速关闭清理、安全清理自然语言提示词，或规范化并去重扁平标签列表。 |
@@ -74,6 +75,17 @@ pip install -r requirements.txt
 - 只执行选中的 lazy 分支，所有分支共享同一个连接类型。
 - 独立使用时，右键选择 **⚙️ 编辑分支…** 管理分支。
 - 直接连接 ParameterPanel 或 ParameterReceiver 的枚举/下拉输出时会自动识别；选项变化后通过警告图标显式同步，并保留未变化分支的连线。
+
+</details>
+
+<details>
+<summary><strong>ResolutionPreset — 精确对齐的宽高</strong></summary>
+
+可以选择九个不绑定模型的内置尺寸、保存个人预设、直接输入宽高，也可以拖动画幅板的宽度柄、高度柄和角柄。节点输出精确的 `INT` 宽高，可直接连接 `EmptyLatentImage` 等节点。
+
+像素对齐支持 8、16、32、64 四档。手动输入不合法时会保留旧值，并给出最近合法尺寸的一键采用入口。拖拽范围支持 2048、4096、8192；完成编辑后，如果当前范围容纳不下新尺寸，会自动升到合适档位。个人预设会保存自身的对齐方式，并存入当前 ComfyUI 用户目录。
+
+宽高比和百万像素只用于只读辨认。本节点不会按百万像素计算目标尺寸、推荐模型、创建图像或 Latent，也不负责裁剪、缩放和 batch。需要“宽高比 + 百万像素”计算时，请使用 ComfyUI 官方 `ResolutionSelector`。
 
 </details>
 
