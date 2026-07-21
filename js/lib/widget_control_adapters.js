@@ -1,6 +1,7 @@
 /** Pluggable adapters that normalize third-party widgets for sidebar providers. */
 
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
+import { invalidateControlHost } from "./control_host_events.js";
 
 const adapters = [];
 
@@ -13,6 +14,7 @@ const SIMPLE_NATIVE_WIDGETS = Object.freeze({
 const KIND_VALUE_TYPES = Object.freeze({ numeric: "number", seed: "number", boolean: "boolean", choice: "string", text: "string" });
 const AVAILABILITY_STATES = new Set(["ready", "empty", "unset", "unavailable", "error"]);
 const INACTIVE_NATIVE_WIDGET_TYPES = new Set(["converted-widget", "hidden"]);
+const imageCompareCallbacks = new WeakMap();
 
 export function controlValueType(value) {
 	if (typeof value === "number") return "number";
@@ -120,6 +122,10 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 		kind,
 		options,
 		availability,
+		presettable: described.presettable !== false,
+		columnSpan: Number.isFinite(Number(described.columnSpan)) ? Number(described.columnSpan) : null,
+		rowSpan: Number.isFinite(Number(described.rowSpan)) ? Number(described.rowSpan) : null,
+		minRowSpan: Number.isFinite(Number(described.minRowSpan)) ? Number(described.minRowSpan) : null,
 		hasCustomPresetCodec,
 		widget,
 		control: described.control || widget,
@@ -152,6 +158,45 @@ export function listAdaptedWidgetControls(node, { promoted = false, adapterId = 
 		.map((widget) => adaptWidgetControl(node, widget, { promoted, adapterId }))
 		.filter((adapted) => adapted && (!promoted || isPromotedWidget(adapted.widget)));
 }
+
+function isNativeImageCompareNode(node) {
+	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass].some((value) => value === "ImageCompare");
+}
+
+function bindImageCompareInvalidation(node, widget) {
+	const installed = imageCompareCallbacks.get(widget);
+	if (installed?.wrapper === widget.callback && installed.node === node) return;
+	const original = widget.callback;
+	const wrapper = function (...args) {
+		const result = original?.apply(this, args);
+		invalidateControlHost(node);
+		return result;
+	};
+	imageCompareCallbacks.set(widget, { node, wrapper });
+	widget.callback = wrapper;
+}
+
+registerWidgetControlAdapter({
+	id: "comfy-image-compare",
+	priority: 1000,
+	matches({ node, widget, promoted }) {
+		return !promoted && isNativeImageCompareNode(node) && widgetType(widget) === "imagecompare";
+	},
+	describe({ node, widget }) {
+		bindImageCompareInvalidation(node, widget);
+		return {
+			controlId: widget.name || "compare_view",
+			label: node?.title || node?.constructor?.title || widget.label || "Compare Images",
+			kind: "image-compare",
+			valueType: "image-compare-view",
+			value: widget.value || { beforeImages: [], afterImages: [] },
+			presettable: false,
+			columnSpan: 12,
+			rowSpan: 36,
+			minRowSpan: 24,
+		};
+	},
+});
 
 function isPromotedWidget(widget) {
 	return widget && typeof widget.sourceNodeId !== "undefined" && typeof widget.sourceWidgetName === "string";

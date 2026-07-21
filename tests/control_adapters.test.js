@@ -24,7 +24,7 @@ test("shared controls keep Aaalice and ComfyUI policies in separate renderer fam
 	assert.match(registrySource, /\["aaalice", new Map\(Object\.entries\(AAALICE_CONTROL_RENDERERS\)\)\]/);
 	assert.match(registrySource, /\["comfy", new Map\(Object\.entries\(COMFY_CONTROL_RENDERERS\)\)\]/);
 	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "taglist", "image"]) assert.match(aaaliceSource, new RegExp(`\\b${kind}:`));
-	for (const kind of ["numeric", "seed", "boolean", "choice", "text"]) assert.match(comfySource, new RegExp(`\\b${kind}:`));
+	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
 	assert.equal(parameterControlSpec({ id: "steps", param_type: "slider", value: 20, config: {} }).family, "aaalice");
 	assert.equal(resolvedControlSpec({ family: "comfy", kind: "choice", label: "Mode", value: "a", options: {} }).family, "comfy");
 	assert.equal(resolvedControlSpec({ family: "comfy", kind: "vendor-meter", controlId: "meter", label: "Meter", value: 1 }).kind, "vendor-meter");
@@ -111,6 +111,20 @@ test("simple ComfyUI nodes expose only built-in primitive widget families", () =
 		["steps", "numeric"], ["cfg", "numeric"], ["enabled", "boolean"], ["prompt", "text"], ["mode", "choice"],
 	]);
 	controls[0].setValue(24); assert.equal(node.widgets[0].value, 24); assert.equal(committed, 24);
+});
+
+test("native Compare Images exposes a layout-only execution view", () => {
+	let callbacks = 0; let dirty = 0;
+	const widget = { name: "compare_view", type: "imagecompare", value: { beforeImages: ["a.png"], afterImages: ["b.png"] }, callback: () => callbacks++ };
+	const node = { type: "ImageCompare", title: "Compare Images", widgets: [widget], setDirtyCanvas: () => dirty++ };
+	const [control] = listAdaptedWidgetControls(node);
+	assert.equal(control.adapterId, "comfy-image-compare");
+	assert.equal(control.kind, "image-compare");
+	assert.equal(control.valueType, "image-compare-view");
+	assert.equal(control.presettable, false);
+	assert.equal(control.columnSpan, 12); assert.equal(control.rowSpan, 36); assert.equal(control.minRowSpan, 24);
+	widget.callback(widget.value);
+	assert.equal(callbacks, 1); assert.equal(dirty, 1);
 });
 
 test("empty native combos remain structurally bindable while reporting runtime availability", () => {

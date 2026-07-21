@@ -48,6 +48,7 @@ export function captureDashboardValues(dashboard, resolveBinding) {
 		try { resolved = resolveBinding(binding); }
 		catch (error) { bindings.push({ key, binding, status: "error", error }); continue; }
 		const status = resolved?.status || "missing";
+		if (status === "ok" && resolved.presettable === false) { bindings.push({ key, binding, status: "layout-only" }); continue; }
 		const availability = status === "ok" ? runtimeAvailability(resolved) : null;
 		if (availability) { bindings.push({ key, binding, status: availability, resolved }); continue; }
 		let payload;
@@ -65,7 +66,7 @@ export function captureDashboardValues(dashboard, resolveBinding) {
 export function mergeCapturedPresetValues(snapshot, previousValues = {}) {
 	const values = structuredClone(snapshot?.values || {});
 	for (const binding of snapshot?.bindings || []) {
-		if (binding.status === "ok" || !Object.prototype.hasOwnProperty.call(previousValues, binding.key)) continue;
+		if (binding.status === "ok" || binding.status === "layout-only" || !Object.prototype.hasOwnProperty.call(previousValues, binding.key)) continue;
 		values[binding.key] = structuredClone(previousValues[binding.key]);
 	}
 	return values;
@@ -79,6 +80,7 @@ export function planDashboardPresetApplication(snapshot, resolveBinding) {
 		try { resolved = resolveBinding(binding); }
 		catch (error) { entries.push({ key, binding, saved, status: "invalid", reason: error.message, error }); continue; }
 		if (resolved?.status !== "ok") { entries.push({ key, binding, saved, resolved, status: resolved?.status || "missing" }); continue; }
+		if (resolved.presettable === false) { entries.push({ key, binding, saved, resolved, status: "layout-only" }); continue; }
 		const availability = runtimeAvailability(resolved);
 		if (availability) { entries.push({ key, binding, saved, resolved, status: availability }); continue; }
 		if (!saved) { entries.push({ key, binding, resolved, status: "unset" }); continue; }
@@ -97,7 +99,7 @@ export function planDashboardPresetApplication(snapshot, resolveBinding) {
 		dashboard: normalized.dashboard,
 		entries,
 		ready: entries.filter((entry) => entry.status === "ready"),
-		issues: entries.filter((entry) => entry.status !== "ready"),
+		issues: entries.filter((entry) => !["ready", "layout-only"].includes(entry.status)),
 	};
 }
 

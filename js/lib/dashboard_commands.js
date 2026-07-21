@@ -12,7 +12,7 @@ function removeEmptyGroups(page) {
 export function addItems(model, pageId, controls) {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
 	for (const control of controls) {
-		const item = createControlItem(control.binding, control.label, { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN });
+		const item = createControlItem(control.binding, control.label, { row: 0, column: 0, columnSpan: control.columnSpan || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN });
 		item.layout = firstAvailableLayout(page, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan }); page.items.push(item);
 	}
 	return normalizeDashboard(next);

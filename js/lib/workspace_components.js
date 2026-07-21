@@ -328,7 +328,7 @@ export function createControlCard({ item, title, control, status = "ok", editMod
 	const root = el("article", { className: `aa-control-card${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
 	if (control?.dataset?.controlKind) root.dataset.controlKind = control.dataset.controlKind;
 	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
-	root.dataset.dashboardMinRowSpan = String(headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN);
+	root.dataset.dashboardMinRowSpan = String(control?.dataset?.dashboardMinRowSpan || (headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN));
 	const header = el("header", "aa-control-card-header");
 	header.append(el("span", "aa-control-card-title", title));
 	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);

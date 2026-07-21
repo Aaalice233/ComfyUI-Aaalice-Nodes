@@ -490,6 +490,13 @@ function workspaceLabels() {
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
 		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
 		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
+		imageCompare: {
+			empty: t("aaalice.workspace.imageCompare.empty", "Run the workflow to compare images"),
+			before: t("aaalice.workspace.imageCompare.before", "Image A"), after: t("aaalice.workspace.imageCompare.after", "Image B"),
+			previousBefore: t("aaalice.workspace.imageCompare.previousBefore", "Previous Image A"), nextBefore: t("aaalice.workspace.imageCompare.nextBefore", "Next Image A"),
+			previousAfter: t("aaalice.workspace.imageCompare.previousAfter", "Previous Image B"), nextAfter: t("aaalice.workspace.imageCompare.nextAfter", "Next Image B"),
+			slider: t("aaalice.workspace.imageCompare.slider", "Comparison position"),
+		},
 		selectOption: t("aaalice.workspace.binding.selectOption", "Select an option"),
 		availability: {
 			noOptions: t("aaalice.workspace.binding.noOptions", "No options available"), unset: t("aaalice.workspace.binding.unset", "No value available"),

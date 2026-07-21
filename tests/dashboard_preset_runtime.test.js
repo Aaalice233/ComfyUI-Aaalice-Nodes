@@ -25,6 +25,17 @@ test("value capture deduplicates mirrored cards and skips unresolved or unset co
 	assert.deepEqual(result.bindings.map(({ status }) => status), ["ok", "missing", "unset"]);
 });
 
+test("layout-only views keep bindings without persisting transient values", () => {
+	const compare = binding("compare_view", "image-compare-view");
+	const key = bindingKey(compare);
+	const captured = captureDashboardValues(dashboard(compare), () => ({ status: "ok", presettable: false, value: { beforeImages: ["temp-a"] } }));
+	assert.deepEqual(captured.values, {});
+	assert.deepEqual(captured.bindings.map(({ status }) => status), ["layout-only"]);
+	assert.deepEqual(mergeCapturedPresetValues(captured, { [key]: { valueType: "image-compare-view", payload: { beforeImages: ["stale"] } } }), {});
+	const plan = planDashboardPresetApplication(snapshot(dashboard(compare), {}), () => ({ status: "ok", presettable: false }));
+	assert.equal(plan.ready.length, 0); assert.equal(plan.issues.length, 0); assert.equal(plan.entries[0].status, "layout-only");
+});
+
 test("capture respects runtime availability and preserves unavailable saved values", () => {
 	const steps = binding("steps"); const cfg = binding("cfg");
 	const snapshot = captureDashboardValues(dashboard(steps, cfg), (candidate) => candidate.controlId === "cfg"

@@ -135,7 +135,8 @@ const widgetProvider = (id, promoted) => ({
 			label: adapted.label,
 			availability: adapted.availability,
 			binding: { provider: id, hostId, controlId: adapted.controlId, valueType: adapted.valueType, adapterId: adapted.adapterId },
-			rowSpan: recommendedControlRowSpan({ value: adapted.value, options: adapted.options, paramType: adapted.kind || adapted.control?.param_type || adapted.control?.type }),
+			columnSpan: adapted.columnSpan,
+			rowSpan: adapted.rowSpan || recommendedControlRowSpan({ value: adapted.value, options: adapted.options, paramType: adapted.kind || adapted.control?.param_type || adapted.control?.type }),
 		}));
 	},
 	resolve(node, binding) {
@@ -146,6 +147,7 @@ const widgetProvider = (id, promoted) => ({
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
 		return {
 			status: "ok", family: "comfy", kind: adapted.kind, controlId: adapted.controlId, node, control: adapted.control, label: adapted.label, value: adapted.value, options: adapted.options, availability: adapted.availability,
+			presettable: adapted.presettable, minRowSpan: adapted.minRowSpan,
 			readPresetValue() { return structuredClone(adapted.readPresetValue ? adapted.readPresetValue() : adapted.value); },
 			validatePresetValue(entry) {
 				if (!entry || entry.valueType !== binding.valueType) return "type-mismatch";

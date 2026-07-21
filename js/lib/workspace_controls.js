@@ -15,6 +15,7 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 			text: availabilityLabels,
 			taglist: { ...availabilityLabels, ...(labels.taglist || {}) },
 			image: { ...availabilityLabels, none: labels.imageNone, drop: labels.imageDrop, clear: labels.imageClear },
+			"image-compare": { ...availabilityLabels, ...(labels.imageCompare || {}) },
 		},
 		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean" },
 	});
@@ -46,6 +47,7 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 	control.dataset.controlKind = view.kind;
 	control.dataset.controlFamily = spec.family;
 	control.dataset.controlAvailability = spec.availability.state;
+	if (Number.isFinite(Number(resolved.minRowSpan))) control.dataset.dashboardMinRowSpan = String(resolved.minRowSpan);
 	if (view.headerOnly) {
 		if (view.headerAccessories.length) {
 			control.dataset.headerOnly = "true"; control.hidden = true; control.headerAccessories = view.headerAccessories;

@@ -11,6 +11,7 @@ const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), 
 const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
 const nodeControlMenu = readFileSync(join(ROOT, "js", "lib", "node_control_menu.js"), "utf8");
 const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
+const imageCompareControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_compare.js"), "utf8");
 const numericControl = readFileSync(join(ROOT, "js", "lib", "controls", "numeric.js"), "utf8");
 const choiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "choice.js"), "utf8");
 const booleanControl = readFileSync(join(ROOT, "js", "lib", "controls", "boolean.js"), "utf8");
@@ -40,6 +41,21 @@ const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace.svg"), "utf8");
 const enLocale = readFileSync(join(ROOT, "locales", "en", "main.json"), "utf8");
 const zhLocale = readFileSync(join(ROOT, "locales", "zh", "main.json"), "utf8");
+
+test("native image comparison is a localized accessible sidebar media control", () => {
+	assert.match(widgetAdapters, /id: "comfy-image-compare"/);
+	assert.match(widgetAdapters, /presettable: false/);
+	assert.match(imageCompareControl, /role: "slider"/);
+	assert.match(imageCompareControl, /aria-valuenow/);
+	assert.match(imageCompareControl, /beforeImages/);
+	assert.match(imageCompareControl, /afterImages/);
+	assert.match(theme, /\.aa-image-compare__image\.is-before/);
+	assert.match(theme, /clip-path: inset/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.match(locale, /"imageCompare"/);
+		assert.match(locale, /"slider"/);
+	}
+});
 
 test("workspace is an official left sidebar with reusable component boundaries", () => {
 	assert.match(workspace, /registerSidebarTab/);

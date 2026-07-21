@@ -29,6 +29,7 @@
     },
     "workspace": {
       "title": "Aaalice Workspace", "sidebarTitle": "Aaalice", "dashboard": "Controls", "groups": "Groups", "library": "Library", "edit": "Layout", "done": "Done", "dashboardActions": "Dashboard actions",
+      "imageCompare": { "empty": "Run the workflow to compare images", "before": "Image A", "after": "Image B", "previousBefore": "Previous Image A", "nextBefore": "Next Image A", "previousAfter": "Previous Image B", "nextAfter": "Next Image B", "slider": "Comparison position" },
       "pin": { "pinned": "Pinned: clicking outside keeps the sidebar open. Click to enable auto-close.", "unpinned": "Auto-close enabled: clicking outside closes the sidebar. Click to pin." },
       "search": { "parameters": "Search parameters", "parametersPlaceholder": "Search the current page", "library": "Search prompt library", "close": "Close search", "noParameters": "No matching parameters." },
       "groupNavigation": {

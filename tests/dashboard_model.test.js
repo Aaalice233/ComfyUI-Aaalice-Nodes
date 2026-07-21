@@ -17,6 +17,12 @@ test("Dashboard V2 pages directly own grid control cards", () => {
 	]);
 });
 
+test("specialized controls can request an initial full-width footprint", () => {
+	const { model, page } = modelWithPage();
+	const next = addItems(model, page.id, [{ label: "Compare Images", binding: { ...binding, controlId: "compare_view", valueType: "image-compare-view" }, columnSpan: 12, rowSpan: 36 }]);
+	assert.deepEqual(next.pages[0].items[0].layout, { row: 0, column: 0, columnSpan: 12, rowSpan: 36 });
+});
+
 test("legacy two-column pages normalize once into the twelve-column grid", () => {
 	const legacy = { version: 2, pages: [{ id: "page", name: "Legacy", items: [
 		{ id: "left", kind: "control", binding, groupId: null, layout: { row: 0, column: 0, columnSpan: 1, rowSpan: 12 } },
