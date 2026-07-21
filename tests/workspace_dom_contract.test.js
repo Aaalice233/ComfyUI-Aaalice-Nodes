@@ -27,6 +27,8 @@ const dashboardSizing = readFileSync(join(ROOT, "js", "lib", "dashboard_sizing.j
 const dashboardSelection = readFileSync(join(ROOT, "js", "lib", "dashboard_selection.js"), "utf8");
 const dashboardPresets = readFileSync(join(ROOT, "js", "lib", "dashboard_presets.js"), "utf8");
 const dashboardPresetRuntime = readFileSync(join(ROOT, "js", "lib", "dashboard_preset_runtime.js"), "utf8");
+const groupNavigation = readFileSync(join(ROOT, "js", "lib", "group_navigation.js"), "utf8");
+const groupNavigationModel = readFileSync(join(ROOT, "js", "lib", "group_navigation_model.js"), "utf8");
 const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 const imageUpload = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
@@ -98,6 +100,29 @@ test("node context-menu add is independent from layout edit mode", () => {
 	assert.match(menuBody, /installNodeControlMenu/);
 	assert.match(nodeControlMenu, /listControls\(this\)/);
 	assert.match(workspace, /editMode \?[^\n]*Done/);
+});
+
+test("integrates visual-group navigation into the existing workspace sidebar", () => {
+	assert.match(workspace, /value: "groups"/);
+	assert.match(workspace, /function renderGroupNavigation/);
+	assert.match(workspace, /const GROUP_NAVIGATION_EXTRA_KEY = "aaaliceGroupNavigation"/);
+	assert.match(workspace, /addGroupNavigationEntry/);
+	assert.match(workspace, /openAddGroupNavigation/);
+	assert.match(workspace, /navigateToVisualGroup\(app\.canvas, group, \{ offset, zoom \}\)/);
+	assert.match(workspace, /aa-group-navigation-row/);
+	assert.match(workspace, /openGroupNavigationSettings/);
+	assert.match(workspace, /setGroupNavigationOffset/);
+	assert.match(workspace, /setGroupNavigationZoom/);
+	assert.match(workspace, /navigateFromWorkspace\(group, entry\.offset, entry\.zoom\)/);
+	assert.match(workspace, /window\.addEventListener\("keydown", handleGroupNavigationShortcut, true\)/);
+	assert.match(groupNavigationModel, /shortcutFromKeyboardEvent/);
+	assert.match(groupNavigationModel, /Ctrl.*Alt.*Shift.*Meta/);
+	assert.match(workspace, /scheduleRender\("groups"\)/);
+	assert.match(groupNavigation, /animateToBounds/);
+	assert.match(groupNavigation, /centerOnNode/);
+	assert.match(theme, /\.aa-group-navigation-marker/);
+	assert.match(enLocale, /"groupNavigation"/);
+	assert.match(zhLocale, /"groupNavigation"/);
 });
 
 test("providers cover generic, Aaalice and public subgraph widgets by stable host identity", () => {

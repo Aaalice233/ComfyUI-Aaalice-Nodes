@@ -48,16 +48,16 @@
 | 参数接收器 | `js/parameter_receiver.js` | Receiver Binding、Get 所有权、显式同步、菜单和状态显示 |
 | 枚举选通 | `js/enum_switch.js` | 分支编辑、选项绑定、同步提示、保线和 routes payload 注入 |
 | 分辨率预设 | `js/resolution_preset.js`、`js/lib/resolution_preset_model.js` | 状态规范化、预设匹配、二维映射、DOM 交互、个人预设请求和 width / height payload 注入 |
-| 组管理 | `js/quick_group_manager.js` | 全局图事件、DOM、颜色范围、排序和原子模式事务 |
+| 组管理与导航 | `js/quick_group_manager.js`、`js/lib/{group_navigation,group_navigation_model}.js` | 全局图事件、DOM、颜色范围、排序、原子模式事务、共享组边界导航，以及手工导航清单与组合键模型 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_model,virtual_masonry}.js` | 单行顶栏、自然比例虚拟瀑布流、选择与详情、定高已选列表、设置入口和选择快照注入 |
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
-| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
+| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、全图组导航、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
-| 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model}.js` | 状态规范化、校验、差异和可单测规划 |
+| 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
 | DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
@@ -135,6 +135,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 2. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化。
 3. 环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
 4. 通过预检后，在一个图变更边界内提交全部模式；其它 Manager 只刷新显示。
+5. 节点行与侧边栏组导航共用组边界适配器；优先平滑适配完整边界，旧画布 API 回退到保持当前缩放的中心定位，均不修改图状态。
 
 ### 节点强调色
 
@@ -184,6 +185,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。卡片宽高以整数网格单位持久化，窄侧栏的一列投影只改变显示，不反写规范布局。
 4. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，布局备份导入跳过不兼容值并等待人工重绑。
 5. 侧边栏预设纯模型保存完整 Dashboard 与按稳定 Binding Key 索引的可序列化参数 payload，并从当前 Working Copy 与基准快照计算“已修改”状态；不存在基准时由界面显示“未保存”。运行时协调器负责去重、捕获、预检以及布局与参数的共同应用和失败回滚；工作区入口负责 ComfyUI 图事务、对话框、切换保护和工作流序列化，Provider 继续是唯一写回节点的边界。
+6. “组导航”只显示用户手动加入的可视组；版本化导航清单、唯一组合键、每项 X/Y 目标偏移和目标缩放写入 `app.graph.extra` 并随工作流保存，组状态与边界从当前图实时解析。定位时偏移实时边界的目标中心并按条目倍率计算目标画布缩放；搜索和定位只属于会话视图，导航范围不受 QuickGroupManager 的颜色筛选或排序影响。
 
 #### 第三方节点适配
 

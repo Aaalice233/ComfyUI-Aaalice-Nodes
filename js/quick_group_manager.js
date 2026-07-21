@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
+import { navigateToVisualGroup } from "./lib/group_navigation.js";
 import { button, createAnchoredPopover, createTooltip, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
 import {
 	GROUP_STATE,
@@ -61,6 +62,10 @@ function groupsFor(node) {
 
 function groupLabel(group) {
 	return String(group?.title || message("aaalice.quickGroup.untitled", "Untitled group"));
+}
+
+function locateGroup(group) {
+	if (!navigateToVisualGroup(app.canvas, group)) toast("error", t("aaalice.quickGroup.navigateUnavailable", "This group cannot be located on the current canvas."));
 }
 
 function commit(node, mutate) {
@@ -434,6 +439,7 @@ function groupRow(node, group, visibleGroups) {
 	row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
 	row.addEventListener("drop", (event) => { event.preventDefault(); row.classList.remove("is-drop-target"); const source = event.dataTransfer?.getData("text/plain"); if (source) moveGroup(node, source, id); });
 	const name = el("span", { className: "aaalice-qgm-name", attrs: { title: groupLabel(group) }, text: groupLabel(group) });
+	const locate = iconButton({ iconName: "fit", label: message("aaalice.quickGroup.navigate", "Go to {group}", { group: groupLabel(group) }), variant: "ghost", className: "aaalice-qgm-locate", onClick: () => locateGroup(group) });
 	const count = ruleCount(state.rules, id);
 	const link = iconButton({ iconName: "link", label: message("aaalice.quickGroup.rules.edit", "Edit linkage for {group}", { group: groupLabel(group) }), variant: "ghost", className: `aaalice-qgm-link${count ? " has-rules" : ""}` });
 	link.removeAttribute("title");
@@ -448,7 +454,7 @@ function groupRow(node, group, visibleGroups) {
 	const enabled = status === GROUP_STATE.ENABLED;
 	const toggle = el("button", { className: `aaalice-qgm-switch${enabled ? " is-on" : ""}${status === GROUP_STATE.MIXED ? " is-mixed" : ""}`, attrs: { type: "button", role: "switch", "aria-checked": status === GROUP_STATE.MIXED ? "mixed" : enabled, disabled: status === GROUP_STATE.EMPTY, title: status === GROUP_STATE.EMPTY ? t("aaalice.quickGroup.emptyGroup", "This group has no nodes") : null, "aria-label": message("aaalice.quickGroup.toggle", "Toggle {group}", { group: groupLabel(group) }) }, children: [el("span", "aaalice-qgm-switch-thumb")] });
 	toggle.addEventListener("click", () => applyGroupAction(node, id, enabled ? "disable" : "enable"));
-	row.append(drag, name, link, toggle);
+	row.append(drag, name, locate, link, toggle);
 	return row;
 }
 

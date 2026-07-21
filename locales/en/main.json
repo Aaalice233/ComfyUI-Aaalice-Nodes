@@ -28,9 +28,20 @@
       "missing": "Missing library entry", "missingShort": "missing", "selected": "selected", "weight": "Weight", "weightHint": "Scroll or use arrow keys to adjust; click to reset to 1", "thumbnailEditHint": "Double-click the thumbnail to edit this entry", "uncategorized": "Uncategorized", "categorySummary": "Selected by category", "outputQueue": "Selected output queue", "moreSelected": "More selected prompts", "separator": "Prompt separator", "separatorMenu": "⚙️ Set prompt separator…"
     },
     "workspace": {
-      "title": "Aaalice Workspace", "sidebarTitle": "Aaalice", "dashboard": "Controls", "library": "Library", "edit": "Layout", "done": "Done", "dashboardActions": "Dashboard actions",
+      "title": "Aaalice Workspace", "sidebarTitle": "Aaalice", "dashboard": "Controls", "groups": "Groups", "library": "Library", "edit": "Layout", "done": "Done", "dashboardActions": "Dashboard actions",
       "pin": { "pinned": "Pinned: clicking outside keeps the sidebar open. Click to enable auto-close.", "unpinned": "Auto-close enabled: clicking outside closes the sidebar. Click to pin." },
       "search": { "parameters": "Search parameters", "parametersPlaceholder": "Search the current page", "library": "Search prompt library", "close": "Close search", "noParameters": "No matching parameters." },
+      "groupNavigation": {
+        "title": "Group navigation", "actions": "Group navigation actions", "groups": "Workflow groups", "count": "{count} groups",
+        "search": "Search groups", "searchPlaceholder": "Search workflow groups", "navigate": "Go to {group}", "unavailable": "This group cannot be located on the current canvas.",
+        "meta": "{count} nodes · {status}", "nodeCount": "{count} nodes", "status": { "enabled": "Enabled", "disabled": "Disabled", "mixed": "Mixed", "empty": "Empty", "missing": "Missing" },
+        "add": "Add groups", "addTitle": "Add groups to navigation", "addSelected": "Add selected", "allAddedTitle": "All groups are already added", "allAdded": "Remove an existing navigation item before adding it again.",
+        "remove": "Remove {group} from navigation", "settingsShort": "Set", "settings": "Navigation settings", "shortcutFor": "Shortcut for {group}", "shortcutPlaceholder": "Press a shortcut", "shortcutHint": "Use Ctrl, Alt, or Command with another key. Backspace clears it.", "shortcutConflict": "Already used by {group}",
+        "viewTitle": "Target view", "viewHint": "Offsets use canvas units; zoom controls how much of the viewport the group occupies.", "offsetX": "Horizontal offset", "offsetY": "Vertical offset", "zoom": "Zoom %", "offsetMeta": "offset {x}, {y}", "zoomMeta": "zoom {zoom}%",
+        "missingGroup": "Missing group #{id}", "saveWorkflowReminder": "Save the workflow to keep group navigation settings.",
+        "emptyTitle": "No navigation groups yet", "empty": "Add only the workflow groups you want to navigate to.",
+        "noMatchesTitle": "No matching groups", "noMatches": "Try another group name."
+      },
       "empty": { "title": "Build your control pages", "description": "Create a page, then add controls from any compatible node's context menu.", "page": "Add controls from a compatible node's context menu." },
       "page": { "pages": "Dashboard pages", "add": "Add page", "name": "Page name", "default": "Generation", "menu": "Page actions", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
       "target": { "page": "Page", "newPage": "New page" },
@@ -100,6 +111,8 @@
       "untitled": "Untitled group",
       "groups": "Workflow groups",
       "refresh": "Refresh groups",
+      "navigate": "Go to {group}",
+      "navigateUnavailable": "This group cannot be located on the current canvas.",
       "reorder": "Drag to reorder; Alt+Arrow keys also work",
       "reorderGroup": "Reorder {group}",
       "toggle": "Toggle {group}",

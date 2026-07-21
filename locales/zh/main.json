@@ -28,9 +28,20 @@
       "missing": "词库引用已失效", "missingShort": "项失效", "selected": "项已选", "weight": "权重", "weightHint": "滚轮或方向键调整，点击重置为 1", "thumbnailEditHint": "双击缩略图可快速编辑词条", "uncategorized": "未分类", "categorySummary": "已选分类分布", "outputQueue": "已选输出队列", "moreSelected": "还有更多已选词条", "separator": "提示词分隔符", "separatorMenu": "⚙️ 设置提示词分隔符…"
     },
     "workspace": {
-      "title": "Aaalice 工作区", "sidebarTitle": "Aaalice", "dashboard": "参数控制", "library": "词库管理", "edit": "布局", "done": "完成", "dashboardActions": "控制台操作",
+      "title": "Aaalice 工作区", "sidebarTitle": "Aaalice", "dashboard": "参数控制", "groups": "组导航", "library": "词库管理", "edit": "布局", "done": "完成", "dashboardActions": "控制台操作",
       "pin": { "pinned": "已固定：点击外侧不会收起。点击开启自动收起。", "unpinned": "已开启自动收起：点击外侧将关闭侧边栏。点击固定。" },
       "search": { "parameters": "搜索参数", "parametersPlaceholder": "搜索当前页面", "library": "搜索词库", "close": "收起搜索", "noParameters": "没有匹配的参数。" },
+      "groupNavigation": {
+        "title": "组导航", "actions": "组导航操作", "groups": "工作流组", "count": "{count} 个组",
+        "search": "搜索组", "searchPlaceholder": "搜索工作流组", "navigate": "跳转到 {group}", "unavailable": "无法在当前画布中定位这个组。",
+        "meta": "{count} 个节点 · {status}", "nodeCount": "{count} 个节点", "status": { "enabled": "已开启", "disabled": "已关闭", "mixed": "混合状态", "empty": "空组", "missing": "组已失效" },
+        "add": "添加组", "addTitle": "添加组到导航", "addSelected": "添加所选组", "allAddedTitle": "所有组都已添加", "allAdded": "如需重新添加，请先移除已有导航项。",
+        "remove": "从导航中移除 {group}", "settingsShort": "设置", "settings": "导航设置", "shortcutFor": "{group} 的快捷键", "shortcutPlaceholder": "请按下组合键", "shortcutHint": "请使用 Ctrl、Alt 或 Command 搭配其他按键；按退格键可清除。", "shortcutConflict": "已被 {group} 使用",
+        "viewTitle": "目标视图", "viewHint": "偏移使用画布坐标；缩放倍率决定跳转后组占据视口的比例。", "offsetX": "水平偏移", "offsetY": "垂直偏移", "zoom": "缩放 %", "offsetMeta": "偏移 {x}, {y}", "zoomMeta": "缩放 {zoom}%",
+        "missingGroup": "已失效的组 #{id}", "saveWorkflowReminder": "请保存工作流以保留组导航设置。",
+        "emptyTitle": "还没有导航组", "empty": "请手动添加需要快速跳转的工作流组。",
+        "noMatchesTitle": "没有匹配的组", "noMatches": "请尝试其他组名称。"
+      },
       "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。", "page": "请从兼容节点的右键菜单添加参数。" },
       "page": { "pages": "侧边栏页面", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
       "target": { "page": "页面", "newPage": "新页面" },
@@ -100,6 +111,8 @@
       "untitled": "未命名组",
       "groups": "工作流组",
       "refresh": "刷新组",
+      "navigate": "跳转到 {group}",
+      "navigateUnavailable": "无法在当前画布中定位这个组。",
       "reorder": "拖拽排序；也可使用 Alt+方向键",
       "reorderGroup": "调整 {group} 的顺序",
       "toggle": "切换 {group}",

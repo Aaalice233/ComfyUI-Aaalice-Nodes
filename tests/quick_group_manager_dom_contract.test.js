@@ -128,3 +128,11 @@ test("preflights cascade before writing node modes in one graph boundary", () =>
 	assert.match(source, /beforeChange/);
 	assert.match(source, /afterChange/);
 });
+
+test("offers a compact full-group navigation action on every managed row", () => {
+	assert.match(source, /navigateToVisualGroup/);
+	assert.match(source, /iconName: "fit"/);
+	assert.match(source, /aaalice-qgm-locate/);
+	assert.match(source, /row\.append\(drag, name, locate, link, toggle\)/);
+	assert.match(styles, /\.aaalice-qgm-locate\.aa-ui-button/);
+});
