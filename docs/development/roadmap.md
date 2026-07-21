@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 进度：`12 / 14` 个节点
-- 下一项：#6 `VAEImageBatchFix`
+- 进度：`12 / 12` 个节点
+- 下一项：无
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
 - `ParameterReceiver` 承接 #16 的职责，旧名称为 `ParameterBreak`。
@@ -33,6 +33,7 @@
 |---:|---|---|
 | 2 | `SimpleValueSwitch` | 实用价值不足，不在当前范围内。 |
 | 5 | `WorkflowDescription` | ComfyUI 已原生提供 `MarkdownNote`，无需重复实现。 |
+| 6 | `VAEImageBatchFix` | 当前不需要为 VAE batch 形态提供单独修正节点。 |
 | 7 | `ModelNameExtractor` | 当前不需要单独提取模型名称。 |
 | 9 | `SimpleLoadImage` | ComfyUI 原生 `Load Image` 已覆盖图像与 mask 加载；默认黑图不能解决实际输入图像的工作流资产分享问题。 |
 | 13 | `SimpleImageCompare` | ComfyUI 原生 `Compare Images` 已覆盖交互对比；本包只将其执行视图投影到参数控制侧边栏，不再重复实现节点。 |
@@ -40,14 +41,12 @@
 | 17 | `GroupIsEnabled` | 仅查询组启用状态，独立节点的实用价值不足。 |
 | 19 | `GroupIgnoreManager` | 静音与绕过职责已合并到 #18 `QuickGroupManager`。 |
 | 22 | `MultiCharacterEditorNode` | 当前不需要多角色提示词编辑能力。 |
+| 23 | `SaveImagePlus` | 当前不需要额外提供图像保存节点。 |
 | 25 | `SendToKrita` | 当前工作方式只需在 Krita 中提前准备活动文档和选区，再由 `FetchFromKrita` 执行时读取；不需要反向发送节点。 |
 
 ## 节点队列
 
-| 顺序 | # | 旧节点 ID | 领域 | 目标职责 |
-|---:|---:|---|---|---|
-| 1 | 6 | `VAEImageBatchFix` | tools | 修正 VAE batch 形态。 |
-| 2 | 23 | `SaveImagePlus` | media | 提供更多控制的图像保存。 |
+当前无待重置节点。
 
 ## 已完成的非节点扩展
 
