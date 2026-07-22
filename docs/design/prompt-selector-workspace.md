@@ -20,7 +20,7 @@
 - 节点只保存词条 ID、权重、选择顺序和分隔符。缺失词条以错误状态保留并阻止执行。
 - 新建节点默认尺寸与可缩放下限均为 `440 × 560`，保证筛选栏、词条列表和底部摘要在常用画布比例下拥有稳定空间；加载已有工作流时，小于下限的保存尺寸会按新下限显示。
 - 列表滚动属于节点内部内容区。Classic 与 Nodes 2.0 都必须保持有界高度，虚拟列表的总高度占位不得参与节点自身最小高度测量，也不得遮挡原生缩放角。Nodes 2.0 下 DOM widget 必须留在宿主分配的 widget 行内，不得绝对定位到整个节点并覆盖原生标题、输入输出槽或底部节点包标记。
-- 词条列表使用 ComfyUI 当前前端的焦点式滚轮捕获协议：滚动根同时声明 `tabindex="0"` 与 `data-capture-wheel="true"`；普通滚轮进入未聚焦列表时，在事件冒泡到 Nodes 2.0 宿主前只执行 `focus({ preventScroll: true })`。焦点位于列表或其后代时由浏览器滚动列表；焦点在外部时继续服从当前画布导航模式；Standard 模式的 `Ctrl` / `Meta` + 滚轮不得被列表抢焦点或拦截。业务层禁止 `preventDefault()`、`stopPropagation()`、捕获阶段监听和伪造滚轮转发。
+- 词条列表使用 ComfyUI 当前前端的焦点式滚轮捕获协议：PromptSelector 业务根声明 `data-capture-wheel="true"`，列表声明 `tabindex="0"`。Nodes 2.0 宿主在捕获阶段先处理 `wheel`，所以列表不能等到自身 `wheel` 回调再补焦点；指针从画布进入列表时通过 `pointerenter` 预先执行 `focus({ preventScroll: true })`，从而无需点击即可让第一段普通滚轮滚动列表。若外部文本输入仍在编辑则不抢焦点；焦点已在 PromptSelector 的筛选或操作控件内时，业务根同样满足捕获条件。Standard 模式的 `Ctrl` / `Meta` + 滚轮继续由宿主处理。业务层禁止 `preventDefault()`、`stopPropagation()`、捕获阶段监听和伪造滚轮转发。
 - 该协议以当前安装版 ComfyUI Frontend 的 `useCanvasInteractions` 为实现真源；官方 `addDOMWidget` 文档未承诺 `data-capture-wheel`。升级前端后若滚轮行为变化，先对照同版本官方内置 DOM widget 和前端源码，不增加私有时序补丁。
 
 ## 左侧工作区

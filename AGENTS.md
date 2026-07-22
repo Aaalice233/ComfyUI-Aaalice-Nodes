@@ -105,7 +105,7 @@ ComfyUI-Aaalice-Nodes/
 - DOM widget 通过内容下限声明稳定最小尺寸；`computeSize()` 不得把当前 `node.size` 当作最小值，也不得用延迟或重复 `setSize()` 与原生布局争夺尺寸真源。
 - 可手动缩放的 DOM widget 不得把当前 `scrollHeight`、`clientHeight`、wrapper 高度或已拉伸后的几何当作 `getMinHeight()`；这些值会形成只增不减的反馈环。需要容纳可增长列表时使用与当前尺寸无关的稳定下限，并在空间不足时由内容区滚动。
 - Nodes 2.0 的节点外层只承载轮廓、选择态和命中，实际内容尺寸由内部节点表面及布局状态拥有。禁止只给外层节点设置 `min-width` / `min-height`；否则旧工作流保存的较小内容尺寸不会同步，形成“外框放大、内容仍窄”的透明空壳。调整默认或最小尺寸时必须同步真实内容层与布局尺寸，并用低于新下限的旧节点验证外框、背景和控件宽高一致。
-- Nodes 2.0 内需要独立滚动的 DOM 区域必须遵循当前 ComfyUI 前端的焦点式滚轮捕获协议：可聚焦的滚动根声明 `data-capture-wheel="true"`，并保证滚轮到达宿主处理器前其自身或后代已经取得焦点。业务代码不得用 `preventDefault()`、`stopPropagation()`、捕获阶段拦截或伪造并转发 `WheelEvent` 与画布争夺滚轮；当前 Standard 导航模式下的 `Ctrl` / `Meta` + 滚轮必须保留给宿主缩放。
+- Nodes 2.0 内需要独立滚动的 DOM 区域必须遵循当前 ComfyUI 前端的焦点式滚轮捕获协议：包含滚动区的可聚焦业务根声明 `data-capture-wheel="true"`，并保证滚轮到达宿主捕获阶段前其自身或后代已经取得焦点。宿主 `TransformPane` 在捕获阶段先于目标元素处理 `wheel`，因此禁止试图在滚动区自身的 `wheel` 回调中补焦点；需要悬停即滚动时应在 `pointerenter` 等更早事件中建立焦点，同时不得抢走外部文本编辑控件的焦点。业务代码不得用 `preventDefault()`、`stopPropagation()`、捕获阶段拦截或伪造并转发 `WheelEvent` 与画布争夺滚轮；当前 Standard 导航模式下的 `Ctrl` / `Meta` + 滚轮必须保留给宿主缩放。
 - `data-capture-wheel` 属于前端实现契约，不是 `addDOMWidget` 公共文档承诺。新增滚动 DOM widget 或升级 ComfyUI 前端时，必须先核对当前安装版本的 `useCanvasInteractions`（或其后继实现），不得从旧项目复制滚轮补丁。
 - 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角、拖拽和放置命中；CSS `pointer-events` 不能代替原生命中检测。
 - DOM overlay 根和 Comfy wrapper 默认不接收指针，只给真实交互控件开启命中；缩放期间根及全部后代必须停用命中，底部和四角保留原生手柄安全区。

@@ -244,11 +244,13 @@ function render(node) {
 	const selectedOnly = Boolean(node._aaalicePromptSelectedOnly);
 	const visibleEntries = filteredEntries(node, state);
 	const selectedCategoryCounts = countPromptSelectionsByCategory(state, promptLibraryStore.snapshot.entries);
-	const list = el("div", { className: "aa-prompt-selector-list", attrs: { tabindex: "0", "data-capture-wheel": "true" } });
-	list.addEventListener("wheel", (event) => {
-		if (event.ctrlKey || event.metaKey) return;
-		if (!list.contains(document.activeElement)) list.focus({ preventScroll: true });
-	}, { passive: true });
+	const list = el("div", { className: "aa-prompt-selector-list", attrs: { tabindex: "0" } });
+	list.addEventListener("pointerenter", () => {
+		const active = document.activeElement;
+		if (active && root.contains(active)) return;
+		if (active instanceof HTMLElement && active.matches('input, textarea, select, [contenteditable="true"]')) return;
+		list.focus({ preventScroll: true });
+	});
 	const query = String(node._aaalicePromptQuery || "");
 	const searchOpen = Boolean(node._aaalicePromptSearchOpen);
 	const toolbar = el("div", { className: `aa-prompt-selector-toolbar${searchOpen ? " is-searching" : ""}`, attrs: { role: "search", "aria-label": t("aaalice.promptSelector.filters", "Prompt filters") } });
@@ -337,7 +339,7 @@ function render(node) {
 function setup(node, loaded = false) {
 	if (!isSelector(node) || node._aaalicePromptSelectorMounted) return;
 	node._aaalicePromptSelectorMounted = true; stateFor(node);
-	const root = isolate(el("div", "aa-prompt-selector")); node._aaalicePromptSelectorRoot = root;
+	const root = isolate(el("div", { className: "aa-prompt-selector", attrs: { "data-capture-wheel": "true" } })); node._aaalicePromptSelectorRoot = root;
 	node.addDOMWidget("aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousMenu = node.getExtraMenuOptions;

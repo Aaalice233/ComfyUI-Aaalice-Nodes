@@ -475,9 +475,10 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /mutate\(node, clearPromptSelections\)/);
 	assert.match(selector, /aa-prompt-selector-empty/);
 	assert.match(selector, /isSelected \? " is-selected"/);
-	assert.match(selector, /className: "aa-prompt-selector-list", attrs: \{ tabindex: "0", "data-capture-wheel": "true" \}/);
-	assert.match(selector, /list\.addEventListener\("wheel", \(event\) => \{[\s\S]*event\.ctrlKey \|\| event\.metaKey[\s\S]*list\.contains\(document\.activeElement\)[\s\S]*list\.focus\(\{ preventScroll: true \}\)[\s\S]*\}, \{ passive: true \}\)/);
-	assert.doesNotMatch(selector, /list\.addEventListener\("wheel"[\s\S]{0,160}event\.stopPropagation/);
+	assert.match(selector, /className: "aa-prompt-selector", attrs: \{ "data-capture-wheel": "true" \}/);
+	assert.match(selector, /className: "aa-prompt-selector-list", attrs: \{ tabindex: "0" \}/);
+	assert.match(selector, /list\.addEventListener\("pointerenter", \(\) => \{[\s\S]*root\.contains\(active\)[\s\S]*active\.matches\('input, textarea, select, \[contenteditable="true"\]'\)[\s\S]*list\.focus\(\{ preventScroll: true \}\)/);
+	assert.doesNotMatch(selector, /list\.addEventListener\("wheel"/);
 	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) 34px 34px/);
 	assert.match(theme, /\.aa-prompt-selector-toolbar\.is-searching \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 	assert.match(theme, /\.dom-widget:has\(> \.aa-prompt-selector\) \{[^}]*position: relative;[^}]*min-height: 240px;[^}]*overflow: hidden;[^}]*pointer-events: none !important;/);
