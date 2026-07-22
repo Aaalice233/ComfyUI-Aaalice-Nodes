@@ -69,6 +69,13 @@ class PromptLibraryRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(deleted.text)["deleted"], 2)
         self.assertEqual(routes.get_library().snapshot()["entries"], [])
 
+    async def test_usage_handler_records_recent_entries(self):
+        entry = routes.get_library().create_entry({"title": "A", "text": "a"})
+        response = await routes._handler(routes.record_usage)(FakeRequest({"entryIds": [entry["id"]]}))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(json.loads(response.text)["updated"], 1)
+        self.assertGreater(routes.get_library().get_entry(entry["id"])["lastUsedAt"], 0)
+
     async def test_apply_uses_preflight_token_once_and_removes_stage(self):
         source = Path(self.temp.name) / "legacy.json"
         source.write_text(json.dumps({"Imported": ["smile"]}), encoding="utf-8")

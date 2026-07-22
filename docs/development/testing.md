@@ -179,6 +179,8 @@ GUI 自动验收只能使用 Codex 内置浏览器：
 | 复制节点、撤销和重做 | ✓ | ✓ |
 | 暗色 / 亮色与窄宽度（涉及视觉时） | ✓ | ✓ |
 | 节点增高、缩短及左右下角原生缩放手柄（涉及 DOM widget 时） | ✓ | ✓ |
+| 加载低于新尺寸下限的旧节点，外框、背景和内容同步扩展且无透明空壳（修改默认或最小尺寸时） | ✓ | ✓ |
+| 内部滚动区的未聚焦首次滚动、聚焦后普通滚动、焦点外画布行为及画布缩放修饰键（涉及滚动 DOM widget 时） | — | Standard / Legacy |
 | 无阻断性 Console 错误 | ✓ | ✓ |
 
 ParameterPanel / ParameterReceiver 还需覆盖绑定、显式同步、稳定 Parameter Id 重绑、源缺失和 KJNodes 缺失路径；EnumSwitch 需覆盖 lazy 分支、未知 key、未连接分支和显式选项同步。
@@ -219,7 +221,9 @@ SimpleNotify 还需覆盖：
 
 PromptSelector、词库与 DIY 侧边栏还需覆盖：
 
-- PromptSelector 跨分类多选、节点内排序、权重、前缀、分隔符、词库实时编辑和缺失引用阻断。
+- PromptSelector 跨分类多选、节点内排序、权重、前缀、分隔符、词库实时编辑、缺失引用阻断，新建节点默认尺寸与可缩放下限均为 `440 × 560`，Nodes 2.0 下顶栏与底栏不得覆盖原生标题、输入输出槽和节点包标记，以及排队后最近使用记录、默认最近优先/手工词库顺序切换和旧库字段迁移。
+- PromptSelector 词条列表的滚轮回归必须覆盖：初始焦点在列表外时，把指针直接移入列表后的第一段滚轮即可滚动；列表自身或词条按钮等后代获得焦点时普通滚轮仍留在列表；移出并把焦点放回画布后恢复宿主行为；Standard 模式 `Ctrl` / `Meta` + 滚轮仍缩放画布；Legacy 模式遵循当前前端实现。静态测试必须锁定 `tabindex="0"`、`data-capture-wheel="true"`、普通滚轮补焦点和修饰键旁路，并拒绝 `preventDefault()`、`stopPropagation()`、捕获阶段监听及自行构造 `WheelEvent`。
+- `data-capture-wheel` 不属于 `addDOMWidget` 的公开稳定 API。ComfyUI Frontend 升级后先读取当前安装版本的 `useCanvasInteractions`（或后继实现），再用同版本官方内置 DOM widget 交叉验证；不能仅凭旧测试通过认定滚轮协议未变。
 - 词库分类、收藏夹、默认收藏夹、标签、预览图、完整/筛选 ZIP、旧 JSON、冲突策略和损坏包回滚。
 - 普通模式下节点右键始终可以添加参数；添加 Dialog 的页面下拉保持共享箭头样式，全选/全不选只影响当前允许添加的参数；编辑模式只开放布局操作。
 - 侧边栏适合范围调节的有界数值可拖动滑条；Seed 和无可靠范围的数字不显示误导性滑条。Seed 的锁定/解锁按钮与 ParameterPanel 复用同一组件及 `fixed` / `randomize` 状态，预设捕获、应用与回滚同时覆盖 Seed 数值及 `control_after_generate`。所有数字都可点击精确输入、滚轮和方向键按 step 调整，`Shift` 十倍加速；连续拖动或滚轮只产生一个图历史边界。枚举和布尔参数继续复用共享 Select 与 Switch。

@@ -946,6 +946,13 @@
 	display: grid; grid-template-rows: auto minmax(112px, 1fr) auto; gap: 8px;
 	position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; padding: 8px 9px 9px; color: var(--aa-ui-text); background: transparent; pointer-events: none;
 }
+/* Nodes 2.0 mounts the widget element inside its own flex/grid row. Keep it in
+   that row so native title, slots, badges, and resize handles retain their space. */
+.lg-node-widgets .aa-prompt-selector { position: relative; inset: auto; width: 100%; height: 100%; min-height: 240px; box-sizing: border-box; }
+/* Nodes 2.0 stores the body height separately from its 30px native title. The
+   minimum belongs on the inner surface; sizing only the outer shell leaves the
+   saved narrow content width behind and creates a large transparent void. */
+.lg-node:has(.aa-prompt-selector):not([data-collapsed]) > [data-testid="node-inner-wrapper"] { min-width: 440px; min-height: 590px; }
 .aa-prompt-selector :is(input, select, button, label, [tabindex]), .aa-prompt-selector-list { pointer-events: auto; }
 .aa-prompt-selector.is-resizing, .aa-prompt-selector.is-resizing * { pointer-events: none !important; }
 .aa-prompt-selector-toolbar input, .aa-prompt-selector select,
@@ -957,9 +964,12 @@
 	box-shadow: inset 0 1px 1px rgb(0 0 0 / .1); font: inherit;
 	transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
 }
-.aa-prompt-selector-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 34px; gap: 6px; }
+.aa-prompt-selector-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 34px 34px; gap: 6px; }
 .aa-prompt-selector-toolbar.is-searching { grid-template-columns: minmax(0, 1fr); }
-.aa-prompt-selector-search-toggle.aa-ui-button { width: 34px; min-width: 34px; height: 34px; }
+.aa-prompt-selector-search-toggle.aa-ui-button, .aa-prompt-selector-recent-sort.aa-ui-button { width: 34px; min-width: 34px; height: 34px; }
+.aa-prompt-selector-recent-sort.aa-ui-button { color: var(--aa-ui-muted); }
+.aa-prompt-selector-recent-sort.aa-ui-button.is-active { background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 7%, transparent), 0 3px 10px color-mix(in srgb, var(--aa-ui-accent) 12%, transparent); }
+.aa-prompt-selector-recent-sort.aa-ui-button.is-active:hover:not(:disabled), .aa-prompt-selector-recent-sort.aa-ui-button.is-active:focus-visible { background: color-mix(in srgb, var(--aa-ui-accent) 18%, var(--aa-ui-control)); color: var(--aa-ui-accent); }
 .aa-prompt-selector-toolbar .aa-ui-select__native { overflow: hidden; padding-left: 9px; padding-right: 38px; text-overflow: ellipsis; white-space: nowrap; }
 .aa-prompt-selector-search { display: grid; min-width: 0; height: 34px; grid-template-columns: 18px minmax(0, 1fr) 28px; align-items: center; gap: 5px; padding: 0 3px 0 9px; border: 1px solid color-mix(in srgb, var(--aa-ui-accent) 62%, var(--aa-ui-border)); border-radius: 8px; background: color-mix(in srgb, var(--aa-ui-control) 82%, var(--aa-ui-surface)); box-shadow: 0 0 0 2px var(--aa-ui-accent-soft), inset 0 1px 1px rgb(0 0 0 / .1); animation: aa-prompt-search-open .14s ease-out; }
 .aa-prompt-selector-search > .aa-ui-icon { width: 15px; height: 15px; color: var(--aa-ui-muted); }

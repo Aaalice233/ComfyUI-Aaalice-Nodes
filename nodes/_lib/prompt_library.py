@@ -112,7 +112,8 @@ class PromptLibrary:
                     id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL, note TEXT NOT NULL DEFAULT '',
                     category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
                     preview_hash TEXT REFERENCES assets(hash) ON DELETE SET NULL,
-                    position INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    position INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_used_at INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE TABLE IF NOT EXISTS tags (
                     id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE
@@ -136,6 +137,9 @@ class PromptLibrary:
             columns = {row["name"] for row in db.execute("PRAGMA table_info(categories)")}
             if "color" not in columns:
                 db.execute("ALTER TABLE categories ADD COLUMN color TEXT NOT NULL DEFAULT ''")
+            entry_columns = {row["name"] for row in db.execute("PRAGMA table_info(entries)")}
+            if "last_used_at" not in entry_columns:
+                db.execute("ALTER TABLE entries ADD COLUMN last_used_at INTEGER NOT NULL DEFAULT 0")
             category_rows = db.execute("SELECT id, color FROM categories ORDER BY position, name, id").fetchall()
             for index, row in enumerate(category_rows):
                 fallback = CATEGORY_COLOR_PALETTE[index % len(CATEGORY_COLOR_PALETTE)]
@@ -187,6 +191,7 @@ class PromptLibrary:
                 entry["categoryId"] = entry.pop("category_id")
                 entry["previewHash"] = entry.pop("preview_hash")
                 entry["updatedAt"] = entry.pop("updated_at")
+                entry["lastUsedAt"] = entry.pop("last_used_at")
                 entry["tagIds"] = entry_tags.get(entry["id"], [])
                 entry["collections"] = memberships.get(entry["id"], [])
             return {
@@ -358,6 +363,25 @@ class PromptLibrary:
             self._cleanup_asset(preview_hash)
         return len(unique_ids)
 
+    def record_usage(self, entry_ids: list[str]) -> int:
+        unique_ids = list(dict.fromkeys(entry_ids))
+        if not unique_ids:
+            return 0
+        with self.transaction() as db:
+            placeholders = ",".join("?" for _ in unique_ids)
+            found = int(db.execute(
+                f"SELECT COUNT(*) FROM entries WHERE id IN ({placeholders})", unique_ids
+            ).fetchone()[0])
+            if found != len(unique_ids):
+                raise KeyError("one or more prompt entries are missing")
+            previous = int(db.execute("SELECT COALESCE(MAX(last_used_at), 0) FROM entries").fetchone()[0])
+            used_at = max(int(time.time() * 1000), previous + 1)
+            db.execute(
+                f"UPDATE entries SET last_used_at = ? WHERE id IN ({placeholders})",
+                (used_at, *unique_ids),
+            )
+        return len(unique_ids)
+
     def batch_update_entries(
         self,
         entry_ids: list[str],
@@ -498,7 +522,7 @@ class PromptLibrary:
             "categories": [item for item in snapshot["categories"] if item["id"] in category_ids],
             "collections": [item for item in snapshot["collections"] if item["id"] in collection_ids],
             "tags": [item for item in snapshot["tags"] if item["id"] in tag_ids],
-            "entries": selected,
+            "entries": [{key: value for key, value in entry.items() if key != "lastUsedAt"} for entry in selected],
             "selection": {"entryIds": sorted(selected_ids)},
         }
         manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")

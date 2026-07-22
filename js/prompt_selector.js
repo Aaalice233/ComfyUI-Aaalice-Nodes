@@ -20,8 +20,10 @@ import { openPromptLibraryEntryEditor, openWorkspace } from "./workspace.js";
 
 const NODE = "PromptSelector";
 const PROPERTY = "promptSelectorState";
-const MIN_WIDTH = 320;
-const MIN_HEIGHT = 240;
+const DEFAULT_SIZE = [440, 560];
+const MIN_WIDTH = 440;
+const MIN_HEIGHT = 560;
+const MIN_WIDGET_HEIGHT = 240;
 const SELECTION_TOOLTIP_LIMIT = 12;
 const selectionSummaryTooltip = createTooltip({ delay: 260, closeDelay: 80 });
 
@@ -37,7 +39,12 @@ function mutate(node, callback) {
 }
 
 function filteredEntries(node, state) {
-	const entries = promptLibraryStore.filterEntries({ query: node._aaalicePromptQuery, categoryId: node._aaalicePromptCategory, collectionId: node._aaalicePromptCollection });
+	const entries = promptLibraryStore.filterEntries({
+		query: node._aaalicePromptQuery,
+		categoryId: node._aaalicePromptCategory,
+		collectionId: node._aaalicePromptCollection,
+		recentFirst: node._aaalicePromptRecentFirst !== false,
+	});
 	if (!node._aaalicePromptSelectedOnly) return entries;
 	const selectedIds = new Set(state.selections.map((item) => item.entryId));
 	return entries.filter((entry) => selectedIds.has(entry.id));
@@ -237,7 +244,11 @@ function render(node) {
 	const selectedOnly = Boolean(node._aaalicePromptSelectedOnly);
 	const visibleEntries = filteredEntries(node, state);
 	const selectedCategoryCounts = countPromptSelectionsByCategory(state, promptLibraryStore.snapshot.entries);
-	const list = el("div", "aa-prompt-selector-list");
+	const list = el("div", { className: "aa-prompt-selector-list", attrs: { tabindex: "0", "data-capture-wheel": "true" } });
+	list.addEventListener("wheel", (event) => {
+		if (event.ctrlKey || event.metaKey) return;
+		if (!list.contains(document.activeElement)) list.focus({ preventScroll: true });
+	}, { passive: true });
 	const query = String(node._aaalicePromptQuery || "");
 	const searchOpen = Boolean(node._aaalicePromptSearchOpen);
 	const toolbar = el("div", { className: `aa-prompt-selector-toolbar${searchOpen ? " is-searching" : ""}`, attrs: { role: "search", "aria-label": t("aaalice.promptSelector.filters", "Prompt filters") } });
@@ -265,9 +276,21 @@ function render(node) {
 		searchButton.setAttribute("aria-pressed", String(Boolean(query)));
 		const categoryFilter = promptFilterSelect({ label: t("aaalice.promptSelector.allCategories", "All categories"), value: node._aaalicePromptCategory, options: promptLibraryStore.snapshot.categories, selectedCounts: selectedCategoryCounts, totalSelected: state.selections.length, onChange: (value) => { node._aaalicePromptCategory = value; node._aaalicePromptResetScroll = true; render(node); } });
 		bindSelectionSummary(categoryFilter.control, () => categorySelectionSummary(state));
+		const recentFirst = node._aaalicePromptRecentFirst !== false;
+		const recentSort = iconButton({
+			iconName: "statusIdle",
+			label: recentFirst
+				? t("aaalice.promptSelector.recentSortActive", "Recently used first; click for library order")
+				: t("aaalice.promptSelector.recentSort", "Sort by recent use"),
+			className: `aa-prompt-selector-recent-sort${recentFirst ? " is-active" : ""}`,
+			variant: "ghost",
+			onClick: () => { node._aaalicePromptRecentFirst = !recentFirst; node._aaalicePromptResetScroll = true; render(node); },
+		});
+		recentSort.setAttribute("aria-pressed", String(recentFirst));
 		toolbar.append(
 			categoryFilter,
 			promptFilterSelect({ label: t("aaalice.promptSelector.allCollections", "All favorite folders"), value: node._aaalicePromptCollection, options: promptLibraryStore.snapshot.collections.map((item) => ({ ...item, name: favoriteFolderName(item) })), onChange: (value) => { node._aaalicePromptCollection = value; node._aaalicePromptResetScroll = true; render(node); } }),
+			recentSort,
 			searchButton,
 		);
 	}
@@ -315,7 +338,7 @@ function setup(node, loaded = false) {
 	if (!isSelector(node) || node._aaalicePromptSelectorMounted) return;
 	node._aaalicePromptSelectorMounted = true; stateFor(node);
 	const root = isolate(el("div", "aa-prompt-selector")); node._aaalicePromptSelectorRoot = root;
-	node.addDOMWidget("aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_HEIGHT, getValue: () => "", setValue: () => {} });
+	node.addDOMWidget("aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousMenu = node.getExtraMenuOptions;
 	node.getExtraMenuOptions = function (_canvas, options = []) {
@@ -330,7 +353,7 @@ function setup(node, loaded = false) {
 	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); closePromptEntryDetails(); closeSelectionSummary(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
 	const previousCompute = node.computeSize;
 	node.computeSize = function () { const size = previousCompute?.apply(this, arguments) || [MIN_WIDTH, MIN_HEIGHT]; return [Math.max(MIN_WIDTH, size[0]), Math.max(MIN_HEIGHT, size[1])]; };
-	render(node); if (!loaded) node.setSize?.(node.computeSize());
+	render(node); if (!loaded) node.setSize?.(DEFAULT_SIZE);
 }
 
 function installPromptHook() {
@@ -338,10 +361,14 @@ function installPromptHook() {
 	const original = app.graphToPrompt?.bind(app); if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable for PromptSelector");
 	app.graphToPrompt = async function (...args) {
 		const result = await original(...args); const output = result?.output ?? result;
+		const usedEntryIds = new Set();
 		for (const node of (app.graph?._nodes || []).filter(isSelector)) {
 			const promptNode = output?.[String(node.id)]; if (!promptNode) continue;
-			promptNode.inputs ||= {}; promptNode.inputs.selection_payload_json = JSON.stringify(materializePromptPayload(stateFor(node), promptLibraryStore.snapshot.entries));
+			const payload = materializePromptPayload(stateFor(node), promptLibraryStore.snapshot.entries);
+			promptNode.inputs ||= {}; promptNode.inputs.selection_payload_json = JSON.stringify(payload);
+			for (const selection of payload.selections) if (selection.text != null) usedEntryIds.add(selection.entryId);
 		}
+		if (usedEntryIds.size) void promptLibraryStore.recordUsage([...usedEntryIds]).catch((error) => libraryActionError(t("aaalice.promptSelector.recentUsageFailed", "Could not update recent prompts"), error));
 		return result;
 	};
 }

@@ -60,6 +60,7 @@ export class PromptLibraryStore extends EventTarget {
 	deleteEntry(id) { return this.json(`/entries/${encodeURIComponent(id)}`, { method: "DELETE" }); }
 	batchEntries(data) { return this.json("/entries/batch", { body: data }); }
 	deleteEntries(entryIds) { return this.json("/entries/batch-delete", { body: { entryIds } }); }
+	recordUsage(entryIds) { return this.json("/entries/usage", { body: { entryIds } }); }
 	reorder(data) { return this.json("/reorder", { body: data }); }
 	createCategory(data) { return this.json("/categories", { body: data }); }
 	updateCategory(id, data) { return this.json(`/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }

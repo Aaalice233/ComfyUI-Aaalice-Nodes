@@ -8,8 +8,8 @@ const snapshot = {
 	collections: [{ id: "favorites", name: "Favorites" }],
 	tags: [{ id: "red", name: "Red" }],
 	entries: [
-		{ id: "a", title: "Red hair", text: "crimson hair", note: "warm", categoryId: "people", tagIds: ["red"], collections: [{ collectionId: "favorites" }] },
-		{ id: "b", title: "Blue sky", text: "clear sky", categoryId: null, tagIds: [], collections: [] },
+		{ id: "a", title: "Red hair", text: "crimson hair", note: "warm", categoryId: "people", tagIds: ["red"], collections: [{ collectionId: "favorites" }], lastUsedAt: 10 },
+		{ id: "b", title: "Blue sky", text: "clear sky", categoryId: null, tagIds: [], collections: [], lastUsedAt: 20 },
 	],
 };
 
@@ -23,4 +23,15 @@ test("library index reuses derived lookup data for search and taxonomy", () => {
 	assert.deepEqual(index.tagNames(["red"]), ["Red"]);
 	assert.equal(index.usage("category", "people"), 1);
 	assert.equal(index.usage("collection", "favorites"), 1);
+});
+
+test("library index can place recently used prompts first without disturbing stable ties", () => {
+	const index = new LibraryIndex({ entries: [
+		{ id: "unused", title: "Unused", text: "unused", lastUsedAt: 0 },
+		{ id: "older", title: "Older", text: "older", lastUsedAt: 10 },
+		{ id: "newer-a", title: "Newer A", text: "newer a", lastUsedAt: 20 },
+		{ id: "newer-b", title: "Newer B", text: "newer b", lastUsedAt: 20 },
+	] });
+	assert.deepEqual(index.filter({ recentFirst: true }).map((entry) => entry.id), ["newer-a", "newer-b", "older", "unused"]);
+	assert.deepEqual(index.filter().map((entry) => entry.id), ["unused", "older", "newer-a", "newer-b"]);
 });

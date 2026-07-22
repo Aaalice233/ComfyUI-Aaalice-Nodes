@@ -291,6 +291,9 @@ test("PromptSelector injects live library text and exposes inline weight managem
 	assert.match(selector, /Prompt separator/);
 	assert.match(selector, /openWorkspace\("library"\)/);
 	assert.match(selector, /aa-prompt-selector-footer-actions/);
+	assert.match(selector, /recordUsage\(\[\.\.\.usedEntryIds\]\)/);
+	assert.match(selector, /_aaalicePromptRecentFirst !== false/);
+	assert.match(selector, /aa-prompt-selector-recent-sort/);
 });
 
 test("workspace uses event-driven refresh without polling", () => {
@@ -472,10 +475,14 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /mutate\(node, clearPromptSelections\)/);
 	assert.match(selector, /aa-prompt-selector-empty/);
 	assert.match(selector, /isSelected \? " is-selected"/);
-	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) 34px/);
+	assert.match(selector, /className: "aa-prompt-selector-list", attrs: \{ tabindex: "0", "data-capture-wheel": "true" \}/);
+	assert.match(selector, /list\.addEventListener\("wheel", \(event\) => \{[\s\S]*event\.ctrlKey \|\| event\.metaKey[\s\S]*list\.contains\(document\.activeElement\)[\s\S]*list\.focus\(\{ preventScroll: true \}\)[\s\S]*\}, \{ passive: true \}\)/);
+	assert.doesNotMatch(selector, /list\.addEventListener\("wheel"[\s\S]{0,160}event\.stopPropagation/);
+	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) 34px 34px/);
 	assert.match(theme, /\.aa-prompt-selector-toolbar\.is-searching \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 	assert.match(theme, /\.dom-widget:has\(> \.aa-prompt-selector\) \{[^}]*position: relative;[^}]*min-height: 240px;[^}]*overflow: hidden;[^}]*pointer-events: none !important;/);
 	assert.match(theme, /\.aa-prompt-selector \{[^}]*position: absolute;[^}]*inset: 0;[^}]*min-height: 0;[^}]*overflow: hidden;/);
+	assert.match(theme, /\.lg-node-widgets \.aa-prompt-selector \{[^}]*position: relative;[^}]*inset: auto;[^}]*height: 100%;[^}]*min-height: 240px;/);
 	assert.match(theme, /\.aa-prompt-selector-list \{[^}]*min-height: 0;[^}]*overflow: auto;/);
 	assert.match(theme, /\.aa-prompt-selector\.is-resizing, \.aa-prompt-selector\.is-resizing \* \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-prompt-selector-row\.is-selected/);
@@ -500,6 +507,19 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.doesNotMatch(theme.match(/\.aa-prompt-entry-details-tooltip\s*\{[^}]*\}/s)?.[0] || "", /pointer-events/);
 	assert.doesNotMatch(promptEntryDetails, /aa-prompt-entry-details-tooltip[^\n]*interactive:\s*true/);
 	assert.match(theme, /\.aa-prompt-entry-details-prompt > p, \.aa-prompt-entry-details-note > p\s*\{[^}]*white-space:\s*pre-wrap/s);
+});
+
+test("PromptSelector uses the spacious reference size as its default and resize floor", () => {
+	assert.match(selector, /const DEFAULT_SIZE = \[440, 560\]/);
+	assert.match(selector, /const MIN_WIDTH = 440/);
+	assert.match(selector, /const MIN_HEIGHT = 560/);
+	assert.match(selector, /const MIN_WIDGET_HEIGHT = 240/);
+	assert.match(selector, /getMinHeight: \(\) => MIN_WIDGET_HEIGHT/);
+	assert.match(selector, /if \(!loaded\) node\.setSize\?\.\(DEFAULT_SIZE\)/);
+	assert.match(selector, /Math\.max\(MIN_WIDTH, size\[0\]\)/);
+	assert.match(selector, /Math\.max\(MIN_HEIGHT, size\[1\]\)/);
+	assert.match(theme, /\.lg-node:has\(\.aa-prompt-selector\):not\(\[data-collapsed\]\) > \[data-testid="node-inner-wrapper"\] \{[^}]*min-width: 440px;[^}]*min-height: 590px;/);
+	assert.doesNotMatch(theme, /\.lg-node:has\(\.aa-prompt-selector\):not\(\[data-collapsed\]\) \{[^}]*min-width:/);
 });
 
 test("filter dropdowns reuse the shared animated select control", () => {

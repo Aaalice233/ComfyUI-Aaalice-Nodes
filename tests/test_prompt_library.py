@@ -67,6 +67,23 @@ class PromptLibraryTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.library.asset(asset["hash"])
 
+    def test_usage_history_is_monotonic_and_not_exported(self):
+        first = self.library.create_entry({"title": "A", "text": "a"})
+        second = self.library.create_entry({"title": "B", "text": "b"})
+        self.assertEqual(self.library.record_usage([first["id"], first["id"]]), 1)
+        first_used_at = self.library.get_entry(first["id"])["lastUsedAt"]
+        self.assertGreater(first_used_at, 0)
+        self.assertEqual(self.library.record_usage([second["id"]]), 1)
+        self.assertGreater(self.library.get_entry(second["id"])["lastUsedAt"], first_used_at)
+        with self.assertRaisesRegex(KeyError, "missing"):
+            self.library.record_usage(["missing"])
+
+        archive = self.library.export_archive_to_path()
+        with zipfile.ZipFile(archive) as package:
+            manifest = json.loads(package.read("manifest.json"))
+        self.assertNotIn("lastUsedAt", manifest["entries"][0])
+        archive.unlink()
+
     def test_default_favorite_folder_is_created_and_cannot_be_deleted(self):
         default = next(item for item in self.library.snapshot()["collections"] if item["id"] == DEFAULT_COLLECTION_ID)
         self.assertEqual(default["name"], DEFAULT_COLLECTION_NAME)
@@ -94,6 +111,24 @@ class PromptLibraryTests(unittest.TestCase):
             db.close()
             migrated = PromptLibrary(target)
             self.assertEqual(migrated.snapshot()["categories"][0]["color"], prompt_library_module.CATEGORY_COLOR_PALETTE[0])
+
+    def test_existing_database_entries_receive_usage_history(self):
+        self.library.create_entry({"title": "Legacy", "text": "legacy"})
+        with self.library.connection() as db:
+            db.execute("ALTER TABLE entries RENAME TO entries_old")
+            db.execute(
+                "CREATE TABLE entries (id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL, "
+                "note TEXT NOT NULL DEFAULT '', category_id TEXT, preview_hash TEXT, "
+                "position INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+            )
+            db.execute(
+                "INSERT INTO entries(id,title,text,note,category_id,preview_hash,position,updated_at) "
+                "SELECT id,title,text,note,category_id,preview_hash,position,updated_at FROM entries_old"
+            )
+            db.execute("DROP TABLE entries_old")
+            db.commit()
+        migrated = PromptLibrary(self.temp.name)
+        self.assertEqual(migrated.snapshot()["entries"][0]["lastUsedAt"], 0)
 
     def test_preview_content_hash_lifecycle(self):
         _category, _collection, entry = self.seed()

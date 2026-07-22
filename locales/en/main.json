@@ -24,7 +24,7 @@
     },
     "promptSelector": {
       "search": "Search prompt library", "allCategories": "All categories", "allCollections": "All favorite folders",
-      "filters": "Prompt filters", "openSearch": "Open search", "collapseSearch": "Collapse search", "showSelected": "Show selected prompts only", "showAll": "Show all matching prompts", "noResultsTitle": "No prompts found", "noResults": "No matching prompt entries.", "manageLibrary": "Manage library", "emptySelected": "No prompts selected.", "clearAll": "Clear selected",
+      "filters": "Prompt filters", "openSearch": "Open search", "collapseSearch": "Collapse search", "recentSort": "Sort by recent use", "recentSortActive": "Recently used first; click for library order", "recentUsageFailed": "Could not update recent prompts", "showSelected": "Show selected prompts only", "showAll": "Show all matching prompts", "noResultsTitle": "No prompts found", "noResults": "No matching prompt entries.", "manageLibrary": "Manage library", "emptySelected": "No prompts selected.", "clearAll": "Clear selected",
       "missing": "Missing library entry", "missingShort": "missing", "selected": "selected", "weight": "Weight", "weightHint": "Scroll or use arrow keys to adjust; click to reset to 1", "thumbnailEditHint": "Double-click the thumbnail to edit this entry", "uncategorized": "Uncategorized", "categorySummary": "Selected by category", "outputQueue": "Selected output queue", "moreSelected": "More selected prompts", "separator": "Prompt separator", "separatorMenu": "⚙️ Set prompt separator…"
     },
     "workspace": {

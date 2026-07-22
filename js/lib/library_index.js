@@ -16,15 +16,20 @@ export class LibraryIndex {
 		}
 	}
 
-	filter({ query = "", categoryId = "", collectionId = "", entryIds = null } = {}) {
+	filter({ query = "", categoryId = "", collectionId = "", entryIds = null, recentFirst = false } = {}) {
 		const needle = String(query).trim().toLocaleLowerCase();
 		const wanted = entryIds ? new Set(entryIds) : null;
-		return this.entries.filter((entry) => {
+		const matches = this.entries.filter((entry) => {
 			if (wanted && !wanted.has(entry.id)) return false;
 			if (categoryId && entry.categoryId !== categoryId) return false;
 			if (collectionId && !(entry.collections || []).some((item) => item.collectionId === collectionId)) return false;
 			return !needle || this.searchText.get(entry.id)?.includes(needle);
 		});
+		if (!recentFirst) return matches;
+		return matches
+			.map((entry, index) => ({ entry, index }))
+			.sort((left, right) => (Number(right.entry.lastUsedAt) || 0) - (Number(left.entry.lastUsedAt) || 0) || left.index - right.index)
+			.map(({ entry }) => entry);
 	}
 
 	category(id) { return this.categoryById.get(id) || null; }
