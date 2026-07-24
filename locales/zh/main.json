@@ -29,7 +29,7 @@
     },
     "workspace": {
       "title": "Aaalice 工作区", "sidebarTitle": "Aaalice", "dashboard": "参数控制", "groups": "组导航", "library": "词库管理", "edit": "布局", "done": "完成", "dashboardActions": "控制台操作",
-      "imageCompare": { "empty": "运行工作流后显示对比图", "before": "图像 A", "after": "图像 B", "previousBefore": "上一张图像 A", "nextBefore": "下一张图像 A", "previousAfter": "上一张图像 B", "nextAfter": "下一张图像 B", "slider": "对比位置" },
+      "imageCompare": { "empty": "运行工作流后显示对比图", "before": "图像 A", "after": "图像 B", "previousBefore": "上一张图像 A", "nextBefore": "下一张图像 A", "previousAfter": "上一张图像 B", "nextAfter": "下一张图像 B", "slider": "对比位置", "open": "全屏查看图像对比", "title": "图像对比", "viewer": "全屏图像对比。移动指针对比，滚轮缩放，放大后拖动查看，双击还原。", "close": "关闭全屏图像对比", "zoomIn": "放大", "zoomOut": "缩小", "fit": "适应屏幕" },
       "pin": { "pinned": "已固定：点击外侧不会收起。点击开启自动收起。", "unpinned": "已开启自动收起：点击外侧将关闭侧边栏。点击固定。" },
       "search": { "parameters": "搜索参数", "parametersPlaceholder": "搜索当前页面", "library": "搜索词库", "close": "收起搜索", "noParameters": "没有匹配的参数。" },
       "groupNavigation": {

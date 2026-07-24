@@ -496,6 +496,9 @@ function workspaceLabels() {
 			previousBefore: t("aaalice.workspace.imageCompare.previousBefore", "Previous Image A"), nextBefore: t("aaalice.workspace.imageCompare.nextBefore", "Next Image A"),
 			previousAfter: t("aaalice.workspace.imageCompare.previousAfter", "Previous Image B"), nextAfter: t("aaalice.workspace.imageCompare.nextAfter", "Next Image B"),
 			slider: t("aaalice.workspace.imageCompare.slider", "Comparison position"),
+			open: t("aaalice.workspace.imageCompare.open", "Open full-screen comparison"), title: t("aaalice.workspace.imageCompare.title", "Image comparison"),
+			viewer: t("aaalice.workspace.imageCompare.viewer", "Full-screen image comparison. Move the pointer to compare, scroll to zoom, drag enlarged images to move, and double-click to reset."), close: t("aaalice.workspace.imageCompare.close", "Close full-screen comparison"),
+			zoomIn: t("aaalice.workspace.imageCompare.zoomIn", "Zoom in"), zoomOut: t("aaalice.workspace.imageCompare.zoomOut", "Zoom out"), fit: t("aaalice.workspace.imageCompare.fit", "Fit to screen"),
 		},
 		selectOption: t("aaalice.workspace.binding.selectOption", "Select an option"),
 		availability: {

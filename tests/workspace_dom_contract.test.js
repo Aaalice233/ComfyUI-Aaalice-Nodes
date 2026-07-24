@@ -49,11 +49,37 @@ test("native image comparison is a localized accessible sidebar media control", 
 	assert.match(imageCompareControl, /aria-valuenow/);
 	assert.match(imageCompareControl, /beforeImages/);
 	assert.match(imageCompareControl, /afterImages/);
+	assert.match(imageCompareControl, /createDialog/);
+	assert.match(imageCompareControl, /aa-image-compare-dialog/);
+	assert.match(imageCompareControl, /iconName: "zoomIn"/);
+	assert.match(imageCompareControl, /iconName: "zoomOut"/);
+	assert.match(imageCompareControl, /viewport\.addEventListener\("click"/);
+	assert.match(imageCompareControl, /draggable = false/);
+	assert.match(imageCompareControl, /addEventListener\("dragstart", \(event\) => event\.preventDefault\(\)\)/);
+	assert.match(imageCompareControl, /addEventListener\("wheel"/);
+	assert.match(imageCompareControl, /addEventListener\("pointermove"/);
+	assert.match(imageCompareControl, /MAX_ZOOM = 8/);
+	assert.match(imageCompareControl, /destroy: \(\) => viewer\?\.requestClose/);
 	assert.match(theme, /\.aa-image-compare__image\.is-before/);
 	assert.match(theme, /clip-path: inset/);
+	assert.doesNotMatch(imageCompareControl, /aa-image-compare__handle/);
+	assert.doesNotMatch(theme, /\.aa-image-compare__handle/);
+	assert.doesNotMatch(imageCompareControl, /aa-image-compare-viewer__handle/);
+	assert.doesNotMatch(theme, /\.aa-image-compare-viewer__handle/);
+	assert.match(imageCompareControl, /if \(event\.pointerType === "mouse"\) setPositionFromPointer\(event\)/);
+	assert.match(imageCompareControl, /navigationGroup\(beforeCounter, beforeImages, "before"\)[\s\S]*?aa-image-compare-viewer__zoom[\s\S]*?navigationGroup\(afterCounter, afterImages, "after"\)/);
+	assert.match(theme, /\.aa-image-compare-viewer__stage/);
+	assert.match(theme, /--aa-image-compare-zoom/);
+	assert.match(theme, /\.aa-image-compare-viewer__toolbar \{[^}]*display: grid;[^}]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
+	assert.match(theme, /\.aa-image-compare-viewer__nav-group\.is-before \{ justify-self: start; \}/);
+	assert.match(theme, /\.aa-image-compare-viewer__nav-group\.is-after \{ justify-self: end; \}/);
+	assert.match(theme, /\.aa-image-compare-viewer__zoom \{[^}]*justify-self: center;/);
+	assert.match(theme, /-webkit-user-drag: none/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.match(locale, /"imageCompare"/);
 		assert.match(locale, /"slider"/);
+		assert.match(locale, /"zoomIn"/);
+		assert.match(locale, /"fit"/);
 	}
 });
 
