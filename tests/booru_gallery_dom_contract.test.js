@@ -128,6 +128,8 @@ test("gallery cards use direct selection and adaptive animated overlay actions",
 	assert.match(source, /card\.addEventListener\("click", \(event\) => runSelection\(event\)\)/);
 	assert.match(source, /iconName, action, actionLabel, actionIndex/);
 	for (const action of ["edit", "favorite", "copyPrompt", "interrogate", "detail"]) assert.match(theme, new RegExp(`\\.aa-gallery-card-action\\.is-${action}`));
+	assert.match(theme, /\.aa-gallery-card-action\.is-favorite\.is-active \.aa-ui-icon \{[^}]*fill: currentColor/);
+	assert.match(theme, /\.aa-gallery-detail__action\.is-favorite\.is-active \.aa-ui-icon \{[^}]*fill: currentColor/);
 	assert.doesNotMatch(source, /actionButton\("statusCheck", "select"/);
 	assert.doesNotMatch(theme, /\.aa-gallery-card-action\.is-select/);
 	assert.match(source, /if \(event\?\.type === "click"\) card\.blur\(\)/);
@@ -712,7 +714,11 @@ test("gallery settings use focused sections and explicit account states", () => 
 	assert.match(theme, /aa-gallery-settings-page-in/);
 	assert.match(theme, /\.aa-gallery-settings \{[^}]*grid-template-columns: 150px minmax\(0, 1fr\)/);
 	assert.match(theme, /\.aa-gallery-settings__source-workspace \{[^}]*grid-template-columns: 184px minmax\(0, 1fr\)/);
-	assert.match(theme, /\.aa-gallery-settings__section-header strong \{[^}]*font-size: 12px/);
+	assert.match(theme, /\.aa-gallery-settings__section-header strong \{[^}]*font-size: 13px/);
+	assert.match(theme, /\.aa-gallery-settings__nav-item\.aa-ui-button \{[^}]*font-size: 12\.5px/);
+	assert.match(theme, /\.aa-gallery-settings__source-tab \.aa-ui-button__label \{[^}]*font-size: 12\.5px/);
+	assert.match(theme, /\.aa-gallery-settings__credential \.aa-ui-input \{[^}]*font-size: 12\.5px/);
+	assert.match(theme, /\.aa-gallery-settings__page textarea \{[^}]*font-size: 11px/);
 	assert.doesNotMatch(settingsSource, /aa-gallery-settings__blacklist-card[\s\S]*el\("footer"/);
 	assert.match(theme, /\.aa-gallery-settings__blacklist-card \{[^}]*border: 0;[^}]*background: color-mix/);
 	assert.doesNotMatch(theme, /aa-gallery-settings__hero|aa-gallery-settings__source-grid/);
