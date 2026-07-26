@@ -127,7 +127,7 @@ test("browse and selected switcher states use distinct semantic colors", () => {
 test("gallery cards use direct selection and adaptive animated overlay actions", () => {
 	assert.match(source, /card\.addEventListener\("click", \(event\) => runSelection\(event\)\)/);
 	assert.match(source, /iconName, action, actionLabel, actionIndex/);
-	for (const action of ["edit", "favorite", "detail"]) assert.match(theme, new RegExp(`\\.aa-gallery-card-action\\.is-${action}`));
+	for (const action of ["edit", "favorite", "copyPrompt", "interrogate", "detail"]) assert.match(theme, new RegExp(`\\.aa-gallery-card-action\\.is-${action}`));
 	assert.doesNotMatch(source, /actionButton\("statusCheck", "select"/);
 	assert.doesNotMatch(theme, /\.aa-gallery-card-action\.is-select/);
 	assert.match(source, /if \(event\?\.type === "click"\) card\.blur\(\)/);
@@ -283,7 +283,7 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 });
 
 test("gallery micro-interactions acknowledge state without adding polling or card observers", () => {
-	for (const animation of ["search-in", "view-in", "count-update", "selection-feedback", "favorite-feedback", "media-in"]) assert.match(theme, new RegExp(`@keyframes aa-gallery-${animation}`));
+	for (const animation of ["search-in", "view-in", "count-update", "selection-feedback", "favorite-feedback", "card-scan", "media-in"]) assert.match(theme, new RegExp(`@keyframes aa-gallery-${animation}`));
 	assert.match(source, /is-selection-feedback/);
 	assert.match(source, /is-acknowledged/);
 	assert.match(source, /aria-expanded", "true"/);
@@ -556,6 +556,47 @@ test("gallery scroll areas follow the focused wheel-capture protocol", () => {
 	assert.match(source, /active\.matches\('input, textarea, select, \[contenteditable="true"\]'\)/);
 	assert.match(source, /target\.focus\(\{ preventScroll: true \}\)/);
 	assert.doesNotMatch(source, /new WheelEvent|wheel[\s\S]{0,80}stopPropagation/);
+});
+
+test("gallery cards offer prompt copy and prompt-assistant interrogation", () => {
+	assert.match(source, /const PROMPT_ASSISTANT_API = "\/prompt-assistant\/api"/);
+	assert.match(source, /\$\{PROMPT_ASSISTANT_API\}\/config\/llm\/masked/);
+	assert.match(source, /promptAssistantAvailable = Boolean\(assistantAvailable\)/);
+	assert.match(source, /actionButton\("copy", "copyPrompt", label\("card\.copyPrompt", "Copy prompt"\)/);
+	assert.match(source, /promptAssistantAvailable \? actionButton\("scan", "interrogate", label\("card\.interrogate", "Interrogate prompt"\)/);
+	assert.match(source, /const copyPostPrompt = async \(post\) =>/);
+	assert.match(source, /navigator\.clipboard\.writeText\(text\)/);
+	assert.match(source, /label\("selected\.noPrompt"/);
+	assert.match(source, /const interrogatePost = async \(post, card, control\) =>/);
+	assert.match(source, /card\.classList\.add\("is-interrogating"\)/);
+	assert.match(source, /\$\{PROMPT_ASSISTANT_API\}\/vlm\/analyze/);
+	assert.match(source, /request_id: crypto\.randomUUID\(\)/);
+	assert.match(source, /openInterrogateResultDialog\(detail, String\(result\.data\?\.description/);
+	assert.match(source, /className: "aa-gallery-card__scan"/);
+	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__scan \{[^}]*animation: aa-gallery-card-scan/);
+	assert.match(source, /actionControls = \[editAction, \.\.\.\(favoriteAction \? \[favoriteAction\] : \[\]\), copyPromptAction, \.\.\.\(interrogateAction \? \[interrogateAction\] : \[\]\), detailAction\]/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.card.copyPrompt, "string");
+		assert.equal(typeof locale.aaalice.gallery.card.interrogate, "string");
+		assert.equal(typeof locale.aaalice.gallery.interrogate.title, "string");
+		assert.equal(typeof locale.aaalice.gallery.interrogate.copied, "string");
+		assert.equal(typeof locale.aaalice.gallery.interrogate.failed, "string");
+	}
+});
+
+test("post details offer copying the original image to the clipboard", () => {
+	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
+	assert.match(detailSource, /label\("detail\.copyImage", "Copy image"\)/);
+	assert.match(detailSource, /copyImageToClipboard\(proxyUrl\(detail\.source, detail\.mediaUrl\)\)/);
+	assert.match(source, /async function copyImageToClipboard\(src\)/);
+	assert.match(source, /createImageBitmap\(blob\)/);
+	assert.match(source, /canvas\.toBlob\(resolve, "image\/png"\)/);
+	assert.match(source, /new ClipboardItem\(\{ "image\/png": png \}\)/);
+	assert.match(theme, /\.aa-gallery-detail__action\.is-copy-image \{[^}]*--aa-gallery-detail-action-tone/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.detail.copyImage, "string");
+		assert.equal(typeof locale.aaalice.gallery.detail.imageCopied, "string");
+	}
 });
 
 test("post details stream three-layer tag translations into the pills", () => {

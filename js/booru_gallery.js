@@ -14,6 +14,8 @@ import { createTagPillList } from "./lib/controls/tag_pills.js";
 const NODE = "BooruGalleryNode";
 const PROPERTY = "booruGalleryState";
 const API = "/aaalice/booru-gallery";
+const PROMPT_ASSISTANT_API = "/prompt-assistant/api";
+let promptAssistantAvailable = false;
 const DEFAULT_SIZE = [760, 720];
 const MIN_SIZE = [620, 300];
 const STATIC_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
@@ -315,8 +317,12 @@ async function jsonRequest(path, options = {}) {
 async function loadSetup({ force = false } = {}) {
 	if (!force && settings && capabilities.length) return { settings, capabilities };
 	if (!force && setupRequest) return setupRequest;
-	setupRequest = Promise.all([jsonRequest(`${API}/settings`), jsonRequest(`${API}/sources`)]).then(([nextSettings, sourceData]) => {
-		settings = nextSettings; capabilities = sourceData.sources || []; return { settings, capabilities };
+	setupRequest = Promise.all([
+		jsonRequest(`${API}/settings`),
+		jsonRequest(`${API}/sources`),
+		api.fetchApi(`${PROMPT_ASSISTANT_API}/config/llm/masked`).then((response) => response.ok).catch(() => false),
+	]).then(([nextSettings, sourceData, assistantAvailable]) => {
+		settings = nextSettings; capabilities = sourceData.sources || []; promptAssistantAvailable = Boolean(assistantAvailable); return { settings, capabilities };
 	}).finally(() => { setupRequest = null; });
 	return setupRequest;
 }
@@ -328,6 +334,31 @@ function transact(node, callback) {
 }
 
 function proxyUrl(source, url) { return `${API}/media?${new URLSearchParams({ source, url })}`; }
+async function fetchMediaBlob(src) {
+	const response = await api.fetchApi(src);
+	if (!response.ok) throw new Error(`${src} HTTP ${response.status}`);
+	return response.blob();
+}
+function blobToDataUrl(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.addEventListener("load", () => resolve(String(reader.result || "")), { once: true });
+		reader.addEventListener("error", () => reject(reader.error || new Error("Failed to read image data")), { once: true });
+		reader.readAsDataURL(blob);
+	});
+}
+async function copyImageToClipboard(src) {
+	const blob = await fetchMediaBlob(src);
+	const bitmap = await createImageBitmap(blob);
+	try {
+		const canvas = document.createElement("canvas");
+		canvas.width = bitmap.width; canvas.height = bitmap.height;
+		canvas.getContext("2d").drawImage(bitmap, 0, 0);
+		const png = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+		if (!png) throw new Error("Failed to encode image as PNG");
+		await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+	} finally { bitmap.close(); }
+}
 function searchQuery(state) { return state.query.trim(); }
 function tagLines(value) { return [...new Set(String(value || "").split(/\n/).map((tag) => tag.trim()).filter(Boolean))]; }
 
@@ -393,6 +424,28 @@ function createSearchControl(node) {
 		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});
 	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
+}
+
+function openInterrogateResultDialog(detail, text) {
+	let dialog;
+	const copy = button({ label: t("aaalice.common.copy", "Copy"), iconName: "copy", variant: "primary", onClick: async () => {
+		try {
+			await navigator.clipboard.writeText(text);
+			app.extensionManager.toast.add({ severity: "success", summary: label("interrogate.title", "Image interrogation"), detail: label("interrogate.copied", "Interrogated prompt copied to clipboard") });
+		} catch (error) {
+			app.extensionManager.toast.add({ severity: "error", summary: label("interrogate.title", "Image interrogation"), detail: error.message });
+		}
+	} });
+	const close = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() });
+	const body = el("div", { className: "aa-gallery-interrogate", children: [
+		el("div", { className: "aa-gallery-interrogate__meta", children: [
+			el("img", { className: "aa-gallery-interrogate__thumb", attrs: { src: proxyUrl(detail.source, detail.previewUrl), alt: "" } }),
+			el("span", { attrs: { "data-source": detail.source }, text: detail.source }),
+			el("strong", null, `#${detail.postId}`),
+		] }),
+		el("p", { className: "aa-gallery-interrogate__text", text }),
+	] });
+	dialog = createDialog({ title: label("interrogate.title", "Image interrogation"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: [close, copy] }), className: "aa-gallery-interrogate-dialog", confirmOnEnter: false });
 }
 
 function openClearSelectionDialog(node, controller) {
@@ -493,17 +546,23 @@ function createGalleryCard(node, controller, post, index) {
 		return control;
 	};
 	const editAction = actionButton("edit", "edit", label("card.edit", "Edit image tags"), 0, () => controller.openEditor(post).catch(controller.showError));
+	let actionIndex = 1;
 	const favoriteCapability = capability(post.source);
-	const favoriteAction = (favoriteCapability?.favoriteRead || favoriteCapability?.favoriteWrite) ? actionButton("favorite", "favorite", post.favorite ? label("card.unfavorite", "Remove favorite") : label("card.favorite", "Favorite"), 1, async () => {
+	const favoriteAction = (favoriteCapability?.favoriteRead || favoriteCapability?.favoriteWrite) ? actionButton("favorite", "favorite", post.favorite ? label("card.unfavorite", "Remove favorite") : label("card.favorite", "Favorite"), actionIndex++, async () => {
 		if (!canWriteFavorite(post.source)) return;
 		try { await controller.toggleFavorite(post); card._aaGalleryUpdate?.(); favoriteAction.classList.add("is-acknowledged"); }
 		catch (error) { controller.showError(error); }
 	}) : null;
-	const detailAction = actionButton("note", "detail", label("card.detail", "View details"), favoriteAction ? 2 : 1, () => controller.openDetail(post).catch(controller.showError));
-	const actionControls = [editAction, ...(favoriteAction ? [favoriteAction] : []), detailAction];
+	const copyPromptAction = actionButton("copy", "copyPrompt", label("card.copyPrompt", "Copy prompt"), actionIndex++, async () => {
+		try { if (await controller.copyPostPrompt(post)) copyPromptAction.classList.add("is-acknowledged"); }
+		catch (error) { controller.showError(error); }
+	});
+	const interrogateAction = promptAssistantAvailable ? actionButton("scan", "interrogate", label("card.interrogate", "Interrogate prompt"), actionIndex++, () => controller.interrogatePost(post, card, interrogateAction).catch(controller.showError)) : null;
+	const detailAction = actionButton("note", "detail", label("card.detail", "View details"), actionIndex++, () => controller.openDetail(post).catch(controller.showError));
+	const actionControls = [editAction, ...(favoriteAction ? [favoriteAction] : []), copyPromptAction, ...(interrogateAction ? [interrogateAction] : []), detailAction];
 	actions.append(...actionControls);
 	card._aaVirtualMasonryLayout = (width, height) => { card.dataset.actionsLayout = galleryCardActionLayout(width, height, actionControls.length); };
-	surface.append(image, selectedLayer, el("div", { className: "aa-gallery-card__shade" }), ...(rating ? [rating] : []), selectionStamp.root, actions);
+	surface.append(image, selectedLayer, el("div", { className: "aa-gallery-card__shade" }), el("div", { className: "aa-gallery-card__scan", attrs: { "aria-hidden": "true" } }), ...(rating ? [rating] : []), selectionStamp.root, actions);
 	card.append(surface);
 	const update = () => {
 		const selected = stateFor(node).selections.some((item) => selectionKey(item) === `${post.source}:${post.postId}`);
@@ -518,7 +577,7 @@ function createGalleryCard(node, controller, post, index) {
 	card._aaGalleryUpdate = update; update();
 	card.addEventListener("animationend", (event) => {
 		if (event.animationName === "aa-gallery-selection-feedback") card.classList.remove("is-selection-feedback");
-		if (event.animationName === "aa-gallery-favorite-feedback") favoriteAction?.classList.remove("is-acknowledged");
+		if (event.animationName === "aa-gallery-favorite-feedback") event.target.classList?.remove("is-acknowledged");
 	});
 	card.addEventListener("click", (event) => runSelection(event));
 	card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); runSelection(); } });
@@ -960,6 +1019,36 @@ function buildController(node, elements) {
 		const previous = Boolean(post.favorite); const response = await jsonRequest(`${API}/favorite`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: post.source, postId: post.postId, favorite: !previous }) });
 		post.favorite = Boolean(response.favorite); return post.favorite;
 	};
+	const copyPostPrompt = async (post) => {
+		const key = `${post.source}:${post.postId}`;
+		const detail = await getDetail(post);
+		const selection = selectionFromDetail(detail, sessionEdits.get(key));
+		if (!selection) throw new Error(label("error.incomplete", "The post detail is incomplete."));
+		const text = finalPrompt(selection, effectivePrompt(node)).trim();
+		if (!text) {
+			app.extensionManager.toast.add({ severity: "warning", summary: label("card.copyPrompt", "Copy prompt"), detail: label("selected.noPrompt", "No prompt tags in the current category selection") });
+			return false;
+		}
+		await navigator.clipboard.writeText(text);
+		return true;
+	};
+	const interrogatePost = async (post, card, control) => {
+		card.classList.add("is-interrogating");
+		if (control) control.disabled = true;
+		try {
+			const detail = await getDetail(post);
+			const mediaSrc = detail.mediaUrl || detail.sampleUrl || detail.previewUrl;
+			if (!mediaSrc) throw new Error(label("error.incomplete", "The post detail is incomplete."));
+			const imageData = await blobToDataUrl(await fetchMediaBlob(proxyUrl(detail.source, mediaSrc)));
+			const result = await jsonRequest(`${PROMPT_ASSISTANT_API}/vlm/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageData, request_id: crypto.randomUUID() }) });
+			if (!result?.success) throw new Error(result?.error || label("interrogate.failed", "Interrogation failed."));
+			if (destroyed) return;
+			openInterrogateResultDialog(detail, String(result.data?.description || ""));
+		} finally {
+			card.classList.remove("is-interrogating");
+			if (control) control.disabled = false;
+		}
+	};
 	const showHover = (anchor, post) => {
 		const previewSrc = proxyUrl(post.source, post.previewUrl);
 		let usingPreview = true;
@@ -1049,6 +1138,14 @@ function buildController(node, elements) {
 		let dialog; actions.push(button({ className: `aa-gallery-detail__action is-selection${selected ? " is-selected" : ""}`, label: selected ? label("detail.remove", "Remove selection") : label("detail.select", "Select"), variant: selected ? "danger" : "primary", onClick: async () => { await toggleSelection(detail); dialog.close(); } }));
 		actions.push(button({ className: "aa-gallery-detail__action is-source", label: label("detail.source", "Open source"), iconName: "link", variant: "ghost", onClick: () => window.open(detail.postUrl, "_blank", "noopener") }));
 		actions.push(button({ className: "aa-gallery-detail__action is-original", label: label("detail.original", "Open original"), iconName: "download", variant: "ghost", onClick: () => window.open(proxyUrl(detail.source, detail.mediaUrl), "_blank", "noopener") }));
+		actions.push(button({ className: "aa-gallery-detail__action is-copy-image", label: label("detail.copyImage", "Copy image"), iconName: "copy", variant: "ghost", onClick: async (event) => {
+			const control = event.currentTarget; control.disabled = true;
+			try {
+				await copyImageToClipboard(proxyUrl(detail.source, detail.mediaUrl));
+				app.extensionManager.toast.add({ severity: "success", summary: label("detail.copyImage", "Copy image"), detail: label("detail.imageCopied", "Image copied to clipboard") });
+			} catch (error) { showError(error); }
+			finally { control.disabled = false; }
+		} }));
 		const cap = capability(detail.source);
 		if (cap?.favoriteRead || cap?.favoriteWrite) actions.push(button({ className: `aa-gallery-detail__action is-favorite${detail.favorite ? " is-active" : ""}`, label: detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"), iconName: "favorite", variant: "ghost", onClick: async (event) => { if (!canWriteFavorite(detail.source)) return; const control = event.currentTarget; const previous = Boolean(detail.favorite); detail.favorite = !previous; control.disabled = true; try { await jsonRequest(`${API}/favorite`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: detail.source, postId: detail.postId, favorite: detail.favorite }) }); control.classList.toggle("is-active", detail.favorite); control.querySelector(".aa-ui-button__label").textContent = detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"); } catch (error) { detail.favorite = previous; showError(error); } finally { control.disabled = false; } } }));
 		const tagTotal = tagCount(detail.tags);
@@ -1184,6 +1281,8 @@ function buildController(node, elements) {
 		prefetchVisible,
 		toggleSelection,
 		toggleFavorite,
+		copyPostPrompt,
+		interrogatePost,
 		recoverPreview,
 		showHover,
 		openDetail,
