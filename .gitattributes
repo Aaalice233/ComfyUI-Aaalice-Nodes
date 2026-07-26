@@ -1,0 +1,2 @@
+# 统一行尾：文本文件一律 LF 入库，检出时由 core.autocrlf 转换
+* text=auto
