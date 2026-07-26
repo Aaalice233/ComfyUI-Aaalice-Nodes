@@ -544,6 +544,18 @@ test("gallery tag pills keep clean capsules and route operations through context
 	}
 });
 
+test("gallery scroll areas follow the focused wheel-capture protocol", () => {
+	assert.match(source, /className: "aa-gallery", attrs: \{ "data-mode": stateFor\(node\)\.view, "data-capture-wheel": "true" \}/);
+	assert.match(source, /const masonry = el\("div", \{ className: "aa-gallery-masonry", attrs: \{ tabindex: 0 \} \}\);/);
+	assert.match(source, /focusScrollableOnPointerEnter\(masonry\)/);
+	assert.match(source, /className: "aa-gallery-selected__list", attrs: \{ tabindex: 0 \}/);
+	assert.match(source, /focusScrollableOnPointerEnter\(selectedListRoot\)/);
+	assert.match(source, /addEventListener\("pointerenter"/);
+	assert.match(source, /active\.matches\('input, textarea, select, \[contenteditable="true"\]'\)/);
+	assert.match(source, /target\.focus\(\{ preventScroll: true \}\)/);
+	assert.doesNotMatch(source, /new WheelEvent|wheel[\s\S]{0,80}stopPropagation/);
+});
+
 test("post details use maintainable semantic color hooks", () => {
 	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
 	for (const fact of ["resolution", "format", "tags"]) assert.match(detailSource, new RegExp(`\\["${fact}",`));

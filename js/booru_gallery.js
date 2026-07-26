@@ -1260,7 +1260,15 @@ function openPromptOptions(node, anchor) {
 
 function setupNode(node, { initializeSize = false } = {}) {
 	if (!isGallery(node) || node._aaGalleryMounted) return; node._aaGalleryMounted = true; stateFor(node);
-	const root = isolate(el("div", { className: "aa-gallery", attrs: { "data-mode": stateFor(node).view } }));
+	const root = isolate(el("div", { className: "aa-gallery", attrs: { "data-mode": stateFor(node).view, "data-capture-wheel": "true" } }));
+	// Nodes 2.0 宿主在捕获阶段先处理 wheel，滚动区必须在 pointerenter 提前拿到焦点；
+	// 已在画廊内的焦点和外部文本编辑控件的焦点都不得抢夺。
+	const focusScrollableOnPointerEnter = (target) => target.addEventListener("pointerenter", () => {
+		const active = document.activeElement;
+		if (active && root.contains(active)) return;
+		if (active instanceof HTMLElement && active.matches('input, textarea, select, [contenteditable="true"]')) return;
+		target.focus({ preventScroll: true });
+	});
 	root.dataset.source = stateFor(node).source;
 	let collection = null;
 	const source = listboxControl({ className: "aa-gallery-source-select", options: capabilities.map((item) => ({ value: item.source, label: item.displayName })), value: stateFor(node).source, ariaLabel: label("source", "Source"), onChange: (value) => { transact(node, (state) => { state.source = value; state.filters.ratings = defaultGalleryRatings(value); state.filters.sort = capability(value)?.sortValues?.[0] || "latest"; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); root.dataset.source = value; pageControl?.setPage(1); collection?.setOptions(collectionOptions(value), collectionValue(stateFor(node))); controller.search({ reset: true, page: 1 }); } });
@@ -1294,11 +1302,13 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const utilityActions = el("div", { className: "aa-gallery-toolbar__utilities", children: [refresh, openSettings, searchControl.root, searchControl.toggle] });
 	const toolbar = el("header", { className: "aa-gallery-toolbar", attrs: { role: "toolbar", "aria-label": label("toolbar", "Booru Gallery") }, children: [source, tabs, clear, el("span", "aa-gallery-toolbar__spacer"), pageActions, utilityActions] });
 	const masonry = el("div", { className: "aa-gallery-masonry", attrs: { tabindex: 0 } });
+	focusScrollableOnPointerEnter(masonry);
 	const loading = el("div", { className: "aa-gallery-status is-loading", attrs: { role: "status", "aria-live": "polite" }, children: [icon("refresh"), el("span", null, label("loading", "Loading…"))] }); loading.hidden = true;
 	const errorLabel = el("span");
 	const error = el("button", { className: "aa-gallery-status is-error", attrs: { type: "button", "aria-live": "assertive" }, children: [icon("statusWarning"), errorLabel] }); error.hidden = true;
 	const end = el("div", { className: "aa-gallery-status is-end", attrs: { role: "status" }, children: [icon("statusCheck"), el("span", null, label("end", "End of results"))] }); end.hidden = true;
-	const selected = el("div", "aa-gallery-selected"); const selectedListRoot = el("div", "aa-gallery-selected__list");
+	const selected = el("div", "aa-gallery-selected"); const selectedListRoot = el("div", { className: "aa-gallery-selected__list", attrs: { tabindex: 0 } });
+	focusScrollableOnPointerEnter(selectedListRoot);
 	const selectedDropIndicator = el("div", {
 		className: "aa-gallery-selected-drop-indicator",
 		attrs: {
