@@ -347,6 +347,7 @@ async function addGlobalBlacklistTag(tag) {
 function createSearchControl(node) {
 	const root = el("div", "aa-gallery-search");
 	const input = document.createElement("input"); input.type = "search"; input.className = "aa-gallery-search__input aa-ui-search-input";
+	input.setAttribute("data-autocomplete-plus", "");
 	input.placeholder = label("search.placeholder", "Search tags…"); input.setAttribute("aria-label", label("search.label", "Search posts"));
 	const close = iconButton({ iconName: "arrowRight", label: label("search.close", "Close search"), className: "aa-ui-search-collapse", variant: "ghost", onClick: () => setOpen(false) });
 	root.append(icon("search"), input, close);
@@ -386,6 +387,8 @@ function createSearchControl(node) {
 	input.addEventListener("input", syncInput);
 	input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; syncInput(); });
 	input.addEventListener("keydown", (event) => {
+		// 补全候选面板打开时，导航、确认和关闭键全部让给 Autocomplete-Plus
+		if (input.hasAttribute("data-autocomplete-plus-open")) return;
 		if (event.key === "Escape") { event.preventDefault(); setOpen(false); }
 		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});

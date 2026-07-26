@@ -471,6 +471,8 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
 	assert.match(selector, /aa-prompt-selector-search/);
 	assert.match(selector, /search\.className = "aa-ui-search-input"/);
+	assert.match(selector, /search\.setAttribute\("data-autocomplete-plus", ""\)/);
+	assert.match(selector, /search\.hasAttribute\("data-autocomplete-plus-open"\)/);
 	assert.match(selector, /queueMicrotask/);
 	assert.match(selector, /list\._aaaliceVirtualList\?\.setItems\(filteredEntries\(node, stateFor\(node\)\), \{ preserveScroll: false \}\)/);
 	assert.match(selector, /mountPromptEntries/);

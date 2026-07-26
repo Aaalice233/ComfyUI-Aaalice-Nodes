@@ -20,6 +20,8 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(source, /createSearchControl/); assert.match(source, /input\.type = "search"/); assert.match(source, /classList\.toggle\("is-open"/);
 	assert.match(source, /searchToggleButton\(\{ label: label\("search\.label"/);
 	assert.match(source, /input\.className = "aa-gallery-search__input aa-ui-search-input"/);
+	assert.match(source, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
+	assert.match(source, /input\.hasAttribute\("data-autocomplete-plus-open"\)/);
 	assert.match(source, /toggle\.setSearchValue\(input\.value/);
 	assert.match(source, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
 	assert.match(source, /toggle\.hidden = open/);

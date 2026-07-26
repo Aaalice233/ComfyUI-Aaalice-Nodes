@@ -255,7 +255,7 @@ function render(node) {
 	const searchOpen = Boolean(node._aaalicePromptSearchOpen);
 	const toolbar = el("div", { className: `aa-prompt-selector-toolbar${searchOpen ? " is-searching" : ""}`, attrs: { role: "search", "aria-label": t("aaalice.promptSelector.filters", "Prompt filters") } });
 	if (searchOpen) {
-		const search = document.createElement("input"); search.type = "search"; search.className = "aa-ui-search-input"; search.placeholder = t("aaalice.promptSelector.search", "Search prompt library"); search.value = query;
+		const search = document.createElement("input"); search.type = "search"; search.className = "aa-ui-search-input"; search.setAttribute("data-autocomplete-plus", ""); search.placeholder = t("aaalice.promptSelector.search", "Search prompt library"); search.value = query;
 		search.addEventListener("input", () => {
 			node._aaalicePromptQuery = search.value;
 			if (node._aaalicePromptFilterFrame) return;
@@ -264,7 +264,11 @@ function render(node) {
 				list._aaaliceVirtualList?.setItems(filteredEntries(node, stateFor(node)), { preserveScroll: false });
 			});
 		});
-		search.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); node._aaalicePromptSearchOpen = false; render(node); } });
+		search.addEventListener("keydown", (event) => {
+			// 补全候选面板打开时按键让给 Autocomplete-Plus
+			if (search.hasAttribute("data-autocomplete-plus-open")) return;
+			if (event.key === "Escape") { event.preventDefault(); node._aaalicePromptSearchOpen = false; render(node); }
+		});
 		const searchPanel = el("div", { className: "aa-prompt-selector-search", children: [icon("search"), search,
 			iconButton({ iconName: "arrowRight", label: t("aaalice.promptSelector.collapseSearch", "Collapse search"), className: "aa-ui-search-collapse", variant: "ghost", onClick: () => { node._aaalicePromptSearchOpen = false; render(node); } }),
 		] });
