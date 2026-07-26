@@ -277,7 +277,7 @@ function hasSourceCredentials(source) {
 function openGallerySettings() {
 	void openSettingsDialog().catch((error) => {
 		console.error("[Aaalice] Gallery settings failed", error);
-		app.extensionManager?.toast?.add?.({ severity: "error", summary: label("settings.title", "Booru Gallery"), detail: error.message });
+		app.extensionManager?.toast?.add?.({ severity: "error", summary: label("settings.title", "Booru Gallery"), detail: error.message, life: 5000 });
 	});
 }
 
@@ -336,7 +336,7 @@ function transact(node, callback) {
 function proxyUrl(source, url) { return `${API}/media?${new URLSearchParams({ source, url })}`; }
 async function fetchMediaBlob(src) {
 	const response = await api.fetchApi(src);
-	if (!response.ok) throw new Error(`${src} HTTP ${response.status}`);
+	if (!response.ok) throw new Error(label("error.media", "Image request failed (HTTP {status})").replace("{status}", String(response.status)));
 	return response.blob();
 }
 function blobToDataUrl(blob) {
@@ -404,7 +404,7 @@ function createSearchControl(node) {
 		const terms = input.value.trim().match(/"[^"]+"|'[^']+'|\S+/g) || [];
 		if (terms.some((term) => term.replace(/^(["'])|(["'])$/g, "").toLocaleLowerCase() === value.toLocaleLowerCase())) return true;
 		if (Number.isInteger(maxTags) && terms.length >= maxTags) {
-			app.extensionManager.toast.add({ severity: "warning", summary: label("search.limitTitle", "Search limit"), detail: label("search.tagLimit", "This source supports up to {count} tags per search.").replace("{count}", String(maxTags)) });
+			app.extensionManager.toast.add({ severity: "warning", summary: label("search.limitTitle", "Search limit"), detail: label("search.tagLimit", "This source supports up to {count} tags per search.").replace("{count}", String(maxTags)), life: 4000 });
 			return false;
 		}
 		input.value = [...terms, value].join(" ");
@@ -431,9 +431,10 @@ function openInterrogateResultDialog(detail, text) {
 	const copy = button({ label: t("aaalice.common.copy", "Copy"), iconName: "copy", variant: "primary", onClick: async () => {
 		try {
 			await navigator.clipboard.writeText(text);
-			app.extensionManager.toast.add({ severity: "success", summary: label("interrogate.title", "Image interrogation"), detail: label("interrogate.copied", "Interrogated prompt copied to clipboard") });
+			app.extensionManager.toast.add({ severity: "success", summary: label("interrogate.title", "Image interrogation"), detail: label("interrogate.copied", "Interrogated prompt copied to clipboard"), life: 3200 });
+			dialog.close();
 		} catch (error) {
-			app.extensionManager.toast.add({ severity: "error", summary: label("interrogate.title", "Image interrogation"), detail: error.message });
+			app.extensionManager.toast.add({ severity: "error", summary: label("interrogate.title", "Image interrogation"), detail: error.message, life: 5000 });
 		}
 	} });
 	const close = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() });
@@ -557,7 +558,10 @@ function createGalleryCard(node, controller, post, index) {
 		try { if (await controller.copyPostPrompt(post)) copyPromptAction.classList.add("is-acknowledged"); }
 		catch (error) { controller.showError(error); }
 	});
-	const interrogateAction = promptAssistantAvailable ? actionButton("scan", "interrogate", label("card.interrogate", "Interrogate prompt"), actionIndex++, () => controller.interrogatePost(post, card, interrogateAction).catch(controller.showError)) : null;
+	const interrogateAction = promptAssistantAvailable ? actionButton("scan", "interrogate", label("card.interrogate", "Interrogate prompt"), actionIndex++, async () => {
+		try { await controller.interrogatePost(post, card, interrogateAction); interrogateAction.classList.add("is-acknowledged"); }
+		catch (error) { controller.showError(error); }
+	}) : null;
 	const detailAction = actionButton("note", "detail", label("card.detail", "View details"), actionIndex++, () => controller.openDetail(post).catch(controller.showError));
 	const actionControls = [editAction, ...(favoriteAction ? [favoriteAction] : []), copyPromptAction, ...(interrogateAction ? [interrogateAction] : []), detailAction];
 	actions.append(...actionControls);
@@ -793,8 +797,13 @@ function buildController(node, elements) {
 	let selectedDragFrom = null;
 	let selectedDropInsertBefore = null;
 	const tooltip = createTooltip({ delay: 0, closeDelay: 120 });
-	const showError = (error) => { elements.errorLabel.textContent = error?.message || String(error); elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error); };
-	const clearError = () => { elements.error.hidden = true; elements.errorLabel.textContent = ""; };
+	let errorTimer = 0;
+	const showError = (error) => {
+		elements.errorLabel.textContent = error?.message || String(error); elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error);
+		clearTimeout(errorTimer);
+		errorTimer = setTimeout(() => { elements.error.hidden = true; }, 6000);
+	};
+	const clearError = () => { clearTimeout(errorTimer); errorTimer = 0; elements.error.hidden = true; elements.errorLabel.textContent = ""; };
 	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; };
 	const addTagToSearch = (tag) => {
 		const source = stateFor(node).source;
@@ -1026,10 +1035,11 @@ function buildController(node, elements) {
 		if (!selection) throw new Error(label("error.incomplete", "The post detail is incomplete."));
 		const text = finalPrompt(selection, effectivePrompt(node)).trim();
 		if (!text) {
-			app.extensionManager.toast.add({ severity: "warning", summary: label("card.copyPrompt", "Copy prompt"), detail: label("selected.noPrompt", "No prompt tags in the current category selection") });
+			app.extensionManager.toast.add({ severity: "warning", summary: label("card.copyPrompt", "Copy prompt"), detail: label("selected.noPrompt", "No prompt tags in the current category selection"), life: 4000 });
 			return false;
 		}
 		await navigator.clipboard.writeText(text);
+		app.extensionManager.toast.add({ severity: "success", summary: label("card.copyPrompt", "Copy prompt"), detail: label("card.promptCopied", "Prompt copied to clipboard"), life: 3200 });
 		return true;
 	};
 	const interrogatePost = async (post, card, control) => {
@@ -1142,7 +1152,7 @@ function buildController(node, elements) {
 			const control = event.currentTarget; control.disabled = true;
 			try {
 				await copyImageToClipboard(proxyUrl(detail.source, detail.mediaUrl));
-				app.extensionManager.toast.add({ severity: "success", summary: label("detail.copyImage", "Copy image"), detail: label("detail.imageCopied", "Image copied to clipboard") });
+				app.extensionManager.toast.add({ severity: "success", summary: label("detail.copyImage", "Copy image"), detail: label("detail.imageCopied", "Image copied to clipboard"), life: 3200 });
 			} catch (error) { showError(error); }
 			finally { control.disabled = false; }
 		} }));
@@ -1177,7 +1187,7 @@ function buildController(node, elements) {
 							dialog.close();
 							try {
 								await addGlobalBlacklistTag(token.raw);
-								app.extensionManager.toast.add({ severity: "success", summary: label("settings.blacklist", "Content blacklist"), detail: label("detail.blacklistAdded", "Posts tagged {tag} are now hidden").replace("{tag}", token.raw) });
+								app.extensionManager.toast.add({ severity: "success", summary: label("settings.blacklist", "Content blacklist"), detail: label("detail.blacklistAdded", "Posts tagged {tag} are now hidden").replace("{tag}", token.raw), life: 4000 });
 							} catch (error) { showError(error); }
 						} },
 					],

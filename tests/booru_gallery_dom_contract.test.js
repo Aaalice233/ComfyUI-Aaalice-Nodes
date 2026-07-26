@@ -283,7 +283,7 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 });
 
 test("gallery micro-interactions acknowledge state without adding polling or card observers", () => {
-	for (const animation of ["search-in", "view-in", "count-update", "selection-feedback", "favorite-feedback", "card-scan", "media-in"]) assert.match(theme, new RegExp(`@keyframes aa-gallery-${animation}`));
+	for (const animation of ["search-in", "view-in", "count-update", "selection-feedback", "favorite-feedback", "card-scan", "card-scan-glow", "media-in"]) assert.match(theme, new RegExp(`@keyframes aa-gallery-${animation}`));
 	assert.match(source, /is-selection-feedback/);
 	assert.match(source, /is-acknowledged/);
 	assert.match(source, /aria-expanded", "true"/);
@@ -566,6 +566,7 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 	assert.match(source, /promptAssistantAvailable \? actionButton\("scan", "interrogate", label\("card\.interrogate", "Interrogate prompt"\)/);
 	assert.match(source, /const copyPostPrompt = async \(post\) =>/);
 	assert.match(source, /navigator\.clipboard\.writeText\(text\)/);
+	assert.match(source, /label\("card\.promptCopied", "Prompt copied to clipboard"\)/);
 	assert.match(source, /label\("selected\.noPrompt"/);
 	assert.match(source, /const interrogatePost = async \(post, card, control\) =>/);
 	assert.match(source, /card\.classList\.add\("is-interrogating"\)/);
@@ -574,14 +575,21 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 	assert.match(source, /openInterrogateResultDialog\(detail, String\(result\.data\?\.description/);
 	assert.match(source, /className: "aa-gallery-card__scan"/);
 	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__scan \{[^}]*animation: aa-gallery-card-scan/);
+	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__surface \{[^}]*translate3d\(0, -4px, 12px\)[^}]*animation: aa-gallery-card-scan-glow/);
 	assert.match(source, /actionControls = \[editAction, \.\.\.\(favoriteAction \? \[favoriteAction\] : \[\]\), copyPromptAction, \.\.\.\(interrogateAction \? \[interrogateAction\] : \[\]\), detailAction\]/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.equal(typeof locale.aaalice.gallery.card.copyPrompt, "string");
+		assert.equal(typeof locale.aaalice.gallery.card.promptCopied, "string");
 		assert.equal(typeof locale.aaalice.gallery.card.interrogate, "string");
 		assert.equal(typeof locale.aaalice.gallery.interrogate.title, "string");
 		assert.equal(typeof locale.aaalice.gallery.interrogate.copied, "string");
 		assert.equal(typeof locale.aaalice.gallery.interrogate.failed, "string");
+		assert.equal(typeof locale.aaalice.gallery.error.media, "string");
 	}
+	assert.match(source, /errorTimer = setTimeout\(\(\) => \{ elements\.error\.hidden = true; \}, 6000\)/);
+	assert.match(source, /label\("error\.media", "Image request failed \(HTTP \{status\}\)"\)/);
+	assert.match(source, /life: 3200/);
+	assert.match(source, /life: 5000/);
 });
 
 test("post details offer copying the original image to the clipboard", () => {
