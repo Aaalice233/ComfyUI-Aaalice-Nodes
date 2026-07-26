@@ -37,10 +37,10 @@ export function createDashboardPresetPicker({ presets = [], baselineId = null, c
 		: "";
 	const root = el("div", "aa-value-preset-picker");
 	const trigger = el("button", {
-		className: `aa-value-preset-trigger${modified ? " is-modified" : ""}${unsaved ? " is-unsaved" : ""}${hasError || comparison?.attention ? " needs-attention" : ""}`,
+		className: `aa-value-preset-trigger${modified ? " is-modified" : ""}${hasError || comparison?.attention ? " needs-attention" : ""}`,
 		attrs: { type: "button", title: triggerTitle || null, "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": labels.open || "Sidebar presets" },
 		children: [
-			el("span", "aa-value-preset-trigger__name", hasError ? labels.dataError : selected ? `${selected.name}${modified ? "*" : ""}` : labels.unsaved || "Unsaved"),
+			el("span", "aa-value-preset-trigger__name", hasError ? labels.dataError : selected ? `${selected.name}${modified ? "*" : ""}` : labels.placeholder || "Select preset"),
 			...(statusLabel ? [el("span", "aa-value-preset-trigger__status", statusLabel)] : []),
 			icon("moveDown", { className: "aa-value-preset-trigger__arrow" }),
 		],

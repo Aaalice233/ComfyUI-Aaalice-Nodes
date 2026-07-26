@@ -196,6 +196,12 @@ function graphStructureSignature() {
 	])).join("|");
 }
 
+// 结构相同的工作流（如同一工作流的多个版本）可能携带不同看板与预设；签名必须覆盖，否则切换标签页时选择器显示陈旧状态
+function graphSyncSignature() {
+	const extra = app.graph?.extra;
+	return `${graphStructureSignature()}|${JSON.stringify([extra?.[EXTRA_KEY] ?? null, extra?.[DASHBOARD_PRESETS_EXTRA_KEY] ?? null])}`;
+}
+
 let graphSyncFrame = 0;
 let previousGraphStructure = "";
 function scheduleGraphSync() {
@@ -204,7 +210,7 @@ function scheduleGraphSync() {
 		graphSyncFrame = 0;
 		repairDuplicateHostIds(graphNodes());
 		for (const node of graphNodes()) patchNodeMenu(node);
-		const signature = graphStructureSignature();
+		const signature = graphSyncSignature();
 		if (signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleRender("dashboard"); }
 		scheduleRender("groups");
 	});
@@ -343,7 +349,7 @@ function resolve(binding) { return controlProviders.resolve(binding, graphNodes(
 
 function dashboardPresetLabels() {
 	return {
-		title: t("aaalice.workspace.dashboardPreset.title", "Sidebar presets"), open: t("aaalice.workspace.dashboardPreset.open", "Open sidebar presets"), unsaved: t("aaalice.workspace.dashboardPreset.unsaved", "Unsaved"), attention: t("aaalice.workspace.dashboardPreset.attention", "Needs attention"),
+		title: t("aaalice.workspace.dashboardPreset.title", "Sidebar presets"), open: t("aaalice.workspace.dashboardPreset.open", "Open sidebar presets"), placeholder: t("aaalice.workspace.dashboardPreset.placeholder", "Select preset"), attention: t("aaalice.workspace.dashboardPreset.attention", "Needs attention"),
 		empty: t("aaalice.workspace.dashboardPreset.empty", "No presets yet"), emptyHint: t("aaalice.workspace.dashboardPreset.emptyHint", "Save the current sidebar layout and values for quick switching later."), emptyAction: t("aaalice.workspace.dashboardPreset.emptyAction", "Save current sidebar"),
 		presetCount: t("aaalice.workspace.dashboardPreset.presetCount", "{count} presets"), presetSummary: t("aaalice.workspace.dashboardPreset.presetSummary", "{pages} pages · {values} values"), add: t("aaalice.workspace.dashboardPreset.add", "New"), create: t("aaalice.workspace.dashboardPreset.create", "New preset"), manage: t("aaalice.workspace.dashboardPreset.manage", "Manage preset"), modified: t("aaalice.workspace.dashboardPreset.modified", "Unsaved changes"), update: t("aaalice.workspace.dashboardPreset.update", "Save changes"), saveCurrent: t("aaalice.workspace.dashboardPreset.saveCurrent", "Save as preset"), restore: t("aaalice.workspace.dashboardPreset.restore", "Discard changes"), duplicate: t("aaalice.workspace.dashboardPreset.duplicate", "Duplicate"), rename: t("aaalice.workspace.dashboardPreset.rename", "Rename"), delete: t("aaalice.workspace.dashboardPreset.delete", "Delete"),
 		changeSummary: t("aaalice.workspace.dashboardPreset.changeSummary", "{layout} layout · {values} values"), dataError: t("aaalice.workspace.dashboardPreset.dataError", "Preset data error"), dataErrorHint: t("aaalice.workspace.dashboardPreset.dataErrorHint", "The saved sidebar preset data could not be read."),
@@ -435,7 +441,7 @@ function confirmDashboardPresetSwitch(activePreset = null) {
 			button({ label: t("aaalice.workspace.dashboardPreset.discardSwitch", "Discard and switch"), variant: "ghost", onClick: () => finish("discard") }),
 			button({ label: activePreset ? t("aaalice.workspace.dashboardPreset.saveSwitch", "Update and switch") : t("aaalice.workspace.dashboardPreset.saveAsSwitch", "Save as and switch"), onClick: () => finish(activePreset ? "update" : "save-as") }),
 		] });
-		dialog = createDialog({ title: activePreset?.name || dashboardPresetLabels().unsaved, body, footer, size: "sm", className: "aa-value-preset-switch-dialog", onRequestClose: () => { finish(null); return false; } });
+		dialog = createDialog({ title: activePreset?.name || dashboardPresetLabels().title, body, footer, size: "sm", className: "aa-value-preset-switch-dialog", onRequestClose: () => { finish(null); return false; } });
 	});
 }
 
@@ -1613,7 +1619,7 @@ app.registerExtension({
 	setup() {
 		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.sidebarTitle", "Aaalice"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => { element.classList.add("aa-workspace-host"); mounted.add(element); renderWorkspace(element); return () => { workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); }; } });
 		installWorkspaceCanvasAutoClose();
-		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphStructureSignature();
+		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphSyncSignature();
 		api.addEventListener("graphChanged", scheduleGraphSync);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => scheduleRender("dashboard"));

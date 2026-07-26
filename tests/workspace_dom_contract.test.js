@@ -745,6 +745,7 @@ test("adding controls reminds the user to save the workflow", () => {
 
 test("complete sidebar presets track layout and values as a custom working copy", () => {
 	assert.match(workspace, /const DASHBOARD_PRESETS_EXTRA_KEY = "aaaliceSidebarPresets"/);
+	assert.match(workspace, /graphSyncSignature[\s\S]*DASHBOARD_PRESETS_EXTRA_KEY/);
 	assert.match(workspace, /delete extra\[LEGACY_VALUE_PRESETS_EXTRA_KEY\]/);
 	assert.match(workspace, /createDashboardPresetPicker\(\{/);
 	assert.doesNotMatch(workspace, /!editMode \? createDashboardPresetPicker/);
@@ -758,7 +759,11 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(components, /error = null/);
 	assert.match(components, /aa-value-preset-empty is-error/);
 	assert.match(workspace, /error: dashboardPresetModelError/);
-	assert.match(components, /selected \? `\$\{selected\.name\}\$\{modified \? "\*" : ""\}` : labels\.unsaved/);
+	assert.match(components, /selected \? `\$\{selected\.name\}\$\{modified \? "\*" : ""\}` : labels\.placeholder/);
+	assert.match(workspace, /placeholder: t\("aaalice\.workspace\.dashboardPreset\.placeholder", "Select preset"\)/);
+	assert.match(enLocale, /"placeholder": "Select preset"/);
+	assert.match(zhLocale, /"placeholder": "选择预设"/);
+	assert.doesNotMatch(components, /is-unsaved|labels\.unsaved/);
 	assert.match(components, /selected\.name/);
 	assert.match(components, /selected\.name\}\$\{modified \? "\*" : ""\}/);
 	assert.match(components, /comparison\?\.layoutChanges/);
@@ -785,7 +790,8 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.doesNotMatch(components, /aa-value-preset-trigger__eyebrow/);
 	assert.match(theme, /\.aa-value-preset-trigger \{[^}]*display: flex;[^}]*height: 29px;[^}]*align-items: center;/);
 	assert.match(theme, /\.aa-value-preset-trigger__name \{[^}]*flex: 1;[^}]*text-overflow: ellipsis;/);
-	assert.match(theme, /\.aa-value-preset-trigger\.is-modified, \.aa-value-preset-trigger\.is-unsaved/);
+	assert.match(theme, /\.aa-value-preset-trigger\.is-modified \{/);
+	assert.doesNotMatch(theme, /is-unsaved/);
 	assert.match(theme, /\.aa-value-preset-trigger\.is-modified \.aa-value-preset-trigger__name \{ font-style: italic; \}/);
 	assert.match(theme, /\.aa-value-preset-popover\.aa-ui-popover/);
 	assert.match(theme, /\.aa-value-preset-option-row:hover \.aa-value-preset-option-actions, \.aa-value-preset-option-row:focus-within \.aa-value-preset-option-actions/);

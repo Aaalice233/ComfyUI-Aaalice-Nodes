@@ -86,3 +86,11 @@ test("portable backups use the same normalized snapshot contract", () => {
 	assert.deepEqual(parseDashboardPreset(serialized), snapshot());
 	assert.throws(() => parseDashboardPreset({ ...serialized, version: 99 }), /Unsupported sidebar preset backup/);
 });
+
+test("preset state survives workflow JSON serialization unchanged", () => {
+	// 预设随工作流 extra 分发（含 Workflow Hub 打包/安装），JSON 往返后必须逐字节等价
+	const state = createDashboardPreset(emptyDashboardPresetState(), "Portrait", snapshot());
+	const roundTripped = normalizeDashboardPresetState(JSON.parse(JSON.stringify(state)));
+	assert.deepEqual(roundTripped, state);
+	assert.equal(roundTripped.baselinePresetId, state.presets[0].id);
+});

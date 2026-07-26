@@ -58,8 +58,8 @@
       },
       "preset": { "title": "Layout backup", "export": "Export layout", "import": "Import layout", "missingConfirm": "binding(s) are missing or incompatible. Import the layout and skip incompatible values?" },
       "dashboardPreset": {
-          "title": "Sidebar presets", "open": "Open sidebar presets", "unsaved": "Unsaved", "attention": "Needs attention",
-          "empty": "No presets yet", "emptyHint": "Save every page, layout and value so you can switch back in one click.", "emptyAction": "Create first preset", "name": "Preset name", "defaultName": "Preset {count}", "copyName": "{name} copy",
+          "title": "Sidebar presets", "open": "Open sidebar presets", "placeholder": "Select preset", "attention": "Needs attention",
+          "empty": "No presets yet", "emptyHint": "Save every page, layout and value so you can switch back in one click. Presets are stored in the workflow and shared with it.", "emptyAction": "Create first preset", "name": "Preset name", "defaultName": "Preset {count}", "copyName": "{name} copy",
 		  "presetCount": "{count} presets", "presetSummary": "{pages} pages · {values} values", "add": "New", "create": "New preset", "manage": "Manage preset", "modified": "Unsaved changes", "update": "Save changes", "saveCurrent": "Save as preset", "restore": "Discard changes", "duplicate": "Duplicate", "rename": "Rename", "delete": "Delete", "deleteConfirm": "Delete sidebar preset “{name}”? The current sidebar will not change.",
 		  "changeSummary": "{layout} layout · {values} values", "dataError": "Preset data error", "dataErrorHint": "The sidebar preset data saved in this workflow could not be read.",
         "error": "Sidebar preset error", "noContent": "There is no sidebar layout to save.", "invalid": "Invalid value", "unused": "Not on sidebar",
