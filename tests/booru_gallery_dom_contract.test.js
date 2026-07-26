@@ -556,6 +556,38 @@ test("gallery scroll areas follow the focused wheel-capture protocol", () => {
 	assert.doesNotMatch(source, /new WheelEvent|wheel[\s\S]{0,80}stopPropagation/);
 });
 
+test("post details stream three-layer tag translations into the pills", () => {
+	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
+	assert.match(source, /import \{ streamTagTranslations \} from "\.\/lib\/tag_translation\.js"/);
+	assert.match(source, /import \{ ensureI18nReady, currentLocale, t \} from "\.\/i18n\.js"/);
+	assert.match(detailSource, /currentLocale\(\) === "zh"/);
+	assert.match(detailSource, /const translationAbort = new AbortController\(\)/);
+	assert.match(detailSource, /translationAbort\.abort\(\)/);
+	assert.match(detailSource, /void streamTagTranslations\(\{/);
+	assert.match(detailSource, /signal: translationAbort\.signal/);
+	assert.match(detailSource, /openGeneration !== detailDialogGeneration/);
+	assert.match(detailSource, /pills\.setSecondary\(translations\)/);
+	assert.match(detailSource, /label\("detail\.copyTag"/);
+	assert.match(detailSource, /navigator\.clipboard\.writeText\(token\.raw\)/);
+	assert.match(detailSource, /pills\.flashToken\(token\.raw\)/);
+	const translationSource = fs.readFileSync(new URL("../js/lib/tag_translation.js", import.meta.url), "utf8");
+	assert.match(translationSource, /import \{ api \} from "\.\.\/\.\.\/\.\.\/scripts\/api\.js"/);
+	assert.match(translationSource, /\/autocomplete-plus\/translation\/resolve-stream/);
+	assert.match(translationSource, /general: 0, artist: 1, copyright: 3, character: 4, meta: 5/);
+	assert.match(translationSource, /response\.status === 404/);
+	assert.match(tagPillsSource, /root\.setSecondary = /);
+	assert.match(tagPillsSource, /root\.flashToken = /);
+	assert.match(tagPillsSource, /else if \(hasContextMenu\) pill\.addEventListener\("click", \(\) => \{ if \(!pill\.classList\.contains\("is-editing"\)\) openAnchoredMenu\(\); \}\)/);
+	assert.match(theme, /aa-gallery-tag-pill-in/);
+	assert.match(theme, /aa-gallery-tag-pill-copied/);
+	assert.match(theme, /aa-gallery-tag-pill-secondary-in/);
+	assert.match(theme, /\.aa-gallery-detail__tag-group \.aa-gallery-tag-pill__secondary \{[^}]*color: color-mix\(in srgb, var\(--aa-gallery-category-tone\)/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.detail.copyTag, "string");
+		assert.equal(typeof locale.aaalice.gallery.detail.tagActionsHint, "string");
+	}
+});
+
 test("post details use maintainable semantic color hooks", () => {
 	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
 	for (const fact of ["resolution", "format", "tags"]) assert.match(detailSource, new RegExp(`\\["${fact}",`));

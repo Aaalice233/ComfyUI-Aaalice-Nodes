@@ -1,8 +1,9 @@
 /** Multi-site Booru Gallery with virtual masonry and immutable queue snapshots. */
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-import { ensureI18nReady, t } from "./i18n.js";
+import { ensureI18nReady, currentLocale, t } from "./i18n.js";
 import { defaultGalleryRatings, finalPrompt, galleryPayload, GALLERY_CATEGORIES, normalizeGalleryState, normalizeTagGroups, selectionFromDetail, selectionKey } from "./lib/booru_gallery_model.js";
+import { streamTagTranslations } from "./lib/tag_translation.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { mountVirtualList } from "./lib/virtual_list.js";
@@ -578,7 +579,7 @@ function createGalleryTagPills(options = {}) {
 		...options,
 		labels: {
 			menu: label("detail.tagMenu", "Tag actions"),
-			menuHint: label("detail.tagMenu", "Right-click for tag actions"),
+			menuHint: label("detail.tagActionsHint", "Click or right-click for tag actions"),
 			editableMenuHint: label("detail.editableTagMenu", "Click to edit · Right-click for tag actions · {tag}"),
 			editValue: label("selected.editTagValue", "Edit tag value"),
 			edit: label("selected.edit", "Edit tag"),
@@ -1022,6 +1023,8 @@ function buildController(node, elements) {
 		const selectedSnapshot = stateFor(node).selections.find((item) => selectionKey(item) === key);
 		const detailDrafts = normalizeTagGroups(selectedSnapshot?.editedTags || sessionEdits.get(key) || detail.tags);
 		const detailCounts = {};
+		const detailPillLists = {};
+		const translationAbort = new AbortController();
 		const detailTokens = (category) => detailDrafts[category].map((tag) => ({ category, raw: tag, text: tag }));
 		const mutateDetailTag = (category, mutation) => {
 			if (mutation.type !== "rename") return null;
@@ -1058,31 +1061,47 @@ function buildController(node, elements) {
 			el("div", { className: "aa-gallery-detail__tag-groups", children: GALLERY_CATEGORIES.map((category) => {
 				const heading = sectionHeading(label(`category.${category}`, category), String(detailDrafts[category].length));
 				detailCounts[category] = heading.querySelector("small");
-				return el("section", { className: "aa-gallery-detail__tag-group", attrs: { "data-category": category }, children: [
-					heading,
-					createGalleryTagPills({
-						tokens: detailTokens(category),
-						ariaLabel: label(`category.${category}`, category),
-						emptyText: label("detail.noTags", "No tags"),
-						onMutate: (mutation) => mutateDetailTag(category, mutation),
-						contextMenuItems: (token, { edit }) => [
-							{ label: label("detail.editTag", "Edit tag"), iconName: "edit", onSelect: edit },
-							{ label: label("detail.addToSearch", "Add to search"), iconName: "search", disabled: !cap?.tagSearch, onSelect: () => addTagToSearch(token.raw) },
-							{ label: label("detail.blockTag", "Block tag"), iconName: "filter", danger: true, onSelect: async () => {
-								dialog.close();
-								try {
-									await addGlobalBlacklistTag(token.raw);
-									app.extensionManager.toast.add({ severity: "success", summary: label("settings.blacklist", "Content blacklist"), detail: label("detail.blacklistAdded", "Posts tagged {tag} are now hidden").replace("{tag}", token.raw) });
-								} catch (error) { showError(error); }
-							} },
-						],
-					}),
-				] });
+				const pills = createGalleryTagPills({
+					tokens: detailTokens(category),
+					ariaLabel: label(`category.${category}`, category),
+					emptyText: label("detail.noTags", "No tags"),
+					onMutate: (mutation) => mutateDetailTag(category, mutation),
+					contextMenuItems: (token, { edit }) => [
+						{ label: label("detail.editTag", "Edit tag"), iconName: "edit", onSelect: edit },
+						{ label: label("detail.copyTag", "Copy tag"), iconName: "copy", onSelect: async () => {
+							try { await navigator.clipboard.writeText(token.raw); pills.flashToken(token.raw); }
+							catch (error) { showError(error); }
+						} },
+						{ label: label("detail.addToSearch", "Add to search"), iconName: "search", disabled: !cap?.tagSearch, onSelect: () => addTagToSearch(token.raw) },
+						{ label: label("detail.blockTag", "Block tag"), iconName: "filter", danger: true, onSelect: async () => {
+							dialog.close();
+							try {
+								await addGlobalBlacklistTag(token.raw);
+								app.extensionManager.toast.add({ severity: "success", summary: label("settings.blacklist", "Content blacklist"), detail: label("detail.blacklistAdded", "Posts tagged {tag} are now hidden").replace("{tag}", token.raw) });
+							} catch (error) { showError(error); }
+						} },
+					],
+				});
+				detailPillLists[category] = pills;
+				return el("section", { className: "aa-gallery-detail__tag-group", attrs: { "data-category": category }, children: [heading, pills] });
 			}) }),
 		] });
 		const body = el("div", { className: "aa-gallery-detail", children: [viewer.root, inspector] });
-		dialog = createDialog({ title: label("detail.title", "Post details"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: actions }), size: "lg", className: "aa-gallery-detail-dialog", confirmOnEnter: false, onClose: () => { viewer.destroy(); if (activeDetailDialog === dialog) activeDetailDialog = null; } });
+		dialog = createDialog({ title: label("detail.title", "Post details"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: actions }), size: "lg", className: "aa-gallery-detail-dialog", confirmOnEnter: false, onClose: () => { viewer.destroy(); translationAbort.abort(); if (activeDetailDialog === dialog) activeDetailDialog = null; } });
 		activeDetailDialog = dialog;
+		if (currentLocale() === "zh") {
+			const translationTags = [];
+			for (const category of GALLERY_CATEGORIES) for (const tag of detailDrafts[category]) translationTags.push({ name: tag, category });
+			void streamTagTranslations({
+				locale: "zh",
+				tags: translationTags,
+				signal: translationAbort.signal,
+				onChunk: ({ translations }) => {
+					if (destroyed || openGeneration !== detailDialogGeneration || !Object.keys(translations).length) return;
+					for (const pills of Object.values(detailPillLists)) pills.setSecondary(translations);
+				},
+			});
+		}
 	};
 	const openEditor = async (target) => {
 		const selectedIndex = typeof target === "number" ? target : stateFor(node).selections.findIndex((item) => selectionKey(item) === `${target.source}:${target.postId}`);

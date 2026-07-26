@@ -49,6 +49,11 @@ function getLocale() {
 	return resolveLocale(app.extensionManager?.setting?.get?.("Comfy.Locale"));
 }
 
+/** 当前界面语言（en|zh），供自绘 UI 做语言相关的能力开关。 */
+export function currentLocale() {
+	return getLocale();
+}
+
 /**
  * 按点分路径取值；仅返回字符串，否则 undefined。
  * @param {unknown} root
