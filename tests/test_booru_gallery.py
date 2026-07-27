@@ -234,6 +234,50 @@ class GalleryAdapterTests(unittest.TestCase):
         asyncio.run(run())
 
 
+class GalleryQueryNormalizationTests(unittest.TestCase):
+    def test_danbooru_repairs_spaced_tags_and_trailing_commas(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            adapter._get_json = AsyncMock(return_value=[{"name": "red_hair", "category": 0}])
+            normalized = await adapter.normalize_tag_query(None, "red hair,", {})
+            self.assertEqual(normalized, "red_hair")
+            params = adapter._get_json.await_args.kwargs["params"]
+            self.assertIn("red_hair", params["search[name_comma]"])
+        import asyncio
+        asyncio.run(run())
+
+    def test_danbooru_keeps_valid_native_multi_tag_queries(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            adapter._get_json = AsyncMock(return_value=[{"name": "1girl", "category": 0}, {"name": "solo", "category": 0}, {"name": "1girl_solo", "category": 0}])
+            normalized = await adapter.normalize_tag_query(None, "1girl solo", {})
+            self.assertEqual(normalized, "1girl solo")
+        import asyncio
+        asyncio.run(run())
+
+    def test_gelbooru_known_tags_reads_dict_response(self):
+        async def run():
+            adapter = GelbooruAdapter()
+            adapter._get_json = AsyncMock(return_value={"tag": [{"name": "red_hair", "type": 0}]})
+            credentials = {"userId": "u", "apiKey": "k"}
+            known = await adapter.known_tags(None, ["red_hair"], credentials)
+            self.assertEqual(known, frozenset({"red_hair"}))
+        import asyncio
+        asyncio.run(run())
+
+    def test_aitag_keeps_free_text_untouched(self):
+        async def run():
+            adapter = AITagAdapter()
+            self.assertEqual(await adapter.normalize_tag_query(None, " hatsune miku, smiling ,", {}), "hatsune miku, smiling ,".strip())
+        import asyncio
+        asyncio.run(run())
+
+    def test_credential_requirement_follows_auth_required_capability(self):
+        SafebooruAdapter().require_credentials({})
+        with self.assertRaisesRegex(ValueError, "User ID and API Key"):
+            GelbooruAdapter().require_credentials({})
+
+
 class GallerySettingsTests(unittest.TestCase):
     def test_selection_stamp_is_global_persisted_and_validated(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -313,6 +357,7 @@ class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
             service = GalleryService(Path(directory))
             adapter = DanbooruAdapter()
             adapter.search = AsyncMock(return_value=GalleryPage((), None, True))
+            adapter.normalize_tag_query = AsyncMock(side_effect=lambda _session, query, _credentials: query.strip())
             store = MagicMock()
             store.load.return_value = {"timeout": 30, "blacklist": ["watermark"], "credentials": {"danbooru": {}}}
             with patch("nodes.gallery.service.adapter_for", return_value=adapter), patch("nodes.gallery.service.get_gallery_settings_store", return_value=store):
@@ -322,6 +367,20 @@ class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
                 await service.search("danbooru", "blue_hair", [], "latest", None, 60)
                 self.assertEqual(adapter.search.await_count, 2)
                 self.assertEqual(adapter.search.await_args.args[-1], ("text",))
+
+    async def test_service_normalizes_query_before_adapter_and_shares_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            service = GalleryService(Path(directory))
+            adapter = DanbooruAdapter()
+            adapter.search = AsyncMock(return_value=GalleryPage((), None, True))
+            adapter.known_tags = AsyncMock(return_value=frozenset({"red_hair"}))
+            store = MagicMock()
+            store.load.return_value = {"timeout": 30, "blacklist": [], "credentials": {"danbooru": {}}}
+            with patch("nodes.gallery.service.adapter_for", return_value=adapter), patch("nodes.gallery.service.get_gallery_settings_store", return_value=store):
+                await service.search("danbooru", "red hair,", [], "latest", None, 60)
+                self.assertEqual(adapter.search.await_args.args[1], "red_hair")
+                await service.search("danbooru", " red  hair , ", [], "latest", None, 60)
+                self.assertEqual(adapter.search.await_count, 1)
 
 
 class GalleryNodeTests(unittest.IsolatedAsyncioTestCase):

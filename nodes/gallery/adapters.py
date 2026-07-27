@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 
 import aiohttp
 
+from .._lib.booru_query import join_candidates, repair_spaced_tags, tokenize_tag_query
+
 TAG_CATEGORIES = ("artist", "copyright", "character", "general", "meta")
 STATIC_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "webp", "gif"})
 
@@ -160,6 +162,20 @@ class BooruAdapter:
     async def classify_tags(self, session: aiohttp.ClientSession, tags: list[str],
                             credentials: dict[str, str]) -> dict[str, tuple[str, ...]]:
         return {"artist": (), "copyright": (), "character": (), "general": tuple(tags), "meta": ()}
+
+    async def known_tags(self, session: aiohttp.ClientSession, names: list[str],
+                         credentials: dict[str, str]) -> frozenset[str]:
+        """Casefolded subset of ``names`` that exist as site tags; empty means no repair knowledge."""
+        return frozenset()
+
+    async def normalize_tag_query(self, session: aiohttp.ClientSession, query: str,
+                                  credentials: dict[str, str]) -> str:
+        """Canonicalize pasted prompt-style text and repair spaced tags for tag-query APIs."""
+        tokens = tokenize_tag_query(query)
+        known = await self.known_tags(session, join_candidates(tokens), credentials)
+        if not known:
+            return " ".join(tokens)
+        return " ".join(repair_spaced_tags(tokens, known))
 
     def validate_media_url(self, url: str) -> None:
         parsed = urlparse(url)
@@ -312,6 +328,16 @@ class DanbooruAdapter(BooruAdapter):
                 result[known.get(tag, "general")].append(tag)
         return {key: tuple(value) for key, value in result.items()}
 
+    async def known_tags(self, session, names, credentials):
+        known = set()
+        for offset in range(0, len(names), 100):
+            chunk = names[offset:offset + 100]
+            raw = await self._get_json(session, f"{self.base}/tags.json", params={"search[name_comma]": ",".join(chunk), "limit": 100, **self.auth_params(credentials)})
+            if isinstance(raw, list):
+                known.update(str(item.get("name", "")).casefold() for item in raw if isinstance(item, dict))
+        known.discard("")
+        return frozenset(known)
+
     async def list_favorites(self, session, cursor, limit, credentials, blacklist=()):
         username = credentials.get("username", "")
         if not username:
@@ -348,8 +374,8 @@ class GelbooruAdapter(BooruAdapter):
         return {"user_id": user, "api_key": key} if user and key else {}
 
     def require_credentials(self, credentials):
-        if not self.auth_params(credentials):
-            raise ValueError("Gelbooru requires User ID and API Key. Open ComfyUI Settings > Booru Gallery > Accounts.")
+        if self.capabilities.auth_required and not self.auth_params(credentials):
+            raise ValueError(f"{self.capabilities.display_name} requires User ID and API Key. Open ComfyUI Settings > Booru Gallery > Accounts.")
 
     def cursor_for_page(self, page: int) -> str:
         return str(max(1, page) - 1)
@@ -409,6 +435,18 @@ class GelbooruAdapter(BooruAdapter):
                 result[known.get(tag, "general")].append(tag)
         return {key: tuple(value) for key, value in result.items()}
 
+    async def known_tags(self, session, names, credentials):
+        self.require_credentials(credentials)
+        known = set()
+        for offset in range(0, len(names), 100):
+            chunk = names[offset:offset + 100]
+            raw = await self._get_json(session, self.base, params={"page": "dapi", "s": "tag", "q": "index", "json": "1", "names": " ".join(chunk), "limit": 100, **self.auth_params(credentials)})
+            items = raw.get("tag", []) if isinstance(raw, dict) else raw
+            if isinstance(items, list):
+                known.update(str(item.get("name", "")).casefold() for item in items if isinstance(item, dict))
+        known.discard("")
+        return frozenset(known)
+
     async def list_favorites(self, session, cursor, limit, credentials, blacklist=()):
         user = credentials.get("userId", "")
         if not user:
@@ -466,6 +504,10 @@ class AITagAdapter(BooruAdapter):
         post_id = str(work.get("id", ""))
         return GalleryPostSummary(self.source, post_id, f"{self.base}/i/{post_id}", self._preview(work), 1, 1, "",
                                   str(work.get("create_date", "")), None)
+
+    async def normalize_tag_query(self, session, query, credentials):
+        # AI TAG search is free-text over prompt metadata, not a tag query.
+        return str(query or "").strip()
 
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         if ratings:

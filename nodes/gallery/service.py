@@ -133,12 +133,14 @@ class GalleryService:
             cursor = adapter.cursor_for_page(page)
         limit = min(max(1, int(limit)), adapter.capabilities.max_page_size)
         blacklist = self._blacklist()
-        key = repr((source, query.strip(), tuple(ratings), sort, cursor, limit, blacklist))
-        cached = self.search_cache.get(key)
-        if cached is not None:
-            return cached.json()
+        credentials = self._credentials(source)
         async with self._session() as session:
-            page = await adapter.search(session, query, ratings, sort, cursor, limit, self._credentials(source), blacklist)
+            normalized = await adapter.normalize_tag_query(session, query, credentials)
+            key = repr((source, normalized, tuple(ratings), sort, cursor, limit, blacklist))
+            cached = self.search_cache.get(key)
+            if cached is not None:
+                return cached.json()
+            page = await adapter.search(session, normalized, ratings, sort, cursor, limit, credentials, blacklist)
         self.search_cache.put(key, page)
         return page.json()
 
