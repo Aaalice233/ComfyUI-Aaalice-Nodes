@@ -73,6 +73,15 @@
     "inputs": {},
     "outputs": {}
   },
+  "PromptAssistantBridge": {
+    "display_name": "✨ 提示词助手桥接",
+    "description": "使用提示词小助手当前激活的扩写规则和 LLM 服务扩写输入提示词；开关关闭或助手不可用时原样透传。",
+    "inputs": {
+      "text": { "name": "文本", "tooltip": "需要扩写后继续传递的提示词文本。" },
+      "enabled": { "name": "扩写", "tooltip": "开启时使用提示词小助手扩写输入；关闭时原样透传。" }
+    },
+    "outputs": { "0": { "name": "文本", "tooltip": "扩写后的提示词；开关关闭或助手不可用时为原文。" } }
+  },
   "PromptCleaningMaid": {
     "display_name": "🧹 提示词清洁",
     "description": "原样透传提示词，或保守清理自然语言和扁平标签列表，同时保留已识别的分区语法。",

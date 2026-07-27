@@ -65,6 +65,7 @@ pip install -r requirements.txt
 | `PromptCleaningMaid` | `Aaalice/prompt` | Quickly disable cleaning, safely clean natural-language prompts, or normalize and deduplicate flat tag lists. |
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | Transfer selected character features while preserving the original prompt's language and format. |
+| `PromptAssistantBridge` | `Aaalice/prompt` | Expand the incoming prompt with prompt-assistant's active rule and service during execution. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
 | `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
 
@@ -198,6 +199,15 @@ The node is intended for one character. Multi-character ownership, regional prom
 </details>
 
 <details>
+<summary><strong>PromptAssistantBridge — automatic prompt expansion</strong></summary>
+
+Connect any prompt text and keep the node's switch enabled to expand it during execution with [prompt-assistant](https://github.com/yawiii/ComfyUI-Prompt-Assistant)'s active rule and LLM service — the same behavior as its in-editor expand button, without clicking it. This is useful when a tag-style prompt, for example one selected in BooruGalleryNode, feeds a natural-language model. Disable the switch to pass the text through unchanged.
+
+The node's settings button opens prompt-assistant's Rule Manager or API Manager directly. Expansion follows prompt-assistant's globally active rule and service rather than a workflow-locked selection, and re-queueing with identical input and switch state reuses the cached result. If an expansion fails (API error, timeout, missing key), the node reports a warning toast and outputs the original text. Without prompt-assistant installed, the node shows a persistent warning and always passes text through unchanged.
+
+</details>
+
+<details>
 <summary><strong>SimpleStringSplit — cleaned text splitting</strong></summary>
 
 Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
@@ -223,6 +233,7 @@ The **Library** workspace manages entries, flat categories, multi-membership fav
 - QuickGroupManager only controls visual groups in its current graph and does not propagate linkage rules across manager instances.
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
 - CharacterFeatureSwapNode supports only the official DeepSeek API and requires a valid DeepSeek API key and available model; API availability, billing, privacy, and output quality are controlled by DeepSeek.
+- PromptAssistantBridge expands through prompt-assistant's globally active rule and service, not a workflow-locked selection. Without prompt-assistant installed it only shows a warning and passes text through unchanged.
 - BooruGalleryNode depends on third-party site APIs and media hosts. Network availability, credentials, site limits, post metadata, and favorite behavior remain controlled by each site; only static JPG, PNG, WebP, and GIF posts are selectable.
 - FetchFromKrita requires a locally running Krita with the bundled Bridge enabled and an active document. It supports one active-document snapshot per execution and no remote or persistent editing session.
 - Prompt-library data lives in the current ComfyUI user directory and is not embedded in workflows; export it separately when moving workflows between installations.

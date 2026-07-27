@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- 进度：`12 / 12` 个节点
+- 进度：`13 / 13` 个节点
 - 下一项：无
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
@@ -26,6 +26,7 @@
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
 | 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
+| 26 | `PromptAssistantBridge` | prompt | 执行时按提示词小助手激活配置自动扩写输入提示词，支持开关、失败或缺失时透传与设置跳转。 |
 
 ## 不再重置
 

@@ -151,6 +151,16 @@
         "underscoreEqualsSpace": "Treat “_” as space"
       }
     },
+    "promptAssistantBridge": {
+      "settings": "Prompt Assistant settings",
+      "menu": { "rules": "Rule Manager", "api": "API Manager" },
+      "warning": "Prompt Assistant is not installed — prompts pass through unchanged.",
+      "toast": {
+        "missing": "Prompt Assistant is not installed; install it to enable expansion and open its settings.",
+        "openFailed": "Failed to open Prompt Assistant settings: {reason}",
+        "expandFailed": "Prompt expansion failed; the original prompt was kept: {reason}"
+      }
+    },
     "simpleNotify": {
       "defaultMessage": "Execution reached Simple Notify.",
       "menu": { "test": "🔔 Enable and Test Alerts" },

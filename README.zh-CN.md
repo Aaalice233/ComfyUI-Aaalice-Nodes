@@ -65,6 +65,7 @@ pip install -r requirements.txt
 | `PromptCleaningMaid` | `Aaalice/prompt` | 快速关闭清理、安全清理自然语言提示词，或规范化并去重扁平标签列表。 |
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序并加权输出可复用提示词条。 |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | 从参考角色迁移选中特征，并保持原提示词的语言和格式。 |
+| `PromptAssistantBridge` | `Aaalice/prompt` | 执行时按提示词小助手当前激活的规则与服务自动扩写输入提示词。 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 在 Danbooru、Gelbooru、Safebooru 与 AI TAG 的虚拟瀑布流中搜索，并按顺序输出图片与对应提示词。 |
 | `FetchFromKrita` | `Aaalice/krita` | 将 Krita 当前活动文档的可见合成图与选区读取为 `IMAGE` 和 `MASK`。 |
 
@@ -198,6 +199,15 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 </details>
 
 <details>
+<summary><strong>PromptAssistantBridge — 自动提示词扩写</strong></summary>
+
+接入任意提示词文本并保持节点上的开关开启，队列执行到该节点时就会使用[提示词小助手](https://github.com/yawiii/ComfyUI-Prompt-Assistant)当前激活的扩写规则和 LLM 服务完成扩写——与在文本框里点扩写按钮是同一套逻辑，但不需要手动点击。典型用法是画廊里选出的标签式提示词后接自然语言模型时自动改写。关闭开关则原样透传。
+
+节点自带的设置按钮可直接打开提示词小助手的规则管理器或 API 管理器。扩写跟随小助手的全局激活配置，而不是按工作流锁定的规则；相同输入与开关状态重复排队会直接命中缓存结果。扩写失败（API 错误、超时、未配置 Key）时节点弹出警告提示并输出原文。未安装提示词小助手时，节点显示持久警告并始终原样透传。
+
+</details>
+
+<details>
 <summary><strong>SimpleStringSplit — 清理式文本拆分</strong></summary>
 
 输入文本并选择 `,` 或 `|` 作为分隔符。节点会清理每段首尾空白、丢弃空段，并以字符串列表输出剩余内容。
@@ -223,6 +233,7 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 - QuickGroupManager 只控制当前图中的可视组，联动规则不会跨 Manager 实例传播。
 - SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
 - CharacterFeatureSwapNode 仅支持 DeepSeek 官方 API，需要有效的 DeepSeek API Key 和可用模型；API 可用性、费用、隐私与输出质量由 DeepSeek 决定。
+- PromptAssistantBridge 的扩写跟随提示词小助手的全局激活规则与服务，而不是按工作流锁定；未安装提示词小助手时仅显示警告并原样透传。
 - BooruGalleryNode 依赖第三方站点 API 与媒体主机；网络、凭据、站点限制、帖子元数据和收藏行为由各站点控制。只能选择静态 JPG、PNG、WebP 和 GIF 帖子。
 - FetchFromKrita 需要本机 Krita 正在运行、随包 Bridge 已启用且存在活动文档。每次执行只读取一个活动文档，不支持远程或持续编辑会话。
 - 词库保存在当前 ComfyUI 用户目录，不会嵌入工作流；跨安装迁移工作流时需要单独导出词库。

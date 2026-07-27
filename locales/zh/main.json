@@ -151,6 +151,16 @@
         "underscoreEqualsSpace": "下划线等同空格"
       }
     },
+    "promptAssistantBridge": {
+      "settings": "提示词助手设置",
+      "menu": { "rules": "规则管理器", "api": "API 管理器" },
+      "warning": "未安装提示词小助手，扩写不可用，将原样输出。",
+      "toast": {
+        "missing": "未安装提示词小助手，无法打开其设置。",
+        "openFailed": "打开提示词助手设置失败：{reason}",
+        "expandFailed": "提示词扩写失败，已原样输出：{reason}"
+      }
+    },
     "simpleNotify": {
       "defaultMessage": "执行已到达简易通知节点。",
       "menu": { "test": "🔔 启用并测试提醒" },
