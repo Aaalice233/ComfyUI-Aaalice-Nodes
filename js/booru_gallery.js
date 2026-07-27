@@ -1423,7 +1423,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		if (refreshing) return;
 		refreshing = true; refresh.disabled = true; refresh.classList.add("is-refreshing");
 		refresh.setAttribute("aria-label", label("refreshing", "Refreshing…")); refresh.title = label("refreshing", "Refreshing…");
-		try { await controller.search({ reset: true }); }
+		try { await controller.search({ reset: true, page: 1 }); }
 		finally { refreshing = false; refresh.disabled = false; refresh.classList.remove("is-refreshing"); refresh.setAttribute("aria-label", label("reload", "Reload search")); refresh.title = label("reload", "Reload search"); }
 	} });
 	const openSettings = iconButton({ className: "aa-gallery-open-settings", iconName: "settings", label: label("settings.open", "Configure Gallery…"), variant: "ghost", onClick: openGallerySettings });
