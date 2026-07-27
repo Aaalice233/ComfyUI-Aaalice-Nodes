@@ -103,7 +103,7 @@ test("page navigation uses a compact custom control instead of a native number f
 test("gallery refresh and settings utilities expose their real state and destination", () => {
 	assert.match(source, /refresh\.classList\.add\("is-refreshing"\)/);
 	assert.match(source, /refresh\.setAttribute\("aria-label", label\("refreshing", "Refreshing…"\)\)/);
-	assert.match(source, /await controller\.search\(\{ reset: true \}\)/);
+	assert.match(source, /await controller\.search\(\{ reset: true, page: 1 \}\)/);
 	assert.match(source, /finally \{ refreshing = false; refresh\.disabled = false; refresh\.classList\.remove\("is-refreshing"\)/);
 	assert.match(theme, /\.aa-gallery-refresh\.is-refreshing \.aa-ui-icon \{ animation: aa-gallery-status-spin \.72s linear infinite; \}/);
 	assert.match(source, /function openGallerySettings\(\) \{[^]*openSettingsDialog\(\)/);
