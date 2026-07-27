@@ -128,7 +128,7 @@ class PromptAssistantBridgeClientDiscoveryTests(unittest.TestCase):
     def test_fingerprint_match_survives_renamed_directory(self):
         api = client.resolve_prompt_assistant()
         self.assertIsNotNone(api)
-        self.assertEqual(client.js_base(), "/extensions/prompt-assistant-renamed/js")
+        self.assertEqual(api.package.__path__[0], "/custom_nodes/prompt-assistant-renamed")
 
     def test_non_matching_package_is_not_detected(self):
         stranger = types.ModuleType("fake_stranger_package")

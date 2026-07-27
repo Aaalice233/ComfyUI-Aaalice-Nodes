@@ -12,7 +12,7 @@ _registered = False
 
 async def info(_request: web.Request) -> web.Response:
     api = client.resolve_prompt_assistant()
-    return web.json_response({"installed": api is not None, "js_base": client.js_base()})
+    return web.json_response({"installed": api is not None})
 
 
 def register_prompt_assistant_bridge_routes() -> None:

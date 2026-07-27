@@ -99,15 +99,6 @@ def resolve_prompt_assistant() -> AssistantApi | None:
     return result
 
 
-def js_base() -> str | None:
-    """Web root of prompt-assistant's js directory, for dynamic frontend imports."""
-    api = resolve_prompt_assistant()
-    if api is None:
-        return None
-    dirname = os.path.basename(os.path.normpath(str(api.package.__path__[0])))
-    return f"/extensions/{dirname}/js"
-
-
 def expand(text: str) -> str:
     """Expand ``text`` with prompt-assistant's active rule and LLM service.
 
@@ -137,4 +128,4 @@ def expand(text: str) -> str:
     raise RuntimeError(f"prompt-assistant expansion failed: {error}")
 
 
-__all__ = ["AssistantApi", "expand", "js_base", "resolve_prompt_assistant"]
+__all__ = ["AssistantApi", "expand", "resolve_prompt_assistant"]

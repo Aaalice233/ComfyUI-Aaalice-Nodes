@@ -15,18 +15,15 @@ test("availability is judged once by the backend info route", () => {
 	assert.match(source, /infoPromise \|\|=/);
 });
 
-test("settings shortcut opens both Prompt Assistant managers through dynamic imports", () => {
-	assert.match(source, /modules\/rulesConfigManager\.js/);
-	assert.match(source, /modules\/apiConfigManager\.js/);
-	assert.match(source, /showRulesConfigModal/);
-	assert.match(source, /showAPIConfigModal/);
-	assert.match(source, /createAnchoredPopover/);
-});
-
 test("missing assistant keeps a visible warning and expansion failures toast natively", () => {
 	assert.match(source, /aaalice-pa-bridge-warning/);
 	assert.match(source, /extensionManager\?\.toast\?\.add/);
 	assert.match(source, /aaalice_prompt_assistant_bridge/);
 	assert.match(styles, /\.aaalice-pa-bridge-warning/);
 	assert.match(styles, /var\(--aa-ui-warning\)/);
+});
+
+test("the warning banner carries no interactive controls", () => {
+	assert.doesNotMatch(source, /createAnchoredPopover|openSettingsMenu|openAssistantModal/);
+	assert.doesNotMatch(styles, /aaalice-pa-bridge-settings|aaalice-pa-bridge-menu/);
 });

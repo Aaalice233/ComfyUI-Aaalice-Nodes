@@ -203,7 +203,7 @@ The node is intended for one character. Multi-character ownership, regional prom
 
 Connect any prompt text and keep the node's switch enabled to expand it during execution with [prompt-assistant](https://github.com/yawiii/ComfyUI-Prompt-Assistant)'s active rule and LLM service — the same behavior as its in-editor expand button, without clicking it. This is useful when a tag-style prompt, for example one selected in BooruGalleryNode, feeds a natural-language model. Disable the switch to pass the text through unchanged.
 
-The node's settings button opens prompt-assistant's Rule Manager or API Manager directly. Expansion follows prompt-assistant's globally active rule and service rather than a workflow-locked selection, and re-queueing with identical input and switch state reuses the cached result. If an expansion fails (API error, timeout, missing key), the node reports a warning toast and outputs the original text. Without prompt-assistant installed, the node shows a persistent warning and always passes text through unchanged.
+Expansion follows prompt-assistant's globally active rule and service rather than a workflow-locked selection, and re-queueing with identical input and switch state reuses the cached result. If an expansion fails (API error, timeout, missing key), the node reports a warning toast and outputs the original text. Without prompt-assistant installed, the node shows a persistent warning and always passes text through unchanged.
 
 </details>
 
