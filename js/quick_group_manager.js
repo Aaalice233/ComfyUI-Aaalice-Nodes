@@ -32,6 +32,8 @@ const GROUP_LIST_VERTICAL_MARGIN = 10;
 const mountedManagers = new Set();
 let graphListenerInstalled = false;
 let refreshFrame = 0;
+let vueManagerObserver = null;
+let vueManagerFrame = 0;
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -90,6 +92,33 @@ function installGraphListener() {
 	if (graphListenerInstalled) return;
 	graphListenerInstalled = true;
 	api.addEventListener("graphChanged", scheduleRenderAll);
+}
+
+function syncVueManagerLayout(node) {
+	if (typeof document === "undefined") return;
+	const id = String(node.id);
+	for (const element of document.querySelectorAll("[data-node-id]")) {
+		if (element.getAttribute("data-node-id") !== id) continue;
+		const widgetLayer = element.querySelector(".lg-node-widgets");
+		if (!widgetLayer?.querySelector(".aaalice-qgm-body")) continue;
+		element.classList.add("aaalice-quick-group-manager-node");
+		// Nodes 2.0 reads this inline property during resize instead of the
+		// computed CSS min-width, so the native handles need the real value here.
+		element.style.setProperty("min-width", `${MIN_WIDTH}px`);
+		widgetLayer.classList.add("aaalice-qgm-widget-stack");
+	}
+}
+
+function ensureVueManagerObserver() {
+	if (vueManagerObserver || typeof MutationObserver === "undefined" || !document.body) return;
+	vueManagerObserver = new MutationObserver(() => {
+		if (vueManagerFrame) return;
+		vueManagerFrame = requestAnimationFrame(() => {
+			vueManagerFrame = 0;
+			for (const node of mountedManagers) if (node?.graph) syncVueManagerLayout(node);
+		});
+	});
+	vueManagerObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 function closePopover(node) {
@@ -481,6 +510,7 @@ function render(node) {
 	else list.append(emptyState({ description: groups.length ? t("aaalice.quickGroup.noFilteredGroups", "No groups match the selected colors.") : t("aaalice.quickGroup.noGroups", "No visual groups are available in this graph."), iconName: "filter", className: "aaalice-qgm-empty" }));
 	root.replaceChildren(list);
 	enforceMinimumSize(node);
+	syncVueManagerLayout(node);
 	node.graph?.setDirtyCanvas?.(true, true);
 }
 
@@ -556,6 +586,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node._aaaliceQuickMounted = true;
 	mountedManagers.add(node);
 	installGraphListener();
+	ensureVueManagerObserver();
 	stateFor(node);
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] QuickGroupManager requires addDOMWidget");
 	const toolbar = isolate(el("div", "aaalice-qgm-toolbar aaalice-qgm"));

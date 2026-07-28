@@ -631,6 +631,14 @@
 
 /* QuickGroupManager places its controls in the native title row and lets the node own sizing. */
 .dom-widget:has(> .aaalice-qgm) { pointer-events: none !important; }
+.aaalice-quick-group-manager-node {
+	min-width: 380px;
+}
+.aaalice-qgm-widget-stack {
+	flex: 0 0 auto !important;
+	grid-template-rows: 30px min-content !important;
+	align-content: start;
+}
 .aaalice-qgm-body {
 	box-sizing: border-box;
 	display: flex;
@@ -669,7 +677,7 @@
 	display: grid;
 	width: 100%;
 	min-width: 0;
-	grid-template-columns: minmax(132px, 1fr) auto minmax(132px, 1fr);
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 	align-items: center;
 	background: transparent;
 	pointer-events: none;

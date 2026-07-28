@@ -29,7 +29,7 @@ test("keeps the compact header single-line without redundant visible labels", ()
 	assert.match(source, /getMaxHeight:\s*\(\)\s*=>\s*0/);
 	assert.match(styles, /\.aaalice-qgm-toolbar[\s\S]*white-space:\s*nowrap/);
 	assert.match(source, /aaalice-qgm-utilities/);
-	assert.match(styles, /\.aaalice-qgm-actions[\s\S]*grid-template-columns:\s*minmax\(132px, 1fr\) auto minmax\(132px, 1fr\)/);
+	assert.match(styles, /\.aaalice-qgm-actions[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
 	assert.match(styles, /\.aaalice-qgm-actions > \.aaalice-qgm-segmented[\s\S]*grid-column:\s*2[\s\S]*justify-self:\s*center/);
 	assert.match(styles, /\.aaalice-qgm-utilities[\s\S]*grid-column:\s*3[\s\S]*justify-self:\s*end/);
 	assert.doesNotMatch(source, /aaalice-qgm-title/);
@@ -49,6 +49,10 @@ test("allows vertical growth while keeping content top-aligned and enforcing its
 	assert.match(source, /function enforceMinimumSize/);
 	assert.match(source, /getMinHeight:\s*\(\)\s*=>\s*minimumBodyHeight\(node\)/);
 	assert.match(source, /getMaxHeight:\s*\(\)\s*=>\s*minimumBodyHeight\(node\)/);
+	assert.match(source, /function syncVueManagerLayout/);
+	assert.match(source, /element\.style\.setProperty\("min-width", `\$\{MIN_WIDTH\}px`\)/);
+	assert.match(source, /widgetLayer\.classList\.add\("aaalice-qgm-widget-stack"\)/);
+	assert.match(source, /function ensureVueManagerObserver/);
 	assert.match(source, /minimumBodyHeight\(this\)/);
 	assert.doesNotMatch(source, /Math\.max\(Number\(computed\[1\]\)\s*\|\|\s*0, minimumBodyHeight\(this\)\)/);
 	assert.match(source, /node\.computeSize\s*=\s*function/);
@@ -66,6 +70,8 @@ test("allows vertical growth while keeping content top-aligned and enforcing its
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*height:\s*100%/);
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*justify-content:\s*flex-start/);
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*border-radius:\s*0 0 10px 10px/);
+	assert.match(styles, /\.aaalice-quick-group-manager-node[\s\S]*min-width:\s*380px/);
+	assert.match(styles, /\.aaalice-qgm-widget-stack[\s\S]*flex:\s*0 0 auto !important[\s\S]*grid-template-rows:\s*30px min-content !important[\s\S]*align-content:\s*start/);
 	assert.match(styles, /\.aaalice-qgm-toolbar[\s\S]*height:\s*30px[\s\S]*min-height:\s*30px/);
 	assert.match(styles, /\.aaalice-qgm-list[\s\S]*margin:\s*6px 6px 4px/);
 	assert.match(styles, /\.aaalice-qgm-list[\s\S]*flex:\s*0 0 auto[\s\S]*justify-content:\s*flex-start[\s\S]*overflow:\s*hidden/);
