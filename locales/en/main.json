@@ -111,6 +111,19 @@
       "group": "Group",
       "untitled": "Untitled group"
     },
+    "groupLogic": {
+      "mode": "Combination mode",
+      "and": "AND",
+      "or": "OR",
+      "group": "Group",
+      "expect": "Expected state",
+      "expectEnabled": "Enabled",
+      "expectDisabled": "Disabled",
+      "add": "Add group condition",
+      "remove": "Remove condition",
+      "empty": "Add at least one group condition",
+      "missing": "This group no longer exists; pick another group or remove the condition."
+    },
     "quickGroup": {
       "title": "Quick Group Manager",
       "untitled": "Untitled group",

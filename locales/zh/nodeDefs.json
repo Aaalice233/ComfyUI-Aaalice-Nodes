@@ -36,6 +36,14 @@
       "0": { "name": "已禁用", "tooltip": "组内所有节点均已静音或绕过时为 True。" }
     }
   },
+  "GroupLogicProbe": {
+    "display_name": "🧭 组逻辑探测",
+    "description": "在队列提交时将多个可视组的启用/禁用探测按 AND 或 OR 组合，输出单个布尔值用于懒执行分支。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "结果", "tooltip": "组合探测结果；连接到 ImpactConditionalBranch 等懒执行条件分支的 cond。" }
+    }
+  },
   "ParameterPanel": {
     "display_name": "🎛️ 参数面板",
     "description": "编辑一组参数并按实际数量物化最多 32 路直接输出；参数结构通过节点右键菜单编辑。",

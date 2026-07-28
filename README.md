@@ -59,6 +59,7 @@ pip install -r requirements.txt
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `QuickGroupManager` | `Aaalice/control` | Enable, mute, or bypass color-scoped visual groups with ordering and linkage rules. |
 | `GroupIsEnabled` | `Aaalice/control` | Report at queue time whether a visual group is fully disabled. |
+| `GroupLogicProbe` | `Aaalice/control` | Combine multiple group enabled/disabled probes with AND/OR into one boolean for lazy branching. |
 | `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
 | `ResolutionPreset` | `Aaalice/tools` | Pick an exact aligned width and height with presets, direct input, or a draggable canvas. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
@@ -157,6 +158,15 @@ The node controls only groups in its current graph. A grouped subgraph node can 
 Pick a visual group from the node's dropdown. When the prompt is queued, the node snapshots that group's member modes and reports a single boolean: **Disabled** is true only when every member is muted or bypassed, and false when the group is fully running or only partly disabled. Duplicate group titles are distinguished with an order suffix, and the probe's own mode never counts toward the result.
 
 The probe must sit outside the group it watches: a muted or bypassed group never executes, including probes inside it. A group that was renamed or deleted, or one with no member nodes, fails explicitly at execution instead of guessing a state.
+
+</details>
+
+<details>
+<summary><strong>GroupLogicProbe — multi-group AND/OR probe</strong></summary>
+
+Build a list of group conditions, each pairing a visual group with an expected state (**Enabled** or **Disabled**), then combine them with the **AND / OR** switch. When the prompt is queued, the node snapshots every referenced group's member modes and outputs a single boolean: AND requires every condition to match, OR requires at least one. A partly disabled (mixed) group matches neither expectation.
+
+Connect the result to a lazy conditional branch such as Impact Pack's `ImpactConditionalBranch` cond input — the unselected branch's upstream never executes, which is the idiomatic way to skip whole sections of a workflow when a group is off. Rows referencing renamed or deleted groups are highlighted in the panel and fail explicitly at execution.
 
 </details>
 

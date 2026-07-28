@@ -6,6 +6,7 @@ import "./parameter_panel.js";
 import "./parameter_receiver.js";
 import "./enum_switch.js";
 import "./group_is_enabled.js";
+import "./group_logic_probe.js";
 import "./simple_notify.js";
 import "./prompt_cleaning_maid.js";
 import "./prompt_selector.js";

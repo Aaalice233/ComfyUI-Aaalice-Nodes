@@ -59,6 +59,7 @@ pip install -r requirements.txt
 | `ParameterReceiver` | `Aaalice/control` | 绑定 ParameterPanel，将对应的 KJ Get 收束到一个紧凑输出节点。 |
 | `QuickGroupManager` | `Aaalice/control` | 按颜色范围启用、静音或绕过可视组，并配置排序与联动规则。 |
 | `GroupIsEnabled` | `Aaalice/control` | 在队列提交时报告可视组是否被完全禁用。 |
+| `GroupLogicProbe` | `Aaalice/control` | 将多个组的启用/禁用探测按 AND/OR 组合成单个布尔值，用于懒执行分支。 |
 | `EnumSwitch` | `Aaalice/tools` | 根据精确匹配的字符串，只执行并输出对应分支。 |
 | `ResolutionPreset` | `Aaalice/tools` | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
@@ -157,6 +158,15 @@ QuickGroupManager 不参与工作流执行，也没有输入或输出引脚。�
 在节点下拉框中选择一个可视组。队列提交时，节点快照该组成员的模式并报告单个布尔值：**已禁用** 仅在组内所有节点都已静音或绕过时为 True；组完全在运行或只被部分禁用时为 False。同名组按出现顺序加序号区分，探测器自身的模式不计入判定。
 
 探测器必须放在被观察组之外：被静音或绕过的组不会执行，组内的探测器也不例外。组被重命名或删除、或组内没有节点时，执行会显式失败而不是猜测状态。
+
+</details>
+
+<details>
+<summary><strong>GroupLogicProbe — 多组 AND/OR 探测</strong></summary>
+
+在面板中添加多条组判断条件，每条由一个可视组和一个期望状态（**已启用** 或 **已禁用**）组成，再用顶部的 **AND / OR** Switcher 组合。队列提交时，节点快照所有被引用组的成员模式并输出单个布尔值：AND 要求全部条件满足，OR 要求至少一条满足。部分禁用（混合态）的组对两种期望都不匹配。
+
+将结果连接到 Impact Pack 的 `ImpactConditionalBranch` 等懒执行条件分支的 cond 输入——未选中分支的上游完全不执行，这是组关闭时跳过整段工作流的标准用法。引用了已重命名或已删除组的条件行会在面板中标注警告，并在执行时显式失败。
 
 </details>
 

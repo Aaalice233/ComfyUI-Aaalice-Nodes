@@ -27,6 +27,7 @@
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
 | 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
+| 27 | `GroupLogicProbe` | control | 多条组启用/禁用条件按 AND/OR 组合，队列提交时快照求值并输出单个布尔用于懒执行分支。 |
 
 ## 不再重置
 

@@ -36,6 +36,14 @@
       "0": { "name": "Disabled", "tooltip": "True when every node in the selected group is muted or bypassed." }
     }
   },
+  "GroupLogicProbe": {
+    "display_name": "🧭 Group Logic Probe",
+    "description": "Combine multiple visual-group enabled/disabled probes with AND or OR at the moment the prompt is queued, and output one boolean for lazy branching.",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "Result", "tooltip": "Combined probe result; connect to a lazy conditional branch such as ImpactConditionalBranch's cond." }
+    }
+  },
   "ParameterPanel": {
     "display_name": "🎛️ Parameter Panel",
     "description": "Edit one parameter set and materialize up to 32 active direct outputs; edit structure from the node context menu.",

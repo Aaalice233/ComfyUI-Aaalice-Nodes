@@ -111,6 +111,19 @@
       "group": "组",
       "untitled": "未命名组"
     },
+    "groupLogic": {
+      "mode": "组合方式",
+      "and": "AND",
+      "or": "OR",
+      "group": "组",
+      "expect": "期望状态",
+      "expectEnabled": "已启用",
+      "expectDisabled": "已禁用",
+      "add": "添加组判断",
+      "remove": "删除条件",
+      "empty": "至少添加一个组判断",
+      "missing": "该组已不存在，请重新选择组或删除此条件。"
+    },
     "quickGroup": {
       "title": "快速组管理器",
       "untitled": "未命名组",

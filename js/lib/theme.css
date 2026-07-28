@@ -2724,3 +2724,18 @@
 @keyframes aa-krita-mark-pulse { 0%, 100% { box-shadow: 0 5px 13px color-mix(in srgb, var(--aa-krita-tone) 16%, rgb(0 0 0 / .2)), inset 0 1px color-mix(in srgb, var(--aa-ui-text) 9%, transparent); transform: translateY(0); } 50% { box-shadow: 0 8px 20px color-mix(in srgb, var(--aa-krita-tone) 24%, rgb(0 0 0 / .2)), inset 0 1px color-mix(in srgb, var(--aa-ui-text) 9%, transparent); transform: translateY(-1px); } }
 @media (max-width: 560px) { .aa-krita-settings__connection, .aa-krita-settings__install { grid-template-columns: 22px minmax(0, 1fr); } .aa-krita-settings__connection > .aa-ui-button, .aa-krita-settings__install > .aa-ui-button { grid-column: 1 / -1; width: 100%; } .aa-krita-settings__path { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .aa-krita *, .aa-krita-settings * { transition: none !important; animation: none !important; } }
+
+/* GroupLogicProbe condition panel */
+.dom-widget:has(> .aa-group-logic) { pointer-events: none !important; }
+.aa-group-logic { display: flex; width: 100%; height: 100%; min-height: 0; box-sizing: border-box; flex-direction: column; gap: 8px; padding: 6px 8px 8px; color: var(--aa-ui-text); pointer-events: none; }
+.aa-group-logic__header { display: flex; flex: none; justify-content: flex-end; pointer-events: auto; }
+.aa-group-logic__rows { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; gap: 6px; outline: none; overflow-x: hidden; overflow-y: auto; pointer-events: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--aa-ui-accent) 26%, transparent) transparent; }
+.aa-group-logic__row { display: grid; flex: none; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 6px; }
+.aa-group-logic__group { min-width: 0; }
+.aa-group-logic__expect { width: 96px; flex: none; }
+.aa-group-logic__group.is-missing .aa-ui-listbox-select__trigger { border-color: color-mix(in srgb, var(--aa-ui-warning) 55%, transparent); color: var(--aa-ui-warning); }
+.aa-group-logic__empty { display: flex; min-height: 36px; flex: 1 1 auto; align-items: center; justify-content: center; gap: 6px; color: var(--aa-ui-muted); font-size: 11px; }
+.aa-group-logic__empty[hidden] { display: none; }
+.aa-group-logic__empty .aa-ui-icon { width: 14px; height: 14px; }
+.aa-group-logic__footer { display: flex; flex: none; pointer-events: auto; }
+.aa-group-logic__add { flex: 1 1 auto; justify-content: center; }

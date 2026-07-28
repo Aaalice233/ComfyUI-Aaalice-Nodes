@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from comfy_api.latest import io
 
-from .._lib.group_state import parse_group_state_payload
+from .._lib.group_state import assert_group_usable, parse_group_state_payload
 
 
 class GroupIsEnabled(io.ComfyNode):
@@ -44,12 +44,8 @@ class GroupIsEnabled(io.ComfyNode):
     @classmethod
     def execute(cls, group_state_payload: str = "", **_kwargs) -> io.NodeOutput:
         payload = parse_group_state_payload(group_state_payload)
-        state, title = payload["state"], payload["title"]
-        if state == "missing":
-            raise ValueError(f"Group Is Enabled cannot find the selected visual group: {title or '(none selected)'}")
-        if state == "empty":
-            raise ValueError(f"Group Is Enabled found an empty visual group: {title}")
-        return io.NodeOutput(state == "disabled")
+        assert_group_usable(payload["title"], payload["state"])
+        return io.NodeOutput(payload["state"] == "disabled")
 
 
 __all__ = ["GroupIsEnabled"]
