@@ -22,16 +22,11 @@ class GroupIsEnabled(io.ComfyNode):
             display_name="🚦 Group Is Enabled",
             category="Aaalice/control",
             description=(
-                "Report whether the selected visual group is fully enabled or fully disabled "
+                "Report whether the selected visual group is fully disabled "
                 "at the moment the prompt is queued."
             ),
             inputs=[],
             outputs=[
-                io.Boolean.Output(
-                    "enabled",
-                    display_name="Enabled",
-                    tooltip="True when every node in the selected group is enabled (not muted or bypassed).",
-                ),
                 io.Boolean.Output(
                     "disabled",
                     display_name="Disabled",
@@ -54,7 +49,7 @@ class GroupIsEnabled(io.ComfyNode):
             raise ValueError(f"Group Is Enabled cannot find the selected visual group: {title or '(none selected)'}")
         if state == "empty":
             raise ValueError(f"Group Is Enabled found an empty visual group: {title}")
-        return io.NodeOutput(state == "enabled", state == "disabled")
+        return io.NodeOutput(state == "disabled")
 
 
 __all__ = ["GroupIsEnabled"]

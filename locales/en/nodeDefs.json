@@ -30,11 +30,10 @@
   },
   "GroupIsEnabled": {
     "display_name": "🚦 Group Is Enabled",
-    "description": "Report whether the selected visual group is fully enabled or fully disabled at the moment the prompt is queued.",
+    "description": "Report whether the selected visual group is fully disabled at the moment the prompt is queued.",
     "inputs": {},
     "outputs": {
-      "0": { "name": "Enabled", "tooltip": "True when every node in the selected group is enabled (not muted or bypassed)." },
-      "1": { "name": "Disabled", "tooltip": "True when every node in the selected group is muted or bypassed." }
+      "0": { "name": "Disabled", "tooltip": "True when every node in the selected group is muted or bypassed." }
     }
   },
   "ParameterPanel": {

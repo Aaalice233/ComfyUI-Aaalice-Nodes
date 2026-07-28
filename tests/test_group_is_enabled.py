@@ -22,14 +22,14 @@ class GroupIsEnabledSchemaTests(unittest.TestCase):
     def test_node_is_registered_in_the_control_domain(self):
         self.assertIn(GroupIsEnabled, NODE_CLASSES)
 
-    def test_schema_reports_two_boolean_states(self):
+    def test_schema_reports_disabled_state(self):
         schema = GroupIsEnabled.define_schema()
         self.assertEqual(schema.node_id, "GroupIsEnabled")
         self.assertEqual(schema.category, "Aaalice/control")
         self.assertEqual(schema.display_name, "🚦 Group Is Enabled")
         self.assertEqual(schema.inputs, [])
         self.assertTrue(schema.accept_all_inputs)
-        self.assertEqual([item.id for item in schema.outputs], ["enabled", "disabled"])
+        self.assertEqual([item.id for item in schema.outputs], ["disabled"])
 
 
 class GroupIsEnabledPayloadTests(unittest.TestCase):
@@ -45,17 +45,17 @@ class GroupIsEnabledPayloadTests(unittest.TestCase):
 
 
 class GroupIsEnabledExecuteTests(unittest.TestCase):
-    def test_enabled_group_reports_enabled_only(self):
+    def test_enabled_group_reports_not_disabled(self):
         output = GroupIsEnabled.execute(payload("enabled"))
-        self.assertEqual(output.args, (True, False))
+        self.assertEqual(output.args, (False,))
 
-    def test_disabled_group_reports_disabled_only(self):
+    def test_disabled_group_reports_disabled(self):
         output = GroupIsEnabled.execute(payload("disabled"))
-        self.assertEqual(output.args, (False, True))
+        self.assertEqual(output.args, (True,))
 
-    def test_mixed_group_reports_neither(self):
+    def test_mixed_group_reports_not_disabled(self):
         output = GroupIsEnabled.execute(payload("mixed"))
-        self.assertEqual(output.args, (False, False))
+        self.assertEqual(output.args, (False,))
 
     def test_missing_group_fails_with_the_selected_title(self):
         with self.assertRaisesRegex(ValueError, "Upscalers"):

@@ -30,11 +30,10 @@
   },
   "GroupIsEnabled": {
     "display_name": "🚦 组启用探测",
-    "description": "在队列提交时报告选中可视组是否完全启用或被完全禁用。",
+    "description": "在队列提交时报告选中可视组是否被完全禁用。",
     "inputs": {},
     "outputs": {
-      "0": { "name": "已启用", "tooltip": "组内所有节点均未静音或绕过时为 True。" },
-      "1": { "name": "已禁用", "tooltip": "组内所有节点均已静音或绕过时为 True。" }
+      "0": { "name": "已禁用", "tooltip": "组内所有节点均已静音或绕过时为 True。" }
     }
   },
   "ParameterPanel": {
