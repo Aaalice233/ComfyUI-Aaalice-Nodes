@@ -45,6 +45,14 @@ function normalizeLayout(layout, { fullWidth = false, rowSpan = null, legacyColu
 	return { row, column, columnSpan, rowSpan: normalizedRowSpan };
 }
 
+export function normalizeGroupSource(source) {
+	if (source == null) return null;
+	if (typeof source.provider !== "string" || !source.provider || typeof source.hostId !== "string" || !source.hostId) {
+		throw new DashboardModelError("Dashboard group source is invalid", "invalid-group-source");
+	}
+	return { provider: source.provider, hostId: source.hostId };
+}
+
 function assertUnique(id, ids) {
 	if (!id || typeof id !== "string") throw new DashboardModelError("Dashboard identity is missing", "invalid-id");
 	if (ids.has(id)) throw new DashboardModelError(`Duplicate dashboard identity: ${id}`, "duplicate-id");
@@ -73,7 +81,11 @@ export function normalizeDashboard(raw) {
 		if (!Array.isArray(sourcePage.groups) || !Array.isArray(sourcePage.items)) throw new DashboardModelError("Dashboard page collections are invalid");
 		for (const sourceGroup of sourcePage.groups) {
 			assertUnique(sourceGroup?.id, ids);
-			page.groups.push({ id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: DASHBOARD_TONES.includes(sourceGroup.tone) ? sourceGroup.tone : "neutral", layout: normalizeLayout(sourceGroup.layout, { fullWidth: true, rowSpan: 1, legacyColumns }) });
+			const source = normalizeGroupSource(sourceGroup.source);
+			page.groups.push({
+				id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: DASHBOARD_TONES.includes(sourceGroup.tone) ? sourceGroup.tone : "neutral",
+				...(source ? { source } : {}), layout: normalizeLayout(sourceGroup.layout, { fullWidth: true, rowSpan: 1, legacyColumns }),
+			});
 		}
 		const groupIds = new Set(page.groups.map((group) => group.id));
 		for (const sourceItem of sourcePage.items) {
@@ -103,8 +115,13 @@ export function createControlItem(binding, label = "", layout = { row: 0, column
 export function createSeparatorItem(label = "", row = 0) {
 	return { id: stableId("item"), kind: "separator", binding: null, label, groupId: null, compact: false, layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN } };
 }
-export function createLayoutGroup(name = "Group", tone = "neutral", row = 0) {
-	return { id: stableId("group"), name, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: 1 } };
+export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, source = null) {
+	const normalizedSource = normalizeGroupSource(source);
+	return {
+		id: stableId("group"), name, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral",
+		...(normalizedSource ? { source: normalizedSource } : {}),
+		layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: 1 },
+	};
 }
 
 export function findPage(model, pageId) { return model.pages.find((page) => page.id === pageId) || null; }

@@ -1,6 +1,6 @@
 /** Immutable Dashboard V2 commands composed from pure model/layout helpers. */
 
-import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, stableId } from "./dashboard_model.js";
+import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { compactScope, firstAvailableLayout, orderedItems, placeEntries, placeEntry } from "./dashboard_layout.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
 
@@ -9,13 +9,37 @@ function removeEmptyGroups(page) {
 	const used = new Set(page.items.map((item) => item.groupId).filter(Boolean)); page.groups = page.groups.filter((group) => used.has(group.id)); return page;
 }
 
-export function addItems(model, pageId, controls) {
+function sameGroupSource(left, right) {
+	return left?.provider === right?.provider && left?.hostId === right?.hostId;
+}
+
+function findSourceGroup(page, source) {
+	if (!source) return null;
+	return page.groups.find((group) => sameGroupSource(group.source, source))
+		|| page.groups.find((group) => page.items.some((item) => item.groupId === group.id && sameGroupSource(item.binding, source)))
+		|| null;
+}
+
+function normalizeSourceGroup(sourceGroup) {
+	const source = normalizeGroupSource(sourceGroup?.source);
+	if (!source) return null;
+	return { source, name: String(sourceGroup.name || "Group"), tone: sourceGroup.tone };
+}
+
+export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
+	const created = [];
 	for (const control of controls) {
 		const item = createControlItem(control.binding, control.label, { row: 0, column: 0, columnSpan: control.columnSpan || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN });
-		item.layout = firstAvailableLayout(page, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan }); page.items.push(item);
+		item.layout = firstAvailableLayout(page, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan }); page.items.push(item); created.push(item);
 	}
-	return normalizeDashboard(next);
+	const requestedGroup = normalizeSourceGroup(sourceGroup);
+	if (!created.length || !requestedGroup) return normalizeDashboard(next);
+	const existingGroup = findSourceGroup(page, requestedGroup.source);
+	if (existingGroup) return moveItems(next, created.map((item) => item.id), pageId, { groupId: existingGroup.id });
+	const ungroupedSourceItems = page.items.filter((item) => !item.groupId && sameGroupSource(item.binding, requestedGroup.source));
+	if (ungroupedSourceItems.length < 2) return normalizeDashboard(next);
+	return createGroup(next, pageId, ungroupedSourceItems.map((item) => item.id), { name: requestedGroup.name, tone: requestedGroup.tone, source: requestedGroup.source });
 }
 
 export function addSeparator(model, pageId, label = "") {
@@ -93,7 +117,7 @@ export function resizeItem(model, itemId, { columnSpan, rowSpan }) {
 	return normalizeDashboard(next);
 }
 
-export function createGroup(model, pageId, itemIds, { name = "Group", tone = "neutral" } = {}) {
+export function createGroup(model, pageId, itemIds, { name = "Group", tone = "neutral", source = null } = {}) {
 	if (itemIds.length < 2) throw new Error("A layout group requires at least two items");
 	const next = copy(model); const page = findPage(next, pageId); const ids = new Set(itemIds);
 	if (!page || itemIds.some((id) => !page.items.some((item) => item.id === id))) throw new Error("Layout group items must belong to one page");
@@ -103,7 +127,7 @@ export function createGroup(model, pageId, itemIds, { name = "Group", tone = "ne
 		return [item.id, { ...item.layout, row: item.layout.row + (parent?.layout.row || 0), column: item.layout.column + (parent?.layout.column || 0) }];
 	}));
 	const row = Math.min(...[...absoluteLayouts.values()].map((layout) => layout.row));
-	const group = createLayoutGroup(name, tone, row); page.groups.push(group);
+	const group = createLayoutGroup(name, tone, row, source); page.groups.push(group);
 	for (const item of selected) {
 		const layout = absoluteLayouts.get(item.id);
 		item.groupId = group.id; item.layout = { ...layout, row: layout.row - row };

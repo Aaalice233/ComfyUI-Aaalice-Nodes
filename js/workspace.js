@@ -347,6 +347,14 @@ async function removePage(page) {
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
 
+function sharedSourceGroup(controls) {
+	if (!controls.length || controls.some((control) => !control.sourceGroup?.source)) return null;
+	const [first] = controls;
+	const source = first.sourceGroup.source;
+	const shared = controls.every((control) => control.sourceGroup.source.provider === source.provider && control.sourceGroup.source.hostId === source.hostId);
+	return shared ? first.sourceGroup : null;
+}
+
 function dashboardPresetLabels() {
 	return {
 		title: t("aaalice.workspace.dashboardPreset.title", "Sidebar presets"), open: t("aaalice.workspace.dashboardPreset.open", "Open sidebar presets"), placeholder: t("aaalice.workspace.dashboardPreset.placeholder", "Select preset"), attention: t("aaalice.workspace.dashboardPreset.attention", "Needs attention"),
@@ -1591,7 +1599,7 @@ function openAddControls(node) {
 		if (body._createTarget) { body._createTarget(); model = dashboard(); page = currentPage(model); }
 		if (!page) return;
 		const chosen = controls.filter((control) => selected.has(bindingKey(control.binding)));
-		updateDashboard((current) => addItems(current, page.id, chosen));
+		updateDashboard((current) => addItems(current, page.id, chosen, { sourceGroup: sharedSourceGroup(chosen) }));
 		remindWorkflowSave(t("aaalice.workspace.binding.saveWorkflowReminder", "Save the workflow to keep these sidebar controls; otherwise they will be lost."));
 		dialog.close();
 	} });

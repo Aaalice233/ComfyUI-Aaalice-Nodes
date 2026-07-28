@@ -183,7 +183,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 1. 官方 Sidebar Tab 挂载参数控制与词库工作区；页面布局随工作流序列化，参数值仍由节点拥有。
 2. Control Provider Registry 分别解析简单 ComfyUI 原生 widget、Aaalice 稳定参数和子图整体公开 widget；绑定只按稳定 Host ID、Control ID 与可选 Adapter ID 精确解析。原生 fallback 仅接受由 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 及其 LiteGraph 运行时别名组成的简单节点，并统一映射为 `numeric`、`boolean`、`text`、`choice`；出现未知自定义面板时不做部分猜测。结构支持、运行可用性和绑定健康度是三个独立维度：空选项或未赋值控件仍可建立绑定，并以 `ready`、`empty`、`unset`、`unavailable`、`error` 表示瞬时可用性，不得伪装成 `missing` 或 `incompatible`。
-3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。卡片宽高以整数网格单位持久化，窄侧栏的一列投影只改变显示，不反写规范布局。
+3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。Provider 可为列出的控件声明稳定来源组；ParameterPanel 的新旧卡片达到两个或更多时据此创建以来源身份关联的 Layout Group，后续新增卡片加入同一组，用户改名仍保留。节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。卡片宽高以整数网格单位持久化，窄侧栏的一列投影只改变显示，不反写规范布局。
 4. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，布局备份导入跳过不兼容值并等待人工重绑。
 5. 侧边栏预设纯模型保存完整 Dashboard 与按稳定 Binding Key 索引的可序列化参数 payload，并从当前 Working Copy 与基准快照计算“已修改”状态；不存在基准时界面只显示中性占位。运行时协调器负责去重、捕获、预检以及布局与参数的共同应用和失败回滚；工作区入口负责 ComfyUI 图事务、对话框、切换保护和工作流序列化，Provider 继续是唯一写回节点的边界。预设集合与基准身份位于 `app.graph.extra.aaaliceSidebarPresets`，随工作流文件分发（含 Workflow Hub 的打包与安装，该插件原样保留 `extra`），跨插件契约是“不得剥离未知 extra 键”，Hub 侧零耦合。图同步签名同时覆盖看板与预设 extra，结构相同但持久状态不同的工作流切换标签页时必须刷新。
 6. “组导航”只显示用户手动加入的可视组；版本化导航清单、唯一组合键、每项 X/Y 目标偏移和目标缩放写入 `app.graph.extra` 并随工作流保存，组状态与边界从当前图实时解析。定位时偏移实时边界的目标中心并按条目倍率计算目标画布缩放；搜索和定位只属于会话视图，导航范围不受 QuickGroupManager 的颜色筛选或排序影响。

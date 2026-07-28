@@ -17,6 +17,54 @@ test("Dashboard V2 pages directly own grid control cards", () => {
 	]);
 });
 
+test("source-grouped controls create and reuse one layout group", () => {
+	const { model, page } = modelWithPage();
+	const sourceGroup = { source: { provider: "aaalice-parameter", hostId: "panel-a" }, name: "Sampler", tone: "blue" };
+	let next = addItems(model, page.id, [
+		{ label: "Steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a" } },
+		{ label: "CFG", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "cfg" } },
+	], { sourceGroup });
+	const group = next.pages[0].groups[0];
+	assert.equal(group.name, "Sampler"); assert.equal(group.tone, "blue"); assert.deepEqual(group.source, sourceGroup.source);
+	assert.ok(next.pages[0].items.every((item) => item.groupId === group.id));
+	next = addItems(next, page.id, [{ label: "Seed", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "seed", valueType: "number" } }], {
+		sourceGroup: { ...sourceGroup, name: "Renamed panel", tone: "red" },
+	});
+	assert.equal(next.pages[0].groups.length, 1);
+	assert.equal(next.pages[0].groups[0].name, "Sampler"); assert.equal(next.pages[0].groups[0].tone, "blue");
+	assert.ok(next.pages[0].items.every((item) => item.groupId === group.id));
+	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 }, { row: 12, column: 0, columnSpan: 6, rowSpan: 12 },
+	]);
+});
+
+test("a first single source control joins a group when a later source control arrives", () => {
+	const { model, page } = modelWithPage();
+	const sourceGroup = { source: { provider: "aaalice-parameter", hostId: "panel-a" }, name: "Sampler", tone: "blue" };
+	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };
+	let next = addItems(model, page.id, [{ label: "Steps", binding: panelBinding }], { sourceGroup });
+	assert.equal(next.pages[0].groups.length, 0); assert.equal(next.pages[0].items[0].groupId, null);
+	next = addItems(next, page.id, [{ label: "CFG", binding: { ...panelBinding, controlId: "cfg" } }], { sourceGroup });
+	assert.equal(next.pages[0].groups.length, 1); assert.equal(next.pages[0].groups[0].name, "Sampler");
+	assert.ok(next.pages[0].items.every((item) => item.groupId === next.pages[0].groups[0].id));
+});
+
+test("legacy groups are reused when their members identify the same control source", () => {
+	const { model, page } = modelWithPage();
+	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };
+	let next = addItems(model, page.id, [
+		{ label: "Steps", binding: panelBinding },
+		{ label: "CFG", binding: { ...panelBinding, controlId: "cfg" } },
+	]);
+	next = createGroup(next, page.id, next.pages[0].items.map((item) => item.id), { name: "Custom group" });
+	const group = next.pages[0].groups[0]; assert.equal(group.source, undefined);
+	next = addItems(next, page.id, [{ label: "Seed", binding: { ...panelBinding, controlId: "seed" } }], {
+		sourceGroup: { source: { provider: "aaalice-parameter", hostId: "panel-a" }, name: "Sampler", tone: "blue" },
+	});
+	assert.equal(next.pages[0].groups.length, 1); assert.equal(next.pages[0].groups[0].id, group.id); assert.equal(next.pages[0].groups[0].name, "Custom group");
+	assert.ok(next.pages[0].items.every((item) => item.groupId === group.id));
+});
+
 test("specialized controls can request an initial full-width footprint", () => {
 	const { model, page } = modelWithPage();
 	const next = addItems(model, page.id, [{ label: "Compare Images", binding: { ...binding, controlId: "compare_view", valueType: "image-compare-view" }, columnSpan: 12, rowSpan: 36 }]);
@@ -219,5 +267,6 @@ test("duplicate ids, missing groups and overlapping cells fail visibly", () => {
 		{ id: "a", kind: "control", binding, groupId: null, layout: { row: 0, column: 0, columnSpan: 1, rowSpan: 12 } },
 		{ id: "b", kind: "control", binding: { ...binding, controlId: "b" }, groupId: null, layout: { row: 6, column: 0, columnSpan: 1, rowSpan: 12 } },
 	] }] }), /overlap/);
+	assert.throws(() => normalizeDashboard({ ...base, pages: [{ ...page, items: [], groups: [{ id: "group", name: "Bad source", source: { provider: "aaalice-parameter" }, layout: { row: 0, column: 0, columnSpan: 12, rowSpan: 1 } }] }] }), /group source/);
 	assert.throws(() => normalizeDashboard({ ...base, pages: [{ ...page, items: [{ id: "x", kind: "control", binding, groupId: null, layout: { row: 0, column: 0, columnSpan: 1 } }] }] }), /row span/);
 });

@@ -54,6 +54,10 @@ function validatePresetPayload(entry, { valueType, options = {} } = {}) {
 	return true;
 }
 
+function parameterPanelTitle(node) {
+	return String(node?.title || node?.type || node?.comfyClass || "Parameter Panel");
+}
+
 class ProviderRegistry {
 	constructor() { this.providers = []; }
 	register(provider) { this.providers.push(provider); return () => { this.providers = this.providers.filter((item) => item !== provider); }; }
@@ -78,6 +82,7 @@ controlProviders.register({
 		return ensureParameters(node).filter(isTunable).map((parameter) => ({
 			label: displayName(parameter, parameter.id),
 			binding: { provider: this.id, hostId, controlId: parameter.id, valueType: controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference") },
+			sourceGroup: { source: { provider: this.id, hostId }, name: parameterPanelTitle(node), tone: "blue" },
 			rowSpan: recommendedControlRowSpan({ value: parameter.value, options: parameter.config, paramType: parameter.param_type }),
 		}));
 	},

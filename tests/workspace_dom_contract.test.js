@@ -612,6 +612,12 @@ test("layout editing keeps creation and layout tools in the primary toolbar", ()
 
 test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
 	assert.match(workspace, /createGroup\(current, page\.id/);
+	assert.match(providers, /sourceGroup: \{ source: \{ provider: this\.id, hostId \}/);
+	assert.match(workspace, /function sharedSourceGroup\(controls\)/);
+	assert.match(workspace, /addItems\(current, page\.id, chosen, \{ sourceGroup: sharedSourceGroup\(chosen\) \}\)/);
+	assert.match(dashboardCommands, /function findSourceGroup/);
+	assert.match(dashboardCommands, /ungroupedSourceItems/);
+	assert.match(dashboardCommands, /createGroup\(next, pageId, ungroupedSourceItems\.map/);
 	assert.match(dashboardComponents, /export function createDashboardGroup/);
 	assert.match(dashboardComponents, /aa-dashboard-composite-card/);
 	assert.match(dashboardComponents, /classList\.add\("is-group-member"\)/);
