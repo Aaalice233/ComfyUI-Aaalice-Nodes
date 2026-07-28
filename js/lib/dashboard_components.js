@@ -1,7 +1,7 @@
 /** Pure Dashboard V2 grid/group DOM composition. */
 
 import { orderedItems, projectScope } from "./dashboard_layout.js";
-import { el, icon, iconButton } from "./ui.js";
+import { el, icon, iconButton, inlineRename } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
 	element.style.setProperty("--aa-dashboard-row", String(projected.row + 1));
@@ -12,10 +12,18 @@ function applyGridPosition(element, projected, source = projected) {
 	element.dataset.dropColumnSpan = String(source.columnSpan);
 }
 
-export function createDashboardGroup({ group, members, columns = 12, editMode = false, selected = false, labels = {}, renderItem, onMenu }) {
+export function createDashboardGroup({ group, members, columns = 12, editMode = false, selected = false, labels = {}, renderItem, onMenu, onRename }) {
 	const memberCount = el("span", { className: "aa-dashboard-group-count", attrs: { "aria-hidden": "true" }, text: String(members.length) });
+	const title = el("h3", null, group.name);
+	if (onRename) {
+		title.title = labels.renameHint || "Double-click to rename";
+		title.addEventListener("dblclick", (event) => {
+			event.preventDefault(); event.stopPropagation();
+			inlineRename(title, { value: group.name, ariaLabel: labels.renameHint || "Rename group", onCommit: (name) => { if (name) onRename(group, name); else title.textContent = group.name; } });
+		});
+	}
 	const header = el("header", { className: "aa-dashboard-group-header", attrs: { tabindex: editMode ? 0 : null }, children: [
-		el("span", "aa-dashboard-group-marker"), el("h3", null, group.name), memberCount,
+		el("span", "aa-dashboard-group-marker"), title, memberCount,
 		...(editMode ? [icon("drag", { className: "aa-dashboard-group-grip" }), iconButton({ iconName: "settings", label: labels.groupMenu || "Group menu", variant: "ghost", onClick: (event) => onMenu?.(event, group) })] : []),
 	] });
 	const grid = el("div", { className: "aa-dashboard-group-grid", attrs: { "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(group.layout.columnSpan) } }); grid.style.setProperty("--aa-dashboard-columns", String(columns));
@@ -30,7 +38,7 @@ export function createDashboardGroup({ group, members, columns = 12, editMode = 
 	applyGridPosition(root, group.projectedLayout || group.layout, group.layout); return root;
 }
 
-export function createDashboardGrid({ page, columns = 12, editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), labels = {}, renderItem, onGroupMenu }) {
+export function createDashboardGrid({ page, columns = 12, editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), labels = {}, renderItem, onGroupMenu, onRenameGroup }) {
 	const root = el("div", { className: `aa-dashboard-grid-v2${editMode ? " is-editing" : ""}`, attrs: { "data-dashboard-page-id": page.id, "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(page.gridColumns) } });
 	root.style.setProperty("--aa-dashboard-columns", String(columns));
 	const ungrouped = orderedItems(page.items.filter((item) => !item.groupId));
@@ -41,7 +49,7 @@ export function createDashboardGrid({ page, columns = 12, editMode = false, sele
 		root.append(createDashboardGroup({
 		group, members: page.items.filter((item) => item.groupId === group.id), columns, editMode, selected: selectedGroupIds.has(group.id), labels, renderItem: (item) => {
 			const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); return card;
-		}, onMenu: onGroupMenu,
+		}, onMenu: onGroupMenu, onRename: onRenameGroup,
 	})); }
 	return root;
 }

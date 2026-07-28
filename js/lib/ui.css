@@ -379,3 +379,4 @@ input.aa-ui-control:not([type]), input.aa-ui-control[type="text"], input.aa-ui-c
 	.aa-ui-dialog-backdrop { padding: 10px; }
 	.aa-ui-field--inline { grid-template-columns: 1fr; }
 }
+.aa-ui-inline-rename { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; padding: 1px 4px; border: 1px solid color-mix(in srgb, var(--aa-ui-accent) 55%, transparent); border-radius: 5px; outline: none; background: var(--aa-ui-control); box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-accent) 12%, transparent); color: var(--aa-ui-text); font: inherit; }

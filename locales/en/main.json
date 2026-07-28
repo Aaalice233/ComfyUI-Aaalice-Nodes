@@ -46,6 +46,7 @@
       "empty": { "title": "Build your control pages", "description": "Create a page, then add controls from any compatible node's context menu.", "page": "Add controls from a compatible node's context menu." },
       "page": { "pages": "Dashboard pages", "add": "Add page", "name": "Page name", "default": "Generation", "menu": "Page actions", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
       "target": { "page": "Page", "newPage": "New page" },
+      "renameHint": "Double-click to rename",
       "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "compact": "Toggle compact mode", "resize": "Resize card; arrow keys adjust by one grid unit" },
       "layout": { "separator": "Add separator", "separatorLabel": "Separator", "remove": "Remove layout item", "compact": "Tidy layout" },
       "selection": { "toolbar": "Selected layout actions", "summary": "{count} selected", "group": "Quick group", "ungroup": "Remove from group", "width": "Toggle selected widths", "remove": "Remove selected", "removeConfirm": "Remove {count} selected layout items?", "clear": "Clear selection" },

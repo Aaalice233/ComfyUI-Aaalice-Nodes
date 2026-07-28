@@ -878,3 +878,22 @@ export function createDialog({
 	requestAnimationFrame(() => (focusableElements(dialog)[0] || dialog).focus());
 	return { overlay, dialog, header, heading, body: bodyElement, footer: footerElement, close, requestClose };
 }
+
+/** In-place text rename: swaps the anchor's content for an input until commit/cancel. */
+export function inlineRename(anchor, { value, ariaLabel = "", onCommit } = {}) {
+	if (!anchor || anchor.dataset.aaRenaming === "true") return null;
+	anchor.dataset.aaRenaming = "true";
+	const input = el("input", { className: "aa-ui-inline-rename", attrs: { type: "text", value, "aria-label": ariaLabel } });
+	anchor.replaceChildren(input);
+	input.focus(); input.select();
+	let done = false;
+	const finish = (commit) => {
+		if (done) return; done = true;
+		delete anchor.dataset.aaRenaming;
+		onCommit?.(commit ? input.value.trim() : null);
+	};
+	input.addEventListener("keydown", (event) => { event.stopPropagation(); if (event.key === "Enter") finish(true); else if (event.key === "Escape") finish(false); });
+	input.addEventListener("blur", () => finish(true));
+	for (const type of ["click", "dblclick", "pointerdown"]) input.addEventListener(type, (event) => event.stopPropagation());
+	return input;
+}

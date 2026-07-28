@@ -1,6 +1,6 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, searchToggleButton, segmentedControl } from "./ui.js";
+import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, searchToggleButton, segmentedControl } from "./ui.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [] }) {
@@ -322,7 +322,7 @@ export function createPageRail(initialState = {}) {
 	return root;
 }
 
-export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup }) {
+export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup, onRenameTitle }) {
 	const headerOnly = control?.dataset?.headerOnly === "true";
 	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
 	const root = el("article", { className: `aa-control-card${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
@@ -330,7 +330,15 @@ export function createControlCard({ item, title, control, status = "ok", editMod
 	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
 	root.dataset.dashboardMinRowSpan = String(control?.dataset?.dashboardMinRowSpan || (headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN));
 	const header = el("header", "aa-control-card-header");
-	header.append(el("span", "aa-control-card-title", title));
+	const titleElement = el("span", "aa-control-card-title", title);
+	if (onRenameTitle) {
+		titleElement.title = labels.renameHint || "Double-click to rename";
+		titleElement.addEventListener("dblclick", (event) => {
+			event.preventDefault(); event.stopPropagation();
+			inlineRename(titleElement, { value: title, ariaLabel: labels.renameHint || "Rename", onCommit: (name) => { if (name) onRenameTitle(name); else titleElement.textContent = title; } });
+		});
+	}
+	header.append(titleElement);
 	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);
 	root.append(header, control || el("p", "aa-control-card-error", status === "incompatible" ? (labels.incompatible || "Incompatible control") : (labels.missing || "Missing binding")));
 	if (editMode && item.kind === "control") root.append(el("button", { className: "aa-dashboard-resize-handle", attrs: { type: "button", "data-dashboard-resize-handle": "true", "aria-label": labels.resizeCard || "Resize card" } }));
