@@ -111,6 +111,8 @@ ComfyUI-Aaalice-Nodes/
 - DOM overlay 根和 Comfy wrapper 默认不接收指针，只给真实交互控件开启命中；缩放期间根及全部后代必须停用命中，底部和四角保留原生手柄安全区。
 - DOM widget 与原生 slot 共用空间时使用 LiteGraph 的叠放语义，不得通过隐藏槽或事后劫持 `arrange()` 修正重复高度。
 - 自定义布局在 `onResize` 中从新尺寸重算 DOM 几何、真实 slot 和 Nodes 2.0 标记，并请求画布重绘。
+- DOM widget 内需要让某个子区域吃掉剩余高度时，优先使用 flex 列布局加 `flex: 1`；不要用 `grid-template-rows: auto minmax(0, 1fr)` 配合子项自动放置。可隐藏兄弟项（`display:none`）不参与网格后，可见子项会被自动放置进 `auto` 行只保留内容高度，空的 `1fr` 行照样领走全部剩余空间，形成“外层已撑满、内容不跟随”的假性失效，且 Classic 与 Nodes 2.0 同时中招。必须用 grid 行模板时，为每个子项显式指定 `grid-row`，不依赖文档顺序。
+- 排查“元素没随容器撑满”类布局问题时，以外层到目标的实际几何链（`getBoundingClientRect`）为准逐层定位，禁止只看目标元素的 CSS 声明下结论；外层尺寸正确不代表内部排版正确。
 - 连续动画控件必须保留动画元素的 DOM identity，只更新 class、style、data 和 ARIA 状态。
 
 ### 4.3 原生槽与双模式
