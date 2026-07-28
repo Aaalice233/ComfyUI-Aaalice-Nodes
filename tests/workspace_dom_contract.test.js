@@ -267,6 +267,11 @@ test("seed lock state reuses one shared control across the node and dashboard", 
 test("dashboard enum and boolean controls reuse the shared themed controls", () => {
 	assert.match(choiceControl, /selectControl\(\{/);
 	assert.match(booleanControl, /toggleSwitch\(\{/);
+	assert.match(booleanControl, /aa-control-boolean-dot/);
+	assert.match(booleanControl, /aa-control-boolean-state/);
+	assert.match(booleanControl, /root\.classList\.toggle\("is-on", current\)/);
+	assert.match(booleanControl, /event\.target\.closest\("\.aa-ui-toggle"\)/);
+	assert.match(booleanControl, /attrs: \{ "aria-hidden": "true" \}/);
 	assert.match(controlRegistry, /AAALICE_CONTROL_RENDERERS/);
 	assert.match(controlRegistry, /COMFY_CONTROL_RENDERERS/);
 	assert.match(components, /root\.dataset\.controlKind/);
@@ -274,6 +279,8 @@ test("dashboard enum and boolean controls reuse the shared themed controls", () 
 	assert.doesNotMatch(theme, /\.aa-control-card\[data-control-kind="choice"\] \{ --aa-dashboard-control-tone:/);
 	assert.match(theme, /\.aa-control-card \.aa-control-choice-select \.aa-ui-select__native \{[^}]*font-size: 11px;[^}]*font-weight: 620;/);
 	assert.match(theme, /\.aa-control-boolean/);
+	assert.match(theme, /\.aa-control-boolean\.is-on \.aa-control-boolean-dot/);
+	assert.match(theme, /\.aa-control-boolean:focus-within/);
 });
 
 test("control cards move management into an accessible context menu", () => {
