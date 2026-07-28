@@ -1029,3 +1029,14 @@ test("one tidy action compacts group members and tightens frames before repackin
 	assert.match(workspace, /compactDashboard\(current, page\.id\)\)/);
 	assert.doesNotMatch(workspace, /group\.tidy/);
 });
+
+test("Ctrl+S flushes working-copy changes into the active baseline preset before saving", () => {
+	assert.match(workspace, /window\.addEventListener\("keydown", \(event\) => \{/);
+	assert.match(workspace, /event\.repeat \|\| event\.altKey \|\| event\.shiftKey \|\| !\(event\.ctrlKey \|\| event\.metaKey\) \|\| String\(event\.key\)\.toLowerCase\(\) !== "s"/);
+	assert.match(workspace, /\["input", "textarea", "select"\]\.includes\(target\.localName\) \|\| target\.isContentEditable/);
+	assert.match(workspace, /function flushActiveDashboardPresetOnSave\(\)/);
+	assert.match(workspace, /if \(!baseline\) return;/);
+	assert.match(workspace, /if \(!compareDashboardPreset\(baseline, snapshot\)\.modified\) return;/);
+	assert.match(workspace, /replaceDashboardPreset\(current, baseline\.id, snapshot\)/);
+	assert.match(workspace, /flushActiveDashboardPresetOnSave\(\);\s+\}, true\);/);
+});

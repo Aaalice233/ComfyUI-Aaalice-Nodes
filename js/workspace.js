@@ -151,6 +151,17 @@ function updateDashboardPresetState(callback, detail = null) {
 	if (detail) remindWorkflowSave(detail);
 }
 
+/** Ctrl+S 保存工作流时把工作副本冲刷进当前基准预设，随后的保存序列化自然包含它。 */
+function flushActiveDashboardPresetOnSave() {
+	const state = dashboardPresetState();
+	const baseline = state.presets.find((preset) => preset.id === state.baselinePresetId);
+	if (!baseline) return;
+	const snapshot = currentDashboardPresetSnapshot(undefined, baseline.values);
+	if (!compareDashboardPreset(baseline, snapshot).modified) return;
+	try { updateDashboardPresetState((current) => replaceDashboardPreset(current, baseline.id, snapshot)); }
+	catch (error) { notifyDashboardPresetError(error); }
+}
+
 function clearLegacyDashboardPresets() {
 	const graph = app.graph; const extra = graph?.extra;
 	if (!extra || !Object.prototype.hasOwnProperty.call(extra, LEGACY_VALUE_PRESETS_EXTRA_KEY)) return;
@@ -1658,6 +1669,13 @@ app.registerExtension({
 		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphSyncSignature();
 		api.addEventListener("graphChanged", scheduleGraphSync);
+		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。
+		window.addEventListener("keydown", (event) => {
+			if (event.repeat || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || String(event.key).toLowerCase() !== "s") return;
+			const target = event.target;
+			if (target instanceof Element && (["input", "textarea", "select"].includes(target.localName) || target.isContentEditable)) return;
+			flushActiveDashboardPresetOnSave();
+		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => scheduleRender("dashboard"));
 		window.addEventListener("aaalice-parameter-panel-changed", (event) => { if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard"); }); promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
