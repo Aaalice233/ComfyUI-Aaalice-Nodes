@@ -162,7 +162,14 @@ export function moveGroup(model, pageId, groupId, row) {
 }
 
 export function compactDashboard(model, pageId, groupId = null) {
-	const next = copy(model); const page = findPage(next, pageId); if (page) { compactScope(page, groupId); if (groupId) compactScope(page, null); } return normalizeDashboard(next);
+	const next = copy(model); const page = findPage(next, pageId);
+	if (page) {
+		// 先收紧每个组的成员，组框高度由成员范围派生，随后根级整理才能按新高度回填空隙。
+		if (groupId) compactScope(page, groupId);
+		else for (const group of page.groups) compactScope(page, group.id);
+		compactScope(page, null);
+	}
+	return normalizeDashboard(next);
 }
 
 export function duplicatePage(model, pageId) {

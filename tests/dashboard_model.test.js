@@ -203,6 +203,29 @@ test("controls move across pages without changing stable binding", () => {
 	model = moveItems(model, [itemId], second.id); assert.equal(model.pages[0].items.length, 0); assert.equal(model.pages[1].items[0].id, itemId); assert.deepEqual(model.pages[1].items[0].binding, binding);
 });
 
+test("compaction packs group members and tightens the group frame before repacking the page", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
+		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }, { label: "C", binding: { ...binding, controlId: "c" } },
+	]);
+	const [a, b, c] = next.pages[0].items.map((item) => item.id);
+	next = createGroup(next, page.id, [a, b, c], { name: "G", tone: "blue" });
+	next = addItems(next, page.id, [{ label: "D", binding: { ...binding, controlId: "d" } }]);
+	// 摆出稀疏组内布局: 成员全部堆在左列并留空行, 组框被撑高, D 也被推到更下方。
+	next.pages[0].items[1].layout = { row: 12, column: 0, columnSpan: 6, rowSpan: 12 };
+	next.pages[0].items[2].layout = { row: 24, column: 0, columnSpan: 6, rowSpan: 12 };
+	next.pages[0].items[3].layout = { row: 43, column: 0, columnSpan: 6, rowSpan: 12 };
+	next = compactDashboard(next, page.id);
+	const packed = next.pages[0];
+	assert.deepEqual(packed.items.map((item) => item.layout), [
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
+		{ row: 12, column: 0, columnSpan: 6, rowSpan: 12 },
+		{ row: 31, column: 0, columnSpan: 6, rowSpan: 12 },
+	]);
+	assert.equal(packed.groups[0].layout.rowSpan, 31);
+	assert.equal(packed.items[3].layout.row, packed.groups[0].layout.rowSpan);
+});
+
 test("width changes and explicit compaction remain deterministic", () => {
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
 		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }, { label: "C", binding: { ...binding, controlId: "c" } },

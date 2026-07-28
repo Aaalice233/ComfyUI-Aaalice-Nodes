@@ -1009,3 +1009,23 @@ test("sidebar tab remounts triggered by reactive value writes never interrupt an
 	assert.match(workspace, /if \(!hasActiveControlGestures\(\)\) scheduleRender\(\);/);
 	assert.match(workspace, /renderedWorkspaceTabs\.add\(element\); renderWorkspace\(element\);/);
 });
+
+test("group and card titles support double-click inline rename", () => {
+	assert.match(ui, /export function inlineRename/);
+	assert.match(ui, /if \(!anchor \|\| anchor\.dataset\.aaRenaming === "true"\) return null;/);
+	assert.match(ui, /event\.key === "Enter"\) finish\(true\); else if \(event\.key === "Escape"\) finish\(false\)/);
+	assert.match(dashboardComponents, /title\.addEventListener\("dblclick"/);
+	assert.match(dashboardComponents, /inlineRename\(title, \{ value: group\.name/);
+	assert.match(components, /titleElement\.addEventListener\("dblclick"/);
+	assert.match(components, /inlineRename\(titleElement, \{ value: title/);
+	assert.match(workspace, /onRenameTitle: \(name\) => updateDashboard\(\(current\) => updateItem\(current, item\.id, \(target\) => \{ target\.label = name; \}\)\)/);
+	assert.match(workspace, /onRenameGroup: \(group, name\) => updateDashboard/);
+	assert.match(workspace, /renameHint: t\("aaalice\.workspace\.renameHint"/);
+});
+
+test("one tidy action compacts group members and tightens frames before repacking the page", () => {
+	assert.match(dashboardCommands, /for \(const group of page\.groups\) compactScope\(page, group\.id\);/);
+	assert.match(dashboardCommands, /compactScope\(page, null\);/);
+	assert.match(workspace, /compactDashboard\(current, page\.id\)\)/);
+	assert.doesNotMatch(workspace, /group\.tidy/);
+});
