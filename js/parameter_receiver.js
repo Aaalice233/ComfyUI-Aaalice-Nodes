@@ -404,9 +404,15 @@ function quickStatusAction(receiver, state) {
 }
 
 function setGetName(getNode, name) {
-	if (!getNode?.widgets?.[0]) throw new Error(t("aaalice.receiver.error.getApi", "KJ GetNode naming API is unavailable."));
+	if (typeof getNode?.setName === "function") {
+		getNode.setName(name);
+		return;
+	}
+	if (!getNode?.widgets?.[0] || typeof getNode.onRename !== "function") {
+		throw new Error(t("aaalice.receiver.error.getApi", "KJ GetNode naming API is unavailable."));
+	}
 	getNode.widgets[0].value = name;
-	getNode.onRename?.();
+	getNode.onRename();
 }
 
 function placeGet(getNode, receiver, index, targetGraph, existingGets = []) {
@@ -672,17 +678,26 @@ function menuItems(receiver) {
 	];
 }
 
-function refreshNames(receiver, panel) {
+function refreshNames(receiver, panel, authoritativeSetNames = null) {
 	const current = binding(receiver);
 	const meta = panelMeta(panel);
 	if (receiverStructureDiff(current, meta).changed) { render(receiver); return; }
 	current.panelTitle = String(panel.title || "ParameterPanel");
+	const setNames = new Map(meta.map((parameter, index) => [
+		String(parameter.id),
+		String(
+			authoritativeSetNames?.[String(parameter.id)]
+			|| directSetNodes(panel, index)[0]?.widgets?.[0]?.value
+			|| desiredSetName(panel, parameter),
+		),
+	]));
+	current.slots = reconcileReceiverSlots(
+		current.slots,
+		meta,
+		(parameter) => setNames.get(String(parameter.id)),
+	).ordered;
 	for (let index = 0; index < meta.length; index += 1) {
-		const parameter = meta[index];
 		const slot = current.slots[index];
-		slot.name = parameter.name;
-		slot.paramType = parameter.param_type;
-		slot.setName = String(directSetNodes(panel, index)[0]?.widgets?.[0]?.value || desiredSetName(panel, parameter));
 		const getNode = managedGet(receiver, slot, index);
 		if (getNode) setGetName(getNode, slot.setName);
 	}
@@ -763,7 +778,7 @@ function setupReceiver(receiver, loaded = false) {
 			return;
 		}
 		const panel = event.detail?.node || panelFor(receiver);
-		if (panel) refreshNames(receiver, panel);
+		if (panel) refreshNames(receiver, panel, event.detail?.setNames);
 		else render(receiver);
 	};
 	window.addEventListener(EVENT_PARAMETER_CHANGED, onPanelChange);

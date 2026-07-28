@@ -215,8 +215,10 @@ function refreshKjSetNames(panel) {
 	if (!panel?.graph || !isKjReady()) return { updated: 0, errors: [] };
 	let updated = 0;
 	const errors = [];
+	const setNames = {};
 	for (const [index, parameter] of panelMeta(panel).entries()) {
-		for (const setNode of directSetNodes(panel, index)) {
+		const setNodes = directSetNodes(panel, index);
+		for (const setNode of setNodes) {
 			try {
 				if (renameKjSet(setNode, desiredSetName(panel, parameter)).changed) updated += 1;
 			} catch (error) {
@@ -224,11 +226,13 @@ function refreshKjSetNames(panel) {
 				console.error("[Aaalice] Failed to refresh linked KJ SetNode", setNode, error);
 			}
 		}
+		const actualName = setNodes[0]?.widgets?.[0]?.value;
+		if (actualName) setNames[String(parameter.id)] = String(actualName);
 	}
 	window.dispatchEvent(new CustomEvent(EVENT_PARAMETER_KJ_CHANGED, {
-		detail: { nodeId: panel.id, node: panel, updated, errors },
+		detail: { nodeId: panel.id, node: panel, updated, errors, setNames },
 	}));
-	return { updated, errors };
+	return { updated, errors, setNames };
 }
 
 function scheduleRefresh(panel) {
