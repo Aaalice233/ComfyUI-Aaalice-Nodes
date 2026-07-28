@@ -29,6 +29,20 @@ test("receiver uses a compact actionable status icon", () => {
 	assert.doesNotMatch(layoutSource, /footerHeight|footerTop/);
 });
 
+test("panel and receiver menus expose reciprocal sync and navigation across subgraphs", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const kjSource = readFileSync(join(ROOT, "js", "parameter_panel_kj.js"), "utf8");
+	assert.match(panelSource, /parameterPanelReceiverMenuItems/);
+	assert.match(kjSource, /syncBoundReceivers/);
+	assert.match(kjSource, /boundParameterReceivers/);
+	assert.match(kjSource, /navigateToGraphNode/);
+	assert.match(receiverSource, /visiblePanels/);
+	assert.match(receiverSource, /connectDescendantToAncestor/);
+	assert.match(receiverSource, /panelGraphId/);
+	assert.match(receiverSource, /getGraphId/);
+});
+
 test("receiver keeps native resize corners and can shrink after growing", () => {
 	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
 	assert.match(receiverSource, /installDomWidgetResizePassthrough\(receiver, root\)/);

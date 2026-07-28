@@ -27,15 +27,27 @@ import {
 } from "./lib/receiver_layout.js";
 import {
 	EVENT_PARAMETER_KJ_CHANGED,
+	connectDescendantToAncestor,
 	createLinkedKjSets,
 	desiredSetName,
 	directSetNodes,
 	getGraphLink,
 	getGraphNode,
 	isKjReady,
+	navigateToGraphNode,
 	nativeToast,
 	panelMeta,
+	removeCreatedBridgeSlots,
 } from "./parameter_panel_kj.js";
+import {
+	allGraphNodes,
+	directSubgraphNodes,
+	findNodeByGraphRef,
+	graphAncestors,
+	graphId,
+	isGraphAncestor,
+	rootGraph,
+} from "./lib/graph_scope.js";
 
 const NODE = "ParameterReceiver";
 const GET_NODE = "GetNode";
@@ -61,8 +73,22 @@ function binding(node) {
 }
 
 function panelFor(node) {
-	const id = binding(node).panelNodeId;
-	return id == null ? null : getGraphNode(node.graph, id);
+	const current = binding(node);
+	if (current.panelNodeId == null) return null;
+	const graphs = graphAncestors(node.graph);
+	if (current.panelGraphId != null) {
+		const graph = graphs.find((candidate) => graphId(candidate) === String(current.panelGraphId));
+		return graph ? getGraphNode(graph, current.panelNodeId) : null;
+	}
+	for (const graph of graphs) {
+		const panel = getGraphNode(graph, current.panelNodeId);
+		if (isParameterPanel(panel)) return panel;
+	}
+	return null;
+}
+
+function visiblePanels(receiver) {
+	return graphAncestors(receiver?.graph).flatMap((graph) => (graph?._nodes || []).filter(isParameterPanel));
 }
 
 function isGetNode(node) {
@@ -71,39 +97,119 @@ function isGetNode(node) {
 
 function ownerMatches(getNode, receiver, slot) {
 	const owner = getNode?.properties?.[OWNER_KEY];
+	const current = binding(receiver);
 	return owner && String(owner.receiverNodeId) === String(receiver.id)
-		&& String(owner.panelNodeId) === String(binding(receiver).panelNodeId)
+		&& (owner.receiverGraphId == null || String(owner.receiverGraphId) === graphId(receiver.graph))
+		&& String(owner.panelNodeId) === String(current.panelNodeId)
+		&& (owner.panelGraphId == null || current.panelGraphId == null || String(owner.panelGraphId) === String(current.panelGraphId))
 		&& String(owner.parameterId) === String(slot.parameterId);
+}
+
+function resolveGetFromResolved(resolved, seen = new Set()) {
+	const source = resolved?.outputNode;
+	if (!source || seen.has(source)) return null;
+	seen.add(source);
+	if (isGetNode(source)) return source;
+	if (!source.subgraph || typeof source.resolveSubgraphOutputLink !== "function") return null;
+	const slot = source.outputs?.indexOf?.(resolved.output);
+	if (slot == null || slot < 0) return null;
+	return resolveGetFromResolved(source.resolveSubgraphOutputLink(slot), seen);
 }
 
 function inputGet(receiver, index) {
 	const link = getGraphLink(receiver.graph, receiver.inputs?.[index]?.link);
-	const source = link && getGraphNode(receiver.graph, link.origin_id);
-	return isGetNode(source) ? source : null;
+	if (!link) return null;
+	const resolved = typeof link.resolve === "function" ? link.resolve(receiver.graph) : {
+		outputNode: getGraphNode(receiver.graph, link.origin_id),
+		output: getGraphNode(receiver.graph, link.origin_id)?.outputs?.[link.origin_slot],
+	};
+	return resolveGetFromResolved(resolved);
+}
+
+function followLogicalTargets(graph, link, seen = new Set()) {
+	if (!graph || !link) return [];
+	const key = `${graphId(graph)}:${link.id}`;
+	if (seen.has(key)) return [];
+	seen.add(key);
+	const resolved = typeof link.resolve === "function" ? link.resolve(graph) : {
+		inputNode: getGraphNode(graph, link.target_id),
+		input: getGraphNode(graph, link.target_id)?.inputs?.[link.target_slot],
+	};
+	if (resolved?.inputNode) return [{ node: resolved.inputNode, graph, link }];
+	const subgraphOutput = resolved?.subgraphOutput;
+	if (!subgraphOutput) return [];
+	const childGraph = subgraphOutput.parent?.subgraph || graph;
+	const outputIndex = childGraph.outputs?.indexOf?.(subgraphOutput);
+	const parentGraph = graphAncestors(childGraph)[1];
+	if (!parentGraph || outputIndex == null || outputIndex < 0) return [];
+	const targets = [];
+	for (const wrapper of directSubgraphNodes(parentGraph).filter((node) => node.subgraph === childGraph)) {
+		for (const outerLinkId of wrapper.outputs?.[outputIndex]?.links || []) {
+			targets.push(...followLogicalTargets(parentGraph, getGraphLink(parentGraph, outerLinkId), seen));
+		}
+	}
+	return targets;
+}
+
+function logicalConsumers(getNode) {
+	return (getNode?.outputs?.[0]?.links || []).flatMap((id) => followLogicalTargets(getNode.graph, getGraphLink(getNode.graph, id)));
 }
 
 function managedGet(receiver, slot, index) {
 	const connected = inputGet(receiver, index);
 	const connectedOwner = connected?.properties?.[OWNER_KEY];
-	const connectedTargets = (connected?.outputs?.[0]?.links || []).map((id) => getGraphLink(connected.graph, id)).filter(Boolean);
+	const connectedTargets = logicalConsumers(connected);
 	if (connected && connectedOwner
 		&& String(connectedOwner.panelNodeId) === String(binding(receiver).panelNodeId)
 		&& String(connectedOwner.parameterId) === String(slot.parameterId)
 		&& connectedTargets.length === 1
-		&& String(connectedTargets[0].target_id) === String(receiver.id)) {
+		&& connectedTargets[0].node === receiver) {
 		connectedOwner.receiverNodeId = receiver.id;
+		connectedOwner.receiverGraphId = graphId(receiver.graph);
 		slot.getNodeId = connected.id;
+		slot.getGraphId = graphId(connected.graph);
 		return connected;
 	}
 	if (connected && ownerMatches(connected, receiver, slot)) return connected;
-	const stored = getGraphNode(receiver.graph, slot.getNodeId);
+	const stored = findNodeByGraphRef(receiver.graph, slot.getGraphId, slot.getNodeId);
 	if (isGetNode(stored) && ownerMatches(stored, receiver, slot)) return stored;
-	return (receiver.graph?._nodes || []).find((candidate) => isGetNode(candidate) && ownerMatches(candidate, receiver, slot)) || null;
+	return allGraphNodes(rootGraph(receiver.graph)).find((candidate) => isGetNode(candidate) && ownerMatches(candidate, receiver, slot)) || null;
 }
 
 function getExternalConsumers(getNode, receiver) {
-	return (getNode?.outputs?.[0]?.links || []).map((id) => getGraphLink(getNode.graph, id)).filter(Boolean)
-		.filter((link) => String(link.target_id) !== String(receiver.id));
+	return logicalConsumers(getNode).filter((target) => target.node !== receiver);
+}
+
+function collectOutputBridgeSlots(graph, link, result, seen = new Set()) {
+	if (!graph || !link) return;
+	const key = `${graphId(graph)}:${link.id}`;
+	if (seen.has(key)) return;
+	seen.add(key);
+	const resolved = typeof link.resolve === "function" ? link.resolve(graph) : null;
+	const subgraphOutput = resolved?.subgraphOutput;
+	if (!subgraphOutput) return;
+	const childGraph = subgraphOutput.parent?.subgraph || graph;
+	if (!result.some((entry) => entry.graph === childGraph && entry.slot === subgraphOutput)) {
+		result.push({ graph: childGraph, slot: subgraphOutput });
+	}
+	const outputIndex = childGraph.outputs?.indexOf?.(subgraphOutput);
+	const parentGraph = graphAncestors(childGraph)[1];
+	if (!parentGraph || outputIndex == null || outputIndex < 0) return;
+	for (const wrapper of directSubgraphNodes(parentGraph).filter((node) => node.subgraph === childGraph)) {
+		for (const outerLinkId of wrapper.outputs?.[outputIndex]?.links || []) {
+			collectOutputBridgeSlots(parentGraph, getGraphLink(parentGraph, outerLinkId), result, seen);
+		}
+	}
+}
+
+function removeManagedGet(getNode, receiver) {
+	if (!getNode?.graph) return;
+	const bridgeSlots = [];
+	for (const linkId of getNode.outputs?.[0]?.links || []) {
+		collectOutputBridgeSlots(getNode.graph, getGraphLink(getNode.graph, linkId), bridgeSlots);
+	}
+	getNode.graph.remove?.(getNode);
+	for (const entry of bridgeSlots) entry.graph?.removeOutput?.(entry.slot);
 }
 
 function statusFor(receiver) {
@@ -251,9 +357,9 @@ async function confirmAction(text) {
 }
 
 function openBindingDialog(receiver) {
-	const panels = (receiver.graph?._nodes || []).filter(isParameterPanel);
+	const panels = visiblePanels(receiver);
 	if (!panels.length) {
-		nativeToast("error", t("aaalice.receiver.menu.noPanels", "No Parameter Panels in this graph"));
+		nativeToast("error", t("aaalice.receiver.menu.noPanels", "No Parameter Panels are visible in this scope"));
 		return;
 	}
 	const labels = disambiguatePanelLabels(panels);
@@ -303,28 +409,36 @@ function setGetName(getNode, name) {
 	getNode.onRename?.();
 }
 
-function placeGet(getNode, receiver, index) {
+function placeGet(getNode, receiver, index, targetGraph, existingGets = []) {
 	const width = Math.max(Number(getNode.size?.[0]) || 190, 190);
-	getNode.pos = [
-		(Number(receiver.pos?.[0]) || 0) - width - 78,
-		(Number(receiver.pos?.[1]) || 0) + 34 + index * RECEIVER_LAYOUT.rowHeight,
-	];
+	const anchor = existingGets.find((node) => node?.graph === targetGraph);
+	getNode.pos = targetGraph === receiver.graph
+		? [
+			(Number(receiver.pos?.[0]) || 0) - width - 78,
+			(Number(receiver.pos?.[1]) || 0) + 34 + index * RECEIVER_LAYOUT.rowHeight,
+		]
+		: [
+			Number(anchor?.pos?.[0]) || 240,
+			(Number(anchor?.pos?.[1]) || 80) + index * RECEIVER_LAYOUT.rowHeight,
+		];
 	getNode.flags ||= {};
 	getNode.flags.collapsed = true;
 }
 
-function createGet(receiver, panel, slot, index) {
+function createGet(receiver, panel, slot, index, targetGraph, existingGets) {
 	const getNode = globalThis.LiteGraph?.createNode?.(GET_NODE);
 	if (!getNode) throw new Error(t("aaalice.receiver.error.createGet", "Unable to create a KJ Get node."));
-	receiver.graph.add(getNode);
+	targetGraph.add(getNode);
 	getNode.properties ||= {};
 	getNode.properties[OWNER_KEY] = {
 		receiverNodeId: receiver.id,
+		receiverGraphId: graphId(receiver.graph),
 		panelNodeId: panel.id,
+		panelGraphId: graphId(panel.graph),
 		parameterId: slot.parameterId,
 	};
 	setGetName(getNode, slot.setName);
-	placeGet(getNode, receiver, index);
+	placeGet(getNode, receiver, index, targetGraph, existingGets);
 	return getNode;
 }
 
@@ -332,21 +446,58 @@ function missingSetCount(panel) {
 	return panelMeta(panel).filter((_parameter, index) => !directSetNodes(panel, index).length).length;
 }
 
-async function synchronize(receiver, panel) {
-	if (!receiver?.graph || !isParameterPanel(panel) || panel.graph !== receiver.graph) return;
+function packedGetGraph(receiverGraph, existingGetGraphs, setGraphs) {
+	if (existingGetGraphs.size > 1) {
+		throw new Error(t("aaalice.receiver.toast.packedScopeUnsupported", "Managed KJ Get/Set nodes span incompatible subgraphs."));
+	}
+	let target = existingGetGraphs.size ? [...existingGetGraphs][0] : receiverGraph;
+	if (!isGraphAncestor(receiverGraph, target)) {
+		throw new Error(t("aaalice.receiver.toast.packedScopeUnsupported", "Managed KJ Get/Set nodes span incompatible subgraphs."));
+	}
+	for (const setGraph of setGraphs) {
+		if (isGraphAncestor(setGraph, target)) continue;
+		if (!existingGetGraphs.size && isGraphAncestor(target, setGraph)) {
+			target = setGraph;
+			continue;
+		}
+		throw new Error(t("aaalice.receiver.toast.packedScopeUnsupported", "Managed KJ Get/Set nodes span incompatible subgraphs."));
+	}
+	return target;
+}
+
+async function synchronize(receiver, panel, { successToast = true } = {}) {
+	if (!receiver?.graph || !isParameterPanel(panel) || !isGraphAncestor(panel.graph, receiver.graph)) {
+		nativeToast("error", t("aaalice.receiver.toast.scopeUnsupported", "A receiver can bind a panel in its current graph or an ancestor graph."));
+		return false;
+	}
 	if (!isKjReady()) {
 		nativeToast("error", t("aaalice.receiver.toast.kjMissing", "KJNodes is required to bind or sync a Parameter Receiver."));
 		render(receiver);
-		return;
+		return false;
 	}
 	const missingSets = missingSetCount(panel);
-	if (missingSets && !(await confirmAction(message("aaalice.receiver.confirm.createSets", "Create {count} missing KJ Set node(s)?", { count: missingSets })))) return;
+	if (missingSets && !(await confirmAction(message("aaalice.receiver.confirm.createSets", "Create {count} missing KJ Set node(s)?", { count: missingSets })))) return false;
 	const current = binding(receiver);
 	const nextMeta = panelMeta(panel);
-	const changingPanel = current.panelNodeId != null && String(current.panelNodeId) !== String(panel.id);
+	const nextPanelGraphId = graphId(panel.graph);
+	const changingPanel = current.panelNodeId != null && (
+		String(current.panelNodeId) !== String(panel.id)
+		|| (current.panelGraphId != null && String(current.panelGraphId) !== nextPanelGraphId)
+	);
 	const reconciliation = reconcileReceiverSlots(changingPanel ? [] : current.slots, nextMeta, (parameter) => desiredSetName(panel, parameter));
 	if (changingPanel) reconciliation.removed = current.slots.slice();
 	const preserveStablePrefix = !changingPanel && receiverSlotsShareStablePrefix(current.slots, reconciliation.ordered);
+	const existingGets = current.slots.map((slot, index) => managedGet(receiver, slot, index)).filter(Boolean);
+	const existingGetGraphs = new Set(existingGets.map((node) => node.graph));
+	const setGraphs = new Set(nextMeta.flatMap((_parameter, index) => directSetNodes(panel, index).map((node) => node.graph)));
+	let targetGetGraph;
+	try {
+		targetGetGraph = packedGetGraph(receiver.graph, existingGetGraphs, setGraphs);
+	} catch (error) {
+		console.error("[Aaalice] ParameterReceiver subgraph scope is incompatible", error);
+		nativeToast("error", error.message);
+		return false;
+	}
 	const removedImpact = reconciliation.removed.map((slot) => {
 		const index = current.slots.findIndex((item) => item.parameterId === slot.parameterId);
 		const getNode = managedGet(receiver, slot, index);
@@ -359,23 +510,27 @@ async function synchronize(receiver, panel) {
 	}).filter((item) => item.downstream || item.extra);
 	if (removedImpact.length) {
 		const detail = removedImpact.map((item) => `${item.slot.name}: ${item.downstream} / ${item.extra}`).join("\n");
-		if (!(await confirmAction(`${t("aaalice.receiver.confirm.removeImpact", "Removed parameters affect receiver links / additional Get consumers:")}\n${detail}`))) return;
+		if (!(await confirmAction(`${t("aaalice.receiver.confirm.removeImpact", "Removed parameters affect receiver links / additional Get consumers:")}\n${detail}`))) return false;
 	}
 	const graph = receiver.graph;
+	const transactionGraph = rootGraph(graph);
 	const createdGets = [];
 	const createdSets = [];
-	const inputSnapshot = current.slots.map((_slot, index) => {
+	const createdBridgeSlots = [];
+	const inputSnapshot = current.slots.map((slot, index) => {
 		const link = getGraphLink(graph, receiver.inputs?.[index]?.link);
-		return link ? { source: getGraphNode(graph, link.origin_id), sourceSlot: link.origin_slot, targetSlot: index } : null;
+		return link ? { parameterId: slot.parameterId, source: getGraphNode(graph, link.origin_id), sourceSlot: link.origin_slot, targetSlot: index } : null;
 	}).filter(Boolean);
 	const outputSnapshot = current.slots.flatMap((slot, index) => (receiver.outputs?.[index]?.links || []).map((id) => {
 		const link = getGraphLink(graph, id);
 		return link ? { parameterId: slot.parameterId, target: getGraphNode(graph, link.target_id), targetSlot: link.target_slot } : null;
 	}).filter(Boolean));
-	graph.beforeChange?.();
+	transactionGraph?.beforeChange?.();
 	try {
-		const setResult = createLinkedKjSets(panel, { changeBoundary: false });
+		const preferredSetGraph = isGraphAncestor(panel.graph, targetGetGraph) ? targetGetGraph : null;
+		const setResult = createLinkedKjSets(panel, { changeBoundary: false, preferredGraph: preferredSetGraph });
 		createdSets.push(...(setResult.createdNodes || []));
+		createdBridgeSlots.push(...(setResult.createdBridgeSlots || []));
 		if (setResult.errors.length) throw setResult.errors[0];
 		for (let index = 0; index < reconciliation.ordered.length; index += 1) {
 			const slot = reconciliation.ordered[index];
@@ -384,14 +539,21 @@ async function synchronize(receiver, panel) {
 			slot.setName = String(setNode.widgets?.[0]?.value || desiredSetName(panel, nextMeta[index]));
 			let getNode = managedGet(receiver, slot, current.slots.findIndex((item) => item.parameterId === slot.parameterId));
 			if (!getNode) {
-				getNode = createGet(receiver, panel, slot, index);
+				getNode = createGet(receiver, panel, slot, index, targetGetGraph, existingGets);
 				createdGets.push(getNode);
 			}
 			getNode.properties ||= {};
-			getNode.properties[OWNER_KEY] = { receiverNodeId: receiver.id, panelNodeId: panel.id, parameterId: slot.parameterId };
+			getNode.properties[OWNER_KEY] = {
+				receiverNodeId: receiver.id,
+				receiverGraphId: graphId(receiver.graph),
+				panelNodeId: panel.id,
+				panelGraphId: nextPanelGraphId,
+				parameterId: slot.parameterId,
+			};
 			setGetName(getNode, slot.setName);
-			placeGet(getNode, receiver, index);
+			placeGet(getNode, receiver, index, getNode.graph, existingGets);
 			slot.getNodeId = getNode.id;
+			slot.getGraphId = graphId(getNode.graph);
 		}
 		if (!preserveStablePrefix) {
 			disconnectReceiverInputs(receiver);
@@ -401,8 +563,22 @@ async function synchronize(receiver, panel) {
 		for (let index = 0; index < reconciliation.ordered.length; index += 1) {
 			if (preserveStablePrefix && receiver.inputs?.[index]?.link != null) continue;
 			const slot = reconciliation.ordered[index];
-			const getNode = getGraphNode(graph, slot.getNodeId);
-			getNode.connect(0, receiver, index);
+			const snapshot = inputSnapshot.find((item) => item.parameterId === slot.parameterId);
+			if (snapshot?.source?.graph === graph) {
+				snapshot.source.connect(snapshot.sourceSlot, receiver, index);
+				continue;
+			}
+			const getNode = findNodeByGraphRef(graph, slot.getGraphId, slot.getNodeId);
+			if (!getNode) throw new Error(t("aaalice.receiver.error.missingGet", "A required KJ Get node is missing."));
+			connectDescendantToAncestor(
+				getNode,
+				0,
+				receiver,
+				index,
+				slot.setName,
+				getNode.outputs?.[0]?.type || "*",
+				createdBridgeSlots,
+			);
 		}
 		if (!preserveStablePrefix) {
 			for (const connection of changingPanel ? [] : outputSnapshot) {
@@ -415,17 +591,19 @@ async function synchronize(receiver, panel) {
 			const getNode = managedGet(receiver, removed, oldIndex);
 			if (!getNode) continue;
 			if (getExternalConsumers(getNode, receiver).length) delete getNode.properties?.[OWNER_KEY];
-			else graph.remove?.(getNode);
+			else removeManagedGet(getNode, receiver);
 		}
 		receiver.properties.receiverBinding = {
-			version: 1,
+			version: 2,
+			panelGraphId: nextPanelGraphId,
 			panelNodeId: panel.id,
 			panelTitle: String(panel.title || "ParameterPanel"),
 			slots: reconciliation.ordered,
 		};
 	} catch (error) {
-		for (const getNode of createdGets) if (getNode.graph === graph) graph.remove?.(getNode);
-		for (const setNode of createdSets) if (setNode.graph === graph) graph.remove?.(setNode);
+		for (const getNode of createdGets) getNode.graph?.remove?.(getNode);
+		for (const setNode of createdSets) setNode.graph?.remove?.(setNode);
+		removeCreatedBridgeSlots(createdBridgeSlots);
 		disconnectReceiverInputs(receiver);
 		disconnectReceiverOutputs(receiver);
 		reshapeReceiverSlots(receiver, current.slots.length);
@@ -436,13 +614,14 @@ async function synchronize(receiver, panel) {
 		}
 		console.error("[Aaalice] ParameterReceiver synchronization failed", error);
 		nativeToast("error", message("aaalice.receiver.toast.syncFailed", "Parameter Receiver sync failed: {reason}", { reason: error?.message || String(error) }));
-		return;
+		return false;
 	} finally {
-		graph.afterChange?.();
-		graph.setDirtyCanvas?.(true, true);
+		transactionGraph?.afterChange?.();
+		transactionGraph?.setDirtyCanvas?.(true, true);
 	}
 	render(receiver);
-	nativeToast("success", message("aaalice.receiver.toast.synced", "Parameter Receiver synchronized: {count} parameter(s).", { count: reconciliation.ordered.length }));
+	if (successToast) nativeToast("success", message("aaalice.receiver.toast.synced", "Parameter Receiver synchronized: {count} parameter(s).", { count: reconciliation.ordered.length }));
+	return true;
 }
 
 async function detach(receiver) {
@@ -451,20 +630,21 @@ async function detach(receiver) {
 	const impact = current.slots.reduce((sum, slot, index) => sum + (receiver.outputs?.[index]?.links?.length || 0) + getExternalConsumers(managedGet(receiver, slot, index), receiver).length, 0);
 	if (impact && !(await confirmAction(message("aaalice.receiver.confirm.detach", "Detach this receiver? {count} managed or downstream connection(s) are affected.", { count: impact })))) return;
 	const graph = receiver.graph;
-	graph?.beforeChange?.();
+	const transactionGraph = rootGraph(graph);
+	transactionGraph?.beforeChange?.();
 	try {
 		for (let index = 0; index < current.slots.length; index += 1) {
 			const getNode = managedGet(receiver, current.slots[index], index);
 			receiver.disconnectInput?.(index);
 			if (!getNode) continue;
 			if (getExternalConsumers(getNode, receiver).length) delete getNode.properties?.[OWNER_KEY];
-			else graph?.remove?.(getNode);
+			else removeManagedGet(getNode, receiver);
 		}
 		disconnectReceiverOutputs(receiver);
 		receiver.properties.receiverBinding = emptyReceiverBinding();
 	} finally {
-		graph?.afterChange?.();
-		graph?.setDirtyCanvas?.(true, true);
+		transactionGraph?.afterChange?.();
+		transactionGraph?.setDirtyCanvas?.(true, true);
 	}
 	render(receiver);
 }
@@ -475,16 +655,14 @@ function locatePanel(receiver) {
 		nativeToast("error", t("aaalice.receiver.toast.sourceMissing", "The bound Parameter Panel no longer exists."));
 		return;
 	}
-	app.canvas?.centerOnNode?.(panel);
-	app.canvas?.selectNode?.(panel, false);
-	app.canvas?.setDirty?.(true, true);
+	if (!navigateToGraphNode(panel)) nativeToast("error", t("aaalice.receiver.toast.navigateFailed", "The bound Parameter Panel cannot be opened on the current canvas."));
 }
 
 function menuItems(receiver) {
-	const panels = (receiver.graph?._nodes || []).filter(isParameterPanel);
+	const panels = visiblePanels(receiver);
 	const labels = disambiguatePanelLabels(panels);
 	const bindOptions = panels.length ? panels.map((panel, index) => ({ content: labels[index], callback: () => synchronize(receiver, panel) })) : [{
-		content: t("aaalice.receiver.menu.noPanels", "No Parameter Panels in this graph"), disabled: true,
+			content: t("aaalice.receiver.menu.noPanels", "No Parameter Panels are visible in this scope"), disabled: true,
 	}];
 	return [
 		{ content: t("aaalice.receiver.menu.bind", "🔗 Bind Parameter Panel…"), has_submenu: true, submenu: { title: NODE, options: bindOptions } },
@@ -512,11 +690,19 @@ function refreshNames(receiver, panel) {
 }
 
 function setupReceiver(receiver, loaded = false) {
-	if (!isReceiver(receiver) || receiver._aaaliceReceiverMounted) return;
+	if (!isReceiver(receiver)) return;
+	if (receiver._aaaliceReceiverMounted) {
+		binding(receiver);
+		reshapeReceiverSlots(receiver, binding(receiver).slots.length);
+		render(receiver);
+		return;
+	}
 	receiver._aaaliceReceiverMounted = true;
 	mountedReceivers.add(receiver);
 	ensureVueReceiverObserver();
 	binding(receiver);
+	receiver._aaaliceResolveParameterPanel = () => panelFor(receiver);
+	receiver._aaaliceSynchronizeParameterReceiver = (panel, options) => synchronize(receiver, panel, options);
 	reshapeReceiverSlots(receiver, binding(receiver).slots.length);
 	if (typeof receiver.addDOMWidget !== "function") throw new Error("[Aaalice] ParameterReceiver requires addDOMWidget");
 	// Receiver labels and native slots occupy the same rows. Use LiteGraph's
@@ -563,12 +749,15 @@ function setupReceiver(receiver, loaded = false) {
 		const cloned = previousClone.apply(this, arguments);
 		if (cloned?.properties?.receiverBinding) cloned.properties.receiverBinding = {
 			...normalizeReceiverBinding(cloned.properties.receiverBinding),
-			slots: normalizeReceiverBinding(cloned.properties.receiverBinding).slots.map((slot) => ({ ...slot, getNodeId: null })),
+			slots: normalizeReceiverBinding(cloned.properties.receiverBinding).slots.map((slot) => ({ ...slot, getGraphId: null, getNodeId: null })),
 		};
 		return cloned;
 	};
 	const onPanelChange = (event) => {
-		if (String(event.detail?.nodeId) !== String(binding(receiver).panelNodeId)) return;
+		const source = panelFor(receiver);
+		if (event.detail?.node) {
+			if (event.detail.node !== source) return;
+		} else if (String(event.detail?.nodeId) !== String(binding(receiver).panelNodeId)) return;
 		if (event.detail?.removed) {
 			setTimeout(() => render(receiver), 0);
 			return;
@@ -585,6 +774,8 @@ function setupReceiver(receiver, loaded = false) {
 		cleanupDomWidgetResizePassthrough(this);
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onPanelChange);
 		window.removeEventListener(EVENT_PARAMETER_KJ_CHANGED, onPanelChange);
+		delete this._aaaliceResolveParameterPanel;
+		delete this._aaaliceSynchronizeParameterReceiver;
 		return previousRemoved?.apply(this, arguments);
 	};
 	const previousConfigure = receiver.onConfigure;
@@ -617,6 +808,6 @@ app.registerExtension({
 	nodeCreated(node) { if (isReceiver(node)) setupReceiver(node, false); },
 	loadedGraphNode(node) { if (isReceiver(node)) setupReceiver(node, true); },
 	setup() {
-		for (const node of app.graph?._nodes || []) if (isReceiver(node)) setupReceiver(node, true);
+		for (const node of allGraphNodes(app.graph)) if (isReceiver(node)) setupReceiver(node, true);
 	},
 });

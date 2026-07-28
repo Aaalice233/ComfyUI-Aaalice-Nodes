@@ -12,8 +12,10 @@ import {
 import { badge, button, createAnchoredPopover, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import {
 	parameterPanelKjMenuItem,
+	parameterPanelReceiverMenuItems,
 	registerParameterPanelKj,
 } from "./parameter_panel_kj.js";
+import { allGraphNodes, nodeExecutionIds } from "./lib/graph_scope.js";
 import {
 	EVENT_PARAMETER_CHANGED,
 	MAX_TUNABLE,
@@ -125,6 +127,7 @@ function parameterPanelMenuItems(node) {
 	}];
 	const kjItem = parameterPanelKjMenuItem(node);
 	if (kjItem) items.push(kjItem);
+	items.push(...parameterPanelReceiverMenuItems(node));
 	return items;
 }
 
@@ -786,7 +789,8 @@ function setupParameterPanel(node, loaded = false) {
 		node.setDirtyCanvas?.(true, true);
 	};
 	const onChange = (event) => {
-		if (event.detail?.nodeId != null && String(event.detail.nodeId) !== String(node.id)) return;
+		if (event.detail?.node && event.detail.node !== node) return;
+		if (!event.detail?.node && event.detail?.nodeId != null && String(event.detail.nodeId) !== String(node.id)) return;
 		if (event.detail?.redraw === false) return;
 		node._aaaliceParameterRedraw?.();
 	};
@@ -832,23 +836,25 @@ function installPromptHook() {
 	const original = app.graphToPrompt?.bind(app);
 	if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable");
 	app.graphToPrompt = async function (...args) {
-		const nodes = (app.graph?._nodes || []).filter(isParameterPanel);
+		const nodes = allGraphNodes(app.graph).filter(isParameterPanel);
 		const result = await original(...args);
 		const output = result?.output ?? result;
 		for (const node of nodes) {
-			const promptNode = output?.[String(node.id)];
-			if (!promptNode) continue;
 			normalizeDynamicOptions(ensureParameters(node));
-			promptNode.inputs ||= {};
-			promptNode.inputs.parameters_json = JSON.stringify(materializeParameters(ensureParameters(node)));
-			promptNode.inputs.validate_dynamic_values = Boolean(node.outputs?.some((output) => output?.links?.length));
+			for (const executionId of nodeExecutionIds(node)) {
+				const promptNode = output?.[executionId];
+				if (!promptNode) continue;
+				promptNode.inputs ||= {};
+				promptNode.inputs.parameters_json = JSON.stringify(materializeParameters(ensureParameters(node)));
+				promptNode.inputs.validate_dynamic_values = Boolean(node.outputs?.some((output) => output?.links?.length));
+			}
 		}
 		return result;
 	};
 	const queue = app.queuePrompt?.bind(app);
 	if (queue) app.queuePrompt = async function (...args) {
 		const result = await queue(...args);
-		for (const node of (app.graph?._nodes || []).filter(isParameterPanel)) applySeedAfterQueue(node);
+		for (const node of allGraphNodes(app.graph).filter(isParameterPanel)) applySeedAfterQueue(node);
 		return result;
 	};
 }
@@ -896,6 +902,6 @@ app.registerExtension({
 	loadedGraphNode(node) { if (isParameterPanel(node)) setupParameterPanel(node, true); },
 	async setup() {
 		installPromptHook();
-		for (const node of app.graph?._nodes || []) if (isParameterPanel(node)) setupParameterPanel(node, true);
+		for (const node of allGraphNodes(app.graph)) if (isParameterPanel(node)) setupParameterPanel(node, true);
 	},
 });

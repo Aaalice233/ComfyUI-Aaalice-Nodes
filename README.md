@@ -123,10 +123,12 @@ Deleting a connected parameter requires confirmation because its links must be r
 <details>
 <summary><strong>ParameterReceiver — compact KJ Get receiver</strong></summary>
 
-`ParameterReceiver` requires KJNodes Set/Get support for binding and synchronization. Create the receiver in the same graph as its source panel, then right-click it and choose **🔗 Bind Parameter Panel…**.
+`ParameterReceiver` requires KJNodes Set/Get support for binding and synchronization. A receiver can bind a panel in its current graph or any parent graph, matching KJNodes' downward Set / upward Get scope. Right-click the receiver and choose **🔗 Bind Parameter Panel…**.
 
 - The first bind reuses existing KJ Set nodes and asks before creating missing ones. Matching collapsed Get nodes are arranged to the receiver's left.
+- Set/Get nodes packed inside a descendant subgraph remain managed through the subgraph's real input/output sockets. New parameters continue in the same managed Set/Get graph when that scope is unambiguous.
 - Parameter renames and panel-title changes refresh labels automatically. Adding, deleting, or reordering parameters changes the footer to **Needs sync**; use **🔄 Sync from Parameter Panel** to apply structural changes.
+- The ParameterPanel menu offers **🔄 Sync Parameter Receivers** for one-step synchronization of every bound receiver, plus **🎯 Locate Parameter Receiver**. The receiver keeps the matching **🎯 Locate Parameter Panel** action; both navigate across subgraph views.
 - Adding parameters at the end leaves existing connections untouched. Middle insertions and reordering keep surviving connections attached to the same parameters.
 - The receiver shows only the input and output sockets in its current binding, so unused capacity cannot interfere with resizing or connection gestures.
 - **🎯 Locate Parameter Panel** centers the bound source. **✂️ Detach** removes receiver-only managed Gets after confirming affected links.
@@ -240,7 +242,7 @@ The **Library** workspace manages entries, flat categories, multi-membership fav
 - `PromptAssistantBridge` was removed in 0.7.0 because prompt-assistant now ships its own expansion node; workflows containing it must replace it with that node.
 - App Mode is not supported.
 - Structural frontend updates can require recreating existing node instances after refresh.
-- ParameterReceiver only binds a ParameterPanel in the current graph; it does not search inside subgraphs.
+- ParameterReceiver binds a ParameterPanel in its current graph or an ancestor graph. It does not bind panels from descendant or sibling graphs, which are outside KJNodes' lexical Get scope.
 - QuickGroupManager only controls visual groups in its current graph and does not propagate linkage rules across manager instances.
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
 - CharacterFeatureSwapNode supports only the official DeepSeek API and requires a valid DeepSeek API key and available model; API availability, billing, privacy, and output quality are controlled by DeepSeek.

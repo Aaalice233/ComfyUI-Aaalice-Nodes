@@ -191,7 +191,7 @@
       "menu": {
         "bind": "🔗 绑定参数面板…", "sync": "🔄 从参数面板同步",
         "locate": "🎯 定位参数面板", "detach": "✂️ 解除绑定",
-        "noPanels": "当前图中没有参数面板"
+        "noPanels": "当前图及其父级图中没有可用的参数面板"
       },
       "confirm": {
         "createSets": "缺少 {count} 个 KJ Set，是否补齐？",
@@ -202,11 +202,14 @@
         "kjMissing": "绑定或同步参数接收器需要安装并启用 KJNodes。",
         "syncFailed": "参数接收器同步失败：{reason}",
         "synced": "参数接收器已同步：{count} 个参数。",
-        "sourceMissing": "已绑定的参数面板不存在。"
+        "sourceMissing": "已绑定的参数面板不存在。",
+        "scopeUnsupported": "参数接收器只能绑定当前图或父级图中的参数面板。",
+        "packedScopeUnsupported": "托管的 KJ Get/Set 节点分布在不兼容的子图中。",
+        "navigateFailed": "当前画布无法打开已绑定的参数面板。"
       },
       "error": {
         "getApi": "KJ GetNode 命名接口不可用。", "createGet": "无法创建 KJ Get 节点。",
-        "missingSet": "缺少必要的 KJ Set 节点。"
+        "missingSet": "缺少必要的 KJ Set 节点。", "missingGet": "缺少必要的 KJ Get 节点。"
       }
     },
     "enumSwitch": {
@@ -295,7 +298,14 @@
         "createFailed": "无法创建 KJ Set 节点。",
         "connectFailed": "KJ Set 节点连接失败。",
         "graphUnavailable": "当前工作流画布不可用。",
-        "created": "KJ Set 节点已就绪：新建 {count} 个。"
+        "scopeUnsupported": "KJ 路由只支持当前图或其下级子图。",
+        "created": "KJ Set 节点已就绪：新建 {count} 个。",
+        "syncReceivers": "🔄 同步参数接收器",
+        "locateReceivers": "🎯 定位参数接收器",
+        "noReceivers": "当前没有已绑定的参数接收器。",
+        "receiversSynced": "已同步 {count} 个参数接收器。",
+        "receiversPartiallySynced": "已同步 {count}/{total} 个参数接收器。",
+        "receiverNavigateFailed": "当前画布无法打开参数接收器。"
       },
       "inline": { "editValue": "编辑数值" },
       "error": {

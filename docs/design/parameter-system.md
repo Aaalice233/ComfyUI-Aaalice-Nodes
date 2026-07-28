@@ -4,7 +4,7 @@
 
 ## 共同边界
 
-- ParameterPanel 负责参数创作与直接输出；ParameterReceiver 只负责把同图中的 KJ Get 收束为紧凑透传节点。
+- ParameterPanel 负责参数创作与直接输出；ParameterReceiver 只负责把当前图中的 KJ Get 收束为紧凑透传节点。接收器可绑定当前图或父级图中的面板，遵循 KJNodes 的 Set 向下可见、Get 向上查找作用域。
 - 节点面用于高频调值和状态查看；新增、删除、重排、绑定、同步等结构操作进入右键菜单或专用弹窗。
 - Canvas/native 层负责真实 slot、连线和静态布局；DOM overlay 负责控件、焦点、键盘、tooltip 和 aria。
 - Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。不得绘制伪 socket。
@@ -48,9 +48,10 @@
 ## ParameterReceiver
 
 - 最小宽度约 240px；标题下显示一行弱化绑定信息，中部排列真实输入/输出，异常状态使用紧凑图标入口。
-- 节点面不放结构操作按钮；绑定、同步、定位和解除进入带 emoji 的本地化右键菜单。
+- 节点面不放结构操作按钮；绑定、同步、定位和解除进入带 emoji 的本地化右键菜单。ParameterPanel 菜单提供全部已绑定接收器的一键同步与定位，接收器菜单提供反向定位。
 - “已同步”使用成功语义；“需要同步”使用警告语义；源缺失和 KJNodes 缺失必须有文字说明。
 - 折叠 Get 按输入行垂直排列在接收器左侧，并保留稳定间距。
+- Set/Get 被收进下级子图时，通过真实 Subgraph 输入输出槽继续纳管；作用域明确时，新增参数沿用既有 Set/Get 所在图，不把节点静默移回外层。
 - 输入与输出数量等于当前 Receiver Binding 槽数；节点最小高度由真实输入行和状态区计算。
 
 ## 尺寸与 Nodes 2.0

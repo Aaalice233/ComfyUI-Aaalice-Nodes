@@ -10,6 +10,15 @@ import {
 } from "./lib/param_model.js";
 import { computeParameterLayout } from "./lib/parameter_layout.js";
 import { computeLinkedSetPosition } from "./lib/kj_set_layout.js";
+import {
+	allGraphNodes,
+	findGraphNode,
+	graphDescendants,
+	graphId,
+	graphRoute,
+	isGraphAncestor,
+	rootGraph,
+} from "./lib/graph_scope.js";
 
 const MAX = 32;
 const KJ_SET_NODE = "SetNode";
@@ -44,9 +53,7 @@ export function getGraphLink(graph, linkId) {
 }
 
 export function getGraphNode(graph, nodeId) {
-	if (typeof graph?.getNodeById === "function") return graph.getNodeById(nodeId);
-	if (typeof graph?._nodes_by_id?.get === "function") return graph._nodes_by_id.get(nodeId) || null;
-	return graph?._nodes_by_id?.[nodeId] || null;
+	return findGraphNode(graph, nodeId);
 }
 
 function kjNodeTypes() {
@@ -79,6 +86,30 @@ export function desiredSetName(panel, parameter) {
 	return `${panelTitle(panel)}_${parameterName}`;
 }
 
+function isNodeType(node, type) {
+	return [node?.type, node?.comfyClass, node?.constructor?.comfyClass].includes(type);
+}
+
+function resolvedInputNode(resolved, fallbackGraph, fallbackNodeId) {
+	return resolved?.inputNode || getGraphNode(fallbackGraph, fallbackNodeId);
+}
+
+function collectSetTargetsFromResolved(resolved, result, seen) {
+	const target = resolved?.inputNode;
+	if (!target) return;
+	if (isNodeType(target, KJ_SET_NODE)) {
+		if (!seen.has(target)) {
+			seen.add(target);
+			result.push(target);
+		}
+		return;
+	}
+	if (!target.subgraph || typeof target.resolveSubgraphInputLinks !== "function") return;
+	const slot = target.inputs?.indexOf?.(resolved.input);
+	if (slot == null || slot < 0) return;
+	for (const inner of target.resolveSubgraphInputLinks(slot) || []) collectSetTargetsFromResolved(inner, result, seen);
+}
+
 export function directSetNodes(panel, outputIndex) {
 	const graph = panel?.graph;
 	const output = panel?.outputs?.[outputIndex];
@@ -87,13 +118,80 @@ export function directSetNodes(panel, outputIndex) {
 	const seen = new Set();
 	for (const linkId of output.links) {
 		const link = getGraphLink(graph, linkId);
-		if (!link || link.origin_id !== panel.id || Number(link.target_slot) !== 0) continue;
-		const target = getGraphNode(graph, link.target_id);
-		if (!target || ![target.type, target.comfyClass, target.constructor?.comfyClass].includes(KJ_SET_NODE) || seen.has(target.id)) continue;
-		seen.add(target.id);
-		result.push(target);
+		if (!link || String(link.origin_id) !== String(panel.id)) continue;
+		const resolved = typeof link.resolve === "function" ? link.resolve(graph) : {
+			inputNode: resolvedInputNode(null, graph, link.target_id),
+			input: getGraphNode(graph, link.target_id)?.inputs?.[link.target_slot],
+		};
+		collectSetTargetsFromResolved(resolved, result, seen);
 	}
 	return result;
+}
+
+function connectAncestorToDescendant(sourceNode, sourceSlot, targetNode, targetSlot, name, type, createdBridgeSlots) {
+	const route = graphRoute(sourceNode?.graph, targetNode?.graph);
+	if (!route) throw new Error(message("aaalice.pcp.kj.scopeUnsupported", "KJ routing only supports the current graph or a descendant subgraph."));
+	if (!route.length) {
+		sourceNode.connect(sourceSlot, targetNode, targetSlot);
+		return;
+	}
+	let source = { kind: "node", node: sourceNode, slot: sourceSlot };
+	for (const wrapper of route) {
+		const child = wrapper.subgraph;
+		const input = child.addInput(name, type);
+		const wrapperSlot = child.inputs.indexOf(input);
+		if (source.kind === "node") source.node.connect(source.slot, wrapper, wrapperSlot);
+		else source.input.connect(wrapper.inputs[wrapperSlot], wrapper);
+		createdBridgeSlots?.push({ graph: child, kind: "input", slot: input });
+		source = { kind: "subgraph-input", input };
+	}
+	source.input.connect(targetNode.inputs[targetSlot], targetNode);
+}
+
+export function connectDescendantToAncestor(sourceNode, sourceSlot, targetNode, targetSlot, name, type, createdBridgeSlots) {
+	const route = graphRoute(targetNode?.graph, sourceNode?.graph);
+	if (!route) throw new Error(message("aaalice.pcp.kj.scopeUnsupported", "KJ routing only supports the current graph or a descendant subgraph."));
+	if (!route.length) {
+		sourceNode.connect(sourceSlot, targetNode, targetSlot);
+		return;
+	}
+	let source = { node: sourceNode, slot: sourceSlot };
+	for (const wrapper of [...route].reverse()) {
+		const child = wrapper.subgraph;
+		const output = child.addOutput(name, type);
+		const wrapperSlot = child.outputs.indexOf(output);
+		output.connect(source.node.outputs[source.slot], source.node);
+		createdBridgeSlots?.push({ graph: child, kind: "output", slot: output });
+		source = { node: wrapper, slot: wrapperSlot };
+	}
+	source.node.connect(source.slot, targetNode, targetSlot);
+}
+
+export function removeCreatedBridgeSlots(createdBridgeSlots) {
+	for (const entry of [...(createdBridgeSlots || [])].reverse()) {
+		if (entry.kind === "input") entry.graph?.removeInput?.(entry.slot);
+		else entry.graph?.removeOutput?.(entry.slot);
+	}
+}
+
+function preferredSetGraph(panel, requested) {
+	if (requested && isGraphAncestor(panel.graph, requested)) return requested;
+	const graphs = new Set(panelMeta(panel).flatMap((_parameter, index) => directSetNodes(panel, index).map((node) => node.graph)));
+	return graphs.size === 1 ? [...graphs][0] : panel.graph;
+}
+
+function placeSetNode(setNode, panel, outputIndex, targetGraph, existingSets) {
+	if (targetGraph === panel.graph) {
+		const layout = computeParameterLayout(panel);
+		const collapsedHeight = Number(globalThis.LiteGraph?.NODE_TITLE_HEIGHT) || 30;
+		setNode.pos = computeLinkedSetPosition(panel, layout, outputIndex, collapsedHeight);
+		return;
+	}
+	const anchor = existingSets.find((node) => node.graph === targetGraph);
+	const titleHeight = Number(globalThis.LiteGraph?.NODE_TITLE_HEIGHT) || 30;
+	setNode.pos = anchor
+		? [Number(anchor.pos?.[0]) || 0, (Number(anchor.pos?.[1]) || 0) + titleHeight * (outputIndex + 1)]
+		: [80, 80 + titleHeight * outputIndex];
 }
 
 export function renameKjSet(setNode, nextName) {
@@ -182,7 +280,8 @@ export function registerParameterPanelKj(panel) {
 	if (!isParameterPanel(panel) || panel._aaaliceParameterPanelKjMounted) return;
 	panel._aaaliceParameterPanelKjMounted = true;
 	const onParameterChange = (event) => {
-		if (event.detail?.nodeId != null && String(event.detail.nodeId) !== String(panel.id)) return;
+		if (event.detail?.node && event.detail.node !== panel) return;
+		if (!event.detail?.node && event.detail?.nodeId != null && String(event.detail.nodeId) !== String(panel.id)) return;
 		scheduleRefresh(panel);
 	};
 	window.addEventListener(EVENT_PARAMETER_CHANGED, onParameterChange);
@@ -216,18 +315,21 @@ export function registerParameterPanelKj(panel) {
 	scheduleRefresh(panel);
 }
 
-export function createLinkedKjSets(panel, { changeBoundary = true } = {}) {
+export function createLinkedKjSets(panel, { changeBoundary = true, preferredGraph = null } = {}) {
 	if (!panel?.graph) throw new Error(message("aaalice.pcp.kj.graphUnavailable", "The current graph is unavailable."));
 	if (!isKjReady()) return { created: 0, createdNodes: [], updated: 0, errors: [] };
 	const meta = panelMeta(panel);
 	if (!meta.length) return { created: 0, createdNodes: [], updated: 0, errors: [] };
 	const graph = panel.graph;
+	const targetGraph = preferredSetGraph(panel, preferredGraph);
 	const { liteGraph } = kjNodeTypes();
 	let created = 0;
 	const createdNodes = [];
+	const createdBridgeSlots = [];
 	let updated = 0;
 	const errors = [];
-	if (changeBoundary) graph.beforeChange?.();
+	const transactionGraph = rootGraph(graph);
+	if (changeBoundary) transactionGraph?.beforeChange?.();
 	try {
 		for (let index = 0; index < meta.length; index += 1) {
 			let sets = directSetNodes(panel, index);
@@ -239,21 +341,27 @@ export function createLinkedKjSets(panel, { changeBoundary = true } = {}) {
 				}
 				setNode.flags ||= {};
 				setNode.flags.collapsed = true;
-				const layout = computeParameterLayout(panel);
-				const collapsedHeight = Number(liteGraph.NODE_TITLE_HEIGHT) || 30;
-				setNode.pos = computeLinkedSetPosition(panel, layout, index, collapsedHeight);
-				graph.add(setNode);
+				placeSetNode(setNode, panel, index, targetGraph, createdNodes);
+				targetGraph.add(setNode);
 				try {
-					panel.connect(index, setNode, 0);
+					connectAncestorToDescendant(
+						panel,
+						index,
+						setNode,
+						0,
+						desiredSetName(panel, meta[index]),
+						panel.outputs?.[index]?.type || "*",
+						createdBridgeSlots,
+					);
 				} catch (error) {
-					graph.remove?.(setNode);
+					targetGraph.remove?.(setNode);
 					errors.push(error);
 					continue;
 				}
 				sets = directSetNodes(panel, index);
 				if (!sets.includes(setNode)) {
 					errors.push(new Error(message("aaalice.pcp.kj.connectFailed", "The KJ Set node could not be connected.")));
-					graph.remove?.(setNode);
+					targetGraph.remove?.(setNode);
 					continue;
 				}
 				created += 1;
@@ -269,11 +377,18 @@ export function createLinkedKjSets(panel, { changeBoundary = true } = {}) {
 			}
 		}
 	} finally {
-		if (changeBoundary) graph.afterChange?.();
-		graph.setDirtyCanvas?.(true, true);
+		if (errors.length) {
+			for (const node of createdNodes) node.graph?.remove?.(node);
+			removeCreatedBridgeSlots(createdBridgeSlots);
+			createdNodes.length = 0;
+			createdBridgeSlots.length = 0;
+			created = 0;
+		}
+		if (changeBoundary) transactionGraph?.afterChange?.();
+		transactionGraph?.setDirtyCanvas?.(true, true);
 		app.canvas?.setDirty?.(true, true);
 	}
-	return { created, createdNodes, updated, errors };
+	return { created, createdNodes, createdBridgeSlots, updated, errors };
 }
 
 export function parameterPanelKjMenuItem(panel) {
@@ -303,4 +418,97 @@ export function parameterPanelKjMenuItem(panel) {
 			}
 		},
 	};
+}
+
+function isReceiver(node) {
+	return [node?.type, node?.comfyClass, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes("ParameterReceiver");
+}
+
+export function boundParameterReceivers(panel) {
+	if (!isParameterPanel(panel) || !panel.graph) return [];
+	const allowedGraphs = new Set([panel.graph, ...graphDescendants(panel.graph)]);
+	const panelGraphId = graphId(panel.graph);
+	return allGraphNodes(rootGraph(panel.graph)).filter((node) => {
+		if (!isReceiver(node) || !allowedGraphs.has(node.graph)) return false;
+		const receiverBinding = node.properties?.receiverBinding;
+		if (String(receiverBinding?.panelNodeId) !== String(panel.id)) return false;
+		if (receiverBinding?.panelGraphId != null) return String(receiverBinding.panelGraphId) === panelGraphId;
+		return node._aaaliceResolveParameterPanel?.() === panel || isGraphAncestor(panel.graph, node.graph);
+	});
+}
+
+function receiverLabel(receiver, duplicated) {
+	const title = String(receiver?.title || "ParameterReceiver");
+	return duplicated ? `${title} (#${receiver.id}, ${graphId(receiver.graph)})` : title;
+}
+
+export function navigateToGraphNode(node) {
+	const canvas = app.canvas;
+	if (!canvas || !node?.graph) return false;
+	if (canvas.graph !== node.graph) {
+		if (typeof canvas.setGraph !== "function") return false;
+		canvas.setGraph(node.graph);
+	}
+	const focus = () => {
+		canvas.centerOnNode?.(node);
+		canvas.selectNode?.(node, false);
+		canvas.setDirty?.(true, true);
+	};
+	if (canvas.graph === node.graph) focus();
+	else setTimeout(focus, 0);
+	return true;
+}
+
+async function syncBoundReceivers(panel) {
+	const receivers = boundParameterReceivers(panel);
+	if (!receivers.length) {
+		nativeToast("info", t("aaalice.pcp.kj.noReceivers", "No bound Parameter Receivers are available."));
+		return;
+	}
+	let synchronized = 0;
+	for (const receiver of receivers) {
+		if (await receiver._aaaliceSynchronizeParameterReceiver?.(panel, { successToast: false })) synchronized += 1;
+	}
+	if (synchronized === receivers.length) {
+		nativeToast("success", message("aaalice.pcp.kj.receiversSynced", "Parameter Receivers synchronized: {count}.", { count: synchronized }));
+	} else if (synchronized) {
+		nativeToast("info", message("aaalice.pcp.kj.receiversPartiallySynced", "Parameter Receivers synchronized: {count} of {total}.", {
+			count: synchronized,
+			total: receivers.length,
+		}));
+	}
+}
+
+export function parameterPanelReceiverMenuItems(panel) {
+	const receivers = boundParameterReceivers(panel);
+	const titleCounts = new Map(receivers.map((receiver) => {
+		const title = String(receiver?.title || "ParameterReceiver");
+		return [title, receivers.filter((candidate) => String(candidate?.title || "ParameterReceiver") === title).length];
+	}));
+	const locateOptions = receivers.map((receiver) => {
+		const title = String(receiver?.title || "ParameterReceiver");
+		return {
+			content: receiverLabel(receiver, titleCounts.get(title) > 1),
+			callback: () => {
+				if (!navigateToGraphNode(receiver)) nativeToast("error", t("aaalice.pcp.kj.receiverNavigateFailed", "The Parameter Receiver cannot be opened on the current canvas."));
+			},
+		};
+	});
+	return [
+		{
+			content: t("aaalice.pcp.kj.syncReceivers", "🔄 Sync Parameter Receivers"),
+			disabled: !receivers.length,
+			callback: () => syncBoundReceivers(panel).catch((error) => {
+				console.error("[Aaalice] Failed to synchronize Parameter Receivers from ParameterPanel", error);
+				nativeToast("error", message("aaalice.receiver.toast.syncFailed", "Parameter Receiver sync failed: {reason}", { reason: error?.message || String(error) }));
+			}),
+		},
+		{
+			content: t("aaalice.pcp.kj.locateReceivers", "🎯 Locate Parameter Receiver"),
+			disabled: !receivers.length,
+			...(receivers.length === 1
+				? { callback: locateOptions[0]?.callback }
+				: { has_submenu: true, submenu: { title: "ParameterReceiver", options: locateOptions } }),
+		},
+	];
 }

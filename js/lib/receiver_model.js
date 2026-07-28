@@ -1,16 +1,17 @@
 /** Pure state and diff model for ParameterReceiver bindings. */
 
 export const MAX_RECEIVER_SLOTS = 32;
-export const RECEIVER_BINDING_VERSION = 1;
+export const RECEIVER_BINDING_VERSION = 2;
 
 export function emptyReceiverBinding() {
-	return { version: RECEIVER_BINDING_VERSION, panelNodeId: null, panelTitle: "", slots: [] };
+	return { version: RECEIVER_BINDING_VERSION, panelGraphId: null, panelNodeId: null, panelTitle: "", slots: [] };
 }
 
 export function normalizeReceiverBinding(value) {
 	if (!value || typeof value !== "object") return emptyReceiverBinding();
 	return {
 		version: RECEIVER_BINDING_VERSION,
+		panelGraphId: value.panelGraphId == null ? null : String(value.panelGraphId),
 		panelNodeId: value.panelNodeId ?? null,
 		panelTitle: String(value.panelTitle || ""),
 		slots: Array.isArray(value.slots) ? value.slots.slice(0, MAX_RECEIVER_SLOTS).map((slot) => ({
@@ -18,6 +19,7 @@ export function normalizeReceiverBinding(value) {
 			name: String(slot?.name || ""),
 			paramType: String(slot?.paramType || "*"),
 			setName: String(slot?.setName || ""),
+			getGraphId: slot?.getGraphId == null ? null : String(slot.getGraphId),
 			getNodeId: slot?.getNodeId ?? null,
 		})).filter((slot) => slot.parameterId) : [],
 	};
@@ -33,6 +35,7 @@ export function reconcileReceiverSlots(currentSlots, panelMeta, setNameFor) {
 			name: String(parameter.name || parameter.id),
 			paramType: String(parameter.param_type || "*"),
 			setName: String(setNameFor?.(parameter) || retained?.setName || ""),
+			getGraphId: retained?.getGraphId ?? null,
 			getNodeId: retained?.getNodeId ?? null,
 		};
 	});

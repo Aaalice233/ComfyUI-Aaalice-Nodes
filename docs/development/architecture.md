@@ -69,7 +69,7 @@
 | 功能 | 持久真源 | 实时派生数据 | 不得成为真源 |
 |---|---|---|---|
 | ParameterPanel | `node.properties.parameters` | 参数 meta、slot 布局、prompt payload | 服务端进程全局状态、DOM 控件值副本 |
-| ParameterReceiver | `node.properties.receiverBinding` | 面板名称、参数类型、同步状态、Get 连线 | 面板标题、槽索引、Get 显示名 |
+| ParameterReceiver | `node.properties.receiverBinding` | 面板图身份、面板名称、参数类型、同步状态、Get 连线 | 面板标题、槽索引、Get 显示名 |
 | EnumSwitch | `node.properties.enumSwitch` | 分支标签、源选项 diff、routes payload | Branch Key、槽位置、DOM 顺序 |
 | ResolutionPreset | `node.properties.resolutionPresetState` | 预设匹配、坐标映射、比例与 MP 摘要、执行 payload | DOM 字段、`presetId`、个人预设缓存 |
 | ResolutionPreset 个人预设 | 当前 ComfyUI 用户目录 JSON | 当前用户的名称、尺寸、alignment 和稳定 UUID | 工作流 JSON、节点属性或浏览器存储 |
@@ -110,8 +110,8 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 ### ParameterReceiver
 
-1. 首次绑定或用户显式同步时读取源面板参数身份。
-2. 创建或复用 KJ Set 与可见折叠 Get，按 Parameter Id 保存现有上下游连线。
+1. 首次绑定或用户显式同步时，从接收器当前图及父级图读取源面板参数身份；绑定同时保存稳定 Graph Id 与 Panel Node Id。
+2. 创建或复用 KJ Set 与可见折叠 Get，按 Parameter Id 保存现有上下游连线；已有 Set/Get 位于下级子图时沿真实 Subgraph 输入输出槽追踪并在同一作用域补齐。
 3. 在一个图变更边界内增量调整真实输入输出和 Get 排列；稳定前缀保持原 link，中间变更再按 Parameter Id 恢复端点。
 4. 名称与类型变化只刷新显示；新增、删除和重排在显式同步前只显示“需要同步”。
 
@@ -234,9 +234,9 @@ const unregister = registerWidgetControlAdapter({
 
 ## 可选依赖与公开边界
 
-- KJNodes 只对 ParameterReceiver 的绑定、同步和 ParameterPanel 的 Set/Get 辅助功能可选依赖；缺失时明确报错，不模拟成功。
+- KJNodes 只对 ParameterReceiver 的绑定、同步和 ParameterPanel 的 Set/Get 辅助功能可选依赖；缺失时明确报错，不模拟成功。跨图绑定只允许面板位于接收器当前图或父级图，保持 KJNodes 的词法作用域。
 - Classic 与 Nodes 2.0 为支持范围；App Mode 暂不支持。
-- ParameterReceiver 和 QuickGroupManager 只作用于当前图，不递归搜索或修改 Subgraph 内部图。
+- ParameterReceiver 的节点与真实槽只作用于自身所在图，但可沿已绑定 Set/Get 的真实 Subgraph 边界维护下级子图节点；QuickGroupManager 仍只作用于当前图，不递归修改 Subgraph 内部图。
 - DIY 侧边栏只投影 Subgraph 整体公开的兼容 widget，不遍历或绑定内部节点。
 - SimpleNotify 只在发起执行的前端产生提醒，不表示并行分支、整个工作流或队列完成。
 - ResolutionPreset 只输出精确宽高；比例与 MP 为只读摘要，不负责图像、Latent、模型推荐、裁剪、缩放或 batch。

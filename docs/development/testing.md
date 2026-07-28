@@ -183,7 +183,7 @@ GUI 自动验收只能使用 Codex 内置浏览器：
 | 内部滚动区的未聚焦首次滚动、聚焦后普通滚动、焦点外画布行为及画布缩放修饰键（涉及滚动 DOM widget 时） | — | Standard / Legacy |
 | 无阻断性 Console 错误 | ✓ | ✓ |
 
-ParameterPanel / ParameterReceiver 还需覆盖绑定、显式同步、稳定 Parameter Id 重绑、源缺失和 KJNodes 缺失路径；EnumSwitch 需覆盖 lazy 分支、未知 key、未连接分支和显式选项同步。
+ParameterPanel / ParameterReceiver 还需覆盖绑定、显式同步、稳定 Parameter Id 重绑、源缺失和 KJNodes 缺失路径；并覆盖面板位于父级图、Set/Get 被收进下级子图、新参数沿既有子图作用域补齐、跨子图双向定位和面板一键同步全部接收器。EnumSwitch 需覆盖 lazy 分支、未知 key、未连接分支和显式选项同步。
 
 CharacterFeatureSwapNode 还需覆盖：
 

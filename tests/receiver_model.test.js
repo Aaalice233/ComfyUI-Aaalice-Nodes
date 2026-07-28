@@ -14,6 +14,16 @@ const meta = (ids) => ids.map((id, order) => ({ id, name: id.toUpperCase(), para
 test("normalizes missing and malformed binding state", () => {
 	assert.deepEqual(normalizeReceiverBinding(null).slots, []);
 	assert.deepEqual(normalizeReceiverBinding({ slots: [{ parameterId: "a" }, {}] }).slots.map((slot) => slot.parameterId), ["a"]);
+	assert.deepEqual(
+		normalizeReceiverBinding({ panelGraphId: "child", panelNodeId: 7, slots: [{ parameterId: "a", getGraphId: "nested", getNodeId: 8 }] }),
+		{
+			version: 2,
+			panelGraphId: "child",
+			panelNodeId: 7,
+			panelTitle: "",
+			slots: [{ parameterId: "a", name: "", paramType: "*", setName: "", getGraphId: "nested", getNodeId: 8 }],
+		},
+	);
 });
 
 test("structure diff distinguishes rename from reorder/add/remove", () => {

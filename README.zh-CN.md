@@ -123,10 +123,12 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器上。Bridge 缺失、K
 <details>
 <summary><strong>ParameterReceiver — 紧凑的 KJ Get 接收器</strong></summary>
 
-`ParameterReceiver` 的绑定与同步需要 KJNodes 的 Set/Get 支持。请在源面板所在的同一张图中创建接收器，然后右键选择 **🔗 绑定参数面板…**。
+`ParameterReceiver` 的绑定与同步需要 KJNodes 的 Set/Get 支持。接收器可以绑定当前图或任意父级图中的参数面板，与 KJNodes 的 Set 向下可见、Get 向上查找作用域一致。右键接收器后选择 **🔗 绑定参数面板…**。
 
 - 首次绑定会复用已有 KJ Set，并在补齐缺失 Set 前询问确认；对应的折叠 Get 会排列在接收器左侧。
+- Set/Get 被收进下级子图后，仍通过子图的真实输入/输出槽纳管；作用域明确时，新增参数会继续在同一张 Set/Get 图中补齐。
 - 参数改名和面板标题变化会自动刷新。参数新增、删除或重排后，底部状态变为 **需要同步**；使用 **🔄 从参数面板同步** 应用结构变化。
+- 参数面板右键菜单新增 **🔄 同步参数接收器**，可一次同步全部已绑定接收器，并提供 **🎯 定位参数接收器**；接收器保留对应的 **🎯 定位参数面板**，两边都可以跨子图视图跳转。
 - 在末尾新增参数不会触碰已有连线；中间插入或重排时，仍存在的连线会继续跟随原参数。
 - 接收器只显示当前绑定实际需要的输入和输出引脚，未使用的容量不会干扰缩放或拉线操作。
 - **🎯 定位参数面板** 会居中显示源面板；**✂️ 解除绑定** 会在确认受影响连线后清理仅由接收器使用的 Get。
@@ -240,7 +242,7 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 - `PromptAssistantBridge` 已于 0.7.0 移除，因为提示词小助手已自带提示词优化节点；包含该节点的工作流请替换为提示词小助手自带节点。
 - 暂不支持 App Mode。
 - 前端结构变更后，已有节点实例可能需要在刷新后重新创建。
-- ParameterReceiver 只绑定当前图中的 ParameterPanel，不会跨子图搜索。
+- ParameterReceiver 可以绑定当前图或父级图中的 ParameterPanel；不会绑定下级或同级子图中的面板，因为这些面板不在 KJNodes 的 Get 词法作用域内。
 - QuickGroupManager 只控制当前图中的可视组，联动规则不会跨 Manager 实例传播。
 - SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
 - CharacterFeatureSwapNode 仅支持 DeepSeek 官方 API，需要有效的 DeepSeek API Key 和可用模型；API 可用性、费用、隐私与输出质量由 DeepSeek 决定。

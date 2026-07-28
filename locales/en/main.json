@@ -191,7 +191,7 @@
       "menu": {
         "bind": "🔗 Bind Parameter Panel…", "sync": "🔄 Sync from Parameter Panel",
         "locate": "🎯 Locate Parameter Panel", "detach": "✂️ Detach",
-        "noPanels": "No Parameter Panels in this graph"
+        "noPanels": "No Parameter Panels are visible in this graph or its parent graphs"
       },
       "confirm": {
         "createSets": "Create {count} missing KJ Set node(s)?",
@@ -202,11 +202,14 @@
         "kjMissing": "KJNodes is required to bind or sync a Parameter Receiver.",
         "syncFailed": "Parameter Receiver sync failed: {reason}",
         "synced": "Parameter Receiver synchronized: {count} parameter(s).",
-        "sourceMissing": "The bound Parameter Panel no longer exists."
+        "sourceMissing": "The bound Parameter Panel no longer exists.",
+        "scopeUnsupported": "A receiver can bind a panel in its current graph or an ancestor graph.",
+        "packedScopeUnsupported": "Managed KJ Get/Set nodes span incompatible subgraphs.",
+        "navigateFailed": "The bound Parameter Panel cannot be opened on the current canvas."
       },
       "error": {
         "getApi": "KJ GetNode naming API is unavailable.", "createGet": "Unable to create a KJ Get node.",
-        "missingSet": "A required KJ Set node is missing."
+        "missingSet": "A required KJ Set node is missing.", "missingGet": "A required KJ Get node is missing."
       }
     },
     "enumSwitch": {
@@ -295,7 +298,14 @@
         "createFailed": "Unable to create a KJ Set node.",
         "connectFailed": "The KJ Set node could not be connected.",
         "graphUnavailable": "The current graph is unavailable.",
-        "created": "KJ Set nodes ready: {count} created."
+        "scopeUnsupported": "KJ routing only supports the current graph or a descendant subgraph.",
+        "created": "KJ Set nodes ready: {count} created.",
+        "syncReceivers": "🔄 Sync Parameter Receivers",
+        "locateReceivers": "🎯 Locate Parameter Receiver",
+        "noReceivers": "No bound Parameter Receivers are available.",
+        "receiversSynced": "Parameter Receivers synchronized: {count}.",
+        "receiversPartiallySynced": "Parameter Receivers synchronized: {count} of {total}.",
+        "receiverNavigateFailed": "The Parameter Receiver cannot be opened on the current canvas."
       },
       "inline": { "editValue": "Edit value" },
       "error": {
