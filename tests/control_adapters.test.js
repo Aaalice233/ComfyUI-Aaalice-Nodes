@@ -104,13 +104,15 @@ test("simple ComfyUI nodes expose only built-in primitive widget families", () =
 		{ name: "cfg", type: "float", value: 7.5, options: { min: 0, max: 20 } },
 		{ name: "enabled", type: "BOOLEAN", value: true, options: {} },
 		{ name: "prompt", type: "STRING", value: "cat", options: { multiline: true } },
+		{ name: "note", type: "customtext", value: "multi\nline", options: {} },
 		{ name: "mode", type: "COMBO", value: "fast", options: { values: ["fast", "quality"] } },
 	] };
 	const controls = listAdaptedWidgetControls(node);
 	assert.deepEqual(controls.map(({ controlId, kind }) => [controlId, kind]), [
-		["steps", "numeric"], ["cfg", "numeric"], ["enabled", "boolean"], ["prompt", "text"], ["mode", "choice"],
+		["steps", "numeric"], ["cfg", "numeric"], ["enabled", "boolean"], ["prompt", "text"], ["note", "text"], ["mode", "choice"],
 	]);
 	controls[0].setValue(24); assert.equal(node.widgets[0].value, 24); assert.equal(committed, 24);
+	controls[4].setValue("edited"); assert.equal(node.widgets[4].value, "edited");
 });
 
 test("native Compare Images exposes a layout-only execution view", () => {

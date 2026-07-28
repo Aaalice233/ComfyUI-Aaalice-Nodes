@@ -8,7 +8,7 @@ const adapters = [];
 const SIMPLE_NATIVE_WIDGETS = Object.freeze({
 	int: { kind: "numeric", valueType: "number" }, float: { kind: "numeric", valueType: "number" }, number: { kind: "numeric", valueType: "number" },
 	boolean: { kind: "boolean", valueType: "boolean" }, toggle: { kind: "boolean", valueType: "boolean" },
-	string: { kind: "text", valueType: "string" }, text: { kind: "text", valueType: "string" },
+	string: { kind: "text", valueType: "string" }, text: { kind: "text", valueType: "string" }, customtext: { kind: "text", valueType: "string" },
 	combo: { kind: "choice", valueType: "string" },
 });
 const KIND_VALUE_TYPES = Object.freeze({ numeric: "number", seed: "number", boolean: "boolean", choice: "string", text: "string" });
