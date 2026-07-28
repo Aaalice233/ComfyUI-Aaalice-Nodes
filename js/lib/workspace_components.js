@@ -24,6 +24,46 @@ export function createWorkspaceToolbar(actions = [], { className = "", label = n
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
 }
 
+export function createDashboardPageHeading({ page, index = 0, total = 1, labels = {}, className = "", onRename } = {}) {
+	const renameHint = labels.renameHint || "Double-click to rename";
+	const renameLabel = labels.renamePage || "Rename page";
+	const title = el("h2", {
+		className: "aa-dashboard-page-heading__title",
+		attrs: { tabindex: "0", title: renameHint, "aria-current": "page", "aria-label": `${page?.name || ""}. ${renameHint}` },
+		text: page?.name || "",
+	});
+	const startRename = () => {
+		inlineRename(title, {
+			value: page?.name || "",
+			ariaLabel: renameLabel,
+			onCommit: (name) => {
+				if (name && name !== page?.name) onRename?.(name);
+				else title.textContent = page?.name || "";
+			},
+		});
+	};
+	title.addEventListener("dblclick", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		startRename();
+	});
+	title.addEventListener("keydown", (event) => {
+		if (!["Enter", "F2"].includes(event.key)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		startRename();
+	});
+	const folio = `${String(index + 1).padStart(2, "0")} / ${String(Math.max(total, 1)).padStart(2, "0")}`;
+	return el("div", {
+		className: `aa-dashboard-page-heading${className ? ` ${className}` : ""}`,
+		children: [
+			el("span", { className: "aa-dashboard-page-heading__folio", attrs: { "aria-hidden": "true" }, text: folio }),
+			title,
+			iconButton({ iconName: "edit", label: renameLabel, variant: "ghost", className: "aa-dashboard-page-heading__edit", onClick: startRename }),
+		],
+	});
+}
+
 export function createDashboardPresetPicker({ presets = [], baselineId = null, comparison = null, error = null, labels = {}, onSelect, onCreate, onUpdate, onDuplicate, onRename, onDelete, onRestore } = {}) {
 	const hasError = Boolean(error);
 	const availablePresets = hasError ? [] : presets;

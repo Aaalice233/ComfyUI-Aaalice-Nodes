@@ -29,7 +29,7 @@ import { badge, button, createContextMenu, createDialog, createTooltip, el, empt
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow, createPageRail,
-	createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
+	createDashboardPageHeading, createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
@@ -667,12 +667,17 @@ function renderDashboard(container, host) {
 		if (!page) return;
 		askText(t("aaalice.workspace.layout.separator", "Add separator"), t("aaalice.workspace.layout.separatorLabel", "Separator"), "", (label) => updateDashboard((current) => addSeparator(current, page.id, label)));
 	};
+	const renamePage = (name) => updateDashboard((current) => {
+		const target = current.pages.find((item) => item.id === page?.id);
+		if (target) target.name = name;
+		return current;
+	});
 	const openPageMenu = (event) => {
 		if (!page) return;
 		const rect = event.currentTarget.getBoundingClientRect();
 		createContextMenu({ x: rect.right, y: rect.bottom, ariaLabel: t("aaalice.workspace.page.menu", "Page actions"), items: [
 			{ label: t("aaalice.workspace.page.duplicate", "Duplicate page"), iconName: "copy", onSelect: () => updateDashboard((current) => { const next = duplicatePage(current, page.id); activePageId = next.pages[next.pages.findIndex((entry) => entry.id === page.id) + 1]?.id || page.id; return next; }) },
-			{ label: t("aaalice.workspace.page.rename", "Rename page"), iconName: "edit", onSelect: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, (name) => updateDashboard((current) => { current.pages.find((item) => item.id === page.id).name = name; return current; })) },
+			{ label: t("aaalice.workspace.page.rename", "Rename page"), iconName: "edit", onSelect: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, renamePage) },
 			{ separator: true },
 			{ label: t("aaalice.workspace.page.delete", "Delete page"), iconName: "delete", danger: true, onSelect: () => removePage(page) },
 		] });
@@ -686,8 +691,16 @@ function renderDashboard(container, host) {
 		onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
 		onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
 	});
+	const activePageIndex = model.pages.findIndex((entry) => entry.id === page?.id);
 	const dashboardActions = [
-		...(page ? [el("div", { className: `aa-dashboard-page-name${pageTransitionClass}`, attrs: { title: page.name, role: "heading", "aria-level": "2", "aria-current": "page" }, children: [el("span", null, page.name)] })] : []),
+		...(page ? [createDashboardPageHeading({
+			page,
+			index: activePageIndex,
+			total: model.pages.length,
+			labels: workspaceLabels(),
+			className: pageTransitionClass.trim(),
+			onRename: renamePage,
+		})] : []),
 		presetPicker,
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
 		...(editMode ? [
@@ -721,7 +734,6 @@ function renderDashboard(container, host) {
 	container.append(toolbar);
 	if (!page) { container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
 	const scroll = el("div", `aa-dashboard-scroll${pageTransitionClass}`);
-	const activePageIndex = model.pages.findIndex((entry) => entry.id === page.id);
 	bindDashboardBoundaryPaging(scroll, {
 		state: dashboardBoundaryPagingState,
 		isEnabled: () => !viewState.searchOpen && !scroll.querySelector(".aa-dashboard-grid-v2.is-dragging"),

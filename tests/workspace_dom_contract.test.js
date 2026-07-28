@@ -592,11 +592,18 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 	assert.match(theme, /\.aa-library-filters \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
 });
 
-test("dashboard toolbar identifies the current page in its available space", () => {
-	assert.match(workspace, /className: `aa-dashboard-page-name\$\{pageTransitionClass\}`[^\n]+role: "heading"[^\n]+"aria-current": "page"/);
-	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*min-width: 0;[^}]*flex: 1;/);
-	assert.match(theme, /\.aa-dashboard-page-name \{[^}]*border-left: 2px solid var\(--aa-ui-accent\);[^}]*font-size: 13px;[^}]*font-weight: 700;/);
-	assert.match(theme, /\.aa-dashboard-page-name > span \{[^}]*text-overflow: ellipsis;/);
+test("dashboard page heading is prominent, responsive, and directly renameable", () => {
+	assert.match(workspace, /createDashboardPageHeading\(\{[\s\S]*?page,[\s\S]*?index: activePageIndex,[\s\S]*?total: model\.pages\.length,[\s\S]*?onRename: renamePage/);
+	assert.match(components, /export function createDashboardPageHeading/);
+	assert.match(components, /className: "aa-dashboard-page-heading__title"/);
+	assert.match(components, /title\.addEventListener\("dblclick"/);
+	assert.match(components, /\["Enter", "F2"\]\.includes\(event\.key\)/);
+	assert.match(components, /iconName: "edit"[\s\S]*?onClick: startRename/);
+	assert.match(components, /inlineRename\(title,[\s\S]*?onRename\?\.\(name\)/);
+	assert.match(theme, /\.aa-dashboard-page-heading \{[^}]*min-height: 42px;[^}]*flex: 1 1 220px;[^}]*linear-gradient/);
+	assert.match(theme, /\.aa-dashboard-page-heading__title \{[^}]*font-size: 18px;[^}]*font-weight: 760;[^}]*text-overflow: ellipsis;/);
+	assert.match(theme, /\.aa-dashboard-page-heading__folio \{[^}]*font-size: 10px;[^}]*font-variant-numeric: tabular-nums;/);
+	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
 });
 
 test("detached context menus retain theme tokens and visible hover feedback", () => {
