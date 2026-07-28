@@ -676,6 +676,8 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group:hover \{ transform: none; \}/);
 	assert.match(theme, /\.aa-control-numeric-value\.is-committed \{ animation: aa-control-commit-flash/);
 	assert.match(numericControl, /classList\.add\("is-committed"\)/);
+	assert.match(numericControl, /requestAnimationFrame\(\(\) => \{/);
+	assert.match(numericControl, /if \(valueButton\.isConnected\) return;/);
 });
 
 test("Dashboard V2 layout editing uses transient pointer gestures and one command commit", () => {
@@ -986,7 +988,17 @@ test("dashboard column projection re-renders when sidebar width crosses the brea
 	assert.match(workspace, /dashboardColumnsForWidth\(element\.clientWidth\)/);
 	assert.match(workspace, /if \(next === lastColumnBucket\) return;/);
 	assert.match(workspace, /widthObserver\.observe\(element\)/);
-	assert.match(workspace, /widthObserver\.disconnect\(\)/);
+	assert.match(workspace, /workspaceWidthObservers\.get\(element\)\?\.disconnect\(\)/);
+	assert.match(workspace, /workspaceWidthObservers\.delete\(element\)/);
 	assert.match(dashboardSizing, /export function dashboardColumnsForWidth/);
 	assert.match(dashboardSizing, /DASHBOARD_SINGLE_COLUMN_MAX_WIDTH = 330/);
+});
+
+test("sidebar tab remounts triggered by reactive value writes never interrupt an active gesture", () => {
+	assert.match(workspaceControls, /activeControlGestures \+= 1/);
+	assert.match(workspaceControls, /activeControlGestures = Math\.max\(0, activeControlGestures - 1\)/);
+	assert.match(workspaceControls, /export function hasActiveControlGestures/);
+	assert.match(workspace, /renderedWorkspaceTabs\.has\(element\)/);
+	assert.match(workspace, /if \(!hasActiveControlGestures\(\)\) scheduleRender\(\);/);
+	assert.match(workspace, /renderedWorkspaceTabs\.add\(element\); renderWorkspace\(element\);/);
 });

@@ -3,6 +3,11 @@
 import { createSharedControl } from "./controls/registry.js";
 import { resolvedControlSpec } from "./controls/specs.js";
 
+let activeControlGestures = 0;
+
+/** The sidebar must not rebuild its DOM while a drag/wheel gesture owns an element. */
+export function hasActiveControlGestures() { return activeControlGestures > 0; }
+
 export function createControlElement(resolved, { labels = {}, onInput, onCommit, onError, onSuccess } = {}) {
 	if (resolved?.status !== "ok") return null;
 	const availabilityLabels = labels.availability || {};
@@ -31,11 +36,11 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 		},
 		beginGesture() {
 			if (gestureOpen) return;
-			gestureOpen = true; resolved.node?.graph?.beforeChange?.();
+			gestureOpen = true; activeControlGestures += 1; resolved.node?.graph?.beforeChange?.();
 		},
 		endGesture(next) {
 			if (!gestureOpen) return;
-			gestureOpen = false; resolved.flushValue?.();
+			gestureOpen = false; activeControlGestures = Math.max(0, activeControlGestures - 1); resolved.flushValue?.();
 			resolved.node?.graph?.afterChange?.(); resolved.node?.graph?.setDirtyCanvas?.(true, true); onCommit?.(next);
 		},
 		setSeedLocked: (locked) => { resolved.setSeedLocked?.(locked); onCommit?.(resolved.value); },

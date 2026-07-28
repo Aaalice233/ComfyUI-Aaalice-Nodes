@@ -31,7 +31,7 @@ import {
 	createCollapsibleSearch, createControlCard, createListRow, createPageRail,
 	createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
-import { createControlElement } from "./lib/workspace_controls.js";
+import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
 
 const EXTRA_KEY = "aaaliceSidebar";
@@ -1487,6 +1487,9 @@ function handleGroupNavigationShortcut(event) {
 	navigateFromWorkspace(group, entry.offset, entry.zoom);
 }
 
+const renderedWorkspaceTabs = new WeakSet();
+const workspaceWidthObservers = new Map();
+
 function renderWorkspace(root) {
 	clearLegacyDashboardPresets();
 	workspacePinTooltip.hide();
@@ -1626,17 +1629,23 @@ app.registerExtension({
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
 	setup() {
 		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.sidebarTitle", "Aaalice"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => {
-			element.classList.add("aa-workspace-host"); mounted.add(element); renderWorkspace(element);
+			element.classList.add("aa-workspace-host"); mounted.add(element);
+			// 前端的挂载效果会跟随渲染期读取的响应式状态(如滑条预览写 widget 值)重新触发。
+			// 手势期间重建会销毁被拖拽元素,跳过重挂载;手势结束后的提交渲染统一刷新。
+			if (renderedWorkspaceTabs.has(element)) { if (!hasActiveControlGestures()) scheduleRender(); }
+			else { renderedWorkspaceTabs.add(element); renderWorkspace(element); }
 			// 侧栏宽度在打开动画期间尚未稳定，列数投影可能从错误的宽度计算；宽度跨越断点时必须重排。
 			const columnBucket = () => dashboardColumnsForWidth(element.clientWidth);
 			let lastColumnBucket = columnBucket();
+			workspaceWidthObservers.get(element)?.disconnect();
 			const widthObserver = new ResizeObserver(() => {
 				const next = columnBucket();
 				if (next === lastColumnBucket) return;
 				lastColumnBucket = next; scheduleRender("dashboard");
 			});
+			workspaceWidthObservers.set(element, widthObserver);
 			widthObserver.observe(element);
-			return () => { widthObserver.disconnect(); workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); };
+			return () => { workspaceWidthObservers.get(element)?.disconnect(); workspaceWidthObservers.delete(element); workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); };
 		} });
 		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphSyncSignature();

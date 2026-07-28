@@ -96,6 +96,7 @@ ComfyUI-Aaalice-Nodes/
 - DOM widget 挂载器、虚拟列表和布局模块可能在构造期间同步触发 render、near-end、resize 等回调；回调依赖必须在调用挂载器前完成初始化，禁止闭包读取仍处于 TDZ 或尚未赋值的控制器。挂载失败必须复位 mounted 标记、输出含堆栈的原始错误并允许生命周期重试。
 - 工作流持久状态以 `node.properties` 为真源。内部 payload 不暴露为 Schema widget，执行时由 `graphToPrompt` 注入。
 - 状态变化必须覆盖保存、加载、复制、撤销/重做和执行路径。
+- ComfyUI 前端把自定义侧栏页签的 render 回调包在 Vue effect 中，渲染期读取的响应式状态（widgetValueStore 等）会成为依赖；滑条预览等写值会触发页签整体重挂载。依赖 DOM identity 的持续交互（拖拽、滚轮手势、文本输入）所在的表面不得在交互期间整体重建：手势期间必须跳过重挂载与 `scheduleRender`（见 `js/lib/workspace_controls.js` 的手势计数），由手势结束后的提交渲染统一刷新。页签 render 回调会被重复调用，必须幂等，观察器等资源先断后建。提交时挂在旧元素上的一次性动画会随重建销毁，需要在重建后的新元素上补放。
 - 局部重绘不得无条件销毁仍有效的焦点、Popover、Dialog 或操作状态；只有锚点失效、节点移除或对应生命周期结束时才清理。
 - 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
