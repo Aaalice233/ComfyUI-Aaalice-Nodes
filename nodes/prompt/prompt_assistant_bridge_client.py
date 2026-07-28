@@ -99,8 +99,11 @@ def resolve_prompt_assistant() -> AssistantApi | None:
     return result
 
 
-def expand(text: str) -> str:
+def expand(text: str, stream_callback: Callable[[str], None] | None = None) -> str:
     """Expand ``text`` with prompt-assistant's active rule and LLM service.
+
+    ``stream_callback`` receives each streamed content delta and exists only
+    for live display; the returned string is always the authoritative result.
 
     Raises RuntimeError carrying the assistant's original error when the
     expansion fails; InterruptProcessingException propagates unchanged.
@@ -116,6 +119,7 @@ def expand(text: str) -> str:
         request_id=request_id,
         task_type=api.task_expand,
         source=api.source_node,
+        stream_callback=stream_callback,
     )
     if result and result.get("success"):
         expanded = str((result.get("data") or {}).get("expanded", "")).strip()

@@ -11,6 +11,7 @@ from unittest import mock
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from comfy.model_management import InterruptProcessingException  # noqa: E402
+from comfy_api.latest import io  # noqa: E402
 from nodes.prompt import NODE_CLASSES  # noqa: E402
 from nodes.prompt import prompt_assistant_bridge_client as client  # noqa: E402
 from nodes.prompt.prompt_assistant_bridge import PromptAssistantBridge  # noqa: E402
@@ -34,6 +35,7 @@ class PromptAssistantBridgeSchemaTests(unittest.TestCase):
         self.assertIsNone(enabled_input.label_off)
         self.assertIsNot(enabled_input.socketless, True)
         self.assertEqual([item.id for item in schema.outputs], ["text"])
+        self.assertIn(io.Hidden.unique_id, schema.hidden)
 
     def test_fingerprint_tracks_text_and_switch(self):
         base = PromptAssistantBridge.fingerprint_inputs(text="a", enabled=True)
@@ -63,15 +65,45 @@ class PromptAssistantBridgeExecuteTests(unittest.TestCase):
         self.assertEqual(output.args, ("some prompt",))
         self.assertIsNone(output.ui)
 
-    def test_success_returns_expanded_text(self):
+    def test_success_returns_expanded_text_with_ui_payload(self):
         with (
             mock.patch.object(client, "resolve_prompt_assistant", return_value=object()),
             mock.patch.object(client, "expand", return_value="expanded prompt") as expand,
         ):
             output = PromptAssistantBridge.execute("some prompt", enabled=True)
         self.assertEqual(output.args, ("expanded prompt",))
-        self.assertIsNone(output.ui)
-        expand.assert_called_once_with("some prompt")
+        items = output.ui["aaalice_prompt_assistant_bridge"]
+        self.assertEqual(items, [{"status": "expanded", "text": "expanded prompt"}])
+        self.assertEqual(expand.call_count, 1)
+        self.assertEqual(expand.call_args.args, ("some prompt",))
+        self.assertIn("stream_callback", expand.call_args.kwargs)
+
+    def test_stream_forwarder_routes_chunks_to_the_executing_node(self):
+        sent = []
+        fake_server = types.ModuleType("server")
+        fake_server.PromptServer = types.SimpleNamespace(
+            instance=types.SimpleNamespace(send_sync=lambda event, data: sent.append((event, data)))
+        )
+        PromptAssistantBridge.hidden = types.SimpleNamespace(unique_id="7")
+        try:
+            with (
+                mock.patch.dict(sys.modules, {"server": fake_server}),
+                mock.patch.object(client, "resolve_prompt_assistant", return_value=object()),
+                mock.patch.object(client, "expand", side_effect=lambda text, stream_callback=None: (stream_callback("part"), "expanded prompt")[1]),
+            ):
+                output = PromptAssistantBridge.execute("some prompt", enabled=True)
+        finally:
+            del PromptAssistantBridge.hidden
+        self.assertEqual(output.args, ("expanded prompt",))
+        self.assertEqual(sent, [("aaalice.prompt_assistant_bridge.chunk", {"node": "7", "delta": "part"})])
+
+    def test_stream_forwarder_is_none_without_unique_id(self):
+        with (
+            mock.patch.object(client, "resolve_prompt_assistant", return_value=object()),
+            mock.patch.object(client, "expand", return_value="expanded prompt") as expand,
+        ):
+            PromptAssistantBridge.execute("some prompt", enabled=True)
+        self.assertIsNone(expand.call_args.kwargs["stream_callback"])
 
     def test_failure_keeps_source_and_reports_ui_payload(self):
         with (
@@ -112,6 +144,46 @@ def _fake_assistant_modules(name: str, dirname: str) -> dict:
         f"{name}.node.base.llm_node_base": node_base,
         f"{name}.utils.common": common,
     }
+
+
+class PromptAssistantBridgeClientExpandTests(unittest.TestCase):
+    def test_expand_forwards_stream_callback_to_run_llm_task(self):
+        captured = {}
+
+        def run_llm_task(func, provider, **kwargs):
+            captured.update(kwargs)
+            return {"success": True, "data": {"expanded": "expanded prompt"}}
+
+        api = types.SimpleNamespace(
+            expand_prompt=lambda **kwargs: None,
+            run_llm_task=run_llm_task,
+            task_expand="提示词优化",
+            source_node="节点-",
+            generate_request_id=lambda *args: "req",
+        )
+        callback = lambda delta: None  # noqa: E731
+        with mock.patch.object(client, "resolve_prompt_assistant", return_value=api):
+            self.assertEqual(client.expand("some prompt", stream_callback=callback), "expanded prompt")
+        self.assertIs(captured["stream_callback"], callback)
+        self.assertEqual(captured["prompt"], "some prompt")
+
+    def test_expand_without_stream_callback_passes_none(self):
+        captured = {}
+
+        def run_llm_task(func, provider, **kwargs):
+            captured.update(kwargs)
+            return {"success": True, "data": {"expanded": "expanded prompt"}}
+
+        api = types.SimpleNamespace(
+            expand_prompt=lambda **kwargs: None,
+            run_llm_task=run_llm_task,
+            task_expand="提示词优化",
+            source_node="节点-",
+            generate_request_id=lambda *args: "req",
+        )
+        with mock.patch.object(client, "resolve_prompt_assistant", return_value=api):
+            self.assertEqual(client.expand("some prompt"), "expanded prompt")
+        self.assertIsNone(captured["stream_callback"])
 
 
 class PromptAssistantBridgeClientDiscoveryTests(unittest.TestCase):

@@ -27,3 +27,15 @@ test("the warning banner carries no interactive controls", () => {
 	assert.doesNotMatch(source, /createAnchoredPopover|openSettingsMenu|openAssistantModal/);
 	assert.doesNotMatch(styles, /aaalice-pa-bridge-settings|aaalice-pa-bridge-menu/);
 });
+
+test("the node shows the expansion result in a read-only streaming display", () => {
+	assert.match(source, /className: "aaalice-pa-bridge-output"/);
+	assert.match(source, /readonly: ""/);
+	assert.match(source, /"aaalice\.prompt_assistant_bridge\.chunk"/);
+	assert.match(source, /api\.addEventListener\(CHUNK_EVENT/);
+	assert.match(source, /api\.addEventListener\("executing"/);
+	assert.match(source, /item\?\.status === "expanded" && typeof item\.text === "string"/);
+	assert.match(source, /data-capture-wheel/);
+	assert.match(styles, /\.aaalice-pa-bridge-output \{[^}]*resize: none;/);
+	assert.match(styles, /\.aaalice-pa-bridge-output \{[^}]*pointer-events: auto;/);
+});
