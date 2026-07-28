@@ -28,6 +28,15 @@
     },
     "outputs": { "0": { "name": "Output", "tooltip": "Value from the selected branch." } }
   },
+  "GroupIsEnabled": {
+    "display_name": "🚦 Group Is Enabled",
+    "description": "Report whether the selected visual group is fully enabled or fully disabled at the moment the prompt is queued.",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "Enabled", "tooltip": "True when every node in the selected group is enabled (not muted or bypassed)." },
+      "1": { "name": "Disabled", "tooltip": "True when every node in the selected group is muted or bypassed." }
+    }
+  },
   "ParameterPanel": {
     "display_name": "🎛️ Parameter Panel",
     "description": "Edit one parameter set and materialize up to 32 active direct outputs; edit structure from the node context menu.",

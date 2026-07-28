@@ -107,6 +107,10 @@
         "export": "导出", "exportSelected": "导出已选", "import": "导入", "importTitle": "导入词库", "keepLocal": "保留本地", "useImport": "使用导入内容", "createDuplicate": "创建副本", "new": "新增", "existing": "已有", "conflicts": "冲突", "duplicates": "重复", "invalid": "无效"
       }
     },
+    "groupIsEnabled": {
+      "group": "组",
+      "untitled": "未命名组"
+    },
     "quickGroup": {
       "title": "快速组管理器",
       "untitled": "未命名组",

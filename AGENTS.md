@@ -131,6 +131,7 @@ ComfyUI-Aaalice-Nodes/
 - `ParameterReceiver` 通过可见 KJ Get 和按绑定数量动态物化的真实 slot 工作；缺少 KJNodes 时明确失败，不模拟成功。
 - `EnumSwitch` 按当前 route 数量物化连续 lazy MatchType 分支；未知 selector 或未连接目标分支必须显式失败。
 - `SimpleNotify` 只表示执行到达，不表示并行分支完成或队列清空；通知副作用只发生在前端。
+- `GroupIsEnabled` 在 graphToPrompt 时按组标题快照组成员 mode 并注入 payload，探测器自身不计入判定；组不存在或为空时显式失败，不猜测状态。
 - `CharacterFeatureSwapNode` 只使用 DeepSeek 官方 API；服务地址不进入用户配置。请求显式发送思考开关，默认关闭，启用时只提供 DeepSeek 实际区分的 `high` 与 `max`。
 - Booru Gallery 内容黑名单属于当前 ComfyUI 用户的应用级持久设置，只能存放在用户目录的 Gallery 设置文件中；不得写入 `node.properties`、工作流 JSON、节点默认值或切换工作流时会重建的前端状态。加载、切换、新建工作流以及重启 ComfyUI 都不得清空黑名单。
 - 产品术语以 [`CONTEXT.md`](CONTEXT.md) 为准，协议决策以 accepted ADR 为准。

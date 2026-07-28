@@ -23,6 +23,7 @@
 | 12 | `CharacterFeatureSwapNode` | prompt | 通过 DeepSeek 官方 API 迁移当前节点选中的单角色特征。 |
 | 15 | `ParameterPanel` | control | 创作并直接输出最多 32 个参数。 |
 | 16 | `ParameterReceiver` | control | 按当前绑定动态接收并透传面板对应的 KJ Get。 |
+| 17 | `GroupIsEnabled` | control | 队列提交时快照可视组成员模式，报告是否完全启用或被完全禁用。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
 | 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
@@ -38,7 +39,6 @@
 | 9 | `SimpleLoadImage` | ComfyUI 原生 `Load Image` 已覆盖图像与 mask 加载；默认黑图不能解决实际输入图像的工作流资产分享问题。 |
 | 13 | `SimpleImageCompare` | ComfyUI 原生 `Compare Images` 已覆盖交互对比；本包只将其执行视图投影到参数控制侧边栏，不再重复实现节点。 |
 | 14 | `SimpleCheckpointLoaderWithName` | 当前不需要额外提供模型名称和预览的检查点加载节点。 |
-| 17 | `GroupIsEnabled` | 仅查询组启用状态，独立节点的实用价值不足。 |
 | 19 | `GroupIgnoreManager` | 静音与绕过职责已合并到 #18 `QuickGroupManager`。 |
 | 22 | `MultiCharacterEditorNode` | 当前不需要多角色提示词编辑能力。 |
 | 23 | `SaveImagePlus` | 当前不需要额外提供图像保存节点。 |

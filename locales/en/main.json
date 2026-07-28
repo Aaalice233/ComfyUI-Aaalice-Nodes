@@ -107,6 +107,10 @@
         "export": "Export", "exportSelected": "Export selected", "import": "Import", "importTitle": "Import prompt library", "keepLocal": "Keep local", "useImport": "Use import", "createDuplicate": "Create duplicate", "new": "new", "existing": "existing", "conflicts": "conflicts", "duplicates": "duplicates", "invalid": "invalid"
       }
     },
+    "groupIsEnabled": {
+      "group": "Group",
+      "untitled": "Untitled group"
+    },
     "quickGroup": {
       "title": "Quick Group Manager",
       "untitled": "Untitled group",

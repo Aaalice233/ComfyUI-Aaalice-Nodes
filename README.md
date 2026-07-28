@@ -58,6 +58,7 @@ pip install -r requirements.txt
 | `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose its active values as direct outputs. |
 | `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `QuickGroupManager` | `Aaalice/control` | Enable, mute, or bypass color-scoped visual groups with ordering and linkage rules. |
+| `GroupIsEnabled` | `Aaalice/control` | Report at queue time whether a visual group is fully enabled or fully disabled. |
 | `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
 | `ResolutionPreset` | `Aaalice/tools` | Pick an exact aligned width and height with presets, direct input, or a draggable canvas. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
@@ -147,6 +148,15 @@ QuickGroupManager does not run as part of workflow execution and has no input or
 - External group changes and other managers update the display but do not trigger linkage rules.
 
 The node controls only groups in its current graph. A grouped subgraph node can be switched like any other node, but QuickGroupManager does not recurse into the subgraph's internal graph.
+
+</details>
+
+<details>
+<summary><strong>GroupIsEnabled — visual-group state probe</strong></summary>
+
+Pick a visual group from the node's dropdown. When the prompt is queued, the node snapshots that group's member modes and reports two booleans: **Enabled** is true only when every member is running (not muted or bypassed), and **Disabled** is true only when every member is muted or bypassed. A mixed group reports false on both. Duplicate group titles are distinguished with an order suffix, and the probe's own mode never counts toward the result.
+
+The probe must sit outside the group it watches: a muted or bypassed group never executes, including probes inside it. A group that was renamed or deleted, or one with no member nodes, fails explicitly at execution instead of guessing a state.
 
 </details>
 
