@@ -480,7 +480,7 @@ function render(node) {
 	if (visibleGroups.length) for (const group of visibleGroups) list.append(groupRow(node, group, visibleGroups));
 	else list.append(emptyState({ description: groups.length ? t("aaalice.quickGroup.noFilteredGroups", "No groups match the selected colors.") : t("aaalice.quickGroup.noGroups", "No visual groups are available in this graph."), iconName: "filter", className: "aaalice-qgm-empty" }));
 	root.replaceChildren(list);
-	enforceContentSize(node);
+	enforceMinimumSize(node);
 	node.graph?.setDirtyCanvas?.(true, true);
 }
 
@@ -506,14 +506,13 @@ function scheduleInitialSize(node) {
 	});
 }
 
-function enforceContentSize(node) {
+function enforceMinimumSize(node) {
 	const width = Number(node.size?.[0]);
 	const height = Number(node.size?.[1]);
 	const [minimumWidth, minimumHeight] = node.computeSize?.() || [MIN_WIDTH, MIN_BODY_HEIGHT];
 	if (![width, height, minimumWidth, minimumHeight].every(Number.isFinite)) return;
-	const nextWidth = Math.max(width, minimumWidth);
-	if (nextWidth === width && height === minimumHeight) return;
-	node.setSize?.([nextWidth, minimumHeight]);
+	if (width >= minimumWidth && height >= minimumHeight) return;
+	node.setSize?.([Math.max(width, minimumWidth), Math.max(height, minimumHeight)]);
 }
 
 function beginResizePassthrough(node) {
@@ -607,19 +606,18 @@ function setupManager(node, { initializeSize = false } = {}) {
 	const previousResize = node.onResize;
 	node.onResize = function (size) {
 		if (app.canvas?.resizing_node === this) beginResizePassthrough(this);
-		const height = minimumBodyHeight(this);
 		if (Array.isArray(size)) {
 			size[0] = Math.max(MIN_WIDTH, Number(size[0]) || 0);
-			size[1] = height;
+			size[1] = Math.max(minimumBodyHeight(this), Number(size[1]) || 0);
 		}
 		if (Array.isArray(this.size)) {
 			this.size[0] = Math.max(MIN_WIDTH, Number(this.size[0]) || 0);
-			this.size[1] = height;
+			this.size[1] = Math.max(minimumBodyHeight(this), Number(this.size[1]) || 0);
 		}
 		return previousResize?.apply(this, arguments);
 	};
 	const previousArrangeWidgets = node._arrangeWidgets;
-	// The zero-height title toolbar and the scrollable body need different
+	// The zero-height title toolbar and the resizable body need different
 	// origins; widgets_start_y would move both, so only the toolbar is corrected.
 	node._arrangeWidgets = function () {
 		const result = previousArrangeWidgets?.apply(this, arguments);
@@ -633,7 +631,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 		this.properties[PROPERTY] = normalizeQuickGroupState(this.properties?.[PROPERTY]);
 		this._aaaliceQuickAccent?.sync();
 		requestAnimationFrame(() => {
-			enforceContentSize(this);
+			enforceMinimumSize(this);
 			placeToolbarWidget(this);
 			render(this);
 		});
@@ -658,7 +656,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 		beginPlacementPassthrough(node);
 		scheduleInitialSize(node);
 	}
-	enforceContentSize(node);
+	enforceMinimumSize(node);
 	placeToolbarWidget(node);
 	render(node);
 }

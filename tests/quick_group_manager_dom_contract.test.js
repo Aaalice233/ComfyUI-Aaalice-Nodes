@@ -39,21 +39,21 @@ test("keeps the compact header single-line without redundant visible labels", ()
 	assert.match(source, /"aria-checked":\s*status === GROUP_STATE\.MIXED \? "mixed"/);
 });
 
-test("locks vertical size to content while preserving horizontal resizing", () => {
+test("allows vertical growth while keeping content top-aligned and enforcing its minimum", () => {
 	assert.match(source, /MIN_WIDTH\s*=\s*380/);
 	assert.doesNotMatch(source, /DEFAULT_HEIGHT/);
 	assert.match(source, /function scheduleInitialSize/);
 	assert.match(source, /_aaaliceQuickConfigured/);
 	assert.match(source, /function minimumBodyHeight/);
 	assert.match(source, /GROUP_ROW_HEIGHT\s*=\s*42/);
-	assert.match(source, /function enforceContentSize/);
+	assert.match(source, /function enforceMinimumSize/);
 	assert.match(source, /getMinHeight:\s*\(\)\s*=>\s*minimumBodyHeight\(node\)/);
 	assert.match(source, /minimumBodyHeight\(this\)/);
 	assert.doesNotMatch(source, /Math\.max\(Number\(computed\[1\]\)\s*\|\|\s*0, minimumBodyHeight\(this\)\)/);
 	assert.match(source, /node\.computeSize\s*=\s*function/);
 	assert.match(source, /Math\.max\([\s\S]*Number\(computed\[0\]\)[\s\S]*MIN_WIDTH/);
 	assert.match(source, /app\.canvas\?\.resizing_node === this/);
-	assert.match(source, /node\.onResize = function \(size\)[\s\S]*size\[1\] = height[\s\S]*this\.size\[1\] = height/);
+	assert.match(source, /node\.onResize = function \(size\)[\s\S]*size\[1\] = Math\.max\(minimumBodyHeight\(this\), Number\(size\[1\]\)[\s\S]*this\.size\[1\] = Math\.max\(minimumBodyHeight\(this\), Number\(this\.size\[1\]\)/);
 	assert.match(source, /function beginResizePassthrough/);
 	assert.match(source, /function beginPlacementPassthrough/);
 	assert.match(source, /_aaaliceQuickPlacementCleanup/);
@@ -63,11 +63,13 @@ test("locks vertical size to content while preserving horizontal resizing", () =
 	const renderBody = source.slice(source.indexOf("function render(node)"), source.indexOf("function placeToolbarWidget"));
 	assert.doesNotMatch(renderBody, /setSize/);
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*height:\s*100%/);
+	assert.match(styles, /\.aaalice-qgm-body[\s\S]*justify-content:\s*flex-start/);
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*border-radius:\s*0 0 10px 10px/);
 	assert.match(styles, /\.aaalice-qgm-toolbar[\s\S]*height:\s*30px[\s\S]*min-height:\s*30px/);
 	assert.match(styles, /\.aaalice-qgm-list[\s\S]*margin:\s*6px 6px 4px/);
-	assert.match(styles, /\.aaalice-qgm-list[\s\S]*overflow:\s*hidden/);
-	assert.match(styles, /\.aaalice-qgm-empty[\s\S]*height:\s*100%[\s\S]*align-content:\s*center/);
+	assert.match(styles, /\.aaalice-qgm-list[\s\S]*flex:\s*0 0 auto[\s\S]*justify-content:\s*flex-start[\s\S]*overflow:\s*hidden/);
+	assert.match(styles, /\.aaalice-qgm-row[\s\S]*height:\s*42px[\s\S]*flex:\s*0 0 42px/);
+	assert.match(styles, /\.aaalice-qgm-empty[\s\S]*height:\s*82px[\s\S]*flex:\s*0 0 82px[\s\S]*align-content:\s*center/);
 	assert.match(styles, /\.aaalice-qgm\.is-resizing[\s\S]*pointer-events:\s*none/);
 	assert.match(styles, /\.aaalice-qgm\.is-placing[\s\S]*pointer-events:\s*none/);
 });
