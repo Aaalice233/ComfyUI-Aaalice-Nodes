@@ -390,7 +390,10 @@ function moveGroup(node, sourceId, targetId) {
 function modeSwitcher(node, state) {
 	return segmentedControl({
 		value: state.offMode,
-		options: [["mute", t("aaalice.quickGroup.mode.mute", "Mute")], ["bypass", t("aaalice.quickGroup.mode.bypass", "Bypass")]].map(([value, label]) => ({ value, label })),
+		options: [
+			{ value: "mute", label: t("aaalice.quickGroup.mode.mute", "Mute"), iconName: "volumeOff" },
+			{ value: "bypass", label: t("aaalice.quickGroup.mode.bypass", "Bypass"), iconName: "skipForward" },
+		],
 		ariaLabel: t("aaalice.quickGroup.mode.aria", "Disabled group mode"),
 		onChange: (value) => switchOffMode(node, value),
 		className: `aaalice-qgm-segmented is-${state.offMode}`,
@@ -409,7 +412,8 @@ function syncModeSwitcher(segmented, state) {
 		const active = value === state.offMode;
 		choice.classList.toggle("is-active", active);
 		choice.setAttribute("aria-checked", String(active));
-		choice.textContent = value === "mute" ? t("aaalice.quickGroup.mode.mute", "Mute") : t("aaalice.quickGroup.mode.bypass", "Bypass");
+		const label = choice.querySelector(".aa-ui-segmented__label");
+		if (label) label.textContent = value === "mute" ? t("aaalice.quickGroup.mode.mute", "Mute") : t("aaalice.quickGroup.mode.bypass", "Bypass");
 	}
 }
 

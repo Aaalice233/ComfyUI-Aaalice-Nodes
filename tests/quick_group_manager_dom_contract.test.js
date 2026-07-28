@@ -115,11 +115,16 @@ test("previews existing linkage rules only when a group has rules", () => {
 test("animates and color-codes the mute/bypass mode switcher", () => {
 	assert.match(source, /aaalice-qgm-segmented is-\$\{state\.offMode\}/);
 	assert.match(source, /aaalice-qgm-segmented-thumb/);
+	assert.match(source, /iconName:\s*"volumeOff"/);
+	assert.match(source, /iconName:\s*"skipForward"/);
 	assert.match(source, /function syncModeSwitcher/);
 	assert.match(source, /function syncToolbar/);
 	assert.match(source, /toolbar\.querySelector\("\.aaalice-qgm-actions"\)/);
 	assert.match(source, /choice\.classList\.toggle\("is-active", active\)/);
+	assert.match(source, /choice\.querySelector\("\.aa-ui-segmented__label"\)/);
 	assert.match(source, /syncToolbar\(node, state\)/);
+	assert.match(styles, /\.aaalice-qgm-segmented\s*\{[\s\S]*width:\s*150px[\s\S]*height:\s*26px/);
+	assert.match(styles, /\.aaalice-qgm-segmented button \.aa-ui-icon\s*\{[\s\S]*width:\s*13px[\s\S]*height:\s*13px/);
 	assert.match(styles, /\.aaalice-qgm-segmented\.is-bypass[\s\S]*--qgm-mode-color:\s*var\(--aa-ui-accent\)/);
 	assert.match(styles, /\.aaalice-qgm-segmented\.is-bypass \.aaalice-qgm-segmented-thumb[\s\S]*translateX\(100%\)/);
 	assert.match(styles, /prefers-reduced-motion:\s*reduce[\s\S]*\.aaalice-qgm/);
