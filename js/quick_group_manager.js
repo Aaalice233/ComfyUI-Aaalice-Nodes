@@ -24,8 +24,7 @@ const NODE = "QuickGroupManager";
 const PROPERTY = "quickGroupManagerState";
 const WIDGET = "aaalice_quick_group_manager";
 const TOOLBAR_WIDGET = "aaalice_quick_group_manager_toolbar";
-const MIN_WIDTH = 340;
-const DEFAULT_HEIGHT = 142;
+const MIN_WIDTH = 380;
 const MIN_BODY_HEIGHT = 82;
 const GROUP_ROW_HEIGHT = 42;
 const GROUP_ROW_GAP = 2;
@@ -398,7 +397,9 @@ function syncToolbar(node, state) {
 		filter.addEventListener("blur", () => closeHoverTooltip(node));
 		filter.addEventListener("click", () => openFilter(node, filter));
 		const refresh = iconButton({ iconName: "refresh", label: t("aaalice.quickGroup.refresh", "Refresh groups"), variant: "ghost", className: "aaalice-qgm-refresh-button", onClick: () => render(node) });
-		actions.append(modeSwitcher(node, state), filter, refresh);
+		const utilities = el("div", "aaalice-qgm-utilities");
+		utilities.append(filter, refresh);
+		actions.append(modeSwitcher(node, state), utilities);
 		toolbar.replaceChildren(actions);
 		node._aaaliceQuickFilterButton = filter;
 	}
@@ -479,7 +480,7 @@ function render(node) {
 	if (visibleGroups.length) for (const group of visibleGroups) list.append(groupRow(node, group, visibleGroups));
 	else list.append(emptyState({ description: groups.length ? t("aaalice.quickGroup.noFilteredGroups", "No groups match the selected colors.") : t("aaalice.quickGroup.noGroups", "No visual groups are available in this graph."), iconName: "filter", className: "aaalice-qgm-empty" }));
 	root.replaceChildren(list);
-	enforceMinimumSize(node);
+	enforceContentSize(node);
 	node.graph?.setDirtyCanvas?.(true, true);
 }
 
@@ -499,19 +500,20 @@ function scheduleInitialSize(node) {
 		const minimum = node.computeSize?.() || [0, MIN_BODY_HEIGHT];
 		node.setSize?.([
 			Math.max(Number(minimum[0]) || 0, Number(node.size?.[0]) || 0),
-			Math.max(DEFAULT_HEIGHT, Number(node.size?.[1]) || 0),
+			Number(minimum[1]) || MIN_BODY_HEIGHT,
 		]);
 		node.graph?.setDirtyCanvas?.(true, true);
 	});
 }
 
-function enforceMinimumSize(node) {
+function enforceContentSize(node) {
 	const width = Number(node.size?.[0]);
 	const height = Number(node.size?.[1]);
 	const [minimumWidth, minimumHeight] = node.computeSize?.() || [MIN_WIDTH, MIN_BODY_HEIGHT];
 	if (![width, height, minimumWidth, minimumHeight].every(Number.isFinite)) return;
-	if (width >= minimumWidth && height >= minimumHeight) return;
-	node.setSize?.([Math.max(width, minimumWidth), Math.max(height, minimumHeight)]);
+	const nextWidth = Math.max(width, minimumWidth);
+	if (nextWidth === width && height === minimumHeight) return;
+	node.setSize?.([nextWidth, minimumHeight]);
 }
 
 function beginResizePassthrough(node) {
@@ -603,8 +605,17 @@ function setupManager(node, { initializeSize = false } = {}) {
 		return previousGetWidgetOnPos?.apply(this, arguments);
 	};
 	const previousResize = node.onResize;
-	node.onResize = function () {
+	node.onResize = function (size) {
 		if (app.canvas?.resizing_node === this) beginResizePassthrough(this);
+		const height = minimumBodyHeight(this);
+		if (Array.isArray(size)) {
+			size[0] = Math.max(MIN_WIDTH, Number(size[0]) || 0);
+			size[1] = height;
+		}
+		if (Array.isArray(this.size)) {
+			this.size[0] = Math.max(MIN_WIDTH, Number(this.size[0]) || 0);
+			this.size[1] = height;
+		}
 		return previousResize?.apply(this, arguments);
 	};
 	const previousArrangeWidgets = node._arrangeWidgets;
@@ -622,7 +633,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 		this.properties[PROPERTY] = normalizeQuickGroupState(this.properties?.[PROPERTY]);
 		this._aaaliceQuickAccent?.sync();
 		requestAnimationFrame(() => {
-			enforceMinimumSize(this);
+			enforceContentSize(this);
 			placeToolbarWidget(this);
 			render(this);
 		});
@@ -647,7 +658,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 		beginPlacementPassthrough(node);
 		scheduleInitialSize(node);
 	}
-	enforceMinimumSize(node);
+	enforceContentSize(node);
 	placeToolbarWidget(node);
 	render(node);
 }

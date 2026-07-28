@@ -28,6 +28,10 @@ test("keeps the compact header single-line without redundant visible labels", ()
 	assert.match(source, /NODE_TITLE_HEIGHT/);
 	assert.match(source, /getMaxHeight:\s*\(\)\s*=>\s*0/);
 	assert.match(styles, /\.aaalice-qgm-toolbar[\s\S]*white-space:\s*nowrap/);
+	assert.match(source, /aaalice-qgm-utilities/);
+	assert.match(styles, /\.aaalice-qgm-actions[\s\S]*grid-template-columns:\s*minmax\(132px, 1fr\) auto minmax\(132px, 1fr\)/);
+	assert.match(styles, /\.aaalice-qgm-actions > \.aaalice-qgm-segmented[\s\S]*grid-column:\s*2[\s\S]*justify-self:\s*center/);
+	assert.match(styles, /\.aaalice-qgm-utilities[\s\S]*grid-column:\s*3[\s\S]*justify-self:\s*end/);
 	assert.doesNotMatch(source, /aaalice-qgm-title/);
 	assert.doesNotMatch(source, /关闭方式|颜色过滤/);
 	assert.match(ui, /role:\s*"radiogroup"/);
@@ -35,20 +39,21 @@ test("keeps the compact header single-line without redundant visible labels", ()
 	assert.match(source, /"aria-checked":\s*status === GROUP_STATE\.MIXED \? "mixed"/);
 });
 
-test("keeps manual node sizing after the initial default size", () => {
-	assert.match(source, /MIN_WIDTH\s*=\s*340/);
-	assert.match(source, /DEFAULT_HEIGHT\s*=\s*142/);
+test("locks vertical size to content while preserving horizontal resizing", () => {
+	assert.match(source, /MIN_WIDTH\s*=\s*380/);
+	assert.doesNotMatch(source, /DEFAULT_HEIGHT/);
 	assert.match(source, /function scheduleInitialSize/);
 	assert.match(source, /_aaaliceQuickConfigured/);
 	assert.match(source, /function minimumBodyHeight/);
 	assert.match(source, /GROUP_ROW_HEIGHT\s*=\s*42/);
-	assert.match(source, /function enforceMinimumSize/);
+	assert.match(source, /function enforceContentSize/);
 	assert.match(source, /getMinHeight:\s*\(\)\s*=>\s*minimumBodyHeight\(node\)/);
 	assert.match(source, /minimumBodyHeight\(this\)/);
 	assert.doesNotMatch(source, /Math\.max\(Number\(computed\[1\]\)\s*\|\|\s*0, minimumBodyHeight\(this\)\)/);
 	assert.match(source, /node\.computeSize\s*=\s*function/);
 	assert.match(source, /Math\.max\([\s\S]*Number\(computed\[0\]\)[\s\S]*MIN_WIDTH/);
 	assert.match(source, /app\.canvas\?\.resizing_node === this/);
+	assert.match(source, /node\.onResize = function \(size\)[\s\S]*size\[1\] = height[\s\S]*this\.size\[1\] = height/);
 	assert.match(source, /function beginResizePassthrough/);
 	assert.match(source, /function beginPlacementPassthrough/);
 	assert.match(source, /_aaaliceQuickPlacementCleanup/);

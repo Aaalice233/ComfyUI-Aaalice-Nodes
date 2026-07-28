@@ -658,21 +658,28 @@
 	min-width: 0;
 	min-height: 30px;
 	align-items: center;
-	justify-content: flex-end;
-	padding: 0 8px 0 132px;
+	padding: 0 8px;
 	color: var(--aa-ui-text);
 	pointer-events: none;
 	font: 11px/1.2 var(--comfy-font, Inter, system-ui, sans-serif);
 	white-space: nowrap;
 }
 .aaalice-qgm-actions {
-	display: flex;
+	display: grid;
+	width: 100%;
 	min-width: 0;
-	flex: 0 0 auto;
+	grid-template-columns: minmax(132px, 1fr) auto minmax(132px, 1fr);
+	align-items: center;
+	background: transparent;
+	pointer-events: none;
+}
+.aaalice-qgm-actions > .aaalice-qgm-segmented { grid-column: 2; justify-self: center; pointer-events: auto; }
+.aaalice-qgm-utilities {
+	display: flex;
+	grid-column: 3;
+	justify-self: end;
 	align-items: center;
 	gap: 4px;
-	padding-left: 6px;
-	background: transparent;
 	pointer-events: auto;
 }
 .aaalice-qgm-segmented {
