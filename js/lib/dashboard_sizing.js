@@ -10,6 +10,12 @@ export const DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = 7;
 export const DASHBOARD_GRID_TRACK_HEIGHT = 4;
 export const DASHBOARD_GRID_TRACK_GAP = 2;
 export const DASHBOARD_CARD_GAP = 6;
+export const DASHBOARD_SINGLE_COLUMN_MAX_WIDTH = 330;
+
+/** Narrow sidebars project the twelve-column grid into one reading column. */
+export function dashboardColumnsForWidth(width) {
+	return width && width < DASHBOARD_SINGLE_COLUMN_MAX_WIDTH ? 1 : DASHBOARD_GRID_COLUMNS;
+}
 
 export function dashboardCardHeight(rowSpan) {
 	return (rowSpan * DASHBOARD_GRID_TRACK_HEIGHT) + ((rowSpan - 1) * DASHBOARD_GRID_TRACK_GAP) - (DASHBOARD_CARD_GAP - DASHBOARD_GRID_TRACK_GAP);

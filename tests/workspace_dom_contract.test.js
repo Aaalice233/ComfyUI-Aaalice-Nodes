@@ -964,3 +964,14 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 	assert.match(theme, /\.aa-transfer-section\[open\] > summary > \.aa-ui-icon/);
 	assert.match(theme, /@keyframes aa-transfer-loading/);
 });
+
+test("dashboard column projection re-renders when sidebar width crosses the breakpoint", () => {
+	assert.match(workspace, /dashboardColumnsForWidth\(container\.clientWidth\)/);
+	assert.match(workspace, /new ResizeObserver\(\(\) => \{/);
+	assert.match(workspace, /dashboardColumnsForWidth\(element\.clientWidth\)/);
+	assert.match(workspace, /if \(next === lastColumnBucket\) return;/);
+	assert.match(workspace, /widthObserver\.observe\(element\)/);
+	assert.match(workspace, /widthObserver\.disconnect\(\)/);
+	assert.match(dashboardSizing, /export function dashboardColumnsForWidth/);
+	assert.match(dashboardSizing, /DASHBOARD_SINGLE_COLUMN_MAX_WIDTH = 330/);
+});
