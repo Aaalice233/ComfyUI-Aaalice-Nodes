@@ -151,16 +151,6 @@
         "underscoreEqualsSpace": "Treat “_” as space"
       }
     },
-    "promptAssistantBridge": {
-      "warning": "Prompt Assistant is not installed — prompts pass through unchanged.",
-      "output": {
-        "label": "Expanded prompt",
-        "placeholder": "The expanded prompt appears here after the node runs."
-      },
-      "toast": {
-        "expandFailed": "Prompt expansion failed; the original prompt was kept: {reason}"
-      }
-    },
     "simpleNotify": {
       "defaultMessage": "Execution reached Simple Notify.",
       "menu": { "test": "🔔 Enable and Test Alerts" },

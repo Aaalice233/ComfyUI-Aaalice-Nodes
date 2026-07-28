@@ -73,15 +73,6 @@
     "inputs": {},
     "outputs": {}
   },
-  "PromptAssistantBridge": {
-    "display_name": "✨ Prompt Assistant Bridge",
-    "description": "Expand the input prompt with Prompt Assistant's active rule and LLM service, or pass it through unchanged when disabled or unavailable.",
-    "inputs": {
-      "text": { "name": "Text", "tooltip": "Prompt text to expand before passing it on." },
-      "enabled": { "name": "Expand", "tooltip": "Enable to expand the input with Prompt Assistant; disable to pass it through unchanged." }
-    },
-    "outputs": { "0": { "name": "Text", "tooltip": "Expanded prompt, or the original text when disabled or unavailable." } }
-  },
   "PromptCleaningMaid": {
     "display_name": "🧹 Prompt Cleaning Maid",
     "description": "Pass prompts through unchanged or conservatively clean natural-language and flat tag-list formats while preserving recognized partition syntax.",

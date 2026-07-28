@@ -26,7 +26,6 @@
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
 | 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
-| 26 | `PromptAssistantBridge` | prompt | 执行时按提示词小助手激活配置自动扩写输入提示词，支持开关与失败或缺失时透传。 |
 
 ## 不再重置
 
@@ -44,6 +43,7 @@
 | 22 | `MultiCharacterEditorNode` | 当前不需要多角色提示词编辑能力。 |
 | 23 | `SaveImagePlus` | 当前不需要额外提供图像保存节点。 |
 | 25 | `SendToKrita` | 当前工作方式只需在 Krita 中提前准备活动文档和选区，再由 `FetchFromKrita` 执行时读取；不需要反向发送节点。 |
+| 26 | `PromptAssistantBridge` | 提示词小助手已自带提示词优化节点，桥接节点不再必要；已在发布后移除。 |
 
 ## 节点队列
 

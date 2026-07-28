@@ -151,16 +151,6 @@
         "underscoreEqualsSpace": "下划线等同空格"
       }
     },
-    "promptAssistantBridge": {
-      "warning": "未安装提示词小助手，扩写不可用，将原样输出。",
-      "output": {
-        "label": "扩写结果",
-        "placeholder": "节点执行后，扩写结果会显示在这里。"
-      },
-      "toast": {
-        "expandFailed": "提示词扩写失败，已原样输出：{reason}"
-      }
-    },
     "simpleNotify": {
       "defaultMessage": "执行已到达简易通知节点。",
       "menu": { "test": "🔔 启用并测试提醒" },
