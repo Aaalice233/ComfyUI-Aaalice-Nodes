@@ -1,7 +1,7 @@
 /** Pure Dashboard V2 grid/group DOM composition. */
 
 import { orderedItems, projectScope } from "./dashboard_layout.js";
-import { el, iconButton } from "./ui.js";
+import { el, icon, iconButton } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
 	element.style.setProperty("--aa-dashboard-row", String(projected.row + 1));
@@ -13,9 +13,10 @@ function applyGridPosition(element, projected, source = projected) {
 }
 
 export function createDashboardGroup({ group, members, columns = 12, editMode = false, selected = false, labels = {}, renderItem, onMenu }) {
+	const memberCount = el("span", { className: "aa-dashboard-group-count", attrs: { "aria-hidden": "true" }, text: String(members.length) });
 	const header = el("header", { className: "aa-dashboard-group-header", attrs: { tabindex: editMode ? 0 : null }, children: [
-		el("span", "aa-dashboard-group-marker"), el("h3", null, group.name),
-		...(editMode ? [iconButton({ iconName: "settings", label: labels.groupMenu || "Group menu", variant: "ghost", onClick: (event) => onMenu?.(event, group) })] : []),
+		el("span", "aa-dashboard-group-marker"), el("h3", null, group.name), memberCount,
+		...(editMode ? [icon("drag", { className: "aa-dashboard-group-grip" }), iconButton({ iconName: "settings", label: labels.groupMenu || "Group menu", variant: "ghost", onClick: (event) => onMenu?.(event, group) })] : []),
 	] });
 	const grid = el("div", { className: "aa-dashboard-group-grid", attrs: { "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(group.layout.columnSpan) } }); grid.style.setProperty("--aa-dashboard-columns", String(columns));
 	const projection = projectScope(members, columns);

@@ -115,8 +115,10 @@ export function renderNumericControl(spec, port) {
 		if (hasRange) range.style.setProperty("--aa-shared-range-progress", `${Math.min(100, Math.max(0, ((current - min) / (max - min)) * 100))}%`);
 	};
 	const begin = () => { if (!gestureOpen) { gestureOpen = true; port.beginGesture(); } };
-	const finish = () => { clearTimeout(gestureTimer); gestureTimer = 0; if (!gestureOpen) return; gestureOpen = false; port.endGesture(current); };
+	const finish = () => { clearTimeout(gestureTimer); gestureTimer = 0; if (!gestureOpen) return; gestureOpen = false; port.endGesture(current); flash(); };
 	const preview = (value) => { const next = normalize(value); if (next === current) return false; sync(next); port.preview(next); return true; };
+	// 提交成功的一次性脉冲反馈；拖拽/滚轮预览不触发。
+	const flash = () => { valueButton.classList.remove("is-committed"); void valueButton.offsetWidth; valueButton.classList.add("is-committed"); };
 	if (hasRange) {
 		range.addEventListener("pointerdown", begin);
 		range.addEventListener("input", () => { begin(); preview(range.value); });
@@ -131,12 +133,12 @@ export function renderNumericControl(spec, port) {
 		clearTimeout(gestureTimer); gestureTimer = setTimeout(finish, 160);
 	};
 	root.addEventListener("wheel", adjust, { passive: false }); valueButton.addEventListener("wheel", adjust, { passive: false });
-	valueButton.addEventListener("click", () => createNumericEditor(valueButton, { value: current, min, max, step, onCommit: (next) => { sync(next); port.commit(current); } }));
+	valueButton.addEventListener("click", () => createNumericEditor(valueButton, { value: current, min, max, step, onCommit: (next) => { sync(next); port.commit(current); flash(); } }));
 	valueButton.addEventListener("keydown", (event) => {
 		if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown"].includes(event.key)) return;
 		event.preventDefault(); const direction = event.key === "ArrowUp" || event.key === "PageUp" ? 1 : -1;
 		const scale = event.key.startsWith("Page") || event.shiftKey ? 10 : 1; const next = normalize(current + direction * step * scale);
-		if (next !== current) { sync(next); port.commit(next); }
+		if (next !== current) { sync(next); port.commit(next); flash(); }
 	});
 	root.addEventListener("blur", finish, true); valueButton.addEventListener("blur", finish);
 	const accessories = [valueButton];

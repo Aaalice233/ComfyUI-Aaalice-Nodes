@@ -668,6 +668,14 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);
 	assert.match(theme, /\.aa-dashboard-group \{[^}]*padding:\s*5px;/);
 	assert.match(theme, /\.aa-dashboard-group-header \{[^}]*min-height:\s*26px;/);
+	assert.match(dashboardComponents, /aa-dashboard-group-count/);
+	assert.match(dashboardComponents, /icon\("drag", \{ className: "aa-dashboard-group-grip" \}\)/);
+	assert.match(theme, /\.aa-dashboard-group-count \{[^}]*border-radius: 999px;/);
+	assert.match(theme, /\.aa-dashboard-group-marker \{[^}]*linear-gradient/);
+	assert.match(theme, /\.aa-dashboard-group:hover \{[^}]*translateY\(-1px\)/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group:hover \{ transform: none; \}/);
+	assert.match(theme, /\.aa-control-numeric-value\.is-committed \{ animation: aa-control-commit-flash/);
+	assert.match(numericControl, /classList\.add\("is-committed"\)/);
 });
 
 test("Dashboard V2 layout editing uses transient pointer gestures and one command commit", () => {
