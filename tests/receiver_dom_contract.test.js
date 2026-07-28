@@ -48,6 +48,8 @@ test("receiver name refresh atomically reconciles slots and uses the KJ Get nami
 	const kjSource = readFileSync(join(ROOT, "js", "parameter_panel_kj.js"), "utf8");
 	assert.match(receiverSource, /current\.slots = reconcileReceiverSlots\([\s\S]*?\)\.ordered;/);
 	assert.match(receiverSource, /authoritativeSetNames\?\.\[String\(parameter\.id\)\]/);
+	assert.match(receiverSource, /authoritativeSetNames\?\.\[String\(parameter\.id\)\][\s\S]*?\|\| desiredSetName\(panel, parameter\)/);
+	assert.doesNotMatch(receiverSource, /authoritativeSetNames\?\.\[String\(parameter\.id\)\][\s\S]*?directSetNodes\(panel, index\)/);
 	assert.match(receiverSource, /typeof getNode\?\.setName === "function"/);
 	assert.match(receiverSource, /getNode\.setName\(name\)/);
 	assert.match(kjSource, /detail: \{ nodeId: panel\.id, node: panel, updated, errors, setNames \}/);

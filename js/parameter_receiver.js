@@ -683,11 +683,12 @@ function refreshNames(receiver, panel, authoritativeSetNames = null) {
 	const meta = panelMeta(panel);
 	if (receiverStructureDiff(current, meta).changed) { render(receiver); return; }
 	current.panelTitle = String(panel.title || "ParameterPanel");
-	const setNames = new Map(meta.map((parameter, index) => [
+	// The parameter event arrives before KJ finishes validating its Set rename.
+	// Use the new panel name immediately, then accept KJ's exact validated name.
+	const setNames = new Map(meta.map((parameter) => [
 		String(parameter.id),
 		String(
 			authoritativeSetNames?.[String(parameter.id)]
-			|| directSetNodes(panel, index)[0]?.widgets?.[0]?.value
 			|| desiredSetName(panel, parameter),
 		),
 	]));
