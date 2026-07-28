@@ -71,7 +71,7 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.match(source, /className: "aa-gallery-toolbar__page-actions"/);
 	assert.match(source, /className: "aa-gallery-toolbar__navigation", children: \[collection, pageControl\]/);
 	assert.match(source, /className: "aa-gallery-toolbar__tools", children: \[filter, prompt\]/);
-	assert.match(theme, /\.aa-gallery-collection-select \{ width: 82px;/);
+	assert.match(theme, /\.aa-gallery-collection-select \{ width: auto; min-width: 82px; max-width: 132px;/);
 	assert.match(theme, /\.aa-gallery-toolbar__page-actions \{[^}]*gap: 6px;/);
 	assert.match(theme, /\.aa-gallery-toolbar__tools \{ gap: 5px; \}/);
 	assert.doesNotMatch(theme, /\.aa-gallery-toolbar__tools \{[^}]*border-left:/);
