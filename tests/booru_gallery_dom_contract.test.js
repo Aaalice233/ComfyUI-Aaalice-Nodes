@@ -71,6 +71,9 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.match(source, /className: "aa-gallery-toolbar__page-actions"/);
 	assert.match(source, /className: "aa-gallery-toolbar__navigation", children: \[collection, pageControl\]/);
 	assert.match(source, /className: "aa-gallery-toolbar__tools", children: \[filter, prompt\]/);
+	assert.match(source, /error\?\.code === "upstream_timeout"/);
+	assert.match(source, /label\("error\.upstreamTimeout"/);
+	assert.match(source, /if \(data\.code\) error\.code = data\.code;/);
 	assert.match(theme, /\.aa-gallery-collection-select \{ width: auto; min-width: 82px; max-width: 132px;/);
 	assert.match(theme, /\.aa-gallery-toolbar__page-actions \{[^}]*gap: 6px;/);
 	assert.match(theme, /\.aa-gallery-toolbar__tools \{ gap: 5px; \}/);

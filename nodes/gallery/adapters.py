@@ -17,6 +17,18 @@ TAG_CATEGORIES = ("artist", "copyright", "character", "general", "meta")
 STATIC_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "webp", "gif"})
 
 
+class GalleryUpstreamTimeoutError(RuntimeError):
+    """The remote server killed the query for exceeding its execution budget."""
+
+    code = "upstream_timeout"
+
+
+def _is_upstream_query_timeout(status: int, body: str) -> bool:
+    # Danbooru cancels oversized result sets (e.g. order:score over millions of
+    # posts) with ActiveRecord::QueryCanceled; retrying cannot help.
+    return status >= 400 and ("QueryCanceled" in body or "timed out running your query" in body)
+
+
 @dataclass(frozen=True)
 class GalleryCapabilities:
     source: str
@@ -123,6 +135,8 @@ class BooruAdapter:
                 try:
                     async with session.get(url, params=params, headers={"Accept": "application/json"}, allow_redirects=True) as response:
                         text = await response.text()
+                        if _is_upstream_query_timeout(response.status, text):
+                            raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
                         if response.status == 429 or response.status >= 500:
                             if attempt < 2:
                                 delay = min(5.0, float(response.headers.get("Retry-After", attempt + 1)))

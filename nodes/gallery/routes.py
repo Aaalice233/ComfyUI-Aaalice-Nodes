@@ -24,7 +24,11 @@ async def _json(request: web.Request) -> dict:
 
 def _error(exc: Exception) -> web.Response:
     status = 400 if isinstance(exc, ValueError) else 502 if isinstance(exc, (aiohttp.ClientError, TimeoutError, RuntimeError)) else 500
-    return web.json_response({"error": type(exc).__name__, "message": str(exc)}, status=status)
+    payload = {"error": type(exc).__name__, "message": str(exc)}
+    code = getattr(exc, "code", None)
+    if code:
+        payload["code"] = code
+    return web.json_response(payload, status=status)
 
 
 async def sources(_request):

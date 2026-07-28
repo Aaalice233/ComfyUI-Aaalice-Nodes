@@ -310,7 +310,11 @@ function sectionHeading(title, hint = "") {
 async function jsonRequest(path, options = {}) {
 	const response = await api.fetchApi(path, options); let data;
 	try { data = await response.json(); } catch { throw new Error(`${path} returned invalid JSON`); }
-	if (!response.ok) throw new Error(data.message || `${path} HTTP ${response.status}`);
+	if (!response.ok) {
+		const error = new Error(data.message || `${path} HTTP ${response.status}`);
+		if (data.code) error.code = data.code;
+		throw error;
+	}
 	return data;
 }
 
@@ -799,7 +803,11 @@ function buildController(node, elements) {
 	const tooltip = createTooltip({ delay: 0, closeDelay: 120 });
 	let errorTimer = 0;
 	const showError = (error) => {
-		elements.errorLabel.textContent = error?.message || String(error); elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error);
+		// 已知上游失败签名映射为可操作提示；原始信息保留在 console。
+		const text = error?.code === "upstream_timeout"
+			? label("error.upstreamTimeout", "The site took too long to sort this many results. Add more tags or filters to narrow the search.")
+			: error?.message || String(error);
+		elements.errorLabel.textContent = text; elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error);
 		clearTimeout(errorTimer);
 		errorTimer = setTimeout(() => { elements.error.hidden = true; }, 6000);
 	};

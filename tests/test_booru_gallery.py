@@ -12,7 +12,7 @@ sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from nodes._lib.booru_gallery import compose_prompt, parse_gallery_payload
 from nodes.gallery import NODE_CLASSES
-from nodes.gallery.adapters import AITagAdapter, DanbooruAdapter, GalleryPage, GelbooruAdapter, SafebooruAdapter, adapter_for
+from nodes.gallery.adapters import AITagAdapter, DanbooruAdapter, GalleryPage, GalleryUpstreamTimeoutError, GelbooruAdapter, SafebooruAdapter, adapter_for
 from nodes.gallery.booru_gallery import BooruGalleryNode
 from nodes.gallery.service import GalleryService
 from nodes.gallery.settings import GallerySettingsStore, default_settings
@@ -77,6 +77,30 @@ class GalleryAdapterTests(unittest.TestCase):
         self.assertEqual(DanbooruAdapter().cursor_for_page(7), "7")
         self.assertEqual(GelbooruAdapter().cursor_for_page(7), "6")
         self.assertEqual(SafebooruAdapter().cursor_for_page(1), "0")
+
+    def test_error_response_includes_structured_code_when_available(self):
+        from nodes.gallery.routes import _error
+        payload = json.loads(_error(GalleryUpstreamTimeoutError("boom")).body)
+        self.assertEqual(payload["code"], "upstream_timeout")
+        self.assertEqual(payload["error"], "GalleryUpstreamTimeoutError")
+        self.assertNotIn("code", json.loads(_error(RuntimeError("boom")).body))
+
+    def test_upstream_query_timeout_raises_structured_error_without_retry(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            response = MagicMock()
+            response.status = 500
+            response.text = AsyncMock(return_value='{"success":false,"error":"ActiveRecord::QueryCanceled","message":"The database timed out running your query."}')
+            response.url = "https://danbooru.donmai.us/posts.json"
+            session = MagicMock()
+            session.get.return_value.__aenter__ = AsyncMock(return_value=response)
+            session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+            with self.assertRaises(GalleryUpstreamTimeoutError) as ctx:
+                await adapter._get_json(session, "https://danbooru.donmai.us/posts.json")
+            self.assertEqual(ctx.exception.code, "upstream_timeout")
+            self.assertEqual(session.get.call_count, 1)
+        import asyncio
+        asyncio.run(run())
 
     def test_danbooru_daily_ranking_uses_official_popular_endpoint(self):
         async def run():
