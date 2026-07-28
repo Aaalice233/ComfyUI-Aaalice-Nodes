@@ -662,7 +662,14 @@ test("dashboard cards expose equal visual gutters without changing fine row geom
 
 test("dashboard control contents stay within their declared grid footprints", () => {
 	assert.match(theme, /\.aa-control-card-header \{[^}]*min-height:\s*14px;[^}]*line-height:\s*14px;/);
-	assert.match(theme, /\.aa-control-card-title \{[^}]*font-size:\s*11px;[^}]*font-weight:\s*650;/);
+	assert.match(theme, /\.aa-control-card-title \{[^}]*font-size:\s*12px;[^}]*font-weight:\s*650;/);
+	assert.match(theme, /\.aa-control-card-title::before \{[^}]*background: var\(--aa-control-kind-tone, transparent\)/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="numeric"\] \{ --aa-control-kind-tone/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="boolean"\] \{ --aa-control-kind-tone/);
+	assert.match(theme, /\.aa-workspace-control-input \{[^}]*opacity: \.62;/);
+	assert.match(theme, /\.aa-control-card:focus-within \.aa-workspace-control-input[^}]*\{ opacity: 1; \}/);
+	assert.match(theme, /:has\(\.aa-control-card:hover\) \.aa-control-card:not\(:hover\):not\(:focus-within\) \.aa-workspace-control-input \{ opacity: \.45; \}/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="image"\] \.aa-workspace-control-input[^}]*\{ opacity: 1; \}/);
 	assert.match(theme, /\.aa-control-choice-select \.aa-ui-select__native \{[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(theme, /data-control-kind="taglist"[^}]*aa-taglist-control[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);
