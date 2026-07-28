@@ -579,6 +579,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 		hideOnZoom: false,
 		margin: 0,
 		getMinHeight: () => minimumBodyHeight(node),
+		getMaxHeight: () => minimumBodyHeight(node),
 		getValue: () => "",
 		setValue: () => {},
 	});

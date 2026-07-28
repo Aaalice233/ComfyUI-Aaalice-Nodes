@@ -48,6 +48,7 @@ test("allows vertical growth while keeping content top-aligned and enforcing its
 	assert.match(source, /GROUP_ROW_HEIGHT\s*=\s*42/);
 	assert.match(source, /function enforceMinimumSize/);
 	assert.match(source, /getMinHeight:\s*\(\)\s*=>\s*minimumBodyHeight\(node\)/);
+	assert.match(source, /getMaxHeight:\s*\(\)\s*=>\s*minimumBodyHeight\(node\)/);
 	assert.match(source, /minimumBodyHeight\(this\)/);
 	assert.doesNotMatch(source, /Math\.max\(Number\(computed\[1\]\)\s*\|\|\s*0, minimumBodyHeight\(this\)\)/);
 	assert.match(source, /node\.computeSize\s*=\s*function/);

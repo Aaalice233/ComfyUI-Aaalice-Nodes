@@ -15,6 +15,7 @@ QuickGroupManager 是当前图的纯前端组控制器。它不参与 Prompt I/O
 - 标题、Mute / Bypass Switcher、颜色按钮和刷新按钮保持同一行，不显示“关闭方式”或“颜色过滤”等冗余标签；Switcher 固定居中，颜色与刷新工具靠右。
 - 最小宽度保证标题、居中的 Switcher 和右侧工具完整显示；用户可以自由拉宽。
 - 节点允许自由增高，但不能缩到当前条目所需的内容下限；工具栏、列表与空状态始终从顶部紧凑排列，额外高度只留在内容之后，不拉伸条目或行间距。
+- Nodes 2.0 中主体 DOM widget 的 `minHeight` 与 `maxHeight` 必须同时锁定为当前内容高度，避免宿主把节点剩余高度分配给 widget；节点主体可以继续增高，包标识仍由原生层收在底部。
 - 节点背景、外轮廓和圆角由 ComfyUI 原生层负责；标题栏与内容 DOM 都保持透明，不添加颜色不一致的第二层表面或外框。
 - Switcher 的滑块保持稳定 DOM identity，通过 class 与 transform 完成平移动画，并区分 Mute / Bypass 状态色。
 
