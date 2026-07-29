@@ -2,6 +2,7 @@
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { currentGroups, groupLabels, registerProbePromptInjection, snapshotGroup } from "./lib/group_probe.js";
 import { button, el, icon, iconButton, listboxControl, segmentedControl } from "./lib/ui.js";
 
@@ -166,7 +167,7 @@ function setupProbe(node, { initializeSize = false } = {}) {
 	node._aaGroupLogicMode = mode;
 	node._aaGroupLogicRows = rows;
 	node._aaGroupLogicEmpty = empty;
-	node.addDOMWidget(WIDGET, "custom", root, {
+	addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,

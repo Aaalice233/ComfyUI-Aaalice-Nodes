@@ -8,6 +8,7 @@ import {
 	cleanupDomWidgetResizePassthrough,
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { button, createDialog, el, field, iconButton, isolate } from "./lib/ui.js";
 
@@ -133,7 +134,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaaliceCharacterSwapThinkingValue = thinkingValue;
 	node._aaaliceCharacterSwapControl = control;
 	node._aaaliceCharacterSwapAccent = bindNodeAccent(node, root);
-	node.addDOMWidget(WIDGET, "custom", root, {
+	addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,

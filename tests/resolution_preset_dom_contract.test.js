@@ -8,7 +8,7 @@ const styles = readFileSync(new URL("../js/lib/theme.css", import.meta.url), "ut
 
 test("loads from the sole frontend entry and mounts one non-serializing DOM widget", () => {
 	assert.match(extension, /import "\.\/resolution_preset\.js"/);
-	assert.match(source, /addDOMWidget\(WIDGET/);
+	assert.match(source, /addLifecycleDOMWidget\(node, WIDGET/);
 	assert.match(source, /serialize:\s*false/);
 	assert.match(source, /nodeCreated/);
 	assert.match(source, /loadedGraphNode/);

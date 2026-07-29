@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { navigateToVisualGroup } from "./lib/group_navigation.js";
 import { button, createAnchoredPopover, createTooltip, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
 import {
@@ -595,7 +596,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] QuickGroupManager requires addDOMWidget");
 	const toolbar = isolate(el("div", "aaalice-qgm-toolbar aaalice-qgm"));
 	node._aaaliceQuickToolbar = toolbar;
-	const toolbarWidget = node.addDOMWidget(TOOLBAR_WIDGET, "custom", toolbar, {
+		const toolbarWidget = addLifecycleDOMWidget(node, TOOLBAR_WIDGET, "custom", toolbar, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,
@@ -609,7 +610,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	const root = isolate(el("div", "aaalice-qgm aaalice-qgm-body aaalice-pcp"));
 	node._aaaliceQuickRoot = root;
 	node._aaaliceQuickAccent = bindNodeAccent(node, () => [toolbar, root]);
-	node.addDOMWidget(WIDGET, "custom", root, {
+		addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,

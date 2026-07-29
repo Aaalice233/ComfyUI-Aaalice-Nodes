@@ -2,6 +2,7 @@
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import {
 	DEFAULT_PROMPT_CLEANING_STATE,
 	PROMPT_MODE,
@@ -178,7 +179,7 @@ function setupCleaner(node, { initializeSize = false } = {}) {
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] PromptCleaningMaid requires addDOMWidget");
 	const root = isolate(el("div", "aaalice-prompt-cleaner"));
 	node._aaalicePromptCleanerRoot = root;
-	node.addDOMWidget(WIDGET, "custom", root, {
+	addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,

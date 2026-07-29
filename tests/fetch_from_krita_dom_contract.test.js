@@ -9,7 +9,7 @@ const sharedStyles = readFileSync(new URL("../js/lib/ui.css", import.meta.url), 
 
 test("loads from the sole package entry and mounts one non-serializing widget", () => {
 	assert.match(extension, /import "\.\/fetch_from_krita\.js"/);
-	assert.match(source, /addDOMWidget\(WIDGET/);
+	assert.match(source, /addLifecycleDOMWidget\(node, WIDGET/);
 	assert.match(source, /serialize:\s*false/);
 	assert.match(source, /nodeCreated/);
 	assert.match(source, /loadedGraphNode/);

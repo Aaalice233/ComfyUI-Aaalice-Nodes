@@ -4,6 +4,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { applyCategoryColor } from "./lib/category_color.js";
 import { collectionDisplayName, collectionSelectOption, DEFAULT_COLLECTION_ID } from "./lib/collection.js";
 import { closeImagePreview, createImagePreview } from "./lib/image_preview.js";
@@ -344,7 +345,7 @@ function setup(node, loaded = false) {
 	if (!isSelector(node) || node._aaalicePromptSelectorMounted) return;
 	node._aaalicePromptSelectorMounted = true; stateFor(node);
 	const root = isolate(el("div", { className: "aa-prompt-selector", attrs: { "data-capture-wheel": "true" } })); node._aaalicePromptSelectorRoot = root;
-	node.addDOMWidget("aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
+	addLifecycleDOMWidget(node, "aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousMenu = node.getExtraMenuOptions;
 	node.getExtraMenuOptions = function (_canvas, options = []) {

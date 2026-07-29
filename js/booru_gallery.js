@@ -5,6 +5,7 @@ import { ensureI18nReady, currentLocale, t } from "./i18n.js";
 import { defaultGalleryRatings, finalPrompt, galleryPayload, GALLERY_CATEGORIES, normalizeGalleryState, normalizeTagGroups, selectionFromDetail, selectionKey } from "./lib/booru_gallery_model.js";
 import { streamTagTranslations } from "./lib/tag_translation.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { mountVirtualList } from "./lib/virtual_list.js";
 import { mountVirtualMasonry } from "./lib/virtual_masonry.js";
@@ -1506,7 +1507,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) openGallerySettings();
 		else controller.search();
 	});
-	node.addDOMWidget("aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
+	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
 	const previousResize = node.onResize; node.onResize = function (size) {
 		if (Array.isArray(size)) size[0] = Math.max(MIN_SIZE[0], Number(size[0]) || 0);

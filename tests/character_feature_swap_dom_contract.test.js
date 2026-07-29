@@ -15,7 +15,7 @@ test("reuses the shared tag-list control and serialization model", () => {
 });
 
 test("mounts a synchronous non-serializing DOM widget across supported lifecycles", () => {
-	assert.match(source, /addDOMWidget\(WIDGET/);
+	assert.match(source, /addLifecycleDOMWidget\(node, WIDGET/);
 	assert.match(source, /serialize:\s*false/);
 	assert.match(source, /beforeRegisterNodeDef/);
 	assert.match(source, /nodeCreated/);

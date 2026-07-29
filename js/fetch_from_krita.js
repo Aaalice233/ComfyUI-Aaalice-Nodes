@@ -6,6 +6,7 @@ import {
 	cleanupDomWidgetResizePassthrough,
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { button, createDialog, el, icon, iconButton, isolate } from "./lib/ui.js";
 
@@ -275,7 +276,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaKritaResult = result;
 	node._aaKritaSetup = setup;
 	node._aaKritaAccent = bindNodeAccent(node, root);
-	node.addDOMWidget(WIDGET, "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
+	addLifecycleDOMWidget(node, WIDGET, "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize;
 	node.computeSize = function () {

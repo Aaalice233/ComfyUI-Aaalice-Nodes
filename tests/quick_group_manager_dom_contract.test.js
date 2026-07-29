@@ -7,7 +7,7 @@ const styles = readFileSync(new URL("../js/lib/theme.css", import.meta.url), "ut
 const ui = readFileSync(new URL("../js/lib/ui.js", import.meta.url), "utf8");
 
 test("mounts a synchronous non-serializing DOM widget across node lifecycles", () => {
-	assert.match(source, /addDOMWidget\(WIDGET/);
+	assert.match(source, /addLifecycleDOMWidget\(node, WIDGET/);
 	assert.match(source, /serialize:\s*false/);
 	assert.match(source, /beforeRegisterNodeDef/);
 	assert.match(source, /nodeCreated/);

@@ -1,6 +1,7 @@
 /** EnumSwitch branch authoring, ParameterPanel synchronization and prompt injection. */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { button, createDialog, el, iconButton, isolate } from "./lib/ui.js";
 import {
 	MAX_ENUM_BRANCHES,
@@ -370,7 +371,7 @@ function setupEnumSwitch(node, loaded = false) {
 	node.widgets_start_y = -(Number(globalThis.LiteGraph?.NODE_TITLE_HEIGHT) || 30);
 	const root = isolate(el("div", "aaalice-enum-status"));
 	node._aaaliceEnumRoot = root;
-	const widget = node.addDOMWidget("aaalice_enum_status", "enum_status", root, {
+	const widget = addLifecycleDOMWidget(node, "aaalice_enum_status", "enum_status", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,

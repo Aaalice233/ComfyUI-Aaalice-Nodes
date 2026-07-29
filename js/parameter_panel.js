@@ -9,6 +9,7 @@ import {
 	growClassicDomWidgetNode,
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { badge, button, createAnchoredPopover, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
 import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import {
@@ -760,7 +761,7 @@ function setupParameterPanel(node, loaded = false) {
 	const root = el("div", "aaalice-pcp aaalice-pcp-node-root aaalice-pcp-node-hybrid");
 	node._aaaliceParameterAccent = bindNodeAccent(node, root);
 	const height = () => nodeHeight(node);
-	const widget = node.addDOMWidget("aaalice_parameter_panel", "custom", root, {
+		const widget = addLifecycleDOMWidget(node, "aaalice_parameter_panel", "custom", root, {
 		serialize: false,
 		hideOnZoom: false,
 		margin: 0,

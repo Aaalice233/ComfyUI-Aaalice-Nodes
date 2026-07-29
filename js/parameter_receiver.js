@@ -6,6 +6,7 @@ import {
 	growClassicDomWidgetNode,
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { button, createDialog, el, iconButton } from "./lib/ui.js";
 import {
 	EVENT_PARAMETER_CHANGED,
@@ -727,7 +728,7 @@ function setupReceiver(receiver, loaded = false) {
 	receiver.widgets_start_y = Number(receiver.constructor?.slot_start_y) || 4;
 	const root = el("div", "aaalice-pcp aaalice-pcp-node-root aaalice-receiver-root");
 	receiver._aaaliceReceiverRoot = root;
-	const widget = receiver.addDOMWidget("aaalice_parameter_receiver", "custom", root, {
+	const widget = addLifecycleDOMWidget(receiver, "aaalice_parameter_receiver", "custom", root, {
 		serialize: false, hideOnZoom: false, margin: 0,
 		getMinHeight: () => computeReceiverLayout(receiver, receiver.inputs?.length || 0).height,
 		getValue: () => "", setValue: () => {},

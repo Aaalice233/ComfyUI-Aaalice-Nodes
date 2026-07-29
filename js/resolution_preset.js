@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import {
 	ALIGNMENTS, BUILTIN_PRESETS, CANVAS_LIMITS, MAX_RESOLUTION, MIN_RESOLUTION,
@@ -349,7 +350,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaResolutionMounted = true; stateFor(node);
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] ResolutionPreset requires addDOMWidget");
 	const root = createInterface(node); node._aaResolutionAccent = bindNodeAccent(node, root);
-	node.addDOMWidget(WIDGET, "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
+	addLifecycleDOMWidget(node, WIDGET, "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || [MIN_WIDGET_WIDTH, MIN_WIDGET_HEIGHT]; return [Math.max(MIN_WIDGET_WIDTH, Number(size[0]) || 0), Math.max(MIN_WIDGET_HEIGHT, Number(size[1]) || 0)]; };
 	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); this.properties[PROPERTY] = normalizeResolutionState(this.properties?.[PROPERTY], personalPresets); render(this); return result; };
