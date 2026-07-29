@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
 import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
-import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
+import { dashboardCardHeight, projectedGroupRowSpan, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
 
 const binding = { provider: "generic-widget", hostId: "host-a", controlId: "steps", valueType: "number" };
 const modelWithPage = () => { const model = emptyDashboard(); const page = createPage("Generation"); model.pages.push(page); return { model, page }; };
@@ -126,6 +126,17 @@ test("grid projection to one column does not mutate canonical layout", () => {
 		{ id: "b", layout: { row: 0, column: 6, columnSpan: 6, rowSpan: 7 } },
 	];
 	const projection = projectScope(entries, 1); assert.deepEqual(projection.get("a"), { row: 0, column: 0, columnSpan: 1, rowSpan: 12 }); assert.deepEqual(projection.get("b"), { row: 12, column: 0, columnSpan: 1, rowSpan: 7 }); assert.equal(entries[1].layout.row, 0);
+});
+
+test("single-column groups reserve enough projected height for every stacked member", () => {
+	const members = [
+		{ id: "a", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 12 } },
+		{ id: "b", layout: { row: 0, column: 6, columnSpan: 6, rowSpan: 7 } },
+		{ id: "c", layout: { row: 12, column: 0, columnSpan: 6, rowSpan: 9 } },
+	];
+	assert.equal(recommendedGroupRowSpan(members), 28);
+	assert.equal(projectedGroupRowSpan(members, 1), 35);
+	assert.equal(projectedGroupRowSpan(members, 12), 28);
 });
 
 test("fine-grained rows allow a short card below another card beside a tall card", () => {

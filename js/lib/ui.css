@@ -196,6 +196,9 @@
 .aa-ui-context-menu__item.is-danger { color: var(--aa-ui-danger); }
 .aa-ui-context-menu__item.is-danger:hover:not(:disabled), .aa-ui-context-menu__item.is-danger:focus-visible { background: color-mix(in srgb, var(--aa-ui-danger) 13%, transparent); color: var(--aa-ui-danger); }
 .aa-ui-context-menu__item.is-danger .aa-ui-icon { color: currentColor; }
+.aa-ui-context-menu__item[aria-checked="true"] { background: color-mix(in srgb, var(--aa-ui-accent) 10%, var(--aa-ui-control)); font-weight: 650; }
+.aa-ui-context-menu__check { display: inline-grid; width: 14px; height: 14px; flex: none; margin-left: auto; place-items: center; color: var(--aa-ui-accent); }
+.aa-ui-context-menu__check .aa-ui-icon { width: 13px; height: 13px; color: currentColor; }
 .aa-ui-context-menu__separator { height: 1px; margin: 3px 5px; background: var(--aa-ui-border-soft); }
 
 @media (prefers-reduced-motion: reduce) {

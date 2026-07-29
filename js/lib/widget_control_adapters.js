@@ -186,13 +186,17 @@ function bindImageCompareInvalidation(node, widget) {
 }
 
 // 图像上传 combo 在新前端只把标记留在节点定义的 input spec 里，旧路径则落在 widget.options 上，两处都要认。
-function isImageUploadCombo(node, widget) {
-	if (widgetType(widget) !== "combo") return false;
-	if (widget?.options?.image_upload || widget?.options?.animated_image_upload) return true;
+function imageUploadComboOptions(node, widget) {
 	const inputs = { ...(node?.constructor?.nodeData?.input?.required || {}), ...(node?.constructor?.nodeData?.input?.optional || {}) };
 	const spec = inputs?.[widget?.name];
-	const options = Array.isArray(spec) ? spec[1] : null;
-	return Boolean(options?.image_upload || options?.animated_image_upload);
+	const definitionOptions = Array.isArray(spec) && spec[1] && typeof spec[1] === "object" ? spec[1] : {};
+	return { ...definitionOptions, ...(widget?.options || {}) };
+}
+
+function isImageUploadCombo(node, widget) {
+	if (widgetType(widget) !== "combo") return false;
+	const options = imageUploadComboOptions(node, widget);
+	return Boolean(options.image_upload || options.animated_image_upload);
 }
 
 registerWidgetControlAdapter({
@@ -221,14 +225,15 @@ registerWidgetControlAdapter({
 		return !promoted && isImageUploadCombo(node, widget);
 	},
 	describe({ node, widget }) {
-		const values = optionValues(widget.options).map(String);
+		const imageOptions = imageUploadComboOptions(node, widget);
+		const values = optionValues(imageOptions).map(String);
 		return {
 			controlId: widget.name,
 			label: widget.label || widget.name,
 			kind: "image-choice",
 			valueType: "string",
 			value: widget.value,
-			options: { values },
+			options: { values, image_folder: imageOptions.image_folder || "input" },
 			availability: values.length ? undefined : { state: "empty", reason: "no-options" },
 		};
 	},

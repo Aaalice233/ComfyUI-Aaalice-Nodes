@@ -1,6 +1,7 @@
 /** Pure Dashboard V2 grid/group DOM composition. */
 
 import { orderedItems, projectScope } from "./dashboard_layout.js";
+import { projectedGroupRowSpan } from "./dashboard_sizing.js";
 import { el, icon, iconButton, inlineRename } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
@@ -38,10 +39,17 @@ export function createDashboardGroup({ group, members, columns = 12, editMode = 
 }
 
 export function createDashboardGrid({ page, columns = 12, editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), labels = {}, renderItem, onGroupMenu, onRenameGroup }) {
-	const root = el("div", { className: `aa-dashboard-grid-v2${editMode ? " is-editing" : ""}`, attrs: { "data-dashboard-page-id": page.id, "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(page.gridColumns) } });
+	const root = el("div", { className: `aa-dashboard-grid-v2${editMode ? " is-editing" : ""}`, attrs: { "data-dashboard-page-id": page.id, "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(page.gridColumns), tabindex: "0", "aria-label": `${page.name}. ${labels.pageMenu || "Page actions"}` } });
 	root.style.setProperty("--aa-dashboard-columns", String(columns));
 	const ungrouped = orderedItems(page.items.filter((item) => !item.groupId));
-	const topEntries = [...ungrouped, ...page.groups]; const projection = projectScope(topEntries, columns);
+	const projectedGroups = page.groups.map((group) => ({
+		...group,
+		layout: {
+			...group.layout,
+			rowSpan: projectedGroupRowSpan(page.items.filter((item) => item.groupId === group.id), columns),
+		},
+	}));
+	const topEntries = [...ungrouped, ...projectedGroups]; const projection = projectScope(topEntries, columns);
 	for (const item of ungrouped) { const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); applyGridPosition(card, projection.get(item.id), item.layout); root.append(card); }
 	for (const sourceGroup of orderedItems(page.groups)) {
 		const group = { ...sourceGroup, projectedLayout: projection.get(sourceGroup.id) };

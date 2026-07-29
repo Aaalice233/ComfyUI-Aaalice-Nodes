@@ -2,23 +2,13 @@
 
 import { api } from "../../../../scripts/api.js";
 import { bindImagePreview } from "../image_preview.js";
-import { imageReferenceViewPath } from "../image_reference.js";
+import { imageComboReference, imageReferenceViewPath } from "../image_reference.js";
 import { createAnchoredPopover, el, icon } from "../ui.js";
 import { controlView } from "./contract.js";
 
-// combo 值可能是 "dir/name.png" 或带 "[input]" 标注；预览和 /view 需要拆出子目录。
-export function imageComboReference(value) {
-	const cleaned = String(value ?? "").trim().replace(/\s*\[(?:input|output|temp)\]\s*$/i, "");
-	const slash = cleaned.lastIndexOf("/");
-	return {
-		filename: slash >= 0 ? cleaned.slice(slash + 1) : cleaned,
-		subfolder: slash >= 0 ? cleaned.slice(0, slash) : "",
-		type: "input",
-	};
-}
-
 export function renderImageChoiceControl(spec, port) {
 	const values = Array.isArray(spec.options.values) ? spec.options.values.map(String) : [];
+	const imageFolder = String(spec.options.image_folder || "input").toLowerCase();
 	let current = String(spec.value ?? "");
 	const root = el("div", "aa-control aa-control-image-choice");
 	const thumbnail = document.createElement("img");
@@ -26,12 +16,12 @@ export function renderImageChoiceControl(spec, port) {
 	const name = el("span", "aa-control-image-choice__name");
 	const button = el("button", { className: "aa-control-image-choice__button", attrs: { type: "button", "aria-label": spec.label, "aria-haspopup": "dialog", "aria-expanded": "false" }, children: [thumbnail, name, icon("moveDown", { className: "aa-control-image-choice__arrow" })] });
 	const viewSource = () => {
-		const reference = imageComboReference(current);
+		const reference = imageComboReference(current, imageFolder);
 		return reference.filename ? { source: api.apiURL(imageReferenceViewPath(reference)), title: `${spec.label} · ${reference.filename}` } : null;
 	};
 	const sync = (value) => {
 		current = String(value ?? "");
-		const reference = imageComboReference(current);
+		const reference = imageComboReference(current, imageFolder);
 		name.textContent = reference.filename || current;
 		button.classList.toggle("has-image", Boolean(reference.filename));
 		const view = viewSource();
@@ -46,7 +36,7 @@ export function renderImageChoiceControl(spec, port) {
 		const rows = [];
 		const list = el("div", { className: "aa-control-image-choice__menu", attrs: { role: "listbox", "aria-label": spec.label } });
 		for (const value of values) {
-			const reference = imageComboReference(value);
+			const reference = imageComboReference(value, imageFolder);
 			const active = value === current;
 			const thumb = document.createElement("img");
 			thumb.className = "aa-control-image-choice__option-thumb"; thumb.alt = ""; thumb.loading = "lazy"; thumb.decoding = "async";

@@ -145,7 +145,10 @@ const widgetProvider = (id, promoted) => ({
 		}));
 	},
 	resolve(node, binding) {
-		const adapted = listAdaptedWidgetControls(node, { promoted, adapterId: binding.adapterId || null })
+		// 旧看板可能把普通原生适配器固化在 binding 中。允许它升级到后来加入的
+		// 专用适配器，否则图像上传 combo 会一直退化成没有缩略图的普通下拉框。
+		const adapterId = binding.adapterId === "comfy-native-widget" ? null : binding.adapterId || null;
+		const adapted = listAdaptedWidgetControls(node, { promoted, adapterId })
 			.find((candidate) => candidate.controlId === binding.controlId);
 		if (!adapted) return { status: "missing", node };
 		const currentType = adapted.valueType;

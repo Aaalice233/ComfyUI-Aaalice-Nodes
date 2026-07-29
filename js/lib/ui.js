@@ -782,12 +782,17 @@ export function createContextMenu({ x, y, ariaLabel = "Menu", items = [], onClos
 		else if (event.key === "End") focusAt(menuItems.length - 1);
 		else focusAt(Math.max(0, current) + (event.key === "ArrowDown" ? 1 : -1));
 	};
-	for (const item of items) {
-		if (item?.separator) { root.append(el("div", { className: "aa-ui-context-menu__separator", attrs: { role: "separator" } })); continue; }
-		const action = button({ label: item.label, iconName: item.iconName || null, variant: "ghost", size: "sm", className: `aa-ui-context-menu__item${item.danger ? " is-danger" : ""}`, disabled: item.disabled, onClick: () => { close({ restoreFocus: false }); item.onSelect?.(); } });
-		action.setAttribute("role", "menuitem");
-		menuItems.push(action); root.append(action);
-	}
+		for (const item of items) {
+			if (item?.separator) { root.append(el("div", { className: "aa-ui-context-menu__separator", attrs: { role: "separator" } })); continue; }
+			const checkable = typeof item.checked === "boolean";
+			const action = button({ label: item.label, iconName: item.iconName || null, variant: "ghost", size: "sm", className: `aa-ui-context-menu__item${item.danger ? " is-danger" : ""}${item.className ? ` ${item.className}` : ""}`, disabled: item.disabled, onClick: () => { close({ restoreFocus: false }); item.onSelect?.(); } });
+			action.setAttribute("role", checkable ? "menuitemradio" : "menuitem");
+			if (checkable) {
+				action.setAttribute("aria-checked", String(item.checked));
+				action.append(el("span", { className: "aa-ui-context-menu__check", children: item.checked ? [icon("statusCheck")] : [] }));
+			}
+			menuItems.push(action); root.append(action);
+		}
 	document.body.append(root);
 	const rect = root.getBoundingClientRect();
 	root.style.left = `${Math.max(8, Math.min(window.innerWidth - rect.width - 8, Number(x) || 0))}px`;

@@ -40,3 +40,10 @@ export function recommendedGroupRowSpan(members = []) {
 	const contentRows = members.reduce((extent, item) => Math.max(extent, item.layout.row + item.layout.rowSpan), 0);
 	return Math.max(DASHBOARD_GROUP_CHROME_ROW_SPAN, DASHBOARD_GROUP_CHROME_ROW_SPAN + contentRows);
 }
+
+/** A one-column group must reserve the stacked height of every member. */
+export function projectedGroupRowSpan(members = [], columns = DASHBOARD_GRID_COLUMNS) {
+	if (columns !== 1) return recommendedGroupRowSpan(members);
+	const contentRows = members.reduce((total, item) => total + item.layout.rowSpan, 0);
+	return Math.max(DASHBOARD_GROUP_CHROME_ROW_SPAN, DASHBOARD_GROUP_CHROME_ROW_SPAN + contentRows);
+}

@@ -20,3 +20,16 @@ export function imageReferenceViewPath(value) {
 	if (!reference) return "";
 	return `/view?${new URLSearchParams(reference).toString()}`;
 }
+
+/** Convert a ComfyUI image combo value into the real /view reference. */
+export function imageComboReference(value, defaultType = "input") {
+	const source = String(value ?? "").trim();
+	const typeMarker = source.match(/\s*\[(input|output|temp)\]\s*$/i);
+	const cleaned = source.replace(/\s*\[(?:input|output|temp)\]\s*$/i, "");
+	const slash = cleaned.lastIndexOf("/");
+	return {
+		filename: slash >= 0 ? cleaned.slice(slash + 1) : cleaned,
+		subfolder: slash >= 0 ? cleaned.slice(0, slash) : "",
+		type: typeMarker?.[1]?.toLowerCase() || (["input", "output", "temp"].includes(defaultType) ? defaultType : "input"),
+	};
+}

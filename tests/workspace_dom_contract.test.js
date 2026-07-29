@@ -240,10 +240,11 @@ test("dashboard image controls share upload, drop, thumbnail, and preview behavi
 test("image upload combos render as previewable image-choice controls", () => {
 	assert.match(comfyControls, /"image-choice": \(spec, port\) => renderImageChoiceControl\(spec, port\)/);
 	assert.match(widgetAdapters, /id: "comfy-image-combo"/);
-	assert.match(widgetAdapters, /options\?\.image_upload \|\| options\?\.animated_image_upload/);
+	assert.match(widgetAdapters, /options\.image_upload \|\| options\.animated_image_upload/);
 	assert.match(widgetAdapters, /node\?\.constructor\?\.nodeData\?\.input/);
 	assert.match(imageChoiceControl, /export function renderImageChoiceControl/);
 	assert.match(imageChoiceControl, /imageComboReference/);
+	assert.match(imageChoiceControl, /imageComboReference\(current, imageFolder\)/);
 	assert.match(imageChoiceControl, /bindImagePreview\(button, "", "", \{ immediate: true, resolve: viewSource \}\)/);
 	assert.match(imageChoiceControl, /imageReferenceViewPath/);
 	assert.match(imageChoiceControl, /role: "listbox"/);
@@ -251,6 +252,7 @@ test("image upload combos render as previewable image-choice controls", () => {
 	assert.match(imageChoiceControl, /port\.commit\(value\)/);
 	assert.match(imagePreview, /resolve = null/);
 	assert.match(imagePreview, /resolve\?\.\(\)/);
+	assert.match(widgetAdapters, /image_folder: imageOptions\.image_folder \|\| "input"/);
 	assert.match(workspaceControls, /"image-choice": availabilityLabels/);
 	assert.match(theme, /\.aa-control-image-choice__thumb \{[^}]*object-fit: cover/);
 	assert.match(theme, /\.aa-control-image-choice__button\.has-image::before/);
@@ -341,7 +343,7 @@ test("control cards move management into an accessible context menu", () => {
 	const cardBody = components.match(/export function createControlCard[\s\S]*?\n}/)?.[0] || "";
 	assert.match(ui, /export function createContextMenu/);
 	assert.match(ui, /role: "menu"/);
-	assert.match(ui, /setAttribute\("role", "menuitem"\)/);
+	assert.match(ui, /setAttribute\("role", checkable \? "menuitemradio" : "menuitem"\)/);
 	assert.match(ui, /ArrowUp/);
 	assert.match(ui, /window\.innerWidth - rect\.width/);
 	assert.match(cardBody, /addEventListener\("contextmenu"/);
@@ -640,7 +642,8 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(components, /className: "aa-dashboard-page-heading__title"/);
 	assert.match(components, /title\.addEventListener\("dblclick"/);
 	assert.match(components, /\["Enter", "F2"\]\.includes\(event\.key\)/);
-	assert.match(components, /iconName: "edit"[\s\S]*?onClick: startRename/);
+	assert.doesNotMatch(components, /aa-dashboard-page-heading__edit/);
+	assert.doesNotMatch(components, /aa-dashboard-page-heading__tone/);
 	assert.match(components, /inlineRename\(title,[\s\S]*?onRename\?\.\(name\)/);
 	assert.match(components, /aa-dashboard-page-heading__folio-index/);
 	assert.match(components, /aa-dashboard-page-heading__folio-total/);
@@ -663,18 +666,24 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-index \{[^}]*font-size: 13px;/);
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-total \{[^}]*font-size: 10px;/);
 	assert.match(theme, /\.aa-dashboard-toolbar:not\(\.is-searching\) \{[^}]*justify-content: flex-end/);
-	assert.match(components, /aa-dashboard-page-heading__tone/);
-	assert.match(components, /aa-dashboard-tone-swatch/);
-	assert.match(components, /aa-dashboard-page-tones__row/);
-	assert.match(components, /\[null, \.\.\.DASHBOARD_TONES\]/);
-	assert.match(components, /onSetTone\?\.\(option\)/);
-	assert.match(workspace, /onSetTone: \(nextTone\) => updateDashboard/);
+	assert.match(workspace, /grid\.addEventListener\("contextmenu", openBlankPageMenu\)/);
+	assert.match(workspace, /event\.target\.closest\?\.\("\[data-dashboard-item-id\], \[data-dashboard-group-id\]/);
+	assert.match(workspace, /event\.key !== "ContextMenu" && !\(event\.shiftKey && event\.key === "F10"\)/);
+	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.rename"/);
+	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.duplicate"/);
+	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.tone"/);
+	assert.match(workspace, /\[null, \.\.\.DASHBOARD_TONES\]\.map/);
+	assert.match(workspace, /label: t\("aaalice\.workspace\.layout\.separator"/);
+	assert.match(workspace, /label: t\("aaalice\.workspace\.layout\.compact"/);
+	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.delete"/);
+	assert.match(uiSource, /role", checkable \? "menuitemradio" : "menuitem"/);
+	assert.match(uiSource, /action\.setAttribute\("aria-checked", String\(item\.checked\)\)/);
 	assert.match(workspace, /grid\.dataset\.pageTone = page\.tone/);
 	assert.match(workspace, /DASHBOARD_TONES\.map\(\(value\) => \[value, t\(`aaalice\.workspace\.group\.tones\./);
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-dashboard-group \{ --aa-dashboard-group-tone: var\(--aa-dashboard-page-tone\); \}/);
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-control-card \{ --aa-control-kind-tone: var\(--aa-dashboard-page-tone\); \}/);
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone="purple"\] \{ --aa-dashboard-page-tone: var\(--p-purple-400/);
-	assert.match(theme, /\.aa-dashboard-tone-swatch\[data-tone=""\] \{[^}]*dashed/);
+	assert.match(theme, /\.aa-dashboard-page-tone-menu-item\.is-default::before \{[^}]*dashed/);
 	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
 });
 
@@ -687,13 +696,14 @@ test("layout editing keeps creation and layout tools in the primary toolbar", ()
 	assert.match(workspace, /className: "aa-dashboard-add-page"/);
 	assert.match(workspace, /className: "aa-dashboard-add-separator"/);
 	assert.match(workspace, /className: "aa-dashboard-tidy-layout"/);
-	assert.match(workspace, /className: "aa-dashboard-page-menu"/);
+	assert.doesNotMatch(workspace, /className: "aa-dashboard-page-menu"/);
+	assert.match(workspace, /grid\.addEventListener\("contextmenu", openBlankPageMenu\)/);
 	assert.match(workspace, /editMode \? \[[\s\S]*aa-dashboard-add-page[\s\S]*aa-dashboard-add-separator[\s\S]*aa-dashboard-tidy-layout[\s\S]*\] : \[[\s\S]*preset\.export[\s\S]*preset\.import[\s\S]*search\.toggle/);
 	assert.doesNotMatch(workspace, /if \(editMode\) container\.append\(createWorkspaceToolbar/);
 	assert.doesNotMatch(components, /aa-dashboard-page-add|onAdd/);
 	assert.doesNotMatch(theme, /aa-dashboard-page-add/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > \.aa-ui-button \{[^}]*height: 29px;[^}]*min-height: 29px;[^}]*border-radius: 7px;/);
-	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > :is\(\.aa-dashboard-add-separator, \.aa-dashboard-tidy-layout, \.aa-dashboard-page-menu\)/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > :is\(\.aa-dashboard-add-separator, \.aa-dashboard-tidy-layout\)/);
 });
 
 test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
@@ -705,6 +715,9 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(dashboardCommands, /ungroupedSourceItems/);
 	assert.match(dashboardCommands, /createGroup\(next, pageId, ungroupedSourceItems\.map/);
 	assert.match(dashboardComponents, /export function createDashboardGroup/);
+	assert.match(dashboardComponents, /projectedGroupRowSpan\(page\.items\.filter\(\(item\) => item\.groupId === group\.id\), columns\)/);
+	assert.match(dashboardSizing, /if \(columns !== 1\) return recommendedGroupRowSpan\(members\)/);
+	assert.match(dashboardSizing, /members\.reduce\(\(total, item\) => total \+ item\.layout\.rowSpan, 0\)/);
 	assert.match(dashboardComponents, /aa-dashboard-composite-card/);
 	assert.match(dashboardComponents, /classList\.add\("is-group-member"\)/);
 	assert.match(dashboardComponents, /dataset\.dashboardGroupMember/);

@@ -674,12 +674,36 @@ function renderDashboard(container, host) {
 		if (target) target.name = name;
 		return current;
 	});
-	const openPageMenu = (event) => {
+	const setPageTone = (nextTone) => updateDashboard((current) => {
+		const target = current.pages.find((entry) => entry.id === page?.id);
+		if (target) target.tone = nextTone;
+		return current;
+	});
+	const duplicateCurrentPage = () => updateDashboard((current) => {
+		const next = duplicatePage(current, page.id);
+		activePageId = next.pages[next.pages.findIndex((entry) => entry.id === page.id) + 1]?.id || page.id;
+		return next;
+	});
+	const openPageToneMenu = (x, y) => createContextMenu({
+		x, y, ariaLabel: t("aaalice.workspace.page.tone", "Page color"),
+		items: [null, ...DASHBOARD_TONES].map((tone) => ({
+			label: tone ? t(`aaalice.workspace.group.tones.${tone}`, tone) : t("aaalice.workspace.page.toneDefault", "Default"),
+			className: `aa-dashboard-page-tone-menu-item is-${tone || "default"}`,
+			checked: (page.tone || null) === tone,
+			onSelect: () => { if ((page.tone || null) !== tone) setPageTone(tone); },
+		})),
+	});
+	const openPageMenu = (x, y) => {
 		if (!page) return;
-		const rect = event.currentTarget.getBoundingClientRect();
-		createContextMenu({ x: rect.right, y: rect.bottom, ariaLabel: t("aaalice.workspace.page.menu", "Page actions"), items: [
-			{ label: t("aaalice.workspace.page.duplicate", "Duplicate page"), iconName: "copy", onSelect: () => updateDashboard((current) => { const next = duplicatePage(current, page.id); activePageId = next.pages[next.pages.findIndex((entry) => entry.id === page.id) + 1]?.id || page.id; return next; }) },
+		createContextMenu({ x, y, ariaLabel: t("aaalice.workspace.page.menu", "Page actions"), items: [
 			{ label: t("aaalice.workspace.page.rename", "Rename page"), iconName: "edit", onSelect: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, renamePage) },
+			{ label: t("aaalice.workspace.page.duplicate", "Duplicate page"), iconName: "copy", onSelect: duplicateCurrentPage },
+			{ label: t("aaalice.workspace.page.tone", "Page color"), iconName: "settings", onSelect: () => openPageToneMenu(x + 12, y + 12) },
+			...(editMode ? [
+				{ separator: true },
+				{ label: t("aaalice.workspace.layout.separator", "Add separator"), iconName: "add", onSelect: addSeparatorToPage },
+				{ label: t("aaalice.workspace.layout.compact", "Tidy layout"), iconName: "layout", onSelect: () => updateDashboard((current) => compactDashboard(current, page.id)) },
+			] : []),
 			{ separator: true },
 			{ label: t("aaalice.workspace.page.delete", "Delete page"), iconName: "delete", danger: true, onSelect: () => removePage(page) },
 		] });
@@ -717,11 +741,6 @@ function renderDashboard(container, host) {
 			onRename: renamePage,
 			onSelectPage: selectPage,
 			onReorderPage: reorderPage,
-			onSetTone: (nextTone) => updateDashboard((current) => {
-				const target = current.pages.find((entry) => entry.id === page?.id);
-				if (target) target.tone = nextTone;
-				return current;
-			}),
 		})] : []),
 		presetPicker,
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
@@ -730,7 +749,6 @@ function renderDashboard(container, host) {
 			...(page ? [
 				button({ label: t("aaalice.workspace.layout.separator", "Add separator"), variant: "ghost", size: "sm", className: "aa-dashboard-add-separator", onClick: addSeparatorToPage }),
 				iconButton({ iconName: "layout", label: t("aaalice.workspace.layout.compact", "Tidy layout"), variant: "ghost", className: "aa-dashboard-tidy-layout", onClick: () => updateDashboard((current) => compactDashboard(current, page.id)) }),
-				iconButton({ iconName: "settings", label: t("aaalice.workspace.page.menu", "Page actions"), variant: "ghost", className: "aa-dashboard-page-menu", onClick: openPageMenu }),
 			] : []),
 		] : [
 			iconButton({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export layout"), variant: "ghost", onClick: () => openDashboardExport(model) }),
@@ -780,6 +798,20 @@ function renderDashboard(container, host) {
 		}),
 	});
 	if (page.tone) grid.dataset.pageTone = page.tone;
+	const openBlankPageMenu = (event) => {
+		if (event.target.closest?.("[data-dashboard-item-id], [data-dashboard-group-id], input, textarea, select, button, [contenteditable='true']")) return;
+		event.preventDefault();
+		event.stopPropagation();
+		grid.focus({ preventScroll: true });
+		openPageMenu(event.clientX, event.clientY);
+	};
+	grid.addEventListener("contextmenu", openBlankPageMenu);
+	grid.addEventListener("keydown", (event) => {
+		if (event.target !== grid || (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10"))) return;
+		event.preventDefault();
+		const rect = grid.getBoundingClientRect();
+		openPageMenu(rect.left + Math.min(28, rect.width / 2), rect.top + Math.min(28, rect.height / 2));
+	});
 	let updateSelectionUi = () => {}; let dashboardInteraction = null;
 	const clearSelection = () => { viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); dashboardInteraction?.setSelection(viewState.selectedItemIds, viewState.selectedGroupIds); updateSelectionUi(); };
 	const selectionBar = createSelectionActionBar({ ariaLabel: t("aaalice.workspace.selection.toolbar", "Selected layout actions"), actions: [

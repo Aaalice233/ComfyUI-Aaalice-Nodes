@@ -142,10 +142,20 @@ test("image upload combos adapt as image-choice controls with preview options", 
 		widgets: [{ name: "image", type: "combo", value: "a.png", options: { values: ["a.png"] } }],
 	};
 	assert.equal(listAdaptedWidgetControls(byNodeDef)[0]?.kind, "image-choice");
+	const outputImage = {
+		constructor: { nodeData: { input: { required: { image: ["COMBO", { image_upload: true, image_folder: "output" }] } } } },
+		widgets: [{ name: "image", type: "combo", value: "ComfyUI_00030_.png", options: { values: ["ComfyUI_00030_.png"] } }],
+	};
+	assert.equal(listAdaptedWidgetControls(outputImage)[0]?.options.image_folder, "output");
 	const plain = { widgets: [{ name: "sampler", type: "combo", value: "euler", options: { values: ["euler", "dpm"] } }] };
 	assert.equal(listAdaptedWidgetControls(plain)[0]?.kind, "choice");
 	const empty = { widgets: [{ name: "image", type: "combo", value: undefined, options: { values: [], image_upload: true } }] };
 	assert.equal(listAdaptedWidgetControls(empty)[0]?.availability.state, "empty");
+});
+
+test("legacy native combo bindings upgrade to the image preview adapter", () => {
+	assert.match(providerSource, /binding\.adapterId === "comfy-native-widget" \? null : binding\.adapterId/);
+	assert.match(providerSource, /listAdaptedWidgetControls\(node, \{ promoted, adapterId \}\)/);
 });
 
 test("native numeric widgets expose the real step instead of the legacy 10x step", () => {
