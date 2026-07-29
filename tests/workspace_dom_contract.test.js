@@ -600,9 +600,13 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(components, /\["Enter", "F2"\]\.includes\(event\.key\)/);
 	assert.match(components, /iconName: "edit"[\s\S]*?onClick: startRename/);
 	assert.match(components, /inlineRename\(title,[\s\S]*?onRename\?\.\(name\)/);
-	assert.match(theme, /\.aa-dashboard-page-heading \{[^}]*min-height: 42px;[^}]*flex: 1 1 220px;[^}]*linear-gradient/);
-	assert.match(theme, /\.aa-dashboard-page-heading__title \{[^}]*font-size: 18px;[^}]*font-weight: 760;[^}]*text-overflow: ellipsis;/);
-	assert.match(theme, /\.aa-dashboard-page-heading__folio \{[^}]*font-size: 10px;[^}]*font-variant-numeric: tabular-nums;/);
+	assert.match(components, /aa-dashboard-page-heading__folio-index/);
+	assert.match(components, /aa-dashboard-page-heading__folio-total/);
+	assert.match(theme, /\.aa-dashboard-page-heading \{[^}]*min-height: 42px;[^}]*flex: 1 1 220px;/);
+	assert.match(theme, /\.aa-dashboard-page-heading__title \{[^}]*font-size: 16px;[^}]*font-weight: 720;[^}]*text-overflow: ellipsis;/);
+	assert.match(theme, /\.aa-dashboard-page-heading__folio \{[^}]*flex-direction: column;[^}]*font-variant-numeric: tabular-nums;/);
+	assert.match(theme, /\.aa-dashboard-page-heading__folio-index \{[^}]*font-size: 13px;/);
+	assert.match(theme, /\.aa-dashboard-page-heading__folio-total \{[^}]*font-size: 10px;/);
 	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
 });
 

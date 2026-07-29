@@ -53,11 +53,15 @@ export function createDashboardPageHeading({ page, index = 0, total = 1, labels 
 		event.stopPropagation();
 		startRename();
 	});
-	const folio = `${String(index + 1).padStart(2, "0")} / ${String(Math.max(total, 1)).padStart(2, "0")}`;
+	const folioIndex = String(index + 1).padStart(2, "0");
+	const folioTotal = String(Math.max(total, 1)).padStart(2, "0");
 	return el("div", {
 		className: `aa-dashboard-page-heading${className ? ` ${className}` : ""}`,
 		children: [
-			el("span", { className: "aa-dashboard-page-heading__folio", attrs: { "aria-hidden": "true" }, text: folio }),
+			el("span", { className: "aa-dashboard-page-heading__folio", attrs: { "aria-hidden": "true" }, children: [
+				el("span", "aa-dashboard-page-heading__folio-index", folioIndex),
+				el("span", "aa-dashboard-page-heading__folio-total", `/ ${folioTotal}`),
+			] }),
 			title,
 			iconButton({ iconName: "edit", label: renameLabel, variant: "ghost", className: "aa-dashboard-page-heading__edit", onClick: startRename }),
 		],
