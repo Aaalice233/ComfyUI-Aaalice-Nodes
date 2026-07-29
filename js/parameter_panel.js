@@ -384,7 +384,15 @@ function renderNode(node, root) {
 	for (const parameter of parameters) {
 		if (parameter.param_type === "separator") {
 			const label = displayName(parameter);
-			const section = el("div", { className: "aaalice-pcp-node-section", attrs: { role: "separator", "aria-label": label }, children: [el("span", "aaalice-pcp-node-section-label", label)] });
+			const section = el("div", {
+				className: "aaalice-pcp-node-section",
+				attrs: { role: "separator", "aria-label": label },
+				children: [
+					el("span", { className: "aa-section-rule aa-section-rule--start", attrs: { "aria-hidden": "true" } }),
+					el("span", "aaalice-pcp-node-section-label", label),
+					el("span", { className: "aa-section-rule aa-section-rule--end", attrs: { "aria-hidden": "true" } }),
+				],
+			});
 			section.dataset.parameterId = parameter.id;
 			root.append(section);
 			continue;

@@ -131,10 +131,27 @@
 /* Restore input only on real controls; the remaining widget surface belongs
    to native canvas slot hit-testing and node dragging. */
 .aaalice-pcp-node-root :is(input, select, textarea, button, [tabindex]) { pointer-events: auto; }
-.aaalice-pcp-node-section { box-sizing: border-box; display: flex; min-width: 0; min-height: 24px; align-items: center; gap: 8px; padding: 3px 2px; color: color-mix(in srgb, var(--aaalice-node-accent) 72%, var(--aaalice-node-value)); }
-.aaalice-pcp-node-section::before,
-.aaalice-pcp-node-section::after { height: 1px; min-width: 14px; flex: 1; background: color-mix(in srgb, var(--aaalice-node-accent) 48%, var(--aaalice-node-border)); box-shadow: 0 1px 0 color-mix(in srgb, var(--aaalice-node-value) 5%, transparent); content: ""; }
-.aaalice-pcp-node-section-label { min-width: 0; overflow: hidden; padding: 0 2px; font-size: 10.5px; font-weight: 680; letter-spacing: .035em; line-height: 1.35; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.aaalice-pcp-node-section {
+	--aa-section-accent: var(--aaalice-node-accent);
+	--aa-section-line: color-mix(in srgb, var(--aaalice-node-value) 34%, var(--aaalice-node-border));
+	--aa-section-surface: color-mix(in srgb, var(--aaalice-node-field) 88%, transparent);
+	--aa-section-text: color-mix(in srgb, var(--aaalice-node-value) 88%, var(--aaalice-node-accent));
+	--aa-section-highlight: color-mix(in srgb, var(--aaalice-node-value) 10%, transparent);
+	--aa-section-shadow: color-mix(in srgb, var(--aaalice-node-recess) 58%, transparent);
+	--aa-section-core: color-mix(in srgb, var(--aa-section-accent) 62%, var(--aaalice-node-value));
+	--aa-section-tail: color-mix(in srgb, var(--aa-section-accent) 34%, var(--aa-section-line));
+	--aa-section-glow: color-mix(in srgb, var(--aa-section-accent) 24%, transparent);
+}
+.aaalice-pcp-node-section,
+.aa-dashboard-separator { box-sizing: border-box; display: flex; min-width: 0; min-height: 24px; align-items: center; gap: 6px; padding: 2px 0; color: var(--aa-section-text); }
+.aa-section-rule { position: relative; height: 3px; min-width: 12px; flex: 1; border-radius: 999px; box-shadow: 0 0 6px var(--aa-section-glow), 0 1px 0 var(--aa-section-shadow); }
+.aa-section-rule--start { background: linear-gradient(90deg, transparent 0%, var(--aa-section-tail) 34%, var(--aa-section-accent) 72%, var(--aa-section-core) 100%); }
+.aa-section-rule--end { background: linear-gradient(90deg, var(--aa-section-core) 0%, var(--aa-section-accent) 28%, var(--aa-section-tail) 66%, transparent 100%); }
+.aa-section-rule::after { position: absolute; top: 1px; width: 14px; height: 1px; border-radius: 999px; background: var(--aa-section-core); box-shadow: 0 0 4px var(--aa-section-glow); content: ""; }
+.aa-section-rule--start::after { right: 0; }
+.aa-section-rule--end::after { left: 0; }
+.aaalice-pcp-node-section-label,
+.aa-dashboard-separator-label { min-width: 0; overflow: hidden; padding: 2px 7px 3px; border-radius: 5px; background: var(--aa-section-surface); box-shadow: inset 0 1px 0 var(--aa-section-highlight), 0 2px 6px var(--aa-section-shadow); color: var(--aa-section-text); font-size: 10.5px; font-weight: 700; letter-spacing: .025em; line-height: 1.25; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .aaalice-pcp-node-row { padding: 2px 2px 3px; }
 .aaalice-pcp-node-root .aaalice-pcp-node-row {
 	box-sizing: border-box;
@@ -1493,10 +1510,18 @@
 .aa-dashboard-grid-v2.is-dragging, .aa-dashboard-grid-v2.is-dragging * { cursor: grabbing; }
 .aa-dashboard-grid-v2.is-dragging .is-resizing, .aa-dashboard-grid-v2.is-dragging .is-resizing * { cursor: nwse-resize; }
 .aa-dashboard-grid-v2 .is-dragging { z-index: 5; opacity: .72; pointer-events: none; transition: none; will-change: transform; }
-.aa-dashboard-separator { position: relative; display: flex; min-width: 0; min-height: 24px; align-items: center; gap: 8px; padding: 3px 2px; color: color-mix(in srgb, var(--aa-ui-accent) 72%, var(--aa-ui-text)); }
-.aa-dashboard-separator::before,
-.aa-dashboard-separator::after { height: 1px; min-width: 14px; flex: 1; background: color-mix(in srgb, var(--aa-ui-accent) 48%, var(--aa-ui-border-soft)); box-shadow: 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 5%, transparent); content: ""; }
-.aa-dashboard-separator-label { min-width: 0; overflow: hidden; padding: 0 2px; font-size: 10.5px; font-weight: 680; letter-spacing: .035em; line-height: 1.35; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.aa-dashboard-separator {
+	--aa-section-accent: var(--aa-ui-accent);
+	--aa-section-line: color-mix(in srgb, var(--aa-ui-text) 34%, var(--aa-ui-border-soft));
+	--aa-section-surface: color-mix(in srgb, var(--aa-ui-control) 88%, transparent);
+	--aa-section-text: color-mix(in srgb, var(--aa-ui-text) 88%, var(--aa-ui-accent));
+	--aa-section-highlight: color-mix(in srgb, var(--aa-ui-text) 10%, transparent);
+	--aa-section-shadow: color-mix(in srgb, var(--aa-ui-canvas) 58%, transparent);
+	--aa-section-core: color-mix(in srgb, var(--aa-section-accent) 62%, var(--aa-ui-text));
+	--aa-section-tail: color-mix(in srgb, var(--aa-section-accent) 34%, var(--aa-section-line));
+	--aa-section-glow: color-mix(in srgb, var(--aa-section-accent) 24%, transparent);
+	position: relative;
+}
 .aa-dashboard-separator > .aa-ui-button { position: absolute; z-index: 1; top: 50%; right: 0; width: 24px; min-width: 24px; height: 24px; min-height: 24px; background: var(--aa-ui-surface); transform: translateY(-50%); }
 
 /* Library workspace and shared list rows */

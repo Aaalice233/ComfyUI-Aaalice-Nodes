@@ -776,7 +776,16 @@ function renderDashboard(container, host) {
 	};
 	const renderItem = (item) => {
 		if (item.kind === "separator") {
-			const separator = el("div", { className: "aa-dashboard-separator", attrs: { "data-dashboard-item-id": item.id, tabindex: editMode ? 0 : null, role: "separator", "aria-label": item.label }, children: [el("span", "aa-dashboard-separator-label", item.label), ...(editMode ? [iconButton({ iconName: "delete", label: t("aaalice.workspace.layout.remove", "Remove layout item"), variant: "ghost", onClick: () => updateDashboard((current) => removeItems(current, [item.id])) })] : [])] });
+			const separator = el("div", {
+				className: "aa-dashboard-separator",
+				attrs: { "data-dashboard-item-id": item.id, tabindex: editMode ? 0 : null, role: "separator", "aria-label": item.label },
+				children: [
+					el("span", { className: "aa-section-rule aa-section-rule--start", attrs: { "aria-hidden": "true" } }),
+					el("span", "aa-dashboard-separator-label", item.label),
+					el("span", { className: "aa-section-rule aa-section-rule--end", attrs: { "aria-hidden": "true" } }),
+					...(editMode ? [iconButton({ iconName: "delete", label: t("aaalice.workspace.layout.remove", "Remove layout item"), variant: "ghost", onClick: () => updateDashboard((current) => removeItems(current, [item.id])) })] : []),
+				],
+			});
 			separator.dataset.searchText = String(item.label || "").toLocaleLowerCase(); return separator;
 		}
 		const resolved = resolve(item.binding);

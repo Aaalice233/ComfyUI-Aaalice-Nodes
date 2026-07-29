@@ -23,7 +23,7 @@
 ## 后端边界
 
 - V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `CharacterFeatureSwapNode`、`PromptSelector` 与 `EnumSwitch` 的自定义校验签名分别只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
-- `nodes/control/parameter_panel.py` 声明最多 32 路输出，把前端注入的参数 payload 转换为有界值序列；解析和类型转换位于 `nodes/_lib/parameter_values.py`。
+- `nodes/control/parameter_panel.py` 声明最多 32 路输出，把前端注入的参数 payload 转换为有界值序列；解析和类型转换位于 `nodes/_lib/parameter_values.py`。图像参数通过 `nodes/_lib/parameter_images.py` 解析 ComfyUI 引用：未选择或文件不存在时输出单张 `512 × 512` 纯黑 IMAGE，已选择但解码、权限或其它读取错误仍明确失败；文件从缺失变为存在时会改变执行指纹，避免继续命中旧的黑图缓存。
 - `nodes/control/parameter_receiver.py` 声明最多 32 路可选 AnyType 输入输出；`nodes/_lib/receiver_values.py` 只按协议顺序透传，不保存绑定状态。
 - `nodes/control/quick_group_manager.py` 只注册无输入输出的 V3 节点；组发现和模式变化不进入后端。
 - `nodes/tools/enum_switch.py` 声明 selector、最多 32 个 lazy MatchType 分支和一个同类型输出；`nodes/_lib/enum_switch.py` 校验 routes payload 并选择精确协议输入。
@@ -101,7 +101,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 1. 结构编辑器统一校验草稿并确认受影响连线。
 2. 一个图变更边界内更新 `node.properties.parameters`；尾部增删保留稳定输出，中间变更按 Parameter Id 重塑并重连真实端点。
-3. `graphToPrompt` 为本次执行注入参数 payload。
+3. `graphToPrompt` 为本次执行注入参数 payload；节点面与侧边栏共用的图像值在执行时解析，空引用或已不存在的文件生成单张 `512 × 512` 纯黑 IMAGE。
 4. 执行成功后按 fixed、increment、decrement 或 randomize 更新 Seed，并通知依赖节点刷新。
 
 ### ParameterReceiver

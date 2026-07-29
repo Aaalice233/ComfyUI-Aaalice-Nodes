@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from comfy_api.latest import io
 
+from .._lib.parameter_images import (
+    image_reference_fingerprint,
+    resolve_image_reference,
+)
 from .._lib.parameter_values import (
     MAX_TUNABLE_PARAMS,
     parameters_to_outputs,
@@ -22,29 +26,59 @@ def _panel_outputs() -> list:
     ]
 
 
-def _resolve_image(value):
-    if not value:
-        raise ValueError("image parameter has no selected image")
-    if isinstance(value, dict):
-        # `/upload/image` returns `name`; saved panel values use `filename`.
-        filename = value.get("filename") or value.get("name")
-        subfolder = value.get("subfolder") or ""
-        image_type = value.get("type") or "input"
-        if not filename:
-            raise ValueError("image parameter is missing filename")
-        annotated = f"{subfolder}/{filename}" if subfolder else str(filename)
-        if image_type != "input":
-            annotated = f"{annotated} [{image_type}]"
-    elif isinstance(value, str):
-        annotated = value
-    else:
-        raise ValueError("image parameter must contain a ComfyUI image reference")
+def _image_exists(annotated: str) -> bool:
+    import folder_paths
 
+    return folder_paths.exists_annotated_filepath(annotated)
+
+
+def _load_image(annotated: str):
     # Keep the pure parameter model importable without a running ComfyUI instance.
     from nodes import LoadImage
 
     image, _mask = LoadImage().load_image(annotated)
     return image
+
+
+def _black_image():
+    import torch
+    from comfy import model_management
+
+    return torch.zeros(
+        (1, 512, 512, 3),
+        dtype=model_management.intermediate_dtype(),
+        device=model_management.intermediate_device(),
+    )
+
+
+def _resolve_image(value):
+    return resolve_image_reference(
+        value,
+        exists=_image_exists,
+        load=_load_image,
+        fallback=_black_image,
+    )
+
+
+def _image_fingerprints(parameters: list[dict]) -> list[str]:
+    image_parameters = [
+        parameter
+        for parameter in parameters
+        if parameter.get("param_type") == "image"
+    ]
+    if not image_parameters:
+        return []
+
+    from nodes import LoadImage
+
+    return [
+        image_reference_fingerprint(
+            parameter.get("value"),
+            exists=_image_exists,
+            fingerprint=LoadImage.IS_CHANGED,
+        )
+        for parameter in image_parameters
+    ]
 
 
 class ParameterPanel(io.ComfyNode):
@@ -71,7 +105,9 @@ class ParameterPanel(io.ComfyNode):
         validate_dynamic_values: bool = True,
         **_kwargs,
     ) -> str:
-        return f"{parameters_json or '[]'}\n{bool(validate_dynamic_values)}"
+        raw = parameters_json or "[]"
+        image_fingerprints = _image_fingerprints(parse_parameters_json(raw))
+        return f"{raw}\n{bool(validate_dynamic_values)}\n{image_fingerprints!r}"
 
     @classmethod
     def execute(

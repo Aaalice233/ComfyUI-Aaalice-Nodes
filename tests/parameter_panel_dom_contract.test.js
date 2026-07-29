@@ -98,16 +98,23 @@ test("parameter labels keep a small gap above their controls", () => {
 	assert.match(themeSource, /\.aaalice-pcp-node-root \.aaalice-pcp-node-row\s*\{[^}]*row-gap:\s*2px/s);
 });
 
-test("separator parameters place their label between two visible rules", () => {
+test("separator parameters use computed monochrome etched rules around a neutral title plate", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
 	assert.match(panelSource, /aaalice-pcp-node-section-label/);
+	assert.match(panelSource, /aa-section-rule aa-section-rule--start/);
+	assert.match(panelSource, /aa-section-rule aa-section-rule--end/);
 	assert.match(panelSource, /role: "separator"/);
 	assert.match(layoutSource, /sectionHeight:\s*24/);
-	assert.match(themeSource, /\.aaalice-pcp-node-section::before,[\s\S]*\.aaalice-pcp-node-section::after/);
-	assert.match(themeSource, /\.aaalice-pcp-node-section-label\s*\{[^}]*text-align:\s*center/s);
+	assert.match(themeSource, /--aa-section-core:\s*color-mix\(in srgb, var\(--aa-section-accent\) 62%, var\(--aaalice-node-value\)\)/);
+	assert.match(themeSource, /\.aa-section-rule--start\s*\{[^}]*linear-gradient\(90deg, transparent 0%, var\(--aa-section-tail\) 34%, var\(--aa-section-accent\) 72%, var\(--aa-section-core\) 100%\)/s);
+	assert.match(themeSource, /\.aa-section-rule--end\s*\{[^}]*linear-gradient\(90deg, var\(--aa-section-core\) 0%, var\(--aa-section-accent\) 28%, var\(--aa-section-tail\) 66%, transparent 100%\)/s);
+	assert.match(themeSource, /\.aa-section-rule::after\s*\{[^}]*width:\s*14px[^}]*height:\s*1px[^}]*background:\s*var\(--aa-section-core\)/s);
+	assert.doesNotMatch(themeSource, /aa-section-spectrum|calc\(h \+ (?:120|240)\)/);
+	assert.match(themeSource, /\.aaalice-pcp-node-section-label,[\s\S]*background:\s*var\(--aa-section-surface\)[^}]*box-shadow:[^}]*text-align:\s*center/s);
+	assert.match(themeSource, /\.aa-dashboard-separator-label/);
 });
 
 test("tag-list parameters use the shared interactive chip editor and explain where values are set", () => {
