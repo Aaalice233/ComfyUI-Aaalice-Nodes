@@ -58,16 +58,18 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, editMo
 	const switchLabel = labels.switchPage || "Switch page";
 	const folio = el("button", {
 		className: "aa-dashboard-page-heading__folio",
-		attrs: { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": `${switchLabel}: ${folioIndex}/${folioTotal}`, title: switchLabel },
+		attrs: { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": `${switchLabel}: ${folioIndex}/${folioTotal}` },
 		children: [
 			el("span", "aa-dashboard-page-heading__folio-index", folioIndex),
 			el("span", "aa-dashboard-page-heading__folio-total", `/${folioTotal}`),
 			icon("moveDown", { className: "aa-dashboard-page-heading__folio-arrow" }),
 		],
 	});
-	let popover = null;
-	const openPageMenu = () => {
+	let popover = null; let openTimer = 0; let closeTimer = 0;
+	const cancelTimers = () => { clearTimeout(openTimer); clearTimeout(closeTimer); openTimer = 0; closeTimer = 0; };
+	const openPageMenu = ({ focusOnOpen = true } = {}) => {
 		if (popover) return;
+		cancelTimers();
 		folio.setAttribute("aria-expanded", "true");
 		const rows = [];
 		const list = el("div", { className: "aa-dashboard-page-menu", attrs: { role: "listbox", "aria-label": labels.pages || "Dashboard pages" } });
@@ -108,12 +110,28 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, editMo
 			});
 		}
 		popover = createAnchoredPopover({
-			anchor: folio, ariaLabel: labels.pages || "Dashboard pages", className: "aa-dashboard-page-popover", width: 220,
-			onClose: () => { popover = null; folio.setAttribute("aria-expanded", "false"); },
+			anchor: folio, ariaLabel: labels.pages || "Dashboard pages", className: "aa-dashboard-page-popover", width: 220, focusOnOpen,
+			onClose: () => { popover = null; folio.setAttribute("aria-expanded", "false"); cancelTimers(); },
 		});
 		popover.root.append(list);
+		// 悬停展开的菜单在指针移入弹层时保持打开，离开按钮与弹层后才延迟关闭。
+		popover.root.addEventListener("pointerenter", () => clearTimeout(closeTimer));
+		popover.root.addEventListener("pointerleave", scheduleClose);
 	};
-	folio.addEventListener("click", openPageMenu);
+	const scheduleOpen = () => {
+		clearTimeout(closeTimer);
+		if (popover || openTimer) return;
+		// 悬停打开不窃取焦点，避免打断正在进行的输入。
+		openTimer = setTimeout(() => { openTimer = 0; openPageMenu({ focusOnOpen: false }); }, 140);
+	};
+	const scheduleClose = () => {
+		clearTimeout(openTimer);
+		if (!popover || closeTimer) return;
+		closeTimer = setTimeout(() => { closeTimer = 0; popover?.close(); }, 240);
+	};
+	folio.addEventListener("pointerenter", scheduleOpen);
+	folio.addEventListener("pointerleave", scheduleClose);
+	folio.addEventListener("click", () => { if (popover) popover.close(); else openPageMenu(); });
 	return el("div", {
 		className: `aa-dashboard-page-heading${className ? ` ${className}` : ""}`,
 		children: [

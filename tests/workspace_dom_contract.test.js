@@ -590,6 +590,13 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(components, /aa-dashboard-page-heading__folio-index/);
 	assert.match(components, /aa-dashboard-page-heading__folio-total/);
 	assert.match(components, /aa-dashboard-page-heading__folio-arrow/);
+	assert.match(components, /folio\.addEventListener\("pointerenter", scheduleOpen\)/);
+	assert.match(components, /folio\.addEventListener\("pointerleave", scheduleClose\)/);
+	assert.match(components, /openPageMenu\(\{ focusOnOpen: false \}\)/);
+	assert.match(components, /popover\.root\.addEventListener\("pointerenter"/);
+	assert.match(components, /popover\.root\.addEventListener\("pointerleave", scheduleClose\)/);
+	assert.match(uiSource, /focusOnOpen = true/);
+	assert.match(uiSource, /if \(focusOnOpen\) \(focusableElements\(root\)\[0\] \|\| root\)\.focus\(\)/);
 	assert.match(components, /onSelectPage\?\.\(entry\.id\)/);
 	assert.match(components, /onReorderPage\?\.\(source, row\.dataset\.pageId\)/);
 	assert.match(theme, /\.aa-dashboard-page-heading__folio \{[^}]*cursor: pointer;/);

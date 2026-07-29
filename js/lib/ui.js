@@ -702,7 +702,7 @@ function shouldIgnoreDialogEnter(event, dialog) {
 	return false;
 }
 
-export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300, onClose = null } = {}) {
+export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300, onClose = null, focusOnOpen = true } = {}) {
 	if (!(anchor instanceof HTMLElement)) throw new Error("[Aaalice] Popover anchor is unavailable");
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
 	const root = isolate(el("section", { className: `aa-ui-popover${className ? ` ${className}` : ""}`, attrs: { role: "dialog", "aria-modal": "false", "aria-label": ariaLabel, tabindex: -1 } }));
@@ -743,7 +743,7 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 		reposition();
 		document.addEventListener("pointerdown", outside, true);
 		document.addEventListener("keydown", keydown, true);
-		(focusableElements(root)[0] || root).focus();
+		if (focusOnOpen) (focusableElements(root)[0] || root).focus();
 	});
 	return { root, close, reposition };
 }
