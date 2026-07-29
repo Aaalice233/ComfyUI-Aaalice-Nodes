@@ -65,6 +65,14 @@ function supportsNativeFallback(node, promoted) {
 
 function optionValues(options = {}) { return Array.isArray(options.values) ? options.values : Array.isArray(options.options) ? options.options : []; }
 
+// ComfyUI 前端按旧约定把 widget 的 step 放大 10 倍存储（deprecated），step2 才是真实步长。
+function realWidgetStep(options = {}) {
+	const step2 = Number(options?.step2);
+	if (Number.isFinite(step2) && step2 > 0) return step2;
+	const legacy = Number(options?.step);
+	return (Number.isFinite(legacy) && legacy > 0 ? legacy : 10) * 0.1;
+}
+
 function normalizeAvailability(value, { kind, currentValue, options } = {}) {
 	let source = value;
 	if (source == null) {
@@ -211,13 +219,16 @@ registerWidgetControlAdapter({
 	describe({ node, widget, promoted }) {
 		const definition = simpleNativeWidgetDefinition(widget, { promoted });
 		const seedMode = linkedSeedModeWidget(node, widget);
+		const kind = seedMode ? "seed" : definition.kind;
+		const options = { ...(widget.options || {}) };
+		if (kind === "numeric" || kind === "seed") options.step = realWidgetStep(widget.options);
 		return {
 			controlId: widget.name,
 			label: widget.label || widget.name,
 			value: widget.value,
 			valueType: definition.valueType,
-			kind: seedMode ? "seed" : definition.kind,
-			options: { ...(widget.options || {}), ...(seedMode ? { control_after_generate: seedMode.value } : {}) },
+			kind,
+			options: { ...options, ...(seedMode ? { control_after_generate: seedMode.value } : {}) },
 			...(seedMode ? {
 				readPresetValue: () => createSeedPresetPayload(widget.value, seedMode.value),
 				validatePresetValue: (entry) => validateSeedPresetEntry(entry, { ...(widget.options || {}), behaviors: seedBehaviorValues(seedMode) }),

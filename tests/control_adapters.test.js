@@ -115,6 +115,18 @@ test("simple ComfyUI nodes expose only built-in primitive widget families", () =
 	controls[4].setValue("edited"); assert.equal(node.widgets[4].value, "edited");
 });
 
+test("native numeric widgets expose the real step instead of the legacy 10x step", () => {
+	const node = { widgets: [
+		{ name: "batch", type: "INT", value: 4, options: { min: 1, max: 64, step: 10, step2: 1 } },
+		{ name: "cfg", type: "float", value: 7.5, options: { min: 0, max: 20, step: 5 } },
+		{ name: "strength", type: "float", value: 1, options: { min: -1, max: 2, step: 5, step2: 0.05 } },
+	] };
+	const [batch, cfg, strength] = listAdaptedWidgetControls(node);
+	assert.equal(batch.options.step, 1);
+	assert.equal(cfg.options.step, 0.5);
+	assert.equal(strength.options.step, 0.05);
+});
+
 test("native Compare Images exposes a layout-only execution view", () => {
 	let callbacks = 0; let dirty = 0;
 	const widget = { name: "compare_view", type: "imagecompare", value: { beforeImages: ["a.png"], afterImages: ["b.png"] }, callback: () => callbacks++ };
