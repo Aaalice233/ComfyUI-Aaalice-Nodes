@@ -276,6 +276,7 @@
       "empty": "暂无参数，请通过节点右键菜单编辑。",
       "builtin": { "seed": "种子", "steps": "步数", "cfg": "CFG", "sampler": "采样器", "scheduler": "调度器", "denoise": "降噪幅度" },
 	  "types": { "slider": "滑条", "seed": "种子", "switch": "开关", "string": "文本", "dropdown": "下拉框", "enum": "枚举", "image": "图像", "taglist": "标签列表", "separator": "分隔线" },
+	  "sources": { "custom": "自定义", "sampler": "采样器", "scheduler": "调度器", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "放大模型", "promptExpandRule": "提示词助手 · 扩写规则", "promptLlmService": "提示词助手 · LLM 服务", "promptVisionRule": "提示词助手 · 反推规则", "promptVlmService": "提示词助手 · VLM 服务" },
 	  "seedMode": { "locked": "种子已锁定；点击解锁", "unlocked": "种子未锁定；点击锁定" },
       "confirm": { "parameterLinks": "将断开受影响的参数下游连线。" },
       "kj": {

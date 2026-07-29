@@ -129,6 +129,22 @@ function parameterTypeLabel(value) {
 	return t(`aaalice.pcp.types.${value}`, value);
 }
 
+function optionSourceChoices() {
+	return [
+		{ value: "custom", label: t("aaalice.pcp.sources.custom", "Custom") },
+		{ value: "sampler", label: t("aaalice.pcp.sources.sampler", "Sampler") },
+		{ value: "scheduler", label: t("aaalice.pcp.sources.scheduler", "Scheduler") },
+		{ value: "checkpoint", label: t("aaalice.pcp.sources.checkpoint", "Checkpoint") },
+		{ value: "lora", label: t("aaalice.pcp.sources.lora", "LoRA") },
+		{ value: "controlnet", label: t("aaalice.pcp.sources.controlnet", "ControlNet") },
+		{ value: "upscale_model", label: t("aaalice.pcp.sources.upscaleModel", "Upscale model") },
+		{ value: "prompt_expand_rule", label: t("aaalice.pcp.sources.promptExpandRule", "Prompt Assistant · Expand rule") },
+		{ value: "prompt_llm_service", label: t("aaalice.pcp.sources.promptLlmService", "Prompt Assistant · LLM service") },
+		{ value: "prompt_vision_rule", label: t("aaalice.pcp.sources.promptVisionRule", "Prompt Assistant · Vision rule") },
+		{ value: "prompt_vlm_service", label: t("aaalice.pcp.sources.promptVlmService", "Prompt Assistant · VLM service") },
+	];
+}
+
 function selectInput(options, value) {
 	const select = document.createElement("select");
 	for (const option of options) {
@@ -306,8 +322,7 @@ function valueControl(node, parameter, heading = null) {
 			},
 			image: { none: t("aaalice.pcp.image.none", "Choose image"), drop: t("aaalice.pcp.image.drop", "Drop image here"), clear: t("aaalice.pcp.image.clear", "Clear selected image") },
 		},
-		presentation: { segmented: true },
-	});
+		});
 	let gestureOpen = false;
 	const graphCommit = (callback, detail = {}) => {
 		node.graph?.beforeChange?.();
@@ -473,7 +488,7 @@ function renderInspector(editor, parameter, rerender) {
 		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.valueRules", "Value rules"), behaviorBody));
 	}
 	if (["dropdown", "enum"].includes(parameter.param_type)) {
-		const source = selectInput(["custom", "sampler", "scheduler", "checkpoint", "lora", "controlnet", "upscale_model"], parameter.config?.source || "custom");
+		const source = selectInput(optionSourceChoices(), parameter.config?.source || "custom");
 		const options = document.createElement("textarea");
 		options.rows = 7;
 		options.value = (parameter.config?.options || []).join("\n");

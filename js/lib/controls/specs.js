@@ -22,7 +22,12 @@ export function parameterControlSpec(parameter, { label, labels = {}, presentati
 		value: parameter.value,
 		options: parameter.config || {},
 		labels: labels[kind] || labels,
-		presentation,
+		presentation: {
+			...presentation,
+			// Dropdown and enum are different authoring promises even though
+			// both carry a string value. Keep the visual choice explicit.
+			segmented: parameter.param_type === "enum",
+		},
 		availability: { state: "ready" },
 	};
 }

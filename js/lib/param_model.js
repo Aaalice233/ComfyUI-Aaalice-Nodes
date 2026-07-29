@@ -26,10 +26,14 @@ const sourceOptions = {
 		"seeds_2", "seeds_3", "sa_solver", "sa_solver_pece", "ddim", "uni_pc", "uni_pc_bh2",
 	],
 	scheduler: ["simple", "sgm_uniform", "karras", "exponential", "ddim_uniform", "beta", "normal", "linear_quadratic", "kl_optimal"],
-	checkpoint: [],
-	lora: [],
-	controlnet: [],
-	upscale_model: [],
+		checkpoint: [],
+		lora: [],
+		controlnet: [],
+		upscale_model: [],
+		prompt_expand_rule: [],
+		prompt_llm_service: [],
+		prompt_vision_rule: [],
+		prompt_vlm_service: [],
 };
 
 function newStableId(prefix) {
@@ -95,9 +99,13 @@ export function refreshComfyOptions(nodeDefs) {
 		["scheduler", "KSampler", "scheduler"],
 		["checkpoint", "CheckpointLoaderSimple", "ckpt_name"],
 		["lora", "LoraLoader", "lora_name"],
-		["controlnet", "ControlNetLoader", "control_net_name"],
-		["upscale_model", "UpscaleModelLoader", "model_name"],
-	]) {
+			["controlnet", "ControlNetLoader", "control_net_name"],
+			["upscale_model", "UpscaleModelLoader", "model_name"],
+			["prompt_expand_rule", "PromptExpand", "rule"],
+			["prompt_llm_service", "PromptExpand", "llm_service"],
+			["prompt_vision_rule", "ImageCaptionNode", "rule"],
+			["prompt_vlm_service", "ImageCaptionNode", "vlm_service"],
+		]) {
 		const options = readOptions(required(nodeName)[inputName]);
 		if (options.length) sourceOptions[source] = options;
 	}

@@ -30,6 +30,15 @@ test("shared controls keep Aaalice and ComfyUI policies in separate renderer fam
 	assert.equal(resolvedControlSpec({ family: "comfy", kind: "vendor-meter", controlId: "meter", label: "Meter", value: 1 }).kind, "vendor-meter");
 });
 
+test("dropdown and enum parameters retain distinct choice presentations", () => {
+	const dropdown = parameterControlSpec({ id: "service", param_type: "dropdown", value: "a", config: { options: ["a", "b"] } });
+	const enumeration = parameterControlSpec({ id: "mode", param_type: "enum", value: "a", config: { options: ["a", "b"] } });
+	assert.equal(dropdown.kind, "choice");
+	assert.equal(dropdown.presentation.segmented, false);
+	assert.equal(enumeration.kind, "choice");
+	assert.equal(enumeration.presentation.segmented, true);
+});
+
 test("third-party renderers can extend a family without mutating built-ins", () => {
 	assert.match(publicApiSource, /CONTROL_ADAPTER_API_VERSION = 1/);
 	assert.match(publicApiSource, /registerControlRenderer/);

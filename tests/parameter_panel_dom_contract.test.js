@@ -138,6 +138,21 @@ test("parameter editor keeps the reorder hint in the dialog header", () => {
 	assert.match(themeSource, /\.aaalice-editor-header-lead\s*\{/);
 });
 
+test("prompt assistant choices are sourced from its live node definitions", () => {
+	const modelSource = readFileSync(join(ROOT, "js", "lib", "param_model.js"), "utf8");
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+
+	for (const contract of [
+		["prompt_expand_rule", "PromptExpand", "rule"],
+		["prompt_llm_service", "PromptExpand", "llm_service"],
+		["prompt_vision_rule", "ImageCaptionNode", "rule"],
+		["prompt_vlm_service", "ImageCaptionNode", "vlm_service"],
+	]) {
+		assert.match(modelSource, new RegExp(contract.map((part) => `"${part}"`).join(", ")));
+		assert.match(panelSource, new RegExp(`value: "${contract[0]}"`));
+	}
+});
+
 test("parameter editor keeps the left parameter rail independently scrollable", () => {
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
