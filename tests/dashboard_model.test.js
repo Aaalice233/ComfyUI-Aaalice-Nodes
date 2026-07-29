@@ -2,12 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
 
 const binding = { provider: "generic-widget", hostId: "host-a", controlId: "steps", valueType: "number" };
 const modelWithPage = () => { const model = emptyDashboard(); const page = createPage("Generation"); model.pages.push(page); return { model, page }; };
+
+test("page tone survives normalization and falls back to null when unknown", () => {
+	const page = createPage("Docs");
+	assert.equal(page.tone, null);
+	page.tone = "green";
+	let model = emptyDashboard(); model.pages.push(page);
+	model = normalizeDashboard(model);
+	assert.equal(model.pages[0].tone, "green");
+	model.pages[0].tone = "neon";
+	model = normalizeDashboard(model);
+	assert.equal(model.pages[0].tone, null);
+});
 
 test("Dashboard V2 pages directly own grid control cards", () => {
 	const { model, page } = modelWithPage();
@@ -133,7 +145,7 @@ test("fine-grained rows allow a short card below another card beside a tall card
 test("overlap moves only the operated card and preserves the existing layout", () => {
 	const page = createPage("P"); const makeItem = (id, row, column, controlId = id) => ({
 		id, kind: "control", label: id, binding: { ...binding, controlId }, groupId: null,
-		layout: { row, column, columnSpan: 6, rowSpan: 6 }, compact: false,
+		layout: { row, column, columnSpan: 6, rowSpan: 6 },
 	});
 	let model = normalizeDashboard({ version: 2, pages: [{ ...page, items: [
 		makeItem("moving", 0, 0), makeItem("collision-a", 12, 0), makeItem("collision-b", 18, 0),
@@ -151,7 +163,7 @@ test("overlap moves only the operated card and preserves the existing layout", (
 test("multi-card movement preserves internal offsets without displacing existing cards", () => {
 	const page = createPage("P"); const makeItem = (id, row, column) => ({
 		id, kind: "control", label: id, binding: { ...binding, controlId: id }, groupId: null,
-		layout: { row, column, columnSpan: 6, rowSpan: 6 }, compact: false,
+		layout: { row, column, columnSpan: 6, rowSpan: 6 },
 	});
 	let model = normalizeDashboard({ version: 2, pages: [{ ...page, items: [
 		makeItem("selected-left", 0, 0), makeItem("selected-right", 0, 6),
@@ -201,6 +213,26 @@ test("controls move across pages without changing stable binding", () => {
 	const first = createPage("First"); const second = createPage("Second"); let model = emptyDashboard(); model.pages.push(first, second);
 	model = addItems(model, first.id, [{ label: "Steps", binding }]); const itemId = model.pages[0].items[0].id;
 	model = moveItems(model, [itemId], second.id); assert.equal(model.pages[0].items.length, 0); assert.equal(model.pages[1].items[0].id, itemId); assert.deepEqual(model.pages[1].items[0].binding, binding);
+});
+
+test("moving groups across pages keeps the whole group unit with its members", () => {
+	const first = createPage("First"); const second = createPage("Second"); let model = emptyDashboard(); model.pages.push(first, second);
+	model = addItems(model, first.id, [{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }, { label: "C", binding: { ...binding, controlId: "c" } }]);
+	const [a, b, c] = model.pages[0].items.map((item) => item.id);
+	model = createGroup(model, first.id, [a, b], { name: "G", tone: "blue" });
+	const group = model.pages[0].groups[0];
+	model = moveGroups(model, [group.id], second.id);
+	assert.equal(model.pages[0].groups.length, 0);
+	assert.deepEqual(model.pages[0].items.map((item) => item.id), [c]);
+	assert.equal(model.pages[1].groups.length, 1);
+	assert.equal(model.pages[1].groups[0].id, group.id);
+	assert.equal(model.pages[1].groups[0].tone, "blue");
+	const members = model.pages[1].items;
+	assert.deepEqual(members.map((item) => item.id).sort(), [a, b].sort());
+	assert.ok(members.every((item) => item.groupId === group.id));
+	assert.ok(model.pages[1].groups[0].layout.rowSpan >= Math.max(...members.map((item) => item.layout.row + item.layout.rowSpan)));
+	model = moveGroups(model, ["missing-group"], second.id);
+	assert.equal(model.pages[1].groups.length, 1);
 });
 
 test("duplicating controls keeps the stable binding and assigns fresh item identities", () => {
@@ -280,7 +312,7 @@ test("resizing a grouped card refreshes its group without moving external cards"
 test("grouping preserves member geometry and never compacts unrelated cards", () => {
 	const page = createPage("P"); const makeItem = (id, row, column) => ({
 		id, kind: "control", label: id, binding: { ...binding, controlId: id }, groupId: null,
-		layout: { row, column, columnSpan: 6, rowSpan: 6 }, compact: false,
+		layout: { row, column, columnSpan: 6, rowSpan: 6 },
 	});
 	let model = normalizeDashboard({ version: 2, pages: [{ ...page, items: [
 		makeItem("selected-a", 6, 0), makeItem("selected-b", 12, 6), makeItem("fixed", 30, 0),

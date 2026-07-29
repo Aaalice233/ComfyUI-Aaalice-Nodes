@@ -7,13 +7,13 @@ import { controlProviders, repairDuplicateHostIds } from "./lib/control_provider
 import { installNodeControlMenu } from "./lib/node_control_menu.js";
 import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
 import {
-	bindingKey, createPage, emptyDashboard, normalizeDashboard,
+	bindingKey, createPage, DASHBOARD_TONES, emptyDashboard, normalizeDashboard,
 } from "./lib/dashboard_model.js";
 import {
 	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
 } from "./lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
-import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveItems, removeItems, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
+import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
@@ -510,12 +510,15 @@ function workspaceLabels() {
 	return {
 		pages: t("aaalice.workspace.page.pages", "Dashboard pages"), duplicatePage: t("aaalice.workspace.page.duplicate", "Duplicate page"),
 		switchPage: t("aaalice.workspace.page.switch", "Switch page"),
+		pageTone: t("aaalice.workspace.page.tone", "Page color"), toneDefault: t("aaalice.workspace.page.toneDefault", "Default"),
+		tones: Object.fromEntries(DASHBOARD_TONES.map((value) => [value, t(`aaalice.workspace.group.tones.${value}`, value)])),
 		renamePage: t("aaalice.workspace.page.rename", "Rename page"), deletePage: t("aaalice.workspace.page.delete", "Delete page"),
 		groupMenu: t("aaalice.workspace.group.menu", "Layout group menu"),
 		renameHint: t("aaalice.workspace.renameHint", "Double-click to rename"),
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
 		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
 		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
+		markdownEmpty: t("aaalice.workspace.markdown.empty", "Empty note"),
 		imageCompare: {
 			empty: t("aaalice.workspace.imageCompare.empty", "Run the workflow to compare images"),
 			before: t("aaalice.workspace.imageCompare.before", "Image A"), after: t("aaalice.workspace.imageCompare.after", "Image B"),
@@ -576,12 +579,11 @@ function openRebind(item) {
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => { if (selected) updateDashboard((model) => updateItem(model, item.id, (target) => { target.binding = selected; })); dialog.close(); } }));
 }
 
-function openCardActions({ x, y, editMode: layoutEditing, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup }, item) {
+function openCardActions({ x, y, editMode: layoutEditing, onMove, onRemove, onToggleSpan, onGroup, onUngroup }, item) {
 	const items = [];
 	if (layoutEditing) items.push(
 		{ label: t("aaalice.workspace.card.move", "Move control"), iconName: "move", onSelect: onMove },
 		{ label: t("aaalice.workspace.card.width", "Toggle card width"), iconName: "copy", onSelect: onToggleSpan },
-		{ label: t("aaalice.workspace.card.compact", "Toggle compact mode"), iconName: "moveDown", onSelect: onToggleCompact },
 		...(item.groupId ? [{ label: t("aaalice.workspace.group.removeItem", "Remove from group"), iconName: "close", onSelect: onUngroup }] : [{ label: t("aaalice.workspace.group.addItem", "Add to group"), iconName: "add", onSelect: onGroup }]),
 		{ separator: true },
 	);
@@ -715,6 +717,11 @@ function renderDashboard(container, host) {
 			onRename: renamePage,
 			onSelectPage: selectPage,
 			onReorderPage: reorderPage,
+			onSetTone: (nextTone) => updateDashboard((current) => {
+				const target = current.pages.find((entry) => entry.id === page?.id);
+				if (target) target.tone = nextTone;
+				return current;
+			}),
 		})] : []),
 		presetPicker,
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
@@ -757,9 +764,8 @@ function renderDashboard(container, host) {
 		const resolved = resolve(item.binding);
 		const control = resolved.status === "ok" ? createControlElement(resolved, { labels: workspaceLabels(), onCommit: (_value, detail = {}) => { if (detail.redraw !== false) scheduleRender("dashboard"); }, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference) }) : button({ label: t("aaalice.workspace.binding.rebind", "Rebind"), variant: "secondary", size: "sm", onClick: () => openRebind(item) });
 		const cardTitle = item.label || resolved.label || item.binding.controlId;
-		const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, editMode, labels: workspaceLabels(), onManage: (context) => openCardActions(context, item), onMove: () => openMoveControl(item),
+		const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, description: resolved.status === "ok" ? String(resolved.control?.description || "") : "", editMode, labels: workspaceLabels(), onManage: (context) => openCardActions(context, item), onMove: () => openMoveControl(item),
 			onRemove: () => updateDashboard((current) => removeItems(current, [item.id])), onToggleSpan: () => updateDashboard((current) => resizeItems(current, [item.id], item.layout.columnSpan === DASHBOARD_GRID_COLUMNS ? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN : DASHBOARD_GRID_COLUMNS)),
-			onToggleCompact: () => updateDashboard((current) => updateItem(current, item.id, (target) => { target.compact = !target.compact; })),
 			onRenameTitle: (name) => updateDashboard((current) => updateItem(current, item.id, (target) => { target.label = name; })),
 			onGroup: () => openAssignGroup(page, item), onUngroup: () => updateDashboard((current) => ungroupItems(current, page.id, [item.id])),
 		});
@@ -773,6 +779,7 @@ function renderDashboard(container, host) {
 			return current;
 		}),
 	});
+	if (page.tone) grid.dataset.pageTone = page.tone;
 	let updateSelectionUi = () => {}; let dashboardInteraction = null;
 	const clearSelection = () => { viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); dashboardInteraction?.setSelection(viewState.selectedItemIds, viewState.selectedGroupIds); updateSelectionUi(); };
 	const selectionBar = createSelectionActionBar({ ariaLabel: t("aaalice.workspace.selection.toolbar", "Selected layout actions"), actions: [
@@ -793,18 +800,33 @@ function renderDashboard(container, host) {
 			updateDashboard((current) => duplicateItems(current, page.id, ids));
 		} },
 		{ id: "move", label: t("aaalice.workspace.selection.move", "Move to page"), iconName: "move", onSelect: () => {
-			const ids = [...viewState.selectedItemIds]; if (!ids.length || viewState.selectedGroupIds.size) return;
+			const ids = [...viewState.selectedItemIds]; const groupIds = [...viewState.selectedGroupIds]; if (!ids.length && !groupIds.length) return;
 			const targets = model.pages.filter((entry) => entry.id !== page?.id); if (!targets.length) return;
 			const pageSelect = selectControl({ ariaLabel: t("aaalice.workspace.target.page", "Page"), options: targets.map((entry) => ({ label: entry.name, value: entry.id })), value: targets[0].id });
 			const body = el("div", { children: [field({ label: t("aaalice.workspace.target.page", "Page"), control: pageSelect })] }); const footer = el("div");
 			const dialog = createDialog({ title: t("aaalice.workspace.selection.move", "Move to page"), body, footer });
-			footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => { clearSelection(); updateDashboard((current) => moveItems(current, ids, pageSelect.value)); dialog.close(); } }));
+			footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => {
+				clearSelection();
+				updateDashboard((current) => {
+					let next = current;
+					if (groupIds.length) next = moveGroups(next, groupIds, pageSelect.value);
+					if (ids.length) next = moveItems(next, ids, pageSelect.value);
+					return next;
+				});
+				dialog.close();
+			} }));
 		} },
 		{ id: "remove", label: t("aaalice.workspace.selection.remove", "Remove selected"), iconName: "delete", className: "aa-dashboard-selection-remove", onSelect: async () => {
-			const ids = [...viewState.selectedItemIds]; if (!ids.length || viewState.selectedGroupIds.size) return;
-			const message = t("aaalice.workspace.selection.removeConfirm", "Remove {count} selected layout items?").replace("{count}", ids.length);
+			const ids = [...viewState.selectedItemIds]; const groupIds = [...viewState.selectedGroupIds]; if ((!ids.length && !groupIds.length)) return;
+			const message = t("aaalice.workspace.selection.removeConfirm", "Remove {count} selected layout items?").replace("{count}", ids.length + groupIds.length);
 			if (!await confirmAction(message, { title: t("aaalice.workspace.selection.remove", "Remove selected"), confirmLabel: t("aaalice.common.delete", "Delete"), danger: true })) return;
-			clearSelection(); updateDashboard((current) => removeItems(current, ids));
+			clearSelection();
+			updateDashboard((current) => {
+				let next = current;
+				for (const groupId of groupIds) next = deleteGroup(next, page.id, groupId);
+				if (ids.length) next = removeItems(next, ids);
+				return next;
+			});
 		} },
 		{ id: "clear", label: t("aaalice.workspace.selection.clear", "Clear selection"), iconName: "close", className: "aa-dashboard-selection-clear", onSelect: clearSelection },
 	] });

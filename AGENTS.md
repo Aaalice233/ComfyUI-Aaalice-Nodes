@@ -90,6 +90,7 @@ ComfyUI-Aaalice-Nodes/
 
 - `WEB_DIRECTORY = "./js"`；业务扩展使用 `app.registerExtension`，共享模块不得自行重复注册。
 - `js/extension.js` 是前端唯一包入口；每个业务扩展模块必须由该入口显式静态导入，不得假设 `WEB_DIRECTORY` 会自动执行目录中的其它 `.js` 文件。新增节点时必须用入口契约测试锁定该导入。
+- 前端相对 import 必须按浏览器中的 `/extensions/ComfyUI-Aaalice-Nodes/` 挂载路径计算，不能按仓库文件系统层级猜测；新增或移动嵌套模块后必须用契约测试确认所有相对 import 只解析到本包公开路径或 ComfyUI `/scripts/`，避免单个 404 阻断整个 `extension.js` 模块图。
 - 交互节点覆盖新建、加载、复制和 setup 补挂路径；不得绕过 ComfyUI 生命周期。
 - `onConfigure` 不是工作流恢复完成的可靠终点。依赖持久状态发起查询、同步控件或计算派生视图的节点，必须在 `loadedGraphNode` 再以 `node.properties` 为最终真源执行一次幂等恢复；已挂载不能成为跳过恢复的理由。恢复请求必须取消或代际淘汰初始化请求，禁止默认状态的迟到结果覆盖工作流状态。
 - `addDOMWidget` 必须同步挂载；异步 i18n 就绪后只更新文案和绘制。

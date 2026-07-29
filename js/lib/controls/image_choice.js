@@ -1,0 +1,78 @@
+/** Image-file combo renderer for ComfyUI image upload widgets. */
+
+import { api } from "../../../../scripts/api.js";
+import { bindImagePreview } from "../image_preview.js";
+import { imageReferenceViewPath } from "../image_reference.js";
+import { createAnchoredPopover, el, icon } from "../ui.js";
+import { controlView } from "./contract.js";
+
+// combo 值可能是 "dir/name.png" 或带 "[input]" 标注；预览和 /view 需要拆出子目录。
+export function imageComboReference(value) {
+	const cleaned = String(value ?? "").trim().replace(/\s*\[(?:input|output|temp)\]\s*$/i, "");
+	const slash = cleaned.lastIndexOf("/");
+	return {
+		filename: slash >= 0 ? cleaned.slice(slash + 1) : cleaned,
+		subfolder: slash >= 0 ? cleaned.slice(0, slash) : "",
+		type: "input",
+	};
+}
+
+export function renderImageChoiceControl(spec, port) {
+	const values = Array.isArray(spec.options.values) ? spec.options.values.map(String) : [];
+	let current = String(spec.value ?? "");
+	const root = el("div", "aa-control aa-control-image-choice");
+	const thumbnail = document.createElement("img");
+	thumbnail.className = "aa-control-image-choice__thumb"; thumbnail.alt = ""; thumbnail.loading = "lazy"; thumbnail.decoding = "async";
+	const name = el("span", "aa-control-image-choice__name");
+	const button = el("button", { className: "aa-control-image-choice__button", attrs: { type: "button", "aria-label": spec.label, "aria-haspopup": "dialog", "aria-expanded": "false" }, children: [thumbnail, name, icon("moveDown", { className: "aa-control-image-choice__arrow" })] });
+	const viewSource = () => {
+		const reference = imageComboReference(current);
+		return reference.filename ? { source: api.apiURL(imageReferenceViewPath(reference)), title: `${spec.label} · ${reference.filename}` } : null;
+	};
+	const sync = (value) => {
+		current = String(value ?? "");
+		const reference = imageComboReference(current);
+		name.textContent = reference.filename || current;
+		button.classList.toggle("has-image", Boolean(reference.filename));
+		const view = viewSource();
+		if (view) thumbnail.src = view.source; else thumbnail.removeAttribute("src");
+	};
+	sync(current);
+	bindImagePreview(button, "", "", { immediate: true, resolve: viewSource });
+	let popover = null;
+	const openMenu = () => {
+		if (popover) return;
+		button.setAttribute("aria-expanded", "true");
+		const rows = [];
+		const list = el("div", { className: "aa-control-image-choice__menu", attrs: { role: "listbox", "aria-label": spec.label } });
+		for (const value of values) {
+			const reference = imageComboReference(value);
+			const active = value === current;
+			const thumb = document.createElement("img");
+			thumb.className = "aa-control-image-choice__option-thumb"; thumb.alt = ""; thumb.loading = "lazy"; thumb.decoding = "async";
+			if (reference.filename) thumb.src = api.apiURL(imageReferenceViewPath(reference));
+			const row = el("button", {
+				className: `aa-control-image-choice__option${active ? " is-active" : ""}`,
+				attrs: { type: "button", role: "option", "aria-selected": String(active) },
+				children: [thumb, el("span", "aa-control-image-choice__option-name", reference.filename || value), ...(active ? [icon("statusCheck", { className: "aa-control-image-choice__check" })] : [])],
+			});
+			row.addEventListener("click", () => { popover?.close(); if (!active) port.commit(value); });
+			rows.push(row); list.append(row);
+		}
+		list.addEventListener("keydown", (event) => {
+			if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+			event.preventDefault();
+			const index = rows.indexOf(document.activeElement);
+			const next = event.key === "Home" ? 0 : event.key === "End" ? rows.length - 1 : Math.max(0, index) + (event.key === "ArrowDown" ? 1 : -1);
+			rows[(next + rows.length) % rows.length]?.focus();
+		});
+		popover = createAnchoredPopover({
+			anchor: button, ariaLabel: spec.label, className: "aa-control-image-choice__popover", width: 280,
+			onClose: () => { popover = null; button.setAttribute("aria-expanded", "false"); },
+		});
+		popover.root.append(list);
+	};
+	button.addEventListener("click", openMenu);
+	root.append(button);
+	return controlView({ root, kind: "image-choice", update: (next) => sync(next.value) });
+}

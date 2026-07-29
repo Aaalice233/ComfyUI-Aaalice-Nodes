@@ -115,6 +115,39 @@ test("simple ComfyUI nodes expose only built-in primitive widget families", () =
 	controls[4].setValue("edited"); assert.equal(node.widgets[4].value, "edited");
 });
 
+test("markdown note widgets adapt as read-only markdown controls", () => {
+	const node = { title: "Markdown Note", widgets: [{ name: "text", type: "MARKDOWN", value: "# Hello", options: {} }] };
+	const [control] = listAdaptedWidgetControls(node);
+	assert.equal(control.adapterId, "comfy-markdown");
+	assert.equal(control.kind, "markdown");
+	assert.equal(control.valueType, "string");
+	assert.equal(control.label, "Markdown Note");
+	assert.equal(control.value, "# Hello");
+	assert.equal(control.presettable, false);
+	assert.ok(control.rowSpan >= 28);
+	control.setValue("edited"); assert.equal(node.widgets[0].value, "edited");
+});
+
+test("image upload combos adapt as image-choice controls with preview options", () => {
+	let committed = null;
+	const byOptions = { widgets: [{ name: "image", type: "combo", value: "a.png", options: { values: ["a.png", "dir/b.png"], image_upload: true }, callback: (value) => { committed = value; } }] };
+	const [control] = listAdaptedWidgetControls(byOptions);
+	assert.equal(control.adapterId, "comfy-image-combo");
+	assert.equal(control.kind, "image-choice");
+	assert.equal(control.valueType, "string");
+	assert.deepEqual(control.options.values, ["a.png", "dir/b.png"]);
+	control.setValue("dir/b.png"); assert.equal(byOptions.widgets[0].value, "dir/b.png"); assert.equal(committed, "dir/b.png");
+	const byNodeDef = {
+		constructor: { nodeData: { input: { required: { image: ["COMBO", { image_upload: true }] } } } },
+		widgets: [{ name: "image", type: "combo", value: "a.png", options: { values: ["a.png"] } }],
+	};
+	assert.equal(listAdaptedWidgetControls(byNodeDef)[0]?.kind, "image-choice");
+	const plain = { widgets: [{ name: "sampler", type: "combo", value: "euler", options: { values: ["euler", "dpm"] } }] };
+	assert.equal(listAdaptedWidgetControls(plain)[0]?.kind, "choice");
+	const empty = { widgets: [{ name: "image", type: "combo", value: undefined, options: { values: [], image_upload: true } }] };
+	assert.equal(listAdaptedWidgetControls(empty)[0]?.availability.state, "empty");
+});
+
 test("native numeric widgets expose the real step instead of the legacy 10x step", () => {
 	const node = { widgets: [
 		{ name: "batch", type: "INT", value: 4, options: { min: 1, max: 64, step: 10, step2: 1 } },

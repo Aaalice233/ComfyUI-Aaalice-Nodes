@@ -12,6 +12,8 @@ export function createTagListControl({ value = [], onChange = null, ariaLabel = 
 	const list = el("div", { className: "aa-taglist-options", attrs: { role: "list" } });
 	const input = document.createElement("input");
 	input.type = "text"; input.className = "aa-taglist-input"; input.autocomplete = "off"; input.spellcheck = false;
+	// Autocomplete-Plus 的外部输入 opt-in：装了补全扩展即自动接入，未安装时属性完全惰性。
+	input.setAttribute("data-autocomplete-plus", "");
 	input.setAttribute("aria-label", labels.input || labels.placeholder || "Add tags");
 	const revealInput = () => { root.scrollLeft = root.scrollWidth; root.scrollTop = root.scrollHeight; };
 	input.addEventListener("focus", revealInput);
@@ -46,7 +48,10 @@ export function createTagListControl({ value = [], onChange = null, ariaLabel = 
 		});
 	};
 	input.addEventListener("keydown", (event) => {
-		if (event.key !== "Enter") return; event.preventDefault(); const known = new Set(entries.map((entry) => entry.text)); const additions = [];
+		if (event.key !== "Enter") return;
+		// 补全候选面板打开时，Enter 让给自动补全确认候选。
+		if (input.hasAttribute("data-autocomplete-plus-open")) return;
+		event.preventDefault(); const known = new Set(entries.map((entry) => entry.text)); const additions = [];
 		for (const text of parseTagListValue(input.value)) { if (!known.has(text)) { known.add(text); additions.push(text); } }
 		if (!additions.length) return; for (const text of additions) entries.push({ text, enabled: true }); input.value = ""; render(); emit(); revealInput();
 	});

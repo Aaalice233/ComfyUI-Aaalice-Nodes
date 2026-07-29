@@ -77,7 +77,7 @@ export function normalizeDashboard(raw) {
 		assertUnique(sourcePage?.id, ids);
 		const legacyColumns = sourcePage?.gridColumns !== DASHBOARD_GRID_COLUMNS;
 		if (sourcePage?.gridColumns != null && sourcePage.gridColumns !== DASHBOARD_GRID_COLUMNS) throw new DashboardModelError(`Unsupported dashboard grid: ${sourcePage.gridColumns}`, "unsupported-grid");
-		const page = { id: sourcePage.id, name: String(sourcePage.name || "Page"), gridColumns: DASHBOARD_GRID_COLUMNS, items: [], groups: [] };
+		const page = { id: sourcePage.id, name: String(sourcePage.name || "Page"), gridColumns: DASHBOARD_GRID_COLUMNS, tone: DASHBOARD_TONES.includes(sourcePage.tone) ? sourcePage.tone : null, items: [], groups: [] };
 		if (!Array.isArray(sourcePage.groups) || !Array.isArray(sourcePage.items)) throw new DashboardModelError("Dashboard page collections are invalid");
 		for (const sourceGroup of sourcePage.groups) {
 			assertUnique(sourceGroup?.id, ids);
@@ -96,7 +96,7 @@ export function normalizeDashboard(raw) {
 			if (groupId && !groupIds.has(groupId)) throw new DashboardModelError(`Dashboard item references missing group: ${groupId}`, "missing-group");
 			page.items.push({
 				id: sourceItem.id, kind, binding: kind === "control" ? normalizeBinding(sourceItem.binding) : null,
-				label: String(sourceItem.label || ""), groupId, compact: Boolean(sourceItem.compact),
+				label: String(sourceItem.label || ""), groupId,
 				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns }),
 			});
 		}
@@ -108,12 +108,12 @@ export function normalizeDashboard(raw) {
 	return result;
 }
 
-export function createPage(name = "Page") { return { id: stableId("page"), name, gridColumns: DASHBOARD_GRID_COLUMNS, items: [], groups: [] }; }
+export function createPage(name = "Page") { return { id: stableId("page"), name, gridColumns: DASHBOARD_GRID_COLUMNS, tone: null, items: [], groups: [] }; }
 export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }) {
-	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label, groupId: null, compact: false, layout: normalizeLayout(layout) };
+	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label, groupId: null, layout: normalizeLayout(layout) };
 }
 export function createSeparatorItem(label = "", row = 0) {
-	return { id: stableId("item"), kind: "separator", binding: null, label, groupId: null, compact: false, layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN } };
+	return { id: stableId("item"), kind: "separator", binding: null, label, groupId: null, layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN } };
 }
 export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, source = null) {
 	const normalizedSource = normalizeGroupSource(source);

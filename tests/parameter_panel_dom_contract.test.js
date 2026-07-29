@@ -171,13 +171,16 @@ test("parameter editor creates parameters from a header add menu", () => {
 
 test("parameter descriptions use the shared tooltip shell with readable markdown", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const tooltipSource = readFileSync(join(ROOT, "js", "lib", "description_tooltip.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 	const markdownSource = readFileSync(join(ROOT, "js", "lib", "safe_markdown.js"), "utf8");
 
-	assert.match(panelSource, /createTooltip/);
-	assert.match(panelSource, /descriptionTooltip\.show\(trigger, resolveDescription/);
-	assert.match(panelSource, /contentMode:\s*"markdown"/);
-	assert.match(panelSource, /interactive:\s*true/);
+	assert.match(panelSource, /import \{ attachDescriptionTooltip \} from "\.\/lib\/description_tooltip\.js"/);
+	assert.match(panelSource, /attachDescriptionTooltip\(trigger, parameter\.description\)/);
+	assert.match(tooltipSource, /export function attachDescriptionTooltip/);
+	assert.match(tooltipSource, /descriptionTooltip\.show\(trigger, resolveDescription/);
+	assert.match(tooltipSource, /contentMode:\s*"markdown"/);
+	assert.match(tooltipSource, /interactive:\s*true/);
 	assert.doesNotMatch(panelSource, /import \{ renderSafeMarkdown \}/);
 	assert.match(markdownSource, /import DOMPurify from "\.\.\/vendor\/purify\.es\.js"/);
 	assert.match(markdownSource, /import \{ marked, Renderer \} from "\.\.\/vendor\/marked\.esm\.js"/);
@@ -187,23 +190,23 @@ test("parameter descriptions use the shared tooltip shell with readable markdown
 	assert.match(markdownSource, /"hr"/);
 	assert.match(markdownSource, /"table"/);
 	assert.match(markdownSource, /"blockquote"/);
-	assert.match(panelSource, /className:\s*"aaalice-parameter-tooltip"/);
-	assert.match(panelSource, /addEventListener\("focus", \(\) => showOrKeep\(true\)\)/);
-	assert.match(panelSource, /addEventListener\("mouseleave", descriptionTooltip\.scheduleHide\)/);
-	assert.match(panelSource, /descriptionTooltip\.cancelScheduledHide\(\)/);
-	assert.match(panelSource, /descriptionTooltip\.focusFirstInteractive\(\)/);
+	assert.match(tooltipSource, /className:\s*"aaalice-parameter-tooltip"/);
+	assert.match(tooltipSource, /addEventListener\("focus", \(\) => showOrKeep\(true\)\)/);
+	assert.match(tooltipSource, /addEventListener\("mouseleave", descriptionTooltip\.scheduleHide\)/);
+	assert.match(tooltipSource, /descriptionTooltip\.cancelScheduledHide\(\)/);
+	assert.match(tooltipSource, /descriptionTooltip\.focusFirstInteractive\(\)/);
 	assert.match(markdownSource, /https\?:\\\/\\\//);
 	assert.match(markdownSource, /target=\"_blank\" rel=\"noopener noreferrer\"/);
 	assert.match(markdownSource, /template\.innerHTML = renderMarkdownToHtml\(markdown\)/);
 	assert.doesNotMatch(panelSource, /function showTooltip|tooltipTimer/);
 	assert.match(themeSource, /\.aaalice-parameter-tooltip\s*\{[^}]*max-width:\s*min\(320px/);
-	assert.match(themeSource, /\.aaalice-parameter-tooltip h1\s*\{[^}]*font-size:\s*16px/);
-	assert.match(themeSource, /\.aaalice-parameter-tooltip h2\s*\{[^}]*font-size:\s*14px/);
-	assert.match(themeSource, /\.aaalice-parameter-tooltip h3\s*\{[^}]*font-size:\s*13px/);
-	assert.match(themeSource, /\.aaalice-parameter-tooltip li \+ li/);
-	assert.match(themeSource, /\.aaalice-parameter-tooltip hr\s*\{/);
-	assert.match(themeSource, /\.aaalice-parameter-tooltip table\s*\{/);
-	assert.match(themeSource, /\.aaalice-parameter-tooltip blockquote\s*\{/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h1\s*\{[^}]*font-size:\s*16px/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h2\s*\{[^}]*font-size:\s*14px/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h3\s*\{[^}]*font-size:\s*13px/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) li \+ li/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) hr\s*\{/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) table\s*\{/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) blockquote\s*\{/);
 });
 
 test("parameter panel keeps native resize corners and a stable minimum width", () => {

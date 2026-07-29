@@ -7,8 +7,8 @@ import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry
 
 const binding = (controlId, valueType = "number") => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType });
 const dashboard = (...bindings) => ({ version: 2, pages: [
-	{ id: "page-a", name: "A", gridColumns: 12, groups: [], items: bindings.map((item, index) => ({ id: `item-${index}`, kind: "control", binding: item, label: "", groupId: null, compact: false, layout: { row: index * 8, column: 0, columnSpan: 6, rowSpan: 7 } })) },
-	{ id: "page-b", name: "B", gridColumns: 12, groups: [], items: bindings.length ? [{ id: "mirror", kind: "control", binding: bindings[0], label: "", groupId: null, compact: false, layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 7 } }] : [] },
+	{ id: "page-a", name: "A", gridColumns: 12, tone: null, groups: [], items: bindings.map((item, index) => ({ id: `item-${index}`, kind: "control", binding: item, label: "", groupId: null, layout: { row: index * 8, column: 0, columnSpan: 6, rowSpan: 7 } })) },
+	{ id: "page-b", name: "B", gridColumns: 12, tone: null, groups: [], items: bindings.length ? [{ id: "mirror", kind: "control", binding: bindings[0], label: "", groupId: null, layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 7 } }] : [] },
 ] });
 const snapshot = (layout, values = {}) => ({ dashboard: layout, values });
 

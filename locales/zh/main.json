@@ -29,7 +29,8 @@
     },
     "workspace": {
       "title": "Aaalice 工作区", "sidebarTitle": "Aaalice", "dashboard": "参数控制", "groups": "组导航", "library": "词库管理", "edit": "布局", "done": "完成", "dashboardActions": "控制台操作",
-      "imageCompare": { "empty": "运行工作流后显示对比图", "before": "图像 A", "after": "图像 B", "previousBefore": "上一张图像 A", "nextBefore": "下一张图像 A", "previousAfter": "上一张图像 B", "nextAfter": "下一张图像 B", "slider": "对比位置", "open": "全屏查看图像对比", "title": "图像对比", "viewer": "全屏图像对比。移动指针对比，滚轮缩放，放大后拖动查看，双击还原。", "close": "关闭全屏图像对比", "zoomIn": "放大", "zoomOut": "缩小", "fit": "适应屏幕" },
+            "markdown": { "empty": "空白注释" },
+"imageCompare": { "empty": "运行工作流后显示对比图", "before": "图像 A", "after": "图像 B", "previousBefore": "上一张图像 A", "nextBefore": "下一张图像 A", "previousAfter": "上一张图像 B", "nextAfter": "下一张图像 B", "slider": "对比位置", "open": "全屏查看图像对比", "title": "图像对比", "viewer": "全屏图像对比。移动指针对比，滚轮缩放，放大后拖动查看，双击还原。", "close": "关闭全屏图像对比", "zoomIn": "放大", "zoomOut": "缩小", "fit": "适应屏幕" },
       "pin": { "pinned": "已固定：点击外侧不会收起。点击开启自动收起。", "unpinned": "已开启自动收起：点击外侧将关闭侧边栏。点击固定。" },
       "search": { "parameters": "搜索参数", "parametersPlaceholder": "搜索当前页面", "library": "搜索词库", "close": "收起搜索", "noParameters": "没有匹配的参数。" },
       "groupNavigation": {
@@ -44,10 +45,10 @@
         "noMatchesTitle": "没有匹配的组", "noMatches": "请尝试其他组名称。"
       },
       "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。", "page": "请从兼容节点的右键菜单添加参数。" },
-      "page": { "pages": "侧边栏页面", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "switch": "切换页面", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
+      "page": { "pages": "侧边栏页面", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "switch": "切换页面", "tone": "页面颜色", "toneDefault": "默认", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
       "target": { "page": "页面", "newPage": "新页面" },
       "renameHint": "双击重命名",
-      "card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "compact": "切换紧凑模式", "resize": "调整卡片大小；方向键按网格单位调整" },
+      "card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "resize": "调整卡片大小；方向键按网格单位调整" },
       "layout": { "separator": "添加分隔线", "separatorLabel": "分隔线", "remove": "移除布局项", "compact": "整理布局" },
       "selection": { "toolbar": "所选布局项快捷操作", "summary": "已选择 {count} 项", "group": "快捷打组", "ungroup": "移出组", "width": "切换所选宽度", "duplicate": "复制所选", "move": "移动到页面", "remove": "移除所选", "removeConfirm": "确定移除选中的 {count} 个布局项吗？", "clear": "清空选择" },
       "group": { "menu": "布局组菜单", "create": "创建布局组", "default": "新建布局组", "name": "组名称", "edit": "编辑布局组", "delete": "解除整组", "addItem": "加入布局组", "removeItem": "移出布局组", "tone": "组颜色", "tones": { "neutral": "中性", "blue": "蓝色", "green": "绿色", "amber": "琥珀色", "purple": "紫色", "red": "红色" } },

@@ -26,14 +26,9 @@ function rectangleContains(outer, rect) {
 	return rect.left >= outer.left && rect.right <= outer.right && rect.top >= outer.top && rect.bottom <= outer.bottom;
 }
 
-export function containedSelectionIds(entries, rectangle) {
+// 组整体判定与成员的相交语义分开：组框被矩形完全覆盖才作为整体进入选择。
+export function containedIds(entries, rectangle) {
 	return new Set(entries.filter((entry) => rectangleContains(rectangle, entry.rect)).map((entry) => entry.id));
-}
-
-// 从左往右拖是相交即选，从右往左拖是完全包含才选，与主流设计工具一致。
-export function marqueeSelectionIds(entries, rectangle, start, end) {
-	const containment = end.x < start.x;
-	return { ids: containment ? containedSelectionIds(entries, rectangle) : intersectingSelectionIds(entries, rectangle), containment };
 }
 
 // 框选手势只支持并集与减集两种模式，由修饰键在按下时确定。

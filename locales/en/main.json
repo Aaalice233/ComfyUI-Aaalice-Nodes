@@ -29,7 +29,8 @@
     },
     "workspace": {
       "title": "Aaalice Workspace", "sidebarTitle": "Aaalice", "dashboard": "Controls", "groups": "Groups", "library": "Library", "edit": "Layout", "done": "Done", "dashboardActions": "Dashboard actions",
-      "imageCompare": { "empty": "Run the workflow to compare images", "before": "Image A", "after": "Image B", "previousBefore": "Previous Image A", "nextBefore": "Next Image A", "previousAfter": "Previous Image B", "nextAfter": "Next Image B", "slider": "Comparison position", "open": "Open full-screen comparison", "title": "Image comparison", "viewer": "Full-screen image comparison. Move the pointer to compare, scroll to zoom, drag enlarged images to move, and double-click to reset.", "close": "Close full-screen comparison", "zoomIn": "Zoom in", "zoomOut": "Zoom out", "fit": "Fit to screen" },
+            "markdown": { "empty": "Empty note" },
+"imageCompare": { "empty": "Run the workflow to compare images", "before": "Image A", "after": "Image B", "previousBefore": "Previous Image A", "nextBefore": "Next Image A", "previousAfter": "Previous Image B", "nextAfter": "Next Image B", "slider": "Comparison position", "open": "Open full-screen comparison", "title": "Image comparison", "viewer": "Full-screen image comparison. Move the pointer to compare, scroll to zoom, drag enlarged images to move, and double-click to reset.", "close": "Close full-screen comparison", "zoomIn": "Zoom in", "zoomOut": "Zoom out", "fit": "Fit to screen" },
       "pin": { "pinned": "Pinned: clicking outside keeps the sidebar open. Click to enable auto-close.", "unpinned": "Auto-close enabled: clicking outside closes the sidebar. Click to pin." },
       "search": { "parameters": "Search parameters", "parametersPlaceholder": "Search the current page", "library": "Search prompt library", "close": "Close search", "noParameters": "No matching parameters." },
       "groupNavigation": {
@@ -44,10 +45,10 @@
         "noMatchesTitle": "No matching groups", "noMatches": "Try another group name."
       },
       "empty": { "title": "Build your control pages", "description": "Create a page, then add controls from any compatible node's context menu.", "page": "Add controls from a compatible node's context menu." },
-      "page": { "pages": "Dashboard pages", "add": "Add page", "name": "Page name", "default": "Generation", "menu": "Page actions", "switch": "Switch page", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
+      "page": { "pages": "Dashboard pages", "add": "Add page", "name": "Page name", "default": "Generation", "menu": "Page actions", "switch": "Switch page", "tone": "Page color", "toneDefault": "Default", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
       "target": { "page": "Page", "newPage": "New page" },
       "renameHint": "Double-click to rename",
-      "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "compact": "Toggle compact mode", "resize": "Resize card; arrow keys adjust by one grid unit" },
+      "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "resize": "Resize card; arrow keys adjust by one grid unit" },
       "layout": { "separator": "Add separator", "separatorLabel": "Separator", "remove": "Remove layout item", "compact": "Tidy layout" },
       "selection": { "toolbar": "Selected layout actions", "summary": "{count} selected", "group": "Quick group", "ungroup": "Remove from group", "width": "Toggle selected widths", "duplicate": "Duplicate selected", "move": "Move to page", "remove": "Remove selected", "removeConfirm": "Remove {count} selected layout items?", "clear": "Clear selection" },
       "group": { "menu": "Layout group menu", "create": "Create group", "default": "New group", "name": "Group name", "edit": "Edit group", "delete": "Ungroup controls", "addItem": "Add to group", "removeItem": "Remove from group", "tone": "Group color", "tones": { "neutral": "Neutral", "blue": "Blue", "green": "Green", "amber": "Amber", "purple": "Purple", "red": "Red" } },

@@ -1,7 +1,7 @@
 /** Immutable Dashboard V2 commands composed from pure model/layout helpers. */
 
 import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
-import { compactScope, firstAvailableLayout, orderedItems, placeEntries, placeEntry } from "./dashboard_layout.js";
+import { compactScope, firstAvailableLayout, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
 
 function copy(model) { return structuredClone(normalizeDashboard(model)); }
@@ -172,6 +172,30 @@ export function deleteGroup(model, pageId, groupId) {
 export function moveGroup(model, pageId, groupId, row) {
 	const next = copy(model); const page = findPage(next, pageId); const group = page?.groups.find((entry) => entry.id === groupId); if (!group) return next;
 	placeEntry(page, groupId, { row, column: 0 }, { groupId: null }); return normalizeDashboard(next);
+}
+
+// 整组跨页移动：组身份、成员和成员间的相对排列一起带走，组框落在目标页空位。
+export function moveGroups(model, groupIds, targetPageId) {
+	const next = copy(model); const target = findPage(next, targetPageId); if (!target) throw new Error("Dashboard target page is missing");
+	const ids = new Set(groupIds);
+	for (const page of next.pages) {
+		if (page === target) continue;
+		for (const group of page.groups.filter((entry) => ids.has(entry.id))) {
+			const members = orderedItems(page.items.filter((item) => item.groupId === group.id));
+			page.items = page.items.filter((item) => item.groupId !== group.id);
+			page.groups = page.groups.filter((entry) => entry.id !== group.id);
+			target.groups.push(group);
+			for (const item of members) {
+				item.groupId = group.id;
+				item.layout = firstAvailableLayout(target, { groupId: group.id, columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
+				target.items.push(item);
+			}
+			refreshGroupRowSpans(target);
+			group.layout = firstAvailableLayout(target, { columnSpan: target.gridColumns, rowSpan: group.layout.rowSpan });
+		}
+		removeEmptyGroups(page);
+	}
+	return normalizeDashboard(next);
 }
 
 export function compactDashboard(model, pageId, groupId = null) {

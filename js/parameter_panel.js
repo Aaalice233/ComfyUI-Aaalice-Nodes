@@ -9,7 +9,8 @@ import {
 	growClassicDomWidgetNode,
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
-import { badge, button, createAnchoredPopover, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { badge, button, createAnchoredPopover, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import {
 	parameterPanelKjMenuItem,
 	parameterPanelReceiverMenuItems,
@@ -241,33 +242,6 @@ function parameterLinkCount(node, parameterId) {
 	return index < 0 ? 0 : (node.outputs?.[index]?.links?.length || 0);
 }
 
-const descriptionTooltip = createTooltip();
-
-function attachDescription(trigger, description) {
-	const resolveDescription = () => typeof description === "function" ? description() : description;
-	trigger.tabIndex = 0;
-	const showOrKeep = (immediate) => {
-		if (descriptionTooltip.isOpenFor(trigger)) {
-			descriptionTooltip.cancelScheduledHide();
-			return;
-		}
-		descriptionTooltip.show(trigger, resolveDescription, {
-			className: "aaalice-parameter-tooltip",
-			contentMode: "markdown",
-			immediate,
-			interactive: true,
-		});
-	};
-	trigger.addEventListener("mouseenter", () => showOrKeep(false));
-	trigger.addEventListener("mouseleave", descriptionTooltip.scheduleHide);
-	trigger.addEventListener("focus", () => showOrKeep(true));
-	trigger.addEventListener("blur", descriptionTooltip.scheduleHide);
-	trigger.addEventListener("keydown", (event) => {
-		if (event.key !== "Tab" || event.shiftKey || !descriptionTooltip.isOpenFor(trigger)) return;
-		if (descriptionTooltip.focusFirstInteractive()) event.preventDefault();
-	});
-}
-
 document.addEventListener("keydown", (event) => {
 	if (event.key !== "Escape") return;
 	closeImagePreview();
@@ -321,7 +295,7 @@ function valueControl(node, parameter, heading = null) {
 		view.headerAccessories[0]?.classList.add("aa-control-numeric-value--heading"); heading.append(...view.headerAccessories);
 	} else if (spec.kind === "seed") {
 		view.root.classList.add("aa-control-seed-inline"); view.root.append(...view.headerAccessories);
-		const modeButton = view.headerAccessories[1]; modeButton?.removeAttribute("title"); if (modeButton) attachDescription(modeButton, modeButton.currentLabel);
+		const modeButton = view.headerAccessories[1]; modeButton?.removeAttribute("title"); if (modeButton) attachDescriptionTooltip(modeButton, modeButton.currentLabel);
 	}
 	return view.root;
 }
@@ -359,7 +333,7 @@ function renderNode(node, root) {
 			help.append(icon("note"));
 			trigger.append(label, help);
 			heading.append(trigger);
-			attachDescription(trigger, parameter.description);
+			attachDescriptionTooltip(trigger, parameter.description);
 		} else heading.append(label);
 		row.append(heading, valueControl(node, parameter, heading));
 		root.append(row);

@@ -2,6 +2,7 @@
 
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
 import { invalidateControlHost } from "./control_host_events.js";
+import { DASHBOARD_MARKDOWN_ROW_SPAN } from "./dashboard_sizing.js";
 
 const adapters = [];
 
@@ -183,6 +184,55 @@ function bindImageCompareInvalidation(node, widget) {
 	imageCompareCallbacks.set(widget, { node, wrapper });
 	widget.callback = wrapper;
 }
+
+// 图像上传 combo 在新前端只把标记留在节点定义的 input spec 里，旧路径则落在 widget.options 上，两处都要认。
+function isImageUploadCombo(node, widget) {
+	if (widgetType(widget) !== "combo") return false;
+	if (widget?.options?.image_upload || widget?.options?.animated_image_upload) return true;
+	const inputs = { ...(node?.constructor?.nodeData?.input?.required || {}), ...(node?.constructor?.nodeData?.input?.optional || {}) };
+	const spec = inputs?.[widget?.name];
+	const options = Array.isArray(spec) ? spec[1] : null;
+	return Boolean(options?.image_upload || options?.animated_image_upload);
+}
+
+registerWidgetControlAdapter({
+	id: "comfy-markdown",
+	priority: 100,
+	matches({ node, widget, promoted }) {
+		return !promoted && widgetType(widget) === "markdown";
+	},
+	describe({ node, widget }) {
+		return {
+			controlId: widget.name,
+			label: widget.label || node?.title || widget.name || "Note",
+			kind: "markdown",
+			valueType: "string",
+			value: String(widget.value ?? ""),
+			presettable: false,
+			rowSpan: DASHBOARD_MARKDOWN_ROW_SPAN,
+		};
+	},
+});
+
+registerWidgetControlAdapter({
+	id: "comfy-image-combo",
+	priority: 100,
+	matches({ node, widget, promoted }) {
+		return !promoted && isImageUploadCombo(node, widget);
+	},
+	describe({ node, widget }) {
+		const values = optionValues(widget.options).map(String);
+		return {
+			controlId: widget.name,
+			label: widget.label || widget.name,
+			kind: "image-choice",
+			valueType: "string",
+			value: widget.value,
+			options: { values },
+			availability: values.length ? undefined : { state: "empty", reason: "no-options" },
+		};
+	},
+});
 
 registerWidgetControlAdapter({
 	id: "comfy-image-compare",

@@ -16,7 +16,11 @@ const numericControl = readFileSync(join(ROOT, "js", "lib", "controls", "numeric
 const choiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "choice.js"), "utf8");
 const booleanControl = readFileSync(join(ROOT, "js", "lib", "controls", "boolean.js"), "utf8");
 const taglistControl = readFileSync(join(ROOT, "js", "lib", "controls", "taglist.js"), "utf8");
+const textControl = readFileSync(join(ROOT, "js", "lib", "controls", "text.js"), "utf8");
 const imageControl = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
+const imageChoiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_choice.js"), "utf8");
+const markdownControl = readFileSync(join(ROOT, "js", "lib", "controls", "markdown.js"), "utf8");
+const comfyControls = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js"), "utf8");
 const controlRegistry = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
 const uiSource = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
@@ -233,6 +237,50 @@ test("dashboard image controls share upload, drop, thumbnail, and preview behavi
 	assert.match(theme, /\.aa-image-upload-control\s*\{[^}]*height:\s*32px/s);
 });
 
+test("image upload combos render as previewable image-choice controls", () => {
+	assert.match(comfyControls, /"image-choice": \(spec, port\) => renderImageChoiceControl\(spec, port\)/);
+	assert.match(widgetAdapters, /id: "comfy-image-combo"/);
+	assert.match(widgetAdapters, /options\?\.image_upload \|\| options\?\.animated_image_upload/);
+	assert.match(widgetAdapters, /node\?\.constructor\?\.nodeData\?\.input/);
+	assert.match(imageChoiceControl, /export function renderImageChoiceControl/);
+	assert.match(imageChoiceControl, /imageComboReference/);
+	assert.match(imageChoiceControl, /bindImagePreview\(button, "", "", \{ immediate: true, resolve: viewSource \}\)/);
+	assert.match(imageChoiceControl, /imageReferenceViewPath/);
+	assert.match(imageChoiceControl, /role: "listbox"/);
+	assert.match(imageChoiceControl, /createAnchoredPopover\(\{/);
+	assert.match(imageChoiceControl, /port\.commit\(value\)/);
+	assert.match(imagePreview, /resolve = null/);
+	assert.match(imagePreview, /resolve\?\.\(\)/);
+	assert.match(workspaceControls, /"image-choice": availabilityLabels/);
+	assert.match(theme, /\.aa-control-image-choice__thumb \{[^}]*object-fit: cover/);
+	assert.match(theme, /\.aa-control-image-choice__button\.has-image::before/);
+	assert.match(theme, /\.aa-control-image-choice__menu \{[^}]*overflow-y: auto/);
+	assert.match(theme, /\.aa-control-image-choice__option\.is-active/);
+});
+
+test("markdown notes adapt between full rendering and a hover-to-read bar by height", () => {
+	assert.match(widgetAdapters, /id: "comfy-markdown"/);
+	assert.match(widgetAdapters, /widgetType\(widget\) === "markdown"/);
+	assert.match(comfyControls, /markdown: \(spec, port\) => renderMarkdownControl\(spec, port\)/);
+	assert.match(markdownControl, /export function renderMarkdownControl/);
+	assert.match(markdownControl, /FULL_MIN_HEIGHT = 88/);
+	assert.match(markdownControl, /new ResizeObserver/);
+	assert.match(markdownControl, /observer\.observe\(root\)/);
+	assert.match(markdownControl, /destroy: \(\) => observer\.disconnect\(\)/);
+	assert.match(markdownControl, /renderSafeMarkdown\(markdown\)/);
+	assert.match(markdownControl, /attachDescriptionTooltip\(bar, \(\) => markdown\)/);
+	assert.match(workspaceControls, /markdown: \{ \.\.\.availabilityLabels, empty: labels\.markdownEmpty \}/);
+	assert.doesNotMatch(workspace, /cardCompact|onToggleCompact|item\.compact/);
+	assert.doesNotMatch(components, /onToggleCompact|is-compact" : ""/);
+	assert.doesNotMatch(workspaceControls, /cardCompact/);
+	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = 28/);
+	assert.doesNotMatch(theme, /aa-control-card\.is-compact/);
+	assert.match(theme, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h1/);
+	assert.match(theme, /\.aa-control-markdown__body \{[^}]*overflow-y: auto/);
+	assert.match(theme, /\.aa-control-markdown__bar \{[^}]*height: 32px;/);
+	assert.match(theme, /\.aa-control-markdown__bar:hover/);
+});
+
 test("dashboard tag-list controls reuse the shared interactive chip editor", () => {
 	assert.match(taglistControl, /createTagListControl\(\{/);
 	assert.match(workspaceControls, /taglist: \{ \.\.\.availabilityLabels, \.\.\.\(labels\.taglist \|\| \{\}\) \}/);
@@ -247,6 +295,10 @@ test("dashboard tag-list controls reuse the shared interactive chip editor", () 
 	assert.match(theme, /\.aa-taglist-chip\.is-disabled/);
 	assert.match(theme, /\[data-control-tone="11"\]/);
 	assert.match(taglistControl, /tagToneIndexes\(entries\)/);
+	assert.match(taglistControl, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
+	assert.match(taglistControl, /input\.hasAttribute\("data-autocomplete-plus-open"\)/);
+	assert.match(textControl, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
+	assert.match(textControl, /spec\.options\.multiline \? document\.createElement\("textarea"\) : document\.createElement\("input"\)/);
 	assert.match(workspace, /event\.detail\?\.workspaceRedraw !== false/);
 });
 
@@ -293,6 +345,8 @@ test("control cards move management into an accessible context menu", () => {
 	assert.match(ui, /ArrowUp/);
 	assert.match(ui, /window\.innerWidth - rect\.width/);
 	assert.match(cardBody, /addEventListener\("contextmenu"/);
+	assert.match(cardBody, /if \(description\) attachDescriptionTooltip\(titleElement, description\)/);
+	assert.match(workspace, /description: resolved\.status === "ok" \? String\(resolved\.control\?\.description \|\| ""\) : ""/);
 	assert.match(cardBody, /event\.key !== "ContextMenu"/);
 	assert.match(cardBody, /preservesNativeEditing/);
 	assert.doesNotMatch(cardBody, /iconButton\(/);
@@ -609,6 +663,18 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-index \{[^}]*font-size: 13px;/);
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-total \{[^}]*font-size: 10px;/);
 	assert.match(theme, /\.aa-dashboard-toolbar:not\(\.is-searching\) \{[^}]*justify-content: flex-end/);
+	assert.match(components, /aa-dashboard-page-heading__tone/);
+	assert.match(components, /aa-dashboard-tone-swatch/);
+	assert.match(components, /aa-dashboard-page-tones__row/);
+	assert.match(components, /\[null, \.\.\.DASHBOARD_TONES\]/);
+	assert.match(components, /onSetTone\?\.\(option\)/);
+	assert.match(workspace, /onSetTone: \(nextTone\) => updateDashboard/);
+	assert.match(workspace, /grid\.dataset\.pageTone = page\.tone/);
+	assert.match(workspace, /DASHBOARD_TONES\.map\(\(value\) => \[value, t\(`aaalice\.workspace\.group\.tones\./);
+	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-dashboard-group \{ --aa-dashboard-group-tone: var\(--aa-dashboard-page-tone\); \}/);
+	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-control-card \{ --aa-control-kind-tone: var\(--aa-dashboard-page-tone\); \}/);
+	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone="purple"\] \{ --aa-dashboard-page-tone: var\(--p-purple-400/);
+	assert.match(theme, /\.aa-dashboard-tone-swatch\[data-tone=""\] \{[^}]*dashed/);
 	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
 });
 
@@ -688,9 +754,9 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);
 	assert.match(theme, /\.aa-dashboard-group \{[^}]*padding:\s*5px;/);
 	assert.match(theme, /\.aa-dashboard-group-header \{[^}]*min-height:\s*26px;/);
-	assert.match(dashboardComponents, /aa-dashboard-group-count/);
+	assert.doesNotMatch(dashboardComponents, /aa-dashboard-group-count/);
 	assert.match(dashboardComponents, /icon\("drag", \{ className: "aa-dashboard-group-grip" \}\)/);
-	assert.match(theme, /\.aa-dashboard-group-count \{[^}]*border-radius: 999px;/);
+	assert.doesNotMatch(theme, /aa-dashboard-group-count/);
 	assert.match(theme, /\.aa-dashboard-group-marker \{[^}]*linear-gradient/);
 	assert.match(theme, /\.aa-dashboard-group:hover \{[^}]*translateY\(-1px\)/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group:hover \{ transform: none; \}/);
@@ -720,7 +786,7 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(workspace, /onDropItems: \(ids, target\) => updateDashboard/);
 	assert.match(dashboardInteractions, /kind: "marquee"/);
 	assert.match(dashboardInteractions, /aa-dashboard-marquee/);
-	assert.match(dashboardInteractions, /marqueeSelectionIds/);
+	assert.match(dashboardInteractions, /intersectingSelectionIds/);
 	assert.match(dashboardInteractions, /applyMarqueeSelection/);
 	assert.match(dashboardInteractions, /nextClickSelection/);
 	assert.match(dashboardInteractions, /nearestInDirection/);
@@ -730,9 +796,15 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(dashboardInteractions, /toLowerCase\(\) === "a"/);
 	assert.match(dashboardInteractions, /event\.key === " " && !event\.repeat/);
 	assert.match(dashboardInteractions, /precise = current\.elements\.every/);
+	assert.match(dashboardInteractions, /containedIds/);
+	assert.match(dashboardInteractions, /dashboardGroupMember/);
+	assert.match(dashboardSelection, /export function containedIds/);
+	assert.match(dashboardCommands, /export function moveGroups/);
+	assert.match(workspace, /moveGroups\(next, groupIds, pageSelect\.value\)/);
+	assert.match(workspace, /deleteGroup\(next, page\.id, groupId\)/);
+	assert.match(theme, /\.aa-dashboard-grid-v2\.is-editing \{[^}]*user-select: none/);
 	assert.match(theme, /aa-dashboard-marquee__count/);
 	assert.match(theme, /aa-dashboard-marquee\.is-subtract/);
-	assert.match(theme, /aa-dashboard-marquee\.is-contain \{ border-style: dashed/);
 	assert.match(workspace, /target\.precise === false \? moveItems\(current, ids, page\.id, \{ groupId: target\.groupId \}\)/);
 	assert.match(dashboardInteractions, /unbind\.setSelection/);
 	assert.match(dashboardSelection, /export function selectionRectangle/);
@@ -740,7 +812,7 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(workspace, /createSelectionActionBar\(/);
 	assert.match(workspace, /aaalice\.workspace\.selection\.group/);
 	assert.match(workspace, /aaalice\.workspace\.selection\.move/);
-	assert.match(workspace, /id: "move", label: t\("aaalice\.workspace\.selection\.move"[\s\S]*?moveItems\(current, ids, pageSelect\.value\)/);
+	assert.match(workspace, /id: "move", label: t\("aaalice\.workspace\.selection\.move"[\s\S]*?moveItems\(next, ids, pageSelect\.value\)/);
 	assert.match(workspace, /id: "duplicate", label: t\("aaalice\.workspace\.selection\.duplicate"[\s\S]*?duplicateItems\(current, page\.id, ids\)/);
 	assert.match(workspace, /selection\.width", "Toggle selected widths"\), iconName: "fit"/);
 	assert.match(theme, /\.aa-dashboard-selection-bar/);

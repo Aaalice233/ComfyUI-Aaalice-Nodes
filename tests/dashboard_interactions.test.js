@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { grabSpanOffset, selectionFootprint } from "../js/lib/dashboard_interactions.js";
-import { applyMarqueeSelection, containedSelectionIds, marqueeSelectionIds, nearestInDirection, nextClickSelection } from "../js/lib/dashboard_selection.js";
+import { applyMarqueeSelection, containedIds, nearestInDirection, nextClickSelection } from "../js/lib/dashboard_selection.js";
 
 test("drag grab offset preserves the pointer anchor across grid spans", () => {
 	assert.equal(grabSpanOffset(150, 0, 300, 6), 3);
@@ -22,28 +22,22 @@ test("multi-selection drag uses one stable bounding footprint", () => {
 	]), { row: 2, column: 3, rowSpan: 12, columnSpan: 9 });
 });
 
-const rect = (left, top, right, bottom) => ({ left, top, right, bottom });
-const entries = [
-	{ id: "inside", rect: rect(20, 20, 60, 60) },
-	{ id: "touching", rect: rect(80, 20, 140, 60) },
-	{ id: "outside", rect: rect(200, 20, 260, 60) },
-];
-
-test("marquee selection switches between intersection and containment by drag direction", () => {
-	const area = rect(10, 10, 100, 80);
-	const forward = marqueeSelectionIds(entries, area, { x: 10, y: 10 }, { x: 100, y: 80 });
-	assert.deepEqual([...forward.ids].sort(), ["inside", "touching"]);
-	assert.equal(forward.containment, false);
-	const backward = marqueeSelectionIds(entries, area, { x: 100, y: 80 }, { x: 10, y: 10 });
-	assert.deepEqual([...backward.ids], ["inside"]);
-	assert.equal(backward.containment, true);
-	assert.deepEqual([...containedSelectionIds(entries, rect(0, 0, 300, 100))].sort(), ["inside", "outside", "touching"]);
-});
-
 test("marquee application supports additive and subtractive modes", () => {
 	assert.deepEqual([...applyMarqueeSelection(["a"], ["b", "c"], "add")].sort(), ["a", "b", "c"]);
 	assert.deepEqual([...applyMarqueeSelection(["a", "b", "c"], ["b"], "subtract")].sort(), ["a", "c"]);
 	assert.deepEqual([...applyMarqueeSelection(["a"], ["b"], "subtract")], ["a"]);
+});
+
+test("contained ids only include frames fully covered by the rectangle", () => {
+	const rect = (left, top, right, bottom) => ({ left, top, right, bottom });
+	const frames = [
+		{ id: "covered", rect: rect(20, 20, 60, 60) },
+		{ id: "partial", rect: rect(80, 20, 140, 60) },
+		{ id: "outside", rect: rect(200, 20, 260, 60) },
+	];
+	assert.deepEqual([...containedIds(frames, rect(10, 10, 100, 80))], ["covered"]);
+	assert.deepEqual([...containedIds(frames, rect(0, 0, 300, 100))].sort(), ["covered", "outside", "partial"]);
+	assert.deepEqual([...containedIds(frames, rect(0, 0, 30, 30))], []);
 });
 
 test("click selection replaces, toggles, or subtracts without guessing", () => {
@@ -56,6 +50,7 @@ test("click selection replaces, toggles, or subtracts without guessing", () => {
 });
 
 test("keyboard navigation picks the nearest card in the requested direction", () => {
+	const rect = (left, top, right, bottom) => ({ left, top, right, bottom });
 	const grid = [
 		{ id: "origin", rect: rect(100, 100, 160, 140) },
 		{ id: "right", rect: rect(200, 104, 260, 136) },

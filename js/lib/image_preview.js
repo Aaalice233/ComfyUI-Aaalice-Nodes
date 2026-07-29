@@ -7,17 +7,21 @@ const previewTooltip = createTooltip({ delay: IMAGE_PREVIEW_HOVER_DELAY, closeDe
 
 export function closeImagePreview() { previewTooltip.hide(); }
 
-export function bindImagePreview(trigger, source, title, { immediate = false, hint = "" } = {}) {
-	if (!source && !hint) return;
+export function bindImagePreview(trigger, source, title, { immediate = false, hint = "", resolve = null } = {}) {
+	if (!source && !hint && !resolve) return;
 	const show = (immediate) => {
+		const resolved = resolve?.() || { source, title, hint };
+		const resolvedSource = resolved.source || "";
+		const resolvedHint = resolved.hint ?? hint;
+		if (!resolvedSource && !resolvedHint) return;
 		if (previewTooltip.isOpenFor(trigger)) { previewTooltip.cancelScheduledHide(); return; }
 		let content;
-		if (source) {
-			const large = document.createElement("img"); large.src = source; large.alt = title; large.decoding = "async";
+		if (resolvedSource) {
+			const large = document.createElement("img"); large.src = resolvedSource; large.alt = resolved.title || ""; large.decoding = "async";
 			large.addEventListener("load", previewTooltip.reposition, { once: true });
-			content = el("div", { className: "aa-image-preview-large", children: [large, el("div", { className: "aa-image-preview-caption", children: [el("strong", null, title), ...(hint ? [el("small", null, hint)] : [])] })] });
-		} else content = el("span", "aa-image-preview-quick-hint", hint);
-		previewTooltip.show(trigger, content, { className: source ? "aa-image-preview-tooltip" : "aa-image-preview-hint-tooltip", contentMode: "dom", immediate });
+			content = el("div", { className: "aa-image-preview-large", children: [large, el("div", { className: "aa-image-preview-caption", children: [el("strong", null, resolved.title || ""), ...(resolvedHint ? [el("small", null, resolvedHint)] : [])] })] });
+		} else content = el("span", "aa-image-preview-quick-hint", resolvedHint);
+		previewTooltip.show(trigger, content, { className: resolvedSource ? "aa-image-preview-tooltip" : "aa-image-preview-hint-tooltip", contentMode: "dom", immediate });
 	};
 	trigger.addEventListener("mouseenter", () => show(immediate));
 	trigger.addEventListener("mouseleave", previewTooltip.scheduleHide);

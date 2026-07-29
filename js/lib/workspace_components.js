@@ -1,6 +1,8 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
 import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, searchToggleButton, segmentedControl } from "./ui.js";
+import { attachDescriptionTooltip } from "./description_tooltip.js";
+import { DASHBOARD_TONES } from "./dashboard_model.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [] }) {
@@ -132,12 +134,45 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, editMo
 	folio.addEventListener("pointerenter", scheduleOpen);
 	folio.addEventListener("pointerleave", scheduleClose);
 	folio.addEventListener("click", () => { if (popover) popover.close(); else openPageMenu(); });
+	const toneLabel = labels.pageTone || "Page color";
+	const toneButton = el("button", {
+		className: "aa-dashboard-page-heading__tone",
+		attrs: { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": toneLabel, title: toneLabel },
+		children: [el("span", { className: "aa-dashboard-tone-swatch", attrs: { "data-tone": page?.tone || "" } })],
+	});
+	let tonePopover = null;
+	const openToneMenu = () => {
+		if (tonePopover) return;
+		toneButton.setAttribute("aria-expanded", "true");
+		const list = el("div", { className: "aa-dashboard-page-tones", attrs: { role: "listbox", "aria-label": toneLabel } });
+		for (const option of [null, ...DASHBOARD_TONES]) {
+			const active = (page?.tone || null) === option;
+			const row = el("button", {
+				className: `aa-dashboard-page-tones__row${active ? " is-active" : ""}`,
+				attrs: { type: "button", role: "option", "aria-selected": String(active) },
+				children: [
+					el("span", { className: "aa-dashboard-tone-swatch", attrs: { "data-tone": option || "" } }),
+					el("span", "aa-dashboard-page-tones__name", option ? (labels.tones?.[option] || option) : (labels.toneDefault || "Default")),
+					...(active ? [icon("statusCheck", { className: "aa-dashboard-page-tones__check" })] : []),
+				],
+			});
+			row.addEventListener("click", () => { tonePopover?.close(); if (!active) onSetTone?.(option); });
+			list.append(row);
+		}
+		tonePopover = createAnchoredPopover({
+			anchor: toneButton, ariaLabel: toneLabel, className: "aa-dashboard-page-tones-popover", width: 200,
+			onClose: () => { tonePopover = null; toneButton.setAttribute("aria-expanded", "false"); },
+		});
+		tonePopover.root.append(list);
+	};
+	toneButton.addEventListener("click", openToneMenu);
 	return el("div", {
 		className: `aa-dashboard-page-heading${className ? ` ${className}` : ""}`,
 		children: [
 			folio,
 			title,
 			iconButton({ iconName: "edit", label: renameLabel, variant: "ghost", className: "aa-dashboard-page-heading__edit", onClick: startRename }),
+			toneButton,
 		],
 	});
 }
@@ -302,10 +337,10 @@ export function createCollapsibleSearch({ open = false, value = "", label, close
 	return { toggle, panel, input };
 }
 
-export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup, onRenameTitle }) {
+export function createControlCard({ item, title, control, status = "ok", description = "", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onGroup, onUngroup, onRenameTitle }) {
 	const headerOnly = control?.dataset?.headerOnly === "true";
 	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
-	const root = el("article", { className: `aa-control-card${item.compact ? " is-compact" : ""}${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
+	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
 	if (control?.dataset?.controlKind) root.dataset.controlKind = control.dataset.controlKind;
 	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
 	root.dataset.dashboardMinRowSpan = String(control?.dataset?.dashboardMinRowSpan || (headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN));
@@ -319,10 +354,11 @@ export function createControlCard({ item, title, control, status = "ok", editMod
 		});
 	}
 	header.append(titleElement);
+	if (description) attachDescriptionTooltip(titleElement, description);
 	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);
 	root.append(header, control || el("p", "aa-control-card-error", status === "incompatible" ? (labels.incompatible || "Incompatible control") : (labels.missing || "Missing binding")));
 	if (editMode && item.kind === "control") root.append(el("button", { className: "aa-dashboard-resize-handle", attrs: { type: "button", "data-dashboard-resize-handle": "true", "aria-label": labels.resizeCard || "Resize card" } }));
-	const openMenu = (x, y) => onManage?.({ x, y, editMode, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup });
+	const openMenu = (x, y) => onManage?.({ x, y, editMode, onMove, onRemove, onToggleSpan, onGroup, onUngroup });
 	root.addEventListener("contextmenu", (event) => {
 		const input = event.target.closest?.("input, textarea, [contenteditable='true']");
 		const preservesNativeEditing = input?.matches?.("textarea, [contenteditable='true'], input:not([type='range']):not([type='checkbox']):not([type='radio']):not([type='button']):not([type='file'])");

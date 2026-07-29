@@ -13,7 +13,6 @@ function applyGridPosition(element, projected, source = projected) {
 }
 
 export function createDashboardGroup({ group, members, columns = 12, editMode = false, selected = false, labels = {}, renderItem, onMenu, onRename }) {
-	const memberCount = el("span", { className: "aa-dashboard-group-count", attrs: { "aria-hidden": "true" }, text: String(members.length) });
 	const title = el("h3", null, group.name);
 	if (onRename) {
 		title.title = labels.renameHint || "Double-click to rename";
@@ -23,7 +22,7 @@ export function createDashboardGroup({ group, members, columns = 12, editMode = 
 		});
 	}
 	const header = el("header", { className: "aa-dashboard-group-header", attrs: { tabindex: editMode ? 0 : null }, children: [
-		el("span", "aa-dashboard-group-marker"), title, memberCount,
+		el("span", "aa-dashboard-group-marker"), title,
 		...(editMode ? [icon("drag", { className: "aa-dashboard-group-grip" }), iconButton({ iconName: "settings", label: labels.groupMenu || "Group menu", variant: "ghost", onClick: (event) => onMenu?.(event, group) })] : []),
 	] });
 	const grid = el("div", { className: "aa-dashboard-group-grid", attrs: { "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(group.layout.columnSpan) } }); grid.style.setProperty("--aa-dashboard-columns", String(columns));

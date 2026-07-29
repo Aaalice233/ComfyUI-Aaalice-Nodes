@@ -1,6 +1,6 @@
 /** Pointer-driven transient Dashboard V2 layout editing. */
 
-import { applyMarqueeSelection, marqueeSelectionIds, nearestInDirection, nextClickSelection, selectionRectangle } from "./dashboard_selection.js";
+import { applyMarqueeSelection, containedIds, intersectingSelectionIds, nearestInDirection, nextClickSelection, selectionRectangle } from "./dashboard_selection.js";
 import { DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
 
 const DRAG_THRESHOLD = 5;
@@ -198,13 +198,16 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			}
 			gesture.marquee.style.left = `${rectangle.left - rootRect.left}px`; gesture.marquee.style.top = `${rectangle.top - rootRect.top}px`;
 			gesture.marquee.style.width = `${rectangle.width}px`; gesture.marquee.style.height = `${rectangle.height}px`;
-			const entries = itemElements().map((element) => ({ id: element.dataset.dashboardItemId, rect: element.getBoundingClientRect() }));
-			const { ids, containment } = marqueeSelectionIds(entries, rectangle, { x: gesture.startX, y: gesture.startY }, { x: event.clientX, y: event.clientY });
-			gesture.marquee.classList.toggle("is-contain", containment);
+			const entries = itemElements().map((element) => ({ id: element.dataset.dashboardItemId, groupId: element.dataset.dashboardGroupMember || null, rect: element.getBoundingClientRect() }));
+			const groupFrames = [...root.querySelectorAll("[data-dashboard-group-id]")].map((element) => ({ id: element.dataset.dashboardGroupId, rect: element.getBoundingClientRect() }));
+			const groups = applyMarqueeSelection(gesture.baseGroups, containedIds(groupFrames, rectangle), gesture.mode);
+			const items = applyMarqueeSelection(gesture.baseItems, intersectingSelectionIds(entries, rectangle), gesture.mode);
+			// 整体进选的组，其成员不再作为散项出现，后续拖拽和批量操作都按整组处理。
+			for (const entry of entries) if (entry.groupId && groups.has(entry.groupId)) items.delete(entry.id);
 			gesture.marquee.classList.toggle("is-subtract", gesture.mode === "subtract");
-			const items = applyMarqueeSelection(gesture.baseItems, ids, gesture.mode);
-			emitSelection(items, gesture.baseGroups);
-			gesture.badge.textContent = String(items.size); gesture.badge.hidden = items.size === 0;
+			emitSelection(items, groups);
+			const count = items.size + groups.size;
+			gesture.badge.textContent = String(count); gesture.badge.hidden = count === 0;
 			autoScroll(event.clientY); return;
 		}
 		root.classList.add("is-dragging");
