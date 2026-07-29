@@ -1,6 +1,6 @@
 /** Pointer-driven transient Dashboard V2 layout editing. */
 
-import { intersectingSelectionIds, selectionRectangle } from "./dashboard_selection.js";
+import { applyMarqueeSelection, marqueeSelectionIds, nearestInDirection, nextClickSelection, selectionRectangle } from "./dashboard_selection.js";
 import { DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
 
 const DRAG_THRESHOLD = 5;
@@ -101,18 +101,21 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 	let gesture = null;
 	let currentItems = new Set(selectedItemIds); let currentGroups = new Set(selectedGroupIds);
 	const selectable = (target) => target.closest?.("[data-dashboard-item-id], [data-dashboard-group-id]");
+	const isEditableTarget = (target) => Boolean(target.closest?.("input, select, textarea, [contenteditable='true']"));
 	const emitSelection = (items, groups) => {
 		currentItems = new Set(items); currentGroups = new Set(groups); onSelectionChange?.(currentItems, currentGroups);
 	};
-	const syncSelection = (entry, event) => {
-		const itemId = entry?.dataset.dashboardItemId; const groupId = entry?.dataset.dashboardGroupId;
-		const items = new Set(currentItems); const groups = new Set(currentGroups); const additive = event.ctrlKey || event.metaKey || event.shiftKey;
-		const alreadySelected = itemId ? items.has(itemId) : groups.has(groupId);
-		if (!additive && !alreadySelected) { items.clear(); groups.clear(); }
-		if (itemId) additive && items.has(itemId) ? items.delete(itemId) : items.add(itemId);
-		if (groupId) additive && groups.has(groupId) ? groups.delete(groupId) : groups.add(groupId);
-		emitSelection(items, groups); return { items, groups };
+	const itemElements = () => [...root.querySelectorAll("[data-dashboard-item-id]")].filter((element) => !element.hidden);
+	// 点选/框选共用的选择语义；subtract 只负责移除，不会清空其余选择。
+	const clickSelection = (entry, { additive = false, subtract = false } = {}) => {
+		const itemId = entry?.dataset.dashboardItemId || null; const groupId = entry?.dataset.dashboardGroupId || null;
+		let items = new Set(currentItems); let groups = new Set(currentGroups);
+		if (!additive && !subtract && !(itemId ? items.has(itemId) : groups.has(groupId))) { items.clear(); groups.clear(); }
+		if (itemId) items = nextClickSelection(items, itemId, { additive, subtract });
+		if (groupId) groups = nextClickSelection(groups, groupId, { additive, subtract });
+		emitSelection(items, groups); return { items: currentItems, groups: currentGroups };
 	};
+	const additiveFor = (event) => event.ctrlKey || event.metaKey || event.shiftKey;
 	const cleanup = ({ restoreSelection = false } = {}) => {
 		if (!gesture) return;
 		if (restoreSelection && gesture.kind === "marquee") emitSelection(gesture.initialItems, gesture.initialGroups);
@@ -131,7 +134,7 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		if (resizeHandle) {
 			const entry = resizeHandle.closest("[data-dashboard-item-id]"); const grid = entry?.parentElement;
 			if (!entry || !grid?.matches?.(".aa-dashboard-grid-v2, .aa-dashboard-group-grid")) return;
-			syncSelection(entry, event);
+			clickSelection(entry, { additive: additiveFor(event) });
 			const sourceColumnSpan = Math.max(1, Number(entry.dataset.dropColumnSpan) || 1);
 			const sourceRowSpan = Math.max(1, Number(entry.dataset.dropRowSpan) || 1);
 			gesture = {
@@ -148,16 +151,18 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		}
 		if (event.target.closest("button, input, select, textarea, [contenteditable='true']")) return;
 		const entry = selectable(event.target);
-		if (!entry) {
-			const additive = event.ctrlKey || event.metaKey || event.shiftKey;
+		// Shift/Alt 在卡片上按下也启动框选，排满的页面里不再依赖空白网格起手；
+		// 不拖动则退化为加选切换（Shift）或移除选择（Alt）。
+		if (!entry || event.shiftKey || event.altKey) {
+			const mode = event.altKey ? "subtract" : "add";
+			const additive = event.altKey || additiveFor(event);
 			const initialItems = new Set(currentItems); const initialGroups = new Set(currentGroups);
 			if (!additive) emitSelection(new Set(), new Set());
-			gesture = { kind: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, initialItems, initialGroups, baseItems: additive ? initialItems : new Set(), baseGroups: additive ? initialGroups : new Set(), dragging: false, marquee: null };
+			gesture = { kind: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, mode, initialItems, initialGroups, baseItems: additive ? initialItems : new Set(), baseGroups: additive ? initialGroups : new Set(), pendingToggle: entry || null, dragging: false, marquee: null, badge: null };
 			root.setPointerCapture?.(event.pointerId); return;
 		}
-		const selection = syncSelection(entry, event); const itemId = entry.dataset.dashboardItemId; const groupId = entry.dataset.dashboardGroupId;
-		const sourceGrid = entry.parentElement;
-		const elements = itemId ? [...root.querySelectorAll("[data-dashboard-item-id]")].filter((element) => selection.items.has(element.dataset.dashboardItemId) && element.parentElement === sourceGrid) : [entry];
+		const selection = clickSelection(entry, { additive: additiveFor(event) }); const itemId = entry.dataset.dashboardItemId; const groupId = entry.dataset.dashboardGroupId;
+		const elements = itemId ? itemElements().filter((element) => selection.items.has(element.dataset.dashboardItemId)) : [entry];
 		const layouts = elements.map((element) => ({ row: Number(element.dataset.dropRow) || 0, column: Number(element.dataset.dropColumn) || 0, rowSpan: Number(element.dataset.dropRowSpan) || 1, columnSpan: Number(element.dataset.dropColumnSpan) || 1 }));
 		const footprint = selectionFootprint(layouts); const selectionRect = elements.map((element) => element.getBoundingClientRect()).reduce((bounds, rect) => ({ left: Math.min(bounds.left, rect.left), top: Math.min(bounds.top, rect.top), right: Math.max(bounds.right, rect.right), bottom: Math.max(bounds.bottom, rect.bottom) }));
 		const columnSpan = footprint.columnSpan; const rowSpan = footprint.rowSpan;
@@ -186,12 +191,21 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		}
 		if (gesture.kind === "marquee") {
 			const rootRect = root.getBoundingClientRect(); const rectangle = selectionRectangle({ x: gesture.startX, y: gesture.startY }, { x: event.clientX, y: event.clientY }, rootRect);
-			if (!gesture.marquee) { gesture.marquee = document.createElement("div"); gesture.marquee.className = "aa-dashboard-marquee"; gesture.marquee.setAttribute("aria-hidden", "true"); root.append(gesture.marquee); }
+			if (!gesture.marquee) {
+				gesture.marquee = document.createElement("div"); gesture.marquee.className = "aa-dashboard-marquee"; gesture.marquee.setAttribute("aria-hidden", "true");
+				gesture.badge = document.createElement("span"); gesture.badge.className = "aa-dashboard-marquee__count";
+				gesture.marquee.append(gesture.badge); root.append(gesture.marquee);
+			}
 			gesture.marquee.style.left = `${rectangle.left - rootRect.left}px`; gesture.marquee.style.top = `${rectangle.top - rootRect.top}px`;
 			gesture.marquee.style.width = `${rectangle.width}px`; gesture.marquee.style.height = `${rectangle.height}px`;
-			const entries = [...root.querySelectorAll("[data-dashboard-item-id]")].filter((element) => !element.hidden).map((element) => ({ id: element.dataset.dashboardItemId, rect: element.getBoundingClientRect() }));
-			const items = new Set(gesture.baseItems); for (const id of intersectingSelectionIds(entries, rectangle)) items.add(id);
-			emitSelection(items, gesture.baseGroups); autoScroll(event.clientY); return;
+			const entries = itemElements().map((element) => ({ id: element.dataset.dashboardItemId, rect: element.getBoundingClientRect() }));
+			const { ids, containment } = marqueeSelectionIds(entries, rectangle, { x: gesture.startX, y: gesture.startY }, { x: event.clientX, y: event.clientY });
+			gesture.marquee.classList.toggle("is-contain", containment);
+			gesture.marquee.classList.toggle("is-subtract", gesture.mode === "subtract");
+			const items = applyMarqueeSelection(gesture.baseItems, ids, gesture.mode);
+			emitSelection(items, gesture.baseGroups);
+			gesture.badge.textContent = String(items.size); gesture.badge.hidden = items.size === 0;
+			autoScroll(event.clientY); return;
 		}
 		root.classList.add("is-dragging");
 		for (const element of gesture.elements) { element.classList.add("is-dragging"); element.style.transform = `translate3d(${dx}px, ${dy}px, 0)`; }
@@ -202,9 +216,15 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 	const onPointerUp = (event) => {
 		if (!gesture || gesture.pointerId !== event.pointerId) return;
 		const current = gesture; const target = current.target;
-		if (current.kind === "resize" && current.dragging) onResizeItem?.(current.itemId, { columnSpan: current.nextColumnSpan, rowSpan: current.nextRowSpan });
+		if (current.kind === "marquee" && !current.dragging && current.pendingToggle) clickSelection(current.pendingToggle, { additive: true, subtract: current.mode === "subtract" });
+		else if (current.kind === "resize" && current.dragging) onResizeItem?.(current.itemId, { columnSpan: current.nextColumnSpan, rowSpan: current.nextRowSpan });
 		else if (current.kind === "drag" && current.dragging && target) {
-			if (current.groupId) onDropGroup?.(current.groupId, { row: target.row }); else onDropItems?.(current.itemIds, { groupId: target.groupId, row: target.row, column: target.column });
+			if (current.groupId) onDropGroup?.(current.groupId, { row: target.row });
+			else {
+				// 同网格内保持精确落点；跨网格拖放改为在目标区域按空位追加，避免局部坐标错位重叠。
+				const precise = current.elements.every((element) => element.parentElement === target.grid);
+				onDropItems?.(current.itemIds, { groupId: target.groupId, row: target.row, column: target.column, precise });
+			}
 		}
 		cleanup();
 	};
@@ -224,10 +244,27 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			const nextRowSpan = event.key === "ArrowUp" ? Math.max(minRowSpan, rowSpan - step) : event.key === "ArrowDown" ? rowSpan + step : rowSpan;
 			event.preventDefault(); onResizeItem?.(entry.dataset.dashboardItemId, { columnSpan: nextColumnSpan, rowSpan: nextRowSpan }); return;
 		}
+		if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === "a") {
+			if (isEditableTarget(event.target)) return;
+			event.preventDefault();
+			emitSelection(itemElements().map((element) => element.dataset.dashboardItemId), currentGroups);
+			return;
+		}
 		if (event.key === "Escape") {
 			if (gesture) { event.preventDefault(); cleanup({ restoreSelection: true }); }
 			else if (currentItems.size || currentGroups.size) { event.preventDefault(); emitSelection(new Set(), new Set()); }
+			return;
 		}
+		const card = event.target.closest?.("[data-dashboard-item-id]");
+		if (!card || event.target.closest("button, input, select, textarea, [contenteditable='true']")) return;
+		if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+			event.preventDefault();
+			const entries = itemElements().map((element) => ({ id: element.dataset.dashboardItemId, rect: element.getBoundingClientRect(), element }));
+			const nextId = nearestInDirection(entries, card.dataset.dashboardItemId, event.key.slice(5).toLowerCase());
+			entries.find((entry) => entry.id === nextId)?.element.focus();
+			return;
+		}
+		if (event.key === " " && !event.repeat) { event.preventDefault(); clickSelection(card, { additive: true }); }
 	};
 	const onPointerCancel = () => cleanup({ restoreSelection: true });
 	root.addEventListener("pointerdown", onPointerDown); root.addEventListener("pointermove", onPointerMove); root.addEventListener("pointerup", onPointerUp); root.addEventListener("pointercancel", onPointerCancel); root.addEventListener("keydown", onKeyDown);

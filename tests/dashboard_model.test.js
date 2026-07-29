@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicatePage, addItems, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
 
@@ -201,6 +201,23 @@ test("controls move across pages without changing stable binding", () => {
 	const first = createPage("First"); const second = createPage("Second"); let model = emptyDashboard(); model.pages.push(first, second);
 	model = addItems(model, first.id, [{ label: "Steps", binding }]); const itemId = model.pages[0].items[0].id;
 	model = moveItems(model, [itemId], second.id); assert.equal(model.pages[0].items.length, 0); assert.equal(model.pages[1].items[0].id, itemId); assert.deepEqual(model.pages[1].items[0].binding, binding);
+});
+
+test("duplicating controls keeps the stable binding and assigns fresh item identities", () => {
+	const { model, page } = modelWithPage();
+	let next = addItems(model, page.id, [{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } }]);
+	const [steps, cfg] = next.pages[0].items;
+	next = duplicateItems(next, page.id, [steps.id, cfg.id]);
+	const items = next.pages[0].items;
+	assert.equal(items.length, 4);
+	const copies = items.slice(2);
+	assert.deepEqual(copies.map((item) => item.binding), [steps.binding, cfg.binding]);
+	assert.ok(copies.every((item) => item.id !== steps.id && item.id !== cfg.id));
+	assert.ok(copies.every((item) => item.label === steps.label || item.label === cfg.label));
+	const occupied = new Set(items.flatMap((item) => { const cells = []; for (let row = item.layout.row; row < item.layout.row + item.layout.rowSpan; row++) for (let column = item.layout.column; column < item.layout.column + item.layout.columnSpan; column++) cells.push(`${row}:${column}`); return cells; }));
+	assert.equal(occupied.size, items.reduce((total, item) => total + item.layout.rowSpan * item.layout.columnSpan, 0));
+	next = duplicateItems(next, page.id, ["missing-item"]);
+	assert.equal(next.pages[0].items.length, 4);
 });
 
 test("compaction packs group members and tightens the group frame before repacking the page", () => {

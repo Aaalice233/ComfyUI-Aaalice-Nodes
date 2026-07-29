@@ -53,6 +53,19 @@ export function removeItems(model, itemIds) {
 	return normalizeDashboard(next);
 }
 
+// 复制保持绑定身份不变：同一控件允许多处投影，值仍由原宿主持有。
+export function duplicateItems(model, pageId, itemIds) {
+	const next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
+	const ids = new Set(itemIds);
+	for (const source of orderedItems(page.items.filter((item) => ids.has(item.id)))) {
+		const item = structuredClone(source);
+		item.id = stableId("item");
+		item.layout = firstAvailableLayout(page, { groupId: item.groupId, columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
+		page.items.push(item);
+	}
+	return normalizeDashboard(next);
+}
+
 export function updateItem(model, itemId, callback) {
 	const next = copy(model); const { item } = findItem(next, itemId); if (item) callback(item); return normalizeDashboard(next);
 }

@@ -49,7 +49,7 @@
       "renameHint": "双击重命名",
       "card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "compact": "切换紧凑模式", "resize": "调整卡片大小；方向键按网格单位调整" },
       "layout": { "separator": "添加分隔线", "separatorLabel": "分隔线", "remove": "移除布局项", "compact": "整理布局" },
-      "selection": { "toolbar": "所选布局项快捷操作", "summary": "已选择 {count} 项", "group": "快捷打组", "ungroup": "移出组", "width": "切换所选宽度", "remove": "移除所选", "removeConfirm": "确定移除选中的 {count} 个布局项吗？", "clear": "清空选择" },
+      "selection": { "toolbar": "所选布局项快捷操作", "summary": "已选择 {count} 项", "group": "快捷打组", "ungroup": "移出组", "width": "切换所选宽度", "duplicate": "复制所选", "move": "移动到页面", "remove": "移除所选", "removeConfirm": "确定移除选中的 {count} 个布局项吗？", "clear": "清空选择" },
       "group": { "menu": "布局组菜单", "create": "创建布局组", "default": "新建布局组", "name": "组名称", "edit": "编辑布局组", "delete": "解除整组", "addItem": "加入布局组", "removeItem": "移出布局组", "tone": "组颜色", "tones": { "neutral": "中性", "blue": "蓝色", "green": "绿色", "amber": "琥珀色", "purple": "紫色", "red": "红色" } },
       "unsupported": { "title": "不支持旧版侧边栏布局", "description": "Dashboard V2 使用新的网格模型，请重置尚未发布的旧布局后继续。", "reset": "重置侧边栏" },
       "binding": {

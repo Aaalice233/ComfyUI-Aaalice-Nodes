@@ -556,6 +556,11 @@ export function selectControl({ options = [], value = "", ariaLabel = "", classN
 	root.setOptions = (nextOptions, nextValue = control.value) => setOptions(nextOptions, nextValue);
 	root.setValue = (next) => { control.value = String(next); syncOptionColor(); };
 	root.setDisabled = (next) => { control.disabled = Boolean(next); if (control.disabled) setOpen(false); };
+	// 让包装元素像原生表单控件一样可读值，调用方不需要知道内部 select 的存在。
+	Object.defineProperty(root, "value", {
+		get: () => control.value,
+		set: (next) => root.setValue(next),
+	});
 	return root;
 }
 

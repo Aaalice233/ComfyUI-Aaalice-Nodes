@@ -49,7 +49,7 @@
       "renameHint": "Double-click to rename",
       "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "compact": "Toggle compact mode", "resize": "Resize card; arrow keys adjust by one grid unit" },
       "layout": { "separator": "Add separator", "separatorLabel": "Separator", "remove": "Remove layout item", "compact": "Tidy layout" },
-      "selection": { "toolbar": "Selected layout actions", "summary": "{count} selected", "group": "Quick group", "ungroup": "Remove from group", "width": "Toggle selected widths", "remove": "Remove selected", "removeConfirm": "Remove {count} selected layout items?", "clear": "Clear selection" },
+      "selection": { "toolbar": "Selected layout actions", "summary": "{count} selected", "group": "Quick group", "ungroup": "Remove from group", "width": "Toggle selected widths", "duplicate": "Duplicate selected", "move": "Move to page", "remove": "Remove selected", "removeConfirm": "Remove {count} selected layout items?", "clear": "Clear selection" },
       "group": { "menu": "Layout group menu", "create": "Create group", "default": "New group", "name": "Group name", "edit": "Edit group", "delete": "Ungroup controls", "addItem": "Add to group", "removeItem": "Remove from group", "tone": "Group color", "tones": { "neutral": "Neutral", "blue": "Blue", "green": "Green", "amber": "Amber", "purple": "Purple", "red": "Red" } },
       "unsupported": { "title": "Old dashboard layout is unsupported", "description": "Dashboard V2 uses a new grid model. Reset the unpublished layout to continue.", "reset": "Reset dashboard" },
       "binding": {

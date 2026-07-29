@@ -13,7 +13,7 @@ import {
 	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
 } from "./lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
-import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicatePage, moveGroup, moveItems, removeItems, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
+import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveItems, removeItems, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
@@ -784,9 +784,21 @@ function renderDashboard(container, host) {
 			const itemIds = [...viewState.selectedItemIds]; const groupIds = [...viewState.selectedGroupIds]; clearSelection();
 			updateDashboard((current) => { let next = current; for (const groupId of groupIds) next = deleteGroup(next, page.id, groupId); const targetPage = next.pages.find((candidate) => candidate.id === page.id); const groupedIds = itemIds.filter((id) => targetPage?.items.find((item) => item.id === id)?.groupId); return groupedIds.length ? ungroupItems(next, page.id, groupedIds) : next; });
 		} },
-		{ id: "width", label: t("aaalice.workspace.selection.width", "Toggle selected widths"), iconName: "copy", onSelect: () => {
+		{ id: "width", label: t("aaalice.workspace.selection.width", "Toggle selected widths"), iconName: "fit", onSelect: () => {
 			const controls = page.items.filter((item) => viewState.selectedItemIds.has(item.id) && item.kind === "control"); if (!controls.length) return;
 			const width = controls.every((item) => item.layout.columnSpan === DASHBOARD_GRID_COLUMNS) ? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN : DASHBOARD_GRID_COLUMNS; updateDashboard((current) => resizeItems(current, controls.map((item) => item.id), width));
+		} },
+		{ id: "duplicate", label: t("aaalice.workspace.selection.duplicate", "Duplicate selected"), iconName: "copy", onSelect: () => {
+			const ids = [...viewState.selectedItemIds]; if (!ids.length || viewState.selectedGroupIds.size) return;
+			updateDashboard((current) => duplicateItems(current, page.id, ids));
+		} },
+		{ id: "move", label: t("aaalice.workspace.selection.move", "Move to page"), iconName: "move", onSelect: () => {
+			const ids = [...viewState.selectedItemIds]; if (!ids.length || viewState.selectedGroupIds.size) return;
+			const targets = model.pages.filter((entry) => entry.id !== page?.id); if (!targets.length) return;
+			const pageSelect = selectControl({ ariaLabel: t("aaalice.workspace.target.page", "Page"), options: targets.map((entry) => ({ label: entry.name, value: entry.id })), value: targets[0].id });
+			const body = el("div", { children: [field({ label: t("aaalice.workspace.target.page", "Page"), control: pageSelect })] }); const footer = el("div");
+			const dialog = createDialog({ title: t("aaalice.workspace.selection.move", "Move to page"), body, footer });
+			footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => { clearSelection(); updateDashboard((current) => moveItems(current, ids, pageSelect.value)); dialog.close(); } }));
 		} },
 		{ id: "remove", label: t("aaalice.workspace.selection.remove", "Remove selected"), iconName: "delete", className: "aa-dashboard-selection-remove", onSelect: async () => {
 			const ids = [...viewState.selectedItemIds]; if (!ids.length || viewState.selectedGroupIds.size) return;
@@ -821,7 +833,7 @@ function renderDashboard(container, host) {
 	};
 	dashboardInteraction = bindDashboardInteractions(grid, { editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds,
 		onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; updateSelectionUi(); },
-		onDropItems: (ids, target) => updateDashboard((current) => moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row)),
+		onDropItems: (ids, target) => updateDashboard((current) => target.precise === false ? moveItems(current, ids, page.id, { groupId: target.groupId }) : moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row)),
 		onResizeItem: (itemId, size) => updateDashboard((current) => resizeItem(current, itemId, size)),
 	});
 	updateSelectionUi();
