@@ -10,7 +10,7 @@ import {
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
-import { badge, button, createAnchoredPopover, createDialog, el, emptyState, field, icon, iconButton, isolate } from "./lib/ui.js";
+import { badge, button, createAnchoredPopover, createDialog, el, emptyState, field, icon, iconButton, isolate, toggleSwitch } from "./lib/ui.js";
 import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import {
 	parameterPanelKjMenuItem,
@@ -495,11 +495,21 @@ function renderInspector(editor, parameter, rerender) {
 		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), optionsBody));
 	}
 	if (parameter.param_type === "string") {
-		const multiline = document.createElement("input");
-		multiline.type = "checkbox";
-		multiline.checked = Boolean(parameter.config?.multiline);
-		multiline.addEventListener("change", () => { parameter.config.multiline = multiline.checked; editor.dirty = true; editor.updateValidation?.(); });
-		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), inspectorField(t("aaalice.pcp.field.multiline", "Multiline"), multiline)));
+		const multilineLabel = t("aaalice.pcp.field.multiline", "Multiline");
+		const multiline = toggleSwitch({
+			checked: Boolean(parameter.config?.multiline),
+			label: multilineLabel,
+			onChange: (checked) => {
+				parameter.config.multiline = checked;
+				editor.dirty = true;
+				editor.updateValidation?.();
+			},
+		});
+		const multilineField = el("div", {
+			className: "aaalice-editor-toggle-field",
+			children: [el("span", "aa-ui-field__label", multilineLabel), multiline],
+		});
+		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), multilineField, "aaalice-editor-section--compact"));
 	}
 }
 

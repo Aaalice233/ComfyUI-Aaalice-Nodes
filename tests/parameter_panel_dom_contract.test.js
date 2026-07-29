@@ -145,6 +145,17 @@ test("parameter editor keeps the left parameter rail independently scrollable", 
 	assert.match(themeSource, /\.aaalice-editor-compact-list\s*\{[^}]*min-height:\s*0[^}]*flex:\s*1[^}]*overflow-y:\s*auto[^}]*overscroll-behavior:\s*contain/);
 });
 
+test("string multiline setting uses the shared aligned switch row", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /toggleSwitch\(\{[\s\S]*checked: Boolean\(parameter\.config\?\.multiline\)[\s\S]*onChange: \(checked\)/);
+	assert.match(panelSource, /className: "aaalice-editor-toggle-field"[\s\S]*children: \[el\("span", "aa-ui-field__label", multilineLabel\), multiline\]/);
+	assert.doesNotMatch(panelSource, /multiline\.type\s*=\s*"checkbox"/);
+	assert.match(themeSource, /\.aaalice-editor-section--compact\s*\{[^}]*align-self:\s*start/);
+	assert.match(themeSource, /\.aaalice-editor-toggle-field\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto[^}]*align-items:\s*center/);
+});
+
 test("parameter editor assigns a maintainable theme tone to every parameter type", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const modelSource = readFileSync(join(ROOT, "js", "lib", "param_model.js"), "utf8");

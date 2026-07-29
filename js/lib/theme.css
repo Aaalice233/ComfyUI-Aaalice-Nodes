@@ -530,6 +530,8 @@
 .aaalice-editor-empty { min-height: 100%; place-content: center; }
 .aa-ui-dialog .aaalice-editor-rename-input { width: 100%; min-height: 28px; padding: 4px 7px; border-radius: 6px; font-size: 12px; }
 .aaalice-editor-section { display: flex; min-width: 0; min-height: 0; flex-direction: column; }
+.aaalice-editor-section--compact { align-self: start; }
+.aaalice-editor-toggle-field { display: grid; min-height: 40px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
 .aaalice-editor-field-stack { display: flex; flex-direction: column; gap: 12px; }
 .aaalice-editor-section--description > .aaalice-editor-field-stack,
 .aaalice-editor-description-field { min-height: 0; flex: 1; }
