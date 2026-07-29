@@ -286,7 +286,7 @@
         "connectFailed": "The KJ Set node could not be connected.",
         "graphUnavailable": "The current graph is unavailable.",
         "scopeUnsupported": "KJ routing only supports the current graph or a descendant subgraph.",
-        "created": "KJ Set nodes ready: {count} created.",
+        "created": "KJ Set nodes ready: {count} created, {arranged} arranged.",
         "syncReceivers": "🔄 Sync Parameter Receivers",
         "locateReceivers": "🎯 Locate Parameter Receiver",
         "noReceivers": "No bound Parameter Receivers are available.",

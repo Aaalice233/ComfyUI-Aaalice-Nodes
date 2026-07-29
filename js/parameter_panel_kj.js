@@ -9,7 +9,10 @@ import {
 	tunableMeta,
 } from "./lib/param_model.js";
 import { computeParameterLayout } from "./lib/parameter_layout.js";
-import { computeLinkedSetPosition } from "./lib/kj_set_layout.js";
+import {
+	computeCompactSetColumnPositions,
+	computeLinkedSetPosition,
+} from "./lib/kj_set_layout.js";
 import {
 	allGraphNodes,
 	findGraphNode,
@@ -194,6 +197,37 @@ function placeSetNode(setNode, panel, outputIndex, targetGraph, existingSets) {
 		: [80, 80 + titleHeight * outputIndex];
 }
 
+export function arrangeLinkedKjSets(panel) {
+	if (!panel?.graph) return { arranged: 0, moved: 0 };
+	const entries = panelMeta(panel).map((_parameter, parameterIndex) => ({
+		parameterIndex,
+		node: directSetNodes(panel, parameterIndex)[0] || null,
+	})).filter((entry) => entry.node?.graph);
+	const grouped = new Map();
+	for (const entry of entries) {
+		const list = grouped.get(entry.node.graph) || [];
+		list.push(entry);
+		grouped.set(entry.node.graph, list);
+	}
+	const collapsedHeight = Number(globalThis.LiteGraph?.NODE_TITLE_HEIGHT) || 30;
+	const panelLayout = computeParameterLayout(panel);
+	let moved = 0;
+	for (const [targetGraph, graphEntries] of grouped) {
+		const positions = targetGraph === panel.graph
+			? graphEntries.map((entry) => computeLinkedSetPosition(panel, panelLayout, entry.parameterIndex, collapsedHeight))
+			: computeCompactSetColumnPositions(graphEntries.map((entry) => entry.node.pos), collapsedHeight);
+		for (let index = 0; index < graphEntries.length; index += 1) {
+			const node = graphEntries[index].node;
+			const next = positions[index];
+			if (Number(node.pos?.[0]) !== next[0] || Number(node.pos?.[1]) !== next[1]) moved += 1;
+			node.pos = next;
+			node.flags ||= {};
+			node.flags.collapsed = true;
+		}
+	}
+	return { arranged: entries.length, moved };
+}
+
 export function renameKjSet(setNode, nextName) {
 	const widget = setNode?.widgets?.[0];
 	if (!setNode?.graph || !widget || typeof setNode.validateName !== "function") {
@@ -321,9 +355,9 @@ export function registerParameterPanelKj(panel) {
 
 export function createLinkedKjSets(panel, { changeBoundary = true, preferredGraph = null } = {}) {
 	if (!panel?.graph) throw new Error(message("aaalice.pcp.kj.graphUnavailable", "The current graph is unavailable."));
-	if (!isKjReady()) return { created: 0, createdNodes: [], updated: 0, errors: [] };
+	if (!isKjReady()) return { created: 0, createdNodes: [], createdBridgeSlots: [], updated: 0, arranged: 0, moved: 0, errors: [] };
 	const meta = panelMeta(panel);
-	if (!meta.length) return { created: 0, createdNodes: [], updated: 0, errors: [] };
+	if (!meta.length) return { created: 0, createdNodes: [], createdBridgeSlots: [], updated: 0, arranged: 0, moved: 0, errors: [] };
 	const graph = panel.graph;
 	const targetGraph = preferredSetGraph(panel, preferredGraph);
 	const { liteGraph } = kjNodeTypes();
@@ -331,6 +365,8 @@ export function createLinkedKjSets(panel, { changeBoundary = true, preferredGrap
 	const createdNodes = [];
 	const createdBridgeSlots = [];
 	let updated = 0;
+	let arranged = 0;
+	let moved = 0;
 	const errors = [];
 	const transactionGraph = rootGraph(graph);
 	if (changeBoundary) transactionGraph?.beforeChange?.();
@@ -380,6 +416,7 @@ export function createLinkedKjSets(panel, { changeBoundary = true, preferredGrap
 				}
 			}
 		}
+		if (!errors.length) ({ arranged, moved } = arrangeLinkedKjSets(panel));
 	} finally {
 		if (errors.length) {
 			for (const node of createdNodes) node.graph?.remove?.(node);
@@ -392,7 +429,7 @@ export function createLinkedKjSets(panel, { changeBoundary = true, preferredGrap
 		transactionGraph?.setDirtyCanvas?.(true, true);
 		app.canvas?.setDirty?.(true, true);
 	}
-	return { created, createdNodes, createdBridgeSlots, updated, errors };
+	return { created, createdNodes, createdBridgeSlots, updated, arranged, moved, errors };
 }
 
 export function parameterPanelKjMenuItem(panel) {
@@ -412,7 +449,10 @@ export function parameterPanelKjMenuItem(panel) {
 						reason: result.errors[0]?.message || String(result.errors[0]),
 					}));
 				} else {
-					nativeToast("success", message("aaalice.pcp.kj.created", "KJ Set nodes ready: {count} created.", { count: result.created }));
+					nativeToast("success", message("aaalice.pcp.kj.created", "KJ Set nodes ready: {count} created, {arranged} arranged.", {
+						count: result.created,
+						arranged: result.arranged,
+					}));
 				}
 			} catch (error) {
 				console.error("[Aaalice] Failed to create linked KJ SetNodes", error);

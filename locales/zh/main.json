@@ -286,7 +286,7 @@
         "connectFailed": "KJ Set 节点连接失败。",
         "graphUnavailable": "当前工作流画布不可用。",
         "scopeUnsupported": "KJ 路由只支持当前图或其下级子图。",
-        "created": "KJ Set 节点已就绪：新建 {count} 个。",
+        "created": "KJ Set 节点已就绪：新建 {count} 个，整理 {arranged} 个。",
         "syncReceivers": "🔄 同步参数接收器",
         "locateReceivers": "🎯 定位参数接收器",
         "noReceivers": "当前没有已绑定的参数接收器。",

@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeLinkedSetPosition } from "../js/lib/kj_set_layout.js";
+import {
+	computeCompactSetColumnPositions,
+	computeLinkedSetPosition,
+} from "../js/lib/kj_set_layout.js";
 
 const layout = {
 	width: 370,
@@ -30,4 +33,15 @@ test("generated Set spacing never becomes smaller than the output-slot spacing",
 		],
 	};
 	assert.deepEqual(computeLinkedSetPosition(panel, wideOutputs, 1, 30), [448, 45]);
+});
+
+test("existing Set nodes compact into parameter order from their current top-left anchor", () => {
+	assert.deepEqual(
+		computeCompactSetColumnPositions([[420, 260], [380, 410], [460, 120]], 30),
+		[[380, 120], [380, 150], [380, 180]],
+	);
+});
+
+test("an empty Set scope uses a stable fallback anchor", () => {
+	assert.deepEqual(computeCompactSetColumnPositions([null, null], 30), [[80, 80], [80, 110]]);
 });

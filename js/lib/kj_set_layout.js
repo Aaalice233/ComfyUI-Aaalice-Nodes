@@ -16,3 +16,17 @@ export function computeLinkedSetPosition(panel, layout, index, collapsedHeight =
 		panelY + firstOutputY - height / 2 + Math.max(0, Number(index) || 0) * rowStep,
 	];
 }
+
+export function computeCompactSetColumnPositions(positions, collapsedHeight = 30, fallback = [80, 80]) {
+	const height = Math.max(1, Number(collapsedHeight) || 30);
+	const valid = (positions || []).filter((position) => (
+		Number.isFinite(Number(position?.[0])) && Number.isFinite(Number(position?.[1]))
+	));
+	const anchorX = valid.length
+		? Math.min(...valid.map((position) => Number(position[0])))
+		: Number(fallback?.[0]) || 80;
+	const anchorY = valid.length
+		? Math.min(...valid.map((position) => Number(position[1])))
+		: Number(fallback?.[1]) || 80;
+	return (positions || []).map((_position, index) => [anchorX, anchorY + index * height]);
+}

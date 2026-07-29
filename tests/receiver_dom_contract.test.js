@@ -37,6 +37,7 @@ test("panel and receiver menus expose reciprocal sync and navigation across subg
 	assert.match(kjSource, /syncBoundReceivers/);
 	assert.match(kjSource, /boundParameterReceivers/);
 	assert.match(kjSource, /navigateToGraphNode/);
+	assert.match(kjSource, /createLinkedKjSets[\s\S]*arrangeLinkedKjSets\(panel\)/);
 	assert.match(receiverSource, /visiblePanels/);
 	assert.match(receiverSource, /connectDescendantToAncestor/);
 	assert.match(receiverSource, /panelGraphId/);
