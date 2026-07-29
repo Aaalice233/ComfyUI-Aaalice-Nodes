@@ -254,6 +254,7 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	const shapeChanged = (node.outputs?.length || 0) !== meta.length;
 	const orderChanged = previous.length !== meta.length || previous.some((item, index) => item?.id !== meta[index]?.id);
 	const structureChanged = shapeChanged || orderChanged;
+	const namesChanged = !structureChanged && previous.some((item, index) => item?.name !== meta[index]?.name);
 	node.properties ||= {};
 	node.properties.slotMeta = meta.map((item, order) => ({ id: item.id, name: item.name, order }));
 	if (structureChanged) {
@@ -288,6 +289,10 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 		output.color_on = accent;
 		output.color = muted;
 	}
+	// Nodes 2.0 snapshots native slots into a Vue-owned concrete array. A
+	// label-only edit does not otherwise invalidate that snapshot because the
+	// slot count and stable ids are unchanged.
+	if (namesChanged && typeof node._setConcreteSlots === "function") node._setConcreteSlots();
 	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
 	node._aaaliceParameterLayout = layout;
 	markVueOutputs(node);

@@ -83,6 +83,7 @@ export function uniqueName(items, requested, exceptId = null) {
 export function refreshComfyOptions(nodeDefs) {
 	const readOptions = (entry) => {
 		if (Array.isArray(entry?.[0])) return entry[0].map(String);
+		if (Array.isArray(entry?.[1]?.options)) return entry[1].options.map(String);
 		if (Array.isArray(entry?.options)) return entry.options.map(String);
 		return [];
 	};

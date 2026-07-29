@@ -138,10 +138,21 @@ test("parameter editor keeps the reorder hint in the dialog header", () => {
 	assert.match(themeSource, /\.aaalice-editor-header-lead\s*\{/);
 });
 
+test("parameter renames invalidate Nodes 2.0 concrete output labels", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+
+	assert.match(panelSource, /const namesChanged = !structureChanged && previous\.some\(\(item, index\) => item\?\.name !== meta\[index\]\?\.name\)/);
+	assert.match(panelSource, /if \(namesChanged && typeof node\._setConcreteSlots === "function"\) node\._setConcreteSlots\(\)/);
+	assert.match(panelSource, /output\.label = meta\[index\]\?\.name \|\| ""/);
+	assert.match(panelSource, /output\.localized_name = output\.label/);
+});
+
 test("prompt assistant choices are sourced from its live node definitions", () => {
 	const modelSource = readFileSync(join(ROOT, "js", "lib", "param_model.js"), "utf8");
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 
+	assert.match(modelSource, /Array\.isArray\(entry\?\.\[1\]\?\.options\)/);
+	assert.match(modelSource, /entry\[1\]\.options\.map\(String\)/);
 	for (const contract of [
 		["prompt_expand_rule", "PromptExpand", "rule"],
 		["prompt_llm_service", "PromptExpand", "llm_service"],
