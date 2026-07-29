@@ -138,6 +138,13 @@ test("parameter editor keeps the reorder hint in the dialog header", () => {
 	assert.match(themeSource, /\.aaalice-editor-header-lead\s*\{/);
 });
 
+test("parameter editor keeps the left parameter rail independently scrollable", () => {
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(themeSource, /\.aaalice-parameter-editor-rail\s*\{[^}]*display:\s*flex[^}]*min-height:\s*0[^}]*overflow:\s*hidden/);
+	assert.match(themeSource, /\.aaalice-editor-compact-list\s*\{[^}]*min-height:\s*0[^}]*flex:\s*1[^}]*overflow-y:\s*auto[^}]*overscroll-behavior:\s*contain/);
+});
+
 test("parameter editor assigns a maintainable theme tone to every parameter type", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const modelSource = readFileSync(join(ROOT, "js", "lib", "param_model.js"), "utf8");
