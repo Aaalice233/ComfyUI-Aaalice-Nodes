@@ -142,7 +142,10 @@ test("parameter renames invalidate Nodes 2.0 concrete output labels", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 
 	assert.match(panelSource, /const namesChanged = !structureChanged && previous\.some\(\(item, index\) => item\?\.name !== meta\[index\]\?\.name\)/);
-	assert.match(panelSource, /if \(namesChanged && typeof node\._setConcreteSlots === "function"\) node\._setConcreteSlots\(\)/);
+	assert.match(panelSource, /namesChanged && app\.canvas\?\.vueNodesMode === true && Array\.isArray\(node\.outputs\)/);
+	assert.match(panelSource, /node\.outputs = node\.outputs\.map\(\(output\) => Object\.assign\(/);
+	assert.match(panelSource, /Object\.create\(Object\.getPrototypeOf\(output\)\)/);
+	assert.match(panelSource, /node\._setConcreteSlots\?\.\(\)/);
 	assert.match(panelSource, /output\.label = meta\[index\]\?\.name \|\| ""/);
 	assert.match(panelSource, /output\.localized_name = output\.label/);
 });

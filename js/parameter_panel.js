@@ -289,10 +289,16 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 		output.color_on = accent;
 		output.color = muted;
 	}
-	// Nodes 2.0 snapshots native slots into a Vue-owned concrete array. A
-	// label-only edit does not otherwise invalidate that snapshot because the
-	// slot count and stable ids are unchanged.
-	if (namesChanged && typeof node._setConcreteSlots === "function") node._setConcreteSlots();
+	// ComfyUI 1.45 keeps outputs in a shallowReactive array: replacing the
+	// array items is what invalidates NodeSlots.vue. Mutating label fields or
+	// rebuilding LiteGraph's concrete slots alone does not trigger Vue.
+	if (namesChanged && app.canvas?.vueNodesMode === true && Array.isArray(node.outputs)) {
+		node.outputs = node.outputs.map((output) => Object.assign(
+			Object.create(Object.getPrototypeOf(output)),
+			output,
+		));
+		node._setConcreteSlots?.();
+	}
 	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
 	node._aaaliceParameterLayout = layout;
 	markVueOutputs(node);
