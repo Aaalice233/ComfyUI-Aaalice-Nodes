@@ -350,7 +350,7 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.match(components, /event\.key === "Escape"/);
 	assert.match(components, /queueMicrotask/);
 	assert.match(workspace, /workspaceViewState = \{/);
-	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false, pageRailExpanded: false, selectedItemIds: new Set\(\)/);
+	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false, selectedItemIds: new Set\(\)/);
 	assert.match(workspace, /viewState\.searchOpen = open; viewState\.focusSearch = open/);
 	assert.doesNotMatch(workspace, /if \(!open\) viewState\.query = ""/);
 	assert.doesNotMatch(workspace, /container\._aaalice(?:Dashboard|Library)(?:Query|SearchOpen|SearchShouldFocus)/);
@@ -364,7 +364,6 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.doesNotMatch(workspace, /container\.append\(toolbar, \.\.\.\(search\.panel/);
 	assert.match(theme, /\.aa-dashboard-toolbar\.is-searching, \.aa-library-toolbar\.is-searching/);
 	assert.match(theme, /@keyframes aa-workspace-search-open/);
-	assert.match(workspace, /pageRail\.hidden = Boolean\(needle\)/);
 });
 
 test("PromptSelector can open the official sidebar directly on library management", () => {
@@ -394,7 +393,7 @@ test("PromptSelector can open the official sidebar directly on library managemen
 	assert.match(theme, /\.aa-prompt-selector-favorite\.is-active \.aa-ui-icon \{ fill: currentColor; \}/);
 });
 
-test("workspace visual hierarchy uses a compact shell, dedicated icon and active page rail", () => {
+test("workspace visual hierarchy uses a compact shell, dedicated icon and heading page menu", () => {
 	assert.match(workspace, /icon: "aaalice-workspace-sidebar-icon"/);
 	assert.match(workspace, /element\.classList\.add\("aa-workspace-host"\)/);
 	assert.match(theme, /\.aa-workspace-host \{[^}]*height: 100%;[^}]*min-height: 0;[^}]*overflow: hidden;/);
@@ -403,20 +402,17 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(workspaceIcon, /viewBox="0 0 24 24"/);
 	assert.match(workspaceIcon, /stroke-linecap="round"/);
 	assert.doesNotMatch(workspaceIcon, /<circle/);
-	assert.match(components, /createPageRail/);
-	assert.match(components, /aa-dashboard-page-cursor/);
-	assert.match(components, /root\.update = update/);
-	assert.match(components, /active\.offsetTop/);
-	assert.match(components, /const items = new Map\(\)/);
-	assert.doesNotMatch(components, /transitionFromId|\* 27|cursorOffset/);
-	assert.match(workspace, /const dashboardPageRails = new WeakMap\(\)/);
-	assert.match(workspace, /pageRail\.update\(\{/);
-	assert.match(components, /requestAnimationFrame/);
+	assert.doesNotMatch(components, /createPageRail|aa-dashboard-page-cursor|aa-dashboard-page-dot/);
+	assert.doesNotMatch(theme, /aa-dashboard-page-rail|aa-dashboard-page-cursor|aa-dashboard-page-dot/);
+	assert.match(components, /aa-dashboard-page-menu__row/);
+	assert.match(components, /aria-haspopup": "dialog"/);
+	assert.match(components, /createAnchoredPopover\(\{[\s\S]*?aa-dashboard-page-popover/);
+	assert.match(components, /application\/x-aaalice-page/);
+	assert.match(workspace, /onSelectPage: selectPage/);
+	assert.match(workspace, /onReorderPage: reorderPage/);
+	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex \+ 1\]\?\.id/);
 	assert.match(components, /aria-current/);
-	assert.match(components, /addEventListener\("wheel"/);
-	assert.match(components, /passive: false/);
 	assert.match(components, /ArrowUp/);
-	assert.match(components, /PageDown/);
 	assert.doesNotMatch(components, /aa-workspace-brand/);
 	assert.match(components, /ariaLabel: title/);
 	assert.match(components, /root\.dataset\.workspace = activeTab/);
@@ -433,15 +429,10 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(theme, /transform \.2s cubic-bezier/);
 	assert.doesNotMatch(workspace.match(/function renderWorkspace[\s\S]*?\n}/)?.[0] || "", /scheduleRender/);
 	assert.doesNotMatch(components, /aa-control-card-indicator/);
-	assert.match(theme, /\.aa-dashboard-page-dot\.is-active/);
-	assert.match(theme, /\.aa-dashboard-page-rail:hover \.aa-dashboard-page-dot/);
-	assert.match(theme, /\.aa-dashboard-page-list/);
-	assert.match(theme, /\.aa-dashboard-page-rail\.is-expanded/);
-	assert.match(theme, /\.aa-dashboard-page-cursor/);
-	assert.match(theme, /transform \.16s cubic-bezier/);
-	assert.match(theme, /\.aa-dashboard-page-dot\.is-active/);
+	assert.match(theme, /\.aa-dashboard-page-menu__row\.is-active/);
+	assert.match(theme, /\.aa-dashboard-page-menu__index/);
+	assert.match(theme, /\.aa-dashboard-page-menu__name/);
 	assert.match(theme, /margin-right: auto/);
-	assert.match(theme, /justify-content: space-between/);
 	assert.match(theme, /backdrop-filter: blur\(12px\)/);
 	assert.match(workspace, /initialEdge: detail\.source === "boundary" && direction === "backward" \? "bottom" : "top"/);
 	assert.match(workspace, /aa-dashboard-scroll\$\{pageTransitionClass\}/);
@@ -453,15 +444,12 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and active
 	assert.match(workspace, /canAdvance: \(\) => activePageIndex >= 0/);
 	assert.match(workspace, /canRetreat: \(\) => activePageIndex > 0/);
 	assert.doesNotMatch(workspace, /canAdvance: \(\) => !editMode/);
-	assert.match(workspace, /pageRail\.selectIndex\(activePageIndex \+ 1, \{ source: "boundary" \}\)/);
-	assert.match(workspace, /pageRail\.selectIndex\(activePageIndex - 1, \{ source: "boundary" \}\)/);
-	assert.match(components, /root\.selectIndex = \(index, options\) => selectIndex\(index, options\)/);
+	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex \+ 1\]\?\.id, \{ source: "boundary" \}\)/);
+	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex - 1\]\?\.id, \{ source: "boundary" \}\)/);
 	assert.match(workspace, /captureDashboardPageSnapshot/);
 	assert.match(workspace, /\.aa-dashboard-scroll:not\(\.is-page-leaving\)/);
 	assert.match(workspace, /pageTransition\?\.initialEdge === "bottom"/);
-	assert.match(workspace, /detail\.source === "boundary"\) pageRail\.showTemporarily\(1100\)/);
-	assert.match(components, /root\.showTemporarily = \(duration = 1100\)/);
-	assert.match(components, /temporaryExpansionTimer = setTimeout\(\(\) => \{[\s\S]*if \(!pointerHovered\) setExpanded\(false\)/);
+	assert.doesNotMatch(workspace, /showTemporarily|pageRail/);
 	assert.match(workspace, /aa-dashboard-page-stage/);
 	assert.match(theme, /\.aa-dashboard-page-stage \{[^}]*overflow: hidden;/);
 	assert.match(theme, /@keyframes aa-dashboard-page-forward-in/);
@@ -577,7 +565,6 @@ test("filter dropdowns reuse the shared animated select control", () => {
 });
 
 test("workspace empty states and compact action bars keep narrow sidebars deliberate", () => {
-	assert.match(components, /aa-dashboard-page-rail/);
 	assert.match(workspace, /aa-dashboard-toolbar/);
 	assert.match(workspace, /aa-library-toolbar/);
 	assert.match(workspace, /iconName: "upload", label: t\("aaalice\.workspace\.preset\.export"/);
@@ -587,15 +574,13 @@ test("workspace empty states and compact action bars keep narrow sidebars delibe
 	assert.match(workspace, /aa-workspace-empty aa-dashboard-empty/);
 	assert.match(workspace, /className: "aa-dashboard-page-empty"/);
 	assert.match(workspace, /aa-workspace-empty aa-library-empty/);
-	assert.match(theme, /\.aa-dashboard-page-rail\.is-empty \{ display: none; \}/);
-	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*right: -10px;[^}]*width: 34px;[^}]*padding-right: 10px;/);
 	assert.match(theme, /\.aa-workspace-empty\[hidden\] \{ display: none; \}/);
 	assert.match(theme, /\.aa-dashboard-page-empty \{[^}]*position: absolute;[^}]*inset: 0;[^}]*place-content: center;[^}]*text-align: center;/);
 	assert.match(theme, /\.aa-library-filters \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
 });
 
 test("dashboard page heading is prominent, responsive, and directly renameable", () => {
-	assert.match(workspace, /createDashboardPageHeading\(\{[\s\S]*?page,[\s\S]*?index: activePageIndex,[\s\S]*?total: model\.pages\.length,[\s\S]*?onRename: renamePage/);
+	assert.match(workspace, /createDashboardPageHeading\(\{[\s\S]*?page,[\s\S]*?pages: model\.pages,[\s\S]*?index: activePageIndex,[\s\S]*?onRename: renamePage,[\s\S]*?onSelectPage: selectPage,[\s\S]*?onReorderPage: reorderPage/);
 	assert.match(components, /export function createDashboardPageHeading/);
 	assert.match(components, /className: "aa-dashboard-page-heading__title"/);
 	assert.match(components, /title\.addEventListener\("dblclick"/);
@@ -604,11 +589,18 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(components, /inlineRename\(title,[\s\S]*?onRename\?\.\(name\)/);
 	assert.match(components, /aa-dashboard-page-heading__folio-index/);
 	assert.match(components, /aa-dashboard-page-heading__folio-total/);
-	assert.match(theme, /\.aa-dashboard-page-heading \{[^}]*min-height: 42px;[^}]*flex: 1 1 220px;/);
+	assert.match(components, /aa-dashboard-page-heading__folio-arrow/);
+	assert.match(components, /onSelectPage\?\.\(entry\.id\)/);
+	assert.match(components, /onReorderPage\?\.\(source, row\.dataset\.pageId\)/);
+	assert.match(theme, /\.aa-dashboard-page-heading__folio \{[^}]*cursor: pointer;/);
+	assert.match(theme, /\.aa-dashboard-page-heading__folio\[aria-expanded="true"\]/);
+	assert.match(theme, /\.aa-dashboard-page-heading \{[^}]*min-height: 36px;[^}]*flex: 1 1 auto;/);
 	assert.match(theme, /\.aa-dashboard-page-heading__title \{[^}]*font-size: 16px;[^}]*font-weight: 720;[^}]*text-overflow: ellipsis;/);
-	assert.match(theme, /\.aa-dashboard-page-heading__folio \{[^}]*flex-direction: column;[^}]*font-variant-numeric: tabular-nums;/);
+	assert.match(theme, /\.aa-dashboard-page-heading__folio \{[^}]*align-items: baseline;[^}]*font-variant-numeric: tabular-nums;/);
+	assert.doesNotMatch(theme, /\.aa-dashboard-page-heading__folio \{[^}]*surface-raised/);
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-index \{[^}]*font-size: 13px;/);
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-total \{[^}]*font-size: 10px;/);
+	assert.match(theme, /\.aa-dashboard-toolbar:not\(\.is-searching\) \{[^}]*justify-content: flex-end/);
 	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
 });
 

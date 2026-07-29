@@ -24,7 +24,7 @@ export function createWorkspaceToolbar(actions = [], { className = "", label = n
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
 }
 
-export function createDashboardPageHeading({ page, index = 0, total = 1, labels = {}, className = "", onRename } = {}) {
+export function createDashboardPageHeading({ page, pages = [], index = 0, editMode = false, labels = {}, className = "", onRename, onSelectPage, onReorderPage } = {}) {
 	const renameHint = labels.renameHint || "Double-click to rename";
 	const renameLabel = labels.renamePage || "Rename page";
 	const title = el("h2", {
@@ -54,14 +54,70 @@ export function createDashboardPageHeading({ page, index = 0, total = 1, labels 
 		startRename();
 	});
 	const folioIndex = String(index + 1).padStart(2, "0");
-	const folioTotal = String(Math.max(total, 1)).padStart(2, "0");
+	const folioTotal = String(Math.max(pages.length, 1)).padStart(2, "0");
+	const switchLabel = labels.switchPage || "Switch page";
+	const folio = el("button", {
+		className: "aa-dashboard-page-heading__folio",
+		attrs: { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false", "aria-label": `${switchLabel}: ${folioIndex}/${folioTotal}`, title: switchLabel },
+		children: [
+			el("span", "aa-dashboard-page-heading__folio-index", folioIndex),
+			el("span", "aa-dashboard-page-heading__folio-total", `/${folioTotal}`),
+			icon("moveDown", { className: "aa-dashboard-page-heading__folio-arrow" }),
+		],
+	});
+	let popover = null;
+	const openPageMenu = () => {
+		if (popover) return;
+		folio.setAttribute("aria-expanded", "true");
+		const rows = [];
+		const list = el("div", { className: "aa-dashboard-page-menu", attrs: { role: "listbox", "aria-label": labels.pages || "Dashboard pages" } });
+		pages.forEach((entry, entryIndex) => {
+			const active = entry.id === page?.id;
+			const row = el("button", {
+				className: `aa-dashboard-page-menu__row${active ? " is-active" : ""}`,
+				attrs: { type: "button", role: "option", "aria-selected": String(active), draggable: editMode ? "true" : null },
+				children: [
+					el("span", "aa-dashboard-page-menu__index", String(entryIndex + 1).padStart(2, "0")),
+					el("span", "aa-dashboard-page-menu__name", entry.name),
+					...(active ? [icon("statusCheck", { className: "aa-dashboard-page-menu__check" })] : []),
+				],
+			});
+			row.dataset.pageId = entry.id;
+			row.addEventListener("click", () => { popover?.close(); if (!active) onSelectPage?.(entry.id); });
+			rows.push(row); list.append(row);
+		});
+		list.addEventListener("keydown", (event) => {
+			if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+			event.preventDefault();
+			const current = rows.indexOf(document.activeElement);
+			const next = event.key === "Home" ? 0 : event.key === "End" ? rows.length - 1 : Math.max(0, current) + (event.key === "ArrowDown" ? 1 : -1);
+			rows[(next + rows.length) % rows.length]?.focus();
+		});
+		if (editMode) {
+			list.addEventListener("dragstart", (event) => {
+				const row = event.target.closest(".aa-dashboard-page-menu__row");
+				if (row) event.dataTransfer?.setData("application/x-aaalice-page", row.dataset.pageId);
+			});
+			list.addEventListener("dragover", (event) => { if (event.target.closest(".aa-dashboard-page-menu__row")) event.preventDefault(); });
+			list.addEventListener("drop", (event) => {
+				const row = event.target.closest(".aa-dashboard-page-menu__row");
+				if (!row) return;
+				event.preventDefault();
+				const source = event.dataTransfer?.getData("application/x-aaalice-page");
+				if (source && source !== row.dataset.pageId) { popover?.close(); onReorderPage?.(source, row.dataset.pageId); }
+			});
+		}
+		popover = createAnchoredPopover({
+			anchor: folio, ariaLabel: labels.pages || "Dashboard pages", className: "aa-dashboard-page-popover", width: 220,
+			onClose: () => { popover = null; folio.setAttribute("aria-expanded", "false"); },
+		});
+		popover.root.append(list);
+	};
+	folio.addEventListener("click", openPageMenu);
 	return el("div", {
 		className: `aa-dashboard-page-heading${className ? ` ${className}` : ""}`,
 		children: [
-			el("span", { className: "aa-dashboard-page-heading__folio", attrs: { "aria-hidden": "true" }, children: [
-				el("span", "aa-dashboard-page-heading__folio-index", folioIndex),
-				el("span", "aa-dashboard-page-heading__folio-total", `/ ${folioTotal}`),
-			] }),
+			folio,
 			title,
 			iconButton({ iconName: "edit", label: renameLabel, variant: "ghost", className: "aa-dashboard-page-heading__edit", onClick: startRename }),
 		],
@@ -226,144 +282,6 @@ export function createCollapsibleSearch({ open = false, value = "", label, close
 	] });
 	if (focus) queueMicrotask(() => { if (input.isConnected) { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); } });
 	return { toggle, panel, input };
-}
-
-export function createPageRail(initialState = {}) {
-	const root = el("nav", { className: "aa-dashboard-page-rail", attrs: { "aria-orientation": "vertical" } });
-	const list = el("div", "aa-dashboard-page-list");
-	const cursor = el("span", { className: "aa-dashboard-page-cursor", attrs: { "aria-hidden": "true" } });
-	list.append(cursor); root.append(list);
-	const items = new Map();
-	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {} };
-	let cursorFrame = 0;
-	let wheelDistance = 0;
-	let wheelDirection = 0;
-	let wheelResetTimer = 0;
-	let temporaryExpansionTimer = 0;
-	let pointerHovered = false;
-	let cursorInitialized = false;
-	const setExpanded = (expanded) => {
-		state.expanded = Boolean(expanded);
-		root.classList.toggle("is-expanded", state.expanded);
-		state.onExpandedChange?.(state.expanded);
-	};
-	const positionCursor = ({ animate = true } = {}) => {
-		cancelAnimationFrame(cursorFrame);
-		cursorFrame = requestAnimationFrame(() => {
-			const active = items.get(state.activeId);
-			cursor.hidden = !active;
-			if (!active?.isConnected) return;
-			const shouldAnimate = animate && cursorInitialized;
-			cursor.classList.toggle("is-initializing", !shouldAnimate);
-			cursor.style.transform = `translate3d(0, ${active.offsetTop}px, 0)`;
-			cursorInitialized = true;
-			if (!shouldAnimate) requestAnimationFrame(() => cursor.classList.remove("is-initializing"));
-		});
-	};
-	const updateItem = (item, page) => {
-		const active = page.id === state.activeId;
-		item.dataset.pageId = page.id;
-		item.draggable = Boolean(state.editMode);
-		item.classList.toggle("is-active", active);
-		item.setAttribute("aria-label", page.name);
-		item.querySelector(".aa-ui-button__label").textContent = page.name;
-		if (active) item.setAttribute("aria-current", "page"); else item.removeAttribute("aria-current");
-	};
-	const update = (nextState = {}, { animate = true } = {}) => {
-		state = { ...state, ...nextState, pages: nextState.pages || state.pages, labels: nextState.labels || state.labels };
-		root.classList.toggle("is-empty", state.pages.length === 0);
-		root.classList.toggle("is-expanded", Boolean(state.expanded));
-		root.setAttribute("aria-label", state.labels.pages || "Dashboard pages");
-		const nextIds = new Set(state.pages.map((page) => page.id));
-		for (const [id, item] of items) if (!nextIds.has(id)) { item.remove(); items.delete(id); }
-		for (const page of state.pages) {
-			let item = items.get(page.id);
-			if (!item) {
-				item = button({ label: page.name, ariaLabel: page.name, variant: "ghost", size: "sm", className: "aa-dashboard-page-dot" });
-				item.prepend(el("span", { className: "aa-dashboard-page-dot__marker", attrs: { "aria-hidden": "true" } }));
-				items.set(page.id, item);
-			}
-			updateItem(item, page);
-			list.append(item);
-		}
-		positionCursor({ animate });
-	};
-	const selectIndex = (index, { focus = false, source = "navigation" } = {}) => {
-		const next = state.pages[Math.max(0, Math.min(state.pages.length - 1, index))];
-		if (!next || next.id === state.activeId) return;
-		state.activeId = next.id;
-		for (const page of state.pages) updateItem(items.get(page.id), page);
-		positionCursor();
-		if (focus) queueMicrotask(() => items.get(next.id)?.focus({ preventScroll: true }));
-		state.onSelect?.(next.id, { focus, source });
-	};
-	root.addEventListener("click", (event) => {
-		const item = event.target.closest(".aa-dashboard-page-dot");
-		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
-		if (index >= 0) selectIndex(index);
-	});
-	root.addEventListener("pointerenter", () => {
-		pointerHovered = true;
-		clearTimeout(temporaryExpansionTimer);
-		setExpanded(true);
-	});
-	root.addEventListener("pointerleave", () => {
-		pointerHovered = false;
-		clearTimeout(temporaryExpansionTimer);
-		setExpanded(false);
-	});
-	root.addEventListener("wheel", (event) => {
-		if (event.ctrlKey || state.pages.length < 2 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-		event.preventDefault();
-		let delta = event.deltaY;
-		if (event.deltaMode === 1) delta *= 16;
-		else if (event.deltaMode === 2) delta *= Math.max(1, root.clientHeight);
-		const direction = Math.sign(delta);
-		if (direction && direction !== wheelDirection) wheelDistance = 0;
-		wheelDirection = direction;
-		wheelDistance += delta;
-		clearTimeout(wheelResetTimer);
-		wheelResetTimer = setTimeout(() => { wheelDistance = 0; wheelDirection = 0; }, 180);
-		if (Math.abs(wheelDistance) < 36) return;
-		selectIndex(state.pages.findIndex((page) => page.id === state.activeId) + Math.sign(wheelDistance));
-		wheelDistance = 0;
-	}, { passive: false });
-	root.addEventListener("keydown", (event) => {
-		if (!event.target.closest(".aa-dashboard-page-dot")) return;
-		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
-		let nextIndex = null;
-		if (event.key === "ArrowUp" || event.key === "PageUp") nextIndex = activeIndex - 1;
-		else if (event.key === "ArrowDown" || event.key === "PageDown") nextIndex = activeIndex + 1;
-		else if (event.key === "Home") nextIndex = 0;
-		else if (event.key === "End") nextIndex = pages.length - 1;
-		if (nextIndex == null) return;
-		event.preventDefault();
-		selectIndex(nextIndex, { focus: true });
-	});
-	root.addEventListener("dragstart", (event) => {
-		const item = event.target.closest(".aa-dashboard-page-dot");
-		if (state.editMode && item) event.dataTransfer?.setData("application/x-aaalice-page", item.dataset.pageId);
-	});
-	root.addEventListener("dragover", (event) => { if (state.editMode && event.target.closest(".aa-dashboard-page-dot")) event.preventDefault(); });
-	root.addEventListener("drop", (event) => {
-		const item = event.target.closest(".aa-dashboard-page-dot");
-		if (!state.editMode || !item) return;
-		event.preventDefault();
-		const source = event.dataTransfer?.getData("application/x-aaalice-page");
-		if (source) state.onReorder?.(source, item.dataset.pageId);
-	});
-	root.update = update;
-	root.selectIndex = (index, options) => selectIndex(index, options);
-	root.showTemporarily = (duration = 1100) => {
-		clearTimeout(temporaryExpansionTimer);
-		setExpanded(true);
-		temporaryExpansionTimer = setTimeout(() => {
-			if (!pointerHovered) setExpanded(false);
-		}, duration);
-	};
-	root.destroy = () => { cancelAnimationFrame(cursorFrame); clearTimeout(wheelResetTimer); clearTimeout(temporaryExpansionTimer); };
-	update(initialState, { animate: false });
-	return root;
 }
 
 export function createControlCard({ item, title, control, status = "ok", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onToggleCompact, onGroup, onUngroup, onRenameTitle }) {

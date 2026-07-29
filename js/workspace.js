@@ -28,7 +28,7 @@ import { collectionDisplayName, isDefaultCollection } from "./lib/collection.js"
 import { badge, button, createContextMenu, createDialog, createTooltip, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl, toggleSwitch } from "./lib/ui.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
-	createCollapsibleSearch, createControlCard, createListRow, createPageRail,
+	createCollapsibleSearch, createControlCard, createListRow,
 	createDashboardPageHeading, createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
@@ -42,7 +42,6 @@ const TAB_ID = "aaalice-workspace";
 const SIDEBAR_PIN_STORAGE_KEY = "aaalice.workspace.sidebarPinned";
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
-const dashboardPageRails = new WeakMap();
 const dashboardBoundaryPagingState = { locked: false, resetTimer: 0 };
 const workspacePinTooltip = createTooltip({ delay: 220, closeDelay: 60 });
 let activeWorkspace = "dashboard";
@@ -54,7 +53,7 @@ let dashboardPresetModelError = null;
 let groupNavigationModelError = null;
 let renderFrame = 0;
 const workspaceViewState = {
-	dashboard: { query: "", searchOpen: false, focusSearch: false, pageRailExpanded: false, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
+	dashboard: { query: "", searchOpen: false, focusSearch: false, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
 	library: { query: "", searchOpen: false, focusSearch: false, categoryId: "", collectionId: "", selected: new Set() },
 	groups: { query: "", searchOpen: false, focusSearch: false },
 };
@@ -261,8 +260,8 @@ function askText(title, label, value, onSave) {
 	input.focus(); input.select();
 }
 
-function captureDashboardPageSnapshot(pageRail) {
-	const source = pageRail.closest(".aa-dashboard-body")?.querySelector(".aa-dashboard-scroll:not(.is-page-leaving)");
+function captureDashboardPageSnapshot(host) {
+	const source = host.querySelector(".aa-dashboard-scroll:not(.is-page-leaving)");
 	if (!source) return null;
 	const snapshot = source.cloneNode(true);
 	const sourceFields = source.querySelectorAll("input, textarea, select");
@@ -510,6 +509,7 @@ async function applyDashboardPreset(presetId, { restore = false } = {}) {
 function workspaceLabels() {
 	return {
 		pages: t("aaalice.workspace.page.pages", "Dashboard pages"), duplicatePage: t("aaalice.workspace.page.duplicate", "Duplicate page"),
+		switchPage: t("aaalice.workspace.page.switch", "Switch page"),
 		renamePage: t("aaalice.workspace.page.rename", "Rename page"), deletePage: t("aaalice.workspace.page.delete", "Delete page"),
 		groupMenu: t("aaalice.workspace.group.menu", "Layout group menu"),
 		renameHint: t("aaalice.workspace.renameHint", "Double-click to rename"),
@@ -692,14 +692,29 @@ function renderDashboard(container, host) {
 		onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
 	});
 	const activePageIndex = model.pages.findIndex((entry) => entry.id === page?.id);
+	const selectPage = (id, detail = {}) => {
+		if (!id || id === activePageId) return;
+		const previousIndex = model.pages.findIndex((entry) => entry.id === activePageId);
+		const nextIndex = model.pages.findIndex((entry) => entry.id === id);
+		const direction = nextIndex < previousIndex ? "backward" : "forward";
+		viewState.pageTransition = { pageId: id, direction, source: detail.source, initialEdge: detail.source === "boundary" && direction === "backward" ? "bottom" : "top", snapshot: captureDashboardPageSnapshot(container) };
+		activePageId = id; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); scheduleRender();
+	};
+	const reorderPage = (sourceId, targetId) => updateDashboard((current) => {
+		const sourceIndex = current.pages.findIndex((item) => item.id === sourceId); const targetIndex = current.pages.findIndex((item) => item.id === targetId);
+		if (sourceIndex >= 0 && targetIndex >= 0) { const [source] = current.pages.splice(sourceIndex, 1); current.pages.splice(targetIndex, 0, source); } return current;
+	});
 	const dashboardActions = [
 		...(page ? [createDashboardPageHeading({
 			page,
+			pages: model.pages,
 			index: activePageIndex,
-			total: model.pages.length,
+			editMode,
 			labels: workspaceLabels(),
 			className: pageTransitionClass.trim(),
 			onRename: renamePage,
+			onSelectPage: selectPage,
+			onReorderPage: reorderPage,
 		})] : []),
 		presetPicker,
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
@@ -717,20 +732,6 @@ function renderDashboard(container, host) {
 		]),
 	];
 	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : dashboardActions, { className: `aa-dashboard-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
-	let pageRail = dashboardPageRails.get(host);
-	if (!pageRail) { pageRail = createPageRail(); dashboardPageRails.set(host, pageRail); }
-	pageRail.update({
-		pages: model.pages, activeId: page?.id, expanded: viewState.pageRailExpanded, editMode, labels: workspaceLabels(), onSelect: (id, detail = {}) => {
-			if (id === activePageId) return;
-			if (detail.source === "boundary") pageRail.showTemporarily(1100);
-			const previousIndex = model.pages.findIndex((entry) => entry.id === activePageId);
-			const nextIndex = model.pages.findIndex((entry) => entry.id === id);
-			const direction = nextIndex < previousIndex ? "backward" : "forward";
-			viewState.pageTransition = { pageId: id, direction, source: detail.source, initialEdge: detail.source === "boundary" && direction === "backward" ? "bottom" : "top", snapshot: captureDashboardPageSnapshot(pageRail) };
-			activePageId = id; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); scheduleRender();
-		}, onExpandedChange: (expanded) => { viewState.pageRailExpanded = expanded; },
-		onReorder: (sourceId, targetId) => updateDashboard((current) => { const sourceIndex = current.pages.findIndex((item) => item.id === sourceId); const targetIndex = current.pages.findIndex((item) => item.id === targetId); if (sourceIndex >= 0 && targetIndex >= 0) { const [source] = current.pages.splice(sourceIndex, 1); current.pages.splice(targetIndex, 0, source); } return current; }),
-	});
 	container.append(toolbar);
 	if (!page) { container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
 	const scroll = el("div", `aa-dashboard-scroll${pageTransitionClass}`);
@@ -739,8 +740,8 @@ function renderDashboard(container, host) {
 		isEnabled: () => !viewState.searchOpen && !scroll.querySelector(".aa-dashboard-grid-v2.is-dragging"),
 		canAdvance: () => activePageIndex >= 0 && activePageIndex < model.pages.length - 1,
 		canRetreat: () => activePageIndex > 0,
-		onAdvance: () => pageRail.selectIndex(activePageIndex + 1, { source: "boundary" }),
-		onRetreat: () => pageRail.selectIndex(activePageIndex - 1, { source: "boundary" }),
+		onAdvance: () => selectPage(model.pages[activePageIndex + 1]?.id, { source: "boundary" }),
+		onRetreat: () => selectPage(model.pages[activePageIndex - 1]?.id, { source: "boundary" }),
 	});
 	const openGroupMenu = (event, group) => {
 		const rect = event.currentTarget.getBoundingClientRect(); createContextMenu({ x: event.clientX || rect.right, y: event.clientY || rect.bottom, ariaLabel: t("aaalice.workspace.group.menu", "Layout group menu"), items: [
@@ -804,7 +805,7 @@ function renderDashboard(container, host) {
 		setTimeout(() => pageSnapshot.remove(), 360);
 	}
 	const pageStage = el("div", { className: "aa-dashboard-page-stage", children: [...(pageSnapshot ? [pageSnapshot] : []), scroll] });
-	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, pageRail, selectionBar.root] }); container.append(body);
+	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, selectionBar.root] }); container.append(body);
 	if (pageTransition?.initialEdge === "bottom") scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
 	if (pageSnapshot) pageSnapshot.scrollTop = pageSnapshot._aaaliceSnapshotScrollTop || 0;
 	updateSelectionUi = () => {
@@ -826,7 +827,7 @@ function renderDashboard(container, host) {
 	updateSelectionUi();
 	applyDashboardSearch = (value) => {
 		const needle = String(value || "").trim().toLocaleLowerCase(); let visibleItems = 0;
-		body.classList.toggle("is-searching", Boolean(needle)); pageRail.hidden = Boolean(needle);
+		body.classList.toggle("is-searching", Boolean(needle));
 		for (const item of grid.querySelectorAll("[data-dashboard-item-id]")) { const groupName = item.closest("[data-dashboard-group-id]")?.querySelector("h3")?.textContent || ""; const visible = !needle || String(item.dataset.searchText || "").includes(needle) || groupName.toLocaleLowerCase().includes(needle); item.hidden = !visible; if (visible) visibleItems++; }
 		for (const group of grid.querySelectorAll("[data-dashboard-group-id]")) group.hidden = Boolean(needle) && !group.querySelector("[data-dashboard-item-id]:not([hidden])");
 		searchEmpty.hidden = !needle || visibleItems > 0;
@@ -1676,7 +1677,7 @@ app.registerExtension({
 			});
 			workspaceWidthObservers.set(element, widthObserver);
 			widthObserver.observe(element);
-			return () => { workspaceWidthObservers.get(element)?.disconnect(); workspaceWidthObservers.delete(element); workspaceViewState.dashboard.pageRailExpanded = false; dashboardPageRails.get(element)?.destroy?.(); dashboardPageRails.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); };
+			return () => { workspaceWidthObservers.get(element)?.disconnect(); workspaceWidthObservers.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); };
 		} });
 		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphSyncSignature();
