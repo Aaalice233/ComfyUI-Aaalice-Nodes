@@ -289,18 +289,17 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 		output.color_on = accent;
 		output.color = muted;
 	}
-	// ComfyUI 1.45 keeps outputs in a shallowReactive array: replacing the
-	// array items is what invalidates NodeSlots.vue. Mutating label fields or
-	// rebuilding LiteGraph's concrete slots alone does not trigger Vue.
-	if (namesChanged && app.canvas?.vueNodesMode === true && Array.isArray(node.outputs)) {
-		node.outputs = node.outputs.map((output) => Object.assign(
-			Object.create(Object.getPrototypeOf(output)),
-			output,
-		));
-		node._setConcreteSlots?.();
-	}
 	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
 	node._aaaliceParameterLayout = layout;
+	// Nodes 2.0 exposes slot labels through a shallowReactive outputs array.
+	// ComfyUI's public slot-label event performs the required array
+	// invalidation; dirty-canvas calls only refresh Classic rendering.
+	if (structureChanged || namesChanged) {
+		node.graph?.trigger?.("node:slot-label:changed", {
+			nodeId: node.id,
+			slotType: globalThis.LiteGraph?.OUTPUT ?? 2,
+		});
+	}
 	markVueOutputs(node);
 	if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => markVueOutputs(node));
 	setTimeout(() => markVueOutputs(node), 0);

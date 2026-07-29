@@ -148,16 +148,15 @@ test("parameter editor disables row dragging while renaming so text remains sele
 	assert.match(themeSource, /\.aa-ui-dialog \.aaalice-editor-rename-input\s*\{[^}]*cursor:\s*text[^}]*user-select:\s*text[^}]*-webkit-user-select:\s*text/);
 });
 
-test("parameter renames invalidate Nodes 2.0 concrete output labels", () => {
+test("parameter renames publish ComfyUI's Nodes 2.0 slot-label event", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 
 	assert.match(panelSource, /const namesChanged = !structureChanged && previous\.some\(\(item, index\) => item\?\.name !== meta\[index\]\?\.name\)/);
-	assert.match(panelSource, /namesChanged && app\.canvas\?\.vueNodesMode === true && Array\.isArray\(node\.outputs\)/);
-	assert.match(panelSource, /node\.outputs = node\.outputs\.map\(\(output\) => Object\.assign\(/);
-	assert.match(panelSource, /Object\.create\(Object\.getPrototypeOf\(output\)\)/);
-	assert.match(panelSource, /node\._setConcreteSlots\?\.\(\)/);
 	assert.match(panelSource, /output\.label = meta\[index\]\?\.name \|\| ""/);
 	assert.match(panelSource, /output\.localized_name = output\.label/);
+	assert.match(panelSource, /if \(structureChanged \|\| namesChanged\) \{\s*node\.graph\?\.trigger\?\.\("node:slot-label:changed"/);
+	assert.match(panelSource, /nodeId: node\.id,\s*slotType: globalThis\.LiteGraph\?\.OUTPUT \?\? 2/);
+	assert.doesNotMatch(panelSource, /app\.canvas\?\.vueNodesMode === true && Array\.isArray\(node\.outputs\)/);
 });
 
 test("prompt assistant choices are sourced from its live node definitions", () => {
