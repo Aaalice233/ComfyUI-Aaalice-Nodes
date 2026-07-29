@@ -138,6 +138,16 @@ test("parameter editor keeps the reorder hint in the dialog header", () => {
 	assert.match(themeSource, /\.aaalice-editor-header-lead\s*\{/);
 });
 
+test("parameter editor disables row dragging while renaming so text remains selectable", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+
+	assert.match(panelSource, /row\.draggable = false;\s*row\.classList\.add\("is-renaming"\)/);
+	assert.match(panelSource, /input\.addEventListener\("pointerdown", \(inputEvent\) => inputEvent\.stopPropagation\(\)\)/);
+	assert.match(panelSource, /row\.addEventListener\("dragstart", \(event\) => \{\s*if \(row\.classList\.contains\("is-renaming"\)\) \{\s*event\.preventDefault\(\)/);
+	assert.match(themeSource, /\.aa-ui-dialog \.aaalice-editor-rename-input\s*\{[^}]*cursor:\s*text[^}]*user-select:\s*text[^}]*-webkit-user-select:\s*text/);
+});
+
 test("parameter renames invalidate Nodes 2.0 concrete output labels", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 

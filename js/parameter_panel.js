@@ -554,6 +554,8 @@ function renderEditorList(editor, rerender) {
 		text.addEventListener("dblclick", (event) => {
 			event.preventDefault();
 			event.stopPropagation();
+			row.draggable = false;
+			row.classList.add("is-renaming");
 			const input = document.createElement("input");
 			input.type = "text";
 			input.className = "aaalice-editor-rename-input";
@@ -569,6 +571,7 @@ function renderEditorList(editor, rerender) {
 				}
 				rerender();
 			};
+			input.addEventListener("pointerdown", (inputEvent) => inputEvent.stopPropagation());
 			input.addEventListener("click", (inputEvent) => inputEvent.stopPropagation());
 			input.addEventListener("dblclick", (inputEvent) => inputEvent.stopPropagation());
 			input.addEventListener("keydown", (inputEvent) => {
@@ -605,7 +608,13 @@ function renderEditorList(editor, rerender) {
 			editor.dirty = true;
 			rerender();
 		});
-		row.addEventListener("dragstart", (event) => event.dataTransfer?.setData("text/plain", parameter.id));
+		row.addEventListener("dragstart", (event) => {
+			if (row.classList.contains("is-renaming")) {
+				event.preventDefault();
+				return;
+			}
+			event.dataTransfer?.setData("text/plain", parameter.id);
+		});
 		row.addEventListener("click", (event) => {
 			if (event.target.closest(".aaalice-editor-mini")) return;
 			editor.selectedId = parameter.id;
