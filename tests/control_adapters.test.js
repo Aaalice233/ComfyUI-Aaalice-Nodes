@@ -153,6 +153,31 @@ test("image upload combos adapt as image-choice controls with preview options", 
 	assert.equal(listAdaptedWidgetControls(empty)[0]?.availability.state, "empty");
 });
 
+test("promoted image upload combos retain the image-choice adapter", () => {
+	const promotedImage = {
+		name: "image",
+		type: "combo",
+		value: "ComfyUI_00031_.png",
+		options: { values: ["ComfyUI_00031_.png"] },
+		serialize: false,
+		sourceNodeId: "170",
+		sourceWidgetName: "image",
+	};
+	const interiorNode = {
+		constructor: { nodeData: { input: { required: { image: ["COMBO", { image_upload: true, image_folder: "output" }] } } } },
+		widgets: [{ name: "image", type: "combo", value: "ComfyUI_00031_.png", options: { values: ["ComfyUI_00031_.png"] } }],
+	};
+	const subgraphNode = {
+		widgets: [promotedImage],
+		isSubgraphNode: () => true,
+		subgraph: { getNodeById: (id) => id === "170" ? interiorNode : null },
+	};
+	const [control] = listAdaptedWidgetControls(subgraphNode, { promoted: true });
+	assert.equal(control?.adapterId, "comfy-image-combo");
+	assert.equal(control?.kind, "image-choice");
+	assert.equal(control?.options.image_folder, "output");
+});
+
 test("legacy native combo bindings upgrade to the image preview adapter", () => {
 	assert.match(providerSource, /binding\.adapterId === "comfy-native-widget" \? null : binding\.adapterId/);
 	assert.match(providerSource, /listAdaptedWidgetControls\(node, \{ promoted, adapterId \}\)/);

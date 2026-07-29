@@ -231,7 +231,8 @@ test("dashboard image controls share upload, drop, thumbnail, and preview behavi
 	assert.match(theme, /\.aa-image-upload-button > img\s*\{[^}]*object-fit:\s*cover/s);
 	assert.match(theme, /\.aa-image-upload-button > img\s*\{[^}]*z-index:\s*0/s);
 	assert.match(theme, /\.aa-image-upload-button\.has-image::before\s*\{[^}]*z-index:\s*1/s);
-	assert.match(theme, /\.aa-image-upload-button\.has-image \.aa-image-upload-label\s*\{[^}]*margin-inline:\s*0 auto;[^}]*font-weight:\s*650;[^}]*text-align:\s*left/s);
+		assert.match(theme, /\.aa-image-upload-button\.has-image \.aa-image-upload-label\s*\{[^}]*margin-inline:\s*0 auto;[^}]*font-weight:\s*650;[^}]*text-align:\s*left/s);
+		assert.match(theme, /\.aa-image-upload-button\.has-image \.aa-image-upload-label\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--aa-ui-canvas\) 58%, transparent\);[^}]*backdrop-filter:\s*blur\(5px\)/s);
 	assert.match(theme, /\.aa-image-upload-button\.is-drop-target/);
 	assert.match(theme, /\.aa-image-upload-control:hover \.aa-image-upload-clear/);
 	assert.match(theme, /\.aa-image-upload-control\s*\{[^}]*height:\s*32px/s);
@@ -255,7 +256,8 @@ test("image upload combos render as previewable image-choice controls", () => {
 	assert.match(widgetAdapters, /image_folder: imageOptions\.image_folder \|\| "input"/);
 	assert.match(workspaceControls, /"image-choice": availabilityLabels/);
 	assert.match(theme, /\.aa-control-image-choice__thumb \{[^}]*object-fit: cover/);
-	assert.match(theme, /\.aa-control-image-choice__button\.has-image::before/);
+		assert.match(theme, /\.aa-control-image-choice__button\.has-image::before/);
+		assert.match(theme, /\.aa-control-image-choice__button\.has-image \.aa-control-image-choice__name\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--aa-ui-canvas\) 58%, transparent\);[^}]*backdrop-filter:\s*blur\(5px\)/s);
 	assert.match(theme, /\.aa-control-image-choice__menu \{[^}]*overflow-y: auto/);
 	assert.match(theme, /\.aa-control-image-choice__option\.is-active/);
 });

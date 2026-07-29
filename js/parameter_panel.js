@@ -69,9 +69,51 @@ function toast(severity, detail) {
 	});
 }
 
-async function confirmAction(text) {
-	if (app.extensionManager?.dialog?.confirm) return Boolean(await app.extensionManager.dialog.confirm({ title: t("aaalice.common.confirm", "Confirm"), message: text }));
-	return globalThis.confirm(text);
+function confirmAction(text, { danger = false } = {}) {
+	return new Promise((resolve) => {
+		let settled = false;
+		let dialog;
+		const finish = (confirmed) => {
+			if (settled) return;
+			settled = true;
+			dialog.close(confirmed);
+			resolve(confirmed);
+		};
+		const body = el("div", {
+			className: "aa-confirm-danger",
+			children: [
+				icon("statusWarning"),
+				el("p", null, text),
+			],
+		});
+		const footer = el("div", {
+			children: [
+				button({
+					label: t("aaalice.common.cancel", "Cancel"),
+					variant: "secondary",
+					onClick: () => finish(false),
+				}),
+				button({
+					label: t("aaalice.common.confirm", "Confirm"),
+					iconName: danger ? "delete" : null,
+					variant: danger ? "danger" : "primary",
+					defaultAction: true,
+					onClick: () => finish(true),
+				}),
+			],
+		});
+		dialog = createDialog({
+			title: t("aaalice.common.confirm", "Confirm"),
+			body,
+			footer,
+			size: "sm",
+			className: danger ? "aa-danger-dialog" : "aa-confirm-dialog",
+			onRequestClose: () => {
+				finish(false);
+				return false;
+			},
+		});
+	});
 }
 
 function markGraphChange(node, before) {
@@ -681,7 +723,7 @@ async function openParameterEditor(node) {
 		const affected = original.filter((item) => !liveIds.has(item.id)).map((item) => ({ name: displayName(item), links: parameterLinkCount(node, item.id) })).filter((item) => item.links);
 		if (affected.length) {
 			const detail = affected.map((item) => `${item.name}: ${item.links}`).join("\n");
-			if (!(await confirmAction(`${t("aaalice.pcp.confirm.parameterLinks", "Downstream links will be disconnected.")}\n${detail}`))) return;
+			if (!(await confirmAction(`${t("aaalice.pcp.confirm.parameterLinks", "Downstream links will be disconnected.")}\n${detail}`, { danger: true }))) return;
 		}
 		markGraphChange(node, true);
 		node.properties.parameters = editor.parameters;

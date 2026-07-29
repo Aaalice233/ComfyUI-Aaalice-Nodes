@@ -169,6 +169,15 @@ test("parameter editor creates parameters from a header add menu", () => {
 	assert.match(themeSource, /\.aaalice-parameter-type-option/);
 });
 
+test("parameter editor keeps nested confirmations above its own modal", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+
+	assert.match(panelSource, /function confirmAction\(text, \{ danger = false \} = \{\}\)/);
+	assert.match(panelSource, /dialog = createDialog\(\{[\s\S]*className: danger \? "aa-danger-dialog" : "aa-confirm-dialog"/);
+	assert.match(panelSource, /confirmAction\(`\$\{t\("aaalice\.pcp\.confirm\.parameterLinks"[\s\S]*\{ danger: true \}/);
+	assert.doesNotMatch(panelSource, /extensionManager\?\.dialog\?\.confirm/);
+});
+
 test("parameter descriptions use the shared tooltip shell with readable markdown", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const tooltipSource = readFileSync(join(ROOT, "js", "lib", "description_tooltip.js"), "utf8");

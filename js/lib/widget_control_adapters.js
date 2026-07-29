@@ -186,11 +186,29 @@ function bindImageCompareInvalidation(node, widget) {
 }
 
 // 图像上传 combo 在新前端只把标记留在节点定义的 input spec 里，旧路径则落在 widget.options 上，两处都要认。
+function resolveWidgetDefinitionOwner(node, widget) {
+	let currentNode = node;
+	let currentWidget = widget;
+	const visited = new Set();
+	while (isPromotedWidget(currentWidget) && currentNode?.isSubgraphNode?.()) {
+		const key = `${currentWidget.sourceNodeId}:${currentWidget.sourceWidgetName}`;
+		if (visited.has(key)) break;
+		visited.add(key);
+		const interiorNode = currentNode.subgraph?.getNodeById?.(currentWidget.sourceNodeId);
+		const interiorWidget = (interiorNode?.widgets || []).find((candidate) => candidate?.name === currentWidget.sourceWidgetName);
+		if (!interiorNode || !interiorWidget) break;
+		currentNode = interiorNode;
+		currentWidget = interiorWidget;
+	}
+	return { node: currentNode, widget: currentWidget };
+}
+
 function imageUploadComboOptions(node, widget) {
-	const inputs = { ...(node?.constructor?.nodeData?.input?.required || {}), ...(node?.constructor?.nodeData?.input?.optional || {}) };
-	const spec = inputs?.[widget?.name];
+	const owner = resolveWidgetDefinitionOwner(node, widget);
+	const inputs = { ...(owner.node?.constructor?.nodeData?.input?.required || {}), ...(owner.node?.constructor?.nodeData?.input?.optional || {}) };
+	const spec = inputs?.[owner.widget?.name];
 	const definitionOptions = Array.isArray(spec) && spec[1] && typeof spec[1] === "object" ? spec[1] : {};
-	return { ...definitionOptions, ...(widget?.options || {}) };
+	return { ...definitionOptions, ...(owner.widget?.options || {}), ...(widget?.options || {}) };
 }
 
 function isImageUploadCombo(node, widget) {
@@ -221,8 +239,8 @@ registerWidgetControlAdapter({
 registerWidgetControlAdapter({
 	id: "comfy-image-combo",
 	priority: 100,
-	matches({ node, widget, promoted }) {
-		return !promoted && isImageUploadCombo(node, widget);
+	matches({ node, widget }) {
+		return isImageUploadCombo(node, widget);
 	},
 	describe({ node, widget }) {
 		const imageOptions = imageUploadComboOptions(node, widget);
