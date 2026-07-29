@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- 进度：`13 / 13` 个节点
+- 进度：`12 / 12` 个节点
 - 下一项：无
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
@@ -18,7 +18,6 @@
 | 3 | `EnumSwitch` | tools | 按精确字符串 key 惰性选通同类型分支。 |
 | 4 | `SimpleNotify` | tools | 在透明透传执行点提醒一次。 |
 | 8 | `ResolutionPreset` | tools | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
-| 10 | `PromptCleaningMaid` | prompt | 原样透传，或按显式格式保守清理自然语言、规范化并去重标签列表。 |
 | 11 | `PromptSelector` | prompt | 从独立词库跨分类选择、排序并加权输出提示词。 |
 | 12 | `CharacterFeatureSwapNode` | prompt | 通过 DeepSeek 官方 API 迁移当前节点选中的单角色特征。 |
 | 15 | `ParameterPanel` | control | 创作并直接输出最多 32 个参数。 |
@@ -38,6 +37,7 @@
 | 6 | `VAEImageBatchFix` | 当前不需要为 VAE batch 形态提供单独修正节点。 |
 | 7 | `ModelNameExtractor` | 当前不需要单独提取模型名称。 |
 | 9 | `SimpleLoadImage` | ComfyUI 原生 `Load Image` 已覆盖图像与 mask 加载；默认黑图不能解决实际输入图像的工作流资产分享问题。 |
+| 10 | `PromptCleaningMaid` | 当前不再提供提示词清理能力；已在发布后移除。 |
 | 13 | `SimpleImageCompare` | ComfyUI 原生 `Compare Images` 已覆盖交互对比；本包只将其执行视图投影到参数控制侧边栏，不再重复实现节点。 |
 | 14 | `SimpleCheckpointLoaderWithName` | 当前不需要额外提供模型名称和预览的检查点加载节点。 |
 | 19 | `GroupIgnoreManager` | 静音与绕过职责已合并到 #18 `QuickGroupManager`。 |

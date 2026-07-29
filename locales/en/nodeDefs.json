@@ -89,12 +89,6 @@
     "inputs": {},
     "outputs": {}
   },
-  "PromptCleaningMaid": {
-    "display_name": "🧹 Prompt Cleaning Maid",
-    "description": "Pass prompts through unchanged or conservatively clean natural-language and flat tag-list formats while preserving recognized partition syntax.",
-    "inputs": { "text": { "name": "Text", "tooltip": "Prompt text to clean." } },
-    "outputs": { "0": { "name": "Text", "tooltip": "Cleaned prompt text." } }
-  },
   "PromptSelector": {
     "display_name": "📚 Prompt Selector",
     "description": "Select, order and weight prompt-library entries while keeping an optional prefix input.",

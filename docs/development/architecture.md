@@ -13,7 +13,6 @@
 | `ResolutionPreset` | `Aaalice/tools` | 校验执行载荷并输出精确 width / height | 预设、精确输入、画幅拖拽、对齐和个人预设管理 |
 | `SimpleStringSplit` | `Aaalice/tools` | 拆分字符串、清理空白并移除空段 | 无业务前端 |
 | `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
-| `PromptCleaningMaid` | `Aaalice/prompt` | 原样透传，或按显式格式清理自然语言、规范化并去重标签列表 | 模式切换、详细设置和内部配置注入 |
 | `PromptSelector` | `Aaalice/prompt` | 组合前缀与有序词条正文，校验缺失引用和权重 | 跨分类选择、筛选、排序、权重和实时词库 payload 注入 |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | 通过 DeepSeek 官方 API 迁移指定的单角色特征 | 复用 Tag List 编辑特征，并注入节点状态和配置版本 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 下载有序选择快照，原子解码并输出一一对应的 IMAGE/STRING list | 多站点搜索、虚拟瀑布流、选择排序、本地标签编辑、详情、收藏与设置 |
@@ -23,7 +22,7 @@
 
 ## 后端边界
 
-- V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `CharacterFeatureSwapNode`、`PromptCleaningMaid`、`PromptSelector` 与 `EnumSwitch` 的自定义校验签名分别只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
+- V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `CharacterFeatureSwapNode`、`PromptSelector` 与 `EnumSwitch` 的自定义校验签名分别只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
 - `nodes/control/parameter_panel.py` 声明最多 32 路输出，把前端注入的参数 payload 转换为有界值序列；解析和类型转换位于 `nodes/_lib/parameter_values.py`。
 - `nodes/control/parameter_receiver.py` 声明最多 32 路可选 AnyType 输入输出；`nodes/_lib/receiver_values.py` 只按协议顺序透传，不保存绑定状态。
 - `nodes/control/quick_group_manager.py` 只注册无输入输出的 V3 节点；组发现和模式变化不进入后端。
@@ -31,7 +30,6 @@
 - `nodes/tools/resolution_preset.py` 没有可见输入，只接受前端注入的版本化 `resolution_json`，校验 ComfyUI 尺寸范围与基础 8 px 对齐后输出两个具名 INT。个人预设 Store 位于当前用户目录，使用线程锁、临时文件和原子替换；专用 HTTP 路由只负责 CRUD 和明确错误映射。
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
-- `PromptCleaningMaid` 使用单一 STRING 输入输出；`nodes/_lib/prompt_cleaning.py` 持有配置验证、自然语言清理、顶层标签扫描和稳定去重。结构异常的标签列表原样输出并记录 warning；识别到已支持的顶层分区控制词时无损旁路，不猜测或修复其语法。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。词库领域服务使用用户目录中的 SQLite，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
 - `CharacterFeatureSwapNode` 接收原提示词与参考角色提示词，读取前端注入的启用特征和配置版本，并使用当前用户目录中的 DeepSeek 配置异步生成单一 STRING。纯逻辑负责 payload、模板和响应校验；配置、模型查询和真实 Chat Completion 连接测试路由不把 API Key 返回前端或写入工作流。
 - `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability，路由只处理 JSON、流式媒体和错误映射；媒体代理逐次复核 HTTPS 白名单、Content-Type 和大小。
@@ -50,7 +48,6 @@
 | 分辨率预设 | `js/resolution_preset.js`、`js/lib/resolution_preset_model.js` | 状态规范化、预设匹配、二维映射、DOM 交互、个人预设请求和 width / height payload 注入 |
 | 组管理与导航 | `js/quick_group_manager.js`、`js/lib/{group_navigation,group_navigation_model}.js` | 全局图事件、DOM、颜色范围、排序、原子模式事务、共享组边界导航，以及手工导航清单与组合键模型 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
-| 提示词清理 | `js/prompt_cleaning_maid.js` | 模式 Switcher、设置浮层、生命周期和 prompt 配置注入 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_model,virtual_masonry}.js` | 单行顶栏、自然比例虚拟瀑布流、选择与详情、定高已选列表、设置入口和选择快照注入 |
@@ -74,7 +71,6 @@
 | ResolutionPreset | `node.properties.resolutionPresetState` | 预设匹配、坐标映射、比例与 MP 摘要、执行 payload | DOM 字段、`presetId`、个人预设缓存 |
 | ResolutionPreset 个人预设 | 当前 ComfyUI 用户目录 JSON | 当前用户的名称、尺寸、alignment 和稳定 UUID | 工作流 JSON、节点属性或浏览器存储 |
 | QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
-| PromptCleaningMaid | `node.properties.promptCleaningMaidState` | 当前模式控件、设置状态、执行配置 JSON | DOM 控件副本、自动识别的 Prompt 类型 |
 | PromptSelector | `node.properties.promptSelectorState` | 当前词条正文、缺失引用、执行 payload | 节点内正文快照、DOM 复选状态 |
 | CharacterFeatureSwapNode | `node.properties.characterFeatureSwap` | 启用特征、配置版本和执行 payload | DOM 标签副本、全局活动预设、API Key 或模型配置 |
 | BooruGalleryNode | `node.properties.booruGalleryState`（查询上下文、逻辑页码与选择快照） | 搜索 Summary、详情、当前请求和执行 payload | 搜索结果、cursor、滚动像素、Hover、Dialog、凭据、缓存或图片 DOM |
@@ -143,13 +139,6 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 2. ParameterPanel 与 QuickGroupManager 在创建、加载、配置和业务重绘时同步初始颜色；ComfyUI 官方 `setColorOption()` 改色入口负责即时更新。
 3. 共享层只提供 Node Color、Node Accent、柔色和对比色，不持有工作流状态，也不轮询节点。
 4. 业务 CSS 决定哪些普通激活态消费 Node Accent；警告、危险、筛选颜色和多档业务状态继续使用 ComfyUI 语义 token。
-
-### PromptCleaningMaid
-
-1. 用户显式选择关闭、自然语言或标签列表模式；关闭模式原样透传，两种清理模式分别保存设置。
-2. Switcher、设置 Toggle 与恢复默认都在图变更边界中即时写入 `node.properties`。
-3. `graphToPrompt` 注入规范化 `config_json`，使配置参与后端执行与缓存。
-4. 关闭模式不修改文本；自然语言模式只清理空白；标签模式只按顶层分隔符规范化和稳定去重。已支持的顶层分区控制词触发整段原样旁路，其余 Prompt 方言不解释。
 
 ### PromptSelector 与词库
 

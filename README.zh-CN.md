@@ -64,7 +64,6 @@ pip install -r requirements.txt
 | `ResolutionPreset` | `Aaalice/tools` | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 执行到达时按开关发送桌面通知和提示音，并原样透传输入值。 |
-| `PromptCleaningMaid` | `Aaalice/prompt` | 快速关闭清理、安全清理自然语言提示词，或规范化并去重扁平标签列表。 |
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序并加权输出可复用提示词条。 |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | 从参考角色迁移选中特征，并保持原提示词的语言和格式。 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 在 Danbooru、Gelbooru、Safebooru 与 AI TAG 的虚拟瀑布流中搜索，并按顺序输出图片与对应提示词。 |
@@ -182,15 +181,6 @@ QuickGroupManager 不参与工作流执行，也没有输入或输出引脚。�
 </details>
 
 <details>
-<summary><strong>PromptCleaningMaid — 按格式清理提示词</strong></summary>
-
-连接提示词文本后，使用紧凑 Switcher 选择**关闭**、**自然语言**或**标签列表**。关闭模式用于快速停用全部清理效果，文本逐字原样透传；模式切换不会丢失两套清理配置。自然语言是安全默认模式，只按开关清理整段首尾、行尾和连续空行。标签列表模式识别顶层中英文逗号与换行，保护嵌套语法，并可清理首尾空白、移除空项和稳定去重。输入包含顶层分区控制词 `BREAK`、`AND`、`ADDCOL`、`ADDROW`、`ADDBASE` 或 `ADDCOMM` 时，节点会逐字原样输出，不再规范化或去重。
-
-设置按钮提供当前模式的详细开关，偏离默认设置时会在节点上显示状态点。节点不会删除 LoRA、补全权重、修复括号或自动猜测提示词格式；它只识别并保留上述分区控制词，不解释或修复分区语法，未知第三方控制词不会自动识别。标签结构不完整时原样输出。
-
-</details>
-
-<details>
 <summary><strong>PromptSelector — 有序词库选择</strong></summary>
 
 使用搜索和分类/收藏夹筛选后，可以跨分类选择任意数量的词条。安装 ComfyUI-Autocomplete-Aaalice 后，搜索框同样可使用其标签与中文补全。列表默认把最近排队使用过的词条放在前面，点击时钟按钮可恢复词库手工顺序；最近使用记录只属于当前 ComfyUI 用户的词库，不进入工作流或词库备份。每行直接以预览缩略图作为选择入口，选中后显示勾选覆层；无图词条使用不会打开大图的占位图。鼠标悬停或键盘聚焦带图词条时可以查看大图；条目右侧提供编辑和收藏图标，收藏时选择目标收藏夹，再点一次即可取消该词条的全部收藏。选择顺序属于当前节点，并直接决定输出顺序。已选词条悬停时会显示权重控件：滚轮或方向键调整，按住 `Shift` 微调，点击重置为 `1`；权重范围为 0–20。可选输入 `prefix_prompt` 始终最先输出，节点右键菜单可修改分隔符，默认是 `, `。
@@ -240,6 +230,7 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 
 - 预览版不兼容旧包创建的工作流数据。
 - `PromptAssistantBridge` 已于 0.7.0 移除，因为提示词小助手已自带提示词优化节点；包含该节点的工作流请替换为提示词小助手自带节点。
+- `PromptCleaningMaid` 已于 0.8.0 移除；包含该节点的工作流需要在执行前删除或替换它。
 - 暂不支持 App Mode。
 - 前端结构变更后，已有节点实例可能需要在刷新后重新创建。
 - ParameterReceiver 可以绑定当前图或父级图中的 ParameterPanel；不会绑定下级或同级子图中的面板，因为这些面板不在 KJNodes 的 Get 词法作用域内。

@@ -64,7 +64,6 @@ pip install -r requirements.txt
 | `ResolutionPreset` | `Aaalice/tools` | Pick an exact aligned width and height with presets, direct input, or a draggable canvas. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
-| `PromptCleaningMaid` | `Aaalice/prompt` | Quickly disable cleaning, safely clean natural-language prompts, or normalize and deduplicate flat tag lists. |
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | Transfer selected character features while preserving the original prompt's language and format. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
@@ -182,15 +181,6 @@ The alert confirms only that execution reached this node. It does not wait for o
 </details>
 
 <details>
-<summary><strong>PromptCleaningMaid — format-aware prompt cleaning</strong></summary>
-
-Connect prompt text, then use the compact switcher to choose **Off**, **Natural language**, or **Tag list**. Off mode is an exact pass-through for quickly disabling every cleaning effect; switching modes preserves both cleaning configurations. Natural-language mode is the safe default and only cleans enabled outer, line-end, and blank-line whitespace. Tag-list mode recognizes top-level English/Chinese commas and line breaks, preserves nested syntax, and can trim, remove empty entries, and stably deduplicate tags. Inputs containing the recognized top-level partition controls `BREAK`, `AND`, `ADDCOL`, `ADDROW`, `ADDBASE`, or `ADDCOMM` are passed through byte-for-byte instead of being normalized or deduplicated.
-
-The settings button opens mode-specific toggles and marks the node when defaults have been customized. The node never removes LoRA tags, completes weights, repairs brackets, or auto-detects prompt formats. It preserves the recognized partition controls above without interpreting or repairing their syntax; unknown third-party control words are not auto-detected. Malformed tag-list structure is returned unchanged.
-
-</details>
-
-<details>
 <summary><strong>PromptSelector — ordered prompt-library selection</strong></summary>
 
 Use search and the category or favorite-folder filters, then select any number of entries across categories. With ComfyUI-Autocomplete-Aaalice installed, the search box also offers its tag and Chinese completion. The list shows prompts used in the most recently queued workflows first; the clock button restores manual library order. Recent-use history stays with the current ComfyUI user's library and is not included in workflows or library backups. Each row uses its preview thumbnail as the selection target; a check overlay shows the selected state, while entries without an image use a non-previewing placeholder. Hover or focus an image-backed entry to inspect a larger preview. The row actions open the entry editor or add it to a chosen favorite folder; clicking an active favorite again removes all favorite memberships from that entry. Selection order belongs to the node and determines output order. Hover a selected entry to reveal its weight control: scroll or use arrow keys to adjust it, hold `Shift` for fine adjustments, or click to reset it to `1`; the valid range is 0–20. The optional `prefix_prompt` input is emitted first, and the node context menu can change the separator, which defaults to `, `.
@@ -240,6 +230,7 @@ The **Library** workspace manages entries, flat categories, multi-membership fav
 
 - This preview has no compatibility layer for workflows created with the legacy package.
 - `PromptAssistantBridge` was removed in 0.7.0 because prompt-assistant now ships its own expansion node; workflows containing it must replace it with that node.
+- `PromptCleaningMaid` was removed in 0.8.0; workflows containing it must remove or replace it before execution.
 - App Mode is not supported.
 - Structural frontend updates can require recreating existing node instances after refresh.
 - ParameterReceiver binds a ParameterPanel in its current graph or an ancestor graph. It does not bind panels from descendant or sibling graphs, which are outside KJNodes' lexical Get scope.

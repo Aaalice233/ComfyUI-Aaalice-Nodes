@@ -66,10 +66,6 @@
 
 - **Missing Binding（失效绑定）**：目标宿主或参数身份无法精确解析、但仍被保留以供人工重新绑定的 Control Binding。避免使用 Auto Rebind、Name Match。
 
-- **Prompt Cleaning（提示词清理）**：按照用户明确选择的关闭、自然语言或标签列表模式执行原样透传或保守、确定性的文本规范化。它不猜测提示词类型，也不修复权重、LoRA 或第三方语法；识别到已支持的分区控制语法时整段原样旁路。
-
-- **Tag-list Deduplication（标签列表去重）**：在保持首次出现形式和原顺序的前提下，按配置的大小写与下划线等价规则移除重复顶层标签。避免使用 Prompt semantic repair、automatic prompt detection。
-
 - **QuickGroupManager（快速组管理器）**：在当前图中按独立范围显示、排序和切换可视组的控制节点。避免使用 GroupMuteManager、GroupBypassManager。
 
 - **Managed Group Scope（纳管组范围）**：一个 QuickGroupManager 当前显示并允许手动操作的组集合，由颜色筛选决定。避免使用 Global Group State、shared Manager scope。

@@ -156,20 +156,6 @@
         "invalid": "The linkage rule is invalid."
       }
     },
-    "promptCleaner": {
-      "mode": { "aria": "Prompt format", "off": "Off", "naturalLanguage": "Natural", "tagList": "Tag list" },
-      "settings": {
-        "aria": "Prompt cleaning settings", "disabled": "Cleaning is disabled", "reset": "Reset defaults",
-        "trimOuterWhitespace": "Trim outer whitespace",
-        "trimLineEndWhitespace": "Trim line-end whitespace",
-        "collapseBlankLines": "Collapse blank lines",
-        "trimTagWhitespace": "Trim tag whitespace",
-        "removeEmptyTags": "Remove empty tags",
-        "deduplicateTags": "Deduplicate tags",
-        "ignoreCase": "Ignore case",
-        "underscoreEqualsSpace": "Treat “_” as space"
-      }
-    },
     "simpleNotify": {
       "defaultMessage": "Execution reached Simple Notify.",
       "menu": { "test": "🔔 Enable and Test Alerts" },
