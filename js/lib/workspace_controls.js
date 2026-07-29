@@ -22,7 +22,7 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 			image: { ...availabilityLabels, none: labels.imageNone, drop: labels.imageDrop, clear: labels.imageClear },
 			"image-compare": { ...availabilityLabels, ...(labels.imageCompare || {}) },
 		},
-		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean" },
+		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean", wheelAdjust: false },
 	});
 	let gestureOpen = false;
 	const view = createSharedControl(spec, {

@@ -204,6 +204,8 @@ test("numeric control gestures preview live inside one graph history boundary", 
 	assert.match(numericControl, /createNumericEditor/);
 	assert.match(numericControl, /addEventListener\("wheel"/);
 	assert.match(numericControl, /event\.shiftKey \? 10 : 1/);
+	assert.match(numericControl, /presentation\?\.wheelAdjust !== false/);
+	assert.match(workspaceControls, /wheelAdjust: false/);
 	assert.match(numericControl, /passive: false/);
 	assert.match(theme, /\.aa-control-numeric-value/);
 	assert.match(uiStyles, /::-webkit-slider-runnable-track/);

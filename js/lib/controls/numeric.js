@@ -140,7 +140,10 @@ export function renderNumericControl(spec, port) {
 		if (preview(current + delta)) event.preventDefault();
 		clearTimeout(gestureTimer); gestureTimer = setTimeout(finish, 160);
 	};
-	root.addEventListener("wheel", adjust, { passive: false }); valueButton.addEventListener("wheel", adjust, { passive: false });
+	// 侧边栏等宿主可关闭滚轮调值，避免吞掉页面滚动与边界翻页。
+	if (spec.presentation?.wheelAdjust !== false) {
+		root.addEventListener("wheel", adjust, { passive: false }); valueButton.addEventListener("wheel", adjust, { passive: false });
+	}
 	valueButton.addEventListener("click", () => createNumericEditor(valueButton, { value: current, min, max, step, onCommit: (next) => { sync(next); port.commit(current); flash(); } }));
 	valueButton.addEventListener("keydown", (event) => {
 		if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown"].includes(event.key)) return;
