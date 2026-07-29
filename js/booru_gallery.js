@@ -6,6 +6,7 @@ import { defaultGalleryRatings, finalPrompt, galleryPayload, GALLERY_CATEGORIES,
 import { streamTagTranslations } from "./lib/tag_translation.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
+import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { mountVirtualList } from "./lib/virtual_list.js";
 import { mountVirtualMasonry } from "./lib/virtual_masonry.js";
@@ -243,7 +244,7 @@ async function saveGlobalBlacklist(value) {
 		body: JSON.stringify({ blacklist }),
 	});
 	const searches = [];
-	for (const galleryNode of app.graph?._nodes || []) {
+	for (const galleryNode of allGraphNodes(app.graph)) {
 		if (!isGallery(galleryNode)) continue;
 		if (stateFor(galleryNode).selections.some((selection) => blacklist.some((tag) => selectionContainsTag(selection, tag)))) {
 			transact(galleryNode, (state) => { state.selections = state.selections.filter((selection) => !blacklist.some((tag) => selectionContainsTag(selection, tag))); });
@@ -1662,7 +1663,7 @@ async function openSettingsDialog() {
 	nav.append(el("div", { className: "aa-gallery-settings__nav-summary", children: [el("strong", null, label("settings.accountCount", "{count} accounts ready").replace("{count}", String(configuredCount)))] }));
 	setPage("accounts");
 	const body = el("div", { className: "aa-gallery-settings", children: [nav, el("div", { className: "aa-gallery-settings__pages", children: [accountsPanel, browsePanel, blacklistPanel, promptPanel, performancePanel] })] });
-	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true" }, tooltip: tooltip.getAttribute("aria-checked") === "true", selectionStamp: selectedStamp, timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); for (const galleryNode of app.graph?._nodes || []) { if (!isGallery(galleryNode)) continue; galleryNode._aaGalleryController?.renderSelected(); galleryNode._aaGalleryController?.refreshCards(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
+	const save = button({ label: label("settings.save", "Save"), variant: "primary", onClick: async () => { save.disabled = true; try { const previousBlacklist = JSON.stringify(settings.blacklist || []); settings = await jsonRequest(`${API}/settings/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defaultSource: defaultSource.value, blacklist: tagLines(blacklist.value), promptDefaults: { categories: defaultCategories.values(), replaceUnderscores: defaultUnderscores.getAttribute("aria-checked") === "true", escapeParentheses: defaultParentheses.getAttribute("aria-checked") === "true" }, tooltip: tooltip.getAttribute("aria-checked") === "true", selectionStamp: selectedStamp, timeout: Number(timeout.value), cacheBudgetMiB: Number(budget.value), credentials: Object.fromEntries(Object.entries(sourceInputs).map(([sourceName, fields]) => [sourceName, Object.fromEntries(Object.entries(fields).map(([name, input]) => [name, input.value]))])), clearCredentials: Object.fromEntries(Object.entries(sourceClears).map(([sourceName, values]) => [sourceName, [...values]])) }) }); dialog.close(); for (const galleryNode of allGraphNodes(app.graph)) { if (!isGallery(galleryNode)) continue; galleryNode._aaGalleryController?.renderSelected(); galleryNode._aaGalleryController?.refreshCards(); if (previousBlacklist !== JSON.stringify(settings.blacklist || [])) void galleryNode._aaGalleryController?.search({ reset: true, page: 1 }); } } catch (error) { status.textContent = error.message; save.disabled = false; } } });
 	dialog = createDialog({ title: label("settings.title", "Booru Gallery"), body, footer: el("div", { className: "aa-gallery-settings__footer", children: [status, save] }), size: "lg", className: "aa-gallery-settings-dialog", confirmOnEnter: false });
 }
 
@@ -1676,7 +1677,19 @@ function registerSettings() {
 
 function installPromptHook() {
 	if (app._aaGalleryPromptHook) return; app._aaGalleryPromptHook = true; const original = app.graphToPrompt?.bind(app); if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable for BooruGalleryNode");
-	app.graphToPrompt = async function (...args) { const result = await original(...args); const output = result?.output ?? result; for (const node of app.graph?._nodes || []) { if (!isGallery(node)) continue; const promptNode = output?.[String(node.id)]; if (!promptNode) continue; promptNode.inputs ||= {}; promptNode.inputs.gallery_payload = JSON.stringify(galleryPayload(stateFor(node), settings?.blacklist)); } return result; };
+	app.graphToPrompt = async function (...args) {
+		const result = await original(...args);
+		const output = result?.output ?? result;
+		for (const node of allGraphNodes(app.graph)) {
+			if (!isGallery(node)) continue;
+			const payload = JSON.stringify(galleryPayload(stateFor(node), settings?.blacklist));
+			for (const promptNode of promptNodesForGraphNode(output, node)) {
+				promptNode.inputs ||= {};
+				promptNode.inputs.gallery_payload = payload;
+			}
+		}
+		return result;
+	};
 }
 
 function hookPrototype(nodeType) { if (!nodeType || nodeType.__aaaliceBooruGallery) return; nodeType.__aaaliceBooruGallery = true; const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); setupNodeSafely(this, { initializeSize: true }); return result; }; }
@@ -1687,5 +1700,5 @@ app.registerExtension({
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isGallery(node)) setupNodeSafely(node, { initializeSize: true }); },
 	loadedGraphNode(node) { if (isGallery(node)) { setupNodeSafely(node); restoreNode(node); } },
-	setup() { installPromptHook(); for (const node of app.graph?._nodes || []) if (isGallery(node)) setupNodeSafely(node); },
+	setup() { installPromptHook(); for (const node of allGraphNodes(app.graph)) if (isGallery(node)) setupNodeSafely(node); },
 });

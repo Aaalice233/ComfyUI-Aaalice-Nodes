@@ -7,6 +7,7 @@ import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } 
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { applyCategoryColor } from "./lib/category_color.js";
 import { collectionDisplayName, collectionSelectOption, DEFAULT_COLLECTION_ID } from "./lib/collection.js";
+import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { closeImagePreview, createImagePreview } from "./lib/image_preview.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
@@ -369,10 +370,11 @@ function installPromptHook() {
 	app.graphToPrompt = async function (...args) {
 		const result = await original(...args); const output = result?.output ?? result;
 		const usedEntryIds = new Set();
-		for (const node of (app.graph?._nodes || []).filter(isSelector)) {
-			const promptNode = output?.[String(node.id)]; if (!promptNode) continue;
+		for (const node of allGraphNodes(app.graph).filter(isSelector)) {
+			const promptNodes = promptNodesForGraphNode(output, node); if (!promptNodes.length) continue;
 			const payload = materializePromptPayload(stateFor(node), promptLibraryStore.snapshot.entries);
-			promptNode.inputs ||= {}; promptNode.inputs.selection_payload_json = JSON.stringify(payload);
+			const selectionPayloadJson = JSON.stringify(payload);
+			for (const promptNode of promptNodes) { promptNode.inputs ||= {}; promptNode.inputs.selection_payload_json = selectionPayloadJson; }
 			for (const selection of payload.selections) if (selection.text != null) usedEntryIds.add(selection.entryId);
 		}
 		if (usedEntryIds.size) void promptLibraryStore.recordUsage([...usedEntryIds]).catch((error) => libraryActionError(t("aaalice.promptSelector.recentUsageFailed", "Could not update recent prompts"), error));
@@ -385,5 +387,5 @@ app.registerExtension({
 	async init() { await ensureI18nReady(); },
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name !== NODE) return; const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); setup(this, false); return result; }; },
 	nodeCreated(node) { if (isSelector(node)) setup(node, false); }, loadedGraphNode(node) { if (isSelector(node)) setup(node, true); },
-	setup() { installPromptHook(); let refreshFrame = 0; promptLibraryStore.addEventListener("change", () => { if (refreshFrame) return; refreshFrame = requestAnimationFrame(() => { refreshFrame = 0; for (const node of app.graph?._nodes || []) if (isSelector(node) && node._aaalicePromptSelectorRoot?.isConnected) render(node); }); }); for (const node of app.graph?._nodes || []) if (isSelector(node)) setup(node, true); },
+	setup() { installPromptHook(); let refreshFrame = 0; promptLibraryStore.addEventListener("change", () => { if (refreshFrame) return; refreshFrame = requestAnimationFrame(() => { refreshFrame = 0; for (const node of allGraphNodes(app.graph)) if (isSelector(node) && node._aaalicePromptSelectorRoot?.isConnected) render(node); }); }); for (const node of allGraphNodes(app.graph)) if (isSelector(node)) setup(node, true); },
 });

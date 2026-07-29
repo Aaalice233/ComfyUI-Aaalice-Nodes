@@ -18,6 +18,7 @@ import {
 	ensureParameters,
 	isParameterPanel,
 } from "./lib/param_model.js";
+import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { getGraphLink, getGraphNode } from "./parameter_panel_kj.js";
 import {
 	reshapeEnumBranchInputs,
@@ -445,14 +446,15 @@ function installPromptHook() {
 	const original = app.graphToPrompt?.bind(app);
 	if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable for EnumSwitch");
 	app.graphToPrompt = async function (...args) {
-		const nodes = (app.graph?._nodes || []).filter(isEnumSwitch);
+		const nodes = allGraphNodes(app.graph).filter(isEnumSwitch);
 		const result = await original(...args);
 		const output = result?.output ?? result;
 		for (const node of nodes) {
-			const promptNode = output?.[String(node.id)];
-			if (!promptNode) continue;
-			promptNode.inputs ||= {};
-			promptNode.inputs.routes_json = JSON.stringify(enumPromptPayload(state(node)));
+			const routesJson = JSON.stringify(enumPromptPayload(state(node)));
+			for (const promptNode of promptNodesForGraphNode(output, node)) {
+				promptNode.inputs ||= {};
+				promptNode.inputs.routes_json = routesJson;
+			}
 		}
 		return result;
 	};
@@ -477,6 +479,6 @@ app.registerExtension({
 	loadedGraphNode(node) { if (isEnumSwitch(node)) setupEnumSwitch(node, true); },
 	setup() {
 		installPromptHook();
-		for (const node of app.graph?._nodes || []) if (isEnumSwitch(node)) setupEnumSwitch(node, true);
+		for (const node of allGraphNodes(app.graph)) if (isEnumSwitch(node)) setupEnumSwitch(node, true);
 	},
 });

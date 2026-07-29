@@ -9,6 +9,7 @@ import {
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
+import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { button, createDialog, el, field, iconButton, isolate } from "./lib/ui.js";
 
@@ -75,7 +76,7 @@ function renderSettingsSummary(node) {
 
 function applyPublicSettings(settings) {
 	publicSettings = settings;
-	for (const node of app.graph?._nodes || []) if (isCharacterSwap(node)) renderSettingsSummary(node);
+	for (const node of allGraphNodes(app.graph)) if (isCharacterSwap(node)) renderSettingsSummary(node);
 }
 
 async function refreshPublicSettings({ force = false } = {}) {
@@ -304,16 +305,16 @@ function installPromptHook() {
 	const original = app.graphToPrompt?.bind(app);
 	if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable for CharacterFeatureSwapNode");
 	app.graphToPrompt = async function (...args) {
-		const nodes = (app.graph?._nodes || []).filter(isCharacterSwap);
+		const nodes = allGraphNodes(app.graph).filter(isCharacterSwap);
 		const settings = nodes.length ? await refreshPublicSettings({ force: true }) : null;
 		const result = await original(...args);
 		const output = result?.output ?? result;
 		for (const node of nodes) {
-			const promptNode = output?.[String(node.id)];
-			if (!promptNode) continue;
-			promptNode.inputs ||= {};
-			promptNode.inputs.features_json = JSON.stringify(characterFeatureSwapPayload(stateFor(node)));
-			promptNode.inputs.config_revision = settings?.revision || 0;
+			for (const promptNode of promptNodesForGraphNode(output, node)) {
+				promptNode.inputs ||= {};
+				promptNode.inputs.features_json = JSON.stringify(characterFeatureSwapPayload(stateFor(node)));
+				promptNode.inputs.config_revision = settings?.revision || 0;
+			}
 		}
 		return result;
 	};
@@ -342,6 +343,6 @@ app.registerExtension({
 	loadedGraphNode(node) { if (isCharacterSwap(node)) setupNode(node); },
 	setup() {
 		installPromptHook();
-		for (const node of app.graph?._nodes || []) if (isCharacterSwap(node)) setupNode(node);
+		for (const node of allGraphNodes(app.graph)) if (isCharacterSwap(node)) setupNode(node);
 	},
 });

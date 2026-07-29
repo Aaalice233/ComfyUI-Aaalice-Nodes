@@ -4,6 +4,7 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
+import { allGraphNodes } from "./lib/graph_scope.js";
 import { navigateToVisualGroup } from "./lib/group_navigation.js";
 import { button, createAnchoredPopover, createTooltip, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
 import {
@@ -715,5 +716,5 @@ app.registerExtension({
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isManager(node)) setupManager(node, { initializeSize: true }); },
 	loadedGraphNode(node) { if (isManager(node)) setupManager(node); },
-	setup() { installGraphListener(); for (const node of app.graph?._nodes || []) if (isManager(node)) setupManager(node); },
+	setup() { installGraphListener(); for (const node of allGraphNodes(app.graph)) if (isManager(node)) setupManager(node); },
 });

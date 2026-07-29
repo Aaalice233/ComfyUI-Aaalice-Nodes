@@ -4,6 +4,7 @@ import { ensureI18nReady, t } from "./i18n.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { currentGroups, groupLabels, registerProbePromptInjection, snapshotGroup } from "./lib/group_probe.js";
+import { allGraphNodes } from "./lib/graph_scope.js";
 import { button, el, icon, iconButton, listboxControl, segmentedControl } from "./lib/ui.js";
 
 const NODE = "GroupLogicProbe";
@@ -199,7 +200,7 @@ app.registerExtension({
 	nodeCreated(node) { if (isProbe(node)) setupProbe(node, { initializeSize: true }); },
 	loadedGraphNode(node) { if (isProbe(node)) setupProbe(node); },
 	setup() {
-		for (const node of app.graph?._nodes || []) setupProbe(node);
+		for (const node of allGraphNodes(app.graph)) setupProbe(node);
 		registerProbePromptInjection({
 			key: PAYLOAD,
 			isProbe,

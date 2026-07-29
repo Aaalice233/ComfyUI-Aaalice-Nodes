@@ -7,6 +7,7 @@ import "./parameter_receiver.js";
 import "./enum_switch.js";
 import "./group_is_enabled.js";
 import "./group_logic_probe.js";
+import "./quick_group_manager.js";
 import "./simple_notify.js";
 import "./prompt_selector.js";
 import "./character_feature_swap.js";

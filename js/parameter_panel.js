@@ -17,7 +17,7 @@ import {
 	parameterPanelReceiverMenuItems,
 	registerParameterPanelKj,
 } from "./parameter_panel_kj.js";
-import { allGraphNodes, nodeExecutionIds } from "./lib/graph_scope.js";
+import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import {
 	EVENT_PARAMETER_CHANGED,
 	MAX_TUNABLE,
@@ -917,9 +917,7 @@ function installPromptHook() {
 		const output = result?.output ?? result;
 		for (const node of nodes) {
 			normalizeDynamicOptions(ensureParameters(node));
-			for (const executionId of nodeExecutionIds(node)) {
-				const promptNode = output?.[executionId];
-				if (!promptNode) continue;
+			for (const promptNode of promptNodesForGraphNode(output, node)) {
 				promptNode.inputs ||= {};
 				promptNode.inputs.parameters_json = JSON.stringify(materializeParameters(ensureParameters(node)));
 				promptNode.inputs.validate_dynamic_values = Boolean(node.outputs?.some((output) => output?.links?.length));

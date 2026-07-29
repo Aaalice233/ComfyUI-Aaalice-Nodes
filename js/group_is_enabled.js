@@ -2,6 +2,7 @@
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { currentGroups, groupLabels, registerProbePromptInjection, snapshotGroup } from "./lib/group_probe.js";
+import { allGraphNodes } from "./lib/graph_scope.js";
 
 const NODE = "GroupIsEnabled";
 const PAYLOAD = "group_state_payload";
@@ -36,7 +37,7 @@ app.registerExtension({
 	nodeCreated(node) { if (isProbe(node)) setupProbe(node); },
 	loadedGraphNode(node) { if (isProbe(node)) { setupProbe(node); ensureDefaultSelection(node); } },
 	setup() {
-		for (const node of app.graph?._nodes || []) { setupProbe(node); ensureDefaultSelection(node); }
+		for (const node of allGraphNodes(app.graph)) { setupProbe(node); ensureDefaultSelection(node); }
 		registerProbePromptInjection({
 			key: PAYLOAD,
 			isProbe,

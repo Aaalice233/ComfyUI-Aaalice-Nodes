@@ -98,6 +98,23 @@ export function nodeExecutionIds(node) {
 	return matches.map(({ path }) => [...path.map((wrapper) => wrapper.id), node.id].join(":"));
 }
 
+export function promptNodesForGraphNode(output, node) {
+	if (!output || typeof output !== "object") return [];
+	return nodeExecutionIds(node).map((executionId) => output[executionId]).filter(Boolean);
+}
+
+export function findNodeByExecutionId(root, executionId) {
+	const ids = String(executionId ?? "").split(":").filter(Boolean);
+	if (!ids.length) return null;
+	let graph = rootGraph(root);
+	for (const wrapperId of ids.slice(0, -1)) {
+		const wrapper = findGraphNode(graph, wrapperId);
+		if (!wrapper?.subgraph) return null;
+		graph = wrapper.subgraph;
+	}
+	return findGraphNode(graph, ids.at(-1));
+}
+
 export function graphRoute(ancestor, descendant) {
 	if (!ancestor || !descendant) return null;
 	if (ancestor === descendant) return [];

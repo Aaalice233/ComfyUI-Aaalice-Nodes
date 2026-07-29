@@ -4,6 +4,7 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
+import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import {
 	ALIGNMENTS, BUILTIN_PRESETS, CANVAS_LIMITS, MAX_RESOLUTION, MIN_RESOLUTION,
@@ -42,7 +43,7 @@ async function jsonRequest(path, options = {}) {
 	return data;
 }
 
-function renderAll() { for (const node of app.graph?._nodes || []) if (isResolutionNode(node)) render(node); }
+function renderAll() { for (const node of allGraphNodes(app.graph)) if (isResolutionNode(node)) render(node); }
 
 async function loadPersonalPresets({ force = false } = {}) {
 	if (!force && presetRequest) return presetRequest;
@@ -361,7 +362,19 @@ function setupNode(node, { initializeSize = false } = {}) {
 function installPromptHook() {
 	if (app._aaaliceResolutionPresetPromptHook) return; app._aaaliceResolutionPresetPromptHook = true;
 	const original = app.graphToPrompt?.bind(app); if (!original) throw new Error("[Aaalice] graphToPrompt is unavailable for ResolutionPreset");
-	app.graphToPrompt = async function (...args) { const nodes = (app.graph?._nodes || []).filter(isResolutionNode); const result = await original(...args); const output = result?.output ?? result; for (const node of nodes) { const promptNode = output?.[String(node.id)]; if (!promptNode) continue; promptNode.inputs ||= {}; promptNode.inputs.resolution_json = JSON.stringify(resolutionPayload(stateFor(node))); } return result; };
+	app.graphToPrompt = async function (...args) {
+		const nodes = allGraphNodes(app.graph).filter(isResolutionNode);
+		const result = await original(...args);
+		const output = result?.output ?? result;
+		for (const node of nodes) {
+			const resolutionJson = JSON.stringify(resolutionPayload(stateFor(node)));
+			for (const promptNode of promptNodesForGraphNode(output, node)) {
+				promptNode.inputs ||= {};
+				promptNode.inputs.resolution_json = resolutionJson;
+			}
+		}
+		return result;
+	};
 }
 
 function hookPrototype(nodeType) { if (!nodeType || nodeType.__aaaliceResolutionPreset) return; nodeType.__aaaliceResolutionPreset = true; const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); setupNode(this, { initializeSize: true }); return result; }; }
@@ -372,5 +385,5 @@ app.registerExtension({
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isResolutionNode(node)) setupNode(node, { initializeSize: true }); },
 	loadedGraphNode(node) { if (isResolutionNode(node)) { setupNode(node); node.properties[PROPERTY] = normalizeResolutionState(node.properties?.[PROPERTY], personalPresets); render(node); void loadPersonalPresets(); } },
-	setup() { installPromptHook(); for (const node of app.graph?._nodes || []) if (isResolutionNode(node)) setupNode(node); },
+	setup() { installPromptHook(); for (const node of allGraphNodes(app.graph)) if (isResolutionNode(node)) setupNode(node); },
 });

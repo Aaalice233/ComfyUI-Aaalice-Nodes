@@ -13,9 +13,12 @@ test("sync status uses the shared accessible icon button", () => {
 	assert.match(source, /NODE_TITLE_HEIGHT/);
 });
 
-test("prompt payload is injected instead of exposed as a schema widget", () => {
+test("prompt payload is injected for root and nested subgraph executions", () => {
 	assert.match(source, /promptNode\.inputs\.routes_json/);
 	assert.match(source, /enumPromptPayload/);
+	assert.match(source, /allGraphNodes\(app\.graph\)\.filter\(isEnumSwitch\)/);
+	assert.match(source, /for \(const promptNode of promptNodesForGraphNode\(output, node\)\)/);
+	assert.doesNotMatch(source, /output\?\.\[String\(node\.id\)\]/);
 });
 
 test("classic and Nodes 2.0 lifecycle paths are both installed", () => {

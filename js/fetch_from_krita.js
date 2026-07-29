@@ -7,6 +7,7 @@ import {
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
+import { allGraphNodes, findNodeByExecutionId } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { button, createDialog, el, icon, iconButton, isolate } from "./lib/ui.js";
 
@@ -37,7 +38,7 @@ async function jsonRequest(path, options = {}) {
 }
 
 function nodeById(value) {
-	return app.graph?.getNodeById?.(Number(value)) || app.graph?.getNodeById?.(String(value));
+	return findNodeByExecutionId(app.graph, value);
 }
 
 function stateFor(node) {
@@ -119,7 +120,7 @@ function render(node) {
 }
 
 function renderAll() {
-	for (const node of app.graph?._nodes || []) if (isKritaNode(node)) render(node);
+	for (const node of allGraphNodes(app.graph)) if (isKritaNode(node)) render(node);
 }
 
 async function refreshStatus({ force = false } = {}) {
@@ -367,5 +368,5 @@ app.registerExtension({
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isKritaNode(node)) setupNode(node, { initializeSize: true }); },
 	loadedGraphNode(node) { if (isKritaNode(node)) { setupNode(node); render(node); } },
-	setup() { for (const node of app.graph?._nodes || []) if (isKritaNode(node)) setupNode(node); },
+	setup() { for (const node of allGraphNodes(app.graph)) if (isKritaNode(node)) setupNode(node); },
 });

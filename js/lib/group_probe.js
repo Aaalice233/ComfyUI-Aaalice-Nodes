@@ -1,6 +1,7 @@
 /** Shared visual-group probing: live labels, queue-time snapshots and the prompt hook. */
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
+import { allGraphNodes, promptNodesForGraphNode } from "./graph_scope.js";
 import { classifyGroupNodes } from "./quick_group_manager_model.js";
 
 export function groupTitle(group) {
@@ -46,13 +47,14 @@ export function registerProbePromptInjection({ key, isProbe, payloadFor }) {
 	app.graphToPrompt = async function (...args) {
 		const result = await original(...args);
 		const output = result?.output ?? result;
-		for (const node of app.graph?._nodes || []) {
-			const promptNode = output?.[String(node.id)];
-			if (!promptNode) continue;
-			for (const handler of handlers) {
-				if (!handler.isProbe(node)) continue;
+		for (const node of allGraphNodes(app.graph)) {
+			const matchingHandlers = handlers.filter((handler) => handler.isProbe(node));
+			if (!matchingHandlers.length) continue;
+			for (const promptNode of promptNodesForGraphNode(output, node)) {
 				promptNode.inputs ||= {};
-				promptNode.inputs[handler.key] = JSON.stringify(handler.payloadFor(node));
+				for (const handler of matchingHandlers) {
+					promptNode.inputs[handler.key] = JSON.stringify(handler.payloadFor(node));
+				}
 			}
 		}
 		return result;

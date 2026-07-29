@@ -3,12 +3,14 @@ import test from "node:test";
 
 import {
 	allGraphNodes,
+	findNodeByExecutionId,
 	findNodeByGraphRef,
 	graphAncestors,
 	graphDescendants,
 	graphId,
 	graphRoute,
 	nodeExecutionIds,
+	promptNodesForGraphNode,
 } from "../js/lib/graph_scope.js";
 
 function graph(id, nodes = []) {
@@ -45,8 +47,24 @@ test("graph scope follows nested wrapper paths and stable graph ids", () => {
 });
 
 test("qualified execution ids include every enclosing subgraph node", () => {
-	const { leafNode } = nestedFixture();
+	const { root, leafNode } = nestedFixture();
 	assert.deepEqual(nodeExecutionIds(leafNode), ["2:4:9"]);
+	assert.deepEqual(promptNodesForGraphNode({ "2:4:9": { inputs: {} } }, leafNode), [{ inputs: {} }]);
+	assert.equal(findNodeByExecutionId(root, "2:4:9"), leafNode);
+	assert.equal(findNodeByExecutionId(root, "2:missing:9"), null);
+});
+
+test("shared subgraph definitions address every wrapper execution", () => {
+	const sharedNode = { id: 9, type: "EnumSwitch" };
+	const shared = graph("shared", [sharedNode]);
+	const root = graph(null, [{ id: 2, subgraph: shared }, { id: 7, subgraph: shared }]);
+	shared.rootGraph = root;
+	const first = { inputs: {} };
+	const second = { inputs: {} };
+
+	assert.deepEqual(nodeExecutionIds(sharedNode), ["2:9", "7:9"]);
+	assert.deepEqual(promptNodesForGraphNode({ "2:9": first, "7:9": second }, sharedNode), [first, second]);
+	assert.equal(findNodeByExecutionId(root, "7:9"), sharedNode);
 });
 
 test("graph references resolve duplicate node ids without drifting graphs", () => {
