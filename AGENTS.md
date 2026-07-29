@@ -125,6 +125,7 @@ ComfyUI-Aaalice-Nodes/
 - 业务数量可变的槽不得用固定数组加隐藏标记模拟。ParameterPanel、ParameterReceiver 与 EnumSwitch 必须按当前状态使用原生 `addInput()` / `removeInput()` 与 `addOutput()` / `removeOutput()` 物化连续真实槽；后端可保留最多 32 路的有界 Schema。
 - 动态槽尾部增删不得断开仍处于稳定前缀中的槽；中间插入、删除或重排必须在断开前按稳定 Parameter Id / Route Id 保存源或目标节点及槽位引用，不能只保存会随 `disconnectInput()` / `disconnectOutput()` 一起失效的 link ID。
 - 动态原生槽的 `label` / `localized_name` 变化必须通过 ComfyUI 图事件 `node:slot-label:changed` 通知，并携带正确的 `NodeSlotType.INPUT` 或 `NodeSlotType.OUTPUT`。Nodes 2.0 的 `NodeSlots.vue` 消费 `useGraphNodeManager.ts` 提取的浅响应式槽数组；只修改槽字段、调用 `setDirtyCanvas()`、重建 `_concreteInputs` / `_concreteOutputs` 或自行判断画布模式都不能代替该失效协议。升级 ComfyUI 前端时必须重新核对这两个文件及事件处理器。
+- ComfyUI 的复制、粘贴与克隆路径会先 `createNode()`，再用 `configure()` 覆盖属性和槽；`onNodeCreated` 阶段生成的默认槽对象可能因此与已恢复的 `slotMeta` / 稳定参数身份不一致。动态槽恢复不能只比较持久元数据的新旧差异，还必须核对当前真实槽的稳定 Id、`label` 和 `localized_name`；即使元数据相同，只要槽对象仍是临时默认状态，也要重写槽并发布官方槽标签失效事件。相关回归必须覆盖“复制节点后删除或重排参数”。
 - Nodes 2.0 确需监听 DOM 重挂时使用幂等 `MutationObserver`；不需要重挂的节点不得常驻观察器，所有路径禁止持续轮询。
 
 ## 5. 领域不变量

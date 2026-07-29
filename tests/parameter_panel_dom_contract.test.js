@@ -159,9 +159,10 @@ test("parameter renames publish ComfyUI's Nodes 2.0 slot-label event", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 
 	assert.match(panelSource, /const namesChanged = !structureChanged && previous\.some\(\(item, index\) => item\?\.name !== meta\[index\]\?\.name\)/);
+	assert.match(panelSource, /const presentationChanged = parameterOutputPresentationChanged\(node\.outputs, meta\)/);
 	assert.match(panelSource, /output\.label = meta\[index\]\?\.name \|\| ""/);
 	assert.match(panelSource, /output\.localized_name = output\.label/);
-	assert.match(panelSource, /if \(structureChanged \|\| namesChanged\) \{\s*node\.graph\?\.trigger\?\.\("node:slot-label:changed"/);
+	assert.match(panelSource, /if \(structureChanged \|\| namesChanged \|\| presentationChanged\) \{\s*node\.graph\?\.trigger\?\.\("node:slot-label:changed"/);
 	assert.match(panelSource, /nodeId: node\.id,\s*slotType: globalThis\.LiteGraph\?\.OUTPUT \?\? 2/);
 	assert.doesNotMatch(panelSource, /app\.canvas\?\.vueNodesMode === true && Array\.isArray\(node\.outputs\)/);
 });

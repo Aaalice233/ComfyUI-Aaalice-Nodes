@@ -45,7 +45,10 @@ import {
 	drawParameterStaticLayer,
 	syncNativeOutputLayout,
 } from "./lib/parameter_layout.js";
-import { reshapeParameterOutputsPreservingLinks } from "./lib/dynamic_slots.js";
+import {
+	parameterOutputPresentationChanged,
+	reshapeParameterOutputsPreservingLinks,
+} from "./lib/dynamic_slots.js";
 import { createSharedControl, destroySharedControls } from "./lib/controls/registry.js";
 import { parameterControlSpec } from "./lib/controls/specs.js";
 
@@ -255,6 +258,10 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	const orderChanged = previous.length !== meta.length || previous.some((item, index) => item?.id !== meta[index]?.id);
 	const structureChanged = shapeChanged || orderChanged;
 	const namesChanged = !structureChanged && previous.some((item, index) => item?.name !== meta[index]?.name);
+	// ComfyUI creates a fresh node with its schema outputs before clone/configure
+	// restores properties. The persisted slot metadata can therefore already
+	// match while the actual slot objects still carry the provisional labels.
+	const presentationChanged = parameterOutputPresentationChanged(node.outputs, meta);
 	node.properties ||= {};
 	node.properties.slotMeta = meta.map((item, order) => ({ id: item.id, name: item.name, order }));
 	if (structureChanged) {
@@ -294,7 +301,7 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	// Nodes 2.0 exposes slot labels through a shallowReactive outputs array.
 	// ComfyUI's public slot-label event performs the required array
 	// invalidation; dirty-canvas calls only refresh Classic rendering.
-	if (structureChanged || namesChanged) {
+	if (structureChanged || namesChanged || presentationChanged) {
 		node.graph?.trigger?.("node:slot-label:changed", {
 			nodeId: node.id,
 			slotType: globalThis.LiteGraph?.OUTPUT ?? 2,

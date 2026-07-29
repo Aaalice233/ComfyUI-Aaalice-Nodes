@@ -10,6 +10,20 @@ export function reshapeParameterOutputs(node, requestedCount) {
 	}
 }
 
+export function parameterOutputPresentationChanged(outputs, nextMeta) {
+	const slots = Array.isArray(outputs) ? outputs : [];
+	const meta = Array.isArray(nextMeta) ? nextMeta : [];
+	if (slots.length !== meta.length) return true;
+	return meta.some((item, index) => {
+		const output = slots[index];
+		const label = item?.name || "";
+		return !output
+			|| String(output._aaaliceParamId || "") !== String(item?.id || "")
+			|| output.label !== label
+			|| output.localized_name !== label;
+	});
+}
+
 function sameSharedPrefix(previousMeta, nextMeta) {
 	const shared = Math.min(previousMeta.length, nextMeta.length);
 	for (let index = 0; index < shared; index += 1) {

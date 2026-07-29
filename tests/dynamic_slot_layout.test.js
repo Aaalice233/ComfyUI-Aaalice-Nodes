@@ -7,6 +7,7 @@ import {
 	syncEnumConcreteInputs,
 } from "../js/lib/enum_switch_layout.js";
 import {
+	parameterOutputPresentationChanged,
 	reshapeParameterOutputs,
 	reshapeParameterOutputsPreservingLinks,
 } from "../js/lib/dynamic_slots.js";
@@ -31,6 +32,19 @@ test("ParameterPanel materializes exactly its tunable output count", () => {
 	assert.deepEqual(node.outputs.map((slot) => slot.name), ["output_1", "output_2"]);
 	reshapeParameterOutputs(node, 5);
 	assert.deepEqual(node.outputs.map((slot) => slot.name), ["output_1", "output_2", "output_3", "output_4", "output_5"]);
+});
+
+test("ParameterPanel detects provisional output labels after clone configuration", () => {
+	const meta = [{ id: "scale", name: "放大倍数" }, { id: "save", name: "保存图像" }];
+	const provisional = [
+		{ _aaaliceParamId: "steps", label: "步骤", localized_name: "步骤" },
+		{ _aaaliceParamId: "cfg", label: "CFG", localized_name: "CFG" },
+	];
+	assert.equal(parameterOutputPresentationChanged(provisional, meta), true);
+	assert.equal(parameterOutputPresentationChanged([
+		{ _aaaliceParamId: "scale", label: "放大倍数", localized_name: "放大倍数" },
+		{ _aaaliceParamId: "save", label: "保存图像", localized_name: "保存图像" },
+	], meta), false);
 });
 
 test("appending a ParameterPanel output keeps existing slots and links intact", () => {
