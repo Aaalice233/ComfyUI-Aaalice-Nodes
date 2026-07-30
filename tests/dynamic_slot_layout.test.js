@@ -8,6 +8,8 @@ import {
 } from "../js/lib/enum_switch_layout.js";
 import {
 	parameterOutputPresentationChanged,
+	publishDynamicSlotState,
+	refreshDynamicSlotGeometry,
 	reshapeParameterOutputs,
 	reshapeParameterOutputsPreservingLinks,
 } from "../js/lib/dynamic_slots.js";
@@ -100,6 +102,80 @@ test("reordering ParameterPanel outputs restores links by stable parameter id", 
 		{ outputIndex: 1, targetId: 100, targetSlot: 0 },
 		{ outputIndex: 0, targetId: 101, targetSlot: 2 },
 	]);
+});
+
+test("dynamic slot publication commits Vue arrays and LiteGraph concrete slots immediately", () => {
+	const events = [];
+	const graph = {
+		id: "subgraph-a",
+		trigger(type, detail) { events.push({ type, detail }); },
+		setDirtyCanvas() { this.dirty = true; },
+	};
+	const node = slotNode(2, 2);
+	node.id = 42;
+	node.graph = graph;
+	node.inputs[0].label = "CFG";
+	node.inputs[1].label = "Steps";
+	node.outputs[0].label = "CFG";
+	node.outputs[1].label = "Steps";
+	const previousInputs = node.inputs;
+	const previousOutputs = node.outputs;
+	node._setConcreteSlots = function () {
+		this._concreteInputs = this.inputs.map((slot) => ({ ...slot }));
+		this._concreteOutputs = this.outputs.map((slot) => ({ ...slot }));
+	};
+
+	publishDynamicSlotState(node, { inputs: true, outputs: true });
+
+	assert.notEqual(node.inputs, previousInputs);
+	assert.notEqual(node.outputs, previousOutputs);
+	assert.deepEqual(node._concreteInputs.map((slot) => slot.label), ["CFG", "Steps"]);
+	assert.deepEqual(node._concreteOutputs.map((slot) => slot.label), ["CFG", "Steps"]);
+	assert.deepEqual(events, [
+		{ type: "node:slot-label:changed", detail: { nodeId: 42, slotType: 1 } },
+		{ type: "node:slot-label:changed", detail: { nodeId: 42, slotType: 2 } },
+	]);
+	assert.equal(graph.dirty, true);
+});
+
+test("dynamic slot publication targets the node-owned subgraph rather than the root graph", () => {
+	const rootEvents = [];
+	const subgraphEvents = [];
+	const root = { id: "root", trigger(type, detail) { rootEvents.push({ type, detail }); } };
+	const subgraph = {
+		id: "nested",
+		rootGraph: root,
+		trigger(type, detail) { subgraphEvents.push({ type, detail }); },
+	};
+	const node = slotNode(0, 1);
+	node.id = 7;
+	node.graph = subgraph;
+	node._setConcreteSlots = () => {};
+
+	publishDynamicSlotState(node, { outputs: true });
+
+	assert.equal(rootEvents.length, 0);
+	assert.deepEqual(subgraphEvents, [
+		{ type: "node:slot-label:changed", detail: { nodeId: 7, slotType: 2 } },
+	]);
+});
+
+test("geometry-only refresh rebuilds concrete slots without publishing label events", () => {
+	const events = [];
+	const node = slotNode(1, 1);
+	node.graph = { trigger(...args) { events.push(args); } };
+	node.inputs[0].pos = [10, 20];
+	node.outputs[0].pos = [30, 40];
+	node._setConcreteSlots = function () {
+		this._concreteInputs = this.inputs.map((slot) => ({ ...slot, pos: [...slot.pos] }));
+		this._concreteOutputs = this.outputs.map((slot) => ({ ...slot, pos: [...slot.pos] }));
+	};
+
+	refreshDynamicSlotGeometry(node);
+
+	assert.deepEqual(node._concreteInputs[0].pos, [10, 20]);
+	assert.deepEqual(node._concreteOutputs[0].pos, [30, 40]);
+	assert.deepEqual(events, []);
 });
 
 test("EnumSwitch keeps selector plus exactly the current branch inputs", () => {

@@ -18,9 +18,12 @@ ParameterPanel、ParameterReceiver 与 EnumSwitch 的业务槽数量都由工作
 
 ParameterPanel 与 ParameterReceiver 在结构变化前按稳定 Parameter Id 记录并恢复连线；EnumSwitch 按稳定 Route Id 记录并恢复连线。尾部增删保留稳定前缀中的原生槽和 link；中间插入、删除或重排在断开前保存真实源/目标节点与槽位引用，不能只保存断开后会失效的 link ID。删除身份仍需要明确确认，结构变化保持单个图变更边界。
 
+Nodes 2.0 的公开 slot 数组与 LiteGraph concrete snapshot 必须在同一次提交中刷新，并在节点所属 `graph` 发布官方槽标签事件；不能依赖后续拖动或画布重绘补齐状态，也不能让业务布局模块直接维护私有 concrete 数组。
+
 ## 结果
 
 - 隐藏协议槽不再参与绘制、命中、序列化和节点尺寸计算。
 - 节点最小高度由真实槽与可见内容共同决定。
 - 参数改名、重排和枚举分支重排仍保留正确连线语义。
+- 根图与 Subgraph 的动态槽都在所属图内立即失效并刷新，不依赖当前可见画布。
 - 后端仍是无会话、最多 32 路的有界协议，不需要运行时动态 Schema。

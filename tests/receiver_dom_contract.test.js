@@ -58,10 +58,40 @@ test("receiver name refresh atomically reconciles slots and uses the KJ Get nami
 
 test("receiver invalidates both Nodes 2.0 slot arrays after presentation changes", () => {
 	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	const dynamicSource = readFileSync(join(ROOT, "js", "lib", "dynamic_slots.js"), "utf8");
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "receiver_layout.js"), "utf8");
 	assert.match(receiverSource, /presentationChanged \|\|= String\(nativeSlot\._aaaliceParamId \|\| ""\) !== String\(slot\?\.parameterId \|\| ""\)/);
-	assert.match(receiverSource, /globalThis\.LiteGraph\?\.INPUT \?\? 1/);
-	assert.match(receiverSource, /globalThis\.LiteGraph\?\.OUTPUT \?\? 2/);
-	assert.match(receiverSource, /receiver\.graph\?\.trigger\?\.\("node:slot-label:changed", \{\s*nodeId: receiver\.id,\s*slotType,/s);
+	assert.match(receiverSource, /publishDynamicSlotState\(receiver, \{ inputs: true, outputs: true \}\)/);
+	assert.match(dynamicSource, /node\.inputs = \[\.\.\.node\.inputs\]/);
+	assert.match(dynamicSource, /node\.outputs = \[\.\.\.node\.outputs\]/);
+	assert.match(dynamicSource, /graph\?\.trigger\?\.\("node:slot-label:changed"/);
+	assert.doesNotMatch(receiverSource, /receiver\._setConcreteSlots = function/);
+	assert.doesNotMatch(layoutSource, /_concreteInputs|_concreteOutputs/);
+});
+
+test("receiver synchronization keeps managed KJ Gets in the receiver subgraph", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	assert.match(receiverSource, /targetGetGraph = selectManagedGetGraph\(receiver\.graph, existingGetGraphs, setGraphs\)/);
+	assert.match(receiverSource, /targetGraph\.add\(getNode\)/);
+	assert.match(receiverSource, /receiverGraphId: graphId\(receiver\.graph\)/);
+	assert.match(receiverSource, /slot\.getGraphId = graphId\(getNode\.graph\)/);
+	assert.match(receiverSource, /findNodeByGraphRef\(graph, slot\.getGraphId, slot\.getNodeId\)/);
+	assert.match(receiverSource, /connectDescendantToAncestor\(/);
+	assert.doesNotMatch(receiverSource, /app\.graph\.add\(getNode\)|app\.canvas\?\.graph\.add\(getNode\)/);
+});
+
+test("receiver verifies the complete stable-id commit before reporting sync success", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	assert.match(receiverSource, /function assertSynchronizationCommitted\(receiver, panel\)/);
+	assert.match(receiverSource, /String\(input\?\._aaaliceParamId \|\| ""\) === String\(slot\.parameterId\)/);
+	assert.match(receiverSource, /String\(output\?\._aaaliceParamId \|\| ""\) === String\(slot\.parameterId\)/);
+	assert.match(receiverSource, /connectedGet === getNode/);
+	assert.match(receiverSource, /ownerMatches\(getNode, receiver, slot\)/);
+	assert.match(receiverSource, /setName === String\(slot\.setName\)/);
+	assert.match(receiverSource, /getName === String\(slot\.setName\)/);
+	assert.match(receiverSource, /syncSlotPresentation\(receiver\);\s*assertSynchronizationCommitted\(receiver, panel\);/);
+	assert.match(receiverSource, /receiver\.properties\.receiverBinding = previousBinding/);
+	assert.match(receiverSource, /nativeToast\("success"[\s\S]*return true/);
 });
 
 test("receiver keeps native resize corners and can shrink after growing", () => {

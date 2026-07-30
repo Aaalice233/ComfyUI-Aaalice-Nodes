@@ -45,26 +45,6 @@ export function computeReceiverLayout(node, count) {
 	};
 }
 
-function syncConcrete(node, direction, count) {
-	const key = direction === "input" ? "_concreteInputs" : "_concreteOutputs";
-	const concrete = node?.[key];
-	if (!Array.isArray(concrete)) return;
-	const nativeSlots = node?.[direction === "input" ? "inputs" : "outputs"] || [];
-	const next = concrete.slice(0, count);
-	for (let index = 0; index < next.length; index += 1) {
-		const source = node?.[direction === "input" ? "inputs" : "outputs"]?.[index];
-		const target = next[index];
-		if (!source || !target) continue;
-		for (const field of ["name", "label", "localized_name", "type", "shape", "color", "color_off", "color_on"]) {
-			if (source[field] === undefined) delete target[field];
-			else target[field] = source[field];
-		}
-		if (source.pos) target.pos = [...source.pos];
-		else delete target.pos;
-	}
-	node[key] = next.length === nativeSlots.length ? next : concrete;
-}
-
 export function syncReceiverLayout(node, count) {
 	const layout = computeReceiverLayout(node, count);
 	node._aaaliceReceiverLayout = layout;
@@ -76,7 +56,5 @@ export function syncReceiverLayout(node, count) {
 			slot.pos = [direction === "input" ? slotOffset - 1 : layout.width + 1 - slotOffset, layout.contentTop + row.center];
 		}
 	}
-	syncConcrete(node, "input", layout.visibleCount);
-	syncConcrete(node, "output", layout.visibleCount);
 	return layout;
 }

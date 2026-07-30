@@ -216,7 +216,9 @@
       },
       "error": {
         "getApi": "KJ GetNode naming API is unavailable.", "createGet": "Unable to create a KJ Get node.",
-        "missingSet": "A required KJ Set node is missing.", "missingGet": "A required KJ Get node is missing."
+        "missingSet": "A required KJ Set node is missing.", "missingGet": "A required KJ Get node is missing.",
+        "incompleteSync": "Parameter Receiver synchronization did not commit consistently.",
+        "incompleteParameterSync": "Parameter \"{name}\" did not synchronize consistently."
       }
     },
     "enumSwitch": {

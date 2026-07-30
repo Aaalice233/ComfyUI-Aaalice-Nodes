@@ -216,7 +216,9 @@
       },
       "error": {
         "getApi": "KJ GetNode 命名接口不可用。", "createGet": "无法创建 KJ Get 节点。",
-        "missingSet": "缺少必要的 KJ Set 节点。", "missingGet": "缺少必要的 KJ Get 节点。"
+        "missingSet": "缺少必要的 KJ Set 节点。", "missingGet": "缺少必要的 KJ Get 节点。",
+        "incompleteSync": "参数接收器未能一致地完成同步。",
+        "incompleteParameterSync": "参数“{name}”未能一致地完成同步。"
       }
     },
     "enumSwitch": {

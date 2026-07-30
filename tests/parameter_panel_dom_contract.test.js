@@ -157,13 +157,18 @@ test("parameter editor disables row dragging while renaming so text remains sele
 
 test("parameter renames publish ComfyUI's Nodes 2.0 slot-label event", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const dynamicSource = readFileSync(join(ROOT, "js", "lib", "dynamic_slots.js"), "utf8");
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
 
 	assert.match(panelSource, /const namesChanged = !structureChanged && previous\.some\(\(item, index\) => item\?\.name !== meta\[index\]\?\.name\)/);
 	assert.match(panelSource, /const presentationChanged = parameterOutputPresentationChanged\(node\.outputs, meta\)/);
 	assert.match(panelSource, /output\.label = meta\[index\]\?\.name \|\| ""/);
 	assert.match(panelSource, /output\.localized_name = output\.label/);
-	assert.match(panelSource, /if \(structureChanged \|\| namesChanged \|\| presentationChanged\) \{\s*node\.graph\?\.trigger\?\.\("node:slot-label:changed"/);
-	assert.match(panelSource, /nodeId: node\.id,\s*slotType: globalThis\.LiteGraph\?\.OUTPUT \?\? 2/);
+	assert.match(panelSource, /publishDynamicSlotState\(node, \{ outputs: true \}\)/);
+	assert.match(dynamicSource, /nodeId: node\.id/);
+	assert.match(dynamicSource, /slotType: globalThis\.LiteGraph\?\.OUTPUT \?\? OUTPUT/);
+	assert.doesNotMatch(panelSource, /node\._setConcreteSlots = function/);
+	assert.doesNotMatch(layoutSource, /_concreteOutputs/);
 	assert.doesNotMatch(panelSource, /app\.canvas\?\.vueNodesMode === true && Array\.isArray\(node\.outputs\)/);
 });
 

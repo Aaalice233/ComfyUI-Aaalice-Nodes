@@ -27,6 +27,10 @@ import {
 	syncReceiverLayout,
 } from "./lib/receiver_layout.js";
 import {
+	publishDynamicSlotState,
+	refreshDynamicSlotGeometry,
+} from "./lib/dynamic_slots.js";
+import {
 	EVENT_PARAMETER_KJ_CHANGED,
 	connectDescendantToAncestor,
 	createLinkedKjSets,
@@ -49,6 +53,10 @@ import {
 	isGraphAncestor,
 	rootGraph,
 } from "./lib/graph_scope.js";
+import {
+	RECEIVER_GRAPH_SCOPE_ERROR,
+	selectManagedGetGraph,
+} from "./lib/receiver_graph_scope.js";
 
 const NODE = "ParameterReceiver";
 const GET_NODE = "GetNode";
@@ -251,19 +259,8 @@ function syncSlotPresentation(receiver) {
 	}
 	const layout = syncReceiverLayout(receiver, current.slots.length);
 	if (presentationChanged) {
-		// Nodes 2.0 stores slots in shallowReactive arrays. Deep mutations are
-		// invisible until the official label event replaces the affected array;
-		// a Classic dirty-canvas redraw cannot invalidate that Vue snapshot.
-		for (const slotType of [
-			globalThis.LiteGraph?.INPUT ?? 1,
-			globalThis.LiteGraph?.OUTPUT ?? 2,
-		]) {
-			receiver.graph?.trigger?.("node:slot-label:changed", {
-				nodeId: receiver.id,
-				slotType,
-			});
-		}
-	}
+		publishDynamicSlotState(receiver, { inputs: true, outputs: true });
+	} else refreshDynamicSlotGeometry(receiver);
 	return layout;
 }
 
@@ -286,6 +283,7 @@ function enforceReceiverWidth(receiver, { initialize = false } = {}) {
 
 function syncReceiverResizeLayout(receiver) {
 	syncReceiverLayout(receiver, receiver.inputs?.length || 0);
+	refreshDynamicSlotGeometry(receiver);
 	markVueReceiverSlots(receiver);
 	receiver.setDirtyCanvas?.(true, true);
 }
@@ -485,27 +483,40 @@ function createGet(receiver, panel, slot, index, targetGraph, existingGets) {
 	return getNode;
 }
 
-function missingSetCount(panel) {
-	return panelMeta(panel).filter((_parameter, index) => !directSetNodes(panel, index).length).length;
+function assertSynchronizationCommitted(receiver, panel) {
+	const current = binding(receiver);
+	if ((receiver.inputs?.length || 0) !== current.slots.length
+		|| (receiver.outputs?.length || 0) !== current.slots.length) {
+		throw new Error(t("aaalice.receiver.error.incompleteSync", "Parameter Receiver synchronization did not commit consistently."));
+	}
+	for (let index = 0; index < current.slots.length; index += 1) {
+		const slot = current.slots[index];
+		const input = receiver.inputs?.[index];
+		const output = receiver.outputs?.[index];
+		const getNode = managedGet(receiver, slot, index);
+		const connectedGet = inputGet(receiver, index);
+		const setNode = directSetNodes(panel, index)[0];
+		const setName = String(setNode?.widgets?.[0]?.value || "");
+		const getName = String(getNode?.widgets?.[0]?.value || "");
+		const committed = String(input?._aaaliceParamId || "") === String(slot.parameterId)
+			&& String(output?._aaaliceParamId || "") === String(slot.parameterId)
+			&& getNode != null
+			&& connectedGet === getNode
+			&& ownerMatches(getNode, receiver, slot)
+			&& setName === String(slot.setName)
+			&& getName === String(slot.setName);
+		if (!committed) {
+			throw new Error(message(
+				"aaalice.receiver.error.incompleteParameterSync",
+				"Parameter \"{name}\" did not synchronize consistently.",
+				{ name: slot.name || slot.parameterId },
+			));
+		}
+	}
 }
 
-function packedGetGraph(receiverGraph, existingGetGraphs, setGraphs) {
-	if (existingGetGraphs.size > 1) {
-		throw new Error(t("aaalice.receiver.toast.packedScopeUnsupported", "Managed KJ Get/Set nodes span incompatible subgraphs."));
-	}
-	let target = existingGetGraphs.size ? [...existingGetGraphs][0] : receiverGraph;
-	if (!isGraphAncestor(receiverGraph, target)) {
-		throw new Error(t("aaalice.receiver.toast.packedScopeUnsupported", "Managed KJ Get/Set nodes span incompatible subgraphs."));
-	}
-	for (const setGraph of setGraphs) {
-		if (isGraphAncestor(setGraph, target)) continue;
-		if (!existingGetGraphs.size && isGraphAncestor(target, setGraph)) {
-			target = setGraph;
-			continue;
-		}
-		throw new Error(t("aaalice.receiver.toast.packedScopeUnsupported", "Managed KJ Get/Set nodes span incompatible subgraphs."));
-	}
-	return target;
+function missingSetCount(panel) {
+	return panelMeta(panel).filter((_parameter, index) => !directSetNodes(panel, index).length).length;
 }
 
 async function synchronize(receiver, panel, { successToast = true } = {}) {
@@ -535,10 +546,13 @@ async function synchronize(receiver, panel, { successToast = true } = {}) {
 	const setGraphs = new Set(nextMeta.flatMap((_parameter, index) => directSetNodes(panel, index).map((node) => node.graph)));
 	let targetGetGraph;
 	try {
-		targetGetGraph = packedGetGraph(receiver.graph, existingGetGraphs, setGraphs);
+		targetGetGraph = selectManagedGetGraph(receiver.graph, existingGetGraphs, setGraphs);
 	} catch (error) {
 		console.error("[Aaalice] ParameterReceiver subgraph scope is incompatible", error);
-		nativeToast("error", error.message);
+		const detail = error?.code === RECEIVER_GRAPH_SCOPE_ERROR
+			? t("aaalice.receiver.toast.packedScopeUnsupported", "Managed KJ Get/Set nodes span incompatible subgraphs.")
+			: error?.message || String(error);
+		nativeToast("error", detail);
 		return false;
 	}
 	const removedImpact = reconciliation.removed.map((slot) => {
@@ -557,6 +571,7 @@ async function synchronize(receiver, panel, { successToast = true } = {}) {
 	}
 	const graph = receiver.graph;
 	const transactionGraph = rootGraph(graph);
+	const previousBinding = normalizeReceiverBinding(current);
 	const createdGets = [];
 	const createdSets = [];
 	const createdBridgeSlots = [];
@@ -643,12 +658,15 @@ async function synchronize(receiver, panel, { successToast = true } = {}) {
 			panelTitle: String(panel.title || "ParameterPanel"),
 			slots: reconciliation.ordered,
 		};
+		syncSlotPresentation(receiver);
+		assertSynchronizationCommitted(receiver, panel);
 	} catch (error) {
 		for (const getNode of createdGets) getNode.graph?.remove?.(getNode);
 		for (const setNode of createdSets) setNode.graph?.remove?.(setNode);
 		removeCreatedBridgeSlots(createdBridgeSlots);
 		disconnectReceiverInputs(receiver);
 		disconnectReceiverOutputs(receiver);
+		receiver.properties.receiverBinding = previousBinding;
 		reshapeReceiverSlots(receiver, current.slots.length);
 		for (const connection of inputSnapshot) if (connection.source?.graph === graph) connection.source.connect(connection.sourceSlot, receiver, connection.targetSlot);
 		for (const connection of outputSnapshot) if (connection.target?.graph === graph) {
@@ -657,6 +675,7 @@ async function synchronize(receiver, panel, { successToast = true } = {}) {
 		}
 		console.error("[Aaalice] ParameterReceiver synchronization failed", error);
 		nativeToast("error", message("aaalice.receiver.toast.syncFailed", "Parameter Receiver sync failed: {reason}", { reason: error?.message || String(error) }));
+		render(receiver);
 		return false;
 	} finally {
 		transactionGraph?.afterChange?.();
@@ -785,12 +804,6 @@ function setupReceiver(receiver, loaded = false) {
 		if (Array.isArray(size)) size[0] = Math.max(RECEIVER_LAYOUT.minWidth, Number(size[0]) || 0);
 		const result = previousResize?.apply(this, arguments);
 		syncReceiverResizeLayout(this);
-		return result;
-	};
-	const previousConcrete = receiver._setConcreteSlots;
-	if (typeof previousConcrete === "function") receiver._setConcreteSlots = function () {
-		const result = previousConcrete.apply(this, arguments);
-		syncSlotPresentation(this);
 		return result;
 	};
 	const previousConnections = receiver.onConnectionsChange;

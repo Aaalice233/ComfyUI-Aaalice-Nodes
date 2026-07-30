@@ -127,7 +127,8 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 1. 首次绑定或用户显式同步时，从接收器当前图及父级图读取源面板参数身份；绑定同时保存稳定 Graph Id 与 Panel Node Id。
 2. 创建或复用 KJ Set 与可见折叠 Get，按 Parameter Id 保存现有上下游连线；已有 Set/Get 位于下级子图时沿真实 Subgraph 输入输出槽追踪并在同一作用域补齐。
 3. 在一个图变更边界内增量调整真实输入输出和 Get 排列；稳定前缀保持原 link，中间变更再按 Parameter Id 恢复端点。
-4. 名称与类型变化只刷新显示；新增、删除和重排在显式同步前只显示“需要同步”。
+4. 动态槽提交后立即校验输入/输出 Parameter Id、托管 Get 归属与连线、Set/Get 名称；全链路一致后才报告成功，否则回滚旧绑定并显示原始失败原因。
+5. 名称与类型变化只刷新显示；新增、删除和重排在显式同步前只显示“需要同步”。
 
 ### EnumSwitch
 
@@ -232,7 +233,7 @@ const unregister = registerWidgetControlAdapter({
 
 - Canvas/native 层负责真实 slot、连线和静态布局；DOM overlay 负责交互、焦点、键盘、tooltip 与 aria。
 - ParameterPanel、ParameterReceiver 与 EnumSwitch 的画布槽数组只包含当前业务项，槽 id 使用后端有界 Schema 的连续前缀。
-- Nodes 2.0 concrete slot 对象在原生槽变化后同步名称、类型、颜色和位置；不得恢复隐藏槽数组。
+- 动态槽变化由共享提交器原子发布：先更新所属图的公开 slot 数组，再刷新 LiteGraph concrete snapshot，并在节点所属 `graph` 发布官方槽标签事件；布局模块不得直接维护私有 concrete 数组或劫持 `_setConcreteSlots()`。不得恢复隐藏槽数组。
 - DOM widget 通过 `getMinHeight()` 声明与当前几何无关的稳定内容下限。Classic 只有内容本身定义最小高度且界面不要求再次缩短时才可走 LiteGraph grow-only 路径；可手动缩放的列表节点使用固定下限和内部滚动。Nodes 2.0 尺寸继续由原生 DOM 测量持有。
 - `computeSize()`、`getMinHeight()` 和布局刷新不得读取当前 `node.size`、已拉伸 wrapper 或 `scrollHeight` 后再作为最小值，否则会形成只增不减的尺寸反馈环。
 - 全尺寸 DOM widget 的 wrapper 与业务根不接收指针，只让真实控件命中；缩放期间全部 DOM 后代让出事件，保证 LiteGraph 左右下角原生缩放手柄持续可用。
@@ -244,7 +245,7 @@ const unregister = registerWidgetControlAdapter({
 
 - KJNodes 只对 ParameterReceiver 的绑定、同步和 ParameterPanel 的 Set/Get 辅助功能可选依赖；缺失时明确报错，不模拟成功。跨图绑定只允许面板位于接收器当前图或父级图，保持 KJNodes 的词法作用域。
 - Classic 与 Nodes 2.0 为支持范围；App Mode 暂不支持。
-- ParameterReceiver 的节点与真实槽只作用于自身所在图，但可沿已绑定 Set/Get 的真实 Subgraph 边界维护下级子图节点；QuickGroupManager 仍只作用于当前图，不递归修改 Subgraph 内部图。
+- ParameterReceiver 的节点与真实槽只作用于自身所在图；托管 Get 默认留在接收器所属图，已有 Get 位于合法下级子图时保持原作用域，并沿真实 Subgraph 边界维护连接。禁止把子图中的 Get 隐式移动到 `app.graph` 或当前可见画布图。QuickGroupManager 仍只作用于当前图，不递归修改 Subgraph 内部图。
 - DIY 侧边栏只投影 Subgraph 整体公开的兼容 widget，不遍历或绑定内部节点。
 - SimpleNotify 只在发起执行的前端产生提醒，不表示并行分支、整个工作流或队列完成。
 - ResolutionPreset 只输出精确宽高；比例与 MP 为只读摘要，不负责图像、Latent、模型推荐、裁剪、缩放或 batch。

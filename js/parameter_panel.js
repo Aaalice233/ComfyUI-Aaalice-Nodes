@@ -47,6 +47,8 @@ import {
 } from "./lib/parameter_layout.js";
 import {
 	parameterOutputPresentationChanged,
+	publishDynamicSlotState,
+	refreshDynamicSlotGeometry,
 	reshapeParameterOutputsPreservingLinks,
 } from "./lib/dynamic_slots.js";
 import { createSharedControl, destroySharedControls } from "./lib/controls/registry.js";
@@ -298,15 +300,9 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	}
 	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
 	node._aaaliceParameterLayout = layout;
-	// Nodes 2.0 exposes slot labels through a shallowReactive outputs array.
-	// ComfyUI's public slot-label event performs the required array
-	// invalidation; dirty-canvas calls only refresh Classic rendering.
 	if (structureChanged || namesChanged || presentationChanged) {
-		node.graph?.trigger?.("node:slot-label:changed", {
-			nodeId: node.id,
-			slotType: globalThis.LiteGraph?.OUTPUT ?? 2,
-		});
-	}
+		publishDynamicSlotState(node, { outputs: true });
+	} else refreshDynamicSlotGeometry(node);
 	markVueOutputs(node);
 	if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => markVueOutputs(node));
 	setTimeout(() => markVueOutputs(node), 0);
@@ -450,6 +446,7 @@ function renderNode(node, root) {
 
 function syncParameterResizeLayout(node, root) {
 	const layout = syncNativeOutputLayout(node, computeParameterLayout(node));
+	refreshDynamicSlotGeometry(node);
 	root.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
 	root.style.setProperty("--aaalice-node-content-height", `${layout.height}px`);
 	markVueOutputs(node);
@@ -864,14 +861,6 @@ function setupParameterPanel(node, loaded = false) {
 			syncParameterResizeLayout(this, root);
 			return result;
 		};
-		const previousSetConcreteSlots = node._setConcreteSlots;
-		if (typeof previousSetConcreteSlots === "function") {
-			node._setConcreteSlots = function () {
-				const value = previousSetConcreteSlots.apply(this, arguments);
-				if (this._aaaliceParameterLayout) syncNativeOutputLayout(this, this._aaaliceParameterLayout);
-				return value;
-			};
-		}
 		const previousDrawForeground = node.onDrawForeground;
 		node.onDrawForeground = function (ctx) {
 			previousDrawForeground?.apply(this, arguments);

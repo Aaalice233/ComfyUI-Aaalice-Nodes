@@ -1,4 +1,55 @@
-/** Small, framework-neutral helpers for state-driven native slot counts. */
+/**
+ * Shared state-driven native slot helpers.
+ *
+ * Nodes 2.0 observes the public slot arrays shallowly, while LiteGraph keeps a
+ * separate concrete-slot snapshot for canvas hit testing and link geometry.
+ * Dynamic-slot owners must commit both views together instead of waiting for a
+ * later node movement or canvas draw to repair the snapshot.
+ */
+
+const INPUT = 1;
+const OUTPUT = 2;
+
+function refreshConcreteSlots(node) {
+	if (typeof node?._setConcreteSlots === "function") node._setConcreteSlots();
+}
+
+/**
+ * Commit public slot mutations to Nodes 2.0 and LiteGraph immediately.
+ *
+ * Reassigning the public arrays reaches ComfyUI's shallowReactive setters when
+ * Nodes 2.0 is active. The official slot-label event then refreshes the
+ * extracted Vue node data. Classic mode simply receives equivalent arrays and
+ * a dirty-canvas request.
+ */
+export function publishDynamicSlotState(node, { inputs = false, outputs = false } = {}) {
+	if (!node || (!inputs && !outputs)) return;
+	if (inputs && Array.isArray(node.inputs)) node.inputs = [...node.inputs];
+	if (outputs && Array.isArray(node.outputs)) node.outputs = [...node.outputs];
+	refreshConcreteSlots(node);
+	const graph = node.graph;
+	if (inputs) {
+		graph?.trigger?.("node:slot-label:changed", {
+			nodeId: node.id,
+			slotType: globalThis.LiteGraph?.INPUT ?? INPUT,
+		});
+	}
+	if (outputs) {
+		graph?.trigger?.("node:slot-label:changed", {
+			nodeId: node.id,
+			slotType: globalThis.LiteGraph?.OUTPUT ?? OUTPUT,
+		});
+	}
+	node.setDirtyCanvas?.(true, true);
+	graph?.setDirtyCanvas?.(true, true);
+}
+
+/** Refresh LiteGraph's concrete snapshot after geometry-only slot changes. */
+export function refreshDynamicSlotGeometry(node) {
+	refreshConcreteSlots(node);
+	node?.setDirtyCanvas?.(true, true);
+	node?.graph?.setDirtyCanvas?.(true, true);
+}
 
 export function reshapeParameterOutputs(node, requestedCount) {
 	const count = Math.max(0, Math.min(32, Number(requestedCount) || 0));

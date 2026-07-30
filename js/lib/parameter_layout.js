@@ -134,10 +134,6 @@ export function computeParameterLayout(node) {
 
 export function syncNativeOutputLayout(node, layout = computeParameterLayout(node)) {
 	node._aaaliceParameterLayout = layout;
-	const concrete = node?._concreteOutputs;
-	if (Array.isArray(concrete)) {
-		node._concreteOutputs = concrete.slice(0, node.outputs?.length || 0);
-	}
 	for (const row of layout.rows) {
 		if (row.kind !== "parameter") continue;
 		const output = node.outputs?.[row.index];
@@ -147,27 +143,6 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 		// made the painted socket look detached and narrowed the real hit target.
 		const slotOffset = (Number(globalThis.LiteGraph?.NODE_SLOT_HEIGHT) || 20) * 0.5;
 		output.pos = [layout.width + 1 - slotOffset, layout.contentTop + row.output.top];
-	}
-	// Nodes 2.0 draws and measures concrete slot instances rather than the
-	// public `node.outputs` objects. Keep the copied presentation fields in sync
-	// after every parameter rename, theme refresh, or output reorder; otherwise
-	// labels/colors can remain stale until the node is recreated.
-	const allConcrete = node._concreteOutputs;
-	if (Array.isArray(allConcrete)) {
-		for (let rawIndex = 0; rawIndex < allConcrete.length; rawIndex += 1) {
-			const concrete = allConcrete[rawIndex];
-			const output = node.outputs?.[rawIndex];
-			if (!concrete || !output) continue;
-			for (const key of [
-				"name", "label", "localized_name", "type", "shape", "color",
-				"color_off", "color_on", "_aaaliceProtocolName", "_aaaliceParamId",
-			]) {
-				if (output[key] === undefined) delete concrete[key];
-				else concrete[key] = output[key];
-			}
-			if (output.pos) concrete.pos = [...output.pos];
-			else delete concrete.pos;
-		}
 	}
 	return layout;
 }
