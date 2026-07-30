@@ -3049,14 +3049,14 @@ button.aa-discord-share-entry--topbar {
 	border-radius: 4px;
 	background-color: var(--primary-bg) !important;
 	box-shadow: none;
-	color: var(--p-primary-contrast-color, #fff) !important;
+	color: var(--aa-ui-on-media, #fff) !important;
 	transition: background-color .2s ease;
 }
 button.aa-discord-share-entry--topbar:hover:not(:disabled),
 button.aa-discord-share-entry--topbar:focus-visible {
 	background-color: var(--primary-hover-bg) !important;
 	box-shadow: none;
-	color: var(--p-primary-contrast-color, #fff);
+	color: var(--aa-ui-on-media, #fff);
 }
 button.aa-discord-share-entry--topbar:focus-visible {
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-focus) 36%, transparent);
@@ -3064,19 +3064,19 @@ button.aa-discord-share-entry--topbar:focus-visible {
 button.aa-discord-share-entry--topbar:active:not(:disabled) { transform: scale(.96); }
 button.aa-discord-share-entry--topbar:disabled {
 	background-color: var(--primary-bg) !important;
-	color: var(--p-primary-contrast-color, #fff);
+	color: var(--aa-ui-on-media, #fff);
 	opacity: .68;
 }
 .aa-discord-share-entry--topbar::before {
 	inset: 3px;
-	border-top-color: var(--p-primary-contrast-color, #fff);
+	border-top-color: var(--aa-ui-on-media, #fff);
 }
 .aa-discord-share-entry--topbar .aa-discord-share-entry__icon {
 	display: block;
 	width: 20px;
 	height: 20px;
 	flex: none;
-	color: var(--p-primary-contrast-color, #fff) !important;
+	color: var(--aa-ui-on-media, #fff) !important;
 	stroke: currentColor !important;
 }
 .aa-discord-share-entry--topbar .aa-discord-share-entry__status {

@@ -163,6 +163,7 @@ ComfyUI-Aaalice-Nodes/
 - Toast 只用 `app.extensionManager.toast.add`；可有无状态参数封装，禁止自建容器、队列或动画系统。
 - 静态 `iconName` 与 `icon("…")` 必须存在于共享图标表，并通过图标契约测试。
 - 颜色来自 ComfyUI token；禁止写死品牌色或只适用于暗色主题的正文色。
+- 不得根据变量名称推断主题 token 的实际颜色或对比度。尤其 `--p-primary-contrast-color` 在 ComfyUI 主题中可能解析为深色，不能直接当作“白色图标”；深色或品牌色实心表面上的浅色图标优先使用 `--aa-ui-on-media`。涉及宿主顶栏或外部主题覆盖时，必须在真实挂载位置用 `getComputedStyle()` 核对按钮及 SVG / path 的 `color`、`stroke`、`fill` 和关键 token 解析值；静态 CSS 契约测试不能替代实际计算样式验收。
 - 新 DOM 根使用 `--aa-ui-*` token 前必须加入 `ui.css` 的共享主题作用域，并用契约测试确认关键 token 可继承；选择器命中不代表含未定义自定义属性的颜色声明实际生效。
 - 仅维护 `locales/{en,zh}/{main,nodeDefs}.json`。`nodeDefs.json` 管节点定义，自绘 DOM 使用 `main.json` 和 `js/i18n.js`。
 - 序列化 id、COMBO 值和路径使用稳定英文；修改用户文案时同步两种语言。
