@@ -2,6 +2,7 @@
 import { t } from "../i18n.js";
 import { normalizeImageReference } from "./image_reference.js";
 import { hasDuplicateOptions } from "./parameter_options.js";
+import { normalizeChoiceValue } from "./parameter_choice_value.js";
 import { parameterOptionSourceOptions } from "./parameter_option_sources.js";
 import { normalizeTagListValue } from "./taglist_value.js";
 
@@ -74,13 +75,18 @@ function defaultValueForType(paramType, config = {}) {
 }
 
 function normalizeParameterValue(parameter) {
-	if (parameter?.param_type !== "taglist") return;
-	const normalized = normalizeTagListValue(parameter.value);
-	const current = parameter.value;
-	const canonical = Array.isArray(current) && current.length === normalized.length
-		&& current.every((entry, index) => entry && typeof entry === "object"
-			&& entry.text === normalized[index].text && entry.enabled === normalized[index].enabled);
-	if (!canonical) parameter.value = normalized;
+	if (["dropdown", "enum"].includes(parameter?.param_type)) {
+		parameter.value = normalizeChoiceValue(parameter.value, parameter.config?.options);
+		return;
+	}
+	if (parameter?.param_type === "taglist") {
+		const normalized = normalizeTagListValue(parameter.value);
+		const current = parameter.value;
+		const canonical = Array.isArray(current) && current.length === normalized.length
+			&& current.every((entry, index) => entry && typeof entry === "object"
+				&& entry.text === normalized[index].text && entry.enabled === normalized[index].enabled);
+		if (!canonical) parameter.value = normalized;
+	}
 }
 
 export function createParameter(paramType, partial = {}) {
@@ -160,6 +166,7 @@ export function normalizeDynamicOptions(parameters) {
 	for (const parameter of parameters || []) {
 		if (!parameter.config?.source) continue;
 		parameter.config.options = dynamicOptions(parameter.config.source);
+		normalizeParameterValue(parameter);
 	}
 }
 

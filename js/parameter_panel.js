@@ -38,6 +38,7 @@ import {
 	uniqueName,
 	validateParametersDraft,
 } from "./lib/param_model.js";
+import { normalizeChoiceValue } from "./lib/parameter_choice_value.js";
 import {
 	availableParameterOptionSourceAdapters,
 	parameterOptionSourceAdapter,
@@ -560,7 +561,12 @@ function renderInspector(editor, parameter, rerender) {
 			editor.dirty = true;
 			editor.updateValidation?.();
 		});
-		options.addEventListener("input", () => { parameter.config.options = options.value.split("\n").map((item) => item.trim()).filter(Boolean); editor.dirty = true; editor.updateValidation?.(); });
+		options.addEventListener("input", () => {
+			parameter.config.options = options.value.split("\n").map((item) => item.trim()).filter(Boolean);
+			parameter.value = normalizeChoiceValue(parameter.value, parameter.config.options);
+			editor.dirty = true;
+			editor.updateValidation?.();
+		});
 		const optionsBody = el("div", "aaalice-editor-field-stack");
 		optionsBody.append(inspectorField(t("aaalice.pcp.field.source", "Source"), source), optionsField);
 		if (parameter.param_type === "enum") {

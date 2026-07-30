@@ -9,7 +9,7 @@
 | `ParameterPanel` | `Aaalice/control` | 根据本次 prompt payload 输出最多 32 个参数值 | 参数创作、控件、动态原生输出、结构编辑和 Seed 更新 |
 | `ParameterReceiver` | `Aaalice/control` | 有界 AnyType 逐路透传 | 绑定面板、管理可见 Get、显式同步和动态输入输出 |
 | `QuickGroupManager` | `Aaalice/control` | 无 Prompt I/O 和执行副作用 | 发现、过滤、排序并原子切换当前图的可视组 |
-| `EnumSwitch` | `Aaalice/tools` | 按精确字符串 lazy 选通一个同类型分支 | 分支编辑、面板选项绑定、显式同步和动态分支输入 |
+| `EnumSwitch` | `Aaalice/tools` | 按精确字符串 lazy 选通一个同类型分支 | 分支编辑、跨 KJ Get 的面板选项绑定、显式同步和动态分支输入 |
 | `ResolutionPreset` | `Aaalice/tools` | 校验执行载荷并输出精确 width / height | 预设、精确输入、画幅拖拽、对齐和个人预设管理 |
 | `SimpleStringSplit` | `Aaalice/tools` | 拆分字符串、清理空白并移除空段 | 无业务前端 |
 | `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
@@ -69,7 +69,7 @@
 |---|---|---|---|
 | ParameterPanel | `node.properties.parameters` | 参数 meta、slot 布局、prompt payload | 服务端进程全局状态、DOM 控件值副本 |
 | ParameterReceiver | `node.properties.receiverBinding` | 面板图身份、面板名称、参数类型、同步状态、Get 连线 | 面板标题、槽索引、Get 显示名 |
-| EnumSwitch | `node.properties.enumSwitch` | 分支标签、源选项 diff、routes payload | Branch Key、槽位置、DOM 顺序 |
+| EnumSwitch | `node.properties.enumSwitch`（含源 Panel Graph Id 与稳定 Parameter Id） | 分支标签、源选项 diff、routes payload | Branch Key、槽位置、DOM 顺序 |
 | ResolutionPreset | `node.properties.resolutionPresetState` | 预设匹配、坐标映射、比例与 MP 摘要、执行 payload | DOM 字段、`presetId`、个人预设缓存 |
 | ResolutionPreset 个人预设 | 当前 ComfyUI 用户目录 JSON | 当前用户的名称、尺寸、alignment 和稳定 UUID | 工作流 JSON、节点属性或浏览器存储 |
 | QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
@@ -132,10 +132,11 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 ### EnumSwitch
 
-1. 独立编辑或显式源选项同步更新 routes。
-2. 尾部增删保留稳定前缀的原生槽；中间变更按 Route Id 保存真实端点，调整 `branch_1…branch_N` 后恢复未删除路由。
-3. `graphToPrompt` 注入 Route Id、Branch Key 与协议输入的映射。
-4. 后端只请求 selector 精确匹配的 lazy 分支；未知或未连接目标显式失败。
+1. selector 直接连接 ParameterPanel / ParameterReceiver，或通过同图、父级图中的 KJ Get 连接时，按 ComfyUI 的 `resolveVirtualOutput()` / `getInputLink()` 协议解析源；绑定保存 Panel Graph Id 与稳定 Parameter Id，并在新建、加载和连接变化时幂等恢复。
+2. 独立编辑或显式源选项同步更新 routes。
+3. 尾部增删保留稳定前缀的原生槽；中间变更按 Route Id 保存真实端点，调整 `branch_1…branch_N` 后恢复未删除路由。
+4. `graphToPrompt` 注入 Route Id、Branch Key 与协议输入的映射。
+5. 后端只请求 selector 精确匹配的 lazy 分支；未知或未连接目标显式失败。
 
 ### ResolutionPreset
 
@@ -255,7 +256,7 @@ const unregister = registerParameterOptionSourceAdapter({
 
 ## 可选依赖与公开边界
 
-- KJNodes 只对 ParameterReceiver 的绑定、同步和 ParameterPanel 的 Set/Get 辅助功能可选依赖；缺失时明确报错，不模拟成功。跨图绑定只允许面板位于接收器当前图或父级图，保持 KJNodes 的词法作用域。
+- KJNodes 只对 ParameterReceiver 的绑定、同步、ParameterPanel 的 Set/Get 辅助功能，以及 EnumSwitch 通过 Get 自动识别参数源可选依赖；缺失时明确报错，不模拟成功。跨图绑定只允许面板位于当前节点所在图或父级图，保持 KJNodes 的词法作用域。
 - Classic 与 Nodes 2.0 为支持范围；App Mode 暂不支持。
 - ParameterReceiver 的节点与真实槽只作用于自身所在图；托管 Get 默认留在接收器所属图，已有 Get 位于合法下级子图时保持原作用域，并沿真实 Subgraph 边界维护连接。禁止把子图中的 Get 隐式移动到 `app.graph` 或当前可见画布图。QuickGroupManager 仍只作用于当前图，不递归修改 Subgraph 内部图。
 - DIY 侧边栏只投影 Subgraph 整体公开的兼容 widget，不遍历或绑定内部节点。

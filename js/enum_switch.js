@@ -5,7 +5,8 @@ import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { button, createDialog, el, iconButton, isolate } from "./lib/ui.js";
 import {
 	MAX_ENUM_BRANCHES,
-	bindingFromDirectSource,
+	bindingFromLogicalSource,
+	boundPanelNode,
 	createRoute,
 	enumPromptPayload,
 	enumRouteDiff,
@@ -18,7 +19,12 @@ import {
 	ensureParameters,
 	isParameterPanel,
 } from "./lib/param_model.js";
-import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
+import {
+	allGraphNodes,
+	graphAncestors,
+	graphId,
+	promptNodesForGraphNode,
+} from "./lib/graph_scope.js";
 import { getGraphLink, getGraphNode } from "./parameter_panel_kj.js";
 import {
 	reshapeEnumBranchInputs,
@@ -68,7 +74,7 @@ function inputSlot(node, name) {
 function sourceParameter(node) {
 	const binding = state(node).binding;
 	if (!binding) return null;
-	const panel = getGraphNode(node.graph, binding.panelNodeId);
+	const panel = boundPanelNode(node.graph, binding, isParameterPanel);
 	if (!isParameterPanel(panel)) return null;
 	const parameter = ensureParameters(panel).find((item) => String(item.id) === String(binding.parameterId));
 	if (!parameter || !["enum", "dropdown"].includes(parameter.param_type)) return null;
@@ -112,9 +118,9 @@ function connectedBinding(node) {
 	const link = getGraphLink(node.graph, selectorInput?.link);
 	const source = link && getGraphNode(node.graph, link.origin_id);
 	if (!source) return null;
-	const detected = bindingFromDirectSource(source, link.origin_slot);
+	const detected = bindingFromLogicalSource(source, link.origin_slot);
 	if (!detected) return null;
-	const panel = getGraphNode(node.graph, detected.panelNodeId);
+	const panel = boundPanelNode(node.graph, detected, isParameterPanel);
 	const parameter = isParameterPanel(panel)
 		? ensureParameters(panel).find((item) => String(item.id) === detected.parameterId)
 		: null;
@@ -211,6 +217,29 @@ async function synchronize(node) {
 	toast("success", message("aaalice.enumSwitch.toast.synced", "Enum Switch synchronized: {count} branches.", { count: reconciliation.ordered.length }));
 }
 
+async function refreshConnectedBinding(node) {
+	const detected = connectedBinding(node);
+	if (detected) {
+		const current = state(node).binding;
+		if (String(current?.panelNodeId) !== String(detected.panelNodeId)
+			|| String(current?.panelGraphId ?? "") !== String(detected.panelGraphId ?? "")
+			|| current?.parameterId !== detected.parameterId) {
+			markGraphChange(node, true);
+			state(node).binding = detected;
+			markGraphChange(node, false);
+			await synchronize(node);
+		}
+	}
+	render(node);
+}
+
+function scheduleConnectedBindingRefresh(node) {
+	setTimeout(() => refreshConnectedBinding(node).catch((error) => {
+		console.error("[Aaalice] Failed to resolve the EnumSwitch selector binding", node, error);
+		toast("error", error?.message || String(error));
+	}), 0);
+}
+
 function render(node) {
 	const root = node._aaaliceEnumRoot;
 	if (!root) return;
@@ -302,15 +331,18 @@ function localizedRouteErrors(routes) {
 
 function bindingChoices(node) {
 	const choices = [];
-	for (const panel of node.graph?._nodes || []) {
-		if (!isParameterPanel(panel)) continue;
-		for (const parameter of ensureParameters(panel)) {
-			if (!["enum", "dropdown"].includes(parameter.param_type)) continue;
-			choices.push({
-				panelNodeId: panel.id,
-				parameterId: String(parameter.id),
-				label: `${panel.title || "ParameterPanel"} — ${displayName(parameter, parameter.id)}`,
-			});
+	for (const graph of graphAncestors(node.graph)) {
+		for (const panel of graph?._nodes || []) {
+			if (!isParameterPanel(panel)) continue;
+			for (const parameter of ensureParameters(panel)) {
+				if (!["enum", "dropdown"].includes(parameter.param_type)) continue;
+				choices.push({
+					panelNodeId: panel.id,
+					panelGraphId: graphId(graph),
+					parameterId: String(parameter.id),
+					label: `${panel.title || "ParameterPanel"} — ${displayName(parameter, parameter.id)}`,
+				});
+			}
 		}
 	}
 	return choices;
@@ -325,7 +357,9 @@ async function openBindingDialog(node) {
 	const select = document.createElement("select");
 	for (let index = 0; index < choices.length; index += 1) select.add(new Option(choices[index].label, String(index)));
 	const current = state(node).binding;
-	const currentIndex = choices.findIndex((choice) => String(choice.panelNodeId) === String(current?.panelNodeId) && choice.parameterId === current?.parameterId);
+	const currentIndex = choices.findIndex((choice) => String(choice.panelNodeId) === String(current?.panelNodeId)
+		&& (current?.panelGraphId == null || choice.panelGraphId === String(current.panelGraphId))
+		&& choice.parameterId === current?.parameterId);
 	if (currentIndex >= 0) select.value = String(currentIndex);
 	const footer = el("footer");
 	const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "secondary" });
@@ -338,7 +372,11 @@ async function openBindingDialog(node) {
 		const choice = choices[Number(select.value)];
 		if (!choice) return;
 		markGraphChange(node, true);
-		state(node).binding = { panelNodeId: choice.panelNodeId, parameterId: choice.parameterId };
+		state(node).binding = {
+			panelNodeId: choice.panelNodeId,
+			panelGraphId: choice.panelGraphId,
+			parameterId: choice.parameterId,
+		};
 		markGraphChange(node, false);
 		render(node);
 		dialog.close();
@@ -365,7 +403,11 @@ function menuItems(node) {
 }
 
 function setupEnumSwitch(node, loaded = false) {
-	if (!node || node._aaaliceEnumSwitchSetup) return;
+	if (!node) return;
+	if (node._aaaliceEnumSwitchSetup) {
+		scheduleConnectedBindingRefresh(node);
+		return;
+	}
 	node._aaaliceEnumSwitchSetup = true;
 	state(node);
 	node.widgets_up = true;
@@ -394,24 +436,18 @@ function setupEnumSwitch(node, loaded = false) {
 	const previousConnections = node.onConnectionsChange;
 	node.onConnectionsChange = function () {
 		const result = previousConnections?.apply(this, arguments);
-		setTimeout(async () => {
-			const detected = connectedBinding(this);
-			if (detected) {
-				const current = state(this).binding;
-				if (String(current?.panelNodeId) !== String(detected.panelNodeId) || current?.parameterId !== detected.parameterId) {
-					markGraphChange(this, true);
-					state(this).binding = detected;
-					markGraphChange(this, false);
-					try { await synchronize(this); }
-					catch (error) { toast("error", error?.message || String(error)); }
-				}
-			}
-			render(this);
-		}, 0);
+		scheduleConnectedBindingRefresh(this);
 		return result;
 	};
 	const panelChange = (event) => {
-		if (String(event.detail?.nodeId) === String(state(node).binding?.panelNodeId)) setTimeout(() => render(node), 0);
+		const current = state(node).binding;
+		if (current?.panelNodeId == null || event.detail?.nodeId == null) return;
+		const changedNode = event.detail?.node;
+		if (String(event.detail?.nodeId) === String(current?.panelNodeId)
+			&& (current.panelGraphId == null
+				|| (changedNode?.graph && graphId(changedNode.graph) === String(current.panelGraphId)))) {
+			setTimeout(() => render(node), 0);
+		}
 	};
 	window.addEventListener(EVENT_PARAMETER_CHANGED, panelChange);
 	const previousRemoved = node.onRemoved;
@@ -424,7 +460,7 @@ function setupEnumSwitch(node, loaded = false) {
 		const result = previousConfigure?.apply(this, arguments);
 		this.properties ||= {};
 		this.properties.enumSwitch = normalizeEnumSwitchState(this.properties.enumSwitch);
-		setTimeout(() => render(this), 0);
+		scheduleConnectedBindingRefresh(this);
 		return result;
 	};
 	if (!node._aaaliceEnumSlotPatch) {
@@ -437,6 +473,7 @@ function setupEnumSwitch(node, loaded = false) {
 		};
 	}
 	render(node);
+	scheduleConnectedBindingRefresh(node);
 	if (!loaded) fitEnumStructure(node, true);
 }
 
