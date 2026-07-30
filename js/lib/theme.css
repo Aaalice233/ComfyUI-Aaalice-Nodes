@@ -2600,11 +2600,16 @@
 .aa-resolution-stage {
 	position: relative;
 	display: grid;
-	width: 100%;
+	/* Keep both axes on the same visual scale; the grid row owns height and the aspect ratio derives width. */
+	width: auto;
+	height: 100%;
 	min-height: 116px;
+	max-width: 100%;
 	max-height: 320px;
 	min-width: 0;
+	aspect-ratio: 1 / 1;
 	align-self: start;
+	justify-self: center;
 	pointer-events: none;
 }
 .aa-resolution-status-chip.aa-ui-button { max-width: 56px; min-width: 0; height: 30px; flex: 0 0 auto; overflow: hidden; padding: 0 7px; background: color-mix(in srgb, var(--aa-ui-surface-raised) 66%, transparent); color: color-mix(in srgb, var(--aa-ui-muted) 82%, var(--aa-ui-text)); box-shadow: 0 3px 10px rgb(0 0 0 / .12), inset 0 1px color-mix(in srgb, var(--aa-ui-text) 5%, transparent); font-size: 10px; backdrop-filter: blur(8px); }
