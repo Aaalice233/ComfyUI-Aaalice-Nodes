@@ -46,6 +46,20 @@ test("picker is latest-run only and requires a prompt before sending", () => {
 	assert.doesNotMatch(source, /navigator\.clipboard/);
 });
 
+test("picker exposes a persistent multi-target selector without receiving webhook URLs", () => {
+	assert.match(source, /createShareTargetPicker\(targets,/);
+	assert.match(source, /multiSelectControl\(/);
+	assert.match(source, /targetPicker\.root/);
+	assert.match(source, /targetIds:\s*selectedTargetIds/);
+	assert.match(clientSource, /\/v1\/targets/);
+	assert.match(clientSource, /aaalice\.discord-share\.targets\.v1/);
+	assert.match(clientSource, /body\.append\("target",\s*targetId\)/);
+	assert.doesNotMatch(clientSource, /webhook/i);
+	assert.match(theme, /\.aa-discord-share-target-trigger/);
+	assert.match(theme, /\.aa-discord-share-target-popover/);
+	assert.match(theme, /\.aa-discord-share-target-list/);
+});
+
 test("picker keeps the image dominant with an overlaid filmstrip and a dedicated prompt rail", () => {
 	assert.match(source, /className: "aa-discord-share-picker__media"/);
 	assert.match(source, /children: \[stage, filmstrip\]/);

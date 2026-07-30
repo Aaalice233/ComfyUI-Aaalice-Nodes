@@ -25,7 +25,8 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
 | 提示词来源 | `app.graph.extra.aaaliceDiscordShare.promptSource` | 随工作流保存 |
 | 最新运行图像与提示词 | 浏览器内存中的最后一次成功执行快照 | 页面会话 |
 | Discord 会话 | 浏览器当前 Origin 的本地会话 | 可撤销、自动过期 |
-| Webhook、OAuth Secret | Cloudflare Worker Secret | 服务部署 |
+| 频道选择 | 浏览器 `localStorage` 中的公开 Target Id 列表 | 当前 Origin |
+| Webhook Target、OAuth Secret | Cloudflare Worker Secret | 服务部署 |
 
 提示词来源只保存 Preview Any 的稳定 Graph Id、Node Id 和显示标签，不复制提示词。
 每次执行完成后从 `/history/{prompt_id}` 读取完整 outputs；失败时只回退到本次
@@ -50,13 +51,16 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
    固定提示词栏，长提示词只在该栏内部滚动。窄窗口改为媒体区在上、提示词栏在下，不压缩
    缩略图到不可读。
 5. 提示词缺失时保留相册和右侧提示词栏，但禁用发送，并指导用户右键 Preview Any 后重新运行。
-6. 发送按钮只提交当前图像和正面提示词。中继以 Discord 三反引号代码块发送；
-   超过单条 Embed 上限时拆分为多条消息，图像只附在第一条。
+6. Footer 在发送按钮旁提供频道多选，至少保留一个频道；客户端只取得稳定 Target Id、
+   显示名称和默认状态，不接触 Webhook URL。中继把所选 Id 解析为服务端 Target，
+   每个频道各发送一条消息。每条消息同时包含 `作者：@用户`、当前图像附件和三反引号
+   包裹的完整正面提示词；Prompt 可在同一消息内使用多个 Embed，但超过 Discord
+   单消息 Embed 文本总上限时明确拒绝，不拆成多条消息。部分频道失败时保留失败项供重试。
 
 ## 中继安全
 
-- 客户端永远不知道 Webhook URL；中继日志不得输出 OAuth Token、会话 Token 或
-  Webhook 响应中的敏感字段。
+- 客户端永远不知道 Webhook URL；公开频道列表只含 Target Id、显示名称和默认状态。
+  中继日志不得输出 OAuth Token、会话 Token 或 Webhook 响应中的敏感字段。
 - OAuth `state` 使用 HMAC、Origin、Nonce、一次性 challenge 和短时过期；回调
   结果只允许签名 Origin 持有对应 verifier 的客户端领取，不进入 URL 或
   ComfyUI 请求日志。

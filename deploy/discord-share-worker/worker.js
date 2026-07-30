@@ -4,6 +4,8 @@ const AUTH_MESSAGE_TYPE = "AAALICE_DISCORD_SHARE_AUTH";
 const DEFAULT_SESSION_TTL = 30 * 24 * 60 * 60;
 const DEFAULT_UPLOAD_LIMIT = 10 * 1024 * 1024;
 const RATE_LIMIT_RETRY_SECONDS = 60;
+const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
+const DISCORD_EMBED_TOTAL_LIMIT = 6000;
 
 function json(data, status = 200, headers = {}) {
 	return new Response(JSON.stringify(data), {
@@ -420,7 +422,10 @@ export function splitDiscordPrompt(value, limit = 4000) {
 	let remaining = text;
 	while (remaining.length > limit) {
 		let cut = remaining.lastIndexOf("\n", limit);
-		if (cut < Math.floor(limit * 0.55)) cut = remaining.lastIndexOf(", ", limit);
+		if (cut < Math.floor(limit * 0.55)) {
+			const comma = remaining.lastIndexOf(", ", limit);
+			cut = comma < Math.floor(limit * 0.55) ? comma : comma + 1;
+		}
 		if (cut < Math.floor(limit * 0.55)) cut = limit;
 		chunks.push(remaining.slice(0, cut).trim());
 		remaining = remaining.slice(cut).trim();
@@ -433,25 +438,113 @@ export function discordFence(value) {
 	return `\`\`\`\n${String(value || "").replaceAll("```", "``\u200b`")}\n\`\`\``;
 }
 
+function relayConfigurationError(internalDetail) {
+	const error = new Error("Discord sharing is temporarily unavailable because the relay service is not fully configured. Please contact the server administrator.");
+	error.code = "relay_misconfigured";
+	error.status = 503;
+	error.internalDetail = internalDetail;
+	return error;
+}
+
+export function configuredWebhookTargets(env) {
+	let input;
+	try {
+		input = JSON.parse(String(env.DISCORD_WEBHOOK_TARGETS || ""));
+	} catch {
+		throw relayConfigurationError("DISCORD_WEBHOOK_TARGETS is not valid JSON.");
+	}
+	if (!Array.isArray(input) || !input.length) {
+		throw relayConfigurationError("DISCORD_WEBHOOK_TARGETS must contain at least one target.");
+	}
+	const ids = new Set();
+	return input.map((entry, index) => {
+		const id = String(entry?.id || "").trim();
+		const label = String(entry?.label || "").trim();
+		let url;
+		try {
+			url = new URL(String(entry?.url || ""));
+		} catch {
+			throw relayConfigurationError(`Discord webhook target ${index + 1} has an invalid URL.`);
+		}
+		const validPath = /^\/api(?:\/v\d+)?\/webhooks\/\d+\/[^/]+\/?$/.test(url.pathname);
+		if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(id) || !label || label.length > 80 || ids.has(id)
+			|| url.protocol !== "https:" || !["discord.com", "discordapp.com"].includes(url.hostname) || !validPath) {
+			throw relayConfigurationError(`Discord webhook target ${index + 1} is invalid or duplicated.`);
+		}
+		ids.add(id);
+		return { id, label, url: url.href, default: Boolean(entry.default) };
+	});
+}
+
+function publicWebhookTargets(targets) {
+	return targets.map(({ id, label, default: selectedByDefault }) => ({ id, label, default: selectedByDefault }));
+}
+
+function selectedWebhookTargets(data, targets) {
+	const requested = [...new Set(data.getAll("target").map((value) => String(value || "").trim()).filter(Boolean))];
+	const ids = requested.length ? requested : targets.filter((target) => target.default).map((target) => target.id);
+	if (!ids.length) ids.push(targets[0].id);
+	const byId = new Map(targets.map((target) => [target.id, target]));
+	const selected = ids.map((id) => byId.get(id));
+	if (selected.some((target) => !target)) {
+		const error = new Error("One or more selected Discord channels are no longer available. Refresh the channel list and try again.");
+		error.code = "invalid_targets";
+		error.status = 400;
+		throw error;
+	}
+	return selected;
+}
+
 function safeFilename(value) {
 	const normalized = String(value || "image.png").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").slice(-180);
 	return normalized || "image.png";
 }
 
-async function sendWebhook(env, { image = null, filename = "", promptChunk, width = "", height = "" }) {
-	const webhook = new URL(env.DISCORD_WEBHOOK_URL);
-	webhook.searchParams.set("wait", "true");
-	const payload = {
-		embeds: [{
-			description: discordFence(promptChunk),
-			color: 0x5865F2,
-			...(image ? { image: { url: `attachment://${filename}` } } : {}),
-			...(image && (width || height) ? { footer: { text: [width && height ? `${width} × ${height}` : "", filename].filter(Boolean).join(" · ") } } : {}),
-		}],
+export function buildDiscordWebhookPayload({ image = null, filename = "", prompt = "", authorId = "", width = "", height = "" }) {
+	const escapedPrompt = String(prompt || "").trim().replaceAll("```", "``\u200b`");
+	const chunks = splitDiscordPrompt(escapedPrompt, DISCORD_EMBED_DESCRIPTION_LIMIT - 8);
+	const footerText = image && (width || height)
+		? [width && height ? `${width} × ${height}` : "", filename].filter(Boolean).join(" · ")
+		: "";
+	const embeds = chunks.map((promptChunk, index) => ({
+		description: `\`\`\`\n${promptChunk}\n\`\`\``,
+		color: 0x5865F2,
+		...(index === 0 && image ? { image: { url: `attachment://${filename}` } } : {}),
+		...(index === 0 && footerText ? { footer: { text: footerText } } : {}),
+	}));
+	const embedCharacters = embeds.reduce((total, embed) => total
+		+ embed.description.length
+		+ (embed.footer?.text?.length || 0), 0);
+	if (
+		!embeds.length
+		|| embeds.some((embed) => embed.description.length > DISCORD_EMBED_DESCRIPTION_LIMIT)
+		|| embedCharacters > DISCORD_EMBED_TOTAL_LIMIT
+		|| embeds.length > 10
+	) {
+		const error = new Error("The positive prompt is too long to keep the image, author, and full prompt in one Discord message.");
+		error.code = "prompt_too_long";
+		error.status = 400;
+		error.details = {
+			prompt_length: String(prompt || "").trim().length,
+			discord_embed_character_limit: DISCORD_EMBED_TOTAL_LIMIT,
+		};
+		throw error;
+	}
+	const normalizedAuthorId = String(authorId || "").trim();
+	if (!/^\d+$/.test(normalizedAuthorId)) throw new Error("Discord share author identity is invalid.");
+	return {
+		content: `作者：<@${normalizedAuthorId}>`,
+		allowed_mentions: { users: [normalizedAuthorId] },
+		embeds,
+		...(image ? { attachments: [{ id: 0, filename }] } : {}),
 	};
+}
+
+async function sendWebhook(target, payload, image, filename) {
+	const webhook = new URL(target.url);
+	webhook.searchParams.set("wait", "true");
 	let response;
 	if (image) {
-		payload.attachments = [{ id: 0, filename }];
 		const body = new FormData();
 		body.append("payload_json", JSON.stringify(payload));
 		body.append("files[0]", image, filename);
@@ -465,18 +558,31 @@ async function sendWebhook(env, { image = null, filename = "", promptChunk, widt
 	}
 	if (!response.ok) {
 		const detail = await response.text();
-		const error = new Error(`Discord webhook HTTP ${response.status}: ${detail.slice(0, 300)}`);
+		const error = new Error(`Discord rejected the share for ${target.label} (HTTP ${response.status}): ${detail.slice(0, 300)}`);
 		error.code = "webhook_failed";
 		error.status = 502;
 		throw error;
 	}
-	return response.json();
+	const message = await response.json().catch(() => null);
+	if (!message?.id || !message?.channel_id) {
+		const error = new Error(`Discord did not confirm the created message for ${target.label}.`);
+		error.code = "webhook_failed";
+		error.status = 502;
+		throw error;
+	}
+	return message;
+}
+
+async function handleTargets(request, env) {
+	await loadSession(request, env);
+	return json({ targets: publicWebhookTargets(configuredWebhookTargets(env)) }, 200, corsHeaders(request, env));
 }
 
 async function handleShare(request, env) {
 	const verified = await verifiedSession(request, env);
 	await enforceRateLimit(env, verified.session.user.id);
 	const data = await request.formData();
+	const targets = selectedWebhookTargets(data, configuredWebhookTargets(env));
 	const image = data.get("image");
 	const prompt = String(data.get("prompt") || "").trim();
 	if (!(image instanceof File) || !image.type.startsWith("image/")) {
@@ -487,17 +593,47 @@ async function handleShare(request, env) {
 		return errorResponse("image_too_large", `Image exceeds the ${uploadLimit} byte upload limit.`, 413, corsHeaders(request, env));
 	}
 	if (!prompt) return errorResponse("missing_prompt", "A positive prompt is required.", 400, corsHeaders(request, env));
-	const chunks = splitDiscordPrompt(prompt);
 	const filename = safeFilename(data.get("filename") || image.name);
-	const first = await sendWebhook(env, {
+	const payload = buildDiscordWebhookPayload({
 		image,
 		filename,
-		promptChunk: chunks[0],
+		prompt,
+		authorId: verified.session.user.id,
 		width: String(data.get("width") || ""),
 		height: String(data.get("height") || ""),
 	});
-	for (const promptChunk of chunks.slice(1)) await sendWebhook(env, { promptChunk });
-	return json({ ok: true, message_id: first.id || "", message_count: chunks.length }, 200, corsHeaders(request, env));
+	const settled = await Promise.allSettled(targets.map(async (target) => {
+		const message = await sendWebhook(target, payload, image, filename);
+		return {
+			id: target.id,
+			label: target.label,
+			message_id: message.id,
+			message_url: `https://discord.com/channels/${message.guild_id || env.DISCORD_GUILD_ID}/${message.channel_id}/${message.id}`,
+		};
+	}));
+	const delivered = [];
+	const failed = [];
+	for (const [index, result] of settled.entries()) {
+		if (result.status === "fulfilled") delivered.push(result.value);
+		else failed.push({ id: targets[index].id, label: targets[index].label });
+	}
+	if (failed.length && delivered.length) {
+		return json({
+			ok: false,
+			code: "partial_delivery",
+			message: "Discord accepted the share in some selected channels but rejected it in others.",
+			delivered_targets: delivered,
+			failed_targets: failed,
+		}, 207, corsHeaders(request, env));
+	}
+	if (failed.length) {
+		const error = new Error("Discord rejected the share in every selected channel.");
+		error.code = "webhook_failed";
+		error.status = 502;
+		error.details = { failed_targets: failed };
+		throw error;
+	}
+	return json({ ok: true, delivered_targets: delivered, target_count: delivered.length, message_count: 1 }, 200, corsHeaders(request, env));
 }
 
 async function handleSession(request, env) {
@@ -515,19 +651,16 @@ function validateEnvironment(env) {
 		"DISCORD_CLIENT_ID",
 		"DISCORD_CLIENT_SECRET",
 		"DISCORD_GUILD_ID",
-		"DISCORD_WEBHOOK_URL",
+		"DISCORD_WEBHOOK_TARGETS",
 		"STATE_SECRET",
 		"SESSIONS",
 		"SHARE_RATE_LIMITER",
 	];
 	const missing = required.filter((key) => !env[key]);
 	if (missing.length) {
-		const error = new Error("Discord sharing is temporarily unavailable because the relay service is not fully configured. Please contact the server administrator.");
-		error.code = "relay_misconfigured";
-		error.status = 503;
-		error.internalDetail = `Missing Worker configuration: ${missing.join(", ")}`;
-		throw error;
+		throw relayConfigurationError(`Missing Worker configuration: ${missing.join(", ")}`);
 	}
+	configuredWebhookTargets(env);
 }
 
 export default {
@@ -540,6 +673,7 @@ export default {
 				if (request.method === "GET" && url.pathname === "/v1/oauth/callback") return handleOAuthCallback(request, env);
 				if (request.method === "POST" && url.pathname === "/v1/oauth/result") return await handleOAuthResult(request, env);
 				if (["GET", "DELETE"].includes(request.method) && url.pathname === "/v1/session") return await handleSession(request, env);
+				if (request.method === "GET" && url.pathname === "/v1/targets") return await handleTargets(request, env);
 				if (request.method === "POST" && url.pathname === "/v1/share") return await handleShare(request, env);
 				return errorResponse("not_found", "Not found.", 404, corsHeaders(request, env));
 		} catch (error) {

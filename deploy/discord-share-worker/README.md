@@ -7,7 +7,7 @@ receives the Discord client secret or webhook URL.
 
 - A Discord application with this redirect URI:
   `https://<worker-host>/v1/oauth/callback`
-- An incoming webhook for the destination channel
+- One incoming webhook for each selectable destination channel
 - A Cloudflare Worker and KV namespace bound as `SESSIONS`
 - Wrangler 4.36.0 or newer and a native Rate Limiting binding named
   `SHARE_RATE_LIMITER`
@@ -17,8 +17,18 @@ create the three secrets:
 
 ```text
 wrangler secret put DISCORD_CLIENT_SECRET
-wrangler secret put DISCORD_WEBHOOK_URL
+wrangler secret put DISCORD_WEBHOOK_TARGETS
 wrangler secret put STATE_SECRET
+```
+
+`DISCORD_WEBHOOK_TARGETS` is a JSON array. Target IDs are stable public
+identifiers; URLs remain secret. For example:
+
+```json
+[
+  { "id": "sfw-collection", "label": "SFW collection", "url": "https://discord.com/api/webhooks/...", "default": true },
+  { "id": "nsfw-collection", "label": "NSFW collection", "url": "https://discord.com/api/webhooks/...", "default": false }
+]
 ```
 
 `STATE_SECRET` should be a newly generated high-entropy value. Do not reuse the
@@ -51,8 +61,11 @@ Restart ComfyUI after changing either environment variable.
   uses Cloudflare's native Rate Limiting binding, so a successful share does not
   consume a KV write.
 - The Worker rate-limits each Discord user and validates image type and size.
+- Authenticated clients receive only target IDs, labels and defaults. Webhook
+  URLs never leave the Worker.
 - Rate-limit responses use HTTP 429, include `Retry-After: 60` and
   `retry_after_seconds: 60`; missing or unavailable relay bindings return a
   distinct HTTP 503 error instead of a generic failure.
-- Long prompts are split into multiple fenced Discord messages; the image is
-  attached only to the first message.
+- Each selected channel receives exactly one message containing the authenticated
+  author mention, image attachment and complete fenced prompt. Prompts that cannot
+  fit Discord's per-message embed text limit are rejected explicitly.

@@ -34,7 +34,7 @@
 - `CharacterFeatureSwapNode` 接收原提示词与参考角色提示词，读取前端注入的启用特征和配置版本，并使用当前用户目录中的 DeepSeek 配置异步生成单一 STRING。纯逻辑负责 payload、模板和响应校验；配置、模型查询和真实 Chat Completion 连接测试路由不把 API Key 返回前端或写入工作流。
 - `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability，路由只处理 JSON、流式媒体和错误映射；媒体代理逐次复核 HTTPS 白名单、Content-Type 和大小。
 - `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
-- Discord 分享不新增执行节点。`nodes/tools/discord_share_routes.py` 只向前端公开中继和社区 URL，Webhook、OAuth Secret 与成员会话不进入 ComfyUI Python 进程；可信中继实现位于 `deploy/discord-share-worker/`，负责 OAuth、逐次成员/角色校验、限流和 Webhook 转发。KV 只保存短时 OAuth handoff 与带 TTL 的会话；每次发送的用户级滥用保护由 Cloudflare 原生 Rate Limiting binding 承担，避免分享吞吐受 KV 每日写入额度限制。
+- Discord 分享不新增执行节点。`nodes/tools/discord_share_routes.py` 只向前端公开中继和社区 URL，Webhook、OAuth Secret 与成员会话不进入 ComfyUI Python 进程；可信中继实现位于 `deploy/discord-share-worker/`，负责 OAuth、逐次成员/角色校验、限流、公开 Target 清单和 Webhook 转发。频道配置以 Worker Secret 中的 `{ id, label, url, default }` 数组为真源，浏览器只接收不含 URL 的公开字段并提交 Target Id。KV 只保存短时 OAuth handoff 与带 TTL 的会话；每次发送的用户级滥用保护由 Cloudflare 原生 Rate Limiting binding 承担，避免分享吞吐受 KV 每日写入额度限制。
 
 后端 32 路 Schema 是执行和校验上限，不是前端槽数组真源。ParameterPanel 的返回值仍填满有界输出协议；画布只物化当前参数对应的连续槽。
 
@@ -83,6 +83,7 @@
 | Discord 提示词来源 | `app.graph.extra.aaaliceDiscordShare.promptSource` | Preview Any 的限定执行 Id 与本次输出文本 | 提示词正文副本、节点标题或裸 Node Id |
 | Discord 最新运行 | 页面内存中的最后一次成功执行快照 | `/history/{prompt_id}` outputs、图片尺寸和当前选择 | 工作流 JSON、节点属性、浏览器持久缓存 |
 | Discord 成员会话 | 浏览器当前 Origin 的可撤销会话 | 中继逐次成员/角色校验 | Webhook、OAuth Secret 或工作流 |
+| Discord 频道选择 | 浏览器 `localStorage` | 中继公开的 Target Id 子集 | Webhook URL、工作流 JSON 或节点属性 |
 | DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 参数值、目标解析和 Missing Binding 状态 | 侧边栏 DOM、节点标题或位置 |
 | DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、参数值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
 | Prompt Library | 用户目录 SQLite | 当前筛选、PromptSelector 引用解析 | 单个工作流、单个节点或浏览器缓存 |
@@ -111,7 +112,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 2. Preview Any 右键菜单把 Graph Id、Node Id 和显示标签写入根图 `extra`。执行成功后按 `prompt_id` 读取历史 outputs，限定执行 Id 反查节点并生成页面会话快照；历史读取失败才使用本次 `executed` 事件缓存。
 3. 首次点击且没有有效会话时直接在独立 OAuth 窗口完成 Discord 登录和目标 Guild 成员检测，不以是否已有运行图像为前置条件；中继签名状态绑定原 ComfyUI Origin、一次性 Nonce 和 challenge，回调结果通过精确 Origin 的 `postMessage` 与短时 verifier handoff 交回随机会话 Token。
 4. 相册只展示最后一次成功执行的去重图像；尺寸由浏览器按需解码，当前缩略图和 Dialog 状态不持久化。提示词缺失时禁用发送并要求重新绑定、执行。
-5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、图片类型/大小与提示词校验，再把图像和三反引号代码块发送到固定 Webhook；任何步骤失败都保持明确错误。
+5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、Target Id、图片类型/大小与提示词校验，再把作者 mention、图像附件和三反引号代码块合并为每个所选频道各一条 Webhook 消息；任何步骤失败都保持明确错误，部分频道失败会返回独立目标结果。
 
 ### ParameterPanel
 

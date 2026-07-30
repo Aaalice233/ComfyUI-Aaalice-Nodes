@@ -5,6 +5,7 @@ import { app } from "../../../scripts/app.js";
 
 const CONFIG_API = "/aaalice/discord-share/config";
 const SESSION_STORAGE_KEY = "aaalice.discord-share.session.v1";
+const TARGET_STORAGE_KEY = "aaalice.discord-share.targets.v1";
 const AUTH_MESSAGE_TYPE = "AAALICE_DISCORD_SHARE_AUTH";
 
 export class DiscordShareClientError extends Error {
@@ -78,6 +79,55 @@ export function saveDiscordShareSession(value) {
 
 export function clearDiscordShareSession() {
 	localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+function normalizedTargets(value) {
+	if (!Array.isArray(value)) return [];
+	const ids = new Set();
+	return value.flatMap((entry) => {
+		const id = String(entry?.id || "").trim();
+		const label = String(entry?.label || "").trim();
+		if (!id || !label || ids.has(id)) return [];
+		ids.add(id);
+		return [{ id, label, default: Boolean(entry.default) }];
+	});
+}
+
+export async function loadDiscordShareTargets(config, session) {
+	if (!config?.relayUrl) throw new DiscordShareClientError("Discord share relay is unavailable", { code: "not_configured" });
+	if (!session?.token) throw new DiscordShareClientError("Discord authorization is required", { code: "unauthorized", status: 401 });
+	const response = await fetch(`${config.relayUrl}/v1/targets`, {
+		headers: authorizationHeaders(session),
+	});
+	try {
+		const payload = await checkedJson(response);
+		const targets = normalizedTargets(payload?.targets);
+		if (!targets.length) throw new DiscordShareClientError("No Discord share channels are available", { code: "no_targets" });
+		return targets;
+	} catch (error) {
+		if ([401, 403].includes(error.status)) clearDiscordShareSession();
+		throw error;
+	}
+}
+
+export function loadDiscordShareTargetSelection(targets) {
+	const available = new Set(targets.map((target) => target.id));
+	try {
+		const saved = JSON.parse(localStorage.getItem(TARGET_STORAGE_KEY) || "[]");
+		const selected = Array.isArray(saved) ? [...new Set(saved.map(String).filter((id) => available.has(id)))] : [];
+		if (selected.length) return selected;
+	} catch {
+		// Invalid local state falls back to relay defaults.
+	}
+	const defaults = targets.filter((target) => target.default).map((target) => target.id);
+	return defaults.length ? defaults : targets.slice(0, 1).map((target) => target.id);
+}
+
+export function saveDiscordShareTargetSelection(values, targets) {
+	const available = new Set(targets.map((target) => target.id));
+	const selected = [...new Set((values || []).map(String).filter((id) => available.has(id)))];
+	localStorage.setItem(TARGET_STORAGE_KEY, JSON.stringify(selected));
+	return selected;
 }
 
 function base64Url(bytes) {
@@ -215,7 +265,7 @@ function imageReferenceUrl(reference) {
 	return api.apiURL(`/view?${query}${app.getRandParam?.() || ""}`);
 }
 
-export async function sendDiscordShare(config, session, { image, prompt }) {
+export async function sendDiscordShare(config, session, { image, prompt, targetIds = [] }) {
 	if (!config?.relayUrl) throw new DiscordShareClientError("Discord share relay is unavailable", { code: "not_configured" });
 	if (!session?.token) throw new DiscordShareClientError("Discord authorization is required", { code: "unauthorized", status: 401 });
 	const imageResponse = await fetch(imageReferenceUrl(image));
@@ -227,6 +277,7 @@ export async function sendDiscordShare(config, session, { image, prompt }) {
 	body.append("filename", image.filename);
 	body.append("width", String(image.width || ""));
 	body.append("height", String(image.height || ""));
+	for (const targetId of [...new Set(targetIds.map(String).filter(Boolean))]) body.append("target", targetId);
 	const response = await fetch(`${config.relayUrl}/v1/share`, {
 		method: "POST",
 		headers: { Authorization: `Bearer ${session.token}` },

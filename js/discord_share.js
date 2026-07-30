@@ -8,6 +8,9 @@ import {
 	disconnectDiscordShare,
 	loadDiscordShareConfig,
 	loadDiscordShareSession,
+	loadDiscordShareTargets,
+	loadDiscordShareTargetSelection,
+	saveDiscordShareTargetSelection,
 	sendDiscordShare,
 	verifyDiscordShareSession,
 } from "./lib/discord_share_client.js";
@@ -22,12 +25,14 @@ import { nativeOutputNodeClass } from "./lib/native_output_model.js";
 import {
 	badge,
 	button,
+	createAnchoredPopover,
 	createContextMenu,
 	createDialog,
 	el,
 	emptyState,
 	icon,
 	iconButton,
+	multiSelectControl,
 	segmentedControl,
 } from "./lib/ui.js";
 
@@ -62,9 +67,96 @@ function shareErrorMessage(error) {
 		rate_limiter_unavailable: label("error.rateLimiterUnavailable", "The sharing service could not check its rate limit. Try again shortly."),
 		relay_misconfigured: label("error.relayMisconfigured", "The sharing service is not fully configured. Contact the server administrator."),
 		webhook_failed: label("error.webhookFailed", "Discord did not accept this share. Try again; if it continues, contact the server administrator."),
+		prompt_too_long: label("error.promptTooLong", "The positive prompt is too long to keep it with the image in one Discord message. Shorten it, then try again."),
+		invalid_targets: label("error.invalidTargets", "One or more selected Discord channels are no longer available. Refresh the share window and try again."),
+		no_targets: label("error.noTargets", "No Discord share channels are currently available."),
 		internal_error: label("error.serviceFailed", "The sharing service encountered an internal error. Try again shortly."),
 	};
-	return messages[error?.code] || error?.message || label("error.unknown", "Discord sharing failed. Try again.");
+	const message = messages[error?.code] || error?.message || label("error.unknown", "Discord sharing failed. Try again.");
+	const failedLabels = error?.code === "webhook_failed"
+		? (error?.detail?.failed_targets || []).map((target) => target?.label).filter(Boolean)
+		: [];
+	return failedLabels.length ? `${message} ${failedLabels.join("、")}` : message;
+}
+
+function createShareTargetPicker(targets, initialValues, onChange) {
+	let selected = [...initialValues];
+	let popover = null;
+	let choices = null;
+	const trigger = button({
+		label: "",
+		iconName: "discord",
+		variant: "secondary",
+		className: "aa-discord-share-target-trigger",
+	});
+	trigger.setAttribute("aria-haspopup", "dialog");
+	const syncTrigger = () => {
+		const selectedTargets = targets.filter((target) => selected.includes(target.id));
+		const text = selectedTargets.length === 0
+			? label("targets.choose", "Choose channels")
+			: selectedTargets.length === 1
+				? selectedTargets[0].label
+				: `${label("targets.multiple", "Channels")} · ${selectedTargets.length}`;
+		trigger.querySelector(".aa-ui-button__label").textContent = text;
+		trigger.title = selectedTargets.length
+			? selectedTargets.map((target) => target.label).join("、")
+			: label("targets.none", "Choose at least one channel");
+		trigger.setAttribute("aria-label", `${label("targets.aria", "Discord share channels")}: ${trigger.title}`);
+	};
+	const setValues = (values, { emit = true } = {}) => {
+		const available = new Set(targets.map((target) => target.id));
+		const next = [...new Set((values || []).map(String).filter((id) => available.has(id)))];
+		if (!next.length) {
+			choices?.setValues(selected);
+			return;
+		}
+		selected = next;
+		choices?.setValues(selected);
+		syncTrigger();
+		if (emit) onChange?.([...selected]);
+	};
+	const close = () => popover?.close();
+	const open = () => {
+		if (popover) return;
+		trigger.setAttribute("aria-expanded", "true");
+		popover = createAnchoredPopover({
+			anchor: trigger,
+			ariaLabel: label("targets.aria", "Discord share channels"),
+			className: "aa-discord-share-target-popover",
+			width: 280,
+			onClose: () => {
+				popover = null;
+				choices = null;
+				trigger.setAttribute("aria-expanded", "false");
+			},
+		});
+		choices = multiSelectControl({
+			options: targets.map((target) => ({ value: target.id, label: target.label, iconName: "discord" })),
+			values: selected,
+			ariaLabel: label("targets.aria", "Discord share channels"),
+			className: "aa-discord-share-target-list",
+			onChange: (values) => setValues(values),
+		});
+		popover.root.append(
+			el("strong", "aa-discord-share-target-popover__title", label("targets.title", "Send to")),
+			choices,
+		);
+	};
+	trigger.addEventListener("click", () => { if (popover) close(); else open(); });
+	trigger.addEventListener("keydown", (event) => {
+		if (event.key === "ArrowDown" && !popover) {
+			event.preventDefault();
+			open();
+		}
+	});
+	trigger.setAttribute("aria-expanded", "false");
+	syncTrigger();
+	return {
+		root: trigger,
+		values: () => [...selected],
+		setValues,
+		destroy: () => close(),
+	};
 }
 
 function currentPlacement() {
@@ -523,7 +615,7 @@ function createShareImageViewer(viewport, image) {
 	};
 }
 
-async function openSharePicker(shareConfig, session, snapshot) {
+async function openSharePicker(shareConfig, session, snapshot, targets) {
 	closeActiveDialog();
 	const images = snapshot.images.map((image) => ({ ...image, url: imageUrl(image), width: 0, height: 0 }));
 	let selectedIndex = 0;
@@ -551,6 +643,17 @@ async function openSharePicker(shareConfig, session, snapshot) {
 	const prompt = el("pre", "aa-discord-share-picker__prompt");
 	const promptState = el("div", "aa-discord-share-picker__prompt-state");
 	const footer = el("div");
+	const hasPrompt = Boolean(snapshot.prompt);
+	let selectedTargetIds = loadDiscordShareTargetSelection(targets);
+	let targetPicker;
+	const syncSendAvailability = () => {
+		send.disabled = !hasPrompt || selectedTargetIds.length === 0;
+	};
+	const resetSendState = () => {
+		syncSendAvailability();
+		send.classList.remove("is-loading");
+		send.querySelector(".aa-ui-button__label").textContent = label("actions.send", "Send to Discord");
+	};
 	const send = button({
 		label: label("actions.send", "Send to Discord"),
 		iconName: "send",
@@ -562,13 +665,29 @@ async function openSharePicker(shareConfig, session, snapshot) {
 			send.classList.add("is-loading");
 			send.querySelector(".aa-ui-button__label").textContent = label("actions.sending", "Sending…");
 			try {
-				await sendDiscordShare(shareConfig, session, { image: selected, prompt: snapshot.prompt });
-				closeActiveDialog();
-				toast("success", label("toast.sent", "Image and prompt sent to Discord."));
+				const result = await sendDiscordShare(shareConfig, session, {
+					image: selected,
+					prompt: snapshot.prompt,
+					targetIds: selectedTargetIds,
+				});
+				if (result?.ok) {
+					closeActiveDialog();
+					const deliveredLabels = (result.delivered_targets || []).map((target) => target.label).filter(Boolean);
+					const destination = deliveredLabels.length ? ` (${deliveredLabels.join("、")})` : "";
+					toast("success", `${label("toast.sent", "Image and prompt sent to Discord.")}${destination}`);
+					return;
+				}
+				if (result?.code === "partial_delivery") {
+					const failedIds = (result.failed_targets || []).map((target) => target.id).filter(Boolean);
+					const failedLabels = (result.failed_targets || []).map((target) => target.label).filter(Boolean);
+					targetPicker.setValues(failedIds);
+					resetSendState();
+					toast("warn", `${label("toast.partial", "Sent to some channels. Retry the channels that failed.")} ${failedLabels.join("、")}`);
+					return;
+				}
+				throw new Error(result?.message || label("error.unknown", "Discord sharing failed. Try again."));
 			} catch (error) {
-				send.disabled = false;
-				send.classList.remove("is-loading");
-				send.querySelector(".aa-ui-button__label").textContent = label("actions.send", "Send to Discord");
+				resetSendState();
 				if (error?.code === "not_member") {
 					closeActiveDialog();
 					scheduleEntrypointSync();
@@ -640,7 +759,6 @@ async function openSharePicker(shareConfig, session, snapshot) {
 		event.preventDefault();
 		filmstrip.scrollLeft += event.deltaY;
 	}, { passive: false });
-	const hasPrompt = Boolean(snapshot.prompt);
 	if (hasPrompt) {
 		prompt.textContent = snapshot.prompt;
 		promptState.append(
@@ -655,12 +773,17 @@ async function openSharePicker(shareConfig, session, snapshot) {
 			el("strong", null, label("picker.promptUnavailable", "Prompt unavailable")),
 		);
 	}
-	send.disabled = !hasPrompt;
+	targetPicker = createShareTargetPicker(targets, selectedTargetIds, (values) => {
+		selectedTargetIds = saveDiscordShareTargetSelection(values, targets);
+		syncSendAvailability();
+	});
+	syncSendAvailability();
 	body.append(
 		media,
 		el("section", { className: "aa-discord-share-picker__prompt-panel", attrs: { "aria-label": label("picker.prompt", "Positive prompt") }, children: [promptState, prompt] }),
 	);
 	footer.append(
+		targetPicker.root,
 		button({ label: label("actions.cancel", "Cancel"), variant: "ghost", onClick: () => closeActiveDialog() }),
 		send,
 	);
@@ -673,6 +796,7 @@ async function openSharePicker(shareConfig, session, snapshot) {
 		confirmOnEnter: false,
 		onClose: () => {
 			imageViewer.destroy();
+			targetPicker.destroy();
 			activeDialog = null;
 		},
 	});
@@ -715,7 +839,8 @@ async function openShareFlow() {
 			toast("info", label("toast.verifiedRunFirst", "Discord membership verified. Run a workflow once before sharing."));
 			return;
 		}
-		await openSharePicker(shareConfig, session, latest);
+		const targets = await loadDiscordShareTargets(shareConfig, session);
+		await openSharePicker(shareConfig, session, latest, targets);
 	} catch (error) {
 		if (error?.code === "not_member" && shareConfig) {
 			openMembershipRequiredDialog(error, shareConfig);

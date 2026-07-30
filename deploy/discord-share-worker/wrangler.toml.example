@@ -27,5 +27,5 @@ MAX_UPLOAD_BYTES = "10485760"
 
 # Add these with `wrangler secret put`, never under [vars]:
 # DISCORD_CLIENT_SECRET
-# DISCORD_WEBHOOK_URL
+# DISCORD_WEBHOOK_TARGETS
 # STATE_SECRET
