@@ -7,9 +7,11 @@ import {
 	beginDiscordShareAuthentication,
 	disconnectDiscordShare,
 	loadDiscordShareConfig,
+	loadDiscordSharePromptFilePreference,
 	loadDiscordShareSession,
 	loadDiscordShareTargets,
 	loadDiscordShareTargetSelection,
+	saveDiscordSharePromptFilePreference,
 	saveDiscordShareTargetSelection,
 	sendDiscordShare,
 	verifyDiscordShareSession,
@@ -28,12 +30,14 @@ import {
 	createAnchoredPopover,
 	createContextMenu,
 	createDialog,
+	createTooltip,
 	el,
 	emptyState,
 	icon,
 	iconButton,
 	multiSelectControl,
 	segmentedControl,
+	toggleSwitch,
 } from "./lib/ui.js";
 
 const EXTENSION_NAME = "ComfyUI.Aaalice.DiscordShare";
@@ -68,6 +72,7 @@ function shareErrorMessage(error) {
 		relay_misconfigured: label("error.relayMisconfigured", "The sharing service is not fully configured. Contact the server administrator."),
 		webhook_failed: label("error.webhookFailed", "Discord did not accept this share. Try again; if it continues, contact the server administrator."),
 		prompt_too_long: label("error.promptTooLong", "The positive prompt is too long to keep it with the image in one Discord message. Shorten it, then try again."),
+		prompt_file_too_large: label("error.promptFileTooLarge", "The positive prompt exceeds the TXT attachment limit. Shorten it, then try again."),
 		invalid_targets: label("error.invalidTargets", "One or more selected Discord channels are no longer available. Refresh the share window and try again."),
 		no_targets: label("error.noTargets", "No Discord share channels are currently available."),
 		internal_error: label("error.serviceFailed", "The sharing service encountered an internal error. Try again shortly."),
@@ -156,6 +161,67 @@ function createShareTargetPicker(targets, initialValues, onChange) {
 		values: () => [...selected],
 		setValues,
 		destroy: () => close(),
+	};
+}
+
+function createLongPromptFileControl(initialValue, onChange) {
+	let enabled = Boolean(initialValue);
+	let recommended = false;
+	const tooltip = createTooltip({ delay: 140 });
+	const notice = el("div", {
+		className: "aa-discord-share-prompt-file-notice",
+		attrs: { role: "status" },
+		children: [
+			el("span", { className: "aa-discord-share-prompt-file-notice__icon", children: [icon("info")] }),
+			el("span", null, label("promptFile.channelRecommendation", "To avoid flooding the chat, long prompts are recommended as files for this channel. Regular prompts are unaffected.")),
+		],
+	});
+	const syncNotice = () => { notice.hidden = !recommended; };
+	const setChecked = (next, { emit = true } = {}) => {
+		enabled = Boolean(next);
+		toggle.setChecked(enabled);
+		if (emit) onChange?.(enabled);
+	};
+	const toggle = toggleSwitch({
+		checked: enabled,
+		label: label("promptFile.label", "Send long prompts as a file"),
+		className: "aa-discord-share-prompt-file-toggle",
+		onChange: (next) => setChecked(next),
+	});
+	const option = el("div", {
+		className: "aa-discord-share-prompt-file-option",
+		children: [
+			el("div", { className: "aa-discord-share-prompt-file-option__copy", children: [
+				el("span", { className: "aa-discord-share-prompt-file-option__icon", children: [icon("fileText")] }),
+				el("strong", null, label("promptFile.label", "Send long prompts as a file")),
+			] }),
+			toggle,
+		],
+	});
+	const tooltipContent = () => el("div", {
+		className: "aa-discord-share-prompt-file-tooltip",
+		children: [
+			el("strong", null, label("promptFile.tooltipTitle", "Why send long prompts as files?")),
+			el("span", null, label("promptFile.limits", "Discord allows up to 4,096 characters in one embed description and 6,000 embed text characters in one message.")),
+			el("span", null, label("promptFile.recommended", "When enabled, only prompts that exceed the single-block limit become a TXT attachment. Regular prompts still appear directly in the message, which keeps busy channels readable.")),
+		],
+	});
+	const showTooltip = () => tooltip.show(toggle, tooltipContent, { className: "aa-discord-share-prompt-file-help" });
+	option.addEventListener("mouseenter", showTooltip);
+	option.addEventListener("mouseleave", tooltip.hide);
+	toggle.addEventListener("focus", showTooltip);
+	toggle.addEventListener("blur", tooltip.hide);
+	const root = el("div", { className: "aa-discord-share-prompt-file", children: [notice, option] });
+	syncNotice();
+	return {
+		root,
+		value: () => enabled,
+		setChecked,
+		setRecommended: (next) => {
+			recommended = Boolean(next);
+			syncNotice();
+		},
+		destroy: () => tooltip.destroy(),
 	};
 }
 
@@ -268,7 +334,12 @@ function attachSidebarEntry() {
 	syncEntryState(entry);
 }
 
-function bindTopbarButton(buttonElement) {
+function bindTopbarButton(buttonElement, iconElement) {
+	buttonElement.classList.add("aa-discord-share-entry", "aa-discord-share-entry--topbar");
+	iconElement.classList.add("aa-discord-share-entry__icon");
+	if (!buttonElement.querySelector(".aa-discord-share-entry__status")) {
+		buttonElement.append(el("span", { className: "aa-discord-share-entry__status", attrs: { "aria-hidden": "true" } }));
+	}
 	if (topbarBindings.has(buttonElement)) return;
 	topbarBindings.add(buttonElement);
 	buttonElement.addEventListener("contextmenu", (event) => showEntryContextMenu(event, "topbar"));
@@ -278,7 +349,7 @@ function syncTopbarEntries() {
 	for (const iconElement of document.querySelectorAll(`.${TOPBAR_ICON_CLASS}`)) {
 		const buttonElement = iconElement.closest("button");
 		if (!buttonElement) continue;
-		bindTopbarButton(buttonElement);
+		bindTopbarButton(buttonElement, iconElement);
 		entryButtons.add(buttonElement);
 		const hidden = currentPlacement() !== "topbar";
 		buttonElement.hidden = hidden;
@@ -645,7 +716,10 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 	const footer = el("div");
 	const hasPrompt = Boolean(snapshot.prompt);
 	let selectedTargetIds = loadDiscordShareTargetSelection(targets);
+	let longPromptPreference = loadDiscordSharePromptFilePreference();
+	let longPromptAsFile = longPromptPreference;
 	let targetPicker;
+	let promptFileControl;
 	const syncSendAvailability = () => {
 		send.disabled = !hasPrompt || selectedTargetIds.length === 0;
 	};
@@ -669,6 +743,7 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 					image: selected,
 					prompt: snapshot.prompt,
 					targetIds: selectedTargetIds,
+					longPromptAsFile,
 				});
 				if (result?.ok) {
 					closeActiveDialog();
@@ -773,14 +848,33 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 			el("strong", null, label("picker.promptUnavailable", "Prompt unavailable")),
 		);
 	}
+	promptFileControl = createLongPromptFileControl(longPromptAsFile, (value) => {
+		longPromptPreference = saveDiscordSharePromptFilePreference(value);
+		longPromptAsFile = longPromptPreference;
+	});
+	const selectedTargetsPreferPromptFile = () => targets.some((target) => (
+		selectedTargetIds.includes(target.id) && target.preferPromptFile
+	));
+	const syncPromptFileTargetPolicy = () => {
+		const recommended = selectedTargetsPreferPromptFile();
+		promptFileControl.setRecommended(recommended);
+		longPromptAsFile = recommended ? true : longPromptPreference;
+		promptFileControl.setChecked(longPromptAsFile, { emit: false });
+	};
+	syncPromptFileTargetPolicy();
 	targetPicker = createShareTargetPicker(targets, selectedTargetIds, (values) => {
 		selectedTargetIds = saveDiscordShareTargetSelection(values, targets);
+		syncPromptFileTargetPolicy();
 		syncSendAvailability();
 	});
 	syncSendAvailability();
 	body.append(
 		media,
-		el("section", { className: "aa-discord-share-picker__prompt-panel", attrs: { "aria-label": label("picker.prompt", "Positive prompt") }, children: [promptState, prompt] }),
+		el("section", {
+			className: "aa-discord-share-picker__prompt-panel",
+			attrs: { "aria-label": label("picker.prompt", "Positive prompt") },
+			children: [promptState, prompt, promptFileControl.root],
+		}),
 	);
 	footer.append(
 		targetPicker.root,
@@ -797,6 +891,7 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 		onClose: () => {
 			imageViewer.destroy();
 			targetPicker.destroy();
+			promptFileControl.destroy();
 			activeDialog = null;
 		},
 	});

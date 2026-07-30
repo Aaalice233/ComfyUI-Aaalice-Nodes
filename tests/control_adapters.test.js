@@ -146,6 +146,7 @@ test("image upload combos adapt as image-choice controls with preview options", 
 	assert.equal(control.valueType, "string");
 	assert.deepEqual(control.options.values, ["a.png", "dir/b.png"]);
 	control.setValue("dir/b.png"); assert.equal(byOptions.widgets[0].value, "dir/b.png"); assert.equal(committed, "dir/b.png");
+	control.setValue(""); assert.equal(byOptions.widgets[0].value, ""); assert.equal(committed, "");
 	const byNodeDef = {
 		constructor: { nodeData: { input: { required: { image: ["COMBO", { image_upload: true }] } } } },
 		widgets: [{ name: "image", type: "combo", value: "a.png", options: { values: ["a.png"] } }],

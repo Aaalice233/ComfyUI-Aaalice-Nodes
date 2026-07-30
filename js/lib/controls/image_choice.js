@@ -1,9 +1,9 @@
 /** Image-file combo renderer for ComfyUI image upload widgets. */
 
 import { api } from "../../../../scripts/api.js";
-import { bindImagePreview } from "../image_preview.js";
+import { bindImagePreview, closeImagePreview } from "../image_preview.js";
 import { imageComboReference, imageReferenceViewPath } from "../image_reference.js";
-import { createAnchoredPopover, el, icon } from "../ui.js";
+import { createAnchoredPopover, el, icon, iconButton } from "../ui.js";
 import { controlView } from "./contract.js";
 
 export function renderImageChoiceControl(spec, port) {
@@ -15,6 +15,18 @@ export function renderImageChoiceControl(spec, port) {
 	thumbnail.className = "aa-control-image-choice__thumb"; thumbnail.alt = ""; thumbnail.loading = "lazy"; thumbnail.decoding = "async";
 	const name = el("span", "aa-control-image-choice__name");
 	const button = el("button", { className: "aa-control-image-choice__button", attrs: { type: "button", "aria-label": spec.label, "aria-haspopup": "dialog", "aria-expanded": "false" }, children: [thumbnail, name, icon("moveDown", { className: "aa-control-image-choice__arrow" })] });
+	const clear = iconButton({
+		iconName: "delete",
+		label: spec.labels.clear || "Clear selected image",
+		variant: "ghost",
+		className: "aa-control-image-choice__clear",
+		onClick: (event) => {
+			event.stopPropagation();
+			closeImagePreview();
+			popover?.close();
+			port.commit("");
+		},
+	});
 	const viewSource = () => {
 		const reference = imageComboReference(current, imageFolder);
 		return reference.filename ? { source: api.apiURL(imageReferenceViewPath(reference)), title: `${spec.label} · ${reference.filename}` } : null;
@@ -22,8 +34,9 @@ export function renderImageChoiceControl(spec, port) {
 	const sync = (value) => {
 		current = String(value ?? "");
 		const reference = imageComboReference(current, imageFolder);
-		name.textContent = reference.filename || current;
+		name.textContent = reference.filename || current || spec.labels.none || "Choose image";
 		button.classList.toggle("has-image", Boolean(reference.filename));
+		clear.hidden = !reference.filename;
 		const view = viewSource();
 		if (view) thumbnail.src = view.source; else thumbnail.removeAttribute("src");
 	};
@@ -63,6 +76,6 @@ export function renderImageChoiceControl(spec, port) {
 		popover.root.append(list);
 	};
 	button.addEventListener("click", openMenu);
-	root.append(button);
+	root.append(button, clear);
 	return controlView({ root, kind: "image-choice", update: (next) => sync(next.value) });
 }

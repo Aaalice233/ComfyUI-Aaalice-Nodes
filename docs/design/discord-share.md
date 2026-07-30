@@ -12,7 +12,8 @@ Discord OAuth Client Secret、Webhook URL 和成员会话只由可信中继持�
 状态只通过右上角小状态点补充表达。
 
 分享按钮右键可固定到画布顶栏或隐藏；固定后底栏不再显示纸飞机，GitHub 与 Discord
-入口仍保留，顶栏右键可收回侧栏底栏。
+入口仍保留，顶栏右键可收回侧栏底栏。顶栏入口使用与 Workflow Hub、LoRA Manager
+一致的蓝色方形主表面和白色图标；会话状态点、加载反馈及键盘焦点不得破坏按钮尺寸。
 设置只保存一个 `sidebar | topbar | hidden` 三态值，隐藏状态始终能从 ComfyUI
 设置恢复。底栏是正常布局行，不遮挡参数内容或布局多选操作条；按钮只保留克制的
 tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下关闭位移与加载动画。
@@ -26,6 +27,7 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
 | 最新运行图像与提示词 | 浏览器内存中的最后一次成功执行快照 | 页面会话 |
 | Discord 会话 | 浏览器当前 Origin 的本地会话 | 可撤销、自动过期 |
 | 频道选择 | 浏览器 `localStorage` 中的公开 Target Id 列表 | 当前 Origin |
+| 长 Prompt 文件偏好 | 浏览器 `localStorage` 中的布尔值，默认开启 | 当前 Origin |
 | Webhook Target、OAuth Secret | Cloudflare Worker Secret | 服务部署 |
 
 提示词来源只保存 Preview Any 的稳定 Graph Id、Node Id 和显示标签，不复制提示词。
@@ -52,15 +54,23 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
    缩略图到不可读。
 5. 提示词缺失时保留相册和右侧提示词栏，但禁用发送，并指导用户右键 Preview Any 后重新运行。
 6. Footer 在发送按钮旁提供频道多选，至少保留一个频道；客户端只取得稳定 Target Id、
-   显示名称和默认状态，不接触 Webhook URL。中继把所选 Id 解析为服务端 Target，
-   每个频道各发送一条消息。每条消息同时包含 `作者：@用户`、当前图像附件和三反引号
-   包裹的完整正面提示词；Prompt 可在同一消息内使用多个 Embed，但超过 Discord
-   单消息 Embed 文本总上限时明确拒绝，不拆成多条消息。部分频道失败时保留失败项供重试。
+   显示名称、默认状态和“推荐长 Prompt 文件化”能力，不接触 Webhook URL。只有选中声明
+   该能力的频道时才自动开启文件选项；仅选 SFW / NSFW 收集频道不得覆盖用户当前偏好。
+7. 提示词栏底部提供默认开启且可持久化的“过长提示词作为文件发送”。Hover / Focus
+   说明 Discord 单 Embed 描述 4,096 字符、单消息 Embed 文本合计 6,000 字符的限制。
+   超过单段限制时改附 UTF-8 TXT，一般长度仍直接显示；推荐频道选中时在选项上方显示
+   克制的就近说明，明确文件化只影响长 Prompt。
+8. 中继把所选 Id 解析为服务端 Target，每个频道各发送一条消息。内联模式先连续排列
+   全部 fenced Prompt Embed，再把图像放在最后一个 Embed 底部；消息作者使用带 Emoji
+   的 Discord mention，并在首个 Embed 作者区显示当前服务器昵称、Discord 头像和用户
+   资料链接，不覆盖 Webhook 自身身份；后续 Prompt 分段不重复作者区。文件模式在同一条
+   消息附图像与完整 Prompt TXT。关闭文件化后若 Prompt 超过 Discord 单消息上限则明确
+   拒绝。部分频道失败时保留失败项供重试。
 
 ## 中继安全
 
-- 客户端永远不知道 Webhook URL；公开频道列表只含 Target Id、显示名称和默认状态。
-  中继日志不得输出 OAuth Token、会话 Token 或 Webhook 响应中的敏感字段。
+- 客户端永远不知道 Webhook URL；公开频道列表只含 Target Id、显示名称、默认状态和
+  非敏感交互能力。中继日志不得输出 OAuth Token、会话 Token 或 Webhook 响应中的敏感字段。
 - OAuth `state` 使用 HMAC、Origin、Nonce、一次性 challenge 和短时过期；回调
   结果只允许签名 Origin 持有对应 verifier 的客户端领取，不进入 URL 或
   ComfyUI 请求日志。

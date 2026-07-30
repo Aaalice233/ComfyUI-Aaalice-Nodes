@@ -27,7 +27,7 @@ identifiers; URLs remain secret. For example:
 ```json
 [
   { "id": "sfw-collection", "label": "SFW collection", "url": "https://discord.com/api/webhooks/...", "default": true },
-  { "id": "nsfw-collection", "label": "NSFW collection", "url": "https://discord.com/api/webhooks/...", "default": false }
+  { "id": "generation-chat", "label": "Generation chat", "url": "https://discord.com/api/webhooks/...", "default": false, "prefer_prompt_file": true }
 ]
 ```
 
@@ -61,11 +61,14 @@ Restart ComfyUI after changing either environment variable.
   uses Cloudflare's native Rate Limiting binding, so a successful share does not
   consume a KV write.
 - The Worker rate-limits each Discord user and validates image type and size.
-- Authenticated clients receive only target IDs, labels and defaults. Webhook
-  URLs never leave the Worker.
+- Authenticated clients receive only target IDs, labels, defaults and the
+  non-sensitive `prefer_prompt_file` interaction hint. Webhook URLs never leave
+  the Worker.
 - Rate-limit responses use HTTP 429, include `Retry-After: 60` and
   `retry_after_seconds: 60`; missing or unavailable relay bindings return a
   distinct HTTP 503 error instead of a generic failure.
-- Each selected channel receives exactly one message containing the authenticated
-  author mention, image attachment and complete fenced prompt. Prompts that cannot
-  fit Discord's per-message embed text limit are rejected explicitly.
+- Each selected channel receives exactly one message containing an Emoji author
+  mention and image. Inline prompt embeds stay contiguous before the image.
+  When enabled, prompts beyond one embed description are attached as a UTF-8 TXT;
+  regular prompts remain inline. Prompts that cannot fit the selected mode are
+  rejected explicitly.

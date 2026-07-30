@@ -6,6 +6,8 @@ const DEFAULT_UPLOAD_LIMIT = 10 * 1024 * 1024;
 const RATE_LIMIT_RETRY_SECONDS = 60;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_LIMIT = 6000;
+const MAX_PROMPT_FILE_BYTES = 1024 * 1024;
+const PROMPT_FILE_NAME = "positive-prompt.txt";
 
 function json(data, status = 200, headers = {}) {
 	return new Response(JSON.stringify(data), {
@@ -176,12 +178,35 @@ function assertAllowedMember(member, env) {
 	}
 }
 
+function discordAvatarExtension(hash) {
+	return String(hash || "").startsWith("a_") ? "gif" : "png";
+}
+
+function defaultDiscordAvatarUrl(userId) {
+	try {
+		const index = Number((BigInt(String(userId)) >> 22n) % 6n);
+		return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+	} catch {
+		return "https://cdn.discordapp.com/embed/avatars/0.png";
+	}
+}
+
+function discordUserAvatarUrl(user) {
+	if (!user?.avatar) return defaultDiscordAvatarUrl(user?.id);
+	return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${discordAvatarExtension(user.avatar)}?size=128`;
+}
+
+function discordMemberAvatarUrl(member, userId, guildId) {
+	if (!member?.avatar || !userId || !guildId) return "";
+	return `https://cdn.discordapp.com/guilds/${guildId}/users/${userId}/avatars/${member.avatar}.${discordAvatarExtension(member.avatar)}?size=128`;
+}
+
 function publicUser(user, member) {
 	return {
 		id: String(user.id),
 		username: String(user.username || ""),
 		global_name: String(user.global_name || member?.nick || ""),
-		avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128` : "",
+		avatar: discordUserAvatarUrl(user),
 	};
 }
 
@@ -472,12 +497,23 @@ export function configuredWebhookTargets(env) {
 			throw relayConfigurationError(`Discord webhook target ${index + 1} is invalid or duplicated.`);
 		}
 		ids.add(id);
-		return { id, label, url: url.href, default: Boolean(entry.default) };
+		return {
+			id,
+			label,
+			url: url.href,
+			default: Boolean(entry.default),
+			prefer_prompt_file: Boolean(entry.prefer_prompt_file),
+		};
 	});
 }
 
 function publicWebhookTargets(targets) {
-	return targets.map(({ id, label, default: selectedByDefault }) => ({ id, label, default: selectedByDefault }));
+	return targets.map(({ id, label, default: selectedByDefault, prefer_prompt_file }) => ({
+		id,
+		label,
+		default: selectedByDefault,
+		prefer_prompt_file,
+	}));
 }
 
 function selectedWebhookTargets(data, targets) {
@@ -500,24 +536,66 @@ function safeFilename(value) {
 	return normalized || "image.png";
 }
 
-export function buildDiscordWebhookPayload({ image = null, filename = "", prompt = "", authorId = "", width = "", height = "" }) {
+export function shouldAttachPromptFile(prompt, enabled = true) {
+	if (!enabled) return false;
 	const escapedPrompt = String(prompt || "").trim().replaceAll("```", "``\u200b`");
-	const chunks = splitDiscordPrompt(escapedPrompt, DISCORD_EMBED_DESCRIPTION_LIMIT - 8);
+	return escapedPrompt.length + 8 > DISCORD_EMBED_DESCRIPTION_LIMIT;
+}
+
+export function buildDiscordWebhookPayload({
+	image = null,
+	filename = "",
+	prompt = "",
+	authorId = "",
+	authorName = "",
+	authorAvatarUrl = "",
+	width = "",
+	height = "",
+	longPromptAsFile = true,
+}) {
+	const escapedPrompt = String(prompt || "").trim().replaceAll("```", "``\u200b`");
+	const attachPromptFile = shouldAttachPromptFile(prompt, longPromptAsFile);
+	const chunks = attachPromptFile ? [] : splitDiscordPrompt(escapedPrompt, DISCORD_EMBED_DESCRIPTION_LIMIT - 8);
 	const footerText = image && (width || height)
 		? [width && height ? `${width} × ${height}` : "", filename].filter(Boolean).join(" · ")
 		: "";
-	const embeds = chunks.map((promptChunk, index) => ({
+	const embeds = chunks.map((promptChunk) => ({
 		description: `\`\`\`\n${promptChunk}\n\`\`\``,
 		color: 0x5865F2,
-		...(index === 0 && image ? { image: { url: `attachment://${filename}` } } : {}),
-		...(index === 0 && footerText ? { footer: { text: footerText } } : {}),
 	}));
+	if (image) {
+		const imageEmbed = embeds.at(-1) || { color: 0x5865F2 };
+		imageEmbed.image = { url: `attachment://${filename}` };
+		if (footerText) imageEmbed.footer = { text: footerText };
+		if (!embeds.length) embeds.push(imageEmbed);
+	}
+	const normalizedAuthorId = String(authorId || "").trim();
+	if (!/^\d+$/.test(normalizedAuthorId)) throw new Error("Discord share author identity is invalid.");
+	const normalizedAuthorName = String(authorName || "").trim() || "Discord 用户";
+	const authorLabel = `作者：${normalizedAuthorName}`.slice(0, 256);
+	let avatarUrl = "";
+	try {
+		const candidate = new URL(String(authorAvatarUrl || ""));
+		if (candidate.protocol === "https:" && candidate.hostname === "cdn.discordapp.com") {
+			avatarUrl = candidate.href;
+		}
+	} catch {
+		avatarUrl = "";
+	}
+	if (embeds.length) {
+		embeds[0].author = {
+			name: authorLabel,
+			url: `https://discord.com/users/${normalizedAuthorId}`,
+			...(avatarUrl ? { icon_url: avatarUrl } : {}),
+		};
+	}
 	const embedCharacters = embeds.reduce((total, embed) => total
-		+ embed.description.length
-		+ (embed.footer?.text?.length || 0), 0);
+		+ (embed.description?.length || 0)
+		+ (embed.footer?.text?.length || 0)
+		+ (embed.author?.name?.length || 0), 0);
 	if (
-		!embeds.length
-		|| embeds.some((embed) => embed.description.length > DISCORD_EMBED_DESCRIPTION_LIMIT)
+		(!embeds.length && !attachPromptFile)
+		|| embeds.some((embed) => (embed.description?.length || 0) > DISCORD_EMBED_DESCRIPTION_LIMIT)
 		|| embedCharacters > DISCORD_EMBED_TOTAL_LIMIT
 		|| embeds.length > 10
 	) {
@@ -530,24 +608,36 @@ export function buildDiscordWebhookPayload({ image = null, filename = "", prompt
 		};
 		throw error;
 	}
-	const normalizedAuthorId = String(authorId || "").trim();
-	if (!/^\d+$/.test(normalizedAuthorId)) throw new Error("Discord share author identity is invalid.");
+	if (attachPromptFile && new TextEncoder().encode(String(prompt || "")).byteLength > MAX_PROMPT_FILE_BYTES) {
+		const error = new Error("The positive prompt is too large to attach as a text file.");
+		error.code = "prompt_file_too_large";
+		error.status = 413;
+		error.details = { max_prompt_file_bytes: MAX_PROMPT_FILE_BYTES };
+		throw error;
+	}
 	return {
-		content: `作者：<@${normalizedAuthorId}>`,
+		content: [
+			`👤 作者：<@${normalizedAuthorId}>`,
+			attachPromptFile ? "📄 正面提示词较长，已作为文件附加。" : "",
+		].filter(Boolean).join("\n"),
 		allowed_mentions: { users: [normalizedAuthorId] },
 		embeds,
-		...(image ? { attachments: [{ id: 0, filename }] } : {}),
+		attachments: [
+			...(image ? [{ id: 0, filename }] : []),
+			...(attachPromptFile ? [{ id: image ? 1 : 0, filename: PROMPT_FILE_NAME }] : []),
+		],
 	};
 }
 
-async function sendWebhook(target, payload, image, filename) {
+async function sendWebhook(target, payload, image, filename, promptFile = null) {
 	const webhook = new URL(target.url);
 	webhook.searchParams.set("wait", "true");
 	let response;
-	if (image) {
+	if (image || promptFile) {
 		const body = new FormData();
 		body.append("payload_json", JSON.stringify(payload));
-		body.append("files[0]", image, filename);
+		if (image) body.append("files[0]", image, filename);
+		if (promptFile) body.append(`files[${image ? 1 : 0}]`, promptFile, PROMPT_FILE_NAME);
 		response = await fetch(webhook.href, { method: "POST", body });
 	} else {
 		response = await fetch(webhook.href, {
@@ -585,6 +675,8 @@ async function handleShare(request, env) {
 	const targets = selectedWebhookTargets(data, configuredWebhookTargets(env));
 	const image = data.get("image");
 	const prompt = String(data.get("prompt") || "").trim();
+	const longPromptAsFileValue = data.get("long_prompt_as_file");
+	const longPromptAsFile = longPromptAsFileValue == null || String(longPromptAsFileValue).toLowerCase() !== "false";
 	if (!(image instanceof File) || !image.type.startsWith("image/")) {
 		return errorResponse("invalid_image", "An image file is required.", 400, corsHeaders(request, env));
 	}
@@ -599,11 +691,21 @@ async function handleShare(request, env) {
 		filename,
 		prompt,
 		authorId: verified.session.user.id,
+		authorName: verified.member?.nick || verified.session.user.global_name || verified.session.user.username,
+		authorAvatarUrl: discordMemberAvatarUrl(
+			verified.member,
+			verified.session.user.id,
+			env.DISCORD_GUILD_ID,
+		) || verified.session.user.avatar || defaultDiscordAvatarUrl(verified.session.user.id),
 		width: String(data.get("width") || ""),
 		height: String(data.get("height") || ""),
+		longPromptAsFile,
 	});
+	const promptFile = shouldAttachPromptFile(prompt, longPromptAsFile)
+		? new Blob([prompt], { type: "text/plain;charset=utf-8" })
+		: null;
 	const settled = await Promise.allSettled(targets.map(async (target) => {
-		const message = await sendWebhook(target, payload, image, filename);
+		const message = await sendWebhook(target, payload, image, filename, promptFile);
 		return {
 			id: target.id,
 			label: target.label,

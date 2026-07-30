@@ -6,6 +6,7 @@ import { app } from "../../../scripts/app.js";
 const CONFIG_API = "/aaalice/discord-share/config";
 const SESSION_STORAGE_KEY = "aaalice.discord-share.session.v1";
 const TARGET_STORAGE_KEY = "aaalice.discord-share.targets.v1";
+const PROMPT_FILE_STORAGE_KEY = "aaalice.discord-share.long-prompt-as-file.v1";
 const AUTH_MESSAGE_TYPE = "AAALICE_DISCORD_SHARE_AUTH";
 
 export class DiscordShareClientError extends Error {
@@ -89,7 +90,12 @@ function normalizedTargets(value) {
 		const label = String(entry?.label || "").trim();
 		if (!id || !label || ids.has(id)) return [];
 		ids.add(id);
-		return [{ id, label, default: Boolean(entry.default) }];
+		return [{
+			id,
+			label,
+			default: Boolean(entry.default),
+			preferPromptFile: Boolean(entry.prefer_prompt_file),
+		}];
 	});
 }
 
@@ -128,6 +134,18 @@ export function saveDiscordShareTargetSelection(values, targets) {
 	const selected = [...new Set((values || []).map(String).filter((id) => available.has(id)))];
 	localStorage.setItem(TARGET_STORAGE_KEY, JSON.stringify(selected));
 	return selected;
+}
+
+export function loadDiscordSharePromptFilePreference() {
+	const stored = localStorage.getItem(PROMPT_FILE_STORAGE_KEY);
+	if (stored == null) return true;
+	return stored !== "false";
+}
+
+export function saveDiscordSharePromptFilePreference(value) {
+	const enabled = Boolean(value);
+	localStorage.setItem(PROMPT_FILE_STORAGE_KEY, String(enabled));
+	return enabled;
 }
 
 function base64Url(bytes) {
@@ -265,7 +283,12 @@ function imageReferenceUrl(reference) {
 	return api.apiURL(`/view?${query}${app.getRandParam?.() || ""}`);
 }
 
-export async function sendDiscordShare(config, session, { image, prompt, targetIds = [] }) {
+export async function sendDiscordShare(config, session, {
+	image,
+	prompt,
+	targetIds = [],
+	longPromptAsFile = true,
+}) {
 	if (!config?.relayUrl) throw new DiscordShareClientError("Discord share relay is unavailable", { code: "not_configured" });
 	if (!session?.token) throw new DiscordShareClientError("Discord authorization is required", { code: "unauthorized", status: 401 });
 	const imageResponse = await fetch(imageReferenceUrl(image));
@@ -278,6 +301,7 @@ export async function sendDiscordShare(config, session, { image, prompt, targetI
 	body.append("width", String(image.width || ""));
 	body.append("height", String(image.height || ""));
 	for (const targetId of [...new Set(targetIds.map(String).filter(Boolean))]) body.append("target", targetId);
+	body.append("long_prompt_as_file", String(Boolean(longPromptAsFile)));
 	const response = await fetch(`${config.relayUrl}/v1/share`, {
 		method: "POST",
 		headers: { Authorization: `Bearer ${session.token}` },

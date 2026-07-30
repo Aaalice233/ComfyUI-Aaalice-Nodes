@@ -280,15 +280,19 @@ test("image upload combos render as previewable image-choice controls", () => {
 	assert.match(imageChoiceControl, /role: "listbox"/);
 	assert.match(imageChoiceControl, /createAnchoredPopover\(\{/);
 	assert.match(imageChoiceControl, /port\.commit\(value\)/);
+	assert.match(imageChoiceControl, /className: "aa-control-image-choice__clear"/);
+	assert.match(imageChoiceControl, /port\.commit\(""\)/);
+	assert.match(imageChoiceControl, /clear\.hidden = !reference\.filename/);
 	assert.match(imagePreview, /resolve = null/);
 	assert.match(imagePreview, /resolve\?\.\(\)/);
 	assert.match(widgetAdapters, /image_folder: imageOptions\.image_folder \|\| "input"/);
-	assert.match(workspaceControls, /"image-choice": availabilityLabels/);
+	assert.match(workspaceControls, /"image-choice": \{ \.\.\.availabilityLabels, none: labels\.imageNone, clear: labels\.imageClear \}/);
 	assert.match(theme, /\.aa-control-image-choice__thumb \{[^}]*object-fit: cover/);
 		assert.match(theme, /\.aa-control-image-choice__button\.has-image::before/);
 		assert.match(theme, /\.aa-control-image-choice__button\.has-image \.aa-control-image-choice__name\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--aa-ui-canvas\) 58%, transparent\);[^}]*backdrop-filter:\s*blur\(5px\)/s);
 	assert.match(theme, /\.aa-control-image-choice__menu \{[^}]*overflow-y: auto/);
 	assert.match(theme, /\.aa-control-image-choice__option\.is-active/);
+	assert.match(theme, /\.aa-control-image-choice:hover \.aa-control-image-choice__clear/);
 });
 
 test("markdown notes adapt between full rendering and a hover-to-read bar by height", () => {
