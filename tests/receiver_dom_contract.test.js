@@ -66,10 +66,19 @@ test("receiver invalidates both Nodes 2.0 slot arrays after presentation changes
 
 test("receiver keeps native resize corners and can shrink after growing", () => {
 	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	const layoutSource = readFileSync(join(ROOT, "js", "lib", "receiver_layout.js"), "utf8");
+	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 	assert.match(receiverSource, /installDomWidgetResizePassthrough\(receiver, root\)/);
 	assert.match(receiverSource, /receiver\.computeSize = function \(\) \{\s*return \[RECEIVER_LAYOUT\.minWidth, receiverNodeSize\(this\)\];/s);
+	assert.match(receiverSource, /enforceReceiverWidth\(receiver, \{ initialize: !loaded \}\)/);
+	assert.match(receiverSource, /initialize\s*\?\s*RECEIVER_LAYOUT\.defaultWidth/);
+	assert.match(receiverSource, /element\.style\.setProperty\("min-width", `\$\{RECEIVER_LAYOUT\.minWidth\}px`\)/);
+	assert.match(receiverSource, /size\[0\] = Math\.max\(RECEIVER_LAYOUT\.minWidth/);
+	assert.match(layoutSource, /minWidth:\s*220/);
+	assert.match(layoutSource, /defaultWidth:\s*280/);
+	assert.match(themeSource, /\.aaalice-receiver-root\s*\{[^}]*min-width:\s*220px/s);
 	assert.match(receiverSource, /function syncReceiverResizeLayout/);
-	assert.match(receiverSource, /receiver\.onResize = function \(\)[\s\S]*syncReceiverResizeLayout\(this\)/);
+	assert.match(receiverSource, /receiver\.onResize = function \(size\)[\s\S]*syncReceiverResizeLayout\(this\)/);
 	assert.match(receiverSource, /syncReceiverLayout\(receiver, receiver\.inputs\?\.length \|\| 0\)/);
 	assert.doesNotMatch(receiverSource, /Math\.max\(RECEIVER_LAYOUT\.minWidth, Number\(this\.size/);
 	assert.match(receiverSource, /growClassicDomWidgetNode\(receiver\)/);

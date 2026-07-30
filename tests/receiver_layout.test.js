@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeReceiverLayout, reshapeReceiverSlots } from "../js/lib/receiver_layout.js";
+import { computeReceiverLayout, RECEIVER_LAYOUT, reshapeReceiverSlots } from "../js/lib/receiver_layout.js";
 
 function receiverWithSlots(count) {
 	const node = {
@@ -31,4 +31,11 @@ test("receiver minimum layout height follows its actual input count", () => {
 	assert.equal(computeReceiverLayout({}, 0).height, 60);
 	assert.equal(computeReceiverLayout({}, 3).height, 122);
 	assert.equal(computeReceiverLayout({}, 6).height, 212);
+});
+
+test("receiver keeps a compact minimum separate from its comfortable default width", () => {
+	assert.equal(RECEIVER_LAYOUT.minWidth, 220);
+	assert.equal(RECEIVER_LAYOUT.defaultWidth, 280);
+	assert.equal(computeReceiverLayout({ size: [180, 100] }, 0).width, RECEIVER_LAYOUT.minWidth);
+	assert.equal(computeReceiverLayout({ size: [340, 100] }, 0).width, 340);
 });

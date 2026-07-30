@@ -660,7 +660,7 @@
 .aaalice-receiver-root {
 	position: relative;
 	width: 100%;
-	min-width: 240px;
+	min-width: 220px;
 	min-height: var(--aaalice-receiver-height, 90px);
 	overflow: hidden;
 	pointer-events: none;

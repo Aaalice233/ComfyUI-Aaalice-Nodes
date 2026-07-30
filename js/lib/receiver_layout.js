@@ -1,7 +1,8 @@
 /** Shared compact geometry for ParameterReceiver native inputs and outputs. */
 
 export const RECEIVER_LAYOUT = Object.freeze({
-	minWidth: 240,
+	minWidth: 220,
+	defaultWidth: 280,
 	headerHeight: 32,
 	rowHeight: 30,
 	emptyRowsHeight: 28,

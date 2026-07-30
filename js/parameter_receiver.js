@@ -272,6 +272,18 @@ function receiverNodeSize(receiver) {
 	return Math.max(72, layout.contentTop + layout.height + 12);
 }
 
+function enforceReceiverWidth(receiver, { initialize = false } = {}) {
+	const currentWidth = Number(receiver.size?.[0]) || 0;
+	const targetWidth = initialize
+		? RECEIVER_LAYOUT.defaultWidth
+		: Math.max(RECEIVER_LAYOUT.minWidth, currentWidth);
+	if (currentWidth === targetWidth) return;
+	receiver.setSize?.([
+		targetWidth,
+		Number(receiver.size?.[1]) || receiverNodeSize(receiver),
+	]);
+}
+
 function syncReceiverResizeLayout(receiver) {
 	syncReceiverLayout(receiver, receiver.inputs?.length || 0);
 	markVueReceiverSlots(receiver);
@@ -305,6 +317,9 @@ function markVueReceiverSlots(receiver) {
 		const body = slotLayer?.parentElement;
 		const widgets = body?.querySelector?.(".lg-node-widgets");
 		element.classList.add("aaalice-parameter-receiver-node");
+		// Nodes 2.0 resize reads the node element's inline minimum instead
+		// of the computed minimum owned by the widget content.
+		element.style.setProperty("min-width", `${RECEIVER_LAYOUT.minWidth}px`);
 		element.style.setProperty("--aaalice-receiver-content-height", `${layout.height}px`);
 		element.style.setProperty("--aaalice-receiver-slot-height", `${RECEIVER_LAYOUT.rowHeight}px`);
 		inputColumn?.classList.add("aaalice-receiver-input-column");
@@ -732,6 +747,7 @@ function setupReceiver(receiver, loaded = false) {
 	if (receiver._aaaliceReceiverMounted) {
 		binding(receiver);
 		reshapeReceiverSlots(receiver, binding(receiver).slots.length);
+		enforceReceiverWidth(receiver);
 		render(receiver);
 		return;
 	}
@@ -765,7 +781,8 @@ function setupReceiver(receiver, loaded = false) {
 		return [RECEIVER_LAYOUT.minWidth, receiverNodeSize(this)];
 	};
 	const previousResize = receiver.onResize;
-	receiver.onResize = function () {
+	receiver.onResize = function (size) {
+		if (Array.isArray(size)) size[0] = Math.max(RECEIVER_LAYOUT.minWidth, Number(size[0]) || 0);
 		const result = previousResize?.apply(this, arguments);
 		syncReceiverResizeLayout(this);
 		return result;
@@ -824,7 +841,7 @@ function setupReceiver(receiver, loaded = false) {
 		return result;
 	};
 	widget.y = Number(receiver.constructor?.slot_start_y) || 4;
-	if (!loaded) receiver.setSize?.(receiver.computeSize());
+	enforceReceiverWidth(receiver, { initialize: !loaded });
 	render(receiver);
 }
 
