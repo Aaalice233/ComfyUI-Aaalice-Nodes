@@ -3,7 +3,7 @@ const DISCORD_AUTHORIZE = "https://discord.com/oauth2/authorize";
 const AUTH_MESSAGE_TYPE = "AAALICE_DISCORD_SHARE_AUTH";
 const DEFAULT_SESSION_TTL = 30 * 24 * 60 * 60;
 const DEFAULT_UPLOAD_LIMIT = 10 * 1024 * 1024;
-const DEFAULT_RATE_LIMIT = 5;
+const RATE_LIMIT_RETRY_SECONDS = 60;
 
 function json(data, status = 200, headers = {}) {
 	return new Response(JSON.stringify(data), {
@@ -392,18 +392,25 @@ async function handleOAuthResult(request, env) {
 	return json(handoff.result, 200, headers);
 }
 
-async function enforceRateLimit(env, userId) {
-	const limit = Math.max(1, Number(env.RATE_LIMIT_PER_MINUTE) || DEFAULT_RATE_LIMIT);
-	const minute = Math.floor(Date.now() / 60000);
-	const key = `rate:${userId}:${minute}`;
-	const count = Number(await env.SESSIONS.get(key)) || 0;
-	if (count >= limit) {
-		const error = new Error("Too many shares. Try again in a minute.");
-		error.code = "rate_limited";
-		error.status = 429;
+export async function enforceRateLimit(env, userId) {
+	let result;
+	try {
+		result = await env.SHARE_RATE_LIMITER.limit({ key: `discord-user:${String(userId)}` });
+	} catch (cause) {
+		const error = new Error("Discord sharing is temporarily unavailable because the rate-limit service could not be reached. Try again shortly.");
+		error.code = "rate_limiter_unavailable";
+		error.status = 503;
+		error.cause = cause;
 		throw error;
 	}
-	await env.SESSIONS.put(key, String(count + 1), { expirationTtl: 120 });
+	if (!result?.success) {
+		const error = new Error("Share limit reached for this Discord account. Wait about 60 seconds, then try again.");
+		error.code = "rate_limited";
+		error.status = 429;
+		error.headers = { "retry-after": String(RATE_LIMIT_RETRY_SECONDS) };
+		error.details = { retry_after_seconds: RATE_LIMIT_RETRY_SECONDS };
+		throw error;
+	}
 }
 
 export function splitDiscordPrompt(value, limit = 4000) {
@@ -511,29 +518,40 @@ function validateEnvironment(env) {
 		"DISCORD_WEBHOOK_URL",
 		"STATE_SECRET",
 		"SESSIONS",
+		"SHARE_RATE_LIMITER",
 	];
 	const missing = required.filter((key) => !env[key]);
-	if (missing.length) throw new Error(`Missing Worker configuration: ${missing.join(", ")}`);
+	if (missing.length) {
+		const error = new Error("Discord sharing is temporarily unavailable because the relay service is not fully configured. Please contact the server administrator.");
+		error.code = "relay_misconfigured";
+		error.status = 503;
+		error.internalDetail = `Missing Worker configuration: ${missing.join(", ")}`;
+		throw error;
+	}
 }
 
 export default {
 	async fetch(request, env) {
-		try {
-			validateEnvironment(env);
-			const url = new URL(request.url);
-			if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+			try {
+				validateEnvironment(env);
+				const url = new URL(request.url);
+				if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request, env) });
 				if (request.method === "GET" && url.pathname === "/v1/oauth/start") return handleOAuthStart(request, env);
 				if (request.method === "GET" && url.pathname === "/v1/oauth/callback") return handleOAuthCallback(request, env);
 				if (request.method === "POST" && url.pathname === "/v1/oauth/result") return await handleOAuthResult(request, env);
-			if (["GET", "DELETE"].includes(request.method) && url.pathname === "/v1/session") return await handleSession(request, env);
-			if (request.method === "POST" && url.pathname === "/v1/share") return await handleShare(request, env);
-			return errorResponse("not_found", "Not found.", 404, corsHeaders(request, env));
+				if (["GET", "DELETE"].includes(request.method) && url.pathname === "/v1/session") return await handleSession(request, env);
+				if (request.method === "POST" && url.pathname === "/v1/share") return await handleShare(request, env);
+				return errorResponse("not_found", "Not found.", 404, corsHeaders(request, env));
 		} catch (error) {
-			console.error("Discord share relay error", error);
+			console.error("Discord share relay error", error, error.internalDetail || "");
 			const status = Number(error.status) || 500;
 			const code = error.code || (status === 500 ? "internal_error" : "request_failed");
 			const message = status === 500 ? "Discord share service failed." : error.message;
-			return errorResponse(code, message, status, corsHeaders(request, env));
+			return json(
+				{ code, message, ...(error.details || {}) },
+				status,
+				{ ...corsHeaders(request, env), ...(error.headers || {}) },
+			);
 		}
 	},
 };

@@ -9,6 +9,8 @@ receives the Discord client secret or webhook URL.
   `https://<worker-host>/v1/oauth/callback`
 - An incoming webhook for the destination channel
 - A Cloudflare Worker and KV namespace bound as `SESSIONS`
+- Wrangler 4.36.0 or newer and a native Rate Limiting binding named
+  `SHARE_RATE_LIMITER`
 
 Copy `wrangler.toml.example` to `wrangler.toml`, fill in the public values and
 create the three secrets:
@@ -45,6 +47,12 @@ Restart ComfyUI after changing either environment variable.
 - Every session check and send re-reads guild membership from Discord.
 - Optional `ALLOWED_ROLE_IDS` further limits sending to selected roles.
 - Bearer sessions are random, hashed before KV lookup and expire automatically.
+- KV only stores OAuth handoffs and bearer sessions. Per-share abuse protection
+  uses Cloudflare's native Rate Limiting binding, so a successful share does not
+  consume a KV write.
 - The Worker rate-limits each Discord user and validates image type and size.
+- Rate-limit responses use HTTP 429, include `Retry-After: 60` and
+  `retry_after_seconds: 60`; missing or unavailable relay bindings return a
+  distinct HTTP 503 error instead of a generic failure.
 - Long prompts are split into multiple fenced Discord messages; the image is
   attached only to the first message.

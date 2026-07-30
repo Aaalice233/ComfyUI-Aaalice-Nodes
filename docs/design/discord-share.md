@@ -60,8 +60,12 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
 - OAuth `state` 使用 HMAC、Origin、Nonce、一次性 challenge 和短时过期；回调
   结果只允许签名 Origin 持有对应 verifier 的客户端领取，不进入 URL 或
   ComfyUI 请求日志。
-- 会话 Token 使用高熵随机值，KV 仅以 SHA-256 摘要索引并设置 TTL。
+- 会话 Token 使用高熵随机值，KV 仅以 SHA-256 摘要索引并设置 TTL；OAuth
+  handoff 与会话之外不得为每次分享写入 KV。
 - 每次发送校验成员、可选角色、用户级速率、图片 MIME 与大小、提示词非空。
+  用户级速率使用 Cloudflare 原生 Rate Limiting binding，按 Discord User Id
+  隔离；达到上限返回 `429`、`Retry-After` 和可机读重试秒数，绑定缺失或暂时
+  不可用返回独立 `503`，不得退化为无保护发送或含糊的内部错误。
 - 默认允许 loopback ComfyUI Origin；LAN 或 HTTPS 部署必须显式加入
   `ALLOWED_ORIGINS`，不能使用 `*` CORS。
 - Worker 部署失败、成员校验失败和 Webhook 失败必须返回明确错误，不得伪造发送

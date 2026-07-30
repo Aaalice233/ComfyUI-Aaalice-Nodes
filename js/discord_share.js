@@ -56,6 +56,17 @@ function toast(severity, detail, summary = label("title", "Discord Share")) {
 	app.extensionManager?.toast?.add?.({ severity, summary, detail, life: 4500 });
 }
 
+function shareErrorMessage(error) {
+	const messages = {
+		rate_limited: label("error.rateLimited", "Share limit reached for this Discord account. Wait about 60 seconds, then try again."),
+		rate_limiter_unavailable: label("error.rateLimiterUnavailable", "The sharing service could not check its rate limit. Try again shortly."),
+		relay_misconfigured: label("error.relayMisconfigured", "The sharing service is not fully configured. Contact the server administrator."),
+		webhook_failed: label("error.webhookFailed", "Discord did not accept this share. Try again; if it continues, contact the server administrator."),
+		internal_error: label("error.serviceFailed", "The sharing service encountered an internal error. Try again shortly."),
+	};
+	return messages[error?.code] || error?.message || label("error.unknown", "Discord sharing failed. Try again.");
+}
+
 function currentPlacement() {
 	return normalizeSharePlacement(app.ui.settings.getSettingValue(PLACEMENT_SETTING_ID, "sidebar"));
 }
@@ -315,7 +326,7 @@ function openConnectDialog(shareConfig, { continueToPicker = true } = {}) {
 					action.disabled = false;
 					action.classList.remove("is-loading");
 					if (error?.code === "not_member") openMembershipRequiredDialog(error, shareConfig);
-					else if (error?.code !== "cancelled") toast("error", error.message);
+					else if (error?.code !== "cancelled") toast("error", shareErrorMessage(error));
 				}
 			},
 		}),
@@ -566,7 +577,7 @@ async function openSharePicker(shareConfig, session, snapshot) {
 					closeActiveDialog();
 					scheduleEntrypointSync();
 					openConnectDialog(shareConfig);
-				} else toast("error", error.message);
+				} else toast("error", shareErrorMessage(error));
 			}
 		},
 	});
@@ -709,7 +720,7 @@ async function openShareFlow() {
 		if (error?.code === "not_member" && shareConfig) {
 			openMembershipRequiredDialog(error, shareConfig);
 		} else if (error?.code !== "cancelled") {
-			toast("error", error.message);
+			toast("error", shareErrorMessage(error));
 		}
 	} finally {
 		setShareFlowBusy(false);
@@ -760,7 +771,7 @@ async function openConnectionManager() {
 		activeDialog = createDialog({ title: label("account.title", "Discord connection"), body, footer, size: "compact", onClose: () => { activeDialog = null; } });
 	} catch (error) {
 		if (error?.code === "not_member" && shareConfig) openMembershipRequiredDialog(error, shareConfig);
-		else toast("error", error.message);
+		else toast("error", shareErrorMessage(error));
 	}
 }
 
@@ -841,7 +852,7 @@ function promptSourceMenu(node) {
 					toast("success", label("toast.promptSet", "Prompt source set. Save the workflow, then run it before sharing."));
 				}
 			} catch (error) {
-				toast("error", error.message);
+				toast("error", shareErrorMessage(error));
 			}
 		},
 	}];
