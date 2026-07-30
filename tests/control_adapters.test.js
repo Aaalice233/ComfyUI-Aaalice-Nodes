@@ -279,8 +279,9 @@ test("inactive and linked native widgets do not block ordinary controls", () => 
 	assert.equal(seed.validatePresetValue({ valueType: "number", payload: { value: 9, control_after_generate: "fixed" } }), true);
 	seed.applyPresetValue({ valueType: "number", payload: { value: 9, control_after_generate: "fixed" } });
 	assert.equal(node.widgets[0].value, 9); assert.equal(node.widgets[1].value, "fixed");
-	seed.setSeedLocked(true); assert.equal(node.widgets[1].value, "fixed"); assert.equal(seedMode, "fixed");
-	seed.setSeedLocked(false); assert.equal(node.widgets[1].value, "randomize"); assert.equal(seedMode, "randomize");
+	seed.setSeedBehavior("increment"); assert.equal(node.widgets[1].value, "increment"); assert.equal(seedMode, "increment");
+	seed.setSeedBehavior("decrement"); assert.equal(node.widgets[1].value, "decrement"); assert.equal(seedMode, "decrement");
+	assert.throws(() => seed.setSeedBehavior("unsupported"), /Invalid seed behavior/);
 });
 
 test("ComfyUI Primitive integer value controls are treated as seed metadata", () => {
@@ -296,9 +297,9 @@ test("ComfyUI Primitive integer value controls are treated as seed metadata", ()
 	assert.equal(controls[0].controlId, "value");
 	assert.equal(controls[0].kind, "seed");
 	assert.deepEqual(controls[0].readPresetValue(), { value: 7, control_after_generate: "fixed" });
-	controls[0].setSeedLocked(false);
-	assert.equal(mode.value, "randomize");
-	assert.equal(modeCommit, "randomize");
+	controls[0].setSeedBehavior("increment");
+	assert.equal(mode.value, "increment");
+	assert.equal(modeCommit, "increment");
 });
 
 test("adapter contract rejects unstable identities and asynchronous descriptors", () => {

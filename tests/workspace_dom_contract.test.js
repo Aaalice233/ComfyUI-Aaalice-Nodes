@@ -354,20 +354,29 @@ test("dashboard tag-list controls reuse the shared interactive chip editor", () 
 	assert.match(workspace, /event\.detail\?\.workspaceRedraw !== false/);
 });
 
-test("seed lock state reuses one shared control across the node and dashboard", () => {
+test("seed behavior reuses one four-mode shared control across the node and dashboard", () => {
 	const parameterPanel = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	assert.match(numericControl, /export function createSeedModeControl/);
-	assert.match(numericControl, /control\.setLocked/);
-	assert.match(numericControl, /aria-pressed/);
+	assert.match(numericControl, /SEED_BEHAVIORS = Object\.freeze\(\["fixed", "increment", "decrement", "randomize"\]\)/);
+	assert.match(numericControl, /createAnchoredPopover/);
+	assert.match(numericControl, /control\.setBehavior/);
+	assert.match(numericControl, /role: "radiogroup"/);
+	assert.match(numericControl, /option\.setAttribute\("role", "radio"\)/);
 	assert.match(parameterPanel, /createSharedControl\(spec/);
+	assert.match(parameterPanel, /setSeedBehavior\(behavior\)/);
 	assert.match(workspaceControls, /createSharedControl\(spec/);
-	assert.match(providers, /control_after_generate = locked \? "fixed" : "randomize"/);
-	assert.match(providers, /adapted\.setSeedLocked\(locked\)/);
+	assert.match(providers, /control_after_generate = behavior/);
+	assert.match(providers, /adapted\.setSeedBehavior\(behavior\)/);
 	assert.match(providers, /createSeedPresetPayload\(parameter\.value, parameter\.config\?\.control_after_generate\)/);
 	assert.match(providers, /parameter\.config\.control_after_generate = decoded\.behavior/);
-	assert.match(theme, /\.aa-control-seed-mode\.is-locked/);
-	assert.match(theme, /\.aa-control-card:has\(\.aa-control-seed-mode\.is-locked\)/);
-	assert.match(theme, /\.aa-control-card:has\(\.aa-control-seed-mode\.is-locked\) \.aa-control-numeric-value/);
+	assert.match(theme, /\.aa-control-seed-popover/);
+	for (const behavior of ["fixed", "increment", "decrement", "randomize"]) {
+		assert.match(theme, new RegExp(`data-seed-behavior="${behavior}"`));
+	}
+	assert.match(theme, /\.aa-control-seed-inline\[data-seed-behavior\]:not\(\[data-seed-behavior="randomize"\]\)/);
+	assert.match(theme, /\.aa-control-card-header:has\(\.aa-control-seed-mode\[data-seed-behavior="fixed"\]\)/);
+	assert.match(theme, /--aa-seed-field-tone/);
+	assert.doesNotMatch(theme, /\.aa-control-seed-mode\.is-locked/);
 });
 
 test("dashboard enum and boolean controls reuse the shared themed controls", () => {

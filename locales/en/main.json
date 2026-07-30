@@ -298,7 +298,17 @@
       "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },
 	  "types": { "slider": "Slider", "seed": "Seed", "switch": "Switch", "string": "String", "dropdown": "Dropdown", "enum": "Enum", "image": "Image", "taglist": "Tag list", "separator": "Separator" },
 	  "sources": { "custom": "Custom", "sampler": "Sampler", "scheduler": "Scheduler", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "Upscale model", "promptExpandRule": "Prompt Assistant · Expand rule", "promptLlmService": "Prompt Assistant · LLM service", "promptVisionRule": "Prompt Assistant · Vision rule", "promptVlmService": "Prompt Assistant · VLM service" },
-	  "seedMode": { "locked": "Seed locked; click to unlock", "unlocked": "Seed unlocked; click to lock" },
+		  "seedMode": {
+		    "header": "After each workflow run, update the seed using:",
+		    "fixed": "Fixed value",
+		    "fixedDescription": "Keep the current seed unchanged",
+		    "increment": "Increment",
+		    "incrementDescription": "Add 1 after each workflow run",
+		    "decrement": "Decrement",
+		    "decrementDescription": "Subtract 1 after each workflow run",
+		    "randomize": "Randomize",
+		    "randomizeDescription": "Choose a new random seed after each workflow run"
+		  },
       "confirm": { "parameterLinks": "Downstream links will be disconnected." },
       "kj": {
         "menu": "🔗 Create and link KJ Set nodes for all parameters",

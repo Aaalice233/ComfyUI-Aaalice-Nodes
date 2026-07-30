@@ -514,7 +514,13 @@ function workspaceLabels() {
 		groupMenu: t("aaalice.workspace.group.menu", "Layout group menu"),
 		renameHint: t("aaalice.workspace.renameHint", "Double-click to rename"),
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
-		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
+		seedMode: {
+			header: t("aaalice.pcp.seedMode.header", "After each workflow run, update the seed using:"),
+			fixed: { label: t("aaalice.pcp.seedMode.fixed", "Fixed value"), description: t("aaalice.pcp.seedMode.fixedDescription", "Keep the current seed unchanged") },
+			increment: { label: t("aaalice.pcp.seedMode.increment", "Increment"), description: t("aaalice.pcp.seedMode.incrementDescription", "Add 1 after each workflow run") },
+			decrement: { label: t("aaalice.pcp.seedMode.decrement", "Decrement"), description: t("aaalice.pcp.seedMode.decrementDescription", "Subtract 1 after each workflow run") },
+			randomize: { label: t("aaalice.pcp.seedMode.randomize", "Randomize"), description: t("aaalice.pcp.seedMode.randomizeDescription", "Choose a new random seed after each workflow run") },
+		},
 			imageNone: t("aaalice.pcp.image.none", "Choose image"), imageUpload: t("aaalice.pcp.image.upload", "Upload from device"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
 			imageAssets: {
 				all: t("aaalice.pcp.image.all", "All"), imported: t("aaalice.pcp.image.imported", "Imported"), generated: t("aaalice.pcp.image.generated", "Generated"),

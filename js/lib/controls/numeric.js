@@ -1,9 +1,16 @@
 /** Shared slider and seed control renderer. */
 
-import { el, icon, iconButton } from "../ui.js";
+import { button, createAnchoredPopover, el, icon, iconButton } from "../ui.js";
 import { controlView } from "./contract.js";
 
 const handledNumericWheels = new WeakSet();
+const SEED_BEHAVIORS = Object.freeze(["fixed", "increment", "decrement", "randomize"]);
+const SEED_BEHAVIOR_ICONS = Object.freeze({
+	fixed: "lock",
+	increment: "add",
+	decrement: "subtract",
+	randomize: "shuffle",
+});
 
 function hasFiniteOption(options, key) {
 	return options?.[key] !== null && options?.[key] !== "" && Number.isFinite(Number(options?.[key]));
@@ -79,20 +86,114 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	setTimeout(() => { input.focus(); input.select(); }, 0); return input;
 }
 
-export function createSeedModeControl({ locked = false, lockedLabel = "Seed locked; click to unlock", unlockedLabel = "Seed unlocked; click to lock", ariaLabelPrefix = "", className = "", onChange = null } = {}) {
-	let current = Boolean(locked);
-	const control = iconButton({ iconName: current ? "lock" : "unlock", label: current ? lockedLabel : unlockedLabel, variant: "ghost", className: `aa-control-seed-mode${className ? ` ${className}` : ""}` });
-	const sync = () => {
-		const label = current ? lockedLabel : unlockedLabel;
-		control.replaceChildren(icon(current ? "lock" : "unlock"));
-		control.classList.toggle("is-locked", current); control.classList.toggle("is-unlocked", !current);
-		control.setAttribute("aria-label", ariaLabelPrefix ? `${ariaLabelPrefix}: ${label}` : label);
-		control.setAttribute("title", label); control.setAttribute("aria-pressed", String(current));
+function normalizeSeedBehavior(value) {
+	return SEED_BEHAVIORS.includes(value) ? value : "randomize";
+}
+
+function seedBehaviorCopy(labels, behavior) {
+	const fallback = {
+		fixed: { label: "Fixed value", description: "Keep the current seed unchanged" },
+		increment: { label: "Increment", description: "Add 1 after each workflow run" },
+		decrement: { label: "Decrement", description: "Subtract 1 after each workflow run" },
+		randomize: { label: "Randomize", description: "Choose a new random seed after each workflow run" },
+	}[behavior];
+	const copy = labels?.[behavior];
+	return {
+		label: String(copy?.label || fallback.label),
+		description: String(copy?.description || fallback.description),
 	};
-	control.addEventListener("click", () => { current = !current; sync(); onChange?.(current); });
-	control.setLocked = (next) => { current = Boolean(next); sync(); };
-	control.isLocked = () => current; control.currentLabel = () => current ? lockedLabel : unlockedLabel;
-	sync(); return control;
+}
+
+function setSeedBehaviorState(element, behavior) {
+	element.dataset.seedBehavior = normalizeSeedBehavior(behavior);
+}
+
+export function createSeedModeControl({ behavior = "randomize", labels = {}, ariaLabelPrefix = "", className = "", onChange = null } = {}) {
+	let current = normalizeSeedBehavior(behavior);
+	let popover = null;
+	const control = iconButton({ iconName: SEED_BEHAVIOR_ICONS[current], label: "", variant: "ghost", className: `aa-control-seed-mode${className ? ` ${className}` : ""}` });
+	control.setAttribute("aria-haspopup", "dialog");
+
+	const sync = () => {
+		const copy = seedBehaviorCopy(labels, current);
+		const label = ariaLabelPrefix ? `${ariaLabelPrefix}: ${copy.label}` : copy.label;
+		control.replaceChildren(icon(SEED_BEHAVIOR_ICONS[current]));
+		setSeedBehaviorState(control, current);
+		control.setAttribute("aria-label", label);
+		control.setAttribute("title", `${copy.label}: ${copy.description}`);
+		control.setAttribute("aria-expanded", String(Boolean(popover)));
+	};
+	const close = () => popover?.close();
+	const select = (next) => {
+		const normalized = normalizeSeedBehavior(next);
+		if (normalized !== current) {
+			current = normalized;
+			sync();
+			onChange?.(current);
+		}
+		close();
+	};
+	const open = () => {
+		if (popover) { close(); return; }
+		popover = createAnchoredPopover({
+			anchor: control,
+			ariaLabel: labels?.header || "Seed behavior after each workflow run",
+			className: "aa-control-seed-popover",
+			width: 360,
+			onClose: () => { popover = null; sync(); },
+		});
+		const header = el("div", "aa-control-seed-popover__header", labels?.header || "After each workflow run, update the seed using:");
+		const list = el("div", { className: "aa-control-seed-options", attrs: { role: "radiogroup", "aria-label": labels?.header || "Seed behavior" } });
+		const options = [];
+		for (const mode of SEED_BEHAVIORS) {
+			const copy = seedBehaviorCopy(labels, mode);
+			const selected = mode === current;
+			const option = button({
+				label: copy.label,
+				variant: "ghost",
+				className: `aa-control-seed-option${selected ? " is-selected" : ""}`,
+				onClick: () => select(mode),
+			});
+			option.setAttribute("role", "radio");
+			option.setAttribute("aria-checked", String(selected));
+			option.dataset.seedBehavior = mode;
+			option.replaceChildren(
+				el("span", { className: "aa-control-seed-option__icon", attrs: { "aria-hidden": "true" }, children: [icon(SEED_BEHAVIOR_ICONS[mode])] }),
+				el("span", { className: "aa-control-seed-option__copy", children: [
+					el("strong", null, copy.label),
+					el("span", null, copy.description),
+				] }),
+				el("span", { className: "aa-control-seed-option__radio", attrs: { "aria-hidden": "true" }, children: selected ? [el("span", "aa-control-seed-option__radio-dot")] : [] }),
+			);
+			options.push(option);
+			list.append(option);
+		}
+		list.addEventListener("keydown", (event) => {
+			if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+			event.preventDefault();
+			const index = options.indexOf(document.activeElement);
+			const next = event.key === "Home" ? 0
+				: event.key === "End" ? options.length - 1
+					: (Math.max(0, index) + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+			options[next]?.focus();
+		});
+		popover.root.append(header, list);
+		popover.reposition();
+		sync();
+	};
+	control.addEventListener("click", open);
+	control.setBehavior = (next) => {
+		const normalized = normalizeSeedBehavior(next);
+		if (normalized === current) return;
+		current = normalized;
+		close();
+		sync();
+	};
+	control.getBehavior = () => current;
+	control.currentLabel = () => seedBehaviorCopy(labels, current).label;
+	control.destroy = close;
+	sync();
+	return control;
 }
 
 export function renderNumericControl(spec, port) {
@@ -153,12 +254,31 @@ export function renderNumericControl(spec, port) {
 	});
 	root.addEventListener("blur", finish, true); valueButton.addEventListener("blur", finish);
 	const accessories = [valueButton];
-	if (spec.kind === "seed") accessories.push(createSeedModeControl({
-		locked: options.control_after_generate !== "randomize",
-		lockedLabel: spec.labels.locked, unlockedLabel: spec.labels.unlocked, ariaLabelPrefix: spec.label,
-		onChange: (locked) => { root.classList.toggle("is-locked", locked); port.setSeedLocked(locked); },
-	}));
-	root.classList.toggle("is-locked", spec.kind === "seed" && options.control_after_generate !== "randomize");
+	let seedModeControl = null;
+	if (spec.kind === "seed") {
+		const seedBehavior = normalizeSeedBehavior(options.control_after_generate);
+		seedModeControl = createSeedModeControl({
+			behavior: seedBehavior,
+			labels: spec.labels,
+			ariaLabelPrefix: spec.label,
+			onChange: (next) => { setSeedBehaviorState(root, next); port.setSeedBehavior(next); },
+		});
+		accessories.push(seedModeControl);
+		setSeedBehaviorState(root, seedBehavior);
+	}
 	sync(spec.value); root.append(range);
-	return controlView({ root, headerAccessories: accessories, kind: spec.kind, headerOnly: !hasRange, update: (next) => sync(next.value), destroy: () => clearTimeout(gestureTimer) });
+	return controlView({
+		root,
+		headerAccessories: accessories,
+		kind: spec.kind,
+		headerOnly: !hasRange,
+		update: (next) => {
+			sync(next.value);
+			if (seedModeControl && next.options?.control_after_generate) {
+				seedModeControl.setBehavior(next.options.control_after_generate);
+				setSeedBehaviorState(root, next.options.control_after_generate);
+			}
+		},
+		destroy: () => { clearTimeout(gestureTimer); seedModeControl?.destroy?.(); },
+	});
 }

@@ -116,7 +116,7 @@ test("successful preset application reports the atomic result", () => {
 	assert.equal(current, 32); assert.equal(dirty, 1);
 });
 
-test("switching between seed presets restores each lock behavior", () => {
+test("switching between seed presets restores each after-generate behavior", () => {
 	const seed = binding("seed"); const state = { value: 1, behavior: "randomize" };
 	const resolveSeed = () => ({
 		status: "ok", kind: "seed", value: state.value,

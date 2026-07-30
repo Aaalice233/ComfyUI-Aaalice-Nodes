@@ -325,12 +325,29 @@ document.addEventListener("keydown", (event) => {
 
 function valueControl(node, parameter, heading = null) {
 	const persist = (detail = {}) => notifyParameterChanged(node, { structure: false, ...detail });
-	const lockedLabel = t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock");
-	const unlockedLabel = t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock");
+	const seedModeLabels = {
+		header: t("aaalice.pcp.seedMode.header", "After each workflow run, update the seed using:"),
+		fixed: {
+			label: t("aaalice.pcp.seedMode.fixed", "Fixed value"),
+			description: t("aaalice.pcp.seedMode.fixedDescription", "Keep the current seed unchanged"),
+		},
+		increment: {
+			label: t("aaalice.pcp.seedMode.increment", "Increment"),
+			description: t("aaalice.pcp.seedMode.incrementDescription", "Add 1 after each workflow run"),
+		},
+		decrement: {
+			label: t("aaalice.pcp.seedMode.decrement", "Decrement"),
+			description: t("aaalice.pcp.seedMode.decrementDescription", "Subtract 1 after each workflow run"),
+		},
+		randomize: {
+			label: t("aaalice.pcp.seedMode.randomize", "Randomize"),
+			description: t("aaalice.pcp.seedMode.randomizeDescription", "Choose a new random seed after each workflow run"),
+		},
+	};
 	const spec = parameterControlSpec(parameter, {
 		label: displayName(parameter),
 		labels: {
-			seed: { locked: lockedLabel, unlocked: unlockedLabel },
+			seed: seedModeLabels,
 			boolean: { enabled: t("aaalice.common.enabled", "Enabled"), disabled: t("aaalice.common.disabled", "Disabled") },
 			taglist: {
 				placeholder: t("aaalice.pcp.taglist.placeholder", "Enter tags and press Enter"), append: t("aaalice.pcp.taglist.append", "+ Add tag"),
@@ -363,9 +380,8 @@ function valueControl(node, parameter, heading = null) {
 			if (!gestureOpen) return; gestureOpen = false; parameter.value = next; persist({ redraw: false });
 			node.graph?.afterChange?.(); node.graph?.setDirtyCanvas?.(true, true);
 		},
-		setSeedLocked(locked) {
-			graphCommit(() => { parameter.config ||= {}; parameter.config.control_after_generate = locked ? "fixed" : "randomize"; });
-			descriptionTooltip.hide();
+		setSeedBehavior(behavior) {
+			graphCommit(() => { parameter.config ||= {}; parameter.config.control_after_generate = behavior; });
 		},
 		onSuccess(reference) { toast("success", message("aaalice.pcp.image.uploaded", "Image uploaded: {filename}", { filename: reference.filename })); },
 		onError(error) {
@@ -379,7 +395,6 @@ function valueControl(node, parameter, heading = null) {
 		view.headerAccessories[0]?.classList.add("aa-control-numeric-value--heading"); heading.append(...view.headerAccessories);
 	} else if (spec.kind === "seed") {
 		view.root.classList.add("aa-control-seed-inline"); view.root.append(...view.headerAccessories);
-		const modeButton = view.headerAccessories[1]; modeButton?.removeAttribute("title"); if (modeButton) attachDescriptionTooltip(modeButton, modeButton.currentLabel);
 	}
 	return view.root;
 }

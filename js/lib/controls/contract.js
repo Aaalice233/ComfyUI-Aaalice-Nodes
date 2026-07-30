@@ -26,7 +26,7 @@ export function controlPort(callbacks = {}) {
 		commit: call("commit"),
 		beginGesture: call("beginGesture"),
 		endGesture: call("endGesture"),
-		setSeedLocked: call("setSeedLocked"),
+		setSeedBehavior: call("setSeedBehavior"),
 		onError: call("onError"),
 		onSuccess: call("onSuccess"),
 	});

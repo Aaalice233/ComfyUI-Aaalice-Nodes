@@ -22,7 +22,7 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 	const spec = resolvedControlSpec(resolved, {
 		labels: {
 			numeric: availabilityLabels,
-			seed: { ...availabilityLabels, locked: labels.seedLocked, unlocked: labels.seedUnlocked },
+			seed: { ...availabilityLabels, ...(labels.seedMode || {}) },
 			boolean: { ...availabilityLabels, enabled: labels.enabled, disabled: labels.disabled },
 			choice: { ...availabilityLabels, select: labels.selectOption },
 			text: availabilityLabels,
@@ -55,7 +55,7 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 			gestureOpen = false; activeControlGestures = Math.max(0, activeControlGestures - 1); resolved.flushValue?.();
 			resolved.node?.graph?.afterChange?.(); resolved.node?.graph?.setDirtyCanvas?.(true, true); onCommit?.(next);
 		},
-		setSeedLocked: (locked) => { resolved.setSeedLocked?.(locked); onCommit?.(resolved.value); },
+		setSeedBehavior: (behavior) => { resolved.setSeedBehavior?.(behavior); onCommit?.(resolved.value, { seedBehavior: behavior }); },
 		onError,
 		onSuccess,
 	});

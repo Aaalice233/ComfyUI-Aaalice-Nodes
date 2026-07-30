@@ -112,7 +112,7 @@ New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`
 - Custom enum and dropdown options use one value per line and must be unique.
 - Image parameters accept either a file-picker selection or an image dragged from the desktop or file manager. An empty selection or a selected file that no longer exists outputs one solid-black `512 × 512` image.
 - Connect each visible output directly to the matching downstream input. Links stay with the same parameter when it is renamed or reordered.
-- Seed supports fixed, increment, decrement, and randomize behavior. The inline lock button switches between fixed and randomize for quick use.
+- Seed supports fixed, increment, decrement, and randomize behavior. The inline behavior button opens all four choices and changes its icon to reflect the current mode.
 - If KJ Set/Get is installed, **🔗 Create and link KJ Set nodes for all parameters** is available from the node menu. Newly created collapsed Set nodes are arranged in a compact column to the panel's right.
 
 Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not create outputs. Only value-producing parameters appear as output sockets.

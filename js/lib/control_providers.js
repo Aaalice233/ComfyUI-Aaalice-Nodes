@@ -4,7 +4,7 @@ import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParam
 import { partitionParameterSections } from "./parameter_sections.js";
 import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
 import { recommendedControlRowSpan } from "./dashboard_sizing.js";
-import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "./seed_preset.js";
+import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
 import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
@@ -136,9 +136,10 @@ controlProviders.register({
 				return transaction ? graphTransaction(node, apply) : apply();
 			},
 			flushValue() { notifyParameterChanged(node, { structure: false }); },
-			setSeedLocked(locked) {
+			setSeedBehavior(behavior) {
+				if (!SEED_AFTER_GENERATE_MODES.includes(behavior)) throw new TypeError(`Invalid seed behavior: ${behavior}`);
 				return graphTransaction(node, () => {
-					parameter.config ||= {}; parameter.config.control_after_generate = locked ? "fixed" : "randomize";
+					parameter.config ||= {}; parameter.config.control_after_generate = behavior;
 					notifyParameterChanged(node, { structure: false });
 				});
 			},
@@ -223,8 +224,9 @@ const widgetProvider = (id, promoted) => ({
 				const apply = () => { adapted.setValue(next); node.setDirtyCanvas?.(true, true); };
 				return transaction ? graphTransaction(node, apply) : apply();
 			},
-			setSeedLocked(locked) {
-				return graphTransaction(node, () => { adapted.setSeedLocked(locked); node.setDirtyCanvas?.(true, true); });
+			setSeedBehavior(behavior) {
+				if (!SEED_AFTER_GENERATE_MODES.includes(behavior)) throw new TypeError(`Invalid seed behavior: ${behavior}`);
+				return graphTransaction(node, () => { adapted.setSeedBehavior(behavior); node.setDirtyCanvas?.(true, true); });
 			},
 		};
 	},

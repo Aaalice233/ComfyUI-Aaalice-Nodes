@@ -28,6 +28,8 @@ const ICON_PATHS = {
 	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
 	loading: "M21 12a9 9 0 1 1-6.22-8.56",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
+	subtract: "M5 12h14",
+	shuffle: "M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5",
 	move: "M3 6h7l2 2h9v11H3V6Zm5 8h8m-3-3 3 3-3 3",
 	more: "M5 11v2M12 11v2M19 11v2",
 	pin: "M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6Zm3 11v7",

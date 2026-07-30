@@ -158,7 +158,12 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 			if (typeof adapter.applyPresetValue === "function") return adapter.applyPresetValue(entry, context);
 			return this.setValue(entry.payload);
 		},
-		setSeedLocked(locked) { return described.setSeedLocked?.(Boolean(locked), context); },
+		setSeedBehavior(behavior) {
+			if (!SEED_AFTER_GENERATE_MODES.includes(behavior)) throw new TypeError(`Invalid seed behavior: ${behavior}`);
+			if (typeof described.setSeedBehavior === "function") return described.setSeedBehavior(behavior, context);
+			if (typeof adapter.setSeedBehavior === "function") return adapter.setSeedBehavior(behavior, context);
+			throw new TypeError(`Widget control adapter ${adapter.id} does not support seed behavior changes`);
+		},
 	};
 }
 
@@ -314,7 +319,11 @@ registerWidgetControlAdapter({
 					widget.value = decoded.value; widget.callback?.(widget.value);
 					if (decoded.hasBehavior) { seedMode.value = decoded.behavior; seedMode.callback?.(seedMode.value); }
 				},
-				setSeedLocked: (locked) => { seedMode.value = locked ? "fixed" : "randomize"; seedMode.callback?.(seedMode.value); },
+				setSeedBehavior: (behavior) => {
+					if (!seedBehaviorValues(seedMode).includes(behavior)) throw new TypeError(`Seed behavior is not supported: ${behavior}`);
+					seedMode.value = behavior;
+					seedMode.callback?.(seedMode.value);
+				},
 			} : {}),
 		};
 	},
