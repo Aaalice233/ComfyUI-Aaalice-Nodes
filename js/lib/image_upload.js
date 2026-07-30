@@ -1,9 +1,7 @@
 /** Shared image file validation, upload, and drag/drop behavior. */
 
 import { api } from "../../../scripts/api.js";
-import { bindImagePreview, closeImagePreview } from "./image_preview.js";
-import { imageReferenceViewPath, normalizeImageReference } from "./image_reference.js";
-import { el, iconButton } from "./ui.js";
+import { normalizeImageReference } from "./image_reference.js";
 
 const IMAGE_FILE_EXTENSION = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
 
@@ -21,14 +19,16 @@ export function isImageFile(file) {
 	return !file.type && IMAGE_FILE_EXTENSION.test(String(file.name || ""));
 }
 
-export async function uploadImageFile(file) {
+export async function uploadImageFile(file, { type = "input", subfolder = "" } = {}) {
 	if (!isImageFile(file)) throw new ImageUploadError("file-type", "Choose an image file.");
+	const uploadType = ["input", "output", "temp"].includes(String(type).toLowerCase()) ? String(type).toLowerCase() : "input";
 	const body = new FormData();
 	body.append("image", file);
-	body.append("type", "input");
+	body.append("type", uploadType);
+	if (subfolder) body.append("subfolder", String(subfolder));
 	const response = await api.fetchApi("/upload/image", { method: "POST", body });
 	if (!response.ok) throw new ImageUploadError("request", `HTTP ${response.status}`);
-	const reference = normalizeImageReference(await response.json());
+	const reference = normalizeImageReference({ ...(await response.json()), type: uploadType });
 	if (!reference) throw new ImageUploadError("response", "The server response did not include an image filename.");
 	return reference;
 }
@@ -59,56 +59,4 @@ export function bindImageDropTarget(target, { onActive = null, onFile } = {}) {
 		const file = files.find(isImageFile) || files[0];
 		if (file) onFile?.(file);
 	});
-}
-
-export function createImageUploadControl({
-	reference: value = null,
-	label,
-	emptyLabel = "Choose image",
-	dropLabel = "Drop image here",
-	clearLabel = "Clear selected image",
-	className = "",
-	onSelected = null,
-	onClear = null,
-	onError = null,
-} = {}) {
-	const reference = normalizeImageReference(value);
-	const defaultLabel = reference?.filename || emptyLabel;
-	const root = el("div", `aa-image-upload-control${className ? ` ${className}` : ""}`);
-	const picker = document.createElement("input");
-	picker.type = "file"; picker.accept = "image/*"; picker.hidden = true;
-	const visibleLabel = el("span", "aa-image-upload-label", defaultLabel);
-	const button = el("button", { className: `aa-image-upload-button${reference ? " has-image" : ""}`, attrs: { type: "button", "aria-label": label }, children: [visibleLabel] });
-	const path = imageReferenceViewPath(reference);
-	if (path) {
-		const source = api.apiURL(path);
-		const thumbnail = document.createElement("img");
-		thumbnail.src = source; thumbnail.alt = ""; thumbnail.loading = "lazy"; thumbnail.decoding = "async";
-		button.prepend(thumbnail);
-		bindImagePreview(button, source, `${label} · ${reference.filename}`, { immediate: true });
-	}
-	const upload = async (file) => {
-		button.disabled = true; root.classList.add("is-uploading"); root.setAttribute("aria-busy", "true"); closeImagePreview();
-		try { onSelected?.(await uploadImageFile(file)); }
-		catch (error) { onError?.(error); }
-		finally {
-			button.disabled = false; root.classList.remove("is-uploading"); root.removeAttribute("aria-busy"); picker.value = "";
-		}
-	};
-	button.addEventListener("click", () => picker.click());
-	picker.addEventListener("change", () => { const file = picker.files?.[0]; if (file) void upload(file); });
-	bindImageDropTarget(root, {
-		onActive: (active) => {
-			if (active) closeImagePreview();
-			button.classList.toggle("is-drop-target", active);
-			visibleLabel.textContent = active ? dropLabel : defaultLabel;
-		},
-		onFile: (file) => { void upload(file); },
-	});
-	root.append(button, picker);
-	if (reference) root.append(iconButton({
-		iconName: "delete", label: clearLabel, variant: "ghost", className: "aa-image-upload-clear",
-		onClick: (event) => { event.stopPropagation(); closeImagePreview(); onClear?.(); },
-	}));
-	return root;
 }

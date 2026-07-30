@@ -515,7 +515,14 @@ function workspaceLabels() {
 		renameHint: t("aaalice.workspace.renameHint", "Double-click to rename"),
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
 		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
-		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageUpload: t("aaalice.pcp.image.upload", "Upload from device"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
+			imageNone: t("aaalice.pcp.image.none", "Choose image"), imageUpload: t("aaalice.pcp.image.upload", "Upload from device"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
+			imageAssets: {
+				all: t("aaalice.pcp.image.all", "All"), imported: t("aaalice.pcp.image.imported", "Imported"), generated: t("aaalice.pcp.image.generated", "Generated"),
+				filter: t("aaalice.pcp.image.filter", "Filter image sources"), search: t("aaalice.pcp.image.search", "Search images"),
+				sort: t("aaalice.pcp.image.sort", "Change sort order"), list: t("aaalice.pcp.image.list", "List view"), grid: t("aaalice.pcp.image.grid", "Grid view"),
+				loading: t("aaalice.pcp.image.loading", "Loading images…"), empty: t("aaalice.pcp.image.empty", "No images found"),
+				loadFailed: t("aaalice.pcp.image.loadFailed", "Some images could not be loaded."),
+			},
 			markdownEmpty: t("aaalice.workspace.markdown.empty", "Empty note"),
 			imageOutput: {
 				empty: t("aaalice.workspace.imageOutput.empty", "Run the workflow to preview images"),

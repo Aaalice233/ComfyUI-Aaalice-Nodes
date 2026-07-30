@@ -251,7 +251,11 @@ registerWidgetControlAdapter({
 			kind: "image-choice",
 			valueType: "string",
 			value: widget.value,
-			options: { values, image_folder: imageOptions.image_folder || "input" },
+				options: {
+					values,
+					image_folder: imageOptions.image_folder || "input",
+					upload_subfolder: imageOptions.upload_subfolder || "",
+				},
 			availability: values.length ? undefined : { state: "empty", reason: "no-options" },
 		};
 	},

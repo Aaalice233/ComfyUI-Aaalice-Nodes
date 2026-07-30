@@ -337,7 +337,15 @@ function valueControl(node, parameter, heading = null) {
 				empty: t("aaalice.pcp.taglist.empty", "Press Enter to add tags"), input: t("aaalice.pcp.taglist.input", "Add tags"),
 				enable: t("aaalice.pcp.taglist.enable", "Enable {tag}"), disable: t("aaalice.pcp.taglist.disable", "Disable {tag}"), remove: t("aaalice.pcp.taglist.remove", "Remove {tag}"),
 			},
-			image: { none: t("aaalice.pcp.image.none", "Choose image"), drop: t("aaalice.pcp.image.drop", "Drop image here"), clear: t("aaalice.pcp.image.clear", "Clear selected image") },
+				image: {
+					none: t("aaalice.pcp.image.none", "Choose image"), upload: t("aaalice.pcp.image.upload", "Upload from device"),
+					drop: t("aaalice.pcp.image.drop", "Drop image here"), clear: t("aaalice.pcp.image.clear", "Clear selected image"),
+					all: t("aaalice.pcp.image.all", "All"), imported: t("aaalice.pcp.image.imported", "Imported"), generated: t("aaalice.pcp.image.generated", "Generated"),
+					filter: t("aaalice.pcp.image.filter", "Filter image sources"), search: t("aaalice.pcp.image.search", "Search images"),
+					sort: t("aaalice.pcp.image.sort", "Change sort order"), list: t("aaalice.pcp.image.list", "List view"), grid: t("aaalice.pcp.image.grid", "Grid view"),
+					loading: t("aaalice.pcp.image.loading", "Loading images…"), empty: t("aaalice.pcp.image.empty", "No images found"),
+					loadFailed: t("aaalice.pcp.image.loadFailed", "Some images could not be loaded."),
+				},
 		},
 		});
 	let gestureOpen = false;

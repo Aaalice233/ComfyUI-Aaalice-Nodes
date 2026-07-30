@@ -1,20 +1,19 @@
 /** Shared image-reference control renderer. */
 
-import { createImageUploadControl } from "../image_upload.js";
+import { createImageAssetControl } from "../image_asset_control.js";
 import { controlView } from "./contract.js";
 
 export function renderImageControl(spec, port) {
-	const root = createImageUploadControl({
+	const control = createImageAssetControl({
 		reference: spec.value,
 		label: spec.label,
-		emptyLabel: spec.labels.none || "Choose image",
-		dropLabel: spec.labels.drop || "Drop image here",
-		clearLabel: spec.labels.clear || "Clear selected image",
-		className: "aa-control-image",
-		onSelected: (next) => { port.commit(next); port.onSuccess(next); },
-		onClear: () => port.commit(null),
+		labels: spec.labels,
+		onChange: (next) => port.commit(next),
+		onUploaded: (next) => port.onSuccess(next),
 		onError: port.onError,
 	});
+	const { root } = control;
+	root.classList.add("aa-control-image");
 	root.classList.add("aa-control");
-	return controlView({ root, kind: "image" });
+	return controlView({ root, kind: "image", update: (next) => control.update(next.value), destroy: control.destroy });
 }

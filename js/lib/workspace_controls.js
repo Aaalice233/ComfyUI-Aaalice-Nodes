@@ -11,6 +11,14 @@ export function hasActiveControlGestures() { return activeControlGestures > 0; }
 export function createControlElement(resolved, { labels = {}, onInput, onCommit, onError, onSuccess } = {}) {
 	if (resolved?.status !== "ok") return null;
 	const availabilityLabels = labels.availability || {};
+	const imageLabels = {
+		...availabilityLabels,
+		none: labels.imageNone,
+		upload: labels.imageUpload,
+		drop: labels.imageDrop,
+		clear: labels.imageClear,
+		...(labels.imageAssets || {}),
+	};
 	const spec = resolvedControlSpec(resolved, {
 		labels: {
 			numeric: availabilityLabels,
@@ -18,12 +26,12 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 			boolean: { ...availabilityLabels, enabled: labels.enabled, disabled: labels.disabled },
 			choice: { ...availabilityLabels, select: labels.selectOption },
 			text: availabilityLabels,
-			"image-choice": { ...availabilityLabels, none: labels.imageNone, upload: labels.imageUpload, drop: labels.imageDrop, clear: labels.imageClear },
+				"image-choice": imageLabels,
 				markdown: { ...availabilityLabels, empty: labels.markdownEmpty },
 				"image-output": { ...availabilityLabels, ...(labels.imageOutput || {}) },
 				"text-output": { ...availabilityLabels, ...(labels.textOutput || {}) },
 				taglist: { ...availabilityLabels, ...(labels.taglist || {}) },
-			image: { ...availabilityLabels, none: labels.imageNone, drop: labels.imageDrop, clear: labels.imageClear },
+				image: imageLabels,
 			"image-compare": { ...availabilityLabels, ...(labels.imageCompare || {}) },
 		},
 		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean", wheelAdjust: false },

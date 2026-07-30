@@ -307,26 +307,26 @@ test("parameter panel keeps native resize corners and a stable minimum width", (
 	assert.doesNotMatch(panelSource, /applyCompactNodeSize|scheduleCompactNodeSize|_aaaliceParameterManualHeight|getHeight:/);
 });
 
-test("image parameters expose upload feedback, a cover thumbnail and a full preview", () => {
+test("image parameters expose the shared asset browser, upload feedback and preview", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const controlSource = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
 	const uploadSource = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
+	const assetControlSource = readFileSync(join(ROOT, "js", "lib", "image_asset_control.js"), "utf8");
 	const previewSource = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
 	assert.match(panelSource, /aaalice\.pcp\.image\.uploaded/);
-	assert.match(controlSource, /createImageUploadControl\(\{/);
-	assert.match(controlSource, /className: "aa-control-image"/);
-	assert.match(controlSource, /onClear: \(\) => port\.commit\(null\)/);
-	assert.match(uploadSource, /picker\.type = "file"/);
-	assert.match(uploadSource, /picker\.click\(\)/);
-	assert.match(uploadSource, /thumbnail\.src = source/);
-	assert.match(uploadSource, /bindImagePreview\(button, source,[^\n]*immediate: true/);
-	assert.match(uploadSource, /className: "aa-image-upload-clear"/);
+	assert.match(controlSource, /createImageAssetControl\(\{/);
+	assert.match(controlSource, /classList\.add\("aa-control-image"\)/);
+	assert.match(assetControlSource, /onChange\?\.\(null, \{ source: "clear" \}\)/);
+	assert.match(assetControlSource, /picker\.click\(\)/);
+	assert.match(assetControlSource, /thumbnail\.src = assetSource\(reference\)/);
+	assert.match(assetControlSource, /bindImagePreview\(select, "", "", \{ immediate: true, resolve: viewSource \}\)/);
+	assert.match(assetControlSource, /className: "aa-image-asset-control__clear"/);
 	assert.match(previewSource, /export function bindImagePreview/);
-	assert.match(themeSource, /\.aa-image-upload-button > img\s*\{[^}]*object-fit:\s*cover/s);
-	assert.match(themeSource, /\.aa-image-upload-control:hover \.aa-image-upload-clear/);
-	assert.match(themeSource, /\.aa-image-upload-clear\.aa-ui-button:hover:not\(:disabled\)[^}]*translateY\(-50%\)/s);
+	assert.match(themeSource, /\.aa-image-asset-control__thumb\s*\{[^}]*object-fit:\s*cover/s);
+	assert.match(themeSource, /\.aa-image-asset-control:hover \.aa-image-asset-control__clear/);
+	assert.match(themeSource, /\.aa-image-asset-control__clear\.aa-ui-button:hover:not\(:disabled\)[^}]*translateY\(-50%\)/s);
 	assert.match(themeSource, /\.aa-image-preview-large > img\s*\{[^}]*object-fit:\s*contain/s);
 });
 
@@ -335,7 +335,7 @@ test("image parameters upload dropped image files through the existing upload pa
 	const uploadSource = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
 
-	assert.match(controlSource, /createImageUploadControl/);
+	assert.match(controlSource, /createImageAssetControl/);
 	assert.match(uploadSource, /export async function uploadImageFile/);
 	assert.match(uploadSource, /api\.fetchApi\("\/upload\/image"/);
 	assert.match(uploadSource, /export function bindImageDropTarget/);
@@ -346,6 +346,7 @@ test("image parameters upload dropped image files through the existing upload pa
 	assert.match(uploadSource, /event\.stopPropagation\(\)/);
 	assert.match(uploadSource, /event\.dataTransfer\.dropEffect = "copy"/);
 	assert.match(uploadSource, /files\.find\(isImageFile\)/);
-	assert.match(uploadSource, /bindImageDropTarget\(root/);
-	assert.match(themeSource, /\.aa-image-upload-button\.is-drop-target\s*\{/);
+	const assetControlSource = readFileSync(join(ROOT, "js", "lib", "image_asset_control.js"), "utf8");
+	assert.match(assetControlSource, /bindImageDropTarget\(root/);
+	assert.match(themeSource, /\.aa-image-asset-control__select\.is-drop-target\s*\{/);
 });

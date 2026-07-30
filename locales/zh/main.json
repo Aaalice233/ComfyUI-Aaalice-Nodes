@@ -345,7 +345,10 @@
         "fixed": "保持固定", "increment": "每次递增", "decrement": "每次递减", "randomize": "每次随机"
       },
       "image": {
-		"none": "选择图像", "upload": "从本机上传", "drop": "松开以选择图像", "uploaded": "图像上传成功：{filename}", "clear": "清空已选择图像"
+		"none": "选择图像", "upload": "从本机上传", "drop": "松开以选择图像", "uploaded": "图像上传成功：{filename}", "clear": "清空已选择图像",
+		"all": "全部", "imported": "已导入", "generated": "已生成", "filter": "筛选图像来源", "search": "搜索图像",
+		"sort": "切换排序", "list": "列表视图", "grid": "网格视图", "loading": "正在加载图像…", "empty": "没有找到图像",
+		"loadFailed": "部分图像加载失败。"
       },
 	  "taglist": { "placeholder": "输入标签后按回车添加", "append": "+ 添加标签", "empty": "输入后按回车添加标签", "input": "添加标签", "enable": "启用 {tag}", "disable": "停用 {tag}", "remove": "删除 {tag}" }
     }
