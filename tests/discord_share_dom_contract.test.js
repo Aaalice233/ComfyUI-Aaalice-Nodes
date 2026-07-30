@@ -33,9 +33,9 @@ test("share entry uses the compact Aaalice workspace footer and public action ba
 	assert.match(theme, /\.aa-workspace-footer\s*\{[^}]*min-height:\s*42px;[^}]*justify-content:\s*space-between;/s);
 	assert.match(theme, /\.aa-discord-share-entry:not\(\.aa-discord-share-entry--topbar\)\s*\{[^}]*width:\s*30px;[^}]*height:\s*30px;[^}]*border-radius:\s*8px;/s);
 	assert.match(source, /classList\.add\("aa-discord-share-entry",\s*"aa-discord-share-entry--topbar"\)/);
-	assert.match(theme, /button\.aa-discord-share-entry--topbar\s*\{[^}]*padding:\s*6px;[^}]*border-radius:\s*4px;[^}]*background-color:\s*var\(--primary-bg\)\s*!important;[^}]*color:\s*var\(--p-primary-contrast-color,\s*#fff\);/s);
+	assert.match(theme, /button\.aa-discord-share-entry--topbar\s*\{[^}]*padding:\s*6px;[^}]*border-radius:\s*4px;[^}]*background-color:\s*var\(--primary-bg\)\s*!important;[^}]*color:\s*var\(--p-primary-contrast-color,\s*#fff\)\s*!important;/s);
 	assert.doesNotMatch(theme, /button\.aa-discord-share-entry--topbar\s*\{[^}]*(?:width|min-width|height|min-height):/s);
-	assert.match(theme, /\.aa-discord-share-entry--topbar\s+\.aa-discord-share-entry__icon\s*\{[^}]*display:\s*block;[^}]*width:\s*20px;[^}]*height:\s*20px;/s);
+	assert.match(theme, /\.aa-discord-share-entry--topbar\s+\.aa-discord-share-entry__icon\s*\{[^}]*display:\s*block;[^}]*width:\s*20px;[^}]*height:\s*20px;[^}]*color:\s*var\(--p-primary-contrast-color,\s*#fff\)\s*!important;[^}]*stroke:\s*currentColor\s*!important;/s);
 	assert.match(theme, /button\.aa-discord-share-entry--topbar:hover:not\(:disabled\),[\s\S]*background-color:\s*var\(--primary-hover-bg\)\s*!important;/);
 	assert.doesNotMatch(theme, /\.aa-workspace-corner-actions/);
 });

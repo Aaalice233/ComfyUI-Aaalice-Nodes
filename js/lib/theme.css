@@ -3049,7 +3049,7 @@ button.aa-discord-share-entry--topbar {
 	border-radius: 4px;
 	background-color: var(--primary-bg) !important;
 	box-shadow: none;
-	color: var(--p-primary-contrast-color, #fff);
+	color: var(--p-primary-contrast-color, #fff) !important;
 	transition: background-color .2s ease;
 }
 button.aa-discord-share-entry--topbar:hover:not(:disabled),
@@ -3076,7 +3076,8 @@ button.aa-discord-share-entry--topbar:disabled {
 	width: 20px;
 	height: 20px;
 	flex: none;
-	color: inherit !important;
+	color: var(--p-primary-contrast-color, #fff) !important;
+	stroke: currentColor !important;
 }
 .aa-discord-share-entry--topbar .aa-discord-share-entry__status {
 	top: 2px;
