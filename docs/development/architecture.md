@@ -56,7 +56,7 @@
 | Discord 分享 | `js/discord_share.js`、`js/lib/{discord_share_capture,discord_share_client,discord_share_model}.js` | 工作区侧栏底栏/顶栏入口、社区链接、Preview Any 绑定、最新成功执行快照、成员验证和相册发送 |
 | DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,parameter_sections,native_output_controls,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、ComfyUI 内置只读执行预览、全图组导航、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image,image_compare,image_output,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
-| 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
+| 纯模型 | `js/lib/{param_model,parameter_option_sources,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、动态选项来源适配、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
 | DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
@@ -205,6 +205,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 - 适配器使用稳定英文 `id` 和显式 `priority`。Dashboard Binding 保存 Adapter ID，重载后不会因新增适配器或优先级变化而漂移到另一实现。
 - 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并返回 `controlView()`，不得持有工作流状态。
 - Provider 负责图事务、节点 dirty 和绑定解析；适配器不得直接操作侧边栏 DOM，渲染器不得发现节点。适配器卸载函数应在第三方扩展销毁时调用。
+- ParameterPanel 的动态下拉来源通过同一个公开 `api.js` 注册；适配器只声明稳定 id、本地化标签及候选节点输入，不复制模型清单。注册表会复用最近一次 `/object_info` 快照，因此不依赖扩展加载顺序；候选输入没有解析到非空 Combo 时，该来源不会出现在新建参数的来源列表中。
 
 ```js
 import { registerWidgetControlAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/api.js";
@@ -226,6 +227,17 @@ const unregister = registerWidgetControlAdapter({
 	validatePresetValue: (entry) => Number.isFinite(entry.payload?.strength) || "invalid-strength",
 	applyPresetValue: (entry) => { widget.model.value = entry.payload.strength; },
   }),
+});
+```
+
+```js
+import { registerParameterOptionSourceAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/api.js";
+
+const unregister = registerParameterOptionSourceAdapter({
+  id: "vendor_model",
+  labelKey: "vendor.parameterSources.model",
+  labelFallback: "Vendor model",
+  inputs: [{ nodeName: "VendorModelLoader", inputName: "model_name" }],
 });
 ```
 

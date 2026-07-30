@@ -11,9 +11,16 @@ const PARAMETER_KIND = Object.freeze({
 	image: "image",
 });
 
+function parameterChoicePresentation(parameter) {
+	if (parameter?.param_type === "dropdown") return false;
+	if (parameter?.param_type !== "enum") return null;
+	return parameter.config?.enum_display !== "dropdown";
+}
+
 export function parameterControlSpec(parameter, { label, labels = {}, presentation = {} } = {}) {
 	const kind = PARAMETER_KIND[parameter?.param_type];
 	if (!kind) return null;
+	const segmented = parameterChoicePresentation(parameter);
 	return {
 		id: parameter.id,
 		family: "aaalice",
@@ -26,7 +33,7 @@ export function parameterControlSpec(parameter, { label, labels = {}, presentati
 			...presentation,
 			// Dropdown and enum are different authoring promises even though
 			// both carry a string value. Keep the visual choice explicit.
-			segmented: parameter.param_type === "enum",
+			...(segmented == null ? {} : { segmented }),
 		},
 		availability: { state: "ready" },
 	};
@@ -46,6 +53,7 @@ function resolvedKind(resolved) {
 
 export function resolvedControlSpec(resolved, { labels = {}, presentation = {} } = {}) {
 	const kind = resolvedKind(resolved);
+	const segmented = parameterChoicePresentation(resolved?.control);
 	return {
 		id: resolved?.controlId || resolved?.control?.id || resolved?.control?.name || "",
 		family: resolved?.family === "comfy" ? "comfy" : "aaalice",
@@ -54,7 +62,10 @@ export function resolvedControlSpec(resolved, { labels = {}, presentation = {} }
 		value: resolved.value,
 		options: resolved.options || {},
 		labels: labels[kind] || labels,
-		presentation,
+		presentation: {
+			...presentation,
+			...(segmented == null ? {} : { segmented }),
+		},
 		availability: resolved.availability || { state: "ready" },
 	};
 }

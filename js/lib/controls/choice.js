@@ -1,6 +1,6 @@
 /** Shared select and compact segmented choice renderer. */
 
-import { el, selectControl } from "../ui.js";
+import { createTooltip, el, selectControl } from "../ui.js";
 import { stableToneIndexes } from "../control_tones.js";
 import { controlView } from "./contract.js";
 
@@ -14,6 +14,7 @@ function optionValue(item) { return String(typeof item === "object" ? item.value
 function renderSegmented(spec, port, options) {
 	const root = el("div", { className: "aa-control aa-control-choice aa-control-choice-segmented", attrs: { role: "radiogroup", "aria-label": spec.label } });
 	const indicator = el("span", { className: "aa-control-choice-indicator", attrs: { "aria-hidden": "true" } });
+	const optionTooltip = createTooltip({ delay: 140 });
 	const choices = [];
 	const tones = stableToneIndexes(options.map(optionValue));
 	let current = String(spec.value ?? "");
@@ -37,14 +38,24 @@ function renderSegmented(spec, port, options) {
 	root.append(indicator);
 	for (const option of options) {
 		const value = optionValue(option); const text = typeof option === "object" ? option.label : option;
-		const choice = el("button", { className: "aa-control-choice-option", attrs: { type: "button", role: "radio", "data-value": value, "data-control-tone": String(tones.get(value)) }, children: [String(text)] });
+		const fullLabel = String(text);
+		const choice = el("button", { className: "aa-control-choice-option", attrs: { type: "button", role: "radio", "aria-label": fullLabel, "data-value": value, "data-control-tone": String(tones.get(value)) }, children: [fullLabel] });
+		choice.addEventListener("mouseenter", () => optionTooltip.show(choice, fullLabel, { contentMode: "text" }));
+		choice.addEventListener("mouseleave", optionTooltip.hide);
+		choice.addEventListener("focus", () => optionTooltip.show(choice, fullLabel, { contentMode: "text", immediate: true }));
+		choice.addEventListener("blur", optionTooltip.hide);
 		choice.addEventListener("click", () => { if (current === value) return; current = value; sync(); port.commit(value, { redraw: false }); });
 		choices.push(choice); root.append(choice);
 	}
 	requestAnimationFrame(() => sync(false));
 	const observer = typeof ResizeObserver === "function" ? new ResizeObserver(() => sync(false)) : null;
 	observer?.observe(root);
-	return controlView({ root, kind: "choice", update: (next) => { current = String(next.value ?? ""); sync(false); }, destroy: () => observer?.disconnect() });
+	return controlView({
+		root,
+		kind: "choice",
+		update: (next) => { current = String(next.value ?? ""); sync(false); },
+		destroy: () => { observer?.disconnect(); optionTooltip.destroy(); },
+	});
 }
 
 export function renderChoiceControl(spec, port) {

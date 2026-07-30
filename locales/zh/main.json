@@ -299,7 +299,7 @@
       "empty": "暂无参数，请通过节点右键菜单编辑。",
       "builtin": { "seed": "种子", "steps": "步数", "cfg": "CFG", "sampler": "采样器", "scheduler": "调度器", "denoise": "降噪幅度" },
 	  "types": { "slider": "滑条", "seed": "种子", "switch": "开关", "string": "文本", "dropdown": "下拉框", "enum": "枚举", "image": "图像", "taglist": "标签列表", "separator": "分隔线" },
-	  "sources": { "custom": "自定义", "sampler": "采样器", "scheduler": "调度器", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "放大模型", "promptExpandRule": "提示词助手 · 扩写规则", "promptLlmService": "提示词助手 · LLM 服务", "promptVisionRule": "提示词助手 · 反推规则", "promptVlmService": "提示词助手 · VLM 服务" },
+	  "sources": { "custom": "自定义", "unavailable": "{source}（不可用）", "sampler": "采样器", "scheduler": "调度器", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "放大模型", "wdTimmModel": "WD Timm 反推模型", "promptExpandRule": "提示词助手 · 扩写规则", "promptLlmService": "提示词助手 · LLM 服务", "promptVisionRule": "提示词助手 · 反推规则", "promptVlmService": "提示词助手 · VLM 服务" },
 		  "seedMode": {
 		    "header": "每次工作流运行后，按以下方式更新种子：",
 		    "fixed": "固定值",
@@ -350,8 +350,11 @@
       },
       "field": {
         "description": "参数说明", "descriptionPlaceholder": "支持 Markdown", "options": "选项（每行一个）",
-        "source": "选项来源", "multiline": "多行文本", "seedBehavior": "生成后行为",
+        "source": "选项来源", "enumDisplay": "显示方式", "multiline": "多行文本", "seedBehavior": "生成后行为",
         "minimum": "最小值", "maximum": "最大值", "step": "步长"
+      },
+      "enumDisplay": {
+        "auto": "自动", "dropdown": "下拉框"
       },
       "seedBehavior": {
         "fixed": "保持固定", "increment": "每次递增", "decrement": "每次递减", "randomize": "每次随机"

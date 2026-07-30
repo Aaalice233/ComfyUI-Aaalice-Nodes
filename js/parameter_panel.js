@@ -10,7 +10,7 @@ import {
 	installDomWidgetResizePassthrough,
 } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
-import { badge, button, createAnchoredPopover, createDialog, el, emptyState, field, icon, iconButton, isolate, toggleSwitch } from "./lib/ui.js";
+import { badge, button, createAnchoredPopover, createDialog, el, emptyState, field, icon, iconButton, isolate, segmentedControl, toggleSwitch } from "./lib/ui.js";
 import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import {
 	parameterPanelKjMenuItem,
@@ -33,12 +33,16 @@ import {
 	newParamId,
 	normalizeDynamicOptions,
 	notifyParameterChanged,
-	refreshComfyOptions,
 	setCustomName,
 	tunableMeta,
 	uniqueName,
 	validateParametersDraft,
 } from "./lib/param_model.js";
+import {
+	availableParameterOptionSourceAdapters,
+	parameterOptionSourceAdapter,
+	refreshParameterOptionSources,
+} from "./lib/parameter_option_sources.js";
 import {
 	PARAMETER_NODE_LAYOUT,
 	computeParameterLayout,
@@ -134,20 +138,23 @@ function parameterTypeLabel(value) {
 	return t(`aaalice.pcp.types.${value}`, value);
 }
 
-function optionSourceChoices() {
-	return [
+function optionSourceChoices(currentSource = null) {
+	const choices = [
 		{ value: "custom", label: t("aaalice.pcp.sources.custom", "Custom") },
-		{ value: "sampler", label: t("aaalice.pcp.sources.sampler", "Sampler") },
-		{ value: "scheduler", label: t("aaalice.pcp.sources.scheduler", "Scheduler") },
-		{ value: "checkpoint", label: t("aaalice.pcp.sources.checkpoint", "Checkpoint") },
-		{ value: "lora", label: t("aaalice.pcp.sources.lora", "LoRA") },
-		{ value: "controlnet", label: t("aaalice.pcp.sources.controlnet", "ControlNet") },
-		{ value: "upscale_model", label: t("aaalice.pcp.sources.upscaleModel", "Upscale model") },
-		{ value: "prompt_expand_rule", label: t("aaalice.pcp.sources.promptExpandRule", "Prompt Assistant · Expand rule") },
-		{ value: "prompt_llm_service", label: t("aaalice.pcp.sources.promptLlmService", "Prompt Assistant · LLM service") },
-		{ value: "prompt_vision_rule", label: t("aaalice.pcp.sources.promptVisionRule", "Prompt Assistant · Vision rule") },
-		{ value: "prompt_vlm_service", label: t("aaalice.pcp.sources.promptVlmService", "Prompt Assistant · VLM service") },
 	];
+	for (const adapter of availableParameterOptionSourceAdapters()) {
+		choices.push({ value: adapter.id, label: t(adapter.labelKey, adapter.labelFallback) });
+	}
+	if (currentSource && currentSource !== "custom" && !choices.some((choice) => choice.value === currentSource)) {
+		const adapter = parameterOptionSourceAdapter(currentSource);
+		const sourceLabel = adapter ? t(adapter.labelKey, adapter.labelFallback) : currentSource;
+		choices.push({
+			value: currentSource,
+			label: message("aaalice.pcp.sources.unavailable", "{source} (unavailable)", { source: sourceLabel }),
+			disabled: true,
+		});
+	}
+	return choices;
 }
 
 function selectInput(options, value) {
@@ -155,7 +162,9 @@ function selectInput(options, value) {
 	for (const option of options) {
 		const optionValue = typeof option === "string" ? option : option.value;
 		const optionLabel = typeof option === "string" ? option : option.label;
-		select.add(new Option(optionLabel, optionValue, false, optionValue === value));
+		const element = new Option(optionLabel, optionValue, false, optionValue === value);
+		element.disabled = typeof option !== "string" && Boolean(option.disabled);
+		select.add(element);
 	}
 	return select;
 }
@@ -534,7 +543,7 @@ function renderInspector(editor, parameter, rerender) {
 		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.valueRules", "Value rules"), behaviorBody));
 	}
 	if (["dropdown", "enum"].includes(parameter.param_type)) {
-		const source = selectInput(optionSourceChoices(), parameter.config?.source || "custom");
+		const source = selectInput(optionSourceChoices(parameter.config?.source), parameter.config?.source || "custom");
 		const options = document.createElement("textarea");
 		options.rows = 7;
 		options.value = (parameter.config?.options || []).join("\n");
@@ -545,6 +554,7 @@ function renderInspector(editor, parameter, rerender) {
 			if (source.value === "custom") delete parameter.config.source;
 			else parameter.config.source = source.value;
 			normalizeDynamicOptions([parameter]);
+			if (!parameter.config.options.includes(parameter.value)) parameter.value = parameter.config.options[0] ?? "";
 			options.value = (parameter.config.options || []).join("\n");
 			syncOptionsField();
 			editor.dirty = true;
@@ -553,6 +563,23 @@ function renderInspector(editor, parameter, rerender) {
 		options.addEventListener("input", () => { parameter.config.options = options.value.split("\n").map((item) => item.trim()).filter(Boolean); editor.dirty = true; editor.updateValidation?.(); });
 		const optionsBody = el("div", "aaalice-editor-field-stack");
 		optionsBody.append(inspectorField(t("aaalice.pcp.field.source", "Source"), source), optionsField);
+		if (parameter.param_type === "enum") {
+			const enumDisplay = segmentedControl({
+				value: parameter.config?.enum_display === "dropdown" ? "dropdown" : "auto",
+				ariaLabel: t("aaalice.pcp.field.enumDisplay", "Display style"),
+				options: [
+					{ value: "auto", label: t("aaalice.pcp.enumDisplay.auto", "Auto") },
+					{ value: "dropdown", label: t("aaalice.pcp.enumDisplay.dropdown", "Dropdown") },
+				],
+				onChange: (value) => {
+					if (value === "dropdown") parameter.config.enum_display = "dropdown";
+					else delete parameter.config.enum_display;
+					editor.dirty = true;
+					editor.updateValidation?.();
+				},
+			});
+			optionsBody.prepend(inspectorField(t("aaalice.pcp.field.enumDisplay", "Display style"), enumDisplay));
+		}
 		inspectorGrid.append(inspectorSection(t("aaalice.pcp.editor.optionsBehavior", "Options and behavior"), optionsBody));
 	}
 	if (parameter.param_type === "string") {
@@ -975,7 +1002,7 @@ app.registerExtension({
 	name: "ComfyUI.Aaalice.ParameterPanel",
 	async init() {
 		try {
-			refreshComfyOptions(await loadComfyNodeDefs());
+			refreshParameterOptionSources(await loadComfyNodeDefs());
 			refreshMountedDynamicOptions();
 		}
 		catch (error) { console.warn("[Aaalice] Failed to load dynamic parameter options", error); }

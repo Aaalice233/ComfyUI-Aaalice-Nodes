@@ -299,7 +299,7 @@
       "empty": "No parameters. Use the node context menu to edit.",
       "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },
 	  "types": { "slider": "Slider", "seed": "Seed", "switch": "Switch", "string": "String", "dropdown": "Dropdown", "enum": "Enum", "image": "Image", "taglist": "Tag list", "separator": "Separator" },
-	  "sources": { "custom": "Custom", "sampler": "Sampler", "scheduler": "Scheduler", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "Upscale model", "promptExpandRule": "Prompt Assistant · Expand rule", "promptLlmService": "Prompt Assistant · LLM service", "promptVisionRule": "Prompt Assistant · Vision rule", "promptVlmService": "Prompt Assistant · VLM service" },
+	  "sources": { "custom": "Custom", "unavailable": "{source} (unavailable)", "sampler": "Sampler", "scheduler": "Scheduler", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "Upscale model", "wdTimmModel": "WD Timm tagger model", "promptExpandRule": "Prompt Assistant · Expand rule", "promptLlmService": "Prompt Assistant · LLM service", "promptVisionRule": "Prompt Assistant · Vision rule", "promptVlmService": "Prompt Assistant · VLM service" },
 		  "seedMode": {
 		    "header": "After each workflow run, update the seed using:",
 		    "fixed": "Fixed value",
@@ -350,8 +350,11 @@
       },
       "field": {
         "description": "Parameter description", "descriptionPlaceholder": "Markdown supported", "options": "Options (one per line)",
-        "source": "Source", "multiline": "Multiline", "seedBehavior": "After generate",
+        "source": "Source", "enumDisplay": "Display style", "multiline": "Multiline", "seedBehavior": "After generate",
         "minimum": "Minimum", "maximum": "Maximum", "step": "Step"
+      },
+      "enumDisplay": {
+        "auto": "Auto", "dropdown": "Dropdown"
       },
       "seedBehavior": {
         "fixed": "Keep fixed", "increment": "Increment", "decrement": "Decrement", "randomize": "Randomize"

@@ -2,6 +2,7 @@
 import { t } from "../i18n.js";
 import { normalizeImageReference } from "./image_reference.js";
 import { hasDuplicateOptions } from "./parameter_options.js";
+import { parameterOptionSourceOptions } from "./parameter_option_sources.js";
 import { normalizeTagListValue } from "./taglist_value.js";
 
 export const MAX_TUNABLE = 32;
@@ -12,29 +13,6 @@ export const PARAMETER_TYPE_ORDER = Object.freeze([
 ]);
 
 const TUNABLE = new Set(PARAMETER_TYPE_ORDER.filter((type) => type !== "separator"));
-const sourceOptions = {
-	// Keep the panel useful while /object_info is still loading. The live node
-	// definitions replace these values as soon as ComfyUI responds.
-	sampler: [
-		"euler", "euler_cfg_pp", "euler_ancestral", "euler_ancestral_cfg_pp", "heun", "heunpp2",
-		"exp_heun_2_x0", "exp_heun_2_x0_sde", "dpm_2", "dpm_2_ancestral", "lms", "dpm_fast",
-		"dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_2s_ancestral_cfg_pp", "dpmpp_sde", "dpmpp_sde_gpu",
-		"dpmpp_2m", "dpmpp_2m_cfg_pp", "dpmpp_2m_sde", "dpmpp_2m_sde_gpu", "dpmpp_2m_sde_heun",
-		"dpmpp_2m_sde_heun_gpu", "dpmpp_3m_sde", "dpmpp_3m_sde_gpu", "ddpm", "lcm", "ipndm",
-		"ipndm_v", "deis", "res_multistep", "res_multistep_cfg_pp", "res_multistep_ancestral",
-		"res_multistep_ancestral_cfg_pp", "gradient_estimation", "gradient_estimation_cfg_pp", "er_sde",
-		"seeds_2", "seeds_3", "sa_solver", "sa_solver_pece", "ddim", "uni_pc", "uni_pc_bh2",
-	],
-	scheduler: ["simple", "sgm_uniform", "karras", "exponential", "ddim_uniform", "beta", "normal", "linear_quadratic", "kl_optimal"],
-		checkpoint: [],
-		lora: [],
-		controlnet: [],
-		upscale_model: [],
-		prompt_expand_rule: [],
-		prompt_llm_service: [],
-		prompt_vision_rule: [],
-		prompt_vlm_service: [],
-};
 
 function newStableId(prefix) {
 	if (globalThis.crypto?.randomUUID) return `${prefix}_${globalThis.crypto.randomUUID()}`;
@@ -80,40 +58,8 @@ export function uniqueName(items, requested, exceptId = null) {
 	}
 }
 
-export function refreshComfyOptions(nodeDefs) {
-	const readOptions = (entry) => {
-		if (Array.isArray(entry?.[0])) return entry[0].map(String);
-		if (Array.isArray(entry?.[1]?.options)) return entry[1].options.map(String);
-		if (Array.isArray(entry?.options)) return entry.options.map(String);
-		return [];
-	};
-	const required = (nodeName) => {
-		const definition = nodeDefs?.[nodeName];
-		return definition?.input?.required
-			|| definition?.inputs?.required
-			|| definition?.input?.required_inputs
-			|| definition?.inputs?.required_inputs
-			|| {};
-	};
-	for (const [source, nodeName, inputName] of [
-		["sampler", "KSampler", "sampler_name"],
-		["scheduler", "KSampler", "scheduler"],
-		["checkpoint", "CheckpointLoaderSimple", "ckpt_name"],
-		["lora", "LoraLoader", "lora_name"],
-			["controlnet", "ControlNetLoader", "control_net_name"],
-			["upscale_model", "UpscaleModelLoader", "model_name"],
-			["prompt_expand_rule", "PromptExpand", "rule"],
-			["prompt_llm_service", "PromptExpand", "llm_service"],
-			["prompt_vision_rule", "ImageCaptionNode", "rule"],
-			["prompt_vlm_service", "ImageCaptionNode", "vlm_service"],
-		]) {
-		const options = readOptions(required(nodeName)[inputName]);
-		if (options.length) sourceOptions[source] = options;
-	}
-}
-
 function dynamicOptions(source) {
-	return [...(sourceOptions[source] || [])];
+	return parameterOptionSourceOptions(source);
 }
 
 function defaultValueForType(paramType, config = {}) {
@@ -184,8 +130,8 @@ function createSamplerTemplateParameters() {
 	return [
 		builtin("steps", "Steps", "slider", 30, { min: 1, max: 100, step: 1 }),
 		builtin("cfg", "CFG", "slider", 5, { min: 0, max: 20, step: 0.1 }),
-		builtin("sampler", "Sampler", "dropdown", "euler", { source: "sampler", options: [...sourceOptions.sampler] }),
-		builtin("scheduler", "Scheduler", "dropdown", "normal", { source: "scheduler", options: [...sourceOptions.scheduler] }),
+		builtin("sampler", "Sampler", "dropdown", "euler", { source: "sampler", options: parameterOptionSourceOptions("sampler") }),
+		builtin("scheduler", "Scheduler", "dropdown", "normal", { source: "scheduler", options: parameterOptionSourceOptions("scheduler") }),
 		builtin("denoise", "Denoise", "slider", 1, { min: 0, max: 1, step: 0.01 }),
 		builtin("seed", "Seed", "seed", 0, { min: 0, max: SEED_MAX, control_after_generate: "randomize" }),
 	];

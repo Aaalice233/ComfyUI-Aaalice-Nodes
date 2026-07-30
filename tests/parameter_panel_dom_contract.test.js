@@ -78,8 +78,24 @@ test("parameter enum uses a sliding selection indicator", () => {
 	assert.match(choiceSource, /position\(activeChoice, animate\)/);
 	assert.match(choiceSource, /port\.commit\(value, \{ redraw: false \}\)/);
 	assert.match(choiceSource, /observer\?\.disconnect\(\)/);
+	assert.match(choiceSource, /createTooltip\(\{ delay: 140 \}\)/);
+	assert.match(choiceSource, /optionTooltip\.show\(choice, fullLabel, \{ contentMode: "text" \}\)/);
+	assert.match(choiceSource, /optionTooltip\.show\(choice, fullLabel, \{ contentMode: "text", immediate: true \}\)/);
+	assert.match(choiceSource, /optionTooltip\.destroy\(\)/);
 	assert.match(themeSource, /\.aa-control-choice-indicator\s*\{[^}]*transition:\s*[^;}]*transform/s);
 	assert.match(themeSource, /\.aa-control-choice-indicator\s*\{[^}]*var\(--aa-control-item-tone/s);
+});
+
+test("enum display policy can force a dropdown without disabling automatic sizing", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const choiceSource = readFileSync(join(ROOT, "js", "lib", "controls", "choice.js"), "utf8");
+	const specSource = readFileSync(join(ROOT, "js", "lib", "controls", "specs.js"), "utf8");
+
+	assert.match(panelSource, /segmentedControl\(\{[\s\S]*value: parameter\.config\?\.enum_display === "dropdown" \? "dropdown" : "auto"/);
+	assert.match(panelSource, /parameter\.config\.enum_display = "dropdown"/);
+	assert.match(panelSource, /delete parameter\.config\.enum_display/);
+	assert.match(specSource, /parameter\.config\?\.enum_display !== "dropdown"/);
+	assert.match(choiceSource, /options\.length > 0 && options\.length <= 4/);
 });
 
 test("parameter panel deletion destroys shared controls without calling removed observer helpers", () => {
@@ -172,21 +188,16 @@ test("parameter renames publish ComfyUI's Nodes 2.0 slot-label event", () => {
 	assert.doesNotMatch(panelSource, /app\.canvas\?\.vueNodesMode === true && Array\.isArray\(node\.outputs\)/);
 });
 
-test("prompt assistant choices are sourced from its live node definitions", () => {
-	const modelSource = readFileSync(join(ROOT, "js", "lib", "param_model.js"), "utf8");
+test("parameter choices consume the availability-aware source adapter registry", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const adapterSource = readFileSync(join(ROOT, "js", "lib", "parameter_option_sources.js"), "utf8");
 
-	assert.match(modelSource, /Array\.isArray\(entry\?\.\[1\]\?\.options\)/);
-	assert.match(modelSource, /entry\[1\]\.options\.map\(String\)/);
-	for (const contract of [
-		["prompt_expand_rule", "PromptExpand", "rule"],
-		["prompt_llm_service", "PromptExpand", "llm_service"],
-		["prompt_vision_rule", "ImageCaptionNode", "rule"],
-		["prompt_vlm_service", "ImageCaptionNode", "vlm_service"],
-	]) {
-		assert.match(modelSource, new RegExp(contract.map((part) => `"${part}"`).join(", ")));
-		assert.match(panelSource, new RegExp(`value: "${contract[0]}"`));
-	}
+	assert.match(adapterSource, /export function registerParameterOptionSourceAdapter/);
+	assert.match(adapterSource, /export function availableParameterOptionSourceAdapters/);
+	assert.match(adapterSource, /id: "wd_timm_model"[\s\S]*nodeName: "WDTimmTagger", inputName: "model_name"/);
+	assert.match(panelSource, /for \(const adapter of availableParameterOptionSourceAdapters\(\)\)/);
+	assert.match(panelSource, /disabled: true/);
+	assert.doesNotMatch(panelSource, /value: "wd_timm_model"/);
 });
 
 test("parameter editor keeps the left parameter rail independently scrollable", () => {
