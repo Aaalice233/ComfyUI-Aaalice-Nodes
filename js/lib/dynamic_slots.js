@@ -14,18 +14,36 @@ function refreshConcreteSlots(node) {
 	if (typeof node?._setConcreteSlots === "function") node._setConcreteSlots();
 }
 
+function cloneSlotForShallowConsumers(slot) {
+	if (!slot || typeof slot !== "object") return slot;
+	return Object.create(
+		Object.getPrototypeOf(slot),
+		Object.getOwnPropertyDescriptors(slot),
+	);
+}
+
+function publishSlotArray(node, key) {
+	const slots = node?.[key];
+	if (!Array.isArray(slots)) return;
+	// Nodes 2.0 keeps slots shallow-reactive. A new array containing the same
+	// slot objects is not enough for child slot components whose prop identity
+	// stays unchanged, so publish fresh slot identities while retaining every
+	// descriptor, prototype and link reference.
+	node[key] = slots.map(cloneSlotForShallowConsumers);
+}
+
 /**
  * Commit public slot mutations to Nodes 2.0 and LiteGraph immediately.
  *
- * Reassigning the public arrays reaches ComfyUI's shallowReactive setters when
- * Nodes 2.0 is active. The official slot-label event then refreshes the
- * extracted Vue node data. Classic mode simply receives equivalent arrays and
- * a dirty-canvas request.
+ * Replacing both the public array and its slot identities reaches ComfyUI's
+ * shallowReactive setters and slot child props when Nodes 2.0 is active. The
+ * official slot-label event then refreshes the extracted Vue node data.
+ * Classic mode simply receives equivalent slots and a dirty-canvas request.
  */
 export function publishDynamicSlotState(node, { inputs = false, outputs = false } = {}) {
 	if (!node || (!inputs && !outputs)) return;
-	if (inputs && Array.isArray(node.inputs)) node.inputs = [...node.inputs];
-	if (outputs && Array.isArray(node.outputs)) node.outputs = [...node.outputs];
+	if (inputs) publishSlotArray(node, "inputs");
+	if (outputs) publishSlotArray(node, "outputs");
 	refreshConcreteSlots(node);
 	const graph = node.graph;
 	if (inputs) {

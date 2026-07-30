@@ -62,11 +62,17 @@ test("receiver invalidates both Nodes 2.0 slot arrays after presentation changes
 	const layoutSource = readFileSync(join(ROOT, "js", "lib", "receiver_layout.js"), "utf8");
 	assert.match(receiverSource, /presentationChanged \|\|= String\(nativeSlot\._aaaliceParamId \|\| ""\) !== String\(slot\?\.parameterId \|\| ""\)/);
 	assert.match(receiverSource, /publishDynamicSlotState\(receiver, \{ inputs: true, outputs: true \}\)/);
-	assert.match(dynamicSource, /node\.inputs = \[\.\.\.node\.inputs\]/);
-	assert.match(dynamicSource, /node\.outputs = \[\.\.\.node\.outputs\]/);
+	assert.match(dynamicSource, /node\[key\] = slots\.map\(cloneSlotForShallowConsumers\)/);
 	assert.match(dynamicSource, /graph\?\.trigger\?\.\("node:slot-label:changed"/);
 	assert.doesNotMatch(receiverSource, /receiver\._setConcreteSlots = function/);
 	assert.doesNotMatch(layoutSource, /_concreteInputs|_concreteOutputs/);
+});
+
+test("ParameterPanel title tracking does not replace ComfyUI graph event handlers", () => {
+	const kjSource = readFileSync(join(ROOT, "js", "parameter_panel_kj.js"), "utf8");
+	assert.match(kjSource, /Object\.getOwnPropertyDescriptor\(panel, "title"\)/);
+	assert.match(kjSource, /installTitleWatcher\(panel\)/);
+	assert.doesNotMatch(kjSource, /graph\.onTrigger\s*=/);
 });
 
 test("receiver synchronization keeps managed KJ Gets in the receiver subgraph", () => {

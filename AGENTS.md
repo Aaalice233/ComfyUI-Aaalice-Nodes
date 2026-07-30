@@ -102,6 +102,7 @@ ComfyUI-Aaalice-Nodes/
 - 局部重绘不得无条件销毁仍有效的焦点、Popover、Dialog 或操作状态；只有锚点失效、节点移除或对应生命周期结束时才清理。
 - 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
+- `graph.onTrigger`、`onNodeAdded`、`onNodeRemoved` 等图级回调是 ComfyUI 前端管理器会安装、链式调用并在重建时恢复的单一插槽，不得由业务节点长期占用或自行覆盖来监听属性变化。优先使用官方图事件、节点生命周期或保留原描述符语义的节点级观察；任何包装都必须幂等、可卸载，且不能截断 Nodes 2.0 的事件链。
 
 ### 4.2 DOM widget 与缩放
 
@@ -125,9 +126,19 @@ ComfyUI-Aaalice-Nodes/
 - Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
 - 业务数量可变的槽不得用固定数组加隐藏标记模拟。ParameterPanel、ParameterReceiver 与 EnumSwitch 必须按当前状态使用原生 `addInput()` / `removeInput()` 与 `addOutput()` / `removeOutput()` 物化连续真实槽；后端可保留最多 32 路的有界 Schema。
 - 动态槽尾部增删不得断开仍处于稳定前缀中的槽；中间插入、删除或重排必须在断开前按稳定 Parameter Id / Route Id 保存源或目标节点及槽位引用，不能只保存会随 `disconnectInput()` / `disconnectOutput()` 一起失效的 link ID。
-- 动态原生槽的 `label` / `localized_name` 变化必须通过 ComfyUI 图事件 `node:slot-label:changed` 通知，并携带正确的 `NodeSlotType.INPUT` 或 `NodeSlotType.OUTPUT`。Nodes 2.0 的 `NodeSlots.vue` 消费 `useGraphNodeManager.ts` 提取的浅响应式槽数组；只修改槽字段、调用 `setDirtyCanvas()`、重建 `_concreteInputs` / `_concreteOutputs` 或自行判断画布模式都不能代替该失效协议。升级 ComfyUI 前端时必须重新核对这两个文件及事件处理器。
+- 动态原生槽的 `label` / `localized_name` 变化必须通过 ComfyUI 图事件 `node:slot-label:changed` 通知，并携带正确的 `NodeSlotType.INPUT` 或 `NodeSlotType.OUTPUT`。Nodes 2.0 的 `NodeSlots.vue` 消费 `useGraphNodeManager.ts` 提取的浅响应式槽数组，槽子组件仍按对象身份接收非深响应式数据；展示字段变化时必须同时发布新的槽对象身份，不能只换数组外壳。只修改槽字段、调用 `setDirtyCanvas()`、重建 `_concreteInputs` / `_concreteOutputs` 或自行判断画布模式都不能代替该失效协议。升级 ComfyUI 前端时必须重新核对这两个文件及事件处理器。
+- 动态槽必须分离协议身份与展示名称：`name` 保持后端 Schema、序列化和连线使用的稳定英文协议名，用户重命名只更新 `label` / `localized_name`；不得为了迫使 Vue 重挂载而改协议名或把显示文案写进稳定 id。
 - ComfyUI 的复制、粘贴与克隆路径会先 `createNode()`，再用 `configure()` 覆盖属性和槽；`onNodeCreated` 阶段生成的默认槽对象可能因此与已恢复的 `slotMeta` / 稳定参数身份不一致。动态槽恢复不能只比较持久元数据的新旧差异，还必须核对当前真实槽的稳定 Id、`label` 和 `localized_name`；即使元数据相同，只要槽对象仍是临时默认状态，也要重写槽并发布官方槽标签失效事件。相关回归必须覆盖“复制节点后删除或重排参数”。
 - Nodes 2.0 确需监听 DOM 重挂时使用幂等 `MutationObserver`；不需要重挂的节点不得常驻观察器，所有路径禁止持续轮询。
+
+### 4.4 参数链路与控件适配
+
+- 参数名称、顺序和值是三个不同变更域：重命名属于展示同步，必须立即传播到 ParameterPanel 槽、直属 KJ Set、同作用域 KJ Get 和已绑定 ParameterReceiver；增删、重排属于结构事务，必须按稳定 Parameter Id 重建顺序并恢复连线。不能把节点拖动、画布重绘或用户手动同步当作提交步骤。
+- 参数链的关联只能依赖面板身份、图作用域与稳定 Parameter Id；数组下标只表示当前视图顺序，不得作为跨保存、重排、复制或子图边界的长期身份。同步完成后必须逐项核对 Panel 槽、Set 名、Get 所有权、Receiver 槽和真实连接，再报告成功。
+- 第三方 KJ Set/Get 只能通过其公开命名与校验 API 更新（如 `validateName()`、`update()`、`setName()` / `onRename()`），并遵守其 `previousName` 和作用域规则；禁止只写 widget 值或标题后假定整条虚拟链已同步。跨子图时所有查找、事件和创建操作使用节点所属 graph，不能退回 `app.graph` 猜测。
+- 自动同步必须在创建、加载、复制、重命名和结构提交后幂等收敛；手动“刷新链路”只能作为可诊断的恢复操作，不能用于掩盖缺失的事件、错误的真源或竞态。
+- 参数控件的“渲染类型”和“选项来源”必须由独立适配层管理。第三方类型通过稳定 adapter 注册其发现条件、身份、读写、序列化、校验和可用性；未检测到真实来源或来源为空时不显示对应类型，业务节点不得散落硬编码探测。
+- 同一参数类型在 ParameterPanel、侧边栏和公开子图 widget 中必须复用同一控件适配与状态协议。图像参数统一提供资产浏览、独立上传、清空和预览；Seed 统一持久化“数值 + after-generate 行为”，固定、递增、递减、随机四种模式不得退化成锁定/解锁布尔值。
 
 ## 5. 领域不变量
 
@@ -227,6 +238,7 @@ Tooltip、Hover Card、已选摘要浮层等多实体信息预览**不得**落�
 ## 8. 验证
 
 - 验证按风险升级：静态检查 → 受影响单测 → 全量检查 → 必要的 Classic / Nodes 2.0 GUI 主路径；具体命令和回归矩阵只以 [`testing.md`](docs/development/testing.md) 为准。
+- 动态参数链回归至少覆盖：重命名、尾部增删、中间重排、复制/粘贴、保存/加载、撤销/重做、根图与嵌套子图、直属 Set/Get、受管 Get、Receiver 输入输出及既有下游连线；结果必须无需拖动节点或切换画布即可立即一致。
 - 不涉及 slot、widget 尺寸协议、序列化或执行行为，且可在现有实例中硬刷新确认的局部前端视觉、布局和交互修改，完成代码检查后交给用户实际验收；除非用户明确要求，不启动独立实例或浏览器自动化。
 - 用户要求用于查看、比较或评审的 HTML / 交互原型属于设计交付物，不属于测试资产；默认只做源码与语法检查，交给用户实际体验，不启动浏览器自动化或代替用户进行视觉和交互验收。仅在用户明确要求自动验收时使用浏览器。
 - 必须自动验收 GUI 时只使用 Codex 内置浏览器和隔离实例，禁止操作用户常用实例，也禁止自行启动外部浏览器或引入浏览器测试框架。

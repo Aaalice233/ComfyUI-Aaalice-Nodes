@@ -27,8 +27,7 @@ const MAX = 32;
 const KJ_SET_NODE = "SetNode";
 const KJ_GET_NODE = "GetNode";
 export const EVENT_PARAMETER_KJ_CHANGED = "aaalice-parameter-panel-kj-changed";
-const graphWatchers = new WeakMap();
-const nodeWatchGraphs = new WeakMap();
+const titleWatchers = new WeakMap();
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -280,38 +279,54 @@ function scheduleRefresh(panel) {
 	else setTimeout(run, 0);
 }
 
-function installGraphWatcher(panel) {
-	const graph = panel?.graph;
-	if (!graph) return;
-	nodeWatchGraphs.set(panel, graph);
-	let state = graphWatchers.get(graph);
-	if (state) {
-		state.nodes.add(panel);
-		return;
-	}
-	state = { nodes: new Set([panel]), previous: graph.onTrigger, handler: null };
-	state.handler = (event) => {
-		state.previous?.call(graph, event);
-		if (event?.type !== "node:property:changed" || event.property !== "title") return;
-		const changedNode = event.node || getGraphNode(graph, event.nodeId);
-		if (!isParameterPanel(changedNode)) return;
-		for (const candidate of state.nodes) {
-			if (candidate.graph === graph && candidate === changedNode) scheduleRefresh(candidate);
-		}
+function installTitleWatcher(panel) {
+	if (!panel || titleWatchers.has(panel)) return;
+	const original = Object.getOwnPropertyDescriptor(panel, "title");
+	if (!original?.configurable) return;
+	const isDataDescriptor = !original.get && !original.set;
+	let dataValue = original.value;
+	const read = original.get
+		? function () { return original.get.call(this); }
+		: function () { return dataValue; };
+	const write = original.set
+		? function (value) { original.set.call(this, value); }
+		: original.writable
+			? function (value) { dataValue = value; }
+			: null;
+	if (!write) return;
+	const wrappedGet = function () {
+		return read.call(this);
 	};
-	graph.onTrigger = state.handler;
-	graphWatchers.set(graph, state);
+	const wrappedSet = function (value) {
+		const previous = read.call(this);
+		write.call(this, value);
+		if (read.call(this) !== previous) scheduleRefresh(this);
+	};
+	Object.defineProperty(panel, "title", {
+		configurable: true,
+		enumerable: original.enumerable,
+		get: wrappedGet,
+		set: wrappedSet,
+	});
+	titleWatchers.set(panel, {
+		original,
+		isDataDescriptor,
+		wrappedGet,
+		wrappedSet,
+	});
 }
 
-function uninstallGraphWatcher(panel) {
-	const graph = panel?.graph || nodeWatchGraphs.get(panel);
-	const state = graph && graphWatchers.get(graph);
-	nodeWatchGraphs.delete(panel);
+function uninstallTitleWatcher(panel) {
+	const state = panel && titleWatchers.get(panel);
 	if (!state) return;
-	state.nodes.delete(panel);
-	if (state.nodes.size) return;
-	if (graph.onTrigger === state.handler) graph.onTrigger = state.previous;
-	graphWatchers.delete(graph);
+	const current = Object.getOwnPropertyDescriptor(panel, "title");
+	if (current?.get === state.wrappedGet && current?.set === state.wrappedSet) {
+		const value = panel.title;
+		Object.defineProperty(panel, "title", state.isDataDescriptor
+			? { ...state.original, value }
+			: state.original);
+	}
+	titleWatchers.delete(panel);
 }
 
 export function registerParameterPanelKj(panel) {
@@ -332,24 +347,24 @@ export function registerParameterPanelKj(panel) {
 	const previousAdded = panel.onAdded;
 	panel.onAdded = function () {
 		const value = previousAdded?.apply(this, arguments);
-		installGraphWatcher(this);
+		installTitleWatcher(this);
 		scheduleRefresh(this);
 		return value;
 	};
 	const previousConfigure = panel.onConfigure;
 	panel.onConfigure = function () {
 		const value = previousConfigure?.apply(this, arguments);
-		installGraphWatcher(this);
+		installTitleWatcher(this);
 		setTimeout(() => scheduleRefresh(this), 0);
 		return value;
 	};
 	const previousRemoved = panel.onRemoved;
 	panel.onRemoved = function () {
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onParameterChange);
-		uninstallGraphWatcher(this);
+		uninstallTitleWatcher(this);
 		return previousRemoved?.apply(this, arguments);
 	};
-	installGraphWatcher(panel);
+	installTitleWatcher(panel);
 	scheduleRefresh(panel);
 }
 

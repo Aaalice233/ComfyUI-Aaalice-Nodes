@@ -120,6 +120,15 @@ test("dynamic slot publication commits Vue arrays and LiteGraph concrete slots i
 	node.outputs[1].label = "Steps";
 	const previousInputs = node.inputs;
 	const previousOutputs = node.outputs;
+	const previousInputSlots = [...node.inputs];
+	const previousOutputSlots = [...node.outputs];
+	const outputPrototype = { rendererFamily: "test-slot" };
+	Object.setPrototypeOf(node.outputs[0], outputPrototype);
+	Object.defineProperty(node.outputs[0], "_internal", {
+		configurable: true,
+		enumerable: false,
+		value: "preserved",
+	});
 	node._setConcreteSlots = function () {
 		this._concreteInputs = this.inputs.map((slot) => ({ ...slot }));
 		this._concreteOutputs = this.outputs.map((slot) => ({ ...slot }));
@@ -129,6 +138,11 @@ test("dynamic slot publication commits Vue arrays and LiteGraph concrete slots i
 
 	assert.notEqual(node.inputs, previousInputs);
 	assert.notEqual(node.outputs, previousOutputs);
+	assert.notEqual(node.inputs[0], previousInputSlots[0]);
+	assert.notEqual(node.outputs[0], previousOutputSlots[0]);
+	assert.equal(Object.getPrototypeOf(node.outputs[0]), outputPrototype);
+	assert.equal(Object.getOwnPropertyDescriptor(node.outputs[0], "_internal")?.enumerable, false);
+	assert.equal(node.outputs[0]._internal, "preserved");
 	assert.deepEqual(node._concreteInputs.map((slot) => slot.label), ["CFG", "Steps"]);
 	assert.deepEqual(node._concreteOutputs.map((slot) => slot.label), ["CFG", "Steps"]);
 	assert.deepEqual(events, [
