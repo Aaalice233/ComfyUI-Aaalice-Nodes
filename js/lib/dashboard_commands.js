@@ -10,36 +10,68 @@ function removeEmptyGroups(page) {
 }
 
 function sameGroupSource(left, right) {
+	return left?.provider === right?.provider
+		&& left?.hostId === right?.hostId
+		&& (left?.scopeId || null) === (right?.scopeId || null);
+}
+
+function sameControlHost(left, right) {
 	return left?.provider === right?.provider && left?.hostId === right?.hostId;
 }
 
 function findSourceGroup(page, source) {
 	if (!source) return null;
 	return page.groups.find((group) => sameGroupSource(group.source, source))
-		|| page.groups.find((group) => page.items.some((item) => item.groupId === group.id && sameGroupSource(item.binding, source)))
+		|| (!source.scopeId && page.groups.find((group) => !group.source && page.items.some((item) => item.groupId === group.id && sameControlHost(item.binding, source))))
 		|| null;
 }
 
 function normalizeSourceGroup(sourceGroup) {
 	const source = normalizeGroupSource(sourceGroup?.source);
 	if (!source) return null;
-	return { source, name: String(sourceGroup.name || "Group"), tone: sourceGroup.tone };
+	return {
+		source,
+		name: String(sourceGroup.name || "Group"),
+		tone: sourceGroup.tone,
+		forceGroup: Boolean(source.scopeId || sourceGroup.forceGroup),
+	};
+}
+
+function sourceGroupKey(source) {
+	return `${source.provider}\u0000${source.hostId}\u0000${source.scopeId || ""}`;
 }
 
 export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
-	const next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
-	const created = [];
+	let next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
+	const plans = new Map();
 	for (const control of controls) {
 		const item = createControlItem(control.binding, control.label, { row: 0, column: 0, columnSpan: control.columnSpan || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN });
-		item.layout = firstAvailableLayout(page, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan }); page.items.push(item); created.push(item);
+		item.layout = firstAvailableLayout(page, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan }); page.items.push(item);
+		const requestedGroup = normalizeSourceGroup(control.sourceGroup || sourceGroup);
+		if (!requestedGroup) continue;
+		const key = sourceGroupKey(requestedGroup.source);
+		if (!plans.has(key)) plans.set(key, { requestedGroup, itemIds: [] });
+		plans.get(key).itemIds.push(item.id);
 	}
-	const requestedGroup = normalizeSourceGroup(sourceGroup);
-	if (!created.length || !requestedGroup) return normalizeDashboard(next);
-	const existingGroup = findSourceGroup(page, requestedGroup.source);
-	if (existingGroup) return moveItems(next, created.map((item) => item.id), pageId, { groupId: existingGroup.id });
-	const ungroupedSourceItems = page.items.filter((item) => !item.groupId && sameGroupSource(item.binding, requestedGroup.source));
-	if (ungroupedSourceItems.length < 2) return normalizeDashboard(next);
-	return createGroup(next, pageId, ungroupedSourceItems.map((item) => item.id), { name: requestedGroup.name, tone: requestedGroup.tone, source: requestedGroup.source });
+	for (const { requestedGroup, itemIds } of plans.values()) {
+		const currentPage = findPage(next, pageId);
+		const existingGroup = findSourceGroup(currentPage, requestedGroup.source);
+		if (existingGroup) {
+			next = moveItems(next, itemIds, pageId, { groupId: existingGroup.id });
+			continue;
+		}
+		const candidateIds = requestedGroup.forceGroup
+			? itemIds
+			: currentPage.items.filter((item) => !item.groupId && sameControlHost(item.binding, requestedGroup.source)).map((item) => item.id);
+		if (candidateIds.length < (requestedGroup.forceGroup ? 1 : 2)) continue;
+		next = createGroup(next, pageId, candidateIds, {
+			name: requestedGroup.name,
+			tone: requestedGroup.tone,
+			source: requestedGroup.source,
+			allowSingle: requestedGroup.forceGroup,
+		});
+	}
+	return normalizeDashboard(next);
 }
 
 export function addSeparator(model, pageId, label = "") {
@@ -130,8 +162,8 @@ export function resizeItem(model, itemId, { columnSpan, rowSpan }) {
 	return normalizeDashboard(next);
 }
 
-export function createGroup(model, pageId, itemIds, { name = "Group", tone = "neutral", source = null } = {}) {
-	if (itemIds.length < 2) throw new Error("A layout group requires at least two items");
+export function createGroup(model, pageId, itemIds, { name = "Group", tone = "neutral", source = null, allowSingle = false } = {}) {
+	if (itemIds.length < (allowSingle ? 1 : 2)) throw new Error("A layout group requires at least two items");
 	const next = copy(model); const page = findPage(next, pageId); const ids = new Set(itemIds);
 	if (!page || itemIds.some((id) => !page.items.some((item) => item.id === id))) throw new Error("Layout group items must belong to one page");
 	const selected = page.items.filter((item) => ids.has(item.id));

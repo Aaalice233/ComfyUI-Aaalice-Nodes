@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultGalleryRatings, finalPrompt, galleryPayload, normalizeGalleryState, selectionKey } from "../js/lib/booru_gallery_model.js";
+import { defaultGalleryRatings, defaultGalleryState, finalPrompt, galleryPayload, normalizeGalleryState, selectionKey } from "../js/lib/booru_gallery_model.js";
 
 const selected = (source, postId) => ({ source, postId, mediaUrl: `https://media.test/${postId}.jpg`, previewUrl: `https://preview.test/${postId}.jpg`, originalTags: { copyright: ["series_a"], character: ["hero_(a)"], general: ["blue_hair"] } });
 
@@ -20,6 +20,19 @@ test("saved node ratings survive normalization independently from defaults", () 
 test("gallery view is workflow state while legacy workflows default to browsing", () => {
 	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", view: "selected", prompt: {}, filters: {}, selections: [] }).view, "selected");
 	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [] }).view, "browse");
+});
+
+test("selection mode defaults to single while explicit saved modes survive normalization", () => {
+	assert.equal(defaultGalleryState().selectionMode, "single");
+	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", selectionMode: "single", prompt: {}, filters: {}, selections: [] }).selectionMode, "single");
+	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", selectionMode: "multi", prompt: {}, filters: {}, selections: [] }).selectionMode, "multi");
+	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [] }).selectionMode, "single");
+	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [selected("danbooru", 1), selected("danbooru", 2)] }).selectionMode, "multi");
+	const restored = normalizeGalleryState(JSON.parse(JSON.stringify(normalizeGalleryState({ version: 1, source: "danbooru", selectionMode: "multi", prompt: {}, filters: {}, selections: [] }))));
+	assert.equal(restored.selectionMode, "multi");
+	const state = normalizeGalleryState({ version: 1, source: "danbooru", selectionMode: "single", prompt: {}, filters: {}, selections: [selected("danbooru", 1), selected("danbooru", 2)] });
+	assert.deepEqual(state.selections.map(selectionKey), ["danbooru:1"]);
+	assert.equal("selectionMode" in galleryPayload(state), false);
 });
 
 test("gallery state deduplicates only source plus post id and preserves order", () => {

@@ -15,6 +15,7 @@ import "./booru_gallery.js";
 import "./resolution_preset.js";
 import "./fetch_from_krita.js";
 import "./workspace.js";
+import "./discord_share.js";
 
 function injectStyles() {
 	for (const filename of ["ui.css", "theme.css"]) {

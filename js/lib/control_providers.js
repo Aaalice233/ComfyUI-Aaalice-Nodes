@@ -1,6 +1,8 @@
 /** Extensible registry that projects node controls without owning their values. */
 
 import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
+import { partitionParameterSections } from "./parameter_sections.js";
+import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
 import { recommendedControlRowSpan } from "./dashboard_sizing.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "./seed_preset.js";
 import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
@@ -79,12 +81,29 @@ controlProviders.register({
 	supportsNode: (node) => isParameterPanel(node),
 	list(node) {
 		const hostId = ensureHostId(node);
-		return ensureParameters(node).filter(isTunable).map((parameter) => ({
-			label: displayName(parameter, parameter.id),
-			binding: { provider: this.id, hostId, controlId: parameter.id, valueType: controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference") },
-			sourceGroup: { source: { provider: this.id, hostId }, name: parameterPanelTitle(node), tone: "blue" },
-			rowSpan: recommendedControlRowSpan({ value: parameter.value, options: parameter.config, paramType: parameter.param_type }),
-		}));
+		const sections = partitionParameterSections(ensureParameters(node))
+			.map((section) => ({ ...section, parameters: section.parameters.filter(isTunable) }))
+			.filter((section) => section.parameters.length);
+		const sectioned = sections.some((section) => section.separator);
+		return sections.flatMap((section) => {
+			const source = {
+				provider: this.id,
+				hostId,
+				...(section.separator ? { scopeId: `separator:${section.separator.id}` } : {}),
+			};
+			const sourceGroup = {
+				source,
+				name: section.separator ? displayName(section.separator, section.separator.id) : parameterPanelTitle(node),
+				tone: "blue",
+				forceGroup: sectioned,
+			};
+			return section.parameters.map((parameter) => ({
+				label: displayName(parameter, parameter.id),
+				binding: { provider: this.id, hostId, controlId: parameter.id, valueType: controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference") },
+				sourceGroup,
+				rowSpan: recommendedControlRowSpan({ value: parameter.value, options: parameter.config, paramType: parameter.param_type }),
+			}));
+		});
 	},
 	resolve(node, binding) {
 		const parameter = ensureParameters(node).find((item) => item.id === binding.controlId && isTunable(item));
@@ -123,6 +142,40 @@ controlProviders.register({
 					notifyParameterChanged(node, { structure: false });
 				});
 			},
+		};
+	},
+});
+
+controlProviders.register({
+	id: "comfy-output",
+	supportsNode: (node) => listNativeOutputControls(node).length > 0,
+	list(node) {
+		const hostId = ensureHostId(node);
+		return listNativeOutputControls(node).map((control) => ({
+			label: control.label,
+			availability: control.availability,
+			binding: { provider: this.id, hostId, controlId: control.controlId, valueType: control.valueType },
+			columnSpan: control.columnSpan,
+			rowSpan: control.rowSpan,
+		}));
+	},
+	resolve(node, binding) {
+		const control = resolveNativeOutputControl(node, binding.controlId);
+		if (!control) return { status: "missing", node };
+		if (control.valueType !== binding.valueType) return { status: "incompatible", node, currentType: control.valueType };
+		return {
+			status: "ok",
+			family: "comfy",
+			kind: control.kind,
+			controlId: control.controlId,
+			node,
+			control: control.control,
+			label: control.label,
+			value: control.value,
+			options: control.options,
+			availability: control.availability,
+			presettable: false,
+			minRowSpan: control.minRowSpan,
 		};
 	},
 });

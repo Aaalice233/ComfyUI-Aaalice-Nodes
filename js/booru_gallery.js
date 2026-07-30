@@ -18,9 +18,24 @@ const PROPERTY = "booruGalleryState";
 const API = "/aaalice/booru-gallery";
 const PROMPT_ASSISTANT_API = "/prompt-assistant/api";
 let promptAssistantAvailable = false;
-const DEFAULT_SIZE = [760, 720];
+const DEFAULT_SIZE = [760, 760];
 const MIN_SIZE = [620, 300];
 const STATIC_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+
+function clampGallerySize(size) {
+	if (!Array.isArray(size)) return size;
+	size[0] = Math.max(MIN_SIZE[0], Number(size[0]) || 0);
+	size[1] = Math.max(MIN_SIZE[1], Number(size[1]) || 0);
+	return size;
+}
+
+function applyInitialGallerySize(node, initializeSize) {
+	const current = Array.isArray(node?.size) ? node.size : DEFAULT_SIZE;
+	const next = clampGallerySize([...(initializeSize ? DEFAULT_SIZE : current)]);
+	if (!initializeSize && current[0] === next[0] && current[1] === next[1]) return;
+	if (typeof node?.setSize === "function") node.setSize(next);
+	else node.size = next;
+}
 
 let settings = null;
 let capabilities = [];
@@ -381,7 +396,7 @@ async function addGlobalBlacklistTag(tag) {
 	if (!current.some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase())) await saveGlobalBlacklist([...current, value]);
 }
 
-function createSearchControl(node) {
+function createSearchControl(node, { defaultOpen = false } = {}) {
 	const root = el("div", "aa-gallery-search");
 	const input = document.createElement("input"); input.type = "search"; input.className = "aa-gallery-search__input aa-ui-search-input";
 	input.setAttribute("data-autocomplete-plus", "");
@@ -397,11 +412,11 @@ function createSearchControl(node) {
 		node._aaGalleryPage?.setPage(1);
 		node._aaGalleryController?.search({ reset: true, page: 1 });
 	};
-	const setOpen = (next) => {
+	const setOpen = (next, { focus = true } = {}) => {
 		open = Boolean(next);
 		if (!open && input.value.trim() !== searchQuery(stateFor(node))) submit();
-		root.classList.toggle("is-open", open); toggle.hidden = open; toggle.setSearchOpen(open); node._aaGalleryRoot?.classList.toggle("is-searching", open);
-		if (open) queueMicrotask(() => { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); });
+		root.classList.toggle("is-open", open); toggle.hidden = open; toggle.setSearchOpen(open);
+		if (open && focus) queueMicrotask(() => { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); });
 	};
 	const addTag = (tag, maxTags = null) => {
 		const value = String(tag || "").trim();
@@ -429,6 +444,7 @@ function createSearchControl(node) {
 		if (event.key === "Escape") { event.preventDefault(); setOpen(false); }
 		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});
+	setOpen(defaultOpen, { focus: false });
 	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
 }
 
@@ -471,6 +487,23 @@ function openClearSelectionDialog(node, controller) {
 		footer: el("div", { className: "aa-gallery-dialog-actions", children: [cancel, clear] }),
 		size: "compact",
 		className: "aa-gallery-clear-confirm-dialog",
+		confirmOnEnter: false,
+	});
+}
+
+function openSingleSelectionDialog(onConfirm) {
+	let dialog;
+	const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() });
+	const confirm = button({ label: label("selectionMode.changeAction", "Keep first image"), iconName: "selectionSingle", variant: "primary", onClick: () => {
+		onConfirm();
+		dialog.close();
+	} });
+	dialog = createDialog({
+		title: label("selectionMode.changeTitle", "Switch to single selection"),
+		body: el("div", { className: "aa-gallery-selection-mode-confirm", children: [icon("selectionSingle"), el("p", null, label("selectionMode.changeConfirm", "Only the first selected image will remain. Continue?"))] }),
+		footer: el("div", { className: "aa-gallery-dialog-actions", children: [cancel, confirm] }),
+		size: "compact",
+		className: "aa-gallery-selection-mode-confirm-dialog",
 		confirmOnEnter: false,
 	});
 }
@@ -916,13 +949,15 @@ function buildController(node, elements) {
 	const renderSelected = () => {
 		tooltip.hide();
 		if (selectedDragFrom == null) endSelectedDrag();
-		const count = stateFor(node).selections.length;
-		elements.selectedList.setItems(stateFor(node).selections, { preserveScroll: true });
+		const state = stateFor(node); const count = state.selections.length;
+		elements.selectedList.setItems(state.selections, { preserveScroll: true });
 		elements.tabs.setValue(elements.mode);
+		elements.selectionMode.setValue(state.selectionMode);
 		if (elements.selectedCount) {
 			elements.selectedCount.textContent = String(count);
 			elements.selectedCount.setAttribute("aria-label", label("selected.outputHint", "{count} outputs").replace("{count}", String(count)));
 		}
+		if (elements.selectedSummary) elements.selectedSummary.textContent = label("selected.summary", "{count} images · output in this order").replace("{count}", String(count));
 		if (elements.selectedClear) elements.selectedClear.disabled = count === 0;
 		elements.emptySelected.hidden = count > 0;
 	};
@@ -934,6 +969,23 @@ function buildController(node, elements) {
 		elements.mode = mode;
 		elements.root.dataset.mode = mode;
 		if (persist) transact(node, (state) => { state.view = mode; });
+		renderSelected();
+	};
+	const setSelectionMode = (mode, { persist = true } = {}) => {
+		mode = mode === "single" ? "single" : "multi";
+		const current = stateFor(node).selectionMode;
+		if (!persist) { elements.selectionMode.setValue(current); return; }
+		if (current === mode) { elements.selectionMode.setValue(current); return; }
+		if (mode === "single" && stateFor(node).selections.length > 1) {
+			elements.selectionMode.setValue(current);
+			openSingleSelectionDialog(() => {
+				transact(node, (state) => { state.selectionMode = "single"; state.selections = state.selections.slice(0, 1); });
+				renderSelected();
+				refreshCards();
+			});
+			return;
+		}
+		transact(node, (state) => { state.selectionMode = mode; });
 		renderSelected();
 	};
 	const rememberPage = (page) => {
@@ -1031,7 +1083,7 @@ function buildController(node, elements) {
 	const toggleSelection = async (post) => {
 		const key = `${post.source}:${post.postId}`; const index = stateFor(node).selections.findIndex((item) => selectionKey(item) === key);
 		if (index >= 0) transact(node, (state) => state.selections.splice(index, 1));
-		else { const detail = await getDetail(post); const selection = selectionFromDetail(detail, sessionEdits.get(key)); if (!selection) throw new Error(label("error.incomplete", "The post detail is incomplete.")); transact(node, (state) => state.selections.push(selection)); }
+		else { const detail = await getDetail(post); const selection = selectionFromDetail(detail, sessionEdits.get(key)); if (!selection) throw new Error(label("error.incomplete", "The post detail is incomplete.")); transact(node, (state) => { state.selections = state.selectionMode === "single" ? [selection] : [...state.selections, selection]; }); }
 		renderSelected(); refreshCards();
 	};
 	const toggleFavorite = async (post) => {
@@ -1310,6 +1362,7 @@ function buildController(node, elements) {
 		renderSelected,
 		refreshCards,
 		setMode,
+		setSelectionMode,
 		showError,
 		updateSize(post, width, height) { elements.masonryController.updateItemSize(`${post.source}:${post.postId}`, width, height); },
 		destroy() {
@@ -1412,22 +1465,34 @@ function setupNode(node, { initializeSize = false } = {}) {
 	});
 	root.dataset.source = stateFor(node).source;
 	let collection = null;
-	const source = listboxControl({ className: "aa-gallery-source-select", options: capabilities.map((item) => ({ value: item.source, label: item.displayName })), value: stateFor(node).source, ariaLabel: label("source", "Source"), onChange: (value) => { transact(node, (state) => { state.source = value; state.filters.ratings = defaultGalleryRatings(value); state.filters.sort = capability(value)?.sortValues?.[0] || "latest"; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); root.dataset.source = value; pageControl?.setPage(1); collection?.setOptions(collectionOptions(value), collectionValue(stateFor(node))); controller.search({ reset: true, page: 1 }); } });
+	const source = listboxControl({ className: "aa-gallery-source-select", options: capabilities.map((item) => ({ value: item.source, label: item.displayName, iconName: "globe" })), value: stateFor(node).source, ariaLabel: label("source", "Source"), onChange: (value) => { transact(node, (state) => { state.source = value; state.filters.ratings = defaultGalleryRatings(value); state.filters.sort = capability(value)?.sortValues?.[0] || "latest"; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); root.dataset.source = value; pageControl?.setPage(1); collection?.setOptions(collectionOptions(value), collectionValue(stateFor(node))); controller.search({ reset: true, page: 1 }); } });
 	collection = listboxControl({ className: "aa-gallery-collection-select", options: collectionOptions(stateFor(node).source), value: collectionValue(stateFor(node)), ariaLabel: label("collection.label", "Gallery collection"), onChange: (value) => { transact(node, (state) => { if (value === "favorites") { state.filters.feed = "favorites"; state.filters.period = ""; } else if (value.startsWith("ranking:")) { state.filters.feed = "ranking"; state.filters.period = value.slice("ranking:".length); } else { state.filters.feed = "search"; state.filters.period = ""; state.filters.sort = value.slice("sort:".length); } state.navigation.page = 1; }); pageControl?.setPage(1); controller.search({ reset: true, page: 1 }); } });
 	const tabs = segmentedControl({ className: "aa-gallery-view-switcher", value: stateFor(node).view, options: [{ value: "browse", label: label("tab.browse", "Browse"), iconName: "layout" }, { value: "selected", label: label("tab.selected", "Selected"), iconName: "statusCheck" }], ariaLabel: label("tab.label", "Gallery view"), onChange: (value) => controller.setMode(value) });
 	const selectedCount = el("span", { className: "aa-gallery-view-switcher__count", attrs: { "aria-label": label("selected.outputHint", "{count} outputs").replace("{count}", "0") }, text: "0" });
 	tabs.querySelector('[data-value="selected"]')?.append(selectedCount);
-	const clear = iconButton({
-		className: "aa-gallery-selected__clear",
+	const selectionMode = segmentedControl({
+		className: "aa-gallery-selection-switcher",
+		value: stateFor(node).selectionMode,
+		options: [
+			{ value: "single", label: label("selectionMode.single", "Single"), iconName: "selectionSingle" },
+			{ value: "multi", label: label("selectionMode.multiple", "Multiple"), iconName: "selectionMultiple" },
+		],
+		ariaLabel: label("selectionMode.label", "Selection mode"),
+		onChange: (value) => controller.setSelectionMode(value),
+	});
+	const clear = button({
+		className: "aa-gallery-toolbar-text-action aa-gallery-selected__clear",
 		label: label("selected.clear", "Clear"),
 		iconName: "delete",
+		title: label("selected.clear", "Clear"),
 		variant: "ghost",
+		size: "sm",
 		onClick: () => openClearSelectionDialog(node, controller),
 	});
 	const filter = button({ className: "aa-gallery-toolbar-action is-filter", iconName: "filter", label: label("filter.title", "Filters"), title: label("filter.title", "Filters"), variant: "ghost", size: "sm", onClick: () => openFilter(node, filter) });
 	const prompt = button({ className: "aa-gallery-toolbar-action is-prompt", iconName: "tag", label: label("prompt.short", "Prompt"), title: label("prompt.title", "Prompt processing"), variant: "ghost", size: "sm", onClick: () => openPromptOptions(node, prompt) });
 	const pageControl = createPageControl(node);
-	const searchControl = createSearchControl(node);
+	const searchControl = createSearchControl(node, { defaultOpen: true });
 	let refreshing = false;
 	const refresh = iconButton({ className: "aa-gallery-refresh", iconName: "refresh", label: label("reload", "Reload search"), variant: "ghost", onClick: async () => {
 		if (refreshing) return;
@@ -1436,12 +1501,17 @@ function setupNode(node, { initializeSize = false } = {}) {
 		try { await controller.search({ reset: true, page: 1 }); }
 		finally { refreshing = false; refresh.disabled = false; refresh.classList.remove("is-refreshing"); refresh.setAttribute("aria-label", label("reload", "Reload search")); refresh.title = label("reload", "Reload search"); }
 	} });
-	const openSettings = iconButton({ className: "aa-gallery-open-settings", iconName: "settings", label: label("settings.open", "Configure Gallery…"), variant: "ghost", onClick: openGallerySettings });
+	const openSettings = button({ className: "aa-gallery-toolbar-text-action aa-gallery-open-settings", iconName: "settings", label: label("settings.short", "Settings"), title: label("settings.open", "Configure Gallery…"), variant: "ghost", size: "sm", onClick: openGallerySettings });
 	const browseNavigation = el("div", { className: "aa-gallery-toolbar__navigation", children: [collection, pageControl] });
 	const browseTools = el("div", { className: "aa-gallery-toolbar__tools", children: [filter, prompt] });
 	const pageActions = el("div", { className: "aa-gallery-toolbar__page-actions", attrs: { role: "group", "aria-label": label("toolbarActions", "Browse tools") }, children: [browseNavigation, browseTools] });
-	const utilityActions = el("div", { className: "aa-gallery-toolbar__utilities", children: [refresh, openSettings, searchControl.root, searchControl.toggle] });
-	const toolbar = el("header", { className: "aa-gallery-toolbar", attrs: { role: "toolbar", "aria-label": label("toolbar", "Booru Gallery") }, children: [source, tabs, clear, el("span", "aa-gallery-toolbar__spacer"), pageActions, utilityActions] });
+	const selectedSummaryText = el("span", null, "");
+	const selectedSummary = el("div", { className: "aa-gallery-toolbar__selected-summary", attrs: { role: "status" }, children: [icon("statusCheck"), selectedSummaryText] });
+	const searchActions = el("div", { className: "aa-gallery-toolbar__search", children: [searchControl.root, searchControl.toggle] });
+	const utilityActions = el("div", { className: "aa-gallery-toolbar__utilities", children: [refresh, clear, openSettings] });
+	const primaryRow = el("div", { className: "aa-gallery-toolbar__row aa-gallery-toolbar__primary", children: [source, tabs, selectionMode, el("span", "aa-gallery-toolbar__spacer"), searchActions] });
+	const contextRow = el("div", { className: "aa-gallery-toolbar__row aa-gallery-toolbar__context", children: [pageActions, selectedSummary, el("span", "aa-gallery-toolbar__spacer"), utilityActions] });
+	const toolbar = el("header", { className: "aa-gallery-toolbar", attrs: { role: "toolbar", "aria-label": label("toolbar", "Booru Gallery") }, children: [primaryRow, contextRow] });
 	const masonry = el("div", { className: "aa-gallery-masonry", attrs: { tabindex: 0 } });
 	focusScrollableOnPointerEnter(masonry);
 	const loading = el("div", { className: "aa-gallery-status is-loading", attrs: { role: "status", "aria-live": "polite" }, children: [icon("refresh"), el("span", null, label("loading", "Loading…"))] }); loading.hidden = true;
@@ -1475,7 +1545,9 @@ function setupNode(node, { initializeSize = false } = {}) {
 		errorLabel,
 		end,
 		tabs,
+		selectionMode,
 		selectedCount,
+		selectedSummary: selectedSummaryText,
 		selectedClear: clear,
 		selectedList: null,
 		selectedListRoot,
@@ -1502,7 +1574,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	selectedListRoot.addEventListener("dragover", (event) => controller?.handleSelectedDragOver(event));
 	selectedListRoot.addEventListener("drop", (event) => controller?.handleSelectedDrop(event));
 	selectedListRoot.addEventListener("dragleave", (event) => controller?.handleSelectedDragLeave(event));
-	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
+	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGallerySelectionMode = selectionMode; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
 	error.addEventListener("click", () => {
 		const sourceName = stateFor(node).source;
 		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) openGallerySettings();
@@ -1511,8 +1583,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
 	const previousResize = node.onResize; node.onResize = function (size) {
-		if (Array.isArray(size)) size[0] = Math.max(MIN_SIZE[0], Number(size[0]) || 0);
-		if (Array.isArray(this.size)) this.size[0] = Math.max(MIN_SIZE[0], Number(this.size[0]) || 0);
+		clampGallerySize(size);
+		clampGallerySize(this.size);
 		return previousResize?.apply(this, arguments);
 	};
 	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); restoreNode(this); return result; };
@@ -1525,7 +1597,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		root.remove();
 		return previousRemoved?.apply(this, arguments);
 	};
-	controller.renderSelected(); controller.search({ reset: true, page: stateFor(node).navigation.page }); if (initializeSize) node.setSize?.(DEFAULT_SIZE);
+	controller.renderSelected(); controller.search({ reset: true, page: stateFor(node).navigation.page }); applyInitialGallerySize(node, initializeSize);
 }
 
 function restoreNode(node) {
@@ -1538,6 +1610,7 @@ function restoreNode(node) {
 	node._aaGalleryCollection.setOptions(collectionOptions(state.source), collectionValue(state));
 	node._aaGalleryPage.setPage(state.navigation.page);
 	node._aaGalleryController.setMode(state.view, { persist: false });
+	node._aaGalleryController.setSelectionMode(state.selectionMode, { persist: false });
 	node._aaGalleryController.renderSelected();
 	void node._aaGalleryController.search({ reset: true, page: state.navigation.page });
 	node._aaGalleryAccent?.sync?.();

@@ -7,6 +7,8 @@ import { renderTextControl } from "./text.js";
 import { renderImageChoiceControl } from "./image_choice.js";
 import { renderMarkdownControl } from "./markdown.js";
 import { renderImageCompareControl } from "./image_compare.js";
+import { renderImageOutputControl } from "./image_output.js";
+import { renderTextOutputControl } from "./text_output.js";
 
 export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	numeric: (spec, port) => renderNumericControl(spec, port),
@@ -17,4 +19,6 @@ export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	"image-choice": (spec, port) => renderImageChoiceControl(spec, port),
 	markdown: (spec, port) => renderMarkdownControl(spec, port),
 	"image-compare": (spec) => renderImageCompareControl(spec),
+	"image-output": (spec) => renderImageOutputControl(spec),
+	"text-output": (spec) => renderTextOutputControl(spec),
 });

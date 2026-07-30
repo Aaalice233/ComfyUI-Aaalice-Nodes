@@ -77,6 +77,78 @@ test("legacy groups are reused when their members identify the same control sour
 	assert.ok(next.pages[0].items.every((item) => item.groupId === group.id));
 });
 
+test("separator-scoped controls create distinct groups, including singleton sections", () => {
+	const { model, page } = modelWithPage();
+	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };
+	const grouped = (scopeId, name) => ({
+		source: { provider: "aaalice-parameter", hostId: "panel-a", ...(scopeId ? { scopeId } : {}) },
+		name,
+		tone: "blue",
+		forceGroup: true,
+	});
+	const next = addItems(model, page.id, [
+		{ label: "Model", binding: { ...panelBinding, controlId: "model" }, sourceGroup: grouped(null, "Panel") },
+		{ label: "Steps", binding: panelBinding, sourceGroup: grouped("separator:sampling", "Sampling") },
+		{ label: "CFG", binding: { ...panelBinding, controlId: "cfg" }, sourceGroup: grouped("separator:sampling", "Sampling") },
+		{ label: "Width", binding: { ...panelBinding, controlId: "width" }, sourceGroup: grouped("separator:size", "Size") },
+	]);
+	const groups = Object.fromEntries(next.pages[0].groups.map((group) => [group.source?.scopeId || "root", group]));
+	assert.deepEqual(Object.keys(groups).sort(), ["root", "separator:sampling", "separator:size"]);
+	assert.equal(groups.root.name, "Panel");
+	assert.equal(groups["separator:size"].name, "Size");
+	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "model").groupId, groups.root.id);
+	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "width").groupId, groups["separator:size"].id);
+	assert.ok(next.pages[0].items.filter((item) => ["steps", "cfg"].includes(item.binding.controlId)).every((item) => item.groupId === groups["separator:sampling"].id));
+});
+
+test("separator group identity is stable across additions and preserves user naming", () => {
+	const { model, page } = modelWithPage();
+	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };
+	const sourceGroup = { source: { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" }, name: "Sampling", tone: "blue", forceGroup: true };
+	let next = addItems(model, page.id, [{ label: "Steps", binding: panelBinding, sourceGroup }]);
+	const groupId = next.pages[0].groups[0].id;
+	next.pages[0].groups[0].name = "My sampler";
+	next = addItems(next, page.id, [{ label: "CFG", binding: { ...panelBinding, controlId: "cfg" }, sourceGroup: { ...sourceGroup, name: "Renamed separator" } }]);
+	assert.equal(next.pages[0].groups.length, 1);
+	assert.equal(next.pages[0].groups[0].id, groupId);
+	assert.equal(next.pages[0].groups[0].name, "My sampler");
+	assert.ok(next.pages[0].items.every((item) => item.groupId === groupId));
+	assert.deepEqual(next.pages[0].groups[0].source, sourceGroup.source);
+});
+
+test("scoped controls do not fall into an unscoped legacy source group", () => {
+	const { model, page } = modelWithPage();
+	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };
+	const legacySourceGroup = { source: { provider: "aaalice-parameter", hostId: "panel-a" }, name: "Panel", tone: "blue" };
+	let next = addItems(model, page.id, [
+		{ label: "Steps", binding: panelBinding },
+		{ label: "CFG", binding: { ...panelBinding, controlId: "cfg" } },
+	], { sourceGroup: legacySourceGroup });
+	const legacyGroupId = next.pages[0].groups[0].id;
+	next = addItems(next, page.id, [{
+		label: "Width",
+		binding: { ...panelBinding, controlId: "width" },
+		sourceGroup: { source: { ...legacySourceGroup.source, scopeId: "separator:size" }, name: "Size", tone: "blue", forceGroup: true },
+	}]);
+	assert.equal(next.pages[0].groups.length, 2);
+	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "width").groupId, next.pages[0].groups.find((group) => group.source?.scopeId === "separator:size").id);
+	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "steps").groupId, legacyGroupId);
+});
+
+test("group source scopes survive normalization and reject empty identities", () => {
+	const { model, page } = modelWithPage();
+	let next = addItems(model, page.id, [
+		{ label: "A", binding },
+		{ label: "B", binding: { ...binding, controlId: "b" } },
+	]);
+	next = createGroup(next, page.id, next.pages[0].items.map((item) => item.id), {
+		source: { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:advanced" },
+	});
+	assert.deepEqual(normalizeDashboard(next).pages[0].groups[0].source, { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:advanced" });
+	next.pages[0].groups[0].source.scopeId = "";
+	assert.throws(() => normalizeDashboard(next), (error) => error instanceof DashboardModelError && error.code === "invalid-group-source");
+});
+
 test("specialized controls can request an initial full-width footprint", () => {
 	const { model, page } = modelWithPage();
 	const next = addItems(model, page.id, [{ label: "Compare Images", binding: { ...binding, controlId: "compare_view", valueType: "image-compare-view" }, columnSpan: 12, rowSpan: 36 }]);

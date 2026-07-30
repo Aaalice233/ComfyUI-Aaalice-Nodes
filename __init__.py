@@ -30,12 +30,14 @@ async def comfy_entrypoint() -> AaaliceNodesExtension:
     from .nodes.krita.routes import register_krita_routes
     from .nodes.prompt.character_feature_swap_routes import register_character_feature_swap_routes
     from .nodes.prompt.prompt_library_routes import register_prompt_library_routes
+    from .nodes.tools.discord_share_routes import register_discord_share_routes
     from .nodes.tools.resolution_preset_routes import register_resolution_preset_routes
 
     register_gallery_routes()
     register_krita_routes()
     register_character_feature_swap_routes()
     register_prompt_library_routes()
+    register_discord_share_routes()
     register_resolution_preset_routes()
     return AaaliceNodesExtension()
 

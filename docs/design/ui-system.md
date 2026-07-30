@@ -104,7 +104,7 @@
 
 `js/lib/ui.js` 是无业务状态的 DOM 基础组件层；`js/lib/controls/` 以 Control Spec / Port / View 统一参数控件；`js/lib/workspace_components.js` 是工作区复合组件层；`js/lib/workspace_controls.js` 只负责把 Provider 结果接到共享控件并管理局部手势。各层只接收数据、已本地化字符串和回调，不导入 `t()`，不拥有工作流或词库状态。Control Provider 只负责发现、解析和写回，业务入口负责状态编排、生命周期与画布事务。
 
-共享参数控件固定分为两个 family：`aaalice` 复用 ParameterPanel 的完整交互和视觉语义，供节点面与侧边栏共同使用；`comfy` 面向普通 ComfyUI widget、子图公开 widget 和第三方适配器，默认使用更中性的原生控件策略。两者可以复用数字、布尔和选择等底层 renderer，但 family 的策略注册必须独立，业务宿主不得复制控件实现。
+共享参数控件固定分为两个 family：`aaalice` 复用 ParameterPanel 的完整交互和视觉语义，供节点面与侧边栏共同使用；`comfy` 面向普通 ComfyUI widget、内置执行预览、子图公开 widget 和第三方适配器，默认使用更中性的原生控件策略。两者可以复用数字、布尔和选择等底层 renderer，但 family 的策略注册必须独立，业务宿主不得复制控件实现。`Preview Image`、`Preview as Text` 和 `Compare Images` 属于只读执行视图：卡片与预设只保存稳定 Binding 和布局，不复制临时输出；执行或显示模式变化通过事件失效刷新，不轮询。
 
 | 组件 | 职责 |
 |---|---|
@@ -165,7 +165,7 @@ Layout Group 在视图中呈现为一张 Composite Card：组名、组操作和�
 
 - 两档及以上互斥状态优先使用 `segmentedControl()`。滑动指示器保持同一 DOM 元素，通过 transform 在约 140–180ms 内移动；不同业务状态可使用不同主题语义色，同时保留文字、图标和 `radiogroup` 状态。
 - 单选下拉优先使用 `selectControl()`。箭头与右边缘保留安全间距，展开时旋转 180°；选择、失焦、`Escape` 或收起后复位，并同步 `aria-expanded`。
-- 窄侧栏和节点中的次级搜索优先使用折叠入口。展开后搜索框占用原工具栏同一行，不新增一行或推动内容区；空间不足时可暂时隐藏同排次要操作。展开后自动聚焦，`Escape` 或关闭只收起输入框；查询是否生效以及如何清空必须保持可见、可预测。
+- 窄侧栏和节点中的次级搜索优先使用折叠入口。展开后搜索框占用原工具栏同一行，不新增一行或推动内容区；空间不足时可暂时隐藏同排次要操作。交互展开后自动聚焦，`Escape` 或关闭只收起输入框；通过 `defaultOpen` 初始化为展开时不得主动抢夺焦点。`defaultOpen` 只决定本次挂载的初始会话状态，不进入工作流持久化；查询是否生效以及如何清空必须保持可见、可预测。
 - 所有可折叠搜索必须复用 `searchToggleButton()` 或包含它的 `createCollapsibleSearch()`。折叠后若查询内容仍然生效，入口保留标准搜索图标，只增加低强度激活表面与右上角状态点，并在 Hover / Focus Tooltip 中显示完整查询；禁止同时改变搜索图标形状和增加状态点，以免重复表达或视觉重叠。收起不得隐式清空查询；采用显式提交的搜索在折叠前必须提交尚未同步的当前输入，清空则必须立即把空值同步给业务状态，避免重载后恢复旧查询。
 - 搜索输入框统一挂载 `aa-ui-search-input`；其内部 `×` 只表示清空查询，并提供不小于 20px 的命中区、tonal Hover、颜色变化、轻微缩放和 Active 回压。输入框尾部的独立按钮统一使用 `arrowRight` 和 `aa-ui-search-collapse` 表示向工具栏右侧收起。禁止同时用两个 `×` 分别承担清空与折叠，两个动作的 Tooltip 和可访问名称也必须分别描述“清空内容”与“收起搜索”。
 - 输入、筛选和局部状态变化只更新受影响内容，不重建仍有效的输入、Dialog、Popover 或焦点锚点。实时搜索必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition：`input` 事件可以合并刷新结果列表，但不得触发包含输入框的根级 `replaceChildren()` 或完整 `render()`。只有关闭搜索、切换结构模式或输入锚点失效时才能重建该区域。

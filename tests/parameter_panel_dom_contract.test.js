@@ -273,13 +273,13 @@ test("parameter descriptions use the shared tooltip shell with readable markdown
 	assert.match(markdownSource, /template\.innerHTML = renderMarkdownToHtml\(markdown\)/);
 	assert.doesNotMatch(panelSource, /function showTooltip|tooltipTimer/);
 	assert.match(themeSource, /\.aaalice-parameter-tooltip\s*\{[^}]*max-width:\s*min\(320px/);
-	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h1\s*\{[^}]*font-size:\s*16px/);
-	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h2\s*\{[^}]*font-size:\s*14px/);
-	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h3\s*\{[^}]*font-size:\s*13px/);
-	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) li \+ li/);
-	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) hr\s*\{/);
-	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) table\s*\{/);
-	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) blockquote\s*\{/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h1\s*\{[^}]*font-size:\s*16px/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h2\s*\{[^}]*font-size:\s*14px/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h3\s*\{[^}]*font-size:\s*13px/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) li \+ li/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) hr\s*\{/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) table\s*\{/);
+	assert.match(themeSource, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) blockquote\s*\{/);
 });
 
 test("parameter panel keeps native resize corners and a stable minimum width", () => {

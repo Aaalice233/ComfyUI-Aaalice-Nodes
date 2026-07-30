@@ -17,7 +17,7 @@ test("package entry imports the Booru Gallery extension", () => {
 
 test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.equal((source.match(/className: "aa-gallery-toolbar"/g) || []).length, 1);
-	assert.match(source, /createSearchControl/); assert.match(source, /input\.type = "search"/); assert.match(source, /classList\.toggle\("is-open"/);
+	assert.match(source, /function createSearchControl\(node, \{ defaultOpen = false \} = \{\}\)/); assert.match(source, /input\.type = "search"/); assert.match(source, /classList\.toggle\("is-open"/);
 	assert.match(source, /searchToggleButton\(\{ label: label\("search\.label"/);
 	assert.match(source, /input\.className = "aa-gallery-search__input aa-ui-search-input"/);
 	assert.match(source, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
@@ -26,12 +26,16 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(source, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
 	assert.match(source, /toggle\.hidden = open/);
 	assert.match(source, /if \(!open && input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\)/);
+	assert.match(source, /const setOpen = \(next, \{ focus = true \} = \{\}\) =>/);
+	assert.match(source, /setOpen\(defaultOpen, \{ focus: false \}\)/);
+	assert.match(source, /createSearchControl\(node, \{ defaultOpen: true \}\)/);
 	assert.match(source, /if \(!composing && !input\.value\.trim\(\) && searchQuery\(stateFor\(node\)\)\) submit\(\)/);
 	assert.match(source, /_aaGalleryController\?\.search\(\{ reset: true, page: 1 \}\)/);
-	assert.match(source, /children: \[refresh, openSettings, searchControl\.root, searchControl\.toggle\]/);
-	assert.match(theme, /\.aa-gallery\.is-searching \.aa-gallery-toolbar__page-actions, \.aa-gallery\.is-searching \.aa-gallery-refresh, \.aa-gallery\.is-searching \.aa-gallery-open-settings \{ display: none; \}/);
-	assert.match(theme, /\.aa-gallery\.is-searching \.aa-gallery-toolbar__spacer \{ display: none; \}/);
-	assert.match(theme, /\.aa-gallery\.is-searching \.aa-gallery-search \{ width: 100%; max-width: none; flex: 1 1 auto; \}/);
+	assert.match(source, /className: "aa-gallery-toolbar__search", children: \[searchControl\.root, searchControl\.toggle\]/);
+	assert.match(theme, /\.aa-gallery-toolbar__search \{ min-width: 0; flex: 0 1 280px; \}/);
+	assert.match(theme, /\.aa-gallery-toolbar__search:has\(\.aa-gallery-search:not\(\.is-open\)\) \{ flex: 0 0 auto; \}/);
+	assert.doesNotMatch(source, /classList\.toggle\("is-searching"/);
+	assert.doesNotMatch(theme, /\.aa-gallery\.is-searching/);
 	assert.match(uiStyles, /\.aa-ui-button\[hidden\] \{ display: none !important; \}/);
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button \{[^}]*width: 22px;[^}]*height: 22px;[^}]*border-radius: 50%;[^}]*transform: none;/s);
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button:hover:not\(:disabled\) \{[^}]*background: color-mix\([^}]*transform: none;/s);
@@ -45,6 +49,7 @@ test("gallery restores every workflow-owned browsing state after configuration",
 	assert.match(source, /function restoreNode\(node\)/);
 	assert.match(source, /node\._aaGallerySource\.setValue\(state\.source\)/);
 	assert.match(source, /node\._aaGalleryController\.setMode\(state\.view, \{ persist: false \}\)/);
+	assert.match(source, /node\._aaGalleryController\.setSelectionMode\(state\.selectionMode, \{ persist: false \}\)/);
 	assert.match(source, /node\._aaGalleryController\.search\(\{ reset: true, page: state\.navigation\.page \}\)/);
 	assert.match(source, /loadedGraphNode\(node\) \{ if \(isGallery\(node\)\) \{ setupNodeSafely\(node\); restoreNode\(node\); \} \}/);
 	assert.match(source, /if \(\(!reset && loading\) \|\| \(ended && !reset\)\) return/);
@@ -64,10 +69,13 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.doesNotMatch(source, /iconName: "settings", label: label\("prompt/);
 	assert.doesNotMatch(source, /iconName: "more"/);
 	assert.match(source, /className: "aa-gallery-refresh", iconName: "refresh"/);
-	assert.match(source, /className: "aa-gallery-open-settings", iconName: "settings"/);
-	assert.match(source, /className: "aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
+	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-selected__clear"[\s\S]*label: label\("selected\.clear", "Clear"\)/);
+	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-open-settings", iconName: "settings", label: label\("settings\.short", "Settings"\)/);
+	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
 	assert.doesNotMatch(source, /Comfy\.ShowSettingsDialog|app\.ui\?\.settings\?\.show|openComfySettings/);
-	assert.match(source, /children: \[refresh, openSettings, searchControl\.root, searchControl\.toggle\]/);
+	assert.match(source, /className: "aa-gallery-toolbar__utilities", children: \[refresh, clear, openSettings\]/);
+	assert.match(source, /className: "aa-gallery-toolbar__row aa-gallery-toolbar__primary"/);
+	assert.match(source, /className: "aa-gallery-toolbar__row aa-gallery-toolbar__context"/);
 	assert.match(source, /className: "aa-gallery-toolbar__page-actions"/);
 	assert.match(source, /className: "aa-gallery-toolbar__navigation", children: \[collection, pageControl\]/);
 	assert.match(source, /className: "aa-gallery-toolbar__tools", children: \[filter, prompt\]/);
@@ -81,7 +89,26 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.match(theme, /\.aa-gallery \{[^}]*container-type: inline-size;/);
 	assert.match(theme, /\.aa-gallery-toolbar__page-actions \{[^}]*flex: 0 0 auto;/);
 	assert.match(theme, /@container \(max-width: 700px\)[^}]*\.aa-gallery-toolbar-action\.aa-ui-button \{ width: 28px;/);
-	assert.match(theme, /@container \(max-width: 580px\)[^]*?\.aa-gallery-view-switcher button:has\(\.aa-ui-icon\) \{ width: 31px;/);
+	assert.match(theme, /@container \(max-width: 580px\)[^]*?\.aa-gallery-view-switcher button:has\(\.aa-ui-icon\), \.aa-gallery-selection-switcher button:has\(\.aa-ui-icon\) \{ width: 31px;/);
+	assert.match(theme, /\.aa-gallery-toolbar-text-action\.aa-ui-button \{[^}]*min-height: 26px;[^}]*padding: 4px 8px;[^}]*font-size: 10px;/);
+	assert.match(theme, /@container \(max-width: 580px\) \{[^\n]*\.aa-gallery-toolbar-text-action \.aa-ui-button__label \{ display: none; \}/);
+	assert.equal(enLocale.aaalice.gallery.settings.short, "Settings");
+	assert.equal(zhLocale.aaalice.gallery.settings.short, "设置");
+});
+
+test("selection mode switcher persists workflow state and enforces single selection", () => {
+	assert.match(source, /className: "aa-gallery-selection-switcher"/);
+	assert.match(source, /value: "single", label: label\("selectionMode\.single", "Single"\), iconName: "selectionSingle"/);
+	assert.match(source, /value: "multi", label: label\("selectionMode\.multiple", "Multiple"\), iconName: "selectionMultiple"/);
+	assert.match(source, /state\.selectionMode = mode/);
+	assert.match(source, /node\.graph\?\.change\?\.\(\)/);
+	assert.match(source, /state\.selectionMode === "single" \? \[selection\] : \[\.\.\.state\.selections, selection\]/);
+	assert.match(source, /state\.selections = state\.selections\.slice\(0, 1\)/);
+	assert.match(source, /openSingleSelectionDialog/);
+	assert.match(theme, /\.aa-gallery-selection-switcher\[data-value="single"\]/);
+	assert.match(theme, /\.aa-gallery\[data-mode="selected"\] \.aa-gallery-toolbar__page-actions, \.aa-gallery\[data-mode="selected"\] \.aa-gallery-refresh \{ display: none; \}/);
+	assert.equal(enLocale.aaalice.gallery.selectionMode.single, "Single");
+	assert.equal(zhLocale.aaalice.gallery.selectionMode.multiple, "多选");
 });
 
 test("page navigation uses a compact custom control instead of a native number form", () => {
@@ -110,7 +137,7 @@ test("gallery refresh and settings utilities expose their real state and destina
 	assert.match(source, /finally \{ refreshing = false; refresh\.disabled = false; refresh\.classList\.remove\("is-refreshing"\)/);
 	assert.match(theme, /\.aa-gallery-refresh\.is-refreshing \.aa-ui-icon \{ animation: aa-gallery-status-spin \.72s linear infinite; \}/);
 	assert.match(source, /function openGallerySettings\(\) \{[^]*openSettingsDialog\(\)/);
-	assert.match(source, /className: "aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
+	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
 	assert.doesNotMatch(source, /Comfy\.ShowSettingsDialog|app\.ui\?\.settings\?\.show|settings\.pathHint/);
 });
 
@@ -312,10 +339,11 @@ test("gallery cards use pointer-coalesced lift, tilt, and glare without moving t
 test("gallery uses the shared styled listbox instead of native select controls", () => {
 	assert.match(source, /listboxControl/);
 	assert.doesNotMatch(source, /selectControl|document\.createElement\("select"\)/);
+	assert.match(source, /capabilities\.map\(\(item\) => \(\{ value: item\.source, label: item\.displayName, iconName: "globe" \}\)\)/);
 	assert.match(source, /sortIcons = \{ latest: "statusIdle", new: "statusIdle", score: "statusCheck", favcount: "favorite", random: "refresh" \}/);
 	assert.match(source, /iconName: "statusIdle" \}\);/);
 	assert.match(source, /value: "favorites"[^}]*iconName: "favorite"/);
-	assert.match(theme, /\.aa-gallery-toolbar > \.aa-ui-listbox-select \{/);
+	assert.match(theme, /\.aa-gallery-toolbar__primary > \.aa-ui-listbox-select \{/);
 	assert.match(theme, /\.aa-ui-listbox-select__trigger \{[^}]*border-radius: 9px;/);
 });
 
@@ -399,15 +427,23 @@ test("synchronous masonry startup cannot call an uninitialized controller", () =
 });
 
 test("gallery keeps both native bottom resize corners free and can shrink after growing", () => {
+	assert.match(source, /const DEFAULT_SIZE = \[760, 760\]/);
 	assert.match(source, /const MIN_SIZE = \[620, 300\]/);
 	assert.match(source, /getMinHeight: \(\) => MIN_SIZE\[1\]/);
 	assert.match(source, /return \[Math\.max\(MIN_SIZE\[0\], Number\(size\[0\]\) \|\| 0\), MIN_SIZE\[1\]\]/);
-	assert.match(source, /node\.onResize = function \(size\)[\s\S]*size\[0\] = Math\.max\(MIN_SIZE\[0\]/);
+	assert.match(source, /function clampGallerySize\(size\)[\s\S]*size\[0\] = Math\.max\(MIN_SIZE\[0\][\s\S]*size\[1\] = Math\.max\(MIN_SIZE\[1\]/);
+	assert.match(source, /node\.onResize = function \(size\)[\s\S]*clampGallerySize\(size\)[\s\S]*clampGallerySize\(this\.size\)/);
+	assert.match(source, /applyInitialGallerySize\(node, initializeSize\)/);
 	assert.doesNotMatch(source, /root\.(?:scrollHeight|clientHeight)/);
 	assert.match(theme, /\.dom-widget:has\(> \.aa-gallery\) \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-gallery\.is-resizing, \.aa-gallery\.is-resizing \* \{ pointer-events: none !important;/);
 	assert.match(theme, /\.aa-gallery-masonry \{[^}]*inset: 0 10px 13px;[^}]*pointer-events: auto;/);
 	assert.match(source, /installDomWidgetResizePassthrough\(node, root\)/);
+});
+
+test("selected clear action keeps its text at supported widths", () => {
+	assert.match(theme, /\.aa-gallery-selected__clear\.aa-ui-button \{[^}]*width: auto;[^}]*min-width: 0;[^}]*padding: 4px 8px;/);
+	assert.match(theme, /@container \(max-width: 580px\) \{[^\n]*\.aa-gallery-toolbar-text-action \.aa-ui-button__label \{ display: none; \}/);
 });
 
 test("gallery redesign covers every primary surface", () => {
@@ -470,12 +506,13 @@ test("selected count and clear action live in the main toolbar", () => {
 	const toolbarSource = source.slice(source.indexOf("const tabs = segmentedControl"), source.indexOf("const masonry ="));
 	assert.match(toolbarSource, /className: "aa-gallery-view-switcher__count"/);
 	assert.match(toolbarSource, /tabs\.querySelector\('\[data-value="selected"\]'\)\?\.append\(selectedCount\)/);
-	assert.match(toolbarSource, /children: \[source, tabs, clear,/);
+	assert.match(toolbarSource, /children: \[source, tabs, selectionMode,/);
+	assert.match(toolbarSource, /children: \[refresh, clear, openSettings\]/);
 	assert.match(source, /elements\.selectedCount\.textContent = String\(count\)/);
 	assert.match(theme, /\.aa-gallery-view-switcher__count \{[^}]*min-width: 18px;[^}]*border: 0;[^}]*font-size: 10px;[^}]*font-weight: 800/);
 	const countStyle = theme.match(/\.aa-gallery-view-switcher__count \{([^}]*)\}/)?.[1] || "";
 	assert.doesNotMatch(countStyle, /0 0 0 1px/);
-	assert.match(theme, /\.aa-gallery:not\(\[data-mode="selected"\]\) \.aa-gallery-selected__clear \{ display: none; \}/);
+	assert.match(theme, /\.aa-gallery\[data-mode="browse"\] \.aa-gallery-toolbar__selected-summary, \.aa-gallery\[data-mode="browse"\] \.aa-gallery-selected__clear \{ display: none; \}/);
 	assert.doesNotMatch(selectedSource, /aa-gallery-selected__toolbar|aa-gallery-selected__status|aa-gallery-selected__copy/);
 	assert.doesNotMatch(theme, /\.aa-gallery-selected__toolbar|\.aa-gallery-selected__lead|\.aa-gallery-selected__status|\.aa-gallery-selected__copy/);
 	assert.doesNotMatch(source, /\b(?:globalThis\.)?confirm\s*\(/);

@@ -38,6 +38,8 @@ Thumbs.db
 .env.*
 !.env.example
 *.local
+deploy/discord-share-worker/wrangler.toml
+deploy/**/.wrangler/
 
 # Playwright MCP local captures
 .playwright-mcp/

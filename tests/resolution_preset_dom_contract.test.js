@@ -48,6 +48,7 @@ test("uses shared popovers dialogs icon buttons and resize passthrough", () => {
 test("keeps the stage compact theme-driven and motion-reduced", () => {
 	assert.match(styles, /\.aa-resolution-preset\s*\{/);
 	assert.match(styles, /--aa-ui-node-accent/);
+	assert.match(styles, /\.aa-resolution-stage \{[^}]*width: 100%;[^}]*min-height: 116px;[^}]*max-height: 320px;[^}]*align-self: start;/);
 	assert.match(source, /canvasDimensions\(stateFor\(node\), x, y, mode\)/);
 	assert.match(source, /aa-resolution-artboard/);
 	assert.match(source, /index < 352/);

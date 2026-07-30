@@ -357,12 +357,10 @@ async function removePage(page) {
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
 
-function sharedSourceGroup(controls) {
-	if (!controls.length || controls.some((control) => !control.sourceGroup?.source)) return null;
-	const [first] = controls;
-	const source = first.sourceGroup.source;
-	const shared = controls.every((control) => control.sourceGroup.source.provider === source.provider && control.sourceGroup.source.hostId === source.hostId);
-	return shared ? first.sourceGroup : null;
+function sourceGroupIdentity(sourceGroup) {
+	const source = sourceGroup?.source;
+	if (!source?.provider || !source?.hostId) return null;
+	return `${source.provider}\u0000${source.hostId}\u0000${source.scopeId || ""}`;
 }
 
 function dashboardPresetLabels() {
@@ -518,8 +516,21 @@ function workspaceLabels() {
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
 		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
 		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
-		markdownEmpty: t("aaalice.workspace.markdown.empty", "Empty note"),
-		imageCompare: {
+			markdownEmpty: t("aaalice.workspace.markdown.empty", "Empty note"),
+			imageOutput: {
+				empty: t("aaalice.workspace.imageOutput.empty", "Run the workflow to preview images"),
+				previous: t("aaalice.workspace.imageOutput.previous", "Previous image"), next: t("aaalice.workspace.imageOutput.next", "Next image"),
+				open: t("aaalice.workspace.imageOutput.open", "Open full-screen image preview"), title: t("aaalice.workspace.imageOutput.title", "Image preview"),
+				viewer: t("aaalice.workspace.imageOutput.viewer", "Full-screen image preview. Scroll to zoom, drag enlarged images to move, and double-click to reset."),
+				close: t("aaalice.workspace.imageOutput.close", "Close full-screen image preview"),
+				zoomIn: t("aaalice.workspace.imageOutput.zoomIn", "Zoom in"), zoomOut: t("aaalice.workspace.imageOutput.zoomOut", "Zoom out"), fit: t("aaalice.workspace.imageOutput.fit", "Fit to screen"),
+			},
+			textOutput: {
+				empty: t("aaalice.workspace.textOutput.empty", "Run the workflow to preview a value"),
+				plain: t("aaalice.workspace.textOutput.plain", "Plain text"), markdown: t("aaalice.workspace.textOutput.markdown", "Markdown"),
+				content: t("aaalice.workspace.textOutput.content", "Previewed value"),
+			},
+			imageCompare: {
 			empty: t("aaalice.workspace.imageCompare.empty", "Run the workflow to compare images"),
 			before: t("aaalice.workspace.imageCompare.before", "Image A"), after: t("aaalice.workspace.imageCompare.after", "Image B"),
 			previousBefore: t("aaalice.workspace.imageCompare.previousBefore", "Previous Image A"), nextBefore: t("aaalice.workspace.imageCompare.nextBefore", "Next Image A"),
@@ -1696,7 +1707,20 @@ function openAddControls(node) {
 	] });
 	drawList = () => {
 		list.replaceChildren();
+		const showSourceSections = controls.some((control) => control.sourceGroup?.forceGroup);
+		let previousSourceGroup = null;
 		for (const control of controls) {
+			if (showSourceSections) {
+				const identity = sourceGroupIdentity(control.sourceGroup);
+				if (identity && identity !== previousSourceGroup) {
+					list.append(el("div", {
+						className: "aa-add-controls-source-group",
+						attrs: { role: "heading", "aria-level": "4" },
+						children: [el("span"), el("strong", null, control.sourceGroup.name), el("span")],
+					}));
+					previousSourceGroup = identity;
+				}
+			}
 			const key = bindingKey(control.binding); const added = existing.has(key);
 			const row = createListRow({ title: control.label, description: added ? t("aaalice.workspace.binding.added", "Already added") : controlAvailabilityDescription(control), selected: selected.has(key), onSelect: (checked) => { if (checked) selected.add(key); else selected.delete(key); updateSelectionState(); } });
 			row.selectionControl.setDisabled(added && !allowDuplicate); list.append(row);
@@ -1709,7 +1733,7 @@ function openAddControls(node) {
 		if (body._createTarget) { body._createTarget(); model = dashboard(); page = currentPage(model); }
 		if (!page) return;
 		const chosen = controls.filter((control) => selected.has(bindingKey(control.binding)));
-		updateDashboard((current) => addItems(current, page.id, chosen, { sourceGroup: sharedSourceGroup(chosen) }));
+		updateDashboard((current) => addItems(current, page.id, chosen));
 		remindWorkflowSave(t("aaalice.workspace.binding.saveWorkflowReminder", "Save the workflow to keep these sidebar controls; otherwise they will be lost."));
 		dialog.close();
 	} });

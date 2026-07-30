@@ -50,7 +50,14 @@ export function normalizeGroupSource(source) {
 	if (typeof source.provider !== "string" || !source.provider || typeof source.hostId !== "string" || !source.hostId) {
 		throw new DashboardModelError("Dashboard group source is invalid", "invalid-group-source");
 	}
-	return { provider: source.provider, hostId: source.hostId };
+	if (source.scopeId != null && (typeof source.scopeId !== "string" || !source.scopeId)) {
+		throw new DashboardModelError("Dashboard group source scope is invalid", "invalid-group-source");
+	}
+	return {
+		provider: source.provider,
+		hostId: source.hostId,
+		...(source.scopeId ? { scopeId: source.scopeId } : {}),
+	};
 }
 
 function assertUnique(id, ids) {

@@ -20,6 +20,9 @@ const textControl = readFileSync(join(ROOT, "js", "lib", "controls", "text.js"),
 const imageControl = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
 const imageChoiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_choice.js"), "utf8");
 const markdownControl = readFileSync(join(ROOT, "js", "lib", "controls", "markdown.js"), "utf8");
+const nativeOutputControls = readFileSync(join(ROOT, "js", "lib", "native_output_controls.js"), "utf8");
+const imageOutputControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_output.js"), "utf8");
+const textOutputControl = readFileSync(join(ROOT, "js", "lib", "controls", "text_output.js"), "utf8");
 const comfyControls = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js"), "utf8");
 const controlRegistry = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
@@ -84,6 +87,32 @@ test("native image comparison is a localized accessible sidebar media control", 
 		assert.match(locale, /"slider"/);
 		assert.match(locale, /"zoomIn"/);
 		assert.match(locale, /"fit"/);
+	}
+});
+
+test("built-in PreviewImage and PreviewAny are read-only sidebar execution views", () => {
+	assert.match(providers, /id: "comfy-output"/);
+	assert.match(providers, /listNativeOutputControls/);
+	assert.ok(nativeOutputControls.includes("node.onExecuted = wrapper"));
+	assert.ok(nativeOutputControls.includes("invalidateControlHost(node)"));
+	assert.ok(nativeOutputControls.includes('bindWidgetInvalidation(node, "preview_mode")'));
+	assert.match(nativeOutputControls, /presettable: false/);
+	assert.ok(comfyControls.includes('"image-output": (spec) => renderImageOutputControl(spec)'));
+	assert.ok(comfyControls.includes('"text-output": (spec) => renderTextOutputControl(spec)'));
+	assert.match(imageOutputControl, /createDialog/);
+	assert.match(imageOutputControl, /MAX_ZOOM = 8/);
+	assert.match(imageOutputControl, /draggable = false/);
+	assert.match(imageOutputControl, /addEventListener\("wheel"/);
+	assert.ok(imageOutputControl.includes("destroy: () => viewer?.requestClose"));
+	assert.match(textOutputControl, /renderSafeMarkdown/);
+	assert.match(textOutputControl, /aa-text-output__plain/);
+	assert.ok(textOutputControl.includes("spec.options?.markdown"));
+	assert.ok(theme.includes(".aa-image-output__viewport"));
+	assert.ok(theme.includes(".aa-image-output-viewer__stage"));
+	assert.ok(theme.includes(".aa-text-output__body"));
+	for (const locale of [enLocale, zhLocale]) {
+		assert.match(locale, /"imageOutput"/);
+		assert.match(locale, /"textOutput"/);
 	}
 });
 
@@ -279,7 +308,7 @@ test("markdown notes adapt between full rendering and a hover-to-read bar by hei
 	assert.doesNotMatch(workspaceControls, /cardCompact/);
 	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = 28/);
 	assert.doesNotMatch(theme, /aa-control-card\.is-compact/);
-	assert.match(theme, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body\) h1/);
+	assert.match(theme, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h1/);
 	assert.match(theme, /\.aa-control-markdown__body \{[^}]*overflow-y: auto/);
 	assert.match(theme, /\.aa-control-markdown__bar \{[^}]*height: 32px;/);
 	assert.match(theme, /\.aa-control-markdown__bar:hover/);
@@ -710,12 +739,17 @@ test("layout editing keeps creation and layout tools in the primary toolbar", ()
 
 test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
 	assert.match(workspace, /createGroup\(current, page\.id/);
-	assert.match(providers, /sourceGroup: \{ source: \{ provider: this\.id, hostId \}/);
-	assert.match(workspace, /function sharedSourceGroup\(controls\)/);
-	assert.match(workspace, /addItems\(current, page\.id, chosen, \{ sourceGroup: sharedSourceGroup\(chosen\) \}\)/);
+	assert.match(providers, /partitionParameterSections\(ensureParameters\(node\)\)/);
+	assert.match(providers, /scopeId: `separator:\$\{section\.separator\.id\}`/);
+	assert.match(providers, /forceGroup: sectioned/);
+	assert.doesNotMatch(workspace, /function sharedSourceGroup\(controls\)/);
+	assert.match(workspace, /addItems\(current, page\.id, chosen\)/);
+	assert.match(workspace, /className: "aa-add-controls-source-group"/);
+	assert.match(workspace, /attrs: \{ role: "heading", "aria-level": "4" \}/);
+	assert.match(theme, /\.aa-add-controls-source-group \{[^}]*grid-column: 1 \/ -1;/);
 	assert.match(dashboardCommands, /function findSourceGroup/);
-	assert.match(dashboardCommands, /ungroupedSourceItems/);
-	assert.match(dashboardCommands, /createGroup\(next, pageId, ungroupedSourceItems\.map/);
+	assert.match(dashboardCommands, /control\.sourceGroup \|\| sourceGroup/);
+	assert.match(dashboardCommands, /allowSingle: requestedGroup\.forceGroup/);
 	assert.match(dashboardComponents, /export function createDashboardGroup/);
 	assert.match(dashboardComponents, /projectedGroupRowSpan\(page\.items\.filter\(\(item\) => item\.groupId === group\.id\), columns\)/);
 	assert.match(dashboardSizing, /if \(columns !== 1\) return recommendedGroupRowSpan\(members\)/);
