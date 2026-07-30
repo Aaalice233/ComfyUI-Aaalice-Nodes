@@ -56,6 +56,14 @@ test("receiver name refresh atomically reconciles slots and uses the KJ Get nami
 	assert.match(kjSource, /detail: \{ nodeId: panel\.id, node: panel, updated, errors, setNames \}/);
 });
 
+test("receiver invalidates both Nodes 2.0 slot arrays after presentation changes", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	assert.match(receiverSource, /presentationChanged \|\|= String\(nativeSlot\._aaaliceParamId \|\| ""\) !== String\(slot\?\.parameterId \|\| ""\)/);
+	assert.match(receiverSource, /globalThis\.LiteGraph\?\.INPUT \?\? 1/);
+	assert.match(receiverSource, /globalThis\.LiteGraph\?\.OUTPUT \?\? 2/);
+	assert.match(receiverSource, /receiver\.graph\?\.trigger\?\.\("node:slot-label:changed", \{\s*nodeId: receiver\.id,\s*slotType,/s);
+});
+
 test("receiver keeps native resize corners and can shrink after growing", () => {
 	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
 	assert.match(receiverSource, /installDomWidgetResizePassthrough\(receiver, root\)/);

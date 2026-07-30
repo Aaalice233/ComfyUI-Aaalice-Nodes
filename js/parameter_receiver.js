@@ -230,6 +230,8 @@ function statusFor(receiver) {
 
 function syncSlotPresentation(receiver) {
 	const current = binding(receiver);
+	let presentationChanged = (receiver.inputs?.length || 0) !== current.slots.length
+		|| (receiver.outputs?.length || 0) !== current.slots.length;
 	reshapeReceiverSlots(receiver, current.slots.length);
 	for (let index = 0; index < current.slots.length; index += 1) {
 		const slot = current.slots[index];
@@ -237,13 +239,32 @@ function syncSlotPresentation(receiver) {
 		const type = getNode?.outputs?.[0]?.type || "*";
 		for (const nativeSlot of [receiver.inputs?.[index], receiver.outputs?.[index]]) {
 			if (!nativeSlot) continue;
+			presentationChanged ||= String(nativeSlot._aaaliceParamId || "") !== String(slot?.parameterId || "")
+				|| nativeSlot.label !== (slot?.name || "")
+				|| nativeSlot.localized_name !== (slot?.name || "")
+				|| nativeSlot.type !== (slot ? type : "*");
 			nativeSlot.label = slot?.name || "";
 			nativeSlot.localized_name = slot?.name || "";
 			nativeSlot.type = slot ? type : "*";
 			nativeSlot._aaaliceParamId = slot?.parameterId || null;
 		}
 	}
-	return syncReceiverLayout(receiver, current.slots.length);
+	const layout = syncReceiverLayout(receiver, current.slots.length);
+	if (presentationChanged) {
+		// Nodes 2.0 stores slots in shallowReactive arrays. Deep mutations are
+		// invisible until the official label event replaces the affected array;
+		// a Classic dirty-canvas redraw cannot invalidate that Vue snapshot.
+		for (const slotType of [
+			globalThis.LiteGraph?.INPUT ?? 1,
+			globalThis.LiteGraph?.OUTPUT ?? 2,
+		]) {
+			receiver.graph?.trigger?.("node:slot-label:changed", {
+				nodeId: receiver.id,
+				slotType,
+			});
+		}
+	}
+	return layout;
 }
 
 function receiverNodeSize(receiver) {
