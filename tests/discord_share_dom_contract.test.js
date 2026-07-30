@@ -49,11 +49,26 @@ test("picker is latest-run only and requires a prompt before sending", () => {
 test("picker keeps the image dominant with an overlaid filmstrip and a dedicated prompt rail", () => {
 	assert.match(source, /className: "aa-discord-share-picker__media"/);
 	assert.match(source, /children: \[stage, filmstrip\]/);
+	assert.match(theme, /\.aa-discord-share-dialog\s*>\s*\.aa-ui-dialog__body\s*\{[^}]*display:\s*grid;/s);
 	assert.match(theme, /\.aa-discord-share-picker\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*clamp\(280px,\s*31%,\s*360px\);[^}]*grid-template-areas:\s*"media prompt";/s);
-	assert.match(theme, /\.aa-discord-share-filmstrip\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*12px;[^}]*backdrop-filter:\s*blur\(16px\);/s);
+	assert.match(theme, /\.aa-discord-share-filmstrip\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*10px;[^}]*backdrop-filter:\s*blur\(16px\);/s);
 	assert.match(theme, /\.aa-discord-share-picker__prompt-panel\s*\{[^}]*grid-area:\s*prompt;/s);
 	assert.match(theme, /grid-template-areas:\s*"media"\s*"prompt";/s);
 	assert.doesNotMatch(theme, /\.aa-discord-share-picker\s*\{[^}]*grid-template-rows:\s*minmax\(250px,\s*1fr\)\s*auto\s*minmax\(92px,\s*auto\);/s);
+});
+
+test("picker uses a compact scrollable resolution filmstrip and an interactive image viewer", () => {
+	assert.doesNotMatch(source, /aa-discord-share-filmstrip__name/);
+	assert.match(source, /children:\s*\[\s*el\("img"[\s\S]*meta,\s*\]/);
+	assert.match(source, /filmstrip\.scrollLeft \+= event\.deltaY/);
+	assert.match(source, /createShareImageViewer\(viewport,\s*stageImage\)/);
+	assert.match(source, /const MAX_SCALE = 8/);
+	assert.match(source, /Math\.exp\(-event\.deltaY \* 0\.0015\)/);
+	assert.match(source, /viewport\.addEventListener\("pointerdown"/);
+	assert.match(source, /viewport\.addEventListener\("dblclick", reset\)/);
+	assert.match(source, /imageViewer\.reset\(\)/);
+	assert.match(theme, /\.aa-discord-share-filmstrip__item\s*\{[^}]*width:\s*128px;[^}]*height:\s*50px;[^}]*grid-template-columns:\s*38px minmax\(0,\s*1fr\);/s);
+	assert.match(theme, /\.aa-discord-share-picker__image\s*\{[^}]*scale\(var\(--aa-discord-share-zoom,\s*1\)\)/s);
 });
 
 test("first share click verifies Discord before requiring a latest run", () => {

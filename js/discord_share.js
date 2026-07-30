@@ -349,17 +349,184 @@ function hydrateImageDimensions(image, onChange) {
 	probe.src = image.url;
 }
 
+function createShareImageViewer(viewport, image) {
+	const MIN_SCALE = 1;
+	const MAX_SCALE = 8;
+	const BUTTON_STEP = 1.35;
+	let scale = MIN_SCALE;
+	let offsetX = 0;
+	let offsetY = 0;
+	let activePointer = null;
+	let dragX = 0;
+	let dragY = 0;
+	let zoomOut = null;
+	let zoomIn = null;
+
+	const zoomValue = el("output", {
+		className: "aa-discord-share-picker__zoom-value",
+		attrs: { "aria-live": "polite" },
+	}, "100%");
+
+	function clampOffsets() {
+		if (!viewport.clientWidth || !viewport.clientHeight || !image.naturalWidth || !image.naturalHeight || scale <= MIN_SCALE) {
+			offsetX = 0;
+			offsetY = 0;
+			return;
+		}
+		const fittedScale = Math.min(viewport.clientWidth / image.naturalWidth, viewport.clientHeight / image.naturalHeight);
+		const maxX = Math.max(0, (image.naturalWidth * fittedScale * scale - viewport.clientWidth) / 2);
+		const maxY = Math.max(0, (image.naturalHeight * fittedScale * scale - viewport.clientHeight) / 2);
+		offsetX = Math.max(-maxX, Math.min(maxX, offsetX));
+		offsetY = Math.max(-maxY, Math.min(maxY, offsetY));
+	}
+
+	function render() {
+		clampOffsets();
+		image.style.setProperty("--aa-discord-share-zoom", String(scale));
+		image.style.setProperty("--aa-discord-share-pan-x", `${offsetX}px`);
+		image.style.setProperty("--aa-discord-share-pan-y", `${offsetY}px`);
+		viewport.classList.toggle("is-zoomed", scale > MIN_SCALE);
+		zoomValue.value = `${Math.round(scale * 100)}%`;
+		zoomValue.textContent = zoomValue.value;
+		if (zoomOut) zoomOut.disabled = scale <= MIN_SCALE;
+		if (zoomIn) zoomIn.disabled = scale >= MAX_SCALE;
+	}
+
+	function setScale(nextScale, clientX = null, clientY = null) {
+		const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
+		if (next === scale) return;
+		const rect = viewport.getBoundingClientRect();
+		const pointerX = (clientX ?? (rect.left + rect.width / 2)) - rect.left - rect.width / 2;
+		const pointerY = (clientY ?? (rect.top + rect.height / 2)) - rect.top - rect.height / 2;
+		const ratio = next / scale;
+		offsetX = pointerX - (pointerX - offsetX) * ratio;
+		offsetY = pointerY - (pointerY - offsetY) * ratio;
+		scale = next;
+		render();
+	}
+
+	function reset() {
+		scale = MIN_SCALE;
+		offsetX = 0;
+		offsetY = 0;
+		render();
+	}
+
+	zoomOut = iconButton({
+		iconName: "zoomOut",
+		label: label("picker.zoomOut", "Zoom out"),
+		variant: "ghost",
+		onClick: () => setScale(scale / BUTTON_STEP),
+	});
+	const fit = iconButton({
+		iconName: "fit",
+		label: label("picker.resetView", "Fit to screen"),
+		variant: "ghost",
+		onClick: reset,
+	});
+	zoomIn = iconButton({
+		iconName: "zoomIn",
+		label: label("picker.zoomIn", "Zoom in"),
+		variant: "ghost",
+		onClick: () => setScale(scale * BUTTON_STEP),
+	});
+	const controls = el("div", {
+		className: "aa-discord-share-picker__viewer-controls",
+		attrs: { role: "group", "aria-label": label("picker.viewerControls", "Image view controls") },
+		children: [zoomOut, zoomValue, fit, zoomIn],
+	});
+	viewport.append(controls);
+
+	viewport.addEventListener("wheel", (event) => {
+		event.preventDefault();
+		setScale(scale * Math.exp(-event.deltaY * 0.0015), event.clientX, event.clientY);
+	}, { passive: false });
+	viewport.addEventListener("pointerdown", (event) => {
+		viewport.focus({ preventScroll: true });
+		if (event.button !== 0 || scale <= MIN_SCALE || event.target.closest?.(".aa-discord-share-picker__viewer-controls")) return;
+		event.preventDefault();
+		activePointer = event.pointerId;
+		dragX = event.clientX - offsetX;
+		dragY = event.clientY - offsetY;
+		viewport.setPointerCapture(event.pointerId);
+		viewport.classList.add("is-dragging");
+	});
+	viewport.addEventListener("pointermove", (event) => {
+		if (event.pointerId !== activePointer) return;
+		offsetX = event.clientX - dragX;
+		offsetY = event.clientY - dragY;
+		render();
+	});
+	const endDrag = (event) => {
+		if (event.pointerId !== activePointer) return;
+		activePointer = null;
+		viewport.classList.remove("is-dragging");
+		if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+	};
+	viewport.addEventListener("pointerup", endDrag);
+	viewport.addEventListener("pointercancel", endDrag);
+	viewport.addEventListener("dblclick", reset);
+	viewport.addEventListener("keydown", (event) => {
+		if (event.target !== viewport) return;
+		if (["+", "="].includes(event.key)) {
+			event.preventDefault();
+			setScale(scale * BUTTON_STEP);
+			return;
+		}
+		if (event.key === "-") {
+			event.preventDefault();
+			setScale(scale / BUTTON_STEP);
+			return;
+		}
+		if (event.key === "0") {
+			event.preventDefault();
+			reset();
+			return;
+		}
+		const movement = { ArrowLeft: [36, 0], ArrowRight: [-36, 0], ArrowUp: [0, 36], ArrowDown: [0, -36] }[event.key];
+		if (!movement || scale <= MIN_SCALE) return;
+		event.preventDefault();
+		offsetX += movement[0];
+		offsetY += movement[1];
+		render();
+	});
+	image.addEventListener("load", render);
+	image.draggable = false;
+	const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(render) : null;
+	resizeObserver?.observe(viewport);
+	render();
+
+	return {
+		reset,
+		destroy() {
+			resizeObserver?.disconnect();
+			if (activePointer !== null && viewport.hasPointerCapture(activePointer)) viewport.releasePointerCapture(activePointer);
+			activePointer = null;
+		},
+	};
+}
+
 async function openSharePicker(shareConfig, session, snapshot) {
 	closeActiveDialog();
 	const images = snapshot.images.map((image) => ({ ...image, url: imageUrl(image), width: 0, height: 0 }));
 	let selectedIndex = 0;
 	const body = el("div", "aa-discord-share-picker");
 	const stageImage = el("img", { className: "aa-discord-share-picker__image", attrs: { alt: "" } });
+	const viewport = el("div", {
+		className: "aa-discord-share-picker__viewport",
+		attrs: {
+			tabindex: "0",
+			role: "group",
+			"aria-label": label("picker.viewer", "Image viewer. Scroll to zoom, drag enlarged images to move, and double-click to reset."),
+		},
+		children: [stageImage],
+	});
+	const imageViewer = createShareImageViewer(viewport, stageImage);
 	const filename = el("strong", "aa-discord-share-picker__filename");
 	const dimensions = el("span", "aa-discord-share-picker__dimensions");
 	const counter = badge("", { className: "aa-discord-share-picker__counter" });
 	const stage = el("div", { className: "aa-discord-share-picker__stage", children: [
-		stageImage,
+		viewport,
 		el("div", { className: "aa-discord-share-picker__stage-meta", children: [counter, filename, dimensions] }),
 	] });
 	const filmstrip = el("div", { className: "aa-discord-share-filmstrip", attrs: { role: "listbox", "aria-label": label("picker.images", "Latest run images"), tabindex: 0 } });
@@ -402,16 +569,22 @@ async function openSharePicker(shareConfig, session, snapshot) {
 		const meta = el("span", "aa-discord-share-filmstrip__meta", imageMeta(image));
 		const item = el("button", {
 			className: "aa-discord-share-filmstrip__item",
-			attrs: { type: "button", role: "option", "aria-selected": "false", title: image.filename },
+			attrs: {
+				type: "button",
+				role: "option",
+				"aria-selected": "false",
+				"aria-label": `${image.filename} · ${imageMeta(image)}`,
+				title: image.filename,
+			},
 			children: [
 				el("img", { attrs: { src: image.url, alt: "" } }),
-				el("span", "aa-discord-share-filmstrip__name", image.filename),
 				meta,
 			],
 		});
 		item.addEventListener("click", () => select(index, { focus: false }));
 		hydrateImageDimensions(image, () => {
 			meta.textContent = imageMeta(image);
+			item.setAttribute("aria-label", `${image.filename} · ${imageMeta(image)}`);
 			if (selectedIndex === index) dimensions.textContent = imageMeta(image);
 		});
 		filmstrip.append(item);
@@ -421,6 +594,7 @@ async function openSharePicker(shareConfig, session, snapshot) {
 	function select(index, { focus = true } = {}) {
 		selectedIndex = (index + images.length) % images.length;
 		const selected = images[selectedIndex];
+		imageViewer.reset();
 		stageImage.src = selected.url;
 		stageImage.alt = selected.filename;
 		filename.textContent = selected.filename;
@@ -444,6 +618,11 @@ async function openSharePicker(shareConfig, session, snapshot) {
 				: selectedIndex + (event.key === "ArrowRight" ? 1 : -1);
 		select(next);
 	});
+	filmstrip.addEventListener("wheel", (event) => {
+		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+		event.preventDefault();
+		filmstrip.scrollLeft += event.deltaY;
+	}, { passive: false });
 	const hasPrompt = Boolean(snapshot.prompt);
 	if (hasPrompt) {
 		prompt.textContent = snapshot.prompt;
@@ -475,7 +654,10 @@ async function openSharePicker(shareConfig, session, snapshot) {
 		size: "lg",
 		className: "aa-discord-share-dialog",
 		confirmOnEnter: false,
-		onClose: () => { activeDialog = null; },
+		onClose: () => {
+			imageViewer.destroy();
+			activeDialog = null;
+		},
 	});
 	select(0, { focus: false });
 }
