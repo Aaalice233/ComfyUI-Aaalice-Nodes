@@ -61,14 +61,18 @@ Restart ComfyUI after changing either environment variable.
   uses Cloudflare's native Rate Limiting binding, so a successful share does not
   consume a KV write.
 - The Worker rate-limits each Discord user and validates image type and size.
+  The default image upload limit is 20 MiB and can be overridden with
+  `MAX_UPLOAD_BYTES`.
 - Authenticated clients receive only target IDs, labels, defaults and the
   non-sensitive `prefer_prompt_file` interaction hint. Webhook URLs never leave
   the Worker.
 - Rate-limit responses use HTTP 429, include `Retry-After: 60` and
   `retry_after_seconds: 60`; missing or unavailable relay bindings return a
   distinct HTTP 503 error instead of a generic failure.
-- Each selected channel receives exactly one message containing an Emoji author
-  mention and image. Inline prompt embeds stay contiguous before the image.
-  When enabled, prompts beyond one embed description are attached as a UTF-8 TXT;
-  regular prompts remain inline. Prompts that cannot fit the selected mode are
-  rejected explicitly.
+- Each selected channel receives one message for regular or file-mode shares.
+  With file mode disabled, an oversized inline prompt is split into consecutive
+  messages; the author appears on the first prompt segment and the image is attached
+  only to the final segment.
+  When enabled, prompts longer than 1,500 characters are attached as a UTF-8 TXT;
+  shorter prompts remain inline. Inline mode allows up to ten segments; larger
+  prompts are rejected with an explicit recommendation to enable file mode.

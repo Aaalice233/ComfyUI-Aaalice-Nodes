@@ -7,6 +7,7 @@ const CONFIG_API = "/aaalice/discord-share/config";
 const SESSION_STORAGE_KEY = "aaalice.discord-share.session.v1";
 const TARGET_STORAGE_KEY = "aaalice.discord-share.targets.v1";
 const PROMPT_FILE_STORAGE_KEY = "aaalice.discord-share.long-prompt-as-file.v1";
+const DEFAULT_PROMPT_FILE_PREFERENCE = true;
 const AUTH_MESSAGE_TYPE = "AAALICE_DISCORD_SHARE_AUTH";
 
 export class DiscordShareClientError extends Error {
@@ -138,7 +139,7 @@ export function saveDiscordShareTargetSelection(values, targets) {
 
 export function loadDiscordSharePromptFilePreference() {
 	const stored = localStorage.getItem(PROMPT_FILE_STORAGE_KEY);
-	if (stored == null) return true;
+	if (stored == null) return DEFAULT_PROMPT_FILE_PREFERENCE;
 	return stored !== "false";
 }
 

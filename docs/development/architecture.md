@@ -113,7 +113,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 2. Preview Any 右键菜单把 Graph Id、Node Id 和显示标签写入根图 `extra`。执行成功后按 `prompt_id` 读取历史 outputs，限定执行 Id 反查节点并生成页面会话快照；历史读取失败才使用本次 `executed` 事件缓存。
 3. 首次点击且没有有效会话时直接在独立 OAuth 窗口完成 Discord 登录和目标 Guild 成员检测，不以是否已有运行图像为前置条件；中继签名状态绑定原 ComfyUI Origin、一次性 Nonce 和 challenge，回调结果通过精确 Origin 的 `postMessage` 与短时 verifier handoff 交回随机会话 Token。
 4. 相册只展示最后一次成功执行的去重图像；尺寸由浏览器按需解码，当前缩略图和 Dialog 状态不持久化。提示词缺失时禁用发送并要求重新绑定、执行。
-5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、Target Id、图片类型/大小与提示词校验。一般 Prompt 以连续 fenced Embed 排在图像之前；启用文件化且超过 4,096 字符单段限制时，改为 UTF-8 TXT 与图像同消息附件。作者 mention 带 Emoji，首个 Embed 使用会话用户或当前 Guild Member 的昵称与 Discord CDN 头像表达作者身份，但不覆盖 Webhook 自身头像和名称；每个所选频道只创建一条 Webhook 消息。任何步骤失败都保持明确错误，部分频道失败会返回独立目标结果。
+5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、Target Id、图片类型/大小与提示词校验。一般 Prompt 以连续 fenced Embed 排在图像之前；关闭文件化时超过单个 Embed 的内容按顺序拆成最多十条消息，图像只附在最后一条；启用文件化且超过 1,500 字符时，改为 UTF-8 TXT 与图像同消息附件。首个 Embed 使用会话用户或当前 Guild Member 的昵称与 Discord CDN 头像表达作者身份，但不覆盖 Webhook 自身头像和名称；后续分段不重复作者。任一分段失败时中继尽力删除该频道已发出的分段，任何步骤失败都保持明确错误，部分频道失败会返回独立目标结果。
 
 ### ParameterPanel
 

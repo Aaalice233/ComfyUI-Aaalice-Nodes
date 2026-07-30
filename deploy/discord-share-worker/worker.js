@@ -2,10 +2,12 @@ const DISCORD_API = "https://discord.com/api/v10";
 const DISCORD_AUTHORIZE = "https://discord.com/oauth2/authorize";
 const AUTH_MESSAGE_TYPE = "AAALICE_DISCORD_SHARE_AUTH";
 const DEFAULT_SESSION_TTL = 30 * 24 * 60 * 60;
-const DEFAULT_UPLOAD_LIMIT = 10 * 1024 * 1024;
+const DEFAULT_UPLOAD_LIMIT = 20 * 1024 * 1024;
 const RATE_LIMIT_RETRY_SECONDS = 60;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_LIMIT = 6000;
+const LONG_PROMPT_FILE_THRESHOLD = 1500;
+const MAX_INLINE_PROMPT_MESSAGES = 10;
 const MAX_PROMPT_FILE_BYTES = 1024 * 1024;
 const PROMPT_FILE_NAME = "positive-prompt.txt";
 
@@ -539,10 +541,10 @@ function safeFilename(value) {
 export function shouldAttachPromptFile(prompt, enabled = true) {
 	if (!enabled) return false;
 	const escapedPrompt = String(prompt || "").trim().replaceAll("```", "``\u200b`");
-	return escapedPrompt.length + 8 > DISCORD_EMBED_DESCRIPTION_LIMIT;
+	return escapedPrompt.length > LONG_PROMPT_FILE_THRESHOLD;
 }
 
-export function buildDiscordWebhookPayload({
+export function buildDiscordWebhookPayloads({
 	image = null,
 	filename = "",
 	prompt = "",
@@ -556,18 +558,57 @@ export function buildDiscordWebhookPayload({
 	const escapedPrompt = String(prompt || "").trim().replaceAll("```", "``\u200b`");
 	const attachPromptFile = shouldAttachPromptFile(prompt, longPromptAsFile);
 	const chunks = attachPromptFile ? [] : splitDiscordPrompt(escapedPrompt, DISCORD_EMBED_DESCRIPTION_LIMIT - 8);
+	if (!attachPromptFile && chunks.length > MAX_INLINE_PROMPT_MESSAGES) {
+		const error = new Error(`The positive prompt would require more than ${MAX_INLINE_PROMPT_MESSAGES} Discord messages. Enable long-prompt file mode or shorten it, then try again.`);
+		error.code = "prompt_too_long";
+		error.status = 400;
+		error.details = {
+			prompt_length: String(prompt || "").trim().length,
+			max_inline_messages: MAX_INLINE_PROMPT_MESSAGES,
+		};
+		throw error;
+	}
+	if (attachPromptFile && new TextEncoder().encode(String(prompt || "")).byteLength > MAX_PROMPT_FILE_BYTES) {
+		const error = new Error("The positive prompt is too large to attach as a text file.");
+		error.code = "prompt_file_too_large";
+		error.status = 413;
+		error.details = { max_prompt_file_bytes: MAX_PROMPT_FILE_BYTES };
+		throw error;
+	}
 	const footerText = image && (width || height)
 		? [width && height ? `${width} × ${height}` : "", filename].filter(Boolean).join(" · ")
 		: "";
-	const embeds = chunks.map((promptChunk) => ({
-		description: `\`\`\`\n${promptChunk}\n\`\`\``,
-		color: 0x5865F2,
-	}));
+	const payloads = attachPromptFile
+		? [{
+			content: "📄 正面提示词较长，已作为文件附加。",
+			embeds: [{ color: 0x5865F2 }],
+			attachments: [
+				...(image ? [{ id: 0, filename }] : []),
+				{ id: image ? 1 : 0, filename: PROMPT_FILE_NAME },
+			],
+		}]
+		: chunks.map((promptChunk) => ({
+			embeds: [{
+				description: `\`\`\`\n${promptChunk}\n\`\`\``,
+				color: 0x5865F2,
+			}],
+			attachments: [],
+		}));
+	if (!payloads.length) {
+		const error = new Error("A positive prompt is required.");
+		error.code = "missing_prompt";
+		error.status = 400;
+		throw error;
+	}
 	if (image) {
-		const imageEmbed = embeds.at(-1) || { color: 0x5865F2 };
+		const finalPayload = payloads.at(-1);
+		const imageEmbed = finalPayload.embeds.at(-1) || { color: 0x5865F2 };
 		imageEmbed.image = { url: `attachment://${filename}` };
 		if (footerText) imageEmbed.footer = { text: footerText };
-		if (!embeds.length) embeds.push(imageEmbed);
+		if (!finalPayload.embeds.length) finalPayload.embeds.push(imageEmbed);
+		if (!finalPayload.attachments.some((attachment) => attachment.filename === filename)) {
+			finalPayload.attachments.unshift({ id: 0, filename });
+		}
 	}
 	const normalizedAuthorId = String(authorId || "").trim();
 	if (!/^\d+$/.test(normalizedAuthorId)) throw new Error("Discord share author identity is invalid.");
@@ -582,71 +623,89 @@ export function buildDiscordWebhookPayload({
 	} catch {
 		avatarUrl = "";
 	}
-	if (embeds.length) {
-		embeds[0].author = {
-			name: authorLabel,
-			url: `https://discord.com/users/${normalizedAuthorId}`,
-			...(avatarUrl ? { icon_url: avatarUrl } : {}),
-		};
+	payloads[0].embeds[0].author = {
+		name: authorLabel,
+		url: `https://discord.com/users/${normalizedAuthorId}`,
+		...(avatarUrl ? { icon_url: avatarUrl } : {}),
+	};
+	for (const payload of payloads) {
+		const embedCharacters = payload.embeds.reduce((total, embed) => total
+			+ (embed.description?.length || 0)
+			+ (embed.footer?.text?.length || 0)
+			+ (embed.author?.name?.length || 0), 0);
+		if (
+			payload.embeds.some((embed) => (embed.description?.length || 0) > DISCORD_EMBED_DESCRIPTION_LIMIT)
+			|| embedCharacters > DISCORD_EMBED_TOTAL_LIMIT
+			|| payload.embeds.length > 10
+		) {
+			const error = new Error("The positive prompt could not be split into valid Discord messages.");
+			error.code = "prompt_too_long";
+			error.status = 400;
+			error.details = {
+				prompt_length: String(prompt || "").trim().length,
+				discord_embed_character_limit: DISCORD_EMBED_TOTAL_LIMIT,
+			};
+			throw error;
+		}
 	}
-	const embedCharacters = embeds.reduce((total, embed) => total
-		+ (embed.description?.length || 0)
-		+ (embed.footer?.text?.length || 0)
-		+ (embed.author?.name?.length || 0), 0);
-	if (
-		(!embeds.length && !attachPromptFile)
-		|| embeds.some((embed) => (embed.description?.length || 0) > DISCORD_EMBED_DESCRIPTION_LIMIT)
-		|| embedCharacters > DISCORD_EMBED_TOTAL_LIMIT
-		|| embeds.length > 10
-	) {
-		const error = new Error("The positive prompt is too long to keep the image, author, and full prompt in one Discord message.");
-		error.code = "prompt_too_long";
-		error.status = 400;
-		error.details = {
-			prompt_length: String(prompt || "").trim().length,
-			discord_embed_character_limit: DISCORD_EMBED_TOTAL_LIMIT,
-		};
-		throw error;
-	}
-	if (attachPromptFile && new TextEncoder().encode(String(prompt || "")).byteLength > MAX_PROMPT_FILE_BYTES) {
-		const error = new Error("The positive prompt is too large to attach as a text file.");
-		error.code = "prompt_file_too_large";
-		error.status = 413;
-		error.details = { max_prompt_file_bytes: MAX_PROMPT_FILE_BYTES };
-		throw error;
+	return payloads;
+}
+
+function webhookRequestOptions(payload, image, filename, promptFile) {
+	if (image || promptFile) {
+		const body = new FormData();
+		body.append("payload_json", JSON.stringify(payload));
+		if (image) body.append("files[0]", image, filename);
+		if (promptFile) body.append(`files[${image ? 1 : 0}]`, promptFile, PROMPT_FILE_NAME);
+		return { method: "POST", body };
 	}
 	return {
-		content: [
-			`👤 作者：<@${normalizedAuthorId}>`,
-			attachPromptFile ? "📄 正面提示词较长，已作为文件附加。" : "",
-		].filter(Boolean).join("\n"),
-		allowed_mentions: { users: [normalizedAuthorId] },
-		embeds,
-		attachments: [
-			...(image ? [{ id: 0, filename }] : []),
-			...(attachPromptFile ? [{ id: image ? 1 : 0, filename: PROMPT_FILE_NAME }] : []),
-		],
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(payload),
 	};
+}
+
+async function waitForDiscordRateLimit(response) {
+	if (response.status !== 429) return false;
+	const detail = await response.clone().json().catch(() => ({}));
+	const retrySeconds = Number(detail?.retry_after);
+	if (!Number.isFinite(retrySeconds) || retrySeconds < 0) return false;
+	await new Promise((resolve) => setTimeout(resolve, Math.min(10_000, Math.max(250, retrySeconds * 1000))));
+	return true;
+}
+
+async function deleteWebhookMessage(target, messageId) {
+	const webhook = new URL(target.url);
+	webhook.pathname = `${webhook.pathname.replace(/\/$/, "")}/messages/${encodeURIComponent(messageId)}`;
+	const response = await fetch(webhook.href, { method: "DELETE" });
+	if (!response.ok && response.status !== 404) {
+		throw new Error(`Discord could not roll back an incomplete share for ${target.label} (HTTP ${response.status}).`);
+	}
+}
+
+async function sendWebhookSequence(target, steps, filename) {
+	const sent = [];
+	try {
+		for (const step of steps) {
+			sent.push(await sendWebhook(target, step.payload, step.image, filename, step.promptFile));
+		}
+		return sent;
+	} catch (error) {
+		// A later message must not leave a visibly incomplete prompt chain behind.
+		await Promise.allSettled([...sent].reverse().map((message) => deleteWebhookMessage(target, message.id)));
+		throw error;
+	}
 }
 
 async function sendWebhook(target, payload, image, filename, promptFile = null) {
 	const webhook = new URL(target.url);
 	webhook.searchParams.set("wait", "true");
 	let response;
-	if (image || promptFile) {
-		const body = new FormData();
-		body.append("payload_json", JSON.stringify(payload));
-		if (image) body.append("files[0]", image, filename);
-		if (promptFile) body.append(`files[${image ? 1 : 0}]`, promptFile, PROMPT_FILE_NAME);
-		response = await fetch(webhook.href, { method: "POST", body });
-	} else {
-		response = await fetch(webhook.href, {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify(payload),
-		});
-	}
-	if (!response.ok) {
+	for (let attempt = 0; attempt < 5; attempt += 1) {
+		response = await fetch(webhook.href, webhookRequestOptions(payload, image, filename, promptFile));
+		if (response.ok) break;
+		if (attempt < 4 && await waitForDiscordRateLimit(response)) continue;
 		const detail = await response.text();
 		const error = new Error(`Discord rejected the share for ${target.label} (HTTP ${response.status}): ${detail.slice(0, 300)}`);
 		error.code = "webhook_failed";
@@ -682,11 +741,16 @@ async function handleShare(request, env) {
 	}
 	const uploadLimit = Math.max(1024, Number(env.MAX_UPLOAD_BYTES) || DEFAULT_UPLOAD_LIMIT);
 	if (image.size > uploadLimit) {
-		return errorResponse("image_too_large", `Image exceeds the ${uploadLimit} byte upload limit.`, 413, corsHeaders(request, env));
+		return json({
+			code: "image_too_large",
+			message: `Image exceeds the ${uploadLimit} byte upload limit.`,
+			image_bytes: image.size,
+			max_upload_bytes: uploadLimit,
+		}, 413, corsHeaders(request, env));
 	}
 	if (!prompt) return errorResponse("missing_prompt", "A positive prompt is required.", 400, corsHeaders(request, env));
 	const filename = safeFilename(data.get("filename") || image.name);
-	const payload = buildDiscordWebhookPayload({
+	const payloads = buildDiscordWebhookPayloads({
 		image,
 		filename,
 		prompt,
@@ -704,12 +768,20 @@ async function handleShare(request, env) {
 	const promptFile = shouldAttachPromptFile(prompt, longPromptAsFile)
 		? new Blob([prompt], { type: "text/plain;charset=utf-8" })
 		: null;
+	const lastPayloadIndex = payloads.length - 1;
+	const steps = payloads.map((payload, index) => ({
+		payload,
+		image: index === lastPayloadIndex ? image : null,
+		promptFile: index === lastPayloadIndex ? promptFile : null,
+	}));
 	const settled = await Promise.allSettled(targets.map(async (target) => {
-		const message = await sendWebhook(target, payload, image, filename, promptFile);
+		const messages = await sendWebhookSequence(target, steps, filename);
+		const message = messages.at(-1);
 		return {
 			id: target.id,
 			label: target.label,
 			message_id: message.id,
+			message_ids: messages.map((entry) => entry.id),
 			message_url: `https://discord.com/channels/${message.guild_id || env.DISCORD_GUILD_ID}/${message.channel_id}/${message.id}`,
 		};
 	}));
@@ -735,7 +807,7 @@ async function handleShare(request, env) {
 		error.details = { failed_targets: failed };
 		throw error;
 	}
-	return json({ ok: true, delivered_targets: delivered, target_count: delivered.length, message_count: 1 }, 200, corsHeaders(request, env));
+	return json({ ok: true, delivered_targets: delivered, target_count: delivered.length, message_count: payloads.length }, 200, corsHeaders(request, env));
 }
 
 async function handleSession(request, env) {

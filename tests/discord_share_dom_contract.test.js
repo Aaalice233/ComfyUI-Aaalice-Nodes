@@ -29,6 +29,7 @@ test("share entry uses the compact Aaalice workspace footer and public action ba
 	assert.match(source, /icon:\s*TOPBAR_ICON_CLASS/);
 	assert.match(source, /icon\("send",\s*\{\s*className:\s*TOPBAR_ICON_CLASS\s*\}\)/);
 	assert.match(source, /replaceWith\(shareIcon\)/);
+	assert.match(source, /icon\("loading",[\s\S]*aa-discord-share-entry__icon--loading/);
 	assert.match(source, /MutationObserver/);
 	assert.match(theme, /\.aa-workspace-footer\s*\{[^}]*min-height:\s*42px;[^}]*justify-content:\s*space-between;/s);
 	assert.match(theme, /\.aa-discord-share-entry:not\(\.aa-discord-share-entry--topbar\)\s*\{[^}]*width:\s*30px;[^}]*height:\s*30px;[^}]*border-radius:\s*8px;/s);
@@ -36,6 +37,11 @@ test("share entry uses the compact Aaalice workspace footer and public action ba
 	assert.match(theme, /button\.aa-discord-share-entry--topbar\s*\{[^}]*padding:\s*6px;[^}]*border-radius:\s*4px;[^}]*background-color:\s*var\(--primary-bg\)\s*!important;[^}]*color:\s*var\(--aa-ui-on-media,\s*#fff\)\s*!important;/s);
 	assert.doesNotMatch(theme, /button\.aa-discord-share-entry--topbar\s*\{[^}]*(?:width|min-width|height|min-height):/s);
 	assert.match(theme, /\.aa-discord-share-entry--topbar\s+\.aa-discord-share-entry__icon\s*\{[^}]*display:\s*block;[^}]*width:\s*20px;[^}]*height:\s*20px;[^}]*color:\s*var\(--aa-ui-on-media,\s*#fff\)\s*!important;[^}]*stroke:\s*currentColor\s*!important;/s);
+	assert.match(theme, /\.aa-discord-share-entry\[data-flow-state="busy"\]\s+\.aa-discord-share-entry__icon--send\s*\{\s*display:\s*none;/);
+	assert.match(theme, /\.aa-discord-share-entry\[data-flow-state="busy"\]\s+\.aa-discord-share-entry__icon--loading\s*\{[^}]*display:\s*block;[^}]*animation:\s*aa-discord-share-spin/s);
+	assert.match(theme, /\.aa-discord-share-entry--topbar\s+\.aa-discord-share-entry__icon--loading\s*\{\s*display:\s*none;/);
+	assert.match(theme, /\.aa-discord-share-entry--topbar\[data-flow-state="busy"\]\s+\.aa-discord-share-entry__icon--loading\s*\{\s*display:\s*block;/);
+	assert.doesNotMatch(theme, /\.aa-discord-share-entry\[data-flow-state="busy"\]::before/);
 	assert.match(theme, /button\.aa-discord-share-entry--topbar:hover:not\(:disabled\),[\s\S]*background-color:\s*var\(--primary-hover-bg\)\s*!important;/);
 	assert.doesNotMatch(theme, /\.aa-workspace-corner-actions/);
 });
@@ -53,6 +59,11 @@ test("placement is one tri-state setting and both surfaces expose context menus"
 test("picker is latest-run only and requires a prompt before sending", () => {
 	assert.match(source, /captureEvents\.latest/);
 	assert.match(source, /send\.disabled\s*=\s*!hasPrompt/);
+	assert.match(source, /aa-discord-share-picker__send-feedback/);
+	assert.match(source, /role:\s*"alert"/);
+	assert.match(source, /role:\s*"alert",\s*"aria-live":\s*"assertive",\s*hidden:\s*true/);
+	assert.match(source, /showSendFeedback\(message\)/);
+	assert.match(theme, /\.aa-discord-share-picker__send-feedback/);
 	assert.doesNotMatch(source, /navigator\.clipboard/);
 });
 
@@ -78,7 +89,9 @@ test("long prompt file mode is persistent and auto-recommended only by selected 
 	assert.doesNotMatch(source, /generation-chat|sfw-collection|nsfw-collection/);
 	assert.match(source, /createTooltip\(/);
 	assert.match(source, /longPromptAsFile/);
+	assert.match(source, /split into consecutive messages with the image in the final message/);
 	assert.match(clientSource, /aaalice\.discord-share\.long-prompt-as-file\.v1/);
+	assert.match(clientSource, /DEFAULT_PROMPT_FILE_PREFERENCE\s*=\s*true/);
 	assert.match(clientSource, /body\.append\("long_prompt_as_file"/);
 	assert.match(theme, /\.aa-discord-share-prompt-file-notice/);
 	assert.match(theme, /\.aa-discord-share-prompt-file-option/);

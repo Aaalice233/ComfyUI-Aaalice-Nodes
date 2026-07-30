@@ -3007,27 +3007,19 @@
 .aa-ui-button.aa-discord-share-entry:active:not(:disabled) { transform: scale(.94); }
 .aa-discord-share-entry:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-focus) 24%, transparent); }
 .aa-discord-share-entry:disabled { cursor: wait; opacity: .78; transform: none; }
-.aa-discord-share-entry::before {
-	position: absolute;
-	inset: 2px;
-	border: 1px solid transparent;
-	border-top-color: var(--aa-ui-accent);
-	border-radius: inherit;
-	content: "";
-	opacity: 0;
-	pointer-events: none;
-}
-.aa-discord-share-entry[data-flow-state="busy"]::before {
-	opacity: 1;
-	animation: aa-discord-share-spin .72s linear infinite;
-}
 .aa-discord-share-entry__icon {
 	width: 15px;
 	height: 15px;
 	stroke-width: 2;
 	transition: transform .16s ease;
 }
-.aa-discord-share-entry:not(.aa-discord-share-entry--topbar):hover .aa-discord-share-entry__icon { transform: translate(1px, -1px); }
+.aa-discord-share-entry__icon--loading { display: none; }
+.aa-discord-share-entry[data-flow-state="busy"] .aa-discord-share-entry__icon--send { display: none; }
+.aa-discord-share-entry[data-flow-state="busy"] .aa-discord-share-entry__icon--loading {
+	display: block;
+	animation: aa-discord-share-spin .72s linear infinite;
+}
+.aa-discord-share-entry:not(.aa-discord-share-entry--topbar):hover .aa-discord-share-entry__icon--send { transform: translate(1px, -1px); }
 .aa-discord-share-entry__status {
 	position: absolute;
 	top: 3px;
@@ -3067,10 +3059,6 @@ button.aa-discord-share-entry--topbar:disabled {
 	color: var(--aa-ui-on-media, #fff);
 	opacity: .68;
 }
-.aa-discord-share-entry--topbar::before {
-	inset: 3px;
-	border-top-color: var(--aa-ui-on-media, #fff);
-}
 .aa-discord-share-entry--topbar .aa-discord-share-entry__icon {
 	display: block;
 	width: 20px;
@@ -3079,6 +3067,8 @@ button.aa-discord-share-entry--topbar:disabled {
 	color: var(--aa-ui-on-media, #fff) !important;
 	stroke: currentColor !important;
 }
+.aa-discord-share-entry--topbar .aa-discord-share-entry__icon--loading { display: none; }
+.aa-discord-share-entry--topbar[data-flow-state="busy"] .aa-discord-share-entry__icon--loading { display: block; }
 .aa-discord-share-entry--topbar .aa-discord-share-entry__status {
 	top: 2px;
 	right: 2px;
@@ -3426,7 +3416,41 @@ button.aa-discord-share-entry--topbar:disabled {
 .aa-discord-share-prompt-file-tooltip strong { color: var(--aa-ui-text); font-size: 12px; }
 .aa-discord-share-prompt-file-tooltip span { color: var(--aa-ui-muted); }
 .aa-discord-share-prompt-file-tooltip span:last-child { color: var(--aa-ui-text); }
-.aa-discord-share-dialog > .aa-ui-dialog__footer { flex-wrap: wrap; }
+.aa-discord-share-picker__footer.aa-ui-dialog__footer {
+	display: grid;
+	grid-template-columns: minmax(148px, 1fr) auto auto;
+	align-items: center;
+}
+.aa-discord-share-picker__send-feedback {
+	display: flex;
+	min-width: 0;
+	grid-column: 1 / -1;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border-radius: 9px;
+	background: color-mix(in srgb, var(--aa-ui-danger) 11%, var(--aa-ui-control));
+	box-shadow: var(--aa-ui-edge-shadow-soft);
+	color: color-mix(in srgb, var(--aa-ui-danger) 72%, var(--aa-ui-text));
+	font-size: 11px;
+	line-height: 1.4;
+}
+.aa-discord-share-picker__send-feedback[hidden] { display: none; }
+.aa-discord-share-picker__send-feedback.is-warning {
+	background: color-mix(in srgb, var(--aa-ui-warning) 11%, var(--aa-ui-control));
+	color: color-mix(in srgb, var(--aa-ui-warning) 68%, var(--aa-ui-text));
+}
+.aa-discord-share-picker__send-feedback-icon {
+	display: grid;
+	width: 22px;
+	height: 22px;
+	flex: 0 0 auto;
+	place-items: center;
+	border-radius: 7px;
+	background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.aa-discord-share-picker__send-feedback-icon .aa-ui-icon { width: 13px; height: 13px; }
+.aa-discord-share-picker__send-feedback-text { min-width: 0; overflow-wrap: anywhere; }
 .aa-discord-share-target-trigger.aa-ui-button {
 	max-width: 210px;
 	min-width: 148px;
@@ -3606,7 +3630,7 @@ button.aa-discord-share-entry--topbar:disabled {
 	.aa-discord-share-entry__icon,
 	.aa-discord-share-filmstrip__item,
 	.aa-discord-share-picker__image { transition: none; }
-	.aa-discord-share-entry[data-flow-state="busy"]::before { animation: none; }
+	.aa-discord-share-entry[data-flow-state="busy"] .aa-discord-share-entry__icon--loading { animation: none; }
 	.aa-ui-button.aa-discord-share-entry:hover:not(:disabled),
 	.aa-discord-share-entry:hover .aa-discord-share-entry__icon,
 	.aa-discord-share-filmstrip__item:hover { transform: none; }

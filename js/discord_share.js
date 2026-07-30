@@ -70,8 +70,10 @@ function shareErrorMessage(error) {
 		rate_limited: label("error.rateLimited", "Share limit reached for this Discord account. Wait about 60 seconds, then try again."),
 		rate_limiter_unavailable: label("error.rateLimiterUnavailable", "The sharing service could not check its rate limit. Try again shortly."),
 		relay_misconfigured: label("error.relayMisconfigured", "The sharing service is not fully configured. Contact the server administrator."),
+		image_too_large: label("error.imageTooLarge", "The selected image exceeds the 20 MB sharing limit. Choose a smaller image or compress it, then try again."),
+		image_unavailable: label("error.imageUnavailable", "ComfyUI could not read the selected image. Confirm that the output file still exists, then try again."),
 		webhook_failed: label("error.webhookFailed", "Discord did not accept this share. Try again; if it continues, contact the server administrator."),
-		prompt_too_long: label("error.promptTooLong", "The positive prompt is too long to keep it with the image in one Discord message. Shorten it, then try again."),
+		prompt_too_long: label("error.promptTooLong", "The positive prompt exceeds the safe ten-message split limit. Enable long-prompt file mode or shorten it, then try again."),
 		prompt_file_too_large: label("error.promptFileTooLarge", "The positive prompt exceeds the TXT attachment limit. Shorten it, then try again."),
 		invalid_targets: label("error.invalidTargets", "One or more selected Discord channels are no longer available. Refresh the share window and try again."),
 		no_targets: label("error.noTargets", "No Discord share channels are currently available."),
@@ -203,7 +205,7 @@ function createLongPromptFileControl(initialValue, onChange) {
 		children: [
 			el("strong", null, label("promptFile.tooltipTitle", "Why send long prompts as files?")),
 			el("span", null, label("promptFile.limits", "Discord allows up to 4,096 characters in one embed description and 6,000 embed text characters in one message.")),
-			el("span", null, label("promptFile.recommended", "When enabled, only prompts that exceed the single-block limit become a TXT attachment. Regular prompts still appear directly in the message, which keeps busy channels readable.")),
+				el("span", null, label("promptFile.recommended", "When enabled, prompts longer than 1,500 characters become a TXT attachment. When disabled, long prompts are split into consecutive messages with the image in the final message.")),
 		],
 	});
 	const showTooltip = () => tooltip.show(toggle, tooltipContent, { className: "aa-discord-share-prompt-file-help" });
@@ -246,15 +248,26 @@ function syncEntryState(buttonElement) {
 	buttonElement.dataset.flowState = shareFlowInFlight ? "busy" : "idle";
 	buttonElement.setAttribute("aria-busy", String(shareFlowInFlight));
 	buttonElement.disabled = shareFlowInFlight;
-	buttonElement.setAttribute("aria-label", state === "connected"
-		? label("entry.connected", "Share latest image to Discord · connected")
-		: label("entry.unverified", "Share latest image to Discord · verification required"));
+	buttonElement.setAttribute("aria-label", shareFlowInFlight
+		? label("entry.busy", "Preparing Discord share…")
+		: state === "connected"
+			? label("entry.connected", "Share latest image to Discord · connected")
+			: label("entry.unverified", "Share latest image to Discord · verification required"));
 	buttonElement.title = buttonElement.getAttribute("aria-label");
 }
 
 function setShareFlowBusy(busy) {
 	shareFlowInFlight = busy;
 	for (const entry of entryButtons) syncEntryState(entry);
+}
+
+function ensureEntryActivityIcons(buttonElement, sendIcon) {
+	sendIcon.classList.add("aa-discord-share-entry__icon", "aa-discord-share-entry__icon--send");
+	if (!buttonElement.querySelector(".aa-discord-share-entry__icon--loading")) {
+		buttonElement.append(icon("loading", {
+			className: "aa-discord-share-entry__icon aa-discord-share-entry__icon--loading",
+		}));
+	}
 }
 
 async function confirmHideEntry() {
@@ -298,7 +311,7 @@ function createSidebarEntry() {
 		className: "aa-discord-share-entry",
 		onClick: () => void openShareFlow(),
 	});
-	entry.querySelector(".aa-ui-icon")?.classList.add("aa-discord-share-entry__icon");
+	ensureEntryActivityIcons(entry, entry.querySelector(".aa-ui-icon"));
 	entry.append(el("span", { className: "aa-discord-share-entry__status", attrs: { "aria-hidden": "true" } }));
 	entry.addEventListener("contextmenu", (event) => showEntryContextMenu(event, "sidebar"));
 	syncEntryState(entry);
@@ -354,7 +367,7 @@ function bindTopbarButton(buttonElement, iconElement) {
 		shareIcon = icon("send", { className: TOPBAR_ICON_CLASS });
 		iconElement.replaceWith(shareIcon);
 	}
-	shareIcon.classList.add("aa-discord-share-entry__icon");
+	ensureEntryActivityIcons(buttonElement, shareIcon);
 	if (!buttonElement.querySelector(".aa-discord-share-entry__status")) {
 		buttonElement.append(el("span", { className: "aa-discord-share-entry__status", attrs: { "aria-hidden": "true" } }));
 	}
@@ -439,7 +452,7 @@ function openMembershipRequiredDialog(error, shareConfig) {
 		el("strong", null, label("membership.title", "Server membership required")),
 		el("p", null, label("membership.body", "Join the Aaalice Discord server, then return here and verify again.")),
 	] });
-	const footer = el("div");
+	const footer = el("div", "aa-discord-share-picker__footer");
 	footer.append(
 		button({ label: label("actions.cancel", "Cancel"), variant: "ghost", onClick: () => closeActiveDialog() }),
 		button({
@@ -738,6 +751,25 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 	let longPromptAsFile = longPromptPreference;
 	let targetPicker;
 	let promptFileControl;
+	const sendFeedbackText = el("span", "aa-discord-share-picker__send-feedback-text");
+		const sendFeedback = el("div", {
+			className: "aa-discord-share-picker__send-feedback",
+			attrs: { role: "alert", "aria-live": "assertive", hidden: true },
+			children: [
+				el("span", { className: "aa-discord-share-picker__send-feedback-icon", children: [icon("statusError")] }),
+				sendFeedbackText,
+		],
+	});
+	const clearSendFeedback = () => {
+		sendFeedback.hidden = true;
+		sendFeedback.classList.remove("is-warning");
+		sendFeedbackText.textContent = "";
+	};
+	const showSendFeedback = (message, { warning = false } = {}) => {
+		sendFeedbackText.textContent = message;
+		sendFeedback.classList.toggle("is-warning", warning);
+		sendFeedback.hidden = false;
+	};
 	const syncSendAvailability = () => {
 		send.disabled = !hasPrompt || selectedTargetIds.length === 0;
 	};
@@ -753,6 +785,7 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 		onClick: async () => {
 			const selected = images[selectedIndex];
 			if (!selected || !snapshot.prompt) return;
+			clearSendFeedback();
 			send.disabled = true;
 			send.classList.add("is-loading");
 			send.querySelector(".aa-ui-button__label").textContent = label("actions.sending", "Sending…");
@@ -772,11 +805,13 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 				}
 				if (result?.code === "partial_delivery") {
 					const failedIds = (result.failed_targets || []).map((target) => target.id).filter(Boolean);
-					const failedLabels = (result.failed_targets || []).map((target) => target.label).filter(Boolean);
-					targetPicker.setValues(failedIds);
-					resetSendState();
-					toast("warn", `${label("toast.partial", "Sent to some channels. Retry the channels that failed.")} ${failedLabels.join("、")}`);
-					return;
+				const failedLabels = (result.failed_targets || []).map((target) => target.label).filter(Boolean);
+				targetPicker.setValues(failedIds);
+				resetSendState();
+				const message = `${label("toast.partial", "Sent to some channels. Retry the channels that failed.")} ${failedLabels.join("、")}`;
+				showSendFeedback(message, { warning: true });
+				toast("warn", message);
+				return;
 				}
 				throw new Error(result?.message || label("error.unknown", "Discord sharing failed. Try again."));
 			} catch (error) {
@@ -789,7 +824,11 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 					closeActiveDialog();
 					scheduleEntrypointSync();
 					openConnectDialog(shareConfig);
-				} else toast("error", shareErrorMessage(error));
+			} else {
+				const message = shareErrorMessage(error);
+				showSendFeedback(message);
+				toast("error", message);
+			}
 			}
 		},
 	});
@@ -895,6 +934,7 @@ async function openSharePicker(shareConfig, session, snapshot, targets) {
 		}),
 	);
 	footer.append(
+		sendFeedback,
 		targetPicker.root,
 		button({ label: label("actions.cancel", "Cancel"), variant: "ghost", onClick: () => closeActiveDialog() }),
 		send,

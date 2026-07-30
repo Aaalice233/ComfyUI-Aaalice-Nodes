@@ -58,14 +58,14 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
    该能力的频道时才自动开启文件选项；仅选 SFW / NSFW 收集频道不得覆盖用户当前偏好。
 7. 提示词栏底部提供默认开启且可持久化的“过长提示词作为文件发送”。Hover / Focus
    说明 Discord 单 Embed 描述 4,096 字符、单消息 Embed 文本合计 6,000 字符的限制。
-   超过单段限制时改附 UTF-8 TXT，一般长度仍直接显示；推荐频道选中时在选项上方显示
+   超过 1,500 字符时改附 UTF-8 TXT，较短内容仍直接显示；推荐频道选中时在选项上方显示
    克制的就近说明，明确文件化只影响长 Prompt。
-8. 中继把所选 Id 解析为服务端 Target，每个频道各发送一条消息。内联模式先连续排列
-   全部 fenced Prompt Embed，再把图像放在最后一个 Embed 底部；消息作者使用带 Emoji
-   的 Discord mention，并在首个 Embed 作者区显示当前服务器昵称、Discord 头像和用户
-   资料链接，不覆盖 Webhook 自身身份；后续 Prompt 分段不重复作者区。文件模式在同一条
-   消息附图像与完整 Prompt TXT。关闭文件化后若 Prompt 超过 Discord 单消息上限则明确
-   拒绝。部分频道失败时保留失败项供重试。
+8. 中继把所选 Id 解析为服务端 Target。内联模式超过单个 Embed 后按顺序拆成多条
+   fenced Prompt 消息，并只把图像放在最后一条消息底部；首个 Embed 作者区显示
+   当前服务器昵称、Discord 头像和用户资料链接，不覆盖 Webhook 自身身份，也不再重复一行
+   Emoji mention；后续 Prompt 分段不重复作者区。文件模式在同一条
+   消息附图像与完整 Prompt TXT。关闭文件化后最多允许十条连续消息；超过安全上限时明确
+   建议开启文件模式。任一中间发送失败时尽力回收该频道已发出的分段，部分频道失败则保留失败项供重试。
 
 ## 中继安全
 
@@ -76,7 +76,8 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
   ComfyUI 请求日志。
 - 会话 Token 使用高熵随机值，KV 仅以 SHA-256 摘要索引并设置 TTL；OAuth
   handoff 与会话之外不得为每次分享写入 KV。
-- 每次发送校验成员、可选角色、用户级速率、图片 MIME 与大小、提示词非空。
+- 每次发送校验成员、可选角色、用户级速率、图片 MIME 与大小、提示词非空；默认
+  图片上限为 20 MiB，超限响应必须携带实际字节数与上限字节数。
   用户级速率使用 Cloudflare 原生 Rate Limiting binding，按 Discord User Id
   隔离；达到上限返回 `429`、`Retry-After` 和可机读重试秒数，绑定缺失或暂时
   不可用返回独立 `503`，不得退化为无保护发送或含糊的内部错误。
