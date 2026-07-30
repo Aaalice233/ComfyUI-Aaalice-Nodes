@@ -285,7 +285,11 @@ test("image inputs share a native-shaped asset browser and separate upload actio
 	assert.match(imageAssetControl, /type: "search"/);
 	assert.match(imageAssetControl, /iconName: "arrowUpDown"/);
 	assert.match(imageAssetControl, /iconName: "list"/);
-	assert.match(imageAssetControl, /"list" : "layoutGrid"/);
+	assert.match(imageAssetControl, /iconName: "layoutGrid"/);
+	assert.match(imageAssetControl, /role: "menuitemradio"/);
+	assert.match(imageAssetControl, /value: "default"/);
+	assert.match(imageAssetControl, /value: "alphabetical"/);
+	assert.match(imageAssetControl, /"arrowDownAZ" : "arrowUpDown"/);
 	assert.match(imageAssetControl, /bindImageDropTarget\(root/);
 	assert.match(imageAssets, /api\.internalURL\("\/files\/input"\)/);
 	assert.match(imageAssets, /api\.getHistory\(200\)/);
@@ -298,6 +302,11 @@ test("image inputs share a native-shaped asset browser and separate upload actio
 	assert.match(workspaceControls, /image: imageLabels/);
 	assert.match(theme, /\.aa-image-assets__results\.is-grid/);
 	assert.match(theme, /\.aa-image-assets__results\.is-list/);
+	assert.match(theme, /\.aa-image-asset-control\s*\{[^}]*gap:\s*0/s);
+	assert.match(theme, /\.aa-image-asset-control__select\s*\{[^}]*border-radius:\s*8px 0 0 8px/s);
+	assert.match(theme, /\.aa-image-asset-control__upload\.aa-ui-button\s*\{[^}]*border-radius:\s*0 8px 8px 0/s);
+	assert.match(theme, /\.aa-image-assets__view-switch/);
+	assert.match(theme, /\.aa-image-assets__sort-menu/);
 	assert.doesNotMatch(theme, /\.aa-image-upload-|\.aa-control-image-choice__/);
 });
 

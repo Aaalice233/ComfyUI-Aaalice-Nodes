@@ -26,7 +26,7 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 	let tab = "all";
 	let query = "";
 	let view = "grid";
-	let ascending = false;
+	let sortMode = "default";
 	const tabs = segmentedControl({
 		value: tab,
 		ariaLabel: labels.filter || ariaLabel,
@@ -43,17 +43,59 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 		el("input", { attrs: { type: "search", placeholder: labels.search || "Search images", "aria-label": labels.search || "Search images" } }),
 	] });
 	const searchInput = search.querySelector("input");
-	const sort = iconButton({ iconName: "arrowUpDown", label: labels.sort || "Change sort order", variant: "ghost", className: "aa-image-assets__tool" });
-	const viewToggle = iconButton({ iconName: "list", label: labels.list || "List view", variant: "ghost", className: "aa-image-assets__tool" });
+	const sort = iconButton({
+		iconName: "arrowUpDown",
+		label: labels.sort || "Sort images",
+		variant: "ghost",
+		className: "aa-image-assets__tool aa-image-assets__sort-trigger",
+	});
+	sort.setAttribute("aria-haspopup", "menu");
+	sort.setAttribute("aria-expanded", "false");
+	const listView = iconButton({ iconName: "list", label: labels.list || "List view", variant: "ghost", className: "aa-image-assets__view-option" });
+	const gridView = iconButton({ iconName: "layoutGrid", label: labels.grid || "Grid view", variant: "ghost", className: "aa-image-assets__view-option" });
+	const viewSwitch = el("div", { className: "aa-image-assets__view-switch", attrs: { role: "group", "aria-label": labels.view || "Image view" }, children: [listView, gridView] });
+	const sortMenu = el("div", { className: "aa-image-assets__sort-menu", attrs: { role: "menu", "aria-label": labels.sort || "Sort images", hidden: true } });
 	const results = el("div", { className: "aa-image-assets__results is-grid", attrs: { role: "listbox", "aria-label": ariaLabel } });
 	const status = el("div", { className: "aa-image-assets__status", text: labels.loading || "Loading images…", attrs: { role: "status", "aria-live": "polite" } });
 
+	function setSortMenuOpen(open) {
+		sortMenu.hidden = !open;
+		sort.setAttribute("aria-expanded", String(open));
+		if (open) {
+			sortMenu.style.left = `${sort.offsetLeft}px`;
+			sortMenu.style.top = `${sort.offsetTop + sort.offsetHeight + 5}px`;
+			sortMenu.querySelector(".is-selected")?.focus({ preventScroll: true });
+		}
+	}
+
+	function syncSort() {
+		const alphabetical = sortMode === "alphabetical";
+		const currentLabel = alphabetical ? labels.sortAlphabetical || "A–Z" : labels.sortUnsorted || "Unsorted";
+		sort.replaceChildren(icon(alphabetical ? "arrowDownAZ" : "arrowUpDown"));
+		sort.setAttribute("aria-label", `${labels.sort || "Sort images"}: ${currentLabel}`);
+		sort.title = `${labels.sort || "Sort images"}: ${currentLabel}`;
+		for (const option of sortMenu.querySelectorAll(".aa-image-assets__sort-option")) {
+			const selected = option.dataset.sort === sortMode;
+			option.classList.toggle("is-selected", selected);
+			option.setAttribute("aria-checked", String(selected));
+			option.querySelector(".aa-image-assets__sort-check").hidden = !selected;
+		}
+	}
+
+	function syncView() {
+		for (const [button, value] of [[listView, "list"], [gridView, "grid"]]) {
+			const selected = view === value;
+			button.classList.toggle("is-selected", selected);
+			button.setAttribute("aria-pressed", String(selected));
+		}
+	}
+
 	function renderResults() {
 		const lowered = query.trim().toLocaleLowerCase();
-		const visible = assets
+		let visible = assets
 			.filter((asset) => tab === "all" || asset.source === tab)
-			.filter((asset) => !lowered || asset.label.toLocaleLowerCase().includes(lowered))
-			.sort((left, right) => (ascending ? 1 : -1) * left.label.localeCompare(right.label, undefined, { numeric: true }));
+			.filter((asset) => !lowered || asset.label.toLocaleLowerCase().includes(lowered));
+		if (sortMode === "alphabetical") visible = [...visible].sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true }));
 		results.classList.toggle("is-grid", view === "grid");
 		results.classList.toggle("is-list", view === "list");
 		results.replaceChildren();
@@ -83,16 +125,36 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 	}
 
 	searchInput.addEventListener("input", () => { query = searchInput.value; renderResults(); });
-	sort.addEventListener("click", () => { ascending = !ascending; sort.classList.toggle("is-active", ascending); renderResults(); });
-	viewToggle.addEventListener("click", () => {
-		view = view === "grid" ? "list" : "grid";
-		viewToggle.replaceChildren(icon(view === "grid" ? "list" : "layoutGrid"));
-		viewToggle.setAttribute("aria-label", view === "grid" ? labels.list : labels.grid);
-		viewToggle.title = view === "grid" ? labels.list : labels.grid;
-		renderResults();
+	for (const option of [
+		{ value: "default", label: labels.sortUnsorted || "Unsorted" },
+		{ value: "alphabetical", label: labels.sortAlphabetical || "A–Z" },
+	]) {
+		const check = el("span", { className: "aa-image-assets__sort-check", attrs: { "aria-hidden": "true" }, children: [icon("statusCheck")] });
+		const button = el("button", {
+			className: "aa-image-assets__sort-option",
+			attrs: { type: "button", role: "menuitemradio", "aria-checked": "false" },
+			children: [el("span", "aa-image-assets__sort-label", option.label), check],
+		});
+		button.dataset.sort = option.value;
+		button.addEventListener("click", () => {
+			sortMode = option.value;
+			syncSort();
+			setSortMenuOpen(false);
+			renderResults();
+			sort.focus({ preventScroll: true });
+		});
+		sortMenu.append(button);
+	}
+	sort.addEventListener("click", () => setSortMenuOpen(sortMenu.hidden));
+	listView.addEventListener("click", () => { view = "list"; syncView(); renderResults(); });
+	gridView.addEventListener("click", () => { view = "grid"; syncView(); renderResults(); });
+	const toolbar = el("div", { className: "aa-image-assets__toolbar", children: [search, sort, viewSwitch] });
+	popover.root.addEventListener("pointerdown", (event) => {
+		if (!sortMenu.hidden && !sortMenu.contains(event.target) && !sort.contains(event.target)) setSortMenuOpen(false);
 	});
-	const toolbar = el("div", { className: "aa-image-assets__toolbar", children: [search, sort, viewToggle] });
-	popover.root.append(tabs, toolbar, status, results);
+	popover.root.append(tabs, toolbar, sortMenu, status, results);
+	syncSort();
+	syncView();
 	void loadImageAssets({ values, current, defaultType }).then(({ assets: loaded, errors }) => {
 		if (!popover.root.isConnected) return;
 		assets = loaded;

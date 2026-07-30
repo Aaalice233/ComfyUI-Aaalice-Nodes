@@ -347,7 +347,8 @@
       "image": {
 		"none": "Choose image", "upload": "Upload from device", "drop": "Drop image here", "uploaded": "Image uploaded: {filename}", "clear": "Clear selected image",
 		"all": "All", "imported": "Imported", "generated": "Generated", "filter": "Filter image sources", "search": "Search images",
-		"sort": "Change sort order", "list": "List view", "grid": "Grid view", "loading": "Loading images…", "empty": "No images found",
+		"sort": "Sort images", "sortUnsorted": "Unsorted", "sortAlphabetical": "A–Z", "view": "Image view",
+		"list": "List view", "grid": "Grid view", "loading": "Loading images…", "empty": "No images found",
 		"loadFailed": "Some images could not be loaded."
       },
 	  "taglist": { "placeholder": "Enter tags and press Enter", "append": "+ Add tag", "empty": "Enter a tag and press Enter", "input": "Add tags", "enable": "Enable {tag}", "disable": "Disable {tag}", "remove": "Remove {tag}" }

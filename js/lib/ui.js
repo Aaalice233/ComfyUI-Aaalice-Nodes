@@ -8,6 +8,7 @@ const ICON_PATHS = {
 	add: "M12 5v14M5 12h14",
 		arrowRight: "M5 12h14m-6-6 6 6-6 6",
 		arrowUpDown: "m7 15 3 3 3-3M10 18V6m7 3-3-3-3 3m3-3v12",
+		arrowDownAZ: "M3 16l4 4 4-4M7 20V4M20 8h-5m0 2V6.5a2.5 2.5 0 0 1 5 0V10m-5 4h5l-5 6h5",
 	close: "M18 6 6 18M6 6l12 12",
 	copy: "M8 8h11v11H8zM5 16H4V5h11v1",
 	delete: "M4 7h16M9 11v5m6-5v5M8 7l1-3h6l1 3m2 0-1 13H7L6 7",
