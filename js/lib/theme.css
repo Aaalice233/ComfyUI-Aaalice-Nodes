@@ -295,6 +295,8 @@
 	font: inherit; cursor: pointer; transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease;
 }
 .aa-control-image-choice__button:hover { background: var(--aa-ui-surface-raised); }
+.aa-control-image-choice.is-uploading { opacity: .66; }
+.aa-control-image-choice__button.is-drop-target { background: color-mix(in srgb, var(--aa-ui-accent) 12%, var(--aa-ui-control)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-accent) 28%, transparent); }
 .aa-control-image-choice__button.has-image { padding-right: 36px; }
 .aa-control-image-choice__button:focus-visible, .aa-control-image-choice__button[aria-expanded="true"] { border-color: var(--aa-ui-accent); box-shadow: inset 0 0 0 1px var(--aa-ui-accent); }
 .aa-control-image-choice__thumb { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -306,6 +308,8 @@
 .aa-control-image-choice__arrow { position: relative; z-index: 2; width: 12px; height: 12px; flex: none; margin-left: auto; color: var(--aa-ui-muted); transition: transform .16s ease, color .14s ease; }
 .aa-control-image-choice__button:hover .aa-control-image-choice__arrow, .aa-control-image-choice__button[aria-expanded="true"] .aa-control-image-choice__arrow { color: var(--aa-ui-text); }
 .aa-control-image-choice__button[aria-expanded="true"] .aa-control-image-choice__arrow { transform: rotate(180deg); }
+.aa-control-image-choice__popover { display: flex; flex-direction: column; gap: 6px; }
+.aa-control-image-choice__upload.aa-ui-button { width: 100%; justify-content: flex-start; }
 .aa-control-image-choice__menu { display: flex; max-height: 320px; flex-direction: column; gap: 2px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .aa-control-image-choice__option { display: flex; min-height: 34px; box-sizing: border-box; align-items: center; gap: 8px; padding: 3px 6px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--aa-ui-text); cursor: pointer; font: inherit; text-align: left; transition: background-color .13s ease; }
 .aa-control-image-choice__option:hover, .aa-control-image-choice__option:focus-visible { background: color-mix(in srgb, var(--aa-ui-control) 72%, transparent); outline: none; }

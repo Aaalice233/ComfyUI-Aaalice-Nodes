@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { imageComboReference, imageReferenceViewPath, normalizeImageReference } from "../js/lib/image_reference.js";
+import { imageComboReference, imageReferenceComboValue, imageReferenceViewPath, normalizeImageReference } from "../js/lib/image_reference.js";
 
 test("normalizes the upload endpoint name into a saved filename", () => {
 	assert.deepEqual(normalizeImageReference({ name: "cat image.png", subfolder: "refs", type: "input" }), {
@@ -34,4 +34,10 @@ test("image combo references preserve output folders and explicit type markers",
 		subfolder: "preview",
 		type: "temp",
 	});
+});
+
+test("uploaded image references serialize for the combo's default folder", () => {
+	assert.equal(imageReferenceComboValue({ filename: "frame.png", subfolder: "uploads", type: "input" }), "uploads/frame.png");
+	assert.equal(imageReferenceComboValue({ filename: "frame.png", subfolder: "uploads", type: "input" }, "output"), "uploads/frame.png [input]");
+	assert.equal(imageReferenceComboValue(null), "");
 });

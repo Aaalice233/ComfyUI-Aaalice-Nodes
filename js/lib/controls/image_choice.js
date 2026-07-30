@@ -2,8 +2,9 @@
 
 import { api } from "../../../../scripts/api.js";
 import { bindImagePreview, closeImagePreview } from "../image_preview.js";
-import { imageComboReference, imageReferenceViewPath } from "../image_reference.js";
-import { createAnchoredPopover, el, icon, iconButton } from "../ui.js";
+import { imageComboReference, imageReferenceComboValue, imageReferenceViewPath } from "../image_reference.js";
+import { bindImageDropTarget, uploadImageFile } from "../image_upload.js";
+import { button as uiButton, createAnchoredPopover, el, icon, iconButton } from "../ui.js";
 import { controlView } from "./contract.js";
 
 export function renderImageChoiceControl(spec, port) {
@@ -11,6 +12,8 @@ export function renderImageChoiceControl(spec, port) {
 	const imageFolder = String(spec.options.image_folder || "input").toLowerCase();
 	let current = String(spec.value ?? "");
 	const root = el("div", "aa-control aa-control-image-choice");
+	const picker = document.createElement("input");
+	picker.type = "file"; picker.accept = "image/*"; picker.hidden = true;
 	const thumbnail = document.createElement("img");
 	thumbnail.className = "aa-control-image-choice__thumb"; thumbnail.alt = ""; thumbnail.loading = "lazy"; thumbnail.decoding = "async";
 	const name = el("span", "aa-control-image-choice__name");
@@ -43,6 +46,27 @@ export function renderImageChoiceControl(spec, port) {
 	sync(current);
 	bindImagePreview(button, "", "", { immediate: true, resolve: viewSource });
 	let popover = null;
+	let uploading = false;
+	const upload = async (file) => {
+		if (uploading) return;
+		uploading = true;
+		button.disabled = true; clear.disabled = true;
+		root.classList.add("is-uploading"); root.setAttribute("aria-busy", "true");
+		closeImagePreview();
+		try {
+			const reference = await uploadImageFile(file);
+			const value = imageReferenceComboValue(reference, imageFolder);
+			popover?.close();
+			port.commit(value);
+			port.onSuccess(reference);
+		} catch (error) {
+			port.onError(error);
+		} finally {
+			uploading = false;
+			button.disabled = false; clear.disabled = false;
+			root.classList.remove("is-uploading"); root.removeAttribute("aria-busy"); picker.value = "";
+		}
+	};
 	const openMenu = () => {
 		if (popover) return;
 		button.setAttribute("aria-expanded", "true");
@@ -73,9 +97,28 @@ export function renderImageChoiceControl(spec, port) {
 			anchor: button, ariaLabel: spec.label, className: "aa-control-image-choice__popover", width: 280,
 			onClose: () => { popover = null; button.setAttribute("aria-expanded", "false"); },
 		});
-		popover.root.append(list);
+		popover.root.append(
+			uiButton({
+				label: spec.labels.upload || "Upload from device",
+				iconName: "upload",
+				variant: "secondary",
+				size: "sm",
+				className: "aa-control-image-choice__upload",
+				onClick: () => picker.click(),
+			}),
+			list,
+		);
 	};
 	button.addEventListener("click", openMenu);
-	root.append(button, clear);
+	picker.addEventListener("change", () => { const file = picker.files?.[0]; if (file) void upload(file); });
+	bindImageDropTarget(root, {
+		onActive: (active) => {
+			if (active) closeImagePreview();
+			button.classList.toggle("is-drop-target", active);
+			if (active) name.textContent = spec.labels.drop || "Drop image here"; else sync(current);
+		},
+		onFile: (file) => { void upload(file); },
+	});
+	root.append(button, clear, picker);
 	return controlView({ root, kind: "image-choice", update: (next) => sync(next.value) });
 }

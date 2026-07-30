@@ -33,3 +33,13 @@ export function imageComboReference(value, defaultType = "input") {
 		type: typeMarker?.[1]?.toLowerCase() || (["input", "output", "temp"].includes(defaultType) ? defaultType : "input"),
 	};
 }
+
+/** Convert an uploaded image reference back into ComfyUI's annotated combo value. */
+export function imageReferenceComboValue(value, defaultType = "input") {
+	const reference = normalizeImageReference(value);
+	if (!reference) return "";
+	const type = ["input", "output", "temp"].includes(reference.type) ? reference.type : "input";
+	const fallbackType = ["input", "output", "temp"].includes(defaultType) ? defaultType : "input";
+	const path = [reference.subfolder, reference.filename].filter(Boolean).join("/");
+	return type === fallbackType ? path : `${path} [${type}]`;
+}

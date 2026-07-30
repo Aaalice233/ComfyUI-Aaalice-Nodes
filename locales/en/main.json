@@ -345,7 +345,7 @@
         "fixed": "Keep fixed", "increment": "Increment", "decrement": "Decrement", "randomize": "Randomize"
       },
       "image": {
-		"none": "Choose image", "drop": "Drop image here", "uploaded": "Image uploaded: {filename}", "clear": "Clear selected image"
+		"none": "Choose image", "upload": "Upload from device", "drop": "Drop image here", "uploaded": "Image uploaded: {filename}", "clear": "Clear selected image"
       },
 	  "taglist": { "placeholder": "Enter tags and press Enter", "append": "+ Add tag", "empty": "Enter a tag and press Enter", "input": "Add tags", "enable": "Enable {tag}", "disable": "Disable {tag}", "remove": "Remove {tag}" }
     }

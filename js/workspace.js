@@ -515,7 +515,7 @@ function workspaceLabels() {
 		renameHint: t("aaalice.workspace.renameHint", "Double-click to rename"),
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
 		seedLocked: t("aaalice.pcp.seedMode.locked", "Seed locked; click to unlock"), seedUnlocked: t("aaalice.pcp.seedMode.unlocked", "Seed unlocked; click to lock"),
-		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
+		imageNone: t("aaalice.pcp.image.none", "Choose image"), imageUpload: t("aaalice.pcp.image.upload", "Upload from device"), imageDrop: t("aaalice.pcp.image.drop", "Drop image here"), imageClear: t("aaalice.pcp.image.clear", "Clear selected image"),
 			markdownEmpty: t("aaalice.workspace.markdown.empty", "Empty note"),
 			imageOutput: {
 				empty: t("aaalice.workspace.imageOutput.empty", "Run the workflow to preview images"),
