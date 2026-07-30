@@ -737,6 +737,20 @@ test("layout editing keeps creation and layout tools in the primary toolbar", ()
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > :is\(\.aa-dashboard-add-separator, \.aa-dashboard-tidy-layout\)/);
 });
 
+test("workspace scrolling suppresses transient hover interactions until motion settles", () => {
+	assert.match(components, /bindScrollInteractionGuard\(root\)/);
+	assert.match(components, /isScrollInteractionActive\(folio\)/);
+	assert.match(uiSource, /SCROLL_INTERACTION_ATTRIBUTE = "data-aa-scroll-active"/);
+	assert.match(uiSource, /root\.addEventListener\("wheel", onWheel, \{ capture: true, passive: true \}\)/);
+	assert.match(uiSource, /root\.addEventListener\("scroll", begin, \{ capture: true, passive: true \}\)/);
+	assert.match(uiSource, /activeTooltip\?\.isAnchoredWithin\?\.\(root\)/);
+	assert.match(uiSource, /closeTransientHoverSurfacesWithin\(root\)/);
+	assert.match(uiSource, /if \(isScrollInteractionActive\(nextAnchor\)\) return;/);
+	assert.match(uiSource, /isAnchoredWithin: \(container\)/);
+	assert.match(components, /transientHover: true/);
+	assert.doesNotMatch(uiSource, /preventDefault\(\).*SCROLL_INTERACTION/s);
+});
+
 test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
 	assert.match(workspace, /createGroup\(current, page\.id/);
 	assert.match(providers, /partitionParameterSections\(ensureParameters\(node\)\)/);

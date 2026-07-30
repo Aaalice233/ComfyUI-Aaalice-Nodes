@@ -136,6 +136,8 @@ Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按
 
 信息型 Tooltip 默认使用非交互模式，由共享组件统一设置鼠标穿透；图片预览和只读详情不得在业务 CSS 中重复覆盖 `pointer-events`。只有确实包含链接、按钮或可选文本的内容才显式使用 `interactive` 模式，并由共享组件统一开启命中与焦点管理。
 
+Aaalice 工作区的滚轮、触控板惯性滚动和边界翻页统一进入短时 Scroll Interaction 状态。状态开始时关闭已打开的共享 Tooltip，滚动停止前禁止 Tooltip、Hover Card 和悬停触发的锚定 Popover 再次打开；键盘、点击和悬停能力在状态结束后自然恢复。业务组件不得各自复制滚动防抖计时器，也不得用遮罩、`pointer-events: none` 或拦截滚轮阻断宿主滚动。
+
 ### 7.1 复合组件
 
 | 组件 | 职责 |

@@ -46,6 +46,16 @@ test("picker is latest-run only and requires a prompt before sending", () => {
 	assert.doesNotMatch(source, /navigator\.clipboard/);
 });
 
+test("picker keeps the image dominant with an overlaid filmstrip and a dedicated prompt rail", () => {
+	assert.match(source, /className: "aa-discord-share-picker__media"/);
+	assert.match(source, /children: \[stage, filmstrip\]/);
+	assert.match(theme, /\.aa-discord-share-picker\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*clamp\(280px,\s*31%,\s*360px\);[^}]*grid-template-areas:\s*"media prompt";/s);
+	assert.match(theme, /\.aa-discord-share-filmstrip\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*12px;[^}]*backdrop-filter:\s*blur\(16px\);/s);
+	assert.match(theme, /\.aa-discord-share-picker__prompt-panel\s*\{[^}]*grid-area:\s*prompt;/s);
+	assert.match(theme, /grid-template-areas:\s*"media"\s*"prompt";/s);
+	assert.doesNotMatch(theme, /\.aa-discord-share-picker\s*\{[^}]*grid-template-rows:\s*minmax\(250px,\s*1fr\)\s*auto\s*minmax\(92px,\s*auto\);/s);
+});
+
 test("first share click verifies Discord before requiring a latest run", () => {
 	const flow = source.slice(source.indexOf("async function openShareFlow()"), source.indexOf("async function openConnectionManager()"));
 	assert.ok(flow.indexOf("beginDiscordShareAuthentication") < flow.indexOf("const latest = captureEvents.latest"));

@@ -363,6 +363,7 @@ async function openSharePicker(shareConfig, session, snapshot) {
 		el("div", { className: "aa-discord-share-picker__stage-meta", children: [counter, filename, dimensions] }),
 	] });
 	const filmstrip = el("div", { className: "aa-discord-share-filmstrip", attrs: { role: "listbox", "aria-label": label("picker.images", "Latest run images"), tabindex: 0 } });
+	const media = el("section", { className: "aa-discord-share-picker__media", attrs: { "aria-label": label("picker.images", "Latest run images") }, children: [stage, filmstrip] });
 	const prompt = el("pre", "aa-discord-share-picker__prompt");
 	const promptState = el("div", "aa-discord-share-picker__prompt-state");
 	const footer = el("div");
@@ -460,8 +461,7 @@ async function openSharePicker(shareConfig, session, snapshot) {
 	}
 	send.disabled = !hasPrompt;
 	body.append(
-		stage,
-		filmstrip,
+		media,
 		el("section", { className: "aa-discord-share-picker__prompt-panel", attrs: { "aria-label": label("picker.prompt", "Positive prompt") }, children: [promptState, prompt] }),
 	);
 	footer.append(

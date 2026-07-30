@@ -3038,13 +3038,13 @@
 .aa-discord-share-entry[data-flow-state="busy"] .aa-discord-share-entry__status { opacity: 0; }
 
 .aa-discord-share-dialog {
-	width: min(1040px, 96vw);
-	height: min(800px, 90vh);
+	width: min(1180px, 96vw);
+	height: min(860px, 92vh);
 }
 .aa-discord-share-dialog > .aa-ui-dialog__body {
 	display: flex;
 	min-height: 0;
-	padding: 14px 16px 16px;
+	padding: 12px 14px 14px;
 	overflow: hidden;
 }
 .aa-discord-share-picker {
@@ -3052,18 +3052,29 @@
 	width: 100%;
 	min-height: 0;
 	gap: 12px;
-	grid-template-rows: minmax(250px, 1fr) auto minmax(92px, auto);
+	grid-template-columns: minmax(0, 1fr) clamp(280px, 31%, 360px);
+	grid-template-areas: "media prompt";
+}
+.aa-discord-share-picker__media {
+	position: relative;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	border-radius: 13px;
+	background: color-mix(in srgb, var(--aa-ui-canvas) 94%, black);
+	box-shadow: var(--aa-ui-edge-shadow-inset), 0 12px 28px -24px rgb(0 0 0 / 80%);
+	grid-area: media;
 }
 .aa-discord-share-picker__stage {
 	position: relative;
 	display: grid;
+	width: 100%;
+	height: 100%;
 	min-height: 0;
 	overflow: hidden;
-	border-radius: 13px;
 	background:
 		radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--aa-ui-accent) 8%, transparent), transparent 52%),
-		color-mix(in srgb, var(--aa-ui-canvas) 94%, black);
-	box-shadow: var(--aa-ui-edge-shadow-inset), 0 12px 28px -24px rgb(0 0 0 / 80%);
+		transparent;
 	place-items: center;
 }
 .aa-discord-share-picker__image {
@@ -3071,12 +3082,13 @@
 	width: 100%;
 	height: 100%;
 	min-height: 0;
+	padding: 18px 18px 92px;
 	object-fit: contain;
 }
 .aa-discord-share-picker__stage-meta {
 	position: absolute;
+	top: 12px;
 	right: 12px;
-	bottom: 11px;
 	left: 12px;
 	display: grid;
 	min-width: 0;
@@ -3104,12 +3116,21 @@
 }
 .aa-discord-share-picker__dimensions { color: color-mix(in srgb, var(--aa-ui-on-media) 72%, transparent); font-size: 11px; }
 .aa-discord-share-filmstrip {
+	position: absolute;
+	z-index: 2;
+	right: 12px;
+	bottom: 12px;
+	left: 12px;
 	display: flex;
 	min-width: 0;
 	gap: 8px;
-	padding: 4px 3px 7px;
+	padding: 8px;
 	overflow-x: auto;
 	overflow-y: hidden;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--aa-ui-canvas) 78%, transparent);
+	box-shadow: 0 12px 30px rgb(0 0 0 / 32%), inset 0 1px color-mix(in srgb, var(--aa-ui-on-media) 9%, transparent);
+	backdrop-filter: blur(16px);
 	scrollbar-width: thin;
 	scroll-snap-type: x proximity;
 }
@@ -3120,9 +3141,11 @@
 }
 .aa-discord-share-filmstrip__item {
 	display: grid;
-	width: 136px;
-	min-width: 136px;
-	gap: 4px;
+	width: 184px;
+	min-width: 184px;
+	height: 64px;
+	align-items: center;
+	gap: 3px 8px;
 	padding: 6px;
 	overflow: hidden;
 	border: 0;
@@ -3131,6 +3154,8 @@
 	box-shadow: var(--aa-ui-edge-shadow-soft);
 	color: var(--aa-ui-text);
 	cursor: pointer;
+	grid-template-columns: 52px minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr) auto;
 	scroll-snap-align: center;
 	text-align: left;
 	transition: background .14s ease, box-shadow .14s ease, transform .14s ease;
@@ -3146,13 +3171,15 @@
 .aa-discord-share-filmstrip__item:focus-visible { outline: 2px solid var(--aa-ui-focus); outline-offset: 1px; }
 .aa-discord-share-filmstrip__item img {
 	display: block;
-	width: 124px;
-	height: 72px;
+	width: 52px;
+	height: 52px;
 	border-radius: 7px;
 	background: var(--aa-ui-canvas);
+	grid-row: 1 / span 2;
 	object-fit: cover;
 }
 .aa-discord-share-filmstrip__name {
+	align-self: end;
 	overflow: hidden;
 	font-size: 11px;
 	font-weight: 600;
@@ -3160,23 +3187,35 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.aa-discord-share-filmstrip__meta { color: var(--aa-ui-muted); font-size: 10px; line-height: 1.2; }
+.aa-discord-share-filmstrip__meta {
+	align-self: start;
+	overflow: hidden;
+	color: var(--aa-ui-muted);
+	font-size: 10px;
+	line-height: 1.2;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
 .aa-discord-share-picker__prompt-panel {
 	display: grid;
+	min-width: 0;
 	min-height: 0;
 	gap: 7px;
-	padding: 10px 12px 12px;
-	border-radius: 11px;
+	padding: 12px 14px 14px;
+	overflow: hidden;
+	border-radius: 13px;
 	background: color-mix(in srgb, var(--aa-ui-control) 88%, var(--aa-ui-surface));
-	box-shadow: var(--aa-ui-edge-shadow-inset);
+	box-shadow: var(--aa-ui-edge-shadow-inset), 0 12px 28px -24px rgb(0 0 0 / 70%);
+	grid-area: prompt;
 	grid-template-rows: auto minmax(0, 1fr);
 }
 .aa-discord-share-picker__prompt-state {
 	display: flex;
 	align-items: center;
 	gap: 7px;
+	min-height: 28px;
 	color: var(--aa-ui-muted);
-	font-size: 11px;
+	font-size: 12px;
 }
 .aa-discord-share-picker__prompt-state .aa-ui-icon { width: 14px; height: 14px; }
 .aa-discord-share-picker__prompt-ok { color: var(--success-text, var(--p-green-400, #60bd86)); }
@@ -3184,10 +3223,10 @@
 .aa-discord-share-picker__prompt {
 	min-height: 0;
 	margin: 0;
-	padding: 0 2px;
+	padding: 4px 2px 2px;
 	overflow: auto;
 	color: var(--aa-ui-text);
-	font: 11px/1.5 var(--comfy-font, Inter, system-ui, sans-serif);
+	font: 12px/1.55 var(--comfy-font, Inter, system-ui, sans-serif);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
@@ -3284,9 +3323,18 @@
 
 @media (max-width: 720px), (max-height: 640px) {
 	.aa-discord-share-dialog { height: 94vh; }
-	.aa-discord-share-picker { gap: 9px; grid-template-rows: minmax(200px, 1fr) auto minmax(76px, auto); }
-	.aa-discord-share-filmstrip__item { width: 112px; min-width: 112px; }
-	.aa-discord-share-filmstrip__item img { width: 100px; height: 60px; }
+	.aa-discord-share-picker {
+		gap: 9px;
+		grid-template-columns: 1fr;
+		grid-template-rows: minmax(260px, 1fr) minmax(120px, .42fr);
+		grid-template-areas:
+			"media"
+			"prompt";
+	}
+	.aa-discord-share-picker__image { padding: 12px 12px 84px; }
+	.aa-discord-share-filmstrip { right: 8px; bottom: 8px; left: 8px; padding: 6px; }
+	.aa-discord-share-filmstrip__item { width: 138px; min-width: 138px; height: 60px; grid-template-columns: 48px minmax(0, 1fr); }
+	.aa-discord-share-filmstrip__item img { width: 48px; height: 48px; }
 	.aa-discord-share-settings__row { align-items: stretch; grid-template-columns: 1fr; }
 	.aa-discord-share-settings__placement { min-width: 0; }
 }

@@ -1,11 +1,12 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, searchToggleButton, segmentedControl } from "./ui.js";
+import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, isScrollInteractionActive, searchToggleButton, segmentedControl } from "./ui.js";
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
 export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [], footerActions = [] }) {
 	const root = el("div", "aa-workspace");
+	bindScrollInteractionGuard(root);
 	root.dataset.workspace = activeTab;
 	const header = el("header", "aa-workspace-header");
 	const tablist = segmentedControl({
@@ -120,6 +121,7 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, editMo
 		}
 		popover = createAnchoredPopover({
 			anchor: folio, ariaLabel: labels.pages || "Dashboard pages", className: "aa-dashboard-page-popover", width: 220, focusOnOpen,
+			transientHover: true,
 			onClose: () => { popover = null; folio.setAttribute("aria-expanded", "false"); cancelTimers(); },
 		});
 		popover.root.append(list);
@@ -128,10 +130,14 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, editMo
 		popover.root.addEventListener("pointerleave", scheduleClose);
 	};
 	const scheduleOpen = () => {
+		if (isScrollInteractionActive(folio)) return;
 		clearTimeout(closeTimer);
 		if (popover || openTimer) return;
 		// 悬停打开不窃取焦点，避免打断正在进行的输入。
-		openTimer = setTimeout(() => { openTimer = 0; openPageMenu({ focusOnOpen: false }); }, 140);
+		openTimer = setTimeout(() => {
+			openTimer = 0;
+			if (!isScrollInteractionActive(folio)) openPageMenu({ focusOnOpen: false });
+		}, 140);
 	};
 	const scheduleClose = () => {
 		clearTimeout(openTimer);

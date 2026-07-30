@@ -101,6 +101,58 @@ export function isolate(element) {
 
 let activeTooltip = null;
 let tooltipId = 0;
+const transientHoverSurfaces = new Set();
+const SCROLL_INTERACTION_ATTRIBUTE = "data-aa-scroll-active";
+const SCROLL_INTERACTION_SETTLE_DELAY = 180;
+
+export function isScrollInteractionActive(element) {
+	return Boolean(element?.closest?.(`[${SCROLL_INTERACTION_ATTRIBUTE}="true"]`));
+}
+
+function registerTransientHoverSurface(anchor, close) {
+	const surface = { anchor, close };
+	transientHoverSurfaces.add(surface);
+	return () => transientHoverSurfaces.delete(surface);
+}
+
+function closeTransientHoverSurfacesWithin(container) {
+	for (const surface of [...transientHoverSurfaces]) {
+		if (container.contains(surface.anchor)) surface.close();
+	}
+}
+
+/** Suppress transient hover surfaces while a scroll or boundary-page gesture is still moving content. */
+export function bindScrollInteractionGuard(root, { settleDelay = SCROLL_INTERACTION_SETTLE_DELAY } = {}) {
+	let settleTimer = 0;
+	let active = false;
+	const settle = () => {
+		settleTimer = 0;
+		active = false;
+		root.removeAttribute(SCROLL_INTERACTION_ATTRIBUTE);
+	};
+	const begin = () => {
+		clearTimeout(settleTimer);
+		if (!active) {
+			active = true;
+			root.setAttribute(SCROLL_INTERACTION_ATTRIBUTE, "true");
+			if (activeTooltip?.isAnchoredWithin?.(root)) activeTooltip.hide();
+			closeTransientHoverSurfacesWithin(root);
+		}
+		settleTimer = setTimeout(settle, settleDelay);
+	};
+	const onWheel = (event) => {
+		if (event.ctrlKey || event.metaKey || (!event.deltaX && !event.deltaY)) return;
+		begin();
+	};
+	root.addEventListener("wheel", onWheel, { capture: true, passive: true });
+	root.addEventListener("scroll", begin, { capture: true, passive: true });
+	return () => {
+		clearTimeout(settleTimer);
+		root.removeEventListener("wheel", onWheel, true);
+		root.removeEventListener("scroll", begin, true);
+		root.removeAttribute(SCROLL_INTERACTION_ATTRIBUTE);
+	};
+}
 
 function updateTokenAttribute(element, attribute, value, add) {
 	const ids = new Set((element.getAttribute(attribute) || "").split(/\s+/).filter(Boolean));
@@ -249,6 +301,10 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		activeTooltip = controller;
 	};
 	const mount = (nextAnchor, content, { className = "", contentMode = "auto", interactive: nextInteractive = false, onMount = null, placement = "auto", point = null } = {}) => {
+		if (isScrollInteractionActive(nextAnchor)) {
+			hide();
+			return;
+		}
 		const resolved = typeof content === "function" ? content() : content;
 		if (!nextAnchor?.isConnected || resolved == null || resolved === "") {
 			if (activeTooltip === controller) activeTooltip = null;
@@ -295,6 +351,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 	};
 	const show = (nextAnchor, content, options = {}) => {
 		hide();
+		if (isScrollInteractionActive(nextAnchor)) return;
 		claimActive();
 		if (options.immediate) mount(nextAnchor, content, options);
 		else showTimer = setTimeout(() => mount(nextAnchor, content, options), delay);
@@ -312,6 +369,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 			target.focus({ preventScroll: true });
 			return true;
 		},
+		isAnchoredWithin: (container) => Boolean(anchor && container?.contains?.(anchor)),
 		isOpenFor: (candidate) => Boolean(root && anchor === candidate),
 		get anchor() { return anchor; },
 	};
@@ -719,7 +777,7 @@ function shouldIgnoreDialogEnter(event, dialog) {
 	return false;
 }
 
-export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300, onClose = null, focusOnOpen = true } = {}) {
+export function createAnchoredPopover({ anchor, ariaLabel, className = "", width = 300, onClose = null, focusOnOpen = true, transientHover = false } = {}) {
 	if (!(anchor instanceof HTMLElement)) throw new Error("[Aaalice] Popover anchor is unavailable");
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
 	const root = isolate(el("section", { className: `aa-ui-popover${className ? ` ${className}` : ""}`, attrs: { role: "dialog", "aria-modal": "false", "aria-label": ariaLabel, tabindex: -1 } }));
@@ -736,15 +794,18 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 	};
 	reposition();
 	let closed = false;
+	let unregisterTransientHover = () => {};
 	const close = () => {
 		if (closed) return;
 		closed = true;
+		unregisterTransientHover();
 		document.removeEventListener("pointerdown", outside, true);
 		document.removeEventListener("keydown", keydown, true);
 		root.remove();
 		previousFocus?.focus?.({ preventScroll: true });
 		onClose?.();
 	};
+	if (transientHover) unregisterTransientHover = registerTransientHoverSurface(anchor, close);
 	const outside = (event) => { if (!root.contains(event.target) && !anchor.contains(event.target)) close(); };
 	const keydown = (event) => {
 		if (event.key === "Escape") { event.preventDefault(); close(); return; }
