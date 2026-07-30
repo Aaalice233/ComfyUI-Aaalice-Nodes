@@ -338,6 +338,12 @@ function imageMeta(image) {
 		: label("picker.readingSize", "Reading size…");
 }
 
+function compactImageMeta(image) {
+	return image.width && image.height
+		? `${image.width}×${image.height}`
+		: "…";
+}
+
 function hydrateImageDimensions(image, onChange) {
 	if (image.width && image.height) return;
 	const probe = new Image();
@@ -566,7 +572,7 @@ async function openSharePicker(shareConfig, session, snapshot) {
 	});
 
 	const thumbnails = images.map((image, index) => {
-		const meta = el("span", "aa-discord-share-filmstrip__meta", imageMeta(image));
+		const meta = el("span", "aa-discord-share-filmstrip__meta", compactImageMeta(image));
 		const item = el("button", {
 			className: "aa-discord-share-filmstrip__item",
 			attrs: {
@@ -583,7 +589,7 @@ async function openSharePicker(shareConfig, session, snapshot) {
 		});
 		item.addEventListener("click", () => select(index, { focus: false }));
 		hydrateImageDimensions(image, () => {
-			meta.textContent = imageMeta(image);
+			meta.textContent = compactImageMeta(image);
 			item.setAttribute("aria-label", `${image.filename} · ${imageMeta(image)}`);
 			if (selectedIndex === index) dimensions.textContent = imageMeta(image);
 		});

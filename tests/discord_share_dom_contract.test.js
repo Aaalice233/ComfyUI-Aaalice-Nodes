@@ -59,6 +59,8 @@ test("picker keeps the image dominant with an overlaid filmstrip and a dedicated
 
 test("picker uses a compact scrollable resolution filmstrip and an interactive image viewer", () => {
 	assert.doesNotMatch(source, /aa-discord-share-filmstrip__name/);
+	assert.match(source, /function compactImageMeta\(image\)/);
+	assert.match(source, /`\$\{image\.width\}×\$\{image\.height\}`/);
 	assert.match(source, /children:\s*\[\s*el\("img"[\s\S]*meta,\s*\]/);
 	assert.match(source, /filmstrip\.scrollLeft \+= event\.deltaY/);
 	assert.match(source, /createShareImageViewer\(viewport,\s*stageImage\)/);
@@ -67,7 +69,11 @@ test("picker uses a compact scrollable resolution filmstrip and an interactive i
 	assert.match(source, /viewport\.addEventListener\("pointerdown"/);
 	assert.match(source, /viewport\.addEventListener\("dblclick", reset\)/);
 	assert.match(source, /imageViewer\.reset\(\)/);
-	assert.match(theme, /\.aa-discord-share-filmstrip__item\s*\{[^}]*width:\s*128px;[^}]*height:\s*50px;[^}]*grid-template-columns:\s*38px minmax\(0,\s*1fr\);/s);
+	assert.match(theme, /\.aa-discord-share-filmstrip__item\s*\{[^}]*width:\s*66px;[^}]*height:\s*72px;[^}]*grid-template-rows:\s*52px 11px;/s);
+	assert.match(theme, /\.aa-discord-share-picker__stage\s*\{[^}]*grid-template-rows:\s*auto minmax\(0,\s*1fr\);/s);
+	assert.match(theme, /\.aa-discord-share-picker__stage-meta\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*grid-row:\s*1;/s);
+	assert.match(theme, /\.aa-discord-share-picker__filename\s*\{[^}]*line-height:\s*20px;/s);
+	assert.match(theme, /\.aa-discord-share-picker__dimensions\s*\{[^}]*line-height:\s*20px;/s);
 	assert.match(theme, /\.aa-discord-share-picker__image\s*\{[^}]*scale\(var\(--aa-discord-share-zoom,\s*1\)\)/s);
 });
 
