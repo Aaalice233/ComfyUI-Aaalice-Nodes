@@ -25,16 +25,17 @@
     "discordShare": {
       "title": "Discord Share",
       "entry": { "short": "Share", "topbar": "Share latest image to Discord", "connected": "Share latest image to Discord · connected", "unverified": "Share latest image to Discord · verification required" },
-      "menu": { "label": "Discord share entry", "toTopbar": "Pin to canvas top bar", "toSidebar": "Move back to sidebar", "hide": "Hide share entry" },
-      "settings": { "entry": "Discord Share", "category": "Discord Share", "placement": "Share entry location", "sidebar": "Sidebar", "topbar": "Top bar", "hidden": "Hidden", "account": "Manage Discord connection" },
+      "menu": { "label": "Discord share entry", "toTopbar": "Pin to canvas top bar", "toSidebar": "Move back to sidebar footer", "hide": "Hide share entry" },
+      "settings": { "entry": "Discord Share", "category": "Discord Share", "placement": "Share entry location", "sidebar": "Sidebar footer", "topbar": "Top bar", "hidden": "Hidden", "account": "Manage Discord connection" },
+      "dock": { "label": "Aaalice community links", "repository": "Open the Aaalice Nodes GitHub repository", "community": "Join the Aaalice Discord server" },
       "connect": { "title": "Verify with Discord", "serverOnly": "Members only", "body": "Discord sign-in only confirms that you belong to the server. The webhook secret stays on the relay and is never stored in ComfyUI." },
-      "membership": { "title": "Server membership required", "body": "Join the Aaalice Discord server, then verify again." },
+      "membership": { "title": "Server membership required", "body": "Join the Aaalice Discord server, then return here and verify again." },
       "unavailable": { "title": "Sharing service is not configured", "body": "This installation does not have an Aaalice Discord relay URL yet." },
       "account": { "title": "Discord connection", "connected": "Connected Discord account", "verified": "Server membership verified", "ready": "Ready" },
       "picker": { "title": "Share latest run", "images": "Latest run images", "readingSize": "Reading size…", "prompt": "Positive prompt", "promptUnavailable": "Prompt unavailable", "promptMissing": "Right-click a Preview Any node and set it as the Discord prompt source, then run the workflow again." },
       "promptSource": { "setMenu": "✈️ Use as Discord share prompt", "clearMenu": "✈️ Stop using as Discord prompt" },
       "actions": { "cancel": "Cancel", "done": "Done", "connect": "Connect Discord", "join": "Join server", "verifyAgain": "Verify again", "send": "Send to Discord", "sending": "Sending…", "disconnect": "Disconnect" },
-      "toast": { "runFirst": "Run a workflow once before sharing.", "connected": "Discord membership verified.", "sent": "Image and prompt sent to Discord.", "disconnected": "Discord account disconnected.", "promptSet": "Prompt source set. Save the workflow, then run it before sharing.", "promptCleared": "Discord prompt source cleared. Save the workflow to keep this change." }
+      "toast": { "runFirst": "Run a workflow once before sharing.", "verifiedRunFirst": "Discord membership verified. Run a workflow once before sharing.", "connected": "Discord membership verified.", "sent": "Image and prompt sent to Discord.", "disconnected": "Discord account disconnected.", "promptSet": "Prompt source set. Save the workflow, then run it before sharing.", "promptCleared": "Discord prompt source cleared. Save the workflow to keep this change." }
     },
     "promptSelector": {
       "search": "Search prompt library", "allCategories": "All categories", "allCollections": "All favorite folders",

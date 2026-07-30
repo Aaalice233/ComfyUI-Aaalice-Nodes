@@ -4,7 +4,7 @@ import { button, checkboxControl, createAnchoredPopover, el, icon, iconButton, i
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
-export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [] }) {
+export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, headerActions = [], footerActions = [] }) {
 	const root = el("div", "aa-workspace");
 	root.dataset.workspace = activeTab;
 	const header = el("header", "aa-workspace-header");
@@ -16,9 +16,17 @@ export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, head
 		onChange: (value) => { root.dataset.workspace = value; onTabChange?.(value); },
 	});
 	const content = el("main", "aa-workspace-content");
+	const footer = el("footer", { className: "aa-workspace-footer", attrs: { "aria-label": title } });
+	const footerLinks = el("div", {
+		className: "aa-workspace-footer__links",
+		attrs: { "data-aa-workspace-footer-actions": "" },
+	});
+	const footerUtilities = el("div", { className: "aa-workspace-footer__utilities", children: footerActions });
 	const setActive = (value) => { root.dataset.workspace = value; tablist.setValue(value); };
-	header.append(tablist, ...headerActions); root.append(header, content);
-	return { root, header, content, setActive };
+	header.append(tablist, ...headerActions);
+	footer.append(footerLinks, footerUtilities);
+	root.append(header, content, footer);
+	return { root, header, content, footer, footerLinks, footerUtilities, setActive };
 }
 
 export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {

@@ -53,7 +53,7 @@
 | 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_model,virtual_masonry}.js` | 双行上下文工具栏、自然比例虚拟瀑布流、选择与详情、定高已选列表、设置入口和选择快照注入 |
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
-| Discord 分享 | `js/discord_share.js`、`js/lib/{discord_share_capture,discord_share_client,discord_share_model}.js` | 侧栏/顶栏入口、Preview Any 绑定、最新成功执行快照、成员验证和相册发送 |
+| Discord 分享 | `js/discord_share.js`、`js/lib/{discord_share_capture,discord_share_client,discord_share_model}.js` | 工作区侧栏底栏/顶栏入口、社区链接、Preview Any 绑定、最新成功执行快照、成员验证和相册发送 |
 | DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,parameter_sections,native_output_controls,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、ComfyUI 内置只读执行预览、全图组导航、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image,image_compare,image_output,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
@@ -107,9 +107,9 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 ### Discord 分享
 
-1. 用户从侧栏或顶栏入口发起分享；入口位置只使用一个应用级三态设置，宿主重挂时由单一 MutationObserver 幂等恢复，不轮询 DOM。
+1. Aaalice 工作区底栏提供 GitHub、Discord 社区链接和分享入口，固定按钮位于底栏右侧；用户也可将分享入口迁移到画布顶栏。入口位置只使用一个应用级三态设置，宿主重挂时由单一 MutationObserver 幂等恢复，不轮询 DOM。
 2. Preview Any 右键菜单把 Graph Id、Node Id 和显示标签写入根图 `extra`。执行成功后按 `prompt_id` 读取历史 outputs，限定执行 Id 反查节点并生成页面会话快照；历史读取失败才使用本次 `executed` 事件缓存。
-3. 未验证用户在独立 OAuth 窗口完成 Discord 登录；中继签名状态绑定原 ComfyUI Origin 和一次性 Nonce，回调只把结果放入重定向 Fragment。本地完成页立即清除 Fragment，并通过同源 Storage 事件与 `postMessage` 交回随机会话 Token。
+3. 首次点击且没有有效会话时直接在独立 OAuth 窗口完成 Discord 登录和目标 Guild 成员检测，不以是否已有运行图像为前置条件；中继签名状态绑定原 ComfyUI Origin、一次性 Nonce 和 challenge，回调结果通过精确 Origin 的 `postMessage` 与短时 verifier handoff 交回随机会话 Token。
 4. 相册只展示最后一次成功执行的去重图像；尺寸由浏览器按需解码，当前缩略图和 Dialog 状态不持久化。提示词缺失时禁用发送并要求重新绑定、执行。
 5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、图片类型/大小与提示词校验，再把图像和三反引号代码块发送到固定 Webhook；任何步骤失败都保持明确错误。
 

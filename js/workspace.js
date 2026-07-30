@@ -1643,7 +1643,7 @@ function renderWorkspace(root) {
 	pinButton.addEventListener("focus", () => workspacePinTooltip.show(pinButton, pinLabel, { immediate: true }));
 	pinButton.addEventListener("blur", () => workspacePinTooltip.hide());
 	syncPinButton();
-	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], headerActions: [pinButton], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
+	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [pinButton], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
 	root.append(shell.root); renderActiveWorkspace();
 }
 

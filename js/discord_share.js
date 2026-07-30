@@ -5,7 +5,6 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import {
 	beginDiscordShareAuthentication,
-	clearDiscordShareSession,
 	disconnectDiscordShare,
 	loadDiscordShareConfig,
 	loadDiscordShareSession,
@@ -28,14 +27,16 @@ import {
 	el,
 	emptyState,
 	icon,
+	iconButton,
 	segmentedControl,
 } from "./lib/ui.js";
 
 const EXTENSION_NAME = "ComfyUI.Aaalice.DiscordShare";
 const PLACEMENT_SETTING_ID = "Aaalice.DiscordShare.Placement";
 const TOPBAR_ICON_CLASS = "aaalice-discord-share-topbar-icon";
-const INTRO_STORAGE_KEY = "aaalice.discord-share.intro-seen.v1";
-const SIDEBAR_SELECTOR = '[data-testid="side-toolbar"]';
+const WORKSPACE_FOOTER_SELECTOR = "[data-aa-workspace-footer-actions]";
+const REPOSITORY_URL = "https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes";
+const DEFAULT_COMMUNITY_URL = "https://discord.gg/R48n6GwXzD";
 const entryButtons = new Set();
 const placementControls = new Set();
 const topbarBindings = new WeakSet();
@@ -45,6 +46,7 @@ let entryObserver = null;
 let syncFrame = 0;
 let activeDialog = null;
 let settingsRegistered = false;
+let shareFlowInFlight = false;
 
 function label(key, fallback, params = null) {
 	return t(`aaalice.discordShare.${key}`, fallback, params);
@@ -72,10 +74,18 @@ function sessionState() {
 function syncEntryState(buttonElement) {
 	const state = sessionState();
 	buttonElement.dataset.sessionState = state;
+	buttonElement.dataset.flowState = shareFlowInFlight ? "busy" : "idle";
+	buttonElement.setAttribute("aria-busy", String(shareFlowInFlight));
+	buttonElement.disabled = shareFlowInFlight;
 	buttonElement.setAttribute("aria-label", state === "connected"
 		? label("entry.connected", "Share latest image to Discord · connected")
 		: label("entry.unverified", "Share latest image to Discord · verification required"));
 	buttonElement.title = buttonElement.getAttribute("aria-label");
+}
+
+function setShareFlowBusy(busy) {
+	shareFlowInFlight = busy;
+	for (const entry of entryButtons) syncEntryState(entry);
 }
 
 function showEntryContextMenu(event, surface) {
@@ -83,7 +93,7 @@ function showEntryContextMenu(event, surface) {
 	event.stopPropagation();
 	const items = surface === "topbar"
 		? [
-			{ label: label("menu.toSidebar", "Move back to sidebar"), iconName: "move", onSelect: () => setPlacement("sidebar") },
+			{ label: label("menu.toSidebar", "Move back to sidebar footer"), iconName: "move", onSelect: () => setPlacement("sidebar") },
 			{ label: label("menu.hide", "Hide share entry"), iconName: "close", onSelect: () => setPlacement("hidden") },
 		]
 		: [
@@ -99,40 +109,57 @@ function showEntryContextMenu(event, surface) {
 }
 
 function createSidebarEntry() {
-	const entry = el("button", {
+	const entry = iconButton({
+		iconName: "send",
+		label: label("entry.unverified", "Share latest image to Discord · verification required"),
+		variant: "ghost",
 		className: "aa-discord-share-entry",
-		attrs: { type: "button" },
-		children: [
-			el("span", { className: "aa-discord-share-entry__icon", children: [icon("send")] }),
-			el("span", "aa-discord-share-entry__label", label("entry.short", "Share")),
-			el("span", { className: "aa-discord-share-entry__status", attrs: { "aria-hidden": "true" } }),
-		],
+		onClick: () => void openShareFlow(),
 	});
-	if (localStorage.getItem(INTRO_STORAGE_KEY) !== "true") {
-		entry.classList.add("is-intro");
-		entry.addEventListener("animationend", () => {
-			entry.classList.remove("is-intro");
-			localStorage.setItem(INTRO_STORAGE_KEY, "true");
-		}, { once: true });
-	}
-	entry.addEventListener("click", () => void openShareFlow());
+	entry.querySelector(".aa-ui-icon")?.classList.add("aa-discord-share-entry__icon");
+	entry.append(el("span", { className: "aa-discord-share-entry__status", attrs: { "aria-hidden": "true" } }));
 	entry.addEventListener("contextmenu", (event) => showEntryContextMenu(event, "sidebar"));
 	syncEntryState(entry);
 	entryButtons.add(entry);
 	return entry;
 }
 
+function openExternal(url) {
+	window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function createWorkspaceFooterDock() {
+	const dock = el("div", {
+		className: "aa-discord-share-dock",
+		attrs: { role: "toolbar", "aria-label": label("dock.label", "Aaalice community") },
+	});
+	const repository = iconButton({
+		iconName: "github",
+		label: label("dock.repository", "Open the Aaalice Nodes repository"),
+		variant: "ghost",
+		className: "aa-discord-share-dock__link",
+		onClick: () => openExternal(REPOSITORY_URL),
+	});
+	const community = iconButton({
+		iconName: "discord",
+		label: label("dock.community", "Join the Aaalice Discord server"),
+		variant: "ghost",
+		className: "aa-discord-share-dock__link",
+		onClick: () => openExternal(publicConfig?.communityUrl || DEFAULT_COMMUNITY_URL),
+	});
+	dock.append(repository, community, createSidebarEntry());
+	return dock;
+}
+
 function attachSidebarEntry() {
-	const toolbar = document.querySelector(SIDEBAR_SELECTOR);
-	if (!toolbar) return;
-	const groups = toolbar.querySelectorAll(".sidebar-item-group");
-	const bottomGroup = groups.length ? groups[groups.length - 1] : null;
-	if (!bottomGroup) return;
-	let entry = bottomGroup.querySelector(":scope > .aa-discord-share-entry");
-	if (!entry) {
-		entry = createSidebarEntry();
-		bottomGroup.prepend(entry);
+	const host = document.querySelector(WORKSPACE_FOOTER_SELECTOR);
+	if (!host) return;
+	let dock = host.querySelector(":scope > .aa-discord-share-dock");
+	if (!dock) {
+		dock = createWorkspaceFooterDock();
+		host.append(dock);
 	}
+	const entry = dock.querySelector(".aa-discord-share-entry");
 	entry.hidden = currentPlacement() !== "sidebar";
 	entry.style.display = entry.hidden ? "none" : "";
 	syncEntryState(entry);
@@ -149,6 +176,7 @@ function syncTopbarEntries() {
 		const buttonElement = iconElement.closest("button");
 		if (!buttonElement) continue;
 		bindTopbarButton(buttonElement);
+		entryButtons.add(buttonElement);
 		const hidden = currentPlacement() !== "topbar";
 		buttonElement.hidden = hidden;
 		buttonElement.style.display = hidden ? "none" : "";
@@ -213,25 +241,19 @@ function openUnavailableDialog() {
 
 function openMembershipRequiredDialog(error, shareConfig) {
 	closeActiveDialog();
+	const communityUrl = String(error?.detail?.community_url || shareConfig.communityUrl || "");
 	const body = el("div", { className: "aa-discord-share-state", children: [
 		el("div", { className: "aa-discord-share-state__mark is-warning", children: [icon("statusWarning")] }),
 		el("strong", null, label("membership.title", "Server membership required")),
-		el("p", null, error?.message || label("membership.body", "Join the Aaalice Discord server, then verify again.")),
+		el("p", null, label("membership.body", "Join the Aaalice Discord server, then return here and verify again.")),
 	] });
 	const footer = el("div");
-	if (shareConfig.communityUrl) {
-		footer.append(button({
-			label: label("actions.join", "Join server"),
-			variant: "secondary",
-			iconName: "link",
-			onClick: () => window.open(shareConfig.communityUrl, "_blank", "noopener,noreferrer"),
-		}));
-	}
 	footer.append(
 		button({ label: label("actions.cancel", "Cancel"), variant: "ghost", onClick: () => closeActiveDialog() }),
 		button({
 			label: label("actions.verifyAgain", "Verify again"),
 			iconName: "refresh",
+			variant: "secondary",
 			onClick: async (event) => {
 				event.currentTarget.disabled = true;
 				try {
@@ -242,11 +264,20 @@ function openMembershipRequiredDialog(error, shareConfig) {
 					else toast("success", label("toast.connected", "Discord membership verified."));
 				} catch (nextError) {
 					event.currentTarget.disabled = false;
-					if (nextError?.code !== "cancelled") toast("error", nextError.message);
+					if (nextError?.code === "not_member") openMembershipRequiredDialog(nextError, shareConfig);
+					else if (nextError?.code !== "cancelled") toast("error", nextError.message);
 				}
 			},
 		}),
 	);
+	if (communityUrl) {
+		footer.append(button({
+			label: label("actions.join", "Join server"),
+			iconName: "link",
+			defaultAction: true,
+			onClick: () => window.open(communityUrl, "_blank", "noopener,noreferrer"),
+		}));
+	}
 	activeDialog = createDialog({ title: label("title", "Discord Share"), body, footer, size: "compact", onClose: () => { activeDialog = null; } });
 }
 
@@ -353,7 +384,11 @@ async function openSharePicker(shareConfig, session, snapshot) {
 				send.disabled = false;
 				send.classList.remove("is-loading");
 				send.querySelector(".aa-ui-button__label").textContent = label("actions.send", "Send to Discord");
-				if ([401, 403].includes(error?.status)) {
+				if (error?.code === "not_member") {
+					closeActiveDialog();
+					scheduleEntrypointSync();
+					openMembershipRequiredDialog(error, shareConfig);
+				} else if ([401, 403].includes(error?.status)) {
 					closeActiveDialog();
 					scheduleEntrypointSync();
 					openConnectDialog(shareConfig);
@@ -454,39 +489,51 @@ async function verifiedSession(shareConfig) {
 		return session;
 	} catch (error) {
 		scheduleEntrypointSync();
+		if (error?.code === "not_member") throw error;
 		if (![401, 403].includes(error?.status)) throw error;
 		return null;
 	}
 }
 
 async function openShareFlow() {
+	if (shareFlowInFlight) return;
 	await ensureI18nReady();
-	const latest = captureEvents.latest;
-	if (!latest?.images?.length) {
-		toast("info", label("toast.runFirst", "Run a workflow once before sharing."));
-		return;
-	}
+	setShareFlowBusy(true);
+	let shareConfig = null;
 	try {
-		const shareConfig = await config();
+		shareConfig = await config();
 		if (!shareConfig.enabled || !shareConfig.relayUrl) {
 			openUnavailableDialog();
 			return;
 		}
-		const session = await verifiedSession(shareConfig);
+		let session = await verifiedSession(shareConfig);
 		if (!session) {
-			openConnectDialog(shareConfig);
+			session = await beginDiscordShareAuthentication(shareConfig);
+			scheduleEntrypointSync();
+		}
+		const latest = captureEvents.latest;
+		if (!latest?.images?.length) {
+			toast("info", label("toast.verifiedRunFirst", "Discord membership verified. Run a workflow once before sharing."));
 			return;
 		}
 		await openSharePicker(shareConfig, session, latest);
 	} catch (error) {
-		toast("error", error.message);
+		if (error?.code === "not_member" && shareConfig) {
+			openMembershipRequiredDialog(error, shareConfig);
+		} else if (error?.code !== "cancelled") {
+			toast("error", error.message);
+		}
+	} finally {
+		setShareFlowBusy(false);
+		scheduleEntrypointSync();
 	}
 }
 
 async function openConnectionManager() {
 	await ensureI18nReady();
+	let shareConfig = null;
 	try {
-		const shareConfig = await config();
+		shareConfig = await config();
 		if (!shareConfig.enabled || !shareConfig.relayUrl) {
 			openUnavailableDialog();
 			return;
@@ -524,7 +571,8 @@ async function openConnectionManager() {
 		);
 		activeDialog = createDialog({ title: label("account.title", "Discord connection"), body, footer, size: "compact", onClose: () => { activeDialog = null; } });
 	} catch (error) {
-		toast("error", error.message);
+		if (error?.code === "not_member" && shareConfig) openMembershipRequiredDialog(error, shareConfig);
+		else toast("error", error.message);
 	}
 }
 
@@ -534,7 +582,7 @@ function createSettingsControl() {
 		ariaLabel: label("settings.placement", "Share entry location"),
 		className: "aa-discord-share-settings__placement",
 		options: [
-			{ value: "sidebar", label: label("settings.sidebar", "Sidebar") },
+			{ value: "sidebar", label: label("settings.sidebar", "Sidebar footer") },
 			{ value: "topbar", label: label("settings.topbar", "Top bar") },
 			{ value: "hidden", label: label("settings.hidden", "Hidden") },
 		],
@@ -622,6 +670,8 @@ app.registerExtension({
 		await ensureI18nReady();
 		registerSettings();
 		captureEvents.start();
+		try { await config(); }
+		catch (error) { console.warn("[Aaalice] Discord share configuration could not be loaded.", error); }
 		observeEntrypoints();
 	},
 	getNodeMenuItems(node) {

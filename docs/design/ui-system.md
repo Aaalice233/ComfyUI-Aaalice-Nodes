@@ -140,7 +140,7 @@ Markdown 使用随插件固定版本的 `marked` 解析，并由 `DOMPurify` 按
 
 | 组件 | 职责 |
 |---|---|
-| `createWorkspaceShell()` | 工作区切换、当前主题和内容挂载边界 |
+| `createWorkspaceShell()` | 工作区切换、当前主题、内容挂载和紧凑底栏边界 |
 | `createWorkspaceToolbar()` | 紧凑同排操作及可访问标签 |
 | `createCollapsibleSearch()` | 侧栏内同排展开的搜索入口、输入和关闭 |
 | `createPageRail()` / `createDashboardGrid()` / `createDashboardGroup()` / `createControlCard()` | Dashboard 页面导航、细粒度二维网格、可选布局组和参数投影的纯视图 |

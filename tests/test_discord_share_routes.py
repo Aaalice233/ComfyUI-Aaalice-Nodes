@@ -19,7 +19,7 @@ class DiscordShareRouteTests(unittest.TestCase):
                 {
                     "enabled": True,
                     "relay_url": "https://aaalice-discord-share.ljk2515448788ljk.workers.dev",
-                    "community_url": "",
+                    "community_url": "https://discord.gg/R48n6GwXzD",
                 },
             )
 

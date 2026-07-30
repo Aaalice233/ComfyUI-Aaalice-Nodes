@@ -13,7 +13,7 @@ from aiohttp import web
 
 API = "/aaalice/discord-share"
 DEFAULT_RELAY_URL = "https://aaalice-discord-share.ljk2515448788ljk.workers.dev"
-DEFAULT_COMMUNITY_URL = ""
+DEFAULT_COMMUNITY_URL = "https://discord.gg/R48n6GwXzD"
 _registered = False
 
 

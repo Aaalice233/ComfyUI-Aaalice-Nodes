@@ -6,10 +6,16 @@ Discord 分享属于 Aaalice Nodes 的社区功能，不依赖 Workflow Hub，�
 Webhook 暴露给浏览器、ComfyUI 后端或工作流。普通安装者只接触公开中继地址；
 Discord OAuth Client Secret、Webhook URL 和成员会话只由可信中继持有。
 
-入口默认位于 ComfyUI 侧栏底部。右键可固定到画布顶栏或隐藏；固定后侧栏不再
-显示，顶栏右键可收回侧栏。设置只保存一个 `sidebar | topbar | hidden` 三态值，
-隐藏状态始终能从 ComfyUI 设置恢复。侧栏入口只播放一次短促进入动效，悬停使用
-轻微右上位移；`prefers-reduced-motion` 下完全关闭位移。
+入口默认位于 Aaalice 工作区的紧凑侧栏底栏，与 GitHub 仓库、Discord 社区入口并列；
+侧栏固定按钮也归入底栏右侧，不占用工作区顶栏或 ComfyUI 全局侧栏导航。三个社区
+操作使用 GitHub、Discord 与纸飞机图标，保持一致的小型命中面和低强度表面，分享
+状态只通过右上角小状态点补充表达。
+
+分享按钮右键可固定到画布顶栏或隐藏；固定后底栏不再显示纸飞机，GitHub 与 Discord
+入口仍保留，顶栏右键可收回侧栏底栏。
+设置只保存一个 `sidebar | topbar | hidden` 三态值，隐藏状态始终能从 ComfyUI
+设置恢复。底栏是正常布局行，不遮挡参数内容或布局多选操作条；按钮只保留克制的
+tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下关闭位移与加载动画。
 
 ## 状态边界
 
@@ -28,14 +34,16 @@ Discord OAuth Client Secret、Webhook URL 和成员会话只由可信中继持�
 
 ## 分享流程
 
-1. 没有成功运行图像时，入口只显示原生 Toast，不打开空相册。
-2. 未连接时打开成员验证 Dialog；OAuth 仅申请 `identify` 与
+1. 首次点击且没有有效会话时立即开始 Discord OAuth 与目标服务器成员检测，
+   不要求工作流已经运行。OAuth 仅申请 `identify` 与
    `guilds.members.read`。中继完成页优先通过精确 Origin 的 `postMessage` 交还
    随机会话；客户端同时用一次性 PKCE 风格 verifier 轮询短时 handoff，即使
    Discord 切断 `window.opener` 也不需要从公网跨站导航到本地 ComfyUI。
-3. 中继在会话检查和每次发送前重新查询目标 Guild 成员身份；可选 Role 白名单在
+2. 中继在会话检查和每次发送前重新查询目标 Guild 成员身份；可选 Role 白名单在
    同一边界校验。未加入服务器时提供社区邀请和再次验证。
-4. 已验证时打开最新运行相册。大图是主内容，底部水平缩略图队列显示文件名与
+3. 验证成功但没有成功运行图像时只显示原生 Toast，不打开空相册；用户下次点击
+   无需再次授权。
+4. 已验证且存在结果时打开最新运行相册。大图是主内容，底部水平缩略图队列显示文件名与
    分辨率，键盘方向键可切换。
 5. 提示词缺失时保留相册但禁用发送，并指导用户右键 Preview Any 后重新运行。
 6. 发送按钮只提交当前图像和正面提示词。中继以 Discord 三反引号代码块发送；

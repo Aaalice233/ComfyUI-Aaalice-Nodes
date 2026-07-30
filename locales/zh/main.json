@@ -25,16 +25,17 @@
     "discordShare": {
       "title": "Discord 分享",
       "entry": { "short": "分享", "topbar": "分享上次运行的图像到 Discord", "connected": "分享上次运行的图像到 Discord · 已验证", "unverified": "分享上次运行的图像到 Discord · 需要验证" },
-      "menu": { "label": "Discord 分享入口", "toTopbar": "固定到画布顶栏", "toSidebar": "收回到侧栏", "hide": "隐藏分享入口" },
-      "settings": { "entry": "Discord 分享", "category": "Discord 分享", "placement": "分享入口位置", "sidebar": "侧栏", "topbar": "顶栏", "hidden": "隐藏", "account": "管理 Discord 连接" },
+      "menu": { "label": "Discord 分享入口", "toTopbar": "固定到画布顶栏", "toSidebar": "收回到侧栏底栏", "hide": "隐藏分享入口" },
+      "settings": { "entry": "Discord 分享", "category": "Discord 分享", "placement": "分享入口位置", "sidebar": "侧栏底栏", "topbar": "顶栏", "hidden": "隐藏", "account": "管理 Discord 连接" },
+      "dock": { "label": "Aaalice 社区链接", "repository": "打开 Aaalice Nodes GitHub 仓库", "community": "加入 Aaalice Discord 服务器" },
       "connect": { "title": "验证 Discord 身份", "serverOnly": "仅限服务器成员", "body": "Discord 登录只用于确认你是否属于服务器。Webhook 密钥始终保存在中继服务中，不会进入 ComfyUI。" },
-      "membership": { "title": "仅限服务器成员", "body": "请先加入 Aaalice Discord 服务器，然后再次验证。" },
+      "membership": { "title": "仅限服务器成员", "body": "请先加入 Aaalice Discord 服务器，加入后回到这里再次验证。" },
       "unavailable": { "title": "分享服务尚未配置", "body": "当前安装尚未配置 Aaalice Discord 中继地址。" },
       "account": { "title": "Discord 连接", "connected": "已连接的 Discord 账号", "verified": "已验证服务器成员身份", "ready": "可用" },
       "picker": { "title": "分享上次运行结果", "images": "上次运行生成的图像", "readingSize": "正在读取分辨率…", "prompt": "正面提示词", "promptUnavailable": "提示词不可用", "promptMissing": "请右键一个“预览任何”节点，将它设为 Discord 提示词来源，然后重新运行工作流。" },
       "promptSource": { "setMenu": "✈️ 设为 Discord 分享提示词", "clearMenu": "✈️ 取消 Discord 分享提示词" },
       "actions": { "cancel": "取消", "done": "完成", "connect": "连接 Discord", "join": "加入服务器", "verifyAgain": "再次验证", "send": "发送到 Discord", "sending": "正在发送…", "disconnect": "断开连接" },
-      "toast": { "runFirst": "请先运行一次工作流，再进行分享。", "connected": "Discord 服务器成员身份验证成功。", "sent": "图像和提示词已发送到 Discord。", "disconnected": "已断开 Discord 连接。", "promptSet": "提示词来源已设置。请保存并重新运行工作流后再分享。", "promptCleared": "Discord 提示词来源已清除，请保存工作流以保留修改。" }
+      "toast": { "runFirst": "请先运行一次工作流，再进行分享。", "verifiedRunFirst": "Discord 服务器成员身份已验证。请先运行一次工作流，再进行分享。", "connected": "Discord 服务器成员身份验证成功。", "sent": "图像和提示词已发送到 Discord。", "disconnected": "已断开 Discord 连接。", "promptSet": "提示词来源已设置。请保存并重新运行工作流后再分享。", "promptCleared": "Discord 提示词来源已清除，请保存工作流以保留修改。" }
     },
     "promptSelector": {
       "search": "搜索词库", "allCategories": "全部分类", "allCollections": "全部收藏夹",

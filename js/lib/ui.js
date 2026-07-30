@@ -11,10 +11,12 @@ const ICON_PATHS = {
 	copy: "M8 8h11v11H8zM5 16H4V5h11v1",
 	delete: "M4 7h16M9 11v5m6-5v5M8 7l1-3h6l1 3m2 0-1 13H7L6 7",
 	download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+	discord: "M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.618-1.25.077.077 0 0 0-.078-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.028C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.508 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 12.3 12.3 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128c-.598.343-1.22.645-1.873.891a.077.077 0 0 0-.041.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.548-13.66a.061.061 0 0 0-.031-.029ZM8.02 15.331c-1.182 0-2.157-1.086-2.157-2.419s.956-2.419 2.157-2.419c1.211 0 2.176 1.095 2.157 2.419 0 1.333-.956 2.419-2.157 2.419Zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419s.956-2.419 2.157-2.419c1.211 0 2.176 1.095 2.157 2.419 0 1.333-.946 2.419-2.157 2.419Z",
 	drag: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
 	edit: "M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4",
 	favorite: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2-4.5-4.4 6.2-.9L12 3Z",
 	filter: "M4 5h16l-6 7v6l-4 2v-8L4 5Z",
+	github: "M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.28 0 6.72-1.61 6.72-7A5.4 5.4 0 0 0 19.22 4 5 5 0 0 0 19 1.5S17.73 1.1 15 3.02a13.38 13.38 0 0 0-6 0C6.27 1.1 5 1.5 5 1.5A5 5 0 0 0 4.78 4a5.4 5.4 0 0 0-1.5 3.5c0 5.42 3.44 7 6.72 7A4.8 4.8 0 0 0 9 18v4M9 18c-4.51 2-5-2-7-2",
 	layout: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
 	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
 	loading: "M21 12a9 9 0 1 1-6.22-8.56",
@@ -54,6 +56,9 @@ const ICON_PATHS = {
 	tag: "M20 13 13 20 4 11V4h7l9 9ZM8.5 8.5h.01",
 	upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
 };
+// Discord has no Lucide brand glyph; keep its official silhouette as the one
+// filled exception so the community action is recognizable at compact sizes.
+const FILLED_ICONS = new Set(["discord"]);
 
 export function hasIcon(name) {
 	return Object.prototype.hasOwnProperty.call(ICON_PATHS, name);
@@ -319,8 +324,9 @@ export function icon(name, { label = null, className = "" } = {}) {
 	const svg = document.createElementNS(SVG_NS, "svg");
 	svg.setAttribute("viewBox", "0 0 24 24");
 	svg.setAttribute("class", `aa-ui-icon${className ? ` ${className}` : ""}`);
-	svg.setAttribute("fill", "none");
-	svg.setAttribute("stroke", "currentColor");
+	const filled = FILLED_ICONS.has(name);
+	svg.setAttribute("fill", filled ? "currentColor" : "none");
+	svg.setAttribute("stroke", filled ? "none" : "currentColor");
 	svg.setAttribute("stroke-width", "1.8");
 	svg.setAttribute("stroke-linecap", "round");
 	svg.setAttribute("stroke-linejoin", "round");
