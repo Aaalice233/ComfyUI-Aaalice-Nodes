@@ -25,7 +25,7 @@
     "discordShare": {
       "title": "Discord Share",
       "entry": { "short": "Share", "topbar": "Share latest image to Discord", "connected": "Share latest image to Discord · connected", "unverified": "Share latest image to Discord · verification required" },
-      "menu": { "label": "Discord share entry", "toTopbar": "Pin to canvas top bar", "toSidebar": "Move back to sidebar footer", "hide": "Hide share entry" },
+      "menu": { "label": "Discord share entry", "toTopbar": "Pin to canvas top bar", "toSidebar": "Move back to sidebar footer", "hide": "Hide share entry", "hideConfirmTitle": "Hide Discord share?", "hideConfirmBody": "You can restore the share entry later in Settings > Aaalice Nodes > Discord Share." },
       "settings": { "entry": "Discord Share", "category": "Discord Share", "placement": "Share entry location", "sidebar": "Sidebar footer", "topbar": "Top bar", "hidden": "Hidden", "account": "Manage Discord connection" },
       "dock": { "label": "Aaalice community links", "repository": "Open the Aaalice Nodes GitHub repository", "community": "Join the Aaalice Discord server" },
       "connect": { "title": "Verify with Discord", "serverOnly": "Members only", "body": "Discord sign-in only confirms that you belong to the server. The webhook secret stays on the relay and is never stored in ComfyUI." },

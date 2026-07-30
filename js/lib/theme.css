@@ -2981,6 +2981,12 @@
 .aa-discord-share-dock > .aa-ui-button .aa-ui-icon { width: 15px; height: 15px; }
 .aa-discord-share-entry {
 	position: relative;
+	outline: 0;
+	font: inherit;
+	cursor: pointer;
+	transition: color .16s ease, background-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.aa-discord-share-entry:not(.aa-discord-share-entry--topbar) {
 	display: grid;
 	width: 30px;
 	height: 30px;
@@ -2988,13 +2994,9 @@
 	place-items: center;
 	border: 1px solid transparent;
 	border-radius: 8px;
-	outline: 0;
 	background: transparent;
 	box-shadow: none;
 	color: color-mix(in srgb, var(--aa-ui-muted) 88%, var(--aa-ui-text));
-	font: inherit;
-	cursor: pointer;
-	transition: color .16s ease, background-color .16s ease, transform .16s ease, box-shadow .16s ease;
 }
 .aa-ui-button.aa-discord-share-entry:hover:not(:disabled) {
 	background: color-mix(in srgb, var(--aa-ui-accent) 9%, var(--aa-ui-surface-raised));
@@ -3025,7 +3027,7 @@
 	stroke-width: 2;
 	transition: transform .16s ease;
 }
-.aa-discord-share-entry:hover .aa-discord-share-entry__icon { transform: translate(1px, -1px); }
+.aa-discord-share-entry:not(.aa-discord-share-entry--topbar):hover .aa-discord-share-entry__icon { transform: translate(1px, -1px); }
 .aa-discord-share-entry__status {
 	position: absolute;
 	top: 3px;
@@ -3042,15 +3044,13 @@
 }
 .aa-discord-share-entry[data-flow-state="busy"] .aa-discord-share-entry__status { opacity: 0; }
 button.aa-discord-share-entry--topbar {
-	width: 32px;
-	min-width: 32px;
-	height: 32px;
-	min-height: 32px;
 	padding: 6px;
+	border: 1px solid transparent;
 	border-radius: 4px;
 	background-color: var(--primary-bg) !important;
 	box-shadow: none;
 	color: var(--p-primary-contrast-color, #fff);
+	transition: background-color .2s ease;
 }
 button.aa-discord-share-entry--topbar:hover:not(:disabled),
 button.aa-discord-share-entry--topbar:focus-visible {
@@ -3072,8 +3072,10 @@ button.aa-discord-share-entry--topbar:disabled {
 	border-top-color: var(--p-primary-contrast-color, #fff);
 }
 .aa-discord-share-entry--topbar .aa-discord-share-entry__icon {
+	display: block;
 	width: 20px;
 	height: 20px;
+	flex: none;
 	color: inherit !important;
 }
 .aa-discord-share-entry--topbar .aa-discord-share-entry__status {

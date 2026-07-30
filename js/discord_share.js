@@ -257,17 +257,30 @@ function setShareFlowBusy(busy) {
 	for (const entry of entryButtons) syncEntryState(entry);
 }
 
+async function confirmHideEntry() {
+	const title = label("menu.hideConfirmTitle", "Hide Discord share?");
+	const message = label("menu.hideConfirmBody", "You can restore the share entry later in Settings > Aaalice Nodes > Discord Share.");
+	if (app.extensionManager?.dialog?.confirm) {
+		return Boolean(await app.extensionManager.dialog.confirm({ title, message }));
+	}
+	return Boolean(globalThis.confirm(message));
+}
+
+async function hideEntry() {
+	if (await confirmHideEntry()) setPlacement("hidden");
+}
+
 function showEntryContextMenu(event, surface) {
 	event.preventDefault();
 	event.stopPropagation();
 	const items = surface === "topbar"
 		? [
 			{ label: label("menu.toSidebar", "Move back to sidebar footer"), iconName: "move", onSelect: () => setPlacement("sidebar") },
-			{ label: label("menu.hide", "Hide share entry"), iconName: "close", onSelect: () => setPlacement("hidden") },
+			{ label: label("menu.hide", "Hide share entry"), iconName: "close", onSelect: () => void hideEntry() },
 		]
 		: [
 			{ label: label("menu.toTopbar", "Pin to canvas top bar"), iconName: "pin", onSelect: () => setPlacement("topbar") },
-			{ label: label("menu.hide", "Hide share entry"), iconName: "close", onSelect: () => setPlacement("hidden") },
+			{ label: label("menu.hide", "Hide share entry"), iconName: "close", onSelect: () => void hideEntry() },
 		];
 	createContextMenu({
 		x: event.clientX,
@@ -336,7 +349,12 @@ function attachSidebarEntry() {
 
 function bindTopbarButton(buttonElement, iconElement) {
 	buttonElement.classList.add("aa-discord-share-entry", "aa-discord-share-entry--topbar");
-	iconElement.classList.add("aa-discord-share-entry__icon");
+	let shareIcon = iconElement;
+	if (!shareIcon.matches("svg.aa-ui-icon")) {
+		shareIcon = icon("send", { className: TOPBAR_ICON_CLASS });
+		iconElement.replaceWith(shareIcon);
+	}
+	shareIcon.classList.add("aa-discord-share-entry__icon");
 	if (!buttonElement.querySelector(".aa-discord-share-entry__status")) {
 		buttonElement.append(el("span", { className: "aa-discord-share-entry__status", attrs: { "aria-hidden": "true" } }));
 	}
@@ -1081,7 +1099,7 @@ function promptSourceMenu(node) {
 app.registerExtension({
 	name: EXTENSION_NAME,
 	actionBarButtons: [{
-		icon: `${TOPBAR_ICON_CLASS} icon-[lucide--send] size-4`,
+		icon: TOPBAR_ICON_CLASS,
 		get tooltip() { return label("entry.topbar", "Share latest image to Discord"); },
 		onClick: () => void openShareFlow(),
 	}],

@@ -25,7 +25,7 @@
     "discordShare": {
       "title": "Discord 分享",
       "entry": { "short": "分享", "topbar": "分享上次运行的图像到 Discord", "connected": "分享上次运行的图像到 Discord · 已验证", "unverified": "分享上次运行的图像到 Discord · 需要验证" },
-      "menu": { "label": "Discord 分享入口", "toTopbar": "固定到画布顶栏", "toSidebar": "收回到侧栏底栏", "hide": "隐藏分享入口" },
+      "menu": { "label": "Discord 分享入口", "toTopbar": "固定到画布顶栏", "toSidebar": "收回到侧栏底栏", "hide": "隐藏分享入口", "hideConfirmTitle": "隐藏 Discord 分享？", "hideConfirmBody": "隐藏后仍可在“设置 > Aaalice Nodes > Discord 分享”中恢复入口。" },
       "settings": { "entry": "Discord 分享", "category": "Discord 分享", "placement": "分享入口位置", "sidebar": "侧栏底栏", "topbar": "顶栏", "hidden": "隐藏", "account": "管理 Discord 连接" },
       "dock": { "label": "Aaalice 社区链接", "repository": "打开 Aaalice Nodes GitHub 仓库", "community": "加入 Aaalice Discord 服务器" },
       "connect": { "title": "验证 Discord 身份", "serverOnly": "仅限服务器成员", "body": "Discord 登录只用于确认你是否属于服务器。Webhook 密钥始终保存在中继服务中，不会进入 ComfyUI。" },

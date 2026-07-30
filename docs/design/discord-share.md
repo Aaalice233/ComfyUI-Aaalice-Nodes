@@ -11,7 +11,7 @@ Discord OAuth Client Secret、Webhook URL 和成员会话只由可信中继持�
 操作使用 GitHub、Discord 与纸飞机图标，保持一致的小型命中面和低强度表面，分享
 状态只通过右上角小状态点补充表达。
 
-分享按钮右键可固定到画布顶栏或隐藏；固定后底栏不再显示纸飞机，GitHub 与 Discord
+分享按钮右键可固定到画布顶栏或隐藏；隐藏前必须二次确认，并明确可从设置恢复。固定后底栏不再显示纸飞机，GitHub 与 Discord
 入口仍保留，顶栏右键可收回侧栏底栏。顶栏入口使用与 Workflow Hub、LoRA Manager
 一致的蓝色方形主表面和白色图标；会话状态点、加载反馈及键盘焦点不得破坏按钮尺寸。
 设置只保存一个 `sidebar | topbar | hidden` 三态值，隐藏状态始终能从 ComfyUI
