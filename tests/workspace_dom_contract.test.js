@@ -427,7 +427,7 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.match(theme, /\.aa-dashboard-grid-v2, \.aa-dashboard-group-grid \{[^}]*grid-auto-rows: 4px;[^}]*align-items: stretch;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\);[^}]*grid-template-rows: 14px 32px;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-title \{[^}]*grid-column: 1;[^}]*grid-row: 1;/);
-	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*grid-column: 1;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-boolean \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-boolean \{[^}]*width: 100%;[^}]*height: 32px;/);
 	assert.doesNotMatch(theme, /\.aa-control-card-header \.aa-control-boolean-status \{\s*display: none;/);
@@ -860,7 +860,7 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(theme, /\.aa-control-choice-select \.aa-ui-select__native \{[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(theme, /data-control-kind="taglist"[^}]*aa-taglist-control[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);
-	assert.match(theme, /\.aa-dashboard-group \{[^}]*padding:\s*6px 7px 7px 8px;/);
+	assert.match(theme, /\.aa-dashboard-group \{[^}]*padding:\s*7px 7px 7px 8px;/);
 	assert.match(theme, /\.aa-dashboard-group \{[^}]*border-left:/);
 	assert.match(theme, /\.aa-dashboard-group-header \{[^}]*min-height:\s*24px;/);
 	assert.doesNotMatch(dashboardComponents, /aa-dashboard-group-count/);
