@@ -54,6 +54,16 @@ QuickGroupManager 是当前图的纯前端组控制器。它不参与 Prompt I/O
 - 执行前先计算完整级联和节点模式变更；跨颜色目标作为终点，规则不跨 Manager 继续传播。
 - 同一节点因重叠组收到不同最终模式时整次操作中止；失败不得留下部分修改。
 
+## Workspace 快速组页面
+
+`⚡ 快速组` 页面与 Controls、Groups、Library 并列，是 QuickGroupManager 的只读聚合视图。它不持有工作流状态，所有开关和 Mute / Bypass 操作都委托给 `js/lib/quick_group_manager_runtime.js`。
+
+- 页面使用 `allGraphNodes()` 扫描根图、嵌套 Subgraph 和共享 Subgraph 定义；同一 Manager 只显示一次，并按 Manager 所属 graph 分卡。
+- 卡片显示 Manager 名称、作用域、组数量、Mute / Bypass，以及每个组的颜色、节点数、实时状态、定位按钮和快速开关。
+- 定位前切换到 Manager 所属 graph，再使用 `navigateToVisualGroup()`；定位只改变画布视图，不改变节点模式或组状态。
+- 搜索是会话状态，只筛选 Manager 与组名称；`graphChanged` 在动画帧内合并刷新，不使用轮询。
+- Classic 与 Nodes 2.0 复用共享控件、焦点和滚动语义；空状态和窄侧栏保持可读，状态不能只靠颜色表达。
+
 ## 验收重点
 
 - 顶栏在最小宽度下不换行、不截断标题，Switcher 保持居中；节点可自由拉宽和增高，缩短时受当前内容下限约束，增高后内容仍靠上且行距不变。

@@ -147,11 +147,12 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 ### QuickGroupManager
 
-1. 全局 `graphChanged` 监听在动画帧内合并刷新，实例只读取当前图的组快照。
-2. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化。
-3. 环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
-4. 通过预检后，在一个图变更边界内提交全部模式；其它 Manager 只刷新显示。
-5. 节点行与侧边栏组导航共用组边界适配器；优先平滑适配完整边界，旧画布 API 回退到保持当前缩放的中心定位，均不修改图状态。
+1. `quick_group_manager_runtime.js` 是节点 DOM 与 workspace 聚合页共用的唯一发现、快照、级联预检和图事务边界；两种表面不复制 Manager 状态。
+2. 全局 `graphChanged` 监听在动画帧内合并刷新，节点实例和 workspace 只读取所属 graph 的实时组快照。
+3. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化；环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
+4. 通过预检后，在一个 Manager 所属 graph 的变更边界内提交全部模式；其它 Manager 只刷新显示。
+5. workspace 通过 `allGraphNodes()` 扫描根图、嵌套 Subgraph 和共享 Subgraph 定义，按 Manager 所属 graph 分卡；组定位先切换到所属 graph，不以 `app.graph` 猜测作用域。
+6. 节点行与 workspace 组行共用组边界适配器；定位只改变画布视图，不修改 Manager 状态。
 
 ### 节点强调色
 
@@ -260,7 +261,7 @@ const unregister = registerParameterOptionSourceAdapter({
 
 - KJNodes 只对 ParameterReceiver 的绑定、同步、ParameterPanel 的 Set/Get 辅助功能，以及 EnumSwitch 通过 Get 自动识别参数源可选依赖；缺失时明确报错，不模拟成功。跨图绑定只允许面板位于当前节点所在图或父级图，保持 KJNodes 的词法作用域。
 - Classic 与 Nodes 2.0 为支持范围；App Mode 暂不支持。
-- ParameterReceiver 的节点与真实槽只作用于自身所在图；托管 Get 默认留在接收器所属图，已有 Get 位于合法下级子图时保持原作用域，并沿真实 Subgraph 边界维护连接。禁止把子图中的 Get 隐式移动到 `app.graph` 或当前可见画布图。QuickGroupManager 仍只作用于当前图，不递归修改 Subgraph 内部图。
+- ParameterReceiver 的节点与真实槽只作用于自身所在图；托管 Get 默认留在接收器所属图，已有 Get 位于合法下级子图时保持原作用域，并沿真实 Subgraph 边界维护连接。禁止把子图中的 Get 隐式移动到 `app.graph` 或当前可见画布图。QuickGroupManager 节点只修改自身所属 graph；workspace 的“⚡ 快速组”页只做跨 graph 的聚合视图，不递归改写其它 Manager 的状态。
 - DIY 侧边栏只投影 Subgraph 整体公开的兼容 widget，不遍历或绑定内部节点。
 - SimpleNotify 只在发起执行的前端产生提醒，不表示并行分支、整个工作流或队列完成。
 - ResolutionPreset 只输出精确宽高；比例与 MP 为只读摘要，不负责图像、Latent、模型推荐、裁剪、缩放或 batch。

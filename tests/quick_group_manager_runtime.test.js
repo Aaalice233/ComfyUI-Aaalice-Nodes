@@ -1,0 +1,94 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+	applyQuickGroupManagerAction,
+	quickGroupManagerNodes,
+	quickGroupManagerSnapshot,
+	setQuickGroupManagerOffMode,
+} from "../js/lib/quick_group_manager_runtime.js";
+import { GROUP_MODE } from "../js/lib/quick_group_manager_model.js";
+
+function group(id, title, nodes, color = null) {
+	return { id, title, nodes, color, recomputeInsideNodes() {} };
+}
+
+function manager(graph, id, state = {}) {
+	return { id, type: "QuickGroupManager", comfyClass: "QuickGroupManager", graph, properties: { quickGroupManagerState: state } };
+}
+
+function graph(id, groups = []) {
+	return { id, _groups: groups, _nodes: [], beforeChangeCount: 0, afterChangeCount: 0, changeCount: 0, dirtyCount: 0,
+		beforeChange() { this.beforeChangeCount++; }, afterChange() { this.afterChangeCount++; }, change() { this.changeCount++; }, setDirtyCanvas() { this.dirtyCount++; } };
+}
+
+function node(mode = GROUP_MODE.ALWAYS) {
+	return { mode };
+}
+
+test("discovers root, nested and shared subgraph managers once", () => {
+	const root = graph("root");
+	root.rootGraph = root;
+	const nested = graph("nested");
+	nested.rootGraph = root;
+	const rootManager = manager(root, 1);
+	const nestedManager = manager(nested, 2);
+	const wrapperA = { id: 10, subgraph: nested };
+	const wrapperB = { id: 11, subgraph: nested };
+	root._nodes = [rootManager, wrapperA, wrapperB];
+	nested._nodes = [nestedManager];
+	assert.deepEqual(quickGroupManagerNodes(root), [rootManager, nestedManager]);
+});
+
+test("returns an ordered, filtered read-only snapshot for the manager graph", () => {
+	const red = group("red", "Red", [node()], "#ff0000");
+	const blue = group("blue", "Blue", [node()], "#0000ff");
+	const managerGraph = graph("root", [red, blue]);
+	const current = manager(managerGraph, 1, { groupOrder: ["blue", "red"], filter: { mode: "selected", colors: ["#0000ff"] } });
+	const snapshot = quickGroupManagerSnapshot(current);
+	assert.equal(snapshot.state.filter.mode, "selected");
+	assert.deepEqual(snapshot.visibleGroups.map((item) => item.id), ["blue"]);
+	assert.deepEqual(snapshot.groups.map((item) => item.id), ["red", "blue"]);
+});
+
+test("applies a linkage cascade in one graph transaction", () => {
+	const first = group("first", "First", [node()]);
+	const secondNode = node();
+	const second = group("second", "Second", [secondNode]);
+	const managerGraph = graph("root", [first, second]);
+	const current = manager(managerGraph, 1, { rules: { first: { disable: { second: "disable" } } } });
+	const result = applyQuickGroupManagerAction(current, "first", "disable");
+	assert.equal(result.ok, true);
+	assert.equal(first.nodes[0].mode, GROUP_MODE.NEVER);
+	assert.equal(secondNode.mode, GROUP_MODE.NEVER);
+	assert.equal(managerGraph.beforeChangeCount, 1);
+	assert.equal(managerGraph.afterChangeCount, 1);
+	assert.equal(managerGraph.changeCount, 1);
+	assert.equal(managerGraph.dirtyCount, 1);
+});
+
+test("updates the off mode without a second transaction when unchanged", () => {
+	const disabled = group("disabled", "Disabled", [node(GROUP_MODE.NEVER)]);
+	const managerGraph = graph("root", [disabled]);
+	const current = manager(managerGraph, 1, { offMode: "mute" });
+	const changed = setQuickGroupManagerOffMode(current, "bypass");
+	assert.equal(changed.ok, true);
+	assert.equal(changed.offMode, "bypass");
+	assert.equal(current.properties.quickGroupManagerState.offMode, "bypass");
+	assert.equal(managerGraph.beforeChangeCount, 1);
+	const unchanged = setQuickGroupManagerOffMode(current, "bypass");
+	assert.equal(unchanged.ok, true);
+	assert.equal(unchanged.changed, false);
+	assert.equal(managerGraph.beforeChangeCount, 1);
+});
+
+test("rejects invalid linkage before changing node modes", () => {
+	const first = group("first", "First", [node()]);
+	const second = group("second", "Second", [node()]);
+	const managerGraph = graph("root", [first, second]);
+	const current = manager(managerGraph, 1, { rules: { first: { disable: { missing: "disable" } } } });
+	const result = applyQuickGroupManagerAction(current, "first", "disable");
+	assert.equal(result.ok, false);
+	assert.equal(result.code, "missing");
+	assert.equal(first.nodes[0].mode, GROUP_MODE.ALWAYS);
+	assert.equal(managerGraph.beforeChangeCount, 0);
+});

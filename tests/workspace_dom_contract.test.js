@@ -203,6 +203,25 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(zhLocale, /"groupNavigation"/);
 });
 
+test("aggregates QuickGroupManagers across graph scopes in a dedicated workspace page", () => {
+	assert.match(workspace, /value: "quickGroups"/);
+	assert.match(workspace, /function renderQuickGroups/);
+	assert.match(workspace, /allGraphNodes\(app\.graph\)/);
+	assert.match(workspace, /quickGroupManagerSnapshot/);
+	assert.match(workspace, /createQuickGroupManagerCard/);
+	assert.match(workspace, /navigateQuickGroupManagerGroup/);
+	assert.match(workspace, /setQuickGroupManagerOffMode/);
+	assert.match(workspace, /applyQuickGroupManagerAction/);
+	assert.match(workspace, /quickGroups: \{ query: "", searchOpen: false/);
+	assert.match(workspace, /aaalice\.workspace\.quickGroups\.search/);
+	assert.match(workspace, /aaalice\.workspace\.quickGroups\.empty/);
+	assert.match(theme, /data-workspace="quickGroups"/);
+	assert.match(theme, /aa-quick-groups-card/);
+	assert.match(enLocale, /"quickGroups"/);
+	assert.match(zhLocale, /"quickGroups"/);
+	assert.doesNotMatch(workspace, /setInterval\s*\(/);
+});
+
 test("providers cover generic, Aaalice and public subgraph widgets by stable host identity", () => {
 	assert.match(providers, /HOST_ID_PROPERTY/);
 	assert.match(providers, /aaalice-parameter/);

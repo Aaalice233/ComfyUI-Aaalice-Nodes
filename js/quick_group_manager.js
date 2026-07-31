@@ -5,6 +5,14 @@ import { ensureI18nReady, t } from "./i18n.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { allGraphNodes } from "./lib/graph_scope.js";
+import {
+	applyQuickGroupManagerAction,
+	isQuickGroupManager,
+	quickGroupManagerGroups,
+	quickGroupManagerSnapshot,
+	quickGroupManagerState,
+	setQuickGroupManagerOffMode,
+} from "./lib/quick_group_manager_runtime.js";
 import { navigateToVisualGroup } from "./lib/group_navigation.js";
 import { button, createAnchoredPopover, createTooltip, el, emptyState, icon, iconButton, isolate, segmentedControl } from "./lib/ui.js";
 import {
@@ -12,10 +20,7 @@ import {
 	classifyGroupNodes,
 	groupMatchesFilter,
 	normalizeColor,
-	normalizeQuickGroupState,
 	orderedVisibleGroups,
-	planLinkageCascade,
-	planNodeModeChanges,
 	reconcileGroupOrder,
 	reorderVisibleGroups,
 	ruleCount,
@@ -48,19 +53,15 @@ function toast(severity, detail) {
 }
 
 function isManager(node) {
-	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE);
+	return isQuickGroupManager(node);
 }
 
 function stateFor(node) {
-	node.properties ||= {};
-	node.properties[PROPERTY] = normalizeQuickGroupState(node.properties[PROPERTY]);
-	return node.properties[PROPERTY];
+	return quickGroupManagerState(node);
 }
 
 function groupsFor(node) {
-	const groups = [...(node.graph?._groups || [])];
-	for (const group of groups) group.recomputeInsideNodes?.();
-	return groups;
+	return quickGroupManagerGroups(node);
 }
 
 function groupLabel(group) {
@@ -350,31 +351,14 @@ function openRuleEditor(node, sourceGroup, anchor) {
 }
 
 function applyGroupAction(node, sourceId, action) {
-	const groups = groupsFor(node);
-	const state = stateFor(node);
-	const groupsById = new Map(groups.map((group) => [String(group.id), group]));
-	const scope = new Set(groups.filter((group) => groupMatchesFilter(group, state.filter)).map((group) => String(group.id)));
-	const known = new Set(groupsById.keys());
-	const cascade = planLinkageCascade({ sourceId, action, rules: state.rules, scopedIds: scope, knownIds: known });
-	if (!cascade.ok) { toast("error", ruleErrorText(cascade)); return; }
-	const plan = planNodeModeChanges(cascade.assignments, groupsById, state.offMode);
-	if (!plan.ok) { toast("error", ruleErrorText(plan)); return; }
-	commit(node, () => { for (const [target, mode] of plan.nodeModes) target.mode = mode; });
+	const result = applyQuickGroupManagerAction(node, sourceId, action);
+	if (!result.ok) { toast("error", ruleErrorText(result)); return; }
 	render(node);
 }
 
 function switchOffMode(node, offMode) {
-	const groups = groupsFor(node);
-	const state = stateFor(node);
-	if (state.offMode === offMode) return;
-	const scoped = groups.filter((group) => groupMatchesFilter(group, state.filter));
-	const assignments = new Map(scoped.filter((group) => classifyGroupNodes(group.nodes) === GROUP_STATE.DISABLED).map((group) => [String(group.id), "disable"]));
-	const plan = planNodeModeChanges(assignments, new Map(groups.map((group) => [String(group.id), group])), offMode);
-	if (!plan.ok) { toast("error", ruleErrorText(plan)); return; }
-	commit(node, () => {
-		state.offMode = offMode;
-		for (const [target, mode] of plan.nodeModes) target.mode = mode;
-	});
+	const result = setQuickGroupManagerOffMode(node, offMode);
+	if (!result.ok) { toast("error", ruleErrorText(result)); return; }
 	render(node);
 }
 
@@ -506,10 +490,9 @@ function render(node) {
 	if (popoverAnchor && !toolbar.contains(popoverAnchor)) closePopover(node);
 	const hoverAnchor = node._aaaliceQuickHoverTooltip?.anchor;
 	if (hoverAnchor && !toolbar.contains(hoverAnchor)) closeHoverTooltip(node);
-	const groups = groupsFor(node);
-	const state = stateFor(node);
+	const snapshot = quickGroupManagerSnapshot(node);
+	const { groups, state, visibleGroups } = snapshot;
 	state.groupOrder = reconcileGroupOrder(state.groupOrder, groups);
-	const visibleGroups = orderedVisibleGroups(groups, state);
 	syncToolbar(node, state);
 	const list = el("div", { className: "aaalice-qgm-list", attrs: { role: "list", "aria-label": t("aaalice.quickGroup.groups", "Workflow groups") } });
 	if (visibleGroups.length) for (const group of visibleGroups) list.append(groupRow(node, group, visibleGroups));
@@ -666,7 +649,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node.onConfigure = function () {
 		const result = previousConfigure?.apply(this, arguments);
 		this._aaaliceQuickConfigured = true;
-		this.properties[PROPERTY] = normalizeQuickGroupState(this.properties?.[PROPERTY]);
+		quickGroupManagerState(this);
 		this._aaaliceQuickAccent?.sync();
 		requestAnimationFrame(() => {
 			enforceMinimumSize(this);

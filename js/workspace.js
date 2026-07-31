@@ -23,15 +23,17 @@ import { promptLibraryStore } from "./lib/library_store.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
 import { navigateToVisualGroup, visualGroups } from "./lib/group_navigation.js";
+import { allGraphNodes, graphId, graphPath } from "./lib/graph_scope.js";
 import { addGroupNavigationEntry, emptyGroupNavigation, isEditableShortcutTarget, normalizeGroupNavigation, removeGroupNavigationEntry, setGroupNavigationOffset, setGroupNavigationShortcut, setGroupNavigationZoom, shortcutFromKeyboardEvent, shortcutLabel } from "./lib/group_navigation_model.js";
 import { classifyGroupNodes, GROUP_STATE, normalizeColor } from "./lib/quick_group_manager_model.js";
+import { applyQuickGroupManagerAction, isQuickGroupManager, quickGroupManagerSnapshot, setQuickGroupManagerOffMode } from "./lib/quick_group_manager_runtime.js";
 import { applyCategoryColor, categorySelectOption, nativeCategoryOption } from "./lib/category_color.js";
 import { collectionDisplayName, isDefaultCollection } from "./lib/collection.js";
 import { badge, button, createContextMenu, createDialog, createTooltip, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl, toggleSwitch } from "./lib/ui.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow,
-	createDashboardPageHeading, createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
+	createDashboardPageHeading, createDashboardPresetPicker, createQuickGroupManagerCard, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
@@ -59,6 +61,7 @@ const workspaceViewState = {
 	dashboard: { query: "", searchOpen: false, focusSearch: false, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
 	library: { query: "", searchOpen: false, focusSearch: false, categoryId: "", collectionId: "", selected: new Set() },
 	groups: { query: "", searchOpen: false, focusSearch: false },
+	quickGroups: { query: "", searchOpen: false, focusSearch: false },
 };
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -88,7 +91,7 @@ function saveSidebarPinned(value) {
 }
 
 export function openWorkspace(view = "dashboard") {
-	if (!["dashboard", "groups", "library"].includes(view)) throw new Error(`[Aaalice] Unknown workspace view: ${view}`);
+	if (!["dashboard", "groups", "library", "quickGroups"].includes(view)) throw new Error(`[Aaalice] Unknown workspace view: ${view}`);
 	const sidebar = app.extensionManager?.sidebarTab;
 	if (!sidebar || !("activeSidebarTabId" in sidebar)) throw new Error("[Aaalice] ComfyUI sidebar state is unavailable");
 	activeWorkspace = view;
@@ -228,6 +231,7 @@ function scheduleGraphSync() {
 		const signature = graphSyncSignature();
 		if (signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleRender("dashboard"); }
 		scheduleRender("groups");
+		scheduleRender("quickGroups");
 	});
 }
 
@@ -1753,6 +1757,109 @@ function handleGroupNavigationShortcut(event) {
 	navigateFromWorkspace(group, entry.offset, entry.zoom);
 }
 
+function workspaceQuickGroupManagerNodes() {
+	return allGraphNodes(app.graph).filter(isQuickGroupManager);
+}
+
+function quickGroupManagerLabel(manager, index) {
+	const title = String(manager?.title || manager?.properties?.title || "").trim();
+	return title && title !== manager?.type ? title : `${t("aaalice.workspace.quickGroups.manager", "Quick Group Manager")} #${index + 1}`;
+}
+
+function quickGroupManagerScopeLabel(manager) {
+	const graph = manager?.graph;
+	if (!graph || graph === app.graph || graph === app.graph?.rootGraph) return t("aaalice.workspace.quickGroups.rootScope", "Root graph");
+	const path = graphPath(graph) || [];
+	const parentNames = path.map((wrapper) => String(wrapper?.title || wrapper?.type || "Subgraph").trim()).filter(Boolean);
+	return parentNames.length ? `${t("aaalice.workspace.quickGroups.subgraphScope", "Subgraph")} · ${parentNames.join(" / ")}` : `${t("aaalice.workspace.quickGroups.subgraphScope", "Subgraph")} · ${graphId(graph)}`;
+}
+
+function quickGroupStatusLabel(status) {
+	return {
+		[GROUP_STATE.ENABLED]: t("aaalice.workspace.quickGroups.status.enabled", "Enabled"),
+		[GROUP_STATE.DISABLED]: t("aaalice.workspace.quickGroups.status.disabled", "Disabled"),
+		[GROUP_STATE.MIXED]: t("aaalice.workspace.quickGroups.status.mixed", "Mixed"),
+		[GROUP_STATE.EMPTY]: t("aaalice.workspace.quickGroups.status.empty", "Empty"),
+	}[status] || t("aaalice.workspace.quickGroups.status.unknown", "Unknown");
+}
+
+function navigateQuickGroupManagerGroup(manager, group) {
+	const canvas = app.canvas;
+	if (manager?.graph && canvas?.graph !== manager.graph && typeof canvas?.setGraph === "function") {
+		canvas.setGraph(manager.graph);
+	}
+	if (!navigateToVisualGroup(canvas, group, { zoom: 0.82 })) {
+		app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.workspace.quickGroups.title", "Quick Group Managers"), detail: t("aaalice.workspace.quickGroups.navigateUnavailable", "This group cannot be located on the current canvas.") });
+		return;
+	}
+	if (!sidebarPinned && app.extensionManager?.sidebarTab?.activeSidebarTabId === TAB_ID) app.extensionManager.sidebarTab.toggleSidebarTab?.(TAB_ID);
+}
+
+function quickGroupManagerView(manager, index) {
+	const snapshot = quickGroupManagerSnapshot(manager);
+	const groups = snapshot.visibleGroups.map((group) => {
+		const status = classifyGroupNodes(group?.nodes);
+		const label = String(group?.title || t("aaalice.quickGroup.untitled", "Untitled group"));
+		return { group, id: String(group?.id), label, status, statusLabel: quickGroupStatusLabel(status), nodeCount: Array.isArray(group?.nodes) ? group.nodes.length : 0, color: normalizeColor(group?.color), toggleLabel: message("aaalice.workspace.quickGroups.toggle", "Toggle {group}", { group: label }) };
+	});
+	return { manager, index, snapshot, groups };
+}
+
+function renderQuickGroups(container) {
+	const viewState = workspaceViewState.quickGroups;
+	const focusSearch = viewState.focusSearch; viewState.focusSearch = false;
+	const managers = workspaceQuickGroupManagerNodes().map((manager, index) => quickGroupManagerView(manager, index));
+	let draw = () => {};
+	const search = createCollapsibleSearch({
+		open: viewState.searchOpen, value: viewState.query, focus: focusSearch, disabled: managers.length === 0,
+		label: t("aaalice.workspace.quickGroups.search", "Search Quick Group Managers"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.quickGroups.searchPlaceholder", "Search managers or groups"),
+		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; scheduleRender("quickGroups"); },
+		onInput: (value) => { viewState.query = value; draw(value); },
+	});
+	const count = badge(message("aaalice.workspace.quickGroups.count", "{count} managers", { count: managers.length }), { className: "aa-quick-groups-count" });
+	const toolbar = createWorkspaceToolbar(viewState.searchOpen ? [search.panel] : [
+		el("div", { className: "aa-quick-groups-heading", children: [el("strong", null, t("aaalice.workspace.quickGroups.title", "Quick Group Managers")), count] }), search.toggle,
+	], { className: `aa-quick-groups-toolbar${viewState.searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.quickGroups.actions", "Quick Group Manager actions") });
+	const list = el("main", { className: "aa-quick-groups-list", attrs: { "aria-label": t("aaalice.workspace.quickGroups.list", "Quick Group Managers") } });
+	draw = (rawQuery = viewState.query) => {
+		const query = String(rawQuery).trim().toLocaleLowerCase();
+		const visible = managers.filter(({ manager, groups, index }) => {
+			if (!query) return true;
+			const managerText = `${quickGroupManagerLabel(manager, index)} ${quickGroupManagerScopeLabel(manager)}`.toLocaleLowerCase();
+			return managerText.includes(query) || groups.some((group) => group.label.toLocaleLowerCase().includes(query));
+		});
+		list.replaceChildren();
+		for (const item of visible) {
+			const { manager, snapshot, groups, index } = item;
+			list.append(createQuickGroupManagerCard({
+				managerLabel: quickGroupManagerLabel(manager, index),
+				scopeLabel: quickGroupManagerScopeLabel(manager),
+				groupCount: groups.length,
+				offMode: snapshot.state.offMode,
+				groups,
+				labels: {
+					mute: t("aaalice.quickGroup.mode.mute", "Mute"), bypass: t("aaalice.quickGroup.mode.bypass", "Bypass"), modeAria: t("aaalice.quickGroup.mode.aria", "Disabled group mode"), groups: t("aaalice.workspace.quickGroups.groupsShort", "groups"), nodes: t("aaalice.workspace.quickGroups.nodesShort", "nodes"), locate: t("aaalice.workspace.quickGroups.locate", "Locate"), toggle: t("aaalice.workspace.quickGroups.toggleShort", "Toggle"), empty: t("aaalice.workspace.quickGroups.noGroups", "No groups in this manager."),
+				},
+				onModeChange: (mode) => {
+					const result = setQuickGroupManagerOffMode(manager, mode);
+					if (!result.ok) app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.workspace.quickGroups.title", "Quick Group Managers"), detail: result.message || t("aaalice.workspace.quickGroups.actionFailed", "The manager could not be updated.") });
+					scheduleRender("quickGroups");
+				},
+				onToggle: (group) => {
+					const action = group.status === GROUP_STATE.ENABLED ? "disable" : "enable";
+					const result = applyQuickGroupManagerAction(manager, group.id, action);
+					if (!result.ok) app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.workspace.quickGroups.title", "Quick Group Managers"), detail: result.message || t("aaalice.workspace.quickGroups.actionFailed", "The manager could not be updated.") });
+					scheduleRender("quickGroups");
+				},
+				onLocate: (group) => navigateQuickGroupManagerGroup(manager, group.group),
+			}));
+		}
+		if (!visible.length) list.append(emptyState({ iconName: query ? "search" : "settings", className: "aa-workspace-empty aa-quick-groups-empty", title: managers.length ? t("aaalice.workspace.quickGroups.noMatchesTitle", "No matching managers") : t("aaalice.workspace.quickGroups.emptyTitle", "No Quick Group Managers"), description: managers.length ? t("aaalice.workspace.quickGroups.noMatches", "Try another manager or group name.") : t("aaalice.workspace.quickGroups.empty", "Add a Quick Group Manager node to control workflow groups here.") }));
+	};
+	draw();
+	container.append(toolbar, list);
+}
+
 const renderedWorkspaceTabs = new WeakSet();
 const workspaceWidthObservers = new Map();
 
@@ -1768,6 +1875,7 @@ function renderWorkspace(root) {
 		shell.content.replaceChildren();
 		if (activeWorkspace === "dashboard") renderDashboard(shell.content, root);
 		else if (activeWorkspace === "groups") renderGroupNavigation(shell.content);
+		else if (activeWorkspace === "quickGroups") renderQuickGroups(shell.content);
 		else renderLibrary(shell.content);
 	};
 	const pinLabel = () => sidebarPinned
@@ -1791,7 +1899,7 @@ function renderWorkspace(root) {
 	pinButton.addEventListener("focus", () => workspacePinTooltip.show(pinButton, pinLabel, { immediate: true }));
 	pinButton.addEventListener("blur", () => workspacePinTooltip.hide());
 	syncPinButton();
-	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [pinButton], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
+	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "quickGroups", label: t("aaalice.workspace.quickGroups.tab", "⚡ Managers"), iconName: "link" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [pinButton], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
 	root.append(shell.root); renderActiveWorkspace();
 }
 

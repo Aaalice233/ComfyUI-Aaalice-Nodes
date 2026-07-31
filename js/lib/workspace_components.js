@@ -1,6 +1,6 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, isScrollInteractionActive, searchToggleButton, segmentedControl } from "./ui.js";
+import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, isScrollInteractionActive, searchToggleButton, segmentedControl, toggleSwitch } from "./ui.js";
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
@@ -32,6 +32,51 @@ export function createWorkspaceShell({ title, tabs, activeTab, onTabChange, head
 
 export function createWorkspaceToolbar(actions = [], { className = "", label = null } = {}) {
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
+}
+
+export function createQuickGroupManagerCard({ managerLabel, scopeLabel, groupCount = 0, offMode = "mute", groups = [], labels = {}, onModeChange, onToggle, onLocate } = {}) {
+	const mode = segmentedControl({
+		value: offMode,
+		options: [
+			{ value: "mute", label: labels.mute || "Mute", iconName: "volumeOff" },
+			{ value: "bypass", label: labels.bypass || "Bypass", iconName: "skipForward" },
+		],
+		ariaLabel: labels.modeAria || "Disabled group mode",
+		className: "aa-quick-groups-mode",
+		onChange: onModeChange,
+	});
+	const header = el("header", "aa-quick-groups-card__header", [
+		el("div", { className: "aa-quick-groups-card__identity", children: [
+			el("span", "aa-quick-groups-card__mark", { attrs: { "aria-hidden": "true" }, text: "⚡" }),
+			el("div", { className: "aa-quick-groups-card__copy", children: [el("strong", null, managerLabel), el("small", null, scopeLabel)] }),
+		] }),
+		el("div", { className: "aa-quick-groups-card__summary", children: [el("span", null, `${groupCount} ${labels.groups || "groups"}`), mode] }),
+	]);
+	const list = el("div", { className: "aa-quick-groups-card__list", attrs: { role: "list", "aria-label": `${managerLabel} ${labels.groups || "groups"}` } });
+	for (const group of groups) {
+		const status = group.status || "empty";
+		const color = group.color ? { "--group-color": group.color } : {};
+		const marker = el("span", { className: `aa-quick-groups-group__marker${group.color ? "" : " is-uncolored"}`, attrs: { ...color, "aria-hidden": "true" } });
+		const toggle = toggleSwitch({
+			checked: status === "enabled",
+			label: group.toggleLabel || `${labels.toggle || "Toggle"} ${group.label}`,
+			disabled: status === "empty",
+			className: `aa-quick-groups-group__toggle${status === "mixed" ? " is-mixed" : ""}`,
+			onChange: () => onToggle?.(group),
+		});
+		if (status === "mixed") toggle.setAttribute("aria-checked", "mixed");
+		const locate = iconButton({ iconName: "fit", label: `${labels.locate || "Locate"} ${group.label}`, variant: "ghost", className: "aa-quick-groups-group__locate", onClick: () => onLocate?.(group) });
+		const row = el("article", { className: `aa-quick-groups-group is-${status}`, attrs: { role: "listitem" }, children: [
+			marker,
+			el("div", { className: "aa-quick-groups-group__copy", children: [el("strong", null, group.label), el("small", null, `${group.nodeCount} ${labels.nodes || "nodes"}`)] }),
+			el("span", { className: "aa-quick-groups-group__status", children: [group.statusLabel] }),
+			locate,
+			toggle,
+		] });
+		list.append(row);
+	}
+	if (!groups.length) list.append(el("div", "aa-quick-groups-card__empty", labels.empty || "No groups in this manager."));
+	return el("article", { className: "aa-quick-groups-card", children: [header, list] });
 }
 
 export function createDashboardPageHeading({ page, pages = [], index = 0, editMode = false, labels = {}, className = "", onRename, onSelectPage, onReorderPage } = {}) {
