@@ -72,6 +72,12 @@ class ProviderRegistry {
 		if (!provider || !node) return { status: "missing" };
 		return provider.resolve(node, binding);
 	}
+	resolveGroup(source, nodes) {
+		const provider = this.provider(source);
+		const node = (nodes || []).find((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === source?.hostId);
+		if (!provider?.resolveGroup || !node) return { status: "missing" };
+		return provider.resolveGroup(node, source);
+	}
 }
 
 export const controlProviders = new ProviderRegistry();
@@ -96,7 +102,6 @@ controlProviders.register({
 				name: section.separator ? displayName(section.separator, section.separator.id) : parameterPanelTitle(node),
 				tone: "blue",
 				forceGroup: sectioned,
-				...(section.separator ? { separator: { label: displayName(section.separator, section.separator.id) } } : {}),
 			};
 			return section.parameters.map((parameter) => ({
 				label: displayName(parameter, parameter.id),
@@ -105,6 +110,13 @@ controlProviders.register({
 				rowSpan: recommendedControlRowSpan({ value: parameter.value, options: parameter.config, paramType: parameter.param_type }),
 			}));
 		});
+	},
+	resolveGroup(node, source) {
+		if (!source.scopeId) return { status: "ok", label: parameterPanelTitle(node) };
+		if (!source.scopeId.startsWith("separator:")) return { status: "missing", node };
+		const separatorId = source.scopeId.slice("separator:".length);
+		const separator = ensureParameters(node).find((item) => item.id === separatorId && item.param_type === "separator");
+		return separator ? { status: "ok", label: displayName(separator, separator.id) } : { status: "missing", node };
 	},
 	resolve(node, binding) {
 		const parameter = ensureParameters(node).find((item) => item.id === binding.controlId && isTunable(item));

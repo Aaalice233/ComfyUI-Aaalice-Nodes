@@ -29,15 +29,11 @@ function findSourceGroup(page, source) {
 function normalizeSourceGroup(sourceGroup) {
 	const source = normalizeGroupSource(sourceGroup?.source);
 	if (!source) return null;
-	const separator = sourceGroup.separator?.label != null
-		? { label: String(sourceGroup.separator.label) }
-		: null;
 	return {
 		source,
 		name: String(sourceGroup.name || "Group"),
 		tone: sourceGroup.tone,
 		forceGroup: Boolean(source.scopeId || sourceGroup.forceGroup),
-		...(separator ? { separator } : {}),
 	};
 }
 
@@ -45,15 +41,63 @@ function sourceGroupKey(source) {
 	return `${source.provider}\u0000${source.hostId}\u0000${source.scopeId || ""}`;
 }
 
-function findSourceSeparator(page, source) {
-	return page.items.find((item) => item.kind === "separator" && sameGroupSource(item.source, source)) || null;
-}
-
-function addSourceSeparator(page, requestedGroup) {
-	if (!requestedGroup.separator || findSourceSeparator(page, requestedGroup.source)) return;
-	const item = createSeparatorItem(requestedGroup.separator.label, 0, requestedGroup.source);
-	item.layout = firstAvailableLayout(page, { columnSpan: page.gridColumns, rowSpan: item.layout.rowSpan });
-	page.items.push(item);
+// Old dashboard items only had a single label field. The first source
+// reconciliation converts that snapshot into either a source label or an explicit override.
+export function reconcileSourceTitles(model, controls = []) {
+	const sourceControls = new Map();
+	const sourceGroups = new Map();
+	for (const control of controls || []) {
+		const binding = control?.binding;
+		if (!binding?.provider || !binding.hostId || !binding.controlId) continue;
+		sourceControls.set(`${binding.provider}\u0000${binding.hostId}\u0000${binding.controlId}\u0000${binding.adapterId || ""}`, control);
+		const sourceGroup = control.sourceGroup;
+		if (sourceGroup?.source && typeof sourceGroup.name === "string") sourceGroups.set(sourceGroupKey(sourceGroup.source), sourceGroup);
+	}
+	if (!sourceControls.size && !sourceGroups.size) return null;
+	const next = copy(model); let changed = false;
+	for (const page of next.pages) {
+		for (const item of page.items) {
+			if (item.kind !== "control" || item.labelOverride != null) continue;
+			const source = sourceControls.get(`${item.binding.provider}\u0000${item.binding.hostId}\u0000${item.binding.controlId}\u0000${item.binding.adapterId || ""}`);
+			if (!source) continue;
+			const label = String(source.label || "");
+			if (item.labelSource == null) {
+				if (item.label && item.label !== label) {
+					item.labelOverride = item.label;
+					changed = true;
+					continue;
+				}
+				item.labelSource = label;
+				changed = true;
+			}
+			if (item.labelSource !== label || item.label !== label) {
+				item.labelSource = label;
+				item.label = label;
+				changed = true;
+			}
+		}
+		for (const group of page.groups) {
+			if (!group.source || group.nameOverride != null) continue;
+			const source = sourceGroups.get(sourceGroupKey(group.source));
+			if (!source) continue;
+			const name = String(source.name || "Group");
+			if (group.nameSource == null) {
+				if (group.name && group.name !== name) {
+					group.nameOverride = group.name;
+					changed = true;
+					continue;
+				}
+				group.nameSource = name;
+				changed = true;
+			}
+			if (group.nameSource !== name || group.name !== name) {
+				group.nameSource = name;
+				group.name = name;
+				changed = true;
+			}
+		}
+	}
+	return changed ? normalizeDashboard(next) : null;
 }
 
 function createControlFromSpec(control, layout = { row: 0, column: 0 }) {
@@ -104,7 +148,6 @@ export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
 		const currentPage = findPage(next, pageId);
 		const existingGroup = findSourceGroup(currentPage, requestedGroup.source);
 		if (requestedGroup.forceGroup) {
-			addSourceSeparator(currentPage, requestedGroup);
 			if (existingGroup) {
 				const itemIds = groupControls.map((control) => {
 					const item = createControlFromSpec(control);

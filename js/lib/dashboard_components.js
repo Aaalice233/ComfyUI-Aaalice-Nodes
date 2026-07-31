@@ -13,13 +13,6 @@ function applyGridPosition(element, projected, source = projected) {
 	element.dataset.dropColumnSpan = String(source.columnSpan);
 }
 
-function sameSource(left, right) {
-	return Boolean(left && right)
-		&& left.provider === right.provider
-		&& left.hostId === right.hostId
-		&& (left.scopeId || null) === (right.scopeId || null);
-}
-
 export function createDashboardGroup({ group, members, columns = 12, editMode = false, selected = false, showHeader = true, labels = {}, renderItem, onMenu, onRename }) {
 	const title = el("h3", null, group.name);
 	if (onRename) {
@@ -59,7 +52,7 @@ export function createDashboardGrid({ page, columns = 12, editMode = false, sele
 	root.style.setProperty("--aa-dashboard-columns", String(columns));
 	const ungrouped = orderedItems(page.items.filter((item) => !item.groupId));
 	const projectedGroups = page.groups.map((group) => {
-		const showHeader = editMode || !page.items.some((item) => item.kind === "separator" && item.layout.row <= group.layout.row && sameSource(item.source, group.source));
+		const showHeader = editMode || group.showTitle !== false;
 		const members = page.items.filter((item) => item.groupId === group.id);
 		const groupColumns = columns === 1 ? 1 : Math.max(1, Number(group.layout.columnSpan) || columns);
 		return {

@@ -96,6 +96,9 @@ export function normalizeDashboard(raw) {
 			const widthMode = sourceGroup.widthMode === "fixed" ? "fixed" : "auto";
 			page.groups.push({
 				id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: DASHBOARD_TONES.includes(sourceGroup.tone) ? sourceGroup.tone : "neutral",
+				showTitle: sourceGroup.showTitle !== false,
+				...(typeof sourceGroup.nameSource === "string" ? { nameSource: sourceGroup.nameSource } : {}),
+				...(typeof sourceGroup.nameOverride === "string" ? { nameOverride: sourceGroup.nameOverride } : {}),
 				...(source ? { source } : {}), widthMode, layout: normalizeLayout(sourceGroup.layout, { rowSpan: 1, legacyColumns }),
 			});
 		}
@@ -110,6 +113,8 @@ export function normalizeDashboard(raw) {
 			page.items.push({
 				id: sourceItem.id, kind, binding: kind === "control" ? normalizeBinding(sourceItem.binding) : null,
 				label: String(sourceItem.label || ""), groupId,
+				...(typeof sourceItem.labelSource === "string" ? { labelSource: sourceItem.labelSource } : {}),
+				...(typeof sourceItem.labelOverride === "string" ? { labelOverride: sourceItem.labelOverride } : {}),
 				...(source ? { source } : {}),
 				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns }),
 			});
@@ -131,7 +136,8 @@ export function normalizeDashboard(raw) {
 
 export function createPage(name = "Page") { return { id: stableId("page"), name, gridColumns: DASHBOARD_GRID_COLUMNS, tone: null, items: [], groups: [] }; }
 export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }) {
-	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label, groupId: null, layout: normalizeLayout(layout) };
+	const sourceLabel = String(label || "");
+	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label: sourceLabel, labelSource: sourceLabel || null, labelOverride: null, groupId: null, layout: normalizeLayout(layout) };
 }
 export function createSeparatorItem(label = "", row = 0, source = null) {
 	const normalizedSource = normalizeGroupSource(source);
@@ -143,9 +149,10 @@ export function createSeparatorItem(label = "", row = 0, source = null) {
 }
 export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, source = null, columnSpan = DASHBOARD_GRID_COLUMNS) {
 	const normalizedSource = normalizeGroupSource(source);
+	const sourceName = String(name || "Group");
 	return {
-		id: stableId("group"), name, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", widthMode: "auto",
-		...(normalizedSource ? { source: normalizedSource } : {}),
+		id: stableId("group"), name: sourceName, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", showTitle: true, widthMode: "auto",
+		...(normalizedSource ? { source: normalizedSource, nameSource: sourceName } : {}), nameOverride: null,
 		layout: { row, column: 0, columnSpan: Math.max(1, Math.min(DASHBOARD_GRID_COLUMNS, Math.round(Number(columnSpan)) || DASHBOARD_GRID_COLUMNS)), rowSpan: 1 },
 	};
 }

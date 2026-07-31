@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, reconcileSourceTitles, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, projectedGroupRowSpan, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
 
@@ -21,12 +21,76 @@ test("page tone survives normalization and falls back to null when unknown", () 
 	assert.equal(model.pages[0].tone, null);
 });
 
+test("group titles default to visible and preserve an explicit hidden setting", () => {
+	const { model, page } = modelWithPage();
+	page.groups.push({ id: "group-a", name: "Controls", tone: "neutral", widthMode: "auto", layout: { row: 0, column: 0, columnSpan: 12, rowSpan: 1 } });
+	let next = normalizeDashboard(model);
+	assert.equal(next.pages[0].groups[0].showTitle, true);
+	next.pages[0].groups[0].showTitle = false;
+	next = normalizeDashboard(next);
+	assert.equal(next.pages[0].groups[0].showTitle, false);
+});
+
 test("Dashboard V2 pages directly own grid control cards", () => {
 	const { model, page } = modelWithPage();
 	const next = addItems(model, page.id, [{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } }]);
 	assert.equal(next.version, 2); assert.equal(next.pages[0].gridColumns, 12); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
 		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
 	]);
+});
+
+test("new source-bound controls and groups retain source label metadata", () => {
+	const { model, page } = modelWithPage();
+	const sourceGroup = { source: { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" }, name: "Sampling", tone: "blue", forceGroup: true };
+	const next = addItems(model, page.id, [{ label: "Steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, sourceGroup }]);
+	assert.equal(next.pages[0].items[0].labelSource, "Steps");
+	assert.equal(next.pages[0].items[0].labelOverride, undefined);
+	assert.equal(next.pages[0].groups[0].nameSource, "Sampling");
+});
+
+test("parameter renames update source labels and preserve manual dashboard names", () => {
+	const { model, page } = modelWithPage();
+	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };
+	const sourceGroup = { source: { ...panelBinding, scopeId: "separator:sampling" }, name: "Sampling", tone: "blue", forceGroup: true };
+	let next = addItems(model, page.id, [
+		{ label: "Steps", binding: { ...panelBinding, controlId: "steps" }, sourceGroup },
+		{ label: "Pinned", binding: { ...panelBinding, controlId: "cfg" }, sourceGroup },
+	]);
+	const steps = next.pages[0].items.find((item) => item.binding.controlId === "steps");
+	const pinned = next.pages[0].items.find((item) => item.binding.controlId === "cfg");
+	const group = next.pages[0].groups[0];
+	delete pinned.labelSource;
+	steps.label = "Steps"; pinned.label = "Pinned"; group.name = "Sampling";
+	const migrated = reconcileSourceTitles(next, [
+		{ binding: { ...panelBinding, controlId: "steps" }, label: "Iterations", sourceGroup: { source: sourceGroup.source, name: "Sampling options" } },
+		{ binding: { ...panelBinding, controlId: "cfg" }, label: "Guidance", sourceGroup: { source: sourceGroup.source, name: "Sampling options" } },
+	]);
+	assert.equal(migrated.pages[0].items.find((item) => item.binding.controlId === "steps").label, "Iterations");
+	assert.equal(migrated.pages[0].items.find((item) => item.binding.controlId === "steps").labelSource, "Iterations");
+	assert.equal(migrated.pages[0].items.find((item) => item.binding.controlId === "cfg").label, "Pinned");
+	assert.equal(migrated.pages[0].items.find((item) => item.binding.controlId === "cfg").labelOverride, "Pinned");
+	assert.equal(migrated.pages[0].groups[0].name, "Sampling options");
+	assert.equal(migrated.pages[0].groups[0].nameSource, "Sampling options");
+});
+
+test("legacy source titles migrate conservatively", () => {
+	const { model, page } = modelWithPage();
+	const source = { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" };
+	let legacy = addItems(model, page.id, [{ label: "Old steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, sourceGroup: { source, name: "Old section", tone: "blue", forceGroup: true } }]);
+	delete legacy.pages[0].items[0].labelSource;
+	delete legacy.pages[0].groups[0].nameSource;
+	const preserved = reconcileSourceTitles(legacy, [{ binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, label: "Steps", sourceGroup: { source, name: "Sampling" } }]);
+	assert.equal(preserved.pages[0].items[0].label, "Old steps");
+	assert.equal(preserved.pages[0].items[0].labelOverride, "Old steps");
+	assert.equal(preserved.pages[0].groups[0].name, "Old section");
+	assert.equal(preserved.pages[0].groups[0].nameOverride, "Old section");
+
+	let matching = addItems(model, page.id, [{ label: "Steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, sourceGroup: { source, name: "Sampling", tone: "blue", forceGroup: true } }]);
+	delete matching.pages[0].items[0].labelSource;
+	delete matching.pages[0].groups[0].nameSource;
+	matching = reconcileSourceTitles(matching, [{ binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, label: "Steps", sourceGroup: { source, name: "Sampling" } }]);
+	assert.equal(matching.pages[0].items[0].labelSource, "Steps");
+	assert.equal(matching.pages[0].groups[0].nameSource, "Sampling");
 });
 
 test("source-grouped controls create and reuse one layout group", () => {
@@ -135,22 +199,18 @@ test("separator-scoped controls are packed from the section origin", () => {
 	]);
 });
 
-test("parameter section separators become stable top-level dashboard items", () => {
+test("parameter section groups do not create dashboard separators", () => {
 	const { model, page } = modelWithPage();
 	const sourceGroup = {
 		source: { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" },
-		name: "Sampling", tone: "blue", forceGroup: true, separator: { label: "Sampling" },
+		name: "Sampling", tone: "blue", forceGroup: true,
 	};
 	let next = addItems(model, page.id, [{ label: "Steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a" }, sourceGroup }]);
-	let separators = next.pages[0].items.filter((item) => item.kind === "separator");
-	assert.equal(separators.length, 1);
-	assert.equal(separators[0].label, "Sampling");
-	assert.deepEqual(separators[0].source, sourceGroup.source);
-	assert.equal(separators[0].groupId, null);
-	assert.ok(separators[0].layout.row < next.pages[0].groups[0].layout.row);
+	assert.equal(next.pages[0].items.filter((item) => item.kind === "separator").length, 0);
+	assert.equal(next.pages[0].groups.length, 1);
 	next = addItems(next, page.id, [{ label: "CFG", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "cfg" }, sourceGroup }]);
-	separators = next.pages[0].items.filter((item) => item.kind === "separator");
-	assert.equal(separators.length, 1);
+	assert.equal(next.pages[0].items.filter((item) => item.kind === "separator").length, 0);
+	assert.equal(next.pages[0].groups.length, 1);
 });
 
 test("scoped controls do not fall into an unscoped legacy source group", () => {
@@ -211,7 +271,7 @@ test("Dashboard V1 is rejected instead of migrated", () => {
 test("control footprints are stable presentation categories rather than DOM measurements", () => {
 	assert.equal(recommendedControlRowSpan({ value: 30, options: { min: 1, max: 100 }, paramType: "slider" }), 12);
 	assert.equal(recommendedControlRowSpan({ value: 0, options: { min: 0, max: 100, control_after_generate: "fixed" }, paramType: "seed" }), 12);
-	assert.equal(recommendedControlRowSpan({ value: true }), 12);
+	assert.equal(recommendedControlRowSpan({ value: true }), 13);
 	assert.equal(recommendedControlRowSpan({ value: ["cat"], paramType: "taglist" }), 12);
 	assert.equal(recommendedGroupRowSpan([{ layout: { row: 6, rowSpan: 6 } }]), 19);
 	assert.equal(dashboardCardHeight(5), 24);

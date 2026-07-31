@@ -13,7 +13,7 @@ import {
 	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
 } from "./lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
-import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeGroup, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
+import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeGroup, resizeItem, resizeItems, reconcileSourceTitles, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
@@ -33,6 +33,7 @@ import {
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
+import { EVENT_PARAMETER_CHANGED } from "./lib/param_model.js";
 
 const EXTRA_KEY = "aaaliceSidebar";
 const DASHBOARD_PRESETS_EXTRA_KEY = "aaaliceSidebarPresets";
@@ -214,6 +215,25 @@ function graphSyncSignature() {
 
 let graphSyncFrame = 0;
 let previousGraphStructure = "";
+const pendingParameterSourceSyncs = new Map();
+let parameterSourceSyncTask = 0;
+function scheduleParameterSourceSync(detail) {
+	const node = detail?.node;
+	const hostId = node?.properties?.aaaliceControlHostId;
+	if (!node || !hostId) return;
+	pendingParameterSourceSyncs.set(hostId, node);
+	if (parameterSourceSyncTask) return;
+	parameterSourceSyncTask = setTimeout(() => {
+		parameterSourceSyncTask = 0;
+		const nodes = [...pendingParameterSourceSyncs.values()];
+		pendingParameterSourceSyncs.clear();
+		for (const pendingNode of nodes) {
+			const next = reconcileSourceTitles(dashboard(), controlProviders.list(pendingNode));
+			if (next) updateDashboard(() => next);
+		}
+	}, 0);
+}
+
 function scheduleGraphSync() {
 	if (graphSyncFrame) return;
 	graphSyncFrame = requestAnimationFrame(() => {
@@ -356,6 +376,19 @@ async function removePage(page) {
 }
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
+
+function resolveGroupTitle(group) {
+	if (group.nameOverride != null) return group.nameOverride;
+	if (group.nameSource == null || !group.source) return group.name;
+	const resolved = controlProviders.resolveGroup(group.source, graphNodes());
+	return resolved.status === "ok" && resolved.label ? resolved.label : group.name;
+}
+
+function controlTitle(item, resolved) {
+	if (item.labelOverride != null) return item.labelOverride;
+	if (item.labelSource != null) return resolved.label || item.label || item.binding.controlId;
+	return item.label || resolved.label || item.binding.controlId;
+}
 
 function isHeaderOnlyControl(resolved) {
 	if (resolved.status !== "ok") return false;
@@ -653,18 +686,20 @@ function openMoveControl(item) {
 
 function openAssignGroup(page, item) {
 	if (!page.groups.length) return;
-	const groupSelect = selectControl({ ariaLabel: t("aaalice.workspace.group.name", "Group name"), options: page.groups.map((group) => ({ label: group.name, value: group.id })), value: page.groups[0].id });
+	const groupSelect = selectControl({ ariaLabel: t("aaalice.workspace.group.name", "Group name"), options: page.groups.map((group) => ({ label: resolveGroupTitle(group), value: group.id })), value: page.groups[0].id });
 	const body = el("div", { children: [field({ label: t("aaalice.workspace.group.name", "Group name"), control: groupSelect })] }); const footer = el("div");
 	const dialog = createDialog({ title: t("aaalice.workspace.group.addItem", "Add to group"), body, footer });
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => { updateDashboard((current) => assignToGroup(current, page.id, [item.id], groupSelect.value)); dialog.close(); } }));
 }
 
 function openEditGroup(page, group) {
-	const name = document.createElement("input"); name.value = group.name;
+	const name = document.createElement("input"); name.value = resolveGroupTitle(group);
 	const tone = selectControl({ ariaLabel: t("aaalice.workspace.group.tone", "Group color"), value: group.tone, options: ["neutral", "blue", "green", "amber", "purple", "red"].map((value) => ({ value, label: t(`aaalice.workspace.group.tones.${value}`, value) })) });
-	const body = el("div", { children: [field({ label: t("aaalice.workspace.group.name", "Group name"), control: name }), field({ label: t("aaalice.workspace.group.tone", "Group color"), control: tone })] }); const footer = el("div");
+	let showTitle = group.showTitle !== false;
+	const showTitleControl = toggleSwitch({ checked: showTitle, label: t("aaalice.workspace.group.showTitle", "Show group title"), onChange: (next) => { showTitle = next; } });
+	const body = el("div", { children: [field({ label: t("aaalice.workspace.group.name", "Group name"), control: name }), field({ label: t("aaalice.workspace.group.tone", "Group color"), control: tone }), field({ label: t("aaalice.workspace.group.showTitle", "Show group title"), control: showTitleControl })] }); const footer = el("div");
 	const dialog = createDialog({ title: t("aaalice.workspace.group.edit", "Edit group"), body, footer });
-	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { if (!name.value.trim()) return; updateDashboard((current) => { const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id); if (target) { target.name = name.value.trim(); target.tone = tone.value; } return current; }); dialog.close(); } }));
+	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { if (!name.value.trim()) return; updateDashboard((current) => { const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id); if (target) { target.nameOverride = name.value.trim(); target.tone = tone.value; target.showTitle = showTitle; } return current; }); dialog.close(); } }));
 }
 
 function openDashboardExport(model) {
@@ -694,7 +729,8 @@ function openDashboardExport(model) {
 
 function renderDashboard(container, host) {
 	container.classList.toggle("is-layout-editing", editMode);
-	const model = dashboard(); const page = currentPage(model); const layoutPage = projectHeaderOnlyControlFootprints(page);
+	const model = dashboard(); const page = currentPage(model); const projectedPage = projectHeaderOnlyControlFootprints(page);
+	const layoutPage = projectedPage ? { ...projectedPage, groups: projectedPage.groups.map((group) => ({ ...group, name: resolveGroupTitle(group) })) } : null;
 	const viewState = workspaceViewState.dashboard;
 	if (dashboardModelError) {
 		container.append(emptyState({ iconName: "statusWarning", className: "aa-workspace-empty aa-dashboard-unsupported", title: t("aaalice.workspace.unsupported.title", "Old dashboard layout is unsupported"), description: t("aaalice.workspace.unsupported.description", "Dashboard V2 uses a new grid model. Reset the unpublished layout to continue."), actions: [button({ label: t("aaalice.workspace.unsupported.reset", "Reset dashboard"), iconName: "delete", variant: "danger", onClick: () => {
@@ -839,10 +875,11 @@ function renderDashboard(container, host) {
 		}
 		const resolved = resolve(item.binding);
 		const control = resolved.status === "ok" ? createControlElement(resolved, { labels: workspaceLabels(), onCommit: (_value, detail = {}) => { if (detail.redraw !== false) scheduleRender("dashboard"); }, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference) }) : button({ label: t("aaalice.workspace.binding.rebind", "Rebind"), variant: "secondary", size: "sm", onClick: () => openRebind(item) });
-		const cardTitle = item.label || resolved.label || item.binding.controlId;
+		const cardTitle = controlTitle(item, resolved);
 		const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, description: resolved.status === "ok" ? String(resolved.control?.description || "") : "", editMode, labels: workspaceLabels(), onManage: (context) => openCardActions(context, item), onMove: () => openMoveControl(item),
 			onRemove: () => updateDashboard((current) => removeItems(current, [item.id])), onToggleSpan: () => updateDashboard((current) => resizeItems(current, [item.id], item.layout.columnSpan === DASHBOARD_GRID_COLUMNS ? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN : DASHBOARD_GRID_COLUMNS)),
-			onRenameTitle: (name) => updateDashboard((current) => updateItem(current, item.id, (target) => { target.label = name; })),
+			onRenameTitle: (name) => updateDashboard((current) => updateItem(current, item.id, (target) => { target.labelOverride = name; })),
+
 			onGroup: () => openAssignGroup(page, item), onUngroup: () => updateDashboard((current) => ungroupItems(current, page.id, [item.id])),
 		});
 		card.dataset.dashboardItemId = item.id; card.dataset.searchText = String(cardTitle).toLocaleLowerCase(); return card;
@@ -851,7 +888,7 @@ function renderDashboard(container, host) {
 	const grid = createDashboardGrid({ page: layoutPage, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu,
 		onRenameGroup: (group, name) => updateDashboard((current) => {
 			const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id);
-			if (target) target.name = name;
+			if (target) target.nameOverride = name;
 			return current;
 		}),
 	});
@@ -1829,6 +1866,10 @@ app.registerExtension({
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => scheduleRender("dashboard"));
-		window.addEventListener("aaalice-parameter-panel-changed", (event) => { if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard"); }); promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
+		window.addEventListener(EVENT_PARAMETER_CHANGED, (event) => {
+			scheduleParameterSourceSync(event.detail);
+			if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard");
+		});
+		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
 	},
 });

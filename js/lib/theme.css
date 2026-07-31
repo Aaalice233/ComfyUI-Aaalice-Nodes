@@ -149,6 +149,7 @@
 /* Restore input only on real controls; the remaining widget surface belongs
    to native canvas slot hit-testing and node dragging. */
 .aaalice-pcp-node-root :is(input, select, textarea, button, [tabindex]) { pointer-events: auto; }
+.aaalice-pcp-node-root .aa-control-boolean { pointer-events: auto; }
 .aaalice-pcp-node-section {
 	--aa-section-accent: var(--aaalice-node-accent);
 	--aa-section-line: color-mix(in srgb, var(--aaalice-node-value) 34%, var(--aaalice-node-border));

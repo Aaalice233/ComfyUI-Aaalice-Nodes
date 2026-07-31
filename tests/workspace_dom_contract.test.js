@@ -27,6 +27,7 @@ const comfyControls = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js
 const controlRegistry = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
 const uiSource = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
+const dashboardModel = readFileSync(join(ROOT, "js", "lib", "dashboard_model.js"), "utf8");
 const dashboardComponents = readFileSync(join(ROOT, "js", "lib", "dashboard_components.js"), "utf8");
 const dashboardInteractions = readFileSync(join(ROOT, "js", "lib", "dashboard_interactions.js"), "utf8");
 const dashboardCommands = readFileSync(join(ROOT, "js", "lib", "dashboard_commands.js"), "utf8");
@@ -384,6 +385,8 @@ test("dashboard enum and boolean controls reuse the shared themed controls", () 
 	assert.match(booleanControl, /toggleSwitch\(\{/);
 	assert.match(booleanControl, /aa-control-boolean-dot/);
 	assert.match(booleanControl, /aa-control-boolean-state/);
+	assert.match(booleanControl, /root\.addEventListener\("click"/);
+	assert.match(booleanControl, /toggle\.click\(\)/);
 	assert.match(booleanControl, /root\.classList\.toggle\("is-on", current\)/);
 	assert.match(booleanControl, /event\.target\.closest\("\.aa-ui-toggle"\)/);
 	assert.match(booleanControl, /attrs: \{ "aria-hidden": "true" \}/);
@@ -431,6 +434,7 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-boolean \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-boolean \{[^}]*width: 100%;[^}]*height: 32px;/);
 	assert.doesNotMatch(theme, /\.aa-control-card-header \.aa-control-boolean-status \{\s*display: none;/);
+	assert.match(theme, /\.aaalice-pcp-node-root \.aa-control-boolean \{\s*pointer-events: auto;/);
 	assert.match(components, /root\.append\(header, control/);
 	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) 28px;[^}]*grid-template-rows: 14px 30px;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-seed-mode\.aa-ui-button \{[^}]*grid-column: 2;[^}]*grid-row: 2;/);
@@ -795,7 +799,7 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(providers, /partitionParameterSections\(ensureParameters\(node\)\)/);
 	assert.match(providers, /scopeId: `separator:\$\{section\.separator\.id\}`/);
 	assert.match(providers, /forceGroup: sectioned/);
-	assert.match(providers, /separator: \{ label: displayName\(section\.separator, section\.separator\.id\) \}/);
+	assert.doesNotMatch(providers, /separator: \{ label: displayName\(section\.separator, section\.separator\.id\) \}/);
 	assert.doesNotMatch(workspace, /function sharedSourceGroup\(controls\)/);
 	assert.match(workspace, /addItems\(current, page\.id, chosen\)/);
 	assert.match(workspace, /className: "aa-add-controls-source-group"/);
@@ -804,8 +808,15 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(dashboardCommands, /function findSourceGroup/);
 	assert.match(dashboardCommands, /control\.sourceGroup \|\| sourceGroup/);
 	assert.match(dashboardCommands, /allowSingle: true/);
+	assert.doesNotMatch(dashboardCommands, /addSourceSeparator|requestedGroup\.separator/);
+	assert.match(dashboardModel, /showTitle: sourceGroup\.showTitle !== false/);
+	assert.match(dashboardModel, /showTitle: true, widthMode: "auto"/);
 	assert.match(dashboardComponents, /export function createDashboardGroup/);
-	assert.match(dashboardComponents, /const showHeader = editMode \|\| !page\.items\.some/);
+	assert.match(dashboardComponents, /const showHeader = editMode \|\| group\.showTitle !== false/);
+	assert.match(workspace, /toggleSwitch\(\{ checked: showTitle/);
+	assert.match(workspace, /target\.showTitle = showTitle/);
+	assert.match(enLocale, /"showTitle": "Show group title"/);
+	assert.match(zhLocale, /"showTitle": "显示组标题"/);
 	assert.match(dashboardComponents, /projectedGroupRowSpan\(members, groupColumns, showHeader\)/);
 	assert.match(dashboardSizing, /if \(columns !== 1\) return recommendedGroupRowSpan\(members, includeHeader\)/);
 	assert.match(dashboardSizing, /members\.reduce\(\(total, item\) => total \+ item\.layout\.rowSpan, 0\)/);
@@ -826,7 +837,7 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 
 test("Dashboard footprints are stable model hints rather than DOM measurements", () => {
 	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
-	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = 12/);
+	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = 13/);
 	assert.match(dashboardSizing, /if \(typeof value === "number"\) return DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
 	assert.match(dashboardSizing, /export function dashboardCardHeight/);
 	assert.match(dashboardSizing, /export function recommendedControlRowSpan/);
@@ -1239,8 +1250,16 @@ test("group and card titles support double-click inline rename", () => {
 	assert.match(dashboardComponents, /inlineRename\(title, \{ value: group\.name/);
 	assert.match(components, /titleElement\.addEventListener\("dblclick"/);
 	assert.match(components, /inlineRename\(titleElement, \{ value: title/);
-	assert.match(workspace, /onRenameTitle: \(name\) => updateDashboard\(\(current\) => updateItem\(current, item\.id, \(target\) => \{ target\.label = name; \}\)\)/);
+	assert.match(workspace, /onRenameTitle: \(name\) => updateDashboard\(\(current\) => updateItem\(current, item\.id, \(target\) => \{ target\.labelOverride = name; \}\)\)/);
 	assert.match(workspace, /onRenameGroup: \(group, name\) => updateDashboard/);
+	assert.match(workspace, /function controlTitle\(item, resolved\)/);
+	assert.match(workspace, /function resolveGroupTitle\(group\)/);
+	assert.match(workspace, /name\.value = resolveGroupTitle\(group\)/);
+	assert.match(workspace, /scheduleParameterSourceSync\(event\.detail\)/);
+	assert.match(workspace, /reconcileSourceTitles\(dashboard\(\), controlProviders\.list\(pendingNode\)\)/);
+	assert.match(providers, /resolveGroup\(source, nodes\)/);
+	assert.match(providers, /resolveGroup\(node, source\)/);
+	assert.match(dashboardCommands, /export function reconcileSourceTitles\(model, controls = \[\]\)/);
 	assert.match(workspace, /renameHint: t\("aaalice\.workspace\.renameHint"/);
 });
 
