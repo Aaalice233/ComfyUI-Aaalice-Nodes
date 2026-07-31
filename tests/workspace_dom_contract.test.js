@@ -417,12 +417,18 @@ test("control cards move management into an accessible context menu", () => {
 	assert.match(uiStyles, /\.aa-ui-context-menu__item\.is-danger/);
 });
 
-test("header-only seed controls do not stretch to the neighboring slider card", () => {
+test("header-only controls use a separate title row and value row", () => {
 	assert.match(numericControl, /headerOnly: !hasRange/);
 	assert.match(components, /control\?\.dataset\?\.headerOnly === "true"/);
+	assert.match(workspace, /projectHeaderOnlyControlFootprints\(page\)/);
+	assert.match(workspace, /isHeaderOnlyControl\(resolved\)/);
 	assert.match(theme, /\.aa-dashboard-grid-v2, \.aa-dashboard-group-grid \{[^}]*grid-auto-rows: 4px;[^}]*align-items: stretch;/);
-	assert.match(theme, /\.aa-control-card\.is-header-only \{[^}]*padding-block: 7px;/);
-	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*min-width: 64px;[^}]*flex: 1;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\);[^}]*grid-template-rows: 14px 32px;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-title \{[^}]*grid-column: 1;[^}]*grid-row: 1;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-boolean \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) 28px;[^}]*grid-template-rows: 14px 30px;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-seed-mode\.aa-ui-button \{[^}]*grid-column: 2;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-numeric-value \{[^}]*text-align: center;/);
 });
 
@@ -808,13 +814,15 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.doesNotMatch(workspace, /createSection|findSection|lastSectionId|\.sections/);
 	assert.doesNotMatch(components, /createSectionCard/);
 	assert.doesNotMatch(theme, /aa-dashboard-section/);
-	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*border:\s*0;[^}]*background:\s*color-mix/);
+	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*border:\s*1px solid transparent;[^}]*border-radius:\s*8px;[^}]*background:\s*color-mix/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*var\(--aa-dashboard-control-tone\)/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group \.aa-control-card\.is-group-member:is\(\.is-selected, \.is-drop-target\)/);
 });
 
 test("Dashboard footprints are stable model hints rather than DOM measurements", () => {
 	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
+	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = 12/);
+	assert.match(dashboardSizing, /if \(typeof value === "number"\) return DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
 	assert.match(dashboardSizing, /export function dashboardCardHeight/);
 	assert.match(dashboardSizing, /export function recommendedControlRowSpan/);
 	assert.match(dashboardSizing, /export function recommendedGroupRowSpan/);
@@ -845,13 +853,14 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(theme, /\.aa-control-choice-select \.aa-ui-select__native \{[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(theme, /data-control-kind="taglist"[^}]*aa-taglist-control[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);
-	assert.match(theme, /\.aa-dashboard-group \{[^}]*padding:\s*4px;/);
+	assert.match(theme, /\.aa-dashboard-group \{[^}]*padding:\s*6px 7px 7px 8px;/);
 	assert.match(theme, /\.aa-dashboard-group \{[^}]*border-left:/);
 	assert.match(theme, /\.aa-dashboard-group-header \{[^}]*min-height:\s*24px;/);
 	assert.doesNotMatch(dashboardComponents, /aa-dashboard-group-count/);
 	assert.match(dashboardComponents, /icon\("drag", \{ className: "aa-dashboard-group-grip" \}\)/);
 	assert.doesNotMatch(theme, /aa-dashboard-group-count/);
-	assert.match(theme, /\.aa-dashboard-group-marker \{[^}]*linear-gradient/);
+	assert.match(theme, /\.aa-dashboard-group-marker \{[^}]*background:\s*currentColor;/);
+	assert.doesNotMatch(theme, /\.aa-dashboard-group-marker \{[^}]*linear-gradient/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-group:hover \{[^}]*translateY\(-1px\)/);
 	assert.match(theme, /\.aa-dashboard-group-resize-handle/);
 	assert.match(dashboardComponents, /data-dashboard-group-resize-handle/);
@@ -923,7 +932,8 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 		assert.match(workspace, /aa-section-rule aa-section-rule--start/);
 		assert.match(workspace, /aa-section-rule aa-section-rule--end/);
 		assert.match(workspace, /role: "separator"/);
-		assert.match(theme, /\.aa-section-rule--start\s*\{[^}]*var\(--aa-section-core\) 100%/s);
+		assert.match(theme, /\.aa-section-rule--start, \.aa-section-rule--end\s*\{[^}]*background-color:\s*var\(--aa-section-line\)/s);
+		assert.doesNotMatch(theme, /\.aa-section-rule--(?:start|end)\s*\{[^}]*linear-gradient/s);
 		assert.doesNotMatch(theme, /aa-section-spectrum/);
 		assert.match(theme, /\.aaalice-pcp-node-section-label,[\s\S]*\.aa-dashboard-separator-label \{[^}]*text-align: center;/);
 	assert.match(theme, /grid-row: var\(--aa-dashboard-row\) \/ span var\(--aa-dashboard-row-span\)/);

@@ -210,8 +210,8 @@ test("Dashboard V1 is rejected instead of migrated", () => {
 
 test("control footprints are stable presentation categories rather than DOM measurements", () => {
 	assert.equal(recommendedControlRowSpan({ value: 30, options: { min: 1, max: 100 }, paramType: "slider" }), 12);
-	assert.equal(recommendedControlRowSpan({ value: 0, options: { min: 0, max: 100, control_after_generate: "fixed" }, paramType: "seed" }), 7);
-	assert.equal(recommendedControlRowSpan({ value: true }), 9);
+	assert.equal(recommendedControlRowSpan({ value: 0, options: { min: 0, max: 100, control_after_generate: "fixed" }, paramType: "seed" }), 12);
+	assert.equal(recommendedControlRowSpan({ value: true }), 12);
 	assert.equal(recommendedControlRowSpan({ value: ["cat"], paramType: "taglist" }), 12);
 	assert.equal(recommendedGroupRowSpan([{ layout: { row: 6, rowSpan: 6 } }]), 19);
 	assert.equal(dashboardCardHeight(5), 24);

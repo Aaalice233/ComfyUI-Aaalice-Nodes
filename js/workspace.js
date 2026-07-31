@@ -16,7 +16,7 @@ import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPreset
 import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeGroup, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
-import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
@@ -357,6 +357,28 @@ async function removePage(page) {
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
 
+function isHeaderOnlyControl(resolved) {
+	if (resolved.status !== "ok") return false;
+	if (resolved.kind === "seed" || resolved.control?.param_type === "seed" || typeof resolved.value === "boolean") return true;
+	if (typeof resolved.value !== "number") return false;
+	const minimum = Number(resolved.options?.min);
+	const maximum = Number(resolved.options?.max);
+	return !(Number.isFinite(minimum) && Number.isFinite(maximum) && maximum > minimum);
+}
+
+function projectHeaderOnlyControlFootprints(page) {
+	if (!page) return page;
+	let changed = false;
+	const items = page.items.map((item) => {
+		if (item.kind !== "control" || item.layout.rowSpan >= DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN) return item;
+		const resolved = resolve(item.binding);
+		if (!isHeaderOnlyControl(resolved)) return item;
+		changed = true;
+		return { ...item, layout: { ...item.layout, rowSpan: DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } };
+	});
+	return changed ? { ...page, items } : page;
+}
+
 function sourceGroupIdentity(sourceGroup) {
 	const source = sourceGroup?.source;
 	if (!source?.provider || !source?.hostId) return null;
@@ -671,7 +693,7 @@ function openDashboardExport(model) {
 
 function renderDashboard(container, host) {
 	container.classList.toggle("is-layout-editing", editMode);
-	const model = dashboard(); const page = currentPage(model);
+	const model = dashboard(); const page = currentPage(model); const layoutPage = projectHeaderOnlyControlFootprints(page);
 	const viewState = workspaceViewState.dashboard;
 	if (dashboardModelError) {
 		container.append(emptyState({ iconName: "statusWarning", className: "aa-workspace-empty aa-dashboard-unsupported", title: t("aaalice.workspace.unsupported.title", "Old dashboard layout is unsupported"), description: t("aaalice.workspace.unsupported.description", "Dashboard V2 uses a new grid model. Reset the unpublished layout to continue."), actions: [button({ label: t("aaalice.workspace.unsupported.reset", "Reset dashboard"), iconName: "delete", variant: "danger", onClick: () => {
@@ -825,7 +847,7 @@ function renderDashboard(container, host) {
 		card.dataset.dashboardItemId = item.id; card.dataset.searchText = String(cardTitle).toLocaleLowerCase(); return card;
 	};
 	const columns = dashboardColumnsForWidth(container.clientWidth);
-	const grid = createDashboardGrid({ page, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu,
+	const grid = createDashboardGrid({ page: layoutPage, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu,
 		onRenameGroup: (group, name) => updateDashboard((current) => {
 			const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id);
 			if (target) target.name = name;
