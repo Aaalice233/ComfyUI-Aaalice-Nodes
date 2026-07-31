@@ -142,6 +142,14 @@ test("uses the Dashboard card as the single visual frame", () => {
 	assert.match(styles, /\.aa-quick-group-control\s*\{[\s\S]*padding:\s*0[\s\S]*border:\s*0[\s\S]*background:\s*transparent[\s\S]*box-shadow:\s*none/);
 });
 
+test("keeps the manager title and actions in one header row without count text", () => {
+	assert.match(controlSource, /headerAccessories:\s*\[headerTools\]/);
+	assert.doesNotMatch(controlSource, /summary\.textContent|aa-quick-group-control__summary/);
+	assert.doesNotMatch(controlSource, /aa-quick-group-control__toolbar/);
+	assert.match(styles, /\.aa-control-card\[data-control-kind="quick-group-manager"\] \.aa-control-card-header[\s\S]*min-height:\s*32px/);
+	assert.match(styles, /\.aa-quick-group-control__header-tools[\s\S]*align-items:\s*center/);
+});
+
 test("uses row brightness instead of status and node-count text", () => {
 	assert.doesNotMatch(controlSource, /labels\.nodes|labels\.status|<small/);
 	assert.match(styles, /\.aa-quick-group-control__row\.is-enabled[\s\S]*background:/);

@@ -78,9 +78,33 @@ export function renderQuickGroupManagerControl(spec, port = {}) {
 	const root = el("section", { className: "aa-quick-group-control", attrs: { "aria-label": labels.title || spec.label || DEFAULT_LABELS.title } });
 	let destroyed = false;
 	let refresh = () => {};
-	const draw = () => {
+	let draw = () => {};
+	const mode = segmentedControl({
+		value: "mute",
+		options: [
+			{ value: "mute", label: labels.mute, iconName: "volumeOff" },
+			{ value: "bypass", label: labels.bypass, iconName: "skipForward" },
+		],
+		ariaLabel: labels.modeAria,
+		className: "aa-quick-group-control__mode",
+		onChange: (value) => {
+			const result = setQuickGroupManagerOffMode(manager, value);
+			if (!result.ok) port.onError?.(result);
+			draw();
+		},
+	});
+	const headerTools = el("div", { className: "aa-quick-group-control__header-tools", children: [
+		mode,
+		iconButton({ iconName: "refresh", label: labels.refresh, variant: "ghost", onClick: () => draw() }),
+	] });
+	const syncHeader = (snapshot) => {
+		mode.setValue(snapshot.state.offMode);
+		headerTools.hidden = false;
+	};
+	draw = () => {
 		if (destroyed) return;
 		if (!manager) {
+			headerTools.hidden = true;
 			root.replaceChildren(emptyState({ iconName: "statusError", className: "aa-quick-group-control__empty is-error", title: labels.error || "Quick Group Manager is unavailable" }));
 			return;
 		}
@@ -89,28 +113,11 @@ export function renderQuickGroupManagerControl(spec, port = {}) {
 			snapshot = quickGroupManagerSnapshot(manager);
 		} catch (error) {
 			console.error("[Aaalice] QuickGroupManager sidebar snapshot failed", error);
+			headerTools.hidden = true;
 			root.replaceChildren(emptyState({ iconName: "statusError", className: "aa-quick-group-control__empty is-error", title: labels.error || "Quick Group Manager is unavailable", description: error?.message || String(error) }));
 			return;
 		}
-		const mode = segmentedControl({
-			value: snapshot.state.offMode,
-			options: [
-				{ value: "mute", label: labels.mute, iconName: "volumeOff" },
-				{ value: "bypass", label: labels.bypass, iconName: "skipForward" },
-			],
-			ariaLabel: labels.modeAria,
-			className: "aa-quick-group-control__mode",
-			onChange: (value) => {
-				const result = setQuickGroupManagerOffMode(manager, value);
-				if (!result.ok) port.onError?.(result);
-				draw();
-			},
-		});
-		const toolbar = el("div", { className: "aa-quick-group-control__toolbar", children: [
-			el("span", { className: "aa-quick-group-control__summary", text: `${snapshot.groups.length} ${labels.groups}` }),
-			mode,
-			iconButton({ iconName: "refresh", label: labels.refresh, variant: "ghost", onClick: draw }),
-		] });
+		syncHeader(snapshot);
 		const list = el("div", { className: "aa-quick-group-control__list", attrs: {
 			tabindex: "0", role: "list", "aria-label": labels.groups || DEFAULT_LABELS.groups, "data-capture-wheel": "true",
 		} });
@@ -124,14 +131,17 @@ export function renderQuickGroupManagerControl(spec, port = {}) {
 		} else {
 			list.append(emptyState({ iconName: "settings", className: "aa-quick-group-control__empty", title: labels.empty }));
 		}
-		root.replaceChildren(toolbar, list);
+		root.replaceChildren(list);
 	};
 	refresh = draw;
 	draw();
-	manager._aaaliceQuickGroupControlRefreshes ||= new Set();
-	manager._aaaliceQuickGroupControlRefreshes.add(refresh);
+	if (manager) {
+		manager._aaaliceQuickGroupControlRefreshes ||= new Set();
+		manager._aaaliceQuickGroupControlRefreshes.add(refresh);
+	}
 	return controlView({
 		root,
+		headerAccessories: [headerTools],
 		kind: spec.kind,
 		destroy() {
 			destroyed = true;

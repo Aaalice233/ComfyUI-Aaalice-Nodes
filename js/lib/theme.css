@@ -3704,8 +3704,11 @@ button.aa-discord-share-entry--topbar:disabled {
 	background: transparent;
 	box-shadow: none;
 }
-.aa-quick-group-control__toolbar { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 6px; }
-.aa-quick-group-control__summary { min-width: 0; flex: 1; overflow: hidden; color: var(--aa-ui-muted); font-size: 10px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.aa-control-card[data-control-kind="quick-group-manager"] .aa-control-card-header { min-height: 32px; gap: 8px; }
+.aa-control-card[data-control-kind="quick-group-manager"] .aa-control-card-title { min-width: 0; }
+.aa-quick-group-control__header-tools { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 6px; }
+.aa-quick-group-control__header-tools > .aa-ui-button { width: 26px; min-width: 26px; height: 26px; min-height: 26px; padding: 0; opacity: .86; }
+.aa-quick-group-control__header-tools > .aa-quick-group-control__mode { flex: 0 0 auto; }
 .aa-quick-group-control__mode {
 	--qgm-mode-color: var(--aa-ui-warning);
 	width: 142px;
@@ -3733,7 +3736,6 @@ button.aa-discord-share-entry--topbar:disabled {
 .aa-quick-group-control__mode button .aa-ui-icon { width: 14px; height: 14px; opacity: .62; transition: color .18s ease, opacity .18s ease, transform .18s cubic-bezier(.2, .82, .22, 1); }
 .aa-quick-group-control__mode button.is-active .aa-ui-icon { color: var(--qgm-mode-color); opacity: 1; transform: scale(1.08); }
 .aa-quick-group-control__mode button:active { transform: scale(.96); }
-.aa-quick-group-control__toolbar > .aa-ui-button { width: 26px; min-width: 26px; height: 26px; min-height: 26px; padding: 0; }
 .aa-quick-group-control__list { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; flex-direction: column; gap: 4px; padding: 1px 3px 1px 1px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--aa-ui-border-soft) transparent; scrollbar-width: thin; }
 .aa-quick-group-control__list:focus-visible { outline: 1px solid color-mix(in srgb, var(--aa-ui-accent) 48%, transparent); outline-offset: -1px; border-radius: 6px; }
 .aa-quick-group-control__row { display: grid; min-width: 0; min-height: 39px; flex: 0 0 auto; grid-template-columns: 4px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 4px 5px; border: 1px solid transparent; border-radius: 7px; background: color-mix(in srgb, var(--aa-ui-control) 58%, transparent); cursor: pointer; transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, opacity .18s ease; }
