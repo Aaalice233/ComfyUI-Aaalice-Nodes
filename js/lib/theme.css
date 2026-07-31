@@ -3704,11 +3704,11 @@ button.aa-discord-share-entry--topbar:disabled {
 	background: transparent;
 	box-shadow: none;
 }
-.aa-control-card[data-control-kind="quick-group-manager"] .aa-control-card-header { min-height: 32px; gap: 8px; }
+.aa-control-card[data-control-kind="quick-group-manager"] .aa-control-card-header { position: relative; min-height: 32px; gap: 8px; }
 .aa-control-card[data-control-kind="quick-group-manager"] .aa-control-card-title { min-width: 0; }
-.aa-quick-group-control__header-tools { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 6px; }
-.aa-quick-group-control__header-tools > .aa-ui-button { width: 26px; min-width: 26px; height: 26px; min-height: 26px; padding: 0; opacity: .86; }
-.aa-quick-group-control__header-tools > .aa-quick-group-control__mode { flex: 0 0 auto; }
+.aa-quick-group-control__header-tools { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.aa-quick-group-control__header-tools > .aa-ui-button { position: absolute; right: 0; width: 26px; min-width: 26px; height: 26px; min-height: 26px; padding: 0; opacity: .86; pointer-events: auto; }
+.aa-quick-group-control__header-tools > .aa-quick-group-control__mode { flex: 0 0 auto; pointer-events: auto; }
 .aa-quick-group-control__mode {
 	--qgm-mode-color: var(--aa-ui-warning);
 	width: 142px;

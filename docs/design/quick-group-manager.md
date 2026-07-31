@@ -49,7 +49,7 @@ QuickGroupManager 是当前图的纯前端组控制器。它不参与 Prompt I/O
 ## 参数面板整体控件
 
 - QuickGroupManager 以一个稳定 `quick-group-manager` Binding 添加到 ParameterPanel 侧边栏，不把组拆成独立参数，也不创建第二份 Manager 状态。
-- 侧边栏控件在同一行显示节点标题与 Mute / Bypass 操作，标题和工具保持统一的 32px 头部高度；下方只保留可滚动的组列表，不重复显示工作流组数量、节点数量或启用/禁用文案，实时状态通过条目明暗和共享 Toggle 表达。组开关和模式转换都委托 `quick_group_manager_runtime.js`，失败时整次图事务不落部分结果。
+- 侧边栏控件在同一行显示节点标题与 Mute / Bypass 操作，模式切换器固定在头部水平中心，刷新保持在右侧，标题和工具保持统一的 32px 头部高度；下方只保留可滚动的组列表，不重复显示工作流组数量、节点数量或启用/禁用文案，实时状态通过条目明暗和共享 Toggle 表达。组开关和模式转换都委托 `quick_group_manager_runtime.js`，失败时整次图事务不落部分结果。
 - 侧边栏卡片使用尺寸目录中的 `DASHBOARD_PANEL_CONTROL_ROW_SPAN`（52 行）作为内容下限，旧布局渲染时也投影到同一尺寸，不写回用户的原始布局；组列表占据剩余高度并独立滚动，遵循 `data-capture-wheel` 的焦点式滚轮协议。
 - 每个非空组都有独立的共享 Toggle，可直接切换该组；组条目的整行也可点击或通过键盘 Enter / Space 切换。空组保留状态但禁用开关并提供原因。单个组操作失败只通过宿主错误通道反馈，不阻断其它组的渲染。
 - Dashboard 预设捕获 Manager 的规范化配置及当前组节点模式；恢复时按稳定组 ID 和节点 ID应用，缺失成员只跳过不可恢复项并保留其它有效状态。

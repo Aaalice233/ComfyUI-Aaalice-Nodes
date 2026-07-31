@@ -147,7 +147,8 @@ test("keeps the manager title and actions in one header row without count text",
 	assert.doesNotMatch(controlSource, /summary\.textContent|aa-quick-group-control__summary/);
 	assert.doesNotMatch(controlSource, /aa-quick-group-control__toolbar/);
 	assert.match(styles, /\.aa-control-card\[data-control-kind="quick-group-manager"\] \.aa-control-card-header[\s\S]*min-height:\s*32px/);
-	assert.match(styles, /\.aa-quick-group-control__header-tools[\s\S]*align-items:\s*center/);
+	assert.match(styles, /\.aa-quick-group-control__header-tools[\s\S]*inset:\s*0[\s\S]*justify-content:\s*center/);
+	assert.match(styles, /\.aa-quick-group-control__header-tools > \.aa-ui-button[\s\S]*right:\s*0/);
 });
 
 test("uses row brightness instead of status and node-count text", () => {
