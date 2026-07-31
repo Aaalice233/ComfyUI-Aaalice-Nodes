@@ -786,18 +786,26 @@ test("detached context menus retain theme tokens and visible hover feedback", ()
 	assert.match(uiStyles, /\.aa-ui-context-menu__item\.aa-ui-button:hover:not\(:disabled\)[^}]*border-color: transparent;[^}]*background: color-mix\(in srgb, var\(--aa-ui-accent\) 14%, var\(--aa-ui-control\)\)[^}]*box-shadow: none/);
 });
 
-test("layout editing keeps creation and layout tools in the primary toolbar", () => {
+test("layout editing exposes an extensible component picker", () => {
 	assert.match(workspace, /className: "aa-dashboard-add-page"/);
-	assert.match(workspace, /className: "aa-dashboard-add-separator"/);
+	assert.match(workspace, /createDashboardComponentPicker\(/);
+	assert.match(workspace, /const dashboardComponentOptions = \[/);
+	assert.match(workspace, /id: "separator", iconName: "subtract"/);
 	assert.match(workspace, /className: "aa-dashboard-tidy-layout"/);
+	assert.doesNotMatch(workspace, /className: "aa-dashboard-add-separator"/);
 	assert.doesNotMatch(workspace, /className: "aa-dashboard-page-menu"/);
 	assert.match(workspace, /grid\.addEventListener\("contextmenu", openBlankPageMenu\)/);
-	assert.match(workspace, /editMode \? \[[\s\S]*aa-dashboard-add-page[\s\S]*aa-dashboard-add-separator[\s\S]*aa-dashboard-tidy-layout[\s\S]*\] : \[[\s\S]*preset\.export[\s\S]*preset\.import[\s\S]*search\.toggle/);
+	assert.match(workspace, /editMode \? \[[\s\S]*aa-dashboard-add-page[\s\S]*dashboardComponentPicker\.root[\s\S]*aa-dashboard-tidy-layout[\s\S]*\] : \[[\s\S]*preset\.export[\s\S]*preset\.import[\s\S]*search\.toggle/);
 	assert.doesNotMatch(workspace, /if \(editMode\) container\.append\(createWorkspaceToolbar/);
+	assert.match(components, /export function createDashboardComponentPicker\(/);
+	assert.match(components, /options\.filter\(\(option\) => option && option\.id && option\.label\)/);
+	assert.match(components, /action\.dataset\.componentId = option\.id/);
 	assert.doesNotMatch(components, /aa-dashboard-page-add|onAdd/);
 	assert.doesNotMatch(theme, /aa-dashboard-page-add/);
+	assert.doesNotMatch(theme, /aa-dashboard-add-separator/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > \.aa-ui-button \{[^}]*height: 29px;[^}]*min-height: 29px;[^}]*border-radius: 7px;/);
-	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > :is\(\.aa-dashboard-add-separator, \.aa-dashboard-tidy-layout\)/);
+	assert.match(theme, /\.aa-dashboard-add-component\.aa-ui-button \{[^}]*width: 29px;[^}]*min-width: 29px;[^}]*height: 29px;/);
+	assert.match(theme, /\.aa-dashboard-component-option\.aa-ui-button:hover:not\(:disabled\)/);
 });
 
 test("workspace scrolling suppresses transient hover interactions until motion settles", () => {

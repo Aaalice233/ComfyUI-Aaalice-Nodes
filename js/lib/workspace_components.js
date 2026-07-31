@@ -34,6 +34,66 @@ export function createWorkspaceToolbar(actions = [], { className = "", label = n
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
 }
 
+export function createDashboardComponentPicker({ options = [], labels = {}, onSelect } = {}) {
+	let popover = null;
+	const root = el("div", "aa-dashboard-component-picker");
+	const trigger = iconButton({
+		iconName: "add",
+		label: labels.open || "Add component",
+		variant: "ghost",
+		className: "aa-dashboard-add-component",
+		onClick: () => {
+			if (popover) popover.close();
+			else openPicker();
+		},
+	});
+	const openPicker = () => {
+		if (popover) return;
+		trigger.setAttribute("aria-expanded", "true");
+		root.classList.add("is-open");
+		popover = createAnchoredPopover({
+			anchor: trigger,
+			ariaLabel: labels.title || "Dashboard components",
+			className: "aa-dashboard-component-popover",
+			width: 228,
+			onClose: () => {
+				popover = null;
+				trigger.setAttribute("aria-expanded", "false");
+				root.classList.remove("is-open");
+			},
+		});
+		const heading = el("header", { className: "aa-dashboard-component-popover__header", children: [el("strong", null, labels.title || "Add component")] });
+		const list = el("div", { className: "aa-dashboard-component-popover__list", attrs: { role: "list" } });
+		const availableOptions = options.filter((option) => option && option.id && option.label);
+		if (!availableOptions.length) {
+			list.append(el("p", "aa-dashboard-component-popover__empty", labels.empty || "No components available"));
+		} else {
+			for (const option of availableOptions) {
+				const action = button({
+					label: option.label,
+					iconName: option.iconName || "add",
+					variant: "ghost",
+					size: "sm",
+					className: "aa-dashboard-component-option",
+					disabled: option.disabled,
+					onClick: () => {
+						popover?.close();
+						onSelect?.(option.id);
+					},
+				});
+				action.dataset.componentId = option.id;
+				list.append(action);
+			}
+		}
+		popover.root.append(heading, list);
+		popover.reposition();
+	};
+	trigger.setAttribute("aria-haspopup", "dialog");
+	trigger.setAttribute("aria-expanded", "false");
+	root.append(trigger);
+	return { root, trigger, close: () => popover?.close() };
+}
+
 export function createDashboardPageHeading({ page, pages = [], index = 0, editMode = false, labels = {}, className = "", onRename, onSelectPage, onReorderPage } = {}) {
 	const renameHint = labels.renameHint || "Double-click to rename";
 	const renameLabel = labels.renamePage || "Rename page";

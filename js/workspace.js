@@ -30,7 +30,7 @@ import { badge, button, createContextMenu, createDialog, createTooltip, el, empt
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow,
-	createDashboardPageHeading, createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
+	createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
@@ -866,6 +866,19 @@ function renderDashboard(container, host) {
 		onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
 		onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
 	});
+	const dashboardComponentOptions = [
+		{ id: "separator", iconName: "subtract", label: t("aaalice.workspace.layout.separatorItem", "Separator") },
+	];
+	const dashboardComponentHandlers = { separator: addSeparatorToPage };
+	const dashboardComponentPicker = createDashboardComponentPicker({
+		options: dashboardComponentOptions,
+		labels: {
+			open: t("aaalice.workspace.layout.addComponent", "Add component"),
+			title: t("aaalice.workspace.layout.components", "Dashboard components"),
+			empty: t("aaalice.workspace.layout.noComponents", "No components available"),
+		},
+		onSelect: (id) => dashboardComponentHandlers[id]?.(),
+	});
 	const activePageIndex = model.pages.findIndex((entry) => entry.id === page?.id);
 	const selectPage = (id, detail = {}) => {
 		if (!id || id === activePageId) return;
@@ -896,7 +909,7 @@ function renderDashboard(container, host) {
 		...(editMode ? [
 			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
 			...(page ? [
-				button({ label: t("aaalice.workspace.layout.separator", "Add separator"), variant: "ghost", size: "sm", className: "aa-dashboard-add-separator", onClick: addSeparatorToPage }),
+				dashboardComponentPicker.root,
 				iconButton({ iconName: "layout", label: t("aaalice.workspace.layout.compact", "Tidy layout"), variant: "ghost", className: "aa-dashboard-tidy-layout", onClick: () => updateDashboard((current) => compactDashboard(current, page.id)) }),
 			] : []),
 		] : [

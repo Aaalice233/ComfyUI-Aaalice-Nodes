@@ -144,6 +144,7 @@ Aaalice 工作区的滚轮、触控板惯性滚动和边界翻页统一进入短
 |---|---|
 | `createWorkspaceShell()` | 工作区切换、当前主题、内容挂载和紧凑底栏边界 |
 | `createWorkspaceToolbar()` | 紧凑同排操作及可访问标签 |
+| `createDashboardComponentPicker()` | 布局模式的可扩展添加组件入口；只消费选项描述和选择回调，不持有工作流状态 |
 | `createCollapsibleSearch()` | 侧栏内同排展开的搜索入口、输入和关闭 |
 | `createPageRail()` / `createDashboardGrid()` / `createDashboardGroup()` / `createControlCard()` | Dashboard 页面导航、细粒度二维网格、可选布局组和参数投影的纯视图 |
 | `createDashboardPresetPicker()` | Dashboard 顶栏的单行完整预设选择、已修改状态、首次使用引导和管理入口；不持有工作流状态或直接写节点 |
