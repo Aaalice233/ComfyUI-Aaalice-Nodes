@@ -975,6 +975,7 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(workspace, /selection\.width", "Toggle selected widths"\), iconName: "fit"/);
 	assert.match(theme, /\.aa-dashboard-selection-bar/);
 	assert.match(workspace, /body\.classList\.toggle\("has-selection-actions", count > 0\)/);
+	assert.match(theme, /\.aa-dashboard-scroll \{[^}]*padding: 1px 0 8px;/);
 	assert.match(theme, /\.aa-dashboard-body\.has-selection-actions \.aa-dashboard-scroll \{ padding-bottom: 72px; \}/);
 	assert.doesNotMatch(theme, /\.is-layout-editing \.aa-dashboard-scroll \{ padding-bottom: 72px; \}/);
 	assert.match(theme, /\.aa-dashboard-scroll \{[^}]*display: flex;[^}]*flex-direction: column;/);
