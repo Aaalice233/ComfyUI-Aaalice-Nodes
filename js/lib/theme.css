@@ -1471,7 +1471,8 @@
 .aa-control-card-header .aa-control-boolean-toggle.aa-ui-toggle { flex: none; margin-left: auto; }
 .aa-control-header-only-host[hidden], .aa-control-numeric[hidden] { display: none; }
 .aa-control-card[data-control-kind="numeric"] { padding-bottom: 6px; }
-.aa-control-card > input.aa-workspace-control-input { min-height: 32px; padding-block: 5px; border-radius: 7px; font-size: 11px; }
+.aa-control-card[data-control-kind="text"] > input.aa-workspace-control-input { min-height: 34px; padding-block: 6px; border-radius: 7px; font-size: 11px; }
+.aa-control-card[data-control-kind="text"] > textarea.aa-workspace-control-input { min-height: 58px; padding-block: 7px; border-radius: 7px; font-size: 11px; }
 .aa-control-card[data-control-kind="taglist"] > .aa-taglist-control { --aa-taglist-tone: var(--aa-dashboard-control-tone); height: 32px; min-height: 32px; }
 .aa-control-card .aa-control-image { --aa-image-control-field: var(--aa-control-field); --aa-image-control-field-hover: var(--aa-control-field-hover); }
 .aa-control-card[data-control-kind="image-compare"] { display: flex; padding-bottom: 7px; flex-direction: column; }

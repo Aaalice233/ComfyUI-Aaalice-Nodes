@@ -422,6 +422,8 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.match(components, /control\?\.dataset\?\.headerOnly === "true"/);
 	assert.match(workspace, /projectHeaderOnlyControlFootprints\(page\)/);
 	assert.match(workspace, /isHeaderOnlyControl\(resolved\)/);
+	assert.match(workspace, /enabled: t\("aaalice\.common\.enabled", "Enabled"\)/);
+	assert.match(workspace, /disabled: t\("aaalice\.common\.disabled", "Disabled"\)/);
 	assert.match(theme, /\.aa-dashboard-grid-v2, \.aa-dashboard-group-grid \{[^}]*grid-auto-rows: 4px;[^}]*align-items: stretch;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\);[^}]*grid-template-rows: 14px 32px;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-title \{[^}]*grid-column: 1;[^}]*grid-row: 1;/);
@@ -853,6 +855,8 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(theme, /\.aa-control-card:focus-within \.aa-workspace-control-input[^}]*\{ opacity: 1; \}/);
 	assert.match(theme, /:has\(\.aa-control-card:hover\) \.aa-control-card:not\(:hover\):not\(:focus-within\) \.aa-workspace-control-input \{ opacity: \.45; \}/);
 	assert.match(theme, /\.aa-control-card\[data-control-kind="image"\] \.aa-workspace-control-input[^}]*\{ opacity: 1; \}/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="text"\] > input\.aa-workspace-control-input \{[^}]*min-height:\s*34px;[^}]*padding-block:\s*6px;/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="text"\] > textarea\.aa-workspace-control-input \{[^}]*min-height:\s*58px;[^}]*padding-block:\s*7px;/);
 	assert.match(theme, /\.aa-control-choice-select \.aa-ui-select__native \{[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(theme, /data-control-kind="taglist"[^}]*aa-taglist-control[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
 	assert.match(workspaceControls, /control\.dataset\.headerOnly = "true"; control\.headerAccessories = \[accessory\];/);

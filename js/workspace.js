@@ -577,6 +577,7 @@ function workspaceLabels() {
 			viewer: t("aaalice.workspace.imageCompare.viewer", "Full-screen image comparison. Move the pointer to compare, scroll to zoom, drag enlarged images to move, and double-click to reset."), close: t("aaalice.workspace.imageCompare.close", "Close full-screen comparison"),
 			zoomIn: t("aaalice.workspace.imageCompare.zoomIn", "Zoom in"), zoomOut: t("aaalice.workspace.imageCompare.zoomOut", "Zoom out"), fit: t("aaalice.workspace.imageCompare.fit", "Fit to screen"),
 		},
+		enabled: t("aaalice.common.enabled", "Enabled"), disabled: t("aaalice.common.disabled", "Disabled"),
 		selectOption: t("aaalice.workspace.binding.selectOption", "Select an option"),
 		availability: {
 			noOptions: t("aaalice.workspace.binding.noOptions", "No options available"), unset: t("aaalice.workspace.binding.unset", "No value available"),
