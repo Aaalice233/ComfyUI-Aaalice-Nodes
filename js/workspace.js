@@ -13,10 +13,12 @@ import {
 	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
 } from "./lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
-import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeGroup, resizeItem, resizeItems, reconcileSourceTitles, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
+import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeGroup, resizeItem, resizeItems, syncSourceGroup, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
+import { SOURCE_SYNC_STATUS, buildSourceSnapshot, inspectSourceGroup } from "./lib/dashboard_source_sync.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
+import { projectControlFootprints } from "./lib/dashboard_layout.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
@@ -215,24 +217,7 @@ function graphSyncSignature() {
 
 let graphSyncFrame = 0;
 let previousGraphStructure = "";
-const pendingParameterSourceSyncs = new Map();
-let parameterSourceSyncTask = 0;
-function scheduleParameterSourceSync(detail) {
-	const node = detail?.node;
-	const hostId = node?.properties?.aaaliceControlHostId;
-	if (!node || !hostId) return;
-	pendingParameterSourceSyncs.set(hostId, node);
-	if (parameterSourceSyncTask) return;
-	parameterSourceSyncTask = setTimeout(() => {
-		parameterSourceSyncTask = 0;
-		const nodes = [...pendingParameterSourceSyncs.values()];
-		pendingParameterSourceSyncs.clear();
-		for (const pendingNode of nodes) {
-			const next = reconcileSourceTitles(dashboard(), controlProviders.list(pendingNode));
-			if (next) updateDashboard(() => next);
-		}
-	}, 0);
-}
+const sourceSyncLocks = new Set();
 
 function scheduleGraphSync() {
 	if (graphSyncFrame) return;
@@ -378,15 +363,11 @@ async function removePage(page) {
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
 
 function resolveGroupTitle(group) {
-	if (group.nameOverride != null) return group.nameOverride;
-	if (group.nameSource == null || !group.source) return group.name;
-	const resolved = controlProviders.resolveGroup(group.source, graphNodes());
-	return resolved.status === "ok" && resolved.label ? resolved.label : group.name;
+	return group.nameOverride != null ? group.nameOverride : group.name;
 }
 
 function controlTitle(item, resolved) {
 	if (item.labelOverride != null) return item.labelOverride;
-	if (item.labelSource != null) return resolved.label || item.label || item.binding.controlId;
 	return item.label || resolved.label || item.binding.controlId;
 }
 
@@ -399,23 +380,32 @@ function isHeaderOnlyControl(resolved) {
 	return !(Number.isFinite(minimum) && Number.isFinite(maximum) && maximum > minimum);
 }
 
-function projectHeaderOnlyControlFootprints(page) {
-	if (!page) return page;
-	let changed = false;
-	const items = page.items.map((item) => {
-		if (item.kind !== "control" || item.layout.rowSpan >= DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN) return item;
-		const resolved = resolve(item.binding);
-		if (!isHeaderOnlyControl(resolved)) return item;
-		changed = true;
-		return { ...item, layout: { ...item.layout, rowSpan: DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } };
-	});
-	return changed ? { ...page, items } : page;
+function projectedControlRowSpan(item) {
+	if (item.kind !== "control" || item.layout.rowSpan >= DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN) return item.layout.rowSpan;
+	const resolved = resolve(item.binding);
+	return isHeaderOnlyControl(resolved) ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : item.layout.rowSpan;
 }
 
 function sourceGroupIdentity(sourceGroup) {
 	const source = sourceGroup?.source;
 	if (!source?.provider || !source?.hostId) return null;
 	return `${source.provider}\u0000${source.hostId}\u0000${source.scopeId || ""}`;
+}
+
+function sourceGroupLockKey(pageId, groupId) { return `${pageId}\u0000${groupId}`; }
+
+function inspectDashboardSourceGroup(group, page, nodes = graphNodes()) {
+	if (!group?.source) return { snapshot: { status: SOURCE_SYNC_STATUS.ERROR, controls: [], reason: "Group source is missing" }, status: SOURCE_SYNC_STATUS.ERROR, summary: null };
+	const sourceResult = controlProviders.sourceSnapshot(group.source, nodes);
+	const snapshot = buildSourceSnapshot(sourceResult.controls, group.source, { status: sourceResult.status, label: sourceResult.label, reason: sourceResult.reason });
+	const inspection = inspectSourceGroup(group, page?.items.filter((item) => item.groupId === group.id) || [], snapshot);
+	return { snapshot, status: inspection.status, summary: inspection, reason: inspection.reason || snapshot.reason || "" };
+}
+
+function sourceGroupViewState(page, group, nodes = graphNodes()) {
+	const lockKey = sourceGroupLockKey(page.id, group.id);
+	if (sourceSyncLocks.has(page.id) || sourceSyncLocks.has(lockKey)) return { status: "syncing", summary: null, snapshot: null, reason: "" };
+	return inspectDashboardSourceGroup(group, page, nodes);
 }
 
 function dashboardPresetLabels() {
@@ -567,6 +557,13 @@ function workspaceLabels() {
 		tones: Object.fromEntries(DASHBOARD_TONES.map((value) => [value, t(`aaalice.workspace.group.tones.${value}`, value)])),
 		renamePage: t("aaalice.workspace.page.rename", "Rename page"), deletePage: t("aaalice.workspace.page.delete", "Delete page"),
 		groupMenu: t("aaalice.workspace.group.menu", "Layout group menu"),
+		groupSync: {
+			synced: t("aaalice.workspace.group.sync.synced", "Synchronized"),
+			needsSync: t("aaalice.workspace.group.sync.needsSync", "Group changes pending; synchronize from source"),
+			syncing: t("aaalice.workspace.group.sync.syncing", "Synchronizing source group"),
+			missingSource: t("aaalice.workspace.group.sync.missingSource", "Source is unavailable"),
+			error: t("aaalice.workspace.group.sync.error", "Source description is invalid"),
+		},
 		renameHint: t("aaalice.workspace.renameHint", "Double-click to rename"),
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
 		resizeGroup: t("aaalice.workspace.group.resize", "Resize layout group; left and right arrows adjust width"),
@@ -727,10 +724,83 @@ function openDashboardExport(model) {
 	} }));
 }
 
+function sourceSyncSummaryDetail(summary) {
+	const parts = [];
+	if (summary.added) parts.push(message("aaalice.workspace.group.sync.added", "{count} added", { count: summary.added }));
+	if (summary.removed) parts.push(message("aaalice.workspace.group.sync.removed", "{count} removed", { count: summary.removed }));
+	if (summary.renamed) parts.push(message("aaalice.workspace.group.sync.renamed", "{count} renamed", { count: summary.renamed }));
+	if (summary.reordered) parts.push(t("aaalice.workspace.group.sync.reordered", "order updated"));
+	if (summary.updated) parts.push(message("aaalice.workspace.group.sync.updated", "{count} types updated", { count: summary.updated }));
+	if (summary.preservedManual) parts.push(message("aaalice.workspace.group.sync.preservedManual", "{count} manual cards preserved", { count: summary.preservedManual }));
+	return parts.join(" · ") || t("aaalice.workspace.group.sync.noChanges", "No changes were needed.");
+}
+
+function notifySourceSyncFailure(reason) {
+	app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.workspace.group.sync.failed", "Source group synchronization failed"), detail: String(reason || t("aaalice.workspace.group.sync.unknownError", "The source could not be synchronized.")), life: 5200 });
+}
+
+function syncDashboardSourceGroup(pageId, groupId, { notify = true } = {}) {
+	const lockKey = sourceGroupLockKey(pageId, groupId);
+	if (sourceSyncLocks.has(pageId) || sourceSyncLocks.has(lockKey)) return { status: "skipped" };
+	sourceSyncLocks.add(lockKey); scheduleRender("dashboard");
+	try {
+		const model = dashboard(); const page = model.pages.find((entry) => entry.id === pageId); const group = page?.groups.find((entry) => entry.id === groupId);
+		if (!page || !group?.source) return { status: "skipped" };
+		const info = inspectDashboardSourceGroup(group, page);
+		if (info.status === SOURCE_SYNC_STATUS.SYNCED) return { status: "synced", summary: info.summary };
+		if (info.status !== SOURCE_SYNC_STATUS.NEEDS_SYNC) {
+			if (notify) notifySourceSyncFailure(info.reason || t("aaalice.workspace.group.sync.unavailable", "The source is unavailable."));
+			return { status: "failed", reason: info.reason };
+		}
+		const result = syncSourceGroup(model, pageId, groupId, info.snapshot);
+		updateDashboard(() => result.next);
+		if (notify) app.extensionManager?.toast?.add?.({ severity: "success", summary: t("aaalice.workspace.group.sync.complete", "Source group synchronized"), detail: sourceSyncSummaryDetail(result.summary), life: 4200 });
+		return { status: "synced", summary: result.summary };
+	} catch (error) {
+		if (notify) notifySourceSyncFailure(error?.message || error);
+		return { status: "failed", reason: error?.message || String(error) };
+	} finally {
+		sourceSyncLocks.delete(lockKey); scheduleRender("dashboard");
+	}
+}
+
+function syncCurrentPageSourceGroups(pageId) {
+	if (sourceSyncLocks.has(pageId)) return;
+	const model = dashboard(); const page = model.pages.find((entry) => entry.id === pageId);
+	const groups = page?.groups.filter((group) => group.source).sort((left, right) => left.id.localeCompare(right.id)) || [];
+	if (!groups.length) {
+		app.extensionManager?.toast?.add?.({ severity: "info", summary: t("aaalice.workspace.group.sync.title", "Source groups"), detail: t("aaalice.workspace.group.sync.none", "This page has no source groups to synchronize."), life: 3200 });
+		return;
+	}
+	sourceSyncLocks.add(pageId); scheduleRender("dashboard");
+	let next = model; let changed = false; let synced = 0; let skipped = 0; let failed = 0; const failureReasons = []; const totals = { added: 0, removed: 0, renamed: 0, reordered: 0, updated: 0, preservedManual: 0 };
+	try {
+		for (const group of groups) {
+			const currentPage = next.pages.find((entry) => entry.id === pageId); const currentGroup = currentPage?.groups.find((entry) => entry.id === group.id);
+			if (!currentPage || !currentGroup) { skipped++; continue; }
+			const info = inspectDashboardSourceGroup(currentGroup, currentPage);
+			if (info.status === SOURCE_SYNC_STATUS.SYNCED) { skipped++; continue; }
+			if (info.status !== SOURCE_SYNC_STATUS.NEEDS_SYNC) { failed++; if (info.reason) failureReasons.push(info.reason); continue; }
+			try {
+				const result = syncSourceGroup(next, pageId, group.id, info.snapshot); next = result.next; changed = true; synced++;
+				for (const key of Object.keys(totals)) totals[key] += result.summary[key] || 0;
+			} catch (error) { failed++; failureReasons.push(error?.message || String(error)); }
+		}
+		if (changed) updateDashboard(() => next);
+		const failureDetail = failureReasons.length ? ` · ${failureReasons[0]}` : "";
+		app.extensionManager?.toast?.add?.({ severity: failed ? "warn" : "success", summary: t("aaalice.workspace.group.sync.pageComplete", "Current page source groups"), detail: message("aaalice.workspace.group.sync.pageSummary", "{synced} synchronized · {skipped} unchanged · {failed} failed", { synced, skipped, failed }) + (changed ? ` · ${sourceSyncSummaryDetail(totals)}` : "") + failureDetail, life: 5200 });
+	} finally {
+		sourceSyncLocks.delete(pageId); scheduleRender("dashboard");
+	}
+}
+
 function renderDashboard(container, host) {
 	container.classList.toggle("is-layout-editing", editMode);
-	const model = dashboard(); const page = currentPage(model); const projectedPage = projectHeaderOnlyControlFootprints(page);
-	const layoutPage = projectedPage ? { ...projectedPage, groups: projectedPage.groups.map((group) => ({ ...group, name: resolveGroupTitle(group) })) } : null;
+	const model = dashboard(); const page = currentPage(model); const projectedPage = projectControlFootprints(page, projectedControlRowSpan);
+	const layoutPage = projectedPage ? { ...projectedPage, groups: projectedPage.groups.map((group) => {
+		const sync = group.source ? sourceGroupViewState(page, group) : null;
+		return { ...group, name: resolveGroupTitle(group), syncStatus: sync?.status || null, syncSummary: sync?.summary || null, syncReason: sync?.reason || "" };
+	}) } : null;
 	const viewState = workspaceViewState.dashboard;
 	if (dashboardModelError) {
 		container.append(emptyState({ iconName: "statusWarning", className: "aa-workspace-empty aa-dashboard-unsupported", title: t("aaalice.workspace.unsupported.title", "Old dashboard layout is unsupported"), description: t("aaalice.workspace.unsupported.description", "Dashboard V2 uses a new grid model. Reset the unpublished layout to continue."), actions: [button({ label: t("aaalice.workspace.unsupported.reset", "Reset dashboard"), iconName: "delete", variant: "danger", onClick: () => {
@@ -780,9 +850,11 @@ function renderDashboard(container, host) {
 	});
 	const openPageMenu = (x, y) => {
 		if (!page) return;
+		const sourceGroupCount = page.groups.filter((group) => group.source).length;
 		createContextMenu({ x, y, ariaLabel: t("aaalice.workspace.page.menu", "Page actions"), items: [
 			{ label: t("aaalice.workspace.page.rename", "Rename page"), iconName: "edit", onSelect: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, renamePage) },
 			{ label: t("aaalice.workspace.page.duplicate", "Duplicate page"), iconName: "copy", onSelect: duplicateCurrentPage },
+			{ label: t("aaalice.workspace.group.sync.currentPage", "Synchronize source groups on this page"), iconName: "refresh", disabled: !sourceGroupCount, onSelect: () => syncCurrentPageSourceGroups(page.id) },
 			{ label: t("aaalice.workspace.page.tone", "Page color"), iconName: "settings", onSelect: () => openPageToneMenu(x + 12, y + 12) },
 			...(editMode ? [
 				{ separator: true },
@@ -885,7 +957,7 @@ function renderDashboard(container, host) {
 		card.dataset.dashboardItemId = item.id; card.dataset.searchText = String(cardTitle).toLocaleLowerCase(); return card;
 	};
 	const columns = dashboardColumnsForWidth(container.clientWidth);
-	const grid = createDashboardGrid({ page: layoutPage, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu,
+	const grid = createDashboardGrid({ page: layoutPage, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu, onSyncGroup: (group) => syncDashboardSourceGroup(page.id, group.id),
 		onRenameGroup: (group, name) => updateDashboard((current) => {
 			const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id);
 			if (target) target.nameOverride = name;
@@ -1867,7 +1939,6 @@ app.registerExtension({
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => scheduleRender("dashboard"));
 		window.addEventListener(EVENT_PARAMETER_CHANGED, (event) => {
-			scheduleParameterSourceSync(event.detail);
 			if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard");
 		});
 		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));

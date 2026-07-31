@@ -110,11 +110,13 @@ export function normalizeDashboard(raw) {
 			const groupId = sourceItem.groupId == null ? null : String(sourceItem.groupId);
 			if (groupId && !groupIds.has(groupId)) throw new DashboardModelError(`Dashboard item references missing group: ${groupId}`, "missing-group");
 			const source = kind === "separator" ? normalizeGroupSource(sourceItem.source) : null;
+			const groupSource = kind === "control" ? normalizeGroupSource(sourceItem.groupSource) : null;
 			page.items.push({
 				id: sourceItem.id, kind, binding: kind === "control" ? normalizeBinding(sourceItem.binding) : null,
 				label: String(sourceItem.label || ""), groupId,
 				...(typeof sourceItem.labelSource === "string" ? { labelSource: sourceItem.labelSource } : {}),
 				...(typeof sourceItem.labelOverride === "string" ? { labelOverride: sourceItem.labelOverride } : {}),
+				...(groupSource ? { groupSource } : {}),
 				...(source ? { source } : {}),
 				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns }),
 			});
@@ -135,9 +137,9 @@ export function normalizeDashboard(raw) {
 }
 
 export function createPage(name = "Page") { return { id: stableId("page"), name, gridColumns: DASHBOARD_GRID_COLUMNS, tone: null, items: [], groups: [] }; }
-export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }) {
-	const sourceLabel = String(label || "");
-	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label: sourceLabel, labelSource: sourceLabel || null, labelOverride: null, groupId: null, layout: normalizeLayout(layout) };
+export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }, groupSource = null) {
+	const sourceLabel = String(label || ""); const normalizedSource = normalizeGroupSource(groupSource);
+	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label: sourceLabel, labelSource: sourceLabel || null, labelOverride: null, groupId: null, ...(normalizedSource ? { groupSource: normalizedSource } : {}), layout: normalizeLayout(layout) };
 }
 export function createSeparatorItem(label = "", row = 0, source = null) {
 	const normalizedSource = normalizeGroupSource(source);

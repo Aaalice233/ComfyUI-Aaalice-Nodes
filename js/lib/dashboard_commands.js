@@ -3,6 +3,7 @@
 import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { compactScope, firstAvailableLayout, groupMemberColumnSpan, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
+import { planSourceGroupSync } from "./dashboard_source_sync.js";
 
 function copy(model) { return structuredClone(normalizeDashboard(model)); }
 function removeEmptyGroups(page) {
@@ -41,76 +42,17 @@ function sourceGroupKey(source) {
 	return `${source.provider}\u0000${source.hostId}\u0000${source.scopeId || ""}`;
 }
 
-// Old dashboard items only had a single label field. The first source
-// reconciliation converts that snapshot into either a source label or an explicit override.
-export function reconcileSourceTitles(model, controls = []) {
-	const sourceControls = new Map();
-	const sourceGroups = new Map();
-	for (const control of controls || []) {
-		const binding = control?.binding;
-		if (!binding?.provider || !binding.hostId || !binding.controlId) continue;
-		sourceControls.set(`${binding.provider}\u0000${binding.hostId}\u0000${binding.controlId}\u0000${binding.adapterId || ""}`, control);
-		const sourceGroup = control.sourceGroup;
-		if (sourceGroup?.source && typeof sourceGroup.name === "string") sourceGroups.set(sourceGroupKey(sourceGroup.source), sourceGroup);
-	}
-	if (!sourceControls.size && !sourceGroups.size) return null;
-	const next = copy(model); let changed = false;
-	for (const page of next.pages) {
-		for (const item of page.items) {
-			if (item.kind !== "control" || item.labelOverride != null) continue;
-			const source = sourceControls.get(`${item.binding.provider}\u0000${item.binding.hostId}\u0000${item.binding.controlId}\u0000${item.binding.adapterId || ""}`);
-			if (!source) continue;
-			const label = String(source.label || "");
-			if (item.labelSource == null) {
-				if (item.label && item.label !== label) {
-					item.labelOverride = item.label;
-					changed = true;
-					continue;
-				}
-				item.labelSource = label;
-				changed = true;
-			}
-			if (item.labelSource !== label || item.label !== label) {
-				item.labelSource = label;
-				item.label = label;
-				changed = true;
-			}
-		}
-		for (const group of page.groups) {
-			if (!group.source || group.nameOverride != null) continue;
-			const source = sourceGroups.get(sourceGroupKey(group.source));
-			if (!source) continue;
-			const name = String(source.name || "Group");
-			if (group.nameSource == null) {
-				if (group.name && group.name !== name) {
-					group.nameOverride = group.name;
-					changed = true;
-					continue;
-				}
-				group.nameSource = name;
-				changed = true;
-			}
-			if (group.nameSource !== name || group.name !== name) {
-				group.nameSource = name;
-				group.name = name;
-				changed = true;
-			}
-		}
-	}
-	return changed ? normalizeDashboard(next) : null;
-}
-
-function createControlFromSpec(control, layout = { row: 0, column: 0 }) {
+function createControlFromSpec(control, layout = { row: 0, column: 0 }, groupSource = null) {
 	return createControlItem(control.binding, control.label, {
 		...layout,
 		columnSpan: control.columnSpan || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN,
 		rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
-	});
+	}, groupSource);
 }
 
-function placeGroupItems(page, controls) {
+function placeGroupItems(page, controls, groupSource = null) {
 	const localPage = { ...page, items: [], groups: [] };
-	const items = controls.map((control) => createControlFromSpec(control));
+	const items = controls.map((control) => createControlFromSpec(control, undefined, groupSource));
 	for (const item of items) {
 		item.layout = firstAvailableLayout(localPage, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
 		localPage.items.push(item);
@@ -150,7 +92,7 @@ export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
 		if (requestedGroup.forceGroup) {
 			if (existingGroup) {
 				const itemIds = groupControls.map((control) => {
-					const item = createControlFromSpec(control);
+					const item = createControlFromSpec(control, undefined, requestedGroup.source);
 					item.layout = firstAvailableLayout(currentPage, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
 					currentPage.items.push(item);
 					return item.id;
@@ -158,7 +100,7 @@ export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
 				next = moveItems(next, itemIds, pageId, { groupId: existingGroup.id });
 				continue;
 			}
-			const items = placeGroupItems(currentPage, groupControls);
+			const items = placeGroupItems(currentPage, groupControls, requestedGroup.source);
 			currentPage.items.push(...items);
 			createGroupInPage(currentPage, items.map((item) => item.id), {
 				name: requestedGroup.name,
@@ -180,6 +122,8 @@ export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
 		const group = findSourceGroup(currentPage, requestedGroup.source);
 		if (group) {
 			next = moveItems(next, itemIds, pageId, { groupId: group.id });
+			const target = findPage(next, pageId);
+			for (const item of target.items) if (itemIds.includes(item.id)) item.groupSource = { ...requestedGroup.source };
 			continue;
 		}
 		const candidateIds = currentPage.items.filter((item) => !item.groupId && sameControlHost(item.binding, requestedGroup.source)).map((item) => item.id);
@@ -212,6 +156,7 @@ export function duplicateItems(model, pageId, itemIds) {
 	for (const source of orderedItems(page.items.filter((item) => ids.has(item.id)))) {
 		const item = structuredClone(source);
 		item.id = stableId("item");
+		delete item.groupSource;
 		item.layout = firstAvailableLayout(page, { groupId: item.groupId, columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
 		page.items.push(item);
 	}
@@ -229,11 +174,13 @@ export function moveItems(model, itemIds, targetPageId, { groupId = null, row = 
 		page.items = page.items.filter((item) => !ids.has(item.id));
 	}
 	const page = findPage(next, targetPageId); if (!page) throw new Error("Dashboard target page is missing");
-	if (groupId && !page.groups.some((group) => group.id === groupId)) throw new Error("Dashboard target group is missing");
+	const targetGroup = groupId ? page.groups.find((group) => group.id === groupId) : null;
+	if (groupId && !targetGroup) throw new Error("Dashboard target group is missing");
 	const ordered = orderedItems(moving);
 	if (row == null) {
 		for (const item of ordered) {
 			item.groupId = groupId;
+			if (item.kind === "control" && (!targetGroup?.source || !sameGroupSource(item.groupSource, targetGroup.source))) delete item.groupSource;
 			item.layout = firstAvailableLayout(page, { groupId, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan });
 			page.items.push(item);
 		}
@@ -244,6 +191,7 @@ export function moveItems(model, itemIds, targetPageId, { groupId = null, row = 
 		const targetRow = Math.max(0, Number(row) || 0); const targetColumn = Math.max(0, Math.min(page.gridColumns - width, Number(column) || 0));
 		for (const item of ordered) {
 			item.groupId = groupId;
+			if (item.kind === "control" && (!targetGroup?.source || !sameGroupSource(item.groupSource, targetGroup.source))) delete item.groupSource;
 			item.layout = { ...item.layout, row: targetRow + item.layout.row - minRow, column: targetColumn + item.layout.column - minColumn, columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan };
 			page.items.push(item);
 		}
@@ -297,6 +245,7 @@ export function resizeGroup(model, groupId, { columnSpan }) {
 }
 
 function createGroupInPage(page, itemIds, { name = "Group", tone = "neutral", source = null, allowSingle = false } = {}) {
+	const normalizedSource = normalizeGroupSource(source);
 	if (itemIds.length < (allowSingle ? 1 : 2)) throw new Error("A layout group requires at least two items");
 	const ids = new Set(itemIds);
 	if (itemIds.some((id) => !page.items.some((item) => item.id === id))) throw new Error("Layout group items must belong to one page");
@@ -308,10 +257,12 @@ function createGroupInPage(page, itemIds, { name = "Group", tone = "neutral", so
 	const row = Math.min(...[...absoluteLayouts.values()].map((layout) => layout.row));
 	const column = Math.min(...[...absoluteLayouts.values()].map((layout) => layout.column));
 	const width = Math.max(...[...absoluteLayouts.values()].map((layout) => layout.column + layout.columnSpan)) - column;
-	const group = createLayoutGroup(name, tone, row, source, width); page.groups.push(group);
+	const group = createLayoutGroup(name, tone, row, normalizedSource, width); page.groups.push(group);
 	for (const item of selected) {
 		const layout = absoluteLayouts.get(item.id);
 		item.groupId = group.id; item.layout = { ...layout, row: layout.row - row, column: layout.column - column };
+		if (normalizedSource && item.kind === "control") item.groupSource = { ...normalizedSource };
+		else if (item.kind === "control") delete item.groupSource;
 	}
 	removeEmptyGroups(page); placeEntry(page, group.id, group.layout);
 	return group;
@@ -326,10 +277,14 @@ export function createGroup(model, pageId, itemIds, options = {}) {
 
 export function assignToGroup(model, pageId, itemIds, groupId) { return moveItems(model, itemIds, pageId, { groupId }); }
 
+export function syncSourceGroup(model, pageId, groupId, snapshot) {
+	return planSourceGroupSync(model, pageId, groupId, snapshot);
+}
+
 export function ungroupItems(model, pageId, itemIds) {
 	const next = copy(model); const page = findPage(next, pageId); if (!page) return next; const ids = new Set(itemIds);
 	const items = orderedItems(page.items.filter((item) => ids.has(item.id)));
-	for (const item of items) { item.layout = firstAvailableLayout(page, { columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan }); item.groupId = null; }
+	for (const item of items) { item.layout = firstAvailableLayout(page, { columnSpan: item.kind === "separator" ? page.gridColumns : item.layout.columnSpan, rowSpan: item.layout.rowSpan }); item.groupId = null; if (item.kind === "control") delete item.groupSource; }
 	removeEmptyGroups(page); return normalizeDashboard(next);
 }
 
@@ -341,6 +296,7 @@ export function deleteGroup(model, pageId, groupId) {
 	for (const item of members) {
 		item.layout = { ...item.layout, row: group.layout.row + item.layout.row, column: group.layout.column + item.layout.column };
 		item.groupId = null;
+		if (item.kind === "control") delete item.groupSource;
 	}
 	return normalizeDashboard(next);
 }
@@ -388,7 +344,7 @@ export function compactDashboard(model, pageId, groupId = null) {
 export function duplicatePage(model, pageId) {
 	const next = copy(model); const source = findPage(next, pageId); if (!source) return next; const clone = structuredClone(source); const groupIds = new Map();
 	clone.id = stableId("page"); clone.name = `${clone.name} copy`;
-	for (const group of clone.groups) { const previous = group.id; group.id = stableId("group"); groupIds.set(previous, group.id); }
-	for (const item of clone.items) { item.id = stableId("item"); if (item.groupId) item.groupId = groupIds.get(item.groupId) || null; }
+	for (const group of clone.groups) { const previous = group.id; group.id = stableId("group"); delete group.source; delete group.nameSource; groupIds.set(previous, group.id); }
+	for (const item of clone.items) { item.id = stableId("item"); if (item.groupId) item.groupId = groupIds.get(item.groupId) || null; delete item.groupSource; }
 	next.pages.splice(next.pages.indexOf(source) + 1, 0, clone); return normalizeDashboard(next);
 }

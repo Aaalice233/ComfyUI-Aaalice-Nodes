@@ -54,7 +54,7 @@
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_model,virtual_masonry}.js` | 双行上下文工具栏、自然比例虚拟瀑布流、选择与详情、定高已选列表、设置入口和选择快照注入 |
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
 | Discord 分享 | `js/discord_share.js`、`js/lib/{discord_share_capture,discord_share_client,discord_share_model}.js` | 工作区侧栏底栏/顶栏入口、社区链接、Preview Any 绑定、最新成功执行快照、成员验证和相册发送 |
-| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,parameter_sections,native_output_controls,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、ComfyUI 内置只读执行预览、全图组导航、完整侧边栏预设、词库管理和便携备份；预设纯模型与运行时应用协调器分离，模型、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
+| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_source_sync,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,parameter_sections,native_output_controls,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、ComfyUI 内置只读执行预览、全图组导航、完整侧边栏预设、词库管理、便携备份和显式来源组同步；预设纯模型与运行时应用协调器分离，模型、来源快照、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image,image_compare,image_output,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,parameter_option_sources,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、动态选项来源适配、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
@@ -85,7 +85,7 @@
 | Discord 成员会话 | 浏览器当前 Origin 的可撤销会话 | 中继逐次成员/角色校验 | Webhook、OAuth Secret 或工作流 |
 | Discord 频道选择 | 浏览器 `localStorage` | 中继公开的 Target Id 子集 | Webhook URL、工作流 JSON 或节点属性 |
 | Discord 长 Prompt 文件偏好 | 浏览器 `localStorage` | 是否把超过单 Embed 限制的 Prompt 改为 TXT 附件 | Prompt 正文、工作流 JSON 或频道密钥 |
-| DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 参数值、目标解析和 Missing Binding 状态 | 侧边栏 DOM、节点标题或位置 |
+| DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 页面、组、卡片布局、稳定 Binding、来源组身份、`groupSource` 纳管关系、源标题快照和用户覆盖；参数值、目标解析和 Missing Binding 状态为实时派生 | 侧边栏 DOM、节点标题或位置、同步状态本身 |
 | DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、参数值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
 | Prompt Library | 用户目录 SQLite | 当前筛选、PromptSelector 引用解析 | 单个工作流、单个节点或浏览器缓存 |
 
@@ -192,11 +192,12 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 1. 官方 Sidebar Tab 挂载参数控制与词库工作区；页面布局随工作流序列化，参数值仍由节点拥有。
 2. Control Provider Registry 分别解析简单 ComfyUI 原生 widget、内置只读执行预览、Aaalice 稳定参数和子图整体公开 widget；绑定只按稳定 Host ID、Control ID 与可选 Adapter ID 精确解析。原生 fallback 仅接受由 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 及其 LiteGraph 运行时别名组成的简单节点，并统一映射为 `numeric`、`boolean`、`text`、`choice`；`PreviewImage` 与 `PreviewAny` 由独立 `comfy-output` Provider 显式读取官方执行消息、恢复后的 `node.images` / `preview_text` 与显示模式，不把临时媒体或文本写入 Dashboard 或预设。出现未知自定义面板时不做部分猜测。结构支持、运行可用性和绑定健康度是三个独立维度：空选项或未赋值控件仍可建立绑定，并以 `ready`、`empty`、`unset`、`unavailable`、`error` 表示瞬时可用性，不得伪装成 `missing` 或 `incompatible`。
-3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。Provider 可为每个控件声明通用来源组提示；ParameterPanel Provider 先按 Separator 划分有序分区，再用 Separator 的稳定 Parameter Id 生成可选 `scopeId`。Dashboard 命令层只消费该提示，不理解 ParameterPanel 结构：有真实 Separator 的面板按非空分区自动建组，单参数分区也保留组，但不会自动创建 Dashboard 分隔项；无 Separator 的面板继续在同源卡片达到两个时按面板标题建组。后续新增卡片按完整来源身份加入原组，且不覆盖用户改名或重排既有布局。节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。卡片宽高以整数网格单位持久化，窄侧栏的一列投影只改变显示，不反写规范布局。
-4. Dashboard 卡片和来源组把源名称快照与用户显式改名分开保存：`labelSource` / `nameSource` 只记录源同步状态，`labelOverride` / `nameOverride` 一旦存在就拥有展示优先级。Provider 可选实现 `resolveGroup()` 提供实时组标题；ParameterPanel 变更事件只触发工作区读取 Provider 的当前来源快照，纯模型同步按稳定 Binding / Scope Id 更新名称并在无法确认旧源快照时保留用户已有的自定义名称。绑定和组身份始终使用稳定 Id，不使用当前显示名称。
-5. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，布局备份导入跳过不兼容值并等待人工重绑。
-6. 侧边栏预设纯模型保存完整 Dashboard 与按稳定 Binding Key 索引的可序列化参数 payload，并从当前 Working Copy 与基准快照计算“已修改”状态；不存在基准时界面只显示中性占位。运行时协调器负责去重、捕获、预检以及布局与参数的共同应用和失败回滚；工作区入口负责 ComfyUI 图事务、对话框、切换保护和工作流序列化，Provider 继续是唯一写回节点的边界。预设集合与基准身份位于 `app.graph.extra.aaaliceSidebarPresets`，随工作流文件分发（含 Workflow Hub 的打包与安装，该插件原样保留 `extra`），跨插件契约是“不得剥离未知 extra 键”，Hub 侧零耦合。图同步签名同时覆盖看板与预设 extra，结构相同但持久状态不同的工作流切换标签页时必须刷新。
-7. “组导航”只显示用户手动加入的可视组；版本化导航清单、唯一组合键、每项 X/Y 目标偏移和目标缩放写入 `app.graph.extra` 并随工作流保存，组状态与边界从当前图实时解析。定位时偏移实时边界的目标中心并按条目倍率计算目标画布缩放；搜索和定位只属于会话视图，导航范围不受 QuickGroupManager 的颜色筛选或排序影响。
+3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。Provider 可为每个控件声明通用来源组提示；ParameterPanel Provider 先按 Separator 划分有序分区，再用 Separator 的稳定 Parameter Id 生成可选 `scopeId`。Dashboard 命令层只消费该提示，不理解 ParameterPanel 结构：有真实 Separator 的面板按非空分区自动建组，单参数分区也保留组，但不会自动创建 Dashboard 分隔项；无 Separator 的面板继续在同源卡片达到两个时按面板标题建组。后续新增卡片按完整来源身份加入原组，且不覆盖用户改名或重排既有布局。节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。卡片宽高以整数网格单位持久化，窄侧栏的一列投影只改变显示，不反写规范布局。运行时兼容旧卡片占位时，组内和页面级投影使用同一套碰撞消解，不让显示高度与后续组位置分叉。
+4. Dashboard 卡片和来源组把源名称快照与用户显式改名分开保存：`labelSource` / `nameSource` 只记录最近一次来源同步，`labelOverride` / `nameOverride` 一旦存在就拥有展示优先级。自动来源组和其纳管卡片分别保存 `group.source` 与 `item.groupSource`（Provider、Host Id、Scope Id）；手动移出、入普通组、删除组和复制页面/卡片会清除或隔离纳管身份。Provider 通过 `sourceSnapshot()` 返回有序、稳定 Binding、当前类型和来源标题，`dashboard_source_sync.js` 只消费该通用描述，不读取 ParameterPanel 私有结构。
+5. ParameterPanel 变更事件只刷新来源组的派生状态，不自动改写 Dashboard。来源组标题右侧显示 `synced`、`needs-sync`、`syncing`、`missing-source` 或 `error` 状态；用户可执行单组同步，页面右键菜单只同步当前页来源组。纯模型同步按稳定 Binding / Scope Id 原子计算新增、删除、类型更新和重排，保留卡片尺寸、手动成员、组位置/宽度和用户覆盖；只删除明确由当前来源组纳管且来源快照确认已删除的卡片。旧布局首次同步只保守认领精确匹配项，无法确认来源的旧成员保留。
+6. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，布局备份导入跳过不兼容值并等待人工重绑。
+7. 侧边栏预设纯模型保存完整 Dashboard 与按稳定 Binding Key 索引的可序列化参数 payload，并从当前 Working Copy 与基准快照计算“已修改”状态；不存在基准时界面只显示中性占位。运行时协调器负责去重、捕获、预检以及布局与参数的共同应用和失败回滚；工作区入口负责 ComfyUI 图事务、对话框、切换保护和工作流序列化，Provider 继续是唯一写回节点的边界。预设集合与基准身份位于 `app.graph.extra.aaaliceSidebarPresets`，随工作流文件分发（含 Workflow Hub 的打包与安装，该插件原样保留 `extra`），跨插件契约是“不得剥离未知 extra 键”，Hub 侧零耦合。图同步签名同时覆盖看板与预设 extra，结构相同但持久状态不同的工作流切换标签页时必须刷新。
+8. “组导航”只显示用户手动加入的可视组；版本化导航清单、唯一组合键、每项 X/Y 目标偏移和目标缩放写入 `app.graph.extra` 并随工作流保存，组状态与边界从当前图实时解析。定位时偏移实时边界的目标中心并按条目倍率计算目标画布缩放；搜索和定位只属于会话视图，导航范围不受 QuickGroupManager 的颜色筛选或排序影响。
 
 #### 第三方节点适配
 

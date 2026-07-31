@@ -60,6 +60,10 @@ function parameterPanelTitle(node) {
 	return String(node?.title || node?.type || node?.comfyClass || "Parameter Panel");
 }
 
+function sameSource(left, right) {
+	return Boolean(left?.provider && left.provider === right?.provider && left.hostId === right?.hostId && (left.scopeId || "") === (right?.scopeId || ""));
+}
+
 class ProviderRegistry {
 	constructor() { this.providers = []; }
 	register(provider) { this.providers.push(provider); return () => { this.providers = this.providers.filter((item) => item !== provider); }; }
@@ -77,6 +81,20 @@ class ProviderRegistry {
 		const node = (nodes || []).find((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === source?.hostId);
 		if (!provider?.resolveGroup || !node) return { status: "missing" };
 		return provider.resolveGroup(node, source);
+	}
+	sourceSnapshot(source, nodes) {
+		const provider = this.provider(source);
+		const node = (nodes || []).find((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === source?.hostId);
+		if (!provider || !node) return { status: "missing-source", source, controls: [], reason: "Source provider or host is missing" };
+		try {
+			const group = provider.resolveGroup ? provider.resolveGroup(node, source) : { status: "ok", label: "" };
+			if (group.status !== "ok") return { status: group.status === "missing" ? "missing-source" : "error", source, controls: [], label: "", reason: group.reason || "Source scope is unavailable" };
+			const controls = provider.list(node);
+			const listedGroup = controls.find((control) => control.sourceGroup?.source && sameSource(control.sourceGroup.source, source))?.sourceGroup;
+			return { status: "ok", source, controls, label: group.label || listedGroup?.name || "", reason: "" };
+		} catch (error) {
+			return { status: "error", source, controls: [], reason: error?.message || String(error) };
+		}
 	}
 }
 

@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, reconcileSourceTitles, ungroupItems } from "../js/lib/dashboard_commands.js";
-import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
-import { dashboardCardHeight, projectedGroupRowSpan, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
+import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { buildSourceSnapshot, planSourceGroupSync } from "../js/lib/dashboard_source_sync.js";
+import { firstAvailableLayout, projectGroupScope, projectScope } from "../js/lib/dashboard_layout.js";
+import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
 
 const binding = { provider: "generic-widget", hostId: "host-a", controlId: "steps", valueType: "number" };
 const modelWithPage = () => { const model = emptyDashboard(); const page = createPage("Generation"); model.pages.push(page); return { model, page }; };
@@ -45,6 +46,8 @@ test("new source-bound controls and groups retain source label metadata", () => 
 	const next = addItems(model, page.id, [{ label: "Steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, sourceGroup }]);
 	assert.equal(next.pages[0].items[0].labelSource, "Steps");
 	assert.equal(next.pages[0].items[0].labelOverride, undefined);
+	assert.deepEqual(next.pages[0].items[0].groupSource, sourceGroup.source);
+	assert.deepEqual(next.pages[0].groups[0].source, sourceGroup.source);
 	assert.equal(next.pages[0].groups[0].nameSource, "Sampling");
 });
 
@@ -60,11 +63,13 @@ test("parameter renames update source labels and preserve manual dashboard names
 	const pinned = next.pages[0].items.find((item) => item.binding.controlId === "cfg");
 	const group = next.pages[0].groups[0];
 	delete pinned.labelSource;
+	delete pinned.groupSource;
 	steps.label = "Steps"; pinned.label = "Pinned"; group.name = "Sampling";
-	const migrated = reconcileSourceTitles(next, [
-		{ binding: { ...panelBinding, controlId: "steps" }, label: "Iterations", sourceGroup: { source: sourceGroup.source, name: "Sampling options" } },
-		{ binding: { ...panelBinding, controlId: "cfg" }, label: "Guidance", sourceGroup: { source: sourceGroup.source, name: "Sampling options" } },
-	]);
+	const snapshot = buildSourceSnapshot([
+		{ binding: { ...panelBinding, controlId: "steps", valueType: "number" }, label: "Iterations", sourceGroup: { source: sourceGroup.source, name: "Sampling options" } },
+		{ binding: { ...panelBinding, controlId: "cfg", valueType: "number" }, label: "Guidance", sourceGroup: { source: sourceGroup.source, name: "Sampling options" } },
+	], sourceGroup.source, { label: "Sampling options" });
+	const migrated = planSourceGroupSync(next, page.id, group.id, snapshot).next;
 	assert.equal(migrated.pages[0].items.find((item) => item.binding.controlId === "steps").label, "Iterations");
 	assert.equal(migrated.pages[0].items.find((item) => item.binding.controlId === "steps").labelSource, "Iterations");
 	assert.equal(migrated.pages[0].items.find((item) => item.binding.controlId === "cfg").label, "Pinned");
@@ -78,8 +83,9 @@ test("legacy source titles migrate conservatively", () => {
 	const source = { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" };
 	let legacy = addItems(model, page.id, [{ label: "Old steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, sourceGroup: { source, name: "Old section", tone: "blue", forceGroup: true } }]);
 	delete legacy.pages[0].items[0].labelSource;
+	delete legacy.pages[0].items[0].groupSource;
 	delete legacy.pages[0].groups[0].nameSource;
-	const preserved = reconcileSourceTitles(legacy, [{ binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, label: "Steps", sourceGroup: { source, name: "Sampling" } }]);
+	const preserved = planSourceGroupSync(legacy, page.id, legacy.pages[0].groups[0].id, buildSourceSnapshot([{ binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps", valueType: "number" }, label: "Steps", sourceGroup: { source, name: "Sampling" } }], source, { label: "Sampling" })).next;
 	assert.equal(preserved.pages[0].items[0].label, "Old steps");
 	assert.equal(preserved.pages[0].items[0].labelOverride, "Old steps");
 	assert.equal(preserved.pages[0].groups[0].name, "Old section");
@@ -87,8 +93,9 @@ test("legacy source titles migrate conservatively", () => {
 
 	let matching = addItems(model, page.id, [{ label: "Steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, sourceGroup: { source, name: "Sampling", tone: "blue", forceGroup: true } }]);
 	delete matching.pages[0].items[0].labelSource;
+	delete matching.pages[0].items[0].groupSource;
 	delete matching.pages[0].groups[0].nameSource;
-	matching = reconcileSourceTitles(matching, [{ binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps" }, label: "Steps", sourceGroup: { source, name: "Sampling" } }]);
+	matching = planSourceGroupSync(matching, page.id, matching.pages[0].groups[0].id, buildSourceSnapshot([{ binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "steps", valueType: "number" }, label: "Steps", sourceGroup: { source, name: "Sampling" } }], source, { label: "Sampling" })).next;
 	assert.equal(matching.pages[0].items[0].labelSource, "Steps");
 	assert.equal(matching.pages[0].groups[0].nameSource, "Sampling");
 });
@@ -297,7 +304,20 @@ test("grid projection to one column does not mutate canonical layout", () => {
 	const projection = projectScope(entries, 1); assert.deepEqual(projection.get("a"), { row: 0, column: 0, columnSpan: 1, rowSpan: 12 }); assert.deepEqual(projection.get("b"), { row: 12, column: 0, columnSpan: 1, rowSpan: 7 }); assert.equal(entries[1].layout.row, 0);
 });
 
-test("single-column groups reserve enough projected height for every stacked member", () => {
+test("grid projection moves later entries when a projected footprint grows", () => {
+	const entries = [
+		{ id: "a", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 13 } },
+		{ id: "b", layout: { row: 12, column: 0, columnSpan: 6, rowSpan: 12 } },
+		{ id: "c", layout: { row: 24, column: 0, columnSpan: 6, rowSpan: 12 } },
+	];
+	const projection = projectScope(entries, 12);
+	assert.equal(projection.get("a").row, 0);
+	assert.equal(projection.get("b").row, 13);
+	assert.equal(projection.get("c").row, 25);
+	assert.equal(entries[1].layout.row, 12);
+});
+
+test("group projection reserves height from the same collision-free member layout", () => {
 	const members = [
 		{ id: "a", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 12 } },
 		{ id: "b", layout: { row: 0, column: 6, columnSpan: 6, rowSpan: 7 } },
@@ -305,10 +325,10 @@ test("single-column groups reserve enough projected height for every stacked mem
 	];
 	assert.equal(recommendedGroupRowSpan(members), 28);
 	assert.equal(recommendedGroupRowSpan(members, false), 24);
-	assert.equal(projectedGroupRowSpan(members, 1), 35);
-	assert.equal(projectedGroupRowSpan(members, 1, false), 31);
-	assert.equal(projectedGroupRowSpan(members, 12), 28);
-	assert.equal(projectedGroupRowSpan(members, 12, false), 24);
+	assert.equal(projectGroupScope(members, 1).rowSpan, 35);
+	assert.equal(projectGroupScope(members, 1, false).rowSpan, 31);
+	assert.equal(projectGroupScope(members, 12).rowSpan, 28);
+	assert.equal(projectGroupScope(members, 12, false).rowSpan, 24);
 });
 
 test("fine-grained rows allow a short card below another card beside a tall card", () => {
@@ -539,6 +559,18 @@ test("duplicating a page regenerates layout identities and preserves bindings", 
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }]);
 	next = createGroup(next, page.id, next.pages[0].items.map((item) => item.id)); next = duplicatePage(next, page.id);
 	assert.equal(next.pages.length, 2); assert.notEqual(next.pages[0].id, next.pages[1].id); assert.notEqual(next.pages[0].groups[0].id, next.pages[1].groups[0].id); assert.notEqual(next.pages[0].items[0].id, next.pages[1].items[0].id); assert.deepEqual(next.pages[0].items[0].binding, next.pages[1].items[0].binding);
+});
+
+test("duplicating a source page isolates its source ownership", () => {
+	const { model, page } = modelWithPage();
+	const source = { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" };
+	let next = addItems(model, page.id, [
+		{ label: "Steps", binding: { ...binding, provider: source.provider, hostId: source.hostId }, sourceGroup: { source, name: "Sampling", forceGroup: true } },
+		{ label: "CFG", binding: { ...binding, provider: source.provider, hostId: source.hostId, controlId: "cfg" }, sourceGroup: { source, name: "Sampling", forceGroup: true } },
+	]);
+	next = duplicatePage(next, page.id); const clone = next.pages[1];
+	assert.equal(clone.groups[0].source, undefined);
+	assert.ok(clone.items.every((item) => item.groupSource === undefined));
 });
 
 test("duplicate ids, missing groups and overlapping cells fail visibly", () => {

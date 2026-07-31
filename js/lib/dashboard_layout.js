@@ -95,12 +95,44 @@ export function placeEntry(page, entryId, target, { groupId = null } = {}) {
 	return placeEntries(page, [entryId], { groupId });
 }
 
+// Runtime footprint upgrades must move only the projected entry; canonical layout stays unchanged.
+function projectWithoutOverlap(layout, placed) {
+	let row = layout.row;
+	while (placed.some((candidate) => overlaps({ ...layout, row }, candidate))) row++;
+	return { ...layout, row };
+}
+
 export function projectScope(entries, columns = 12) {
-	const result = new Map();
-	if (columns !== 1) { for (const entry of entries) result.set(entry.id, { ...entry.layout }); return result; }
-	let row = 0;
+	const result = new Map(); const placed = [];
+	if (columns === 1) {
+		let row = 0;
+		for (const entry of orderedItems(entries)) {
+			const layout = { row, column: 0, columnSpan: 1, rowSpan: entry.layout.rowSpan };
+			result.set(entry.id, layout); placed.push(layout); row += layout.rowSpan;
+		}
+		return result;
+	}
 	for (const entry of orderedItems(entries)) {
-		result.set(entry.id, { row, column: 0, columnSpan: 1, rowSpan: entry.layout.rowSpan }); row += entry.layout.rowSpan;
+		const layout = projectWithoutOverlap(entry.layout, placed);
+		result.set(entry.id, layout); placed.push(layout);
 	}
 	return result;
+}
+
+export function projectControlFootprints(page, getRowSpan) {
+	if (!page || typeof getRowSpan !== "function") return page;
+	let changed = false;
+	const items = page.items.map((item) => {
+		const rowSpan = Number(getRowSpan(item));
+		if (!Number.isFinite(rowSpan) || rowSpan <= item.layout.rowSpan) return item;
+		changed = true;
+		return { ...item, layout: { ...item.layout, rowSpan } };
+	});
+	return changed ? { ...page, items } : page;
+}
+
+export function projectGroupScope(members, columns = DASHBOARD_GRID_COLUMNS, includeHeader = true) {
+	const projection = projectScope(members, columns);
+	const projectedMembers = members.map((item) => ({ ...item, layout: projection.get(item.id) || { ...item.layout } }));
+	return { projection, rowSpan: recommendedGroupRowSpan(projectedMembers, includeHeader) };
 }
