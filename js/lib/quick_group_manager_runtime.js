@@ -1,6 +1,5 @@
-/** Shared QuickGroupManager discovery and mode actions for node and workspace surfaces. */
+/** Shared QuickGroupManager state and mode actions for the node and sidebar control. */
 
-import { allGraphNodes } from "./graph_scope.js";
 import {
 	GROUP_STATE,
 	classifyGroupNodes,
@@ -16,10 +15,6 @@ const PROPERTY = "quickGroupManagerState";
 
 export function isQuickGroupManager(node) {
 	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE_TYPE);
-}
-
-export function quickGroupManagerNodes(root) {
-	return allGraphNodes(root).filter(isQuickGroupManager);
 }
 
 export function quickGroupManagerState(node, { persist = true } = {}) {
@@ -47,8 +42,13 @@ export function quickGroupManagerSnapshot(node) {
 	};
 }
 
-function commitGraph(node, mutate) {
+function commitGraph(node, mutate, { transaction = true } = {}) {
 	const graph = node?.graph;
+	if (!transaction) {
+		mutate();
+		refreshQuickGroupManagerControls(node);
+		return;
+	}
 	graph?.beforeChange?.();
 	try {
 		mutate();
@@ -56,7 +56,66 @@ function commitGraph(node, mutate) {
 		graph?.afterChange?.();
 		graph?.change?.();
 		graph?.setDirtyCanvas?.(true, true);
+		refreshQuickGroupManagerControls(node);
 	}
+}
+
+export function refreshQuickGroupManagerControls(node) {
+	for (const refresh of node?._aaaliceQuickGroupControlRefreshes || []) refresh();
+}
+
+function nodeIdentity(node) {
+	return node?.id == null ? null : String(node.id);
+}
+
+export function quickGroupManagerPresetSnapshot(node) {
+	const snapshot = quickGroupManagerSnapshot(node);
+	return {
+		version: 1,
+		state: structuredClone(snapshot.state),
+		groups: snapshot.groups.map((group) => ({
+			id: String(group.id),
+			nodes: group.nodes.map((member) => ({ id: nodeIdentity(member), mode: Number(member?.mode ?? 0) })).filter((member) => member.id),
+		})),
+	};
+}
+
+export function validateQuickGroupManagerPreset(value) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return "invalid-manager-state";
+	if (!value.state || typeof value.state !== "object" || !Array.isArray(value.groups)) return "invalid-manager-state";
+	for (const group of value.groups) {
+		if (!group || group.id == null || !Array.isArray(group.nodes)) return "invalid-manager-state";
+		if (group.nodes.some((member) => member?.id == null || ![0, 2, 4].includes(Number(member.mode)))) return "invalid-manager-state";
+	}
+	return true;
+}
+
+export function applyQuickGroupManagerPreset(node, value, { transaction = true } = {}) {
+	const validation = validateQuickGroupManagerPreset(value);
+	if (validation !== true) return { ok: false, code: validation };
+	const groups = quickGroupManagerGroups(node);
+	const groupsById = new Map(groups.map((group) => [String(group.id), group]));
+	const nodeModes = new Map();
+	for (const savedGroup of value.groups) {
+		const group = groupsById.get(String(savedGroup.id));
+		if (!group) continue;
+		const membersById = new Map(group.nodes.map((member) => [nodeIdentity(member), member]));
+		for (const savedMember of savedGroup.nodes) {
+			const member = membersById.get(String(savedMember.id));
+			if (!member) continue;
+			const mode = Number(savedMember.mode);
+			const previous = nodeModes.get(member);
+			if (previous != null && previous !== mode) return { ok: false, code: "nodeConflict" };
+			nodeModes.set(member, mode);
+		}
+	}
+	const nextState = normalizeQuickGroupState(value.state);
+	commitGraph(node, () => {
+		node.properties ||= {};
+		node.properties[PROPERTY] = nextState;
+		for (const [member, mode] of nodeModes) member.mode = mode;
+	}, { transaction });
+	return { ok: true, changedGroups: groupsById.size, changedNodes: nodeModes.size };
 }
 
 export function applyQuickGroupManagerAction(node, sourceId, action) {

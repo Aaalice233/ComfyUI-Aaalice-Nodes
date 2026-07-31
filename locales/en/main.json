@@ -46,7 +46,7 @@
       "missing": "Missing library entry", "missingShort": "missing", "selected": "selected", "weight": "Weight", "weightHint": "Scroll or use arrow keys to adjust; click to reset to 1", "thumbnailEditHint": "Double-click the thumbnail to edit this entry", "uncategorized": "Uncategorized", "categorySummary": "Selected by category", "outputQueue": "Selected output queue", "moreSelected": "More selected prompts", "separator": "Prompt separator", "separatorMenu": "⚙️ Set prompt separator…"
     },
     "workspace": {
-      "title": "Aaalice Workspace", "sidebarTitle": "Aaalice", "dashboard": "Controls", "groups": "Groups", "library": "Library", "quickGroups": { "tab": "⚡ Managers", "title": "Quick Group Managers", "manager": "Quick Group Manager", "rootScope": "Root graph", "subgraphScope": "Subgraph", "search": "Search Quick Group Managers", "searchPlaceholder": "Search managers or groups", "actions": "Quick Group Manager actions", "list": "Quick Group Managers", "count": "{count} managers", "groupsShort": "groups", "nodesShort": "nodes", "locate": "Locate", "toggle": "Toggle", "toggleShort": "Toggle", "noGroups": "No groups in this manager.", "noMatchesTitle": "No matching managers", "noMatches": "Try another manager or group name.", "emptyTitle": "No Quick Group Managers", "empty": "Add a Quick Group Manager node to control workflow groups here.", "navigateUnavailable": "This group cannot be located on the current canvas.", "actionFailed": "The manager could not be updated.", "status": { "enabled": "Enabled", "disabled": "Disabled", "mixed": "Mixed", "empty": "Empty", "unknown": "Unknown" } }, "edit": "Layout", "done": "Done", "dashboardActions": "Dashboard actions",
+      "title": "Aaalice Workspace", "sidebarTitle": "Aaalice", "dashboard": "Controls", "groups": "Groups", "library": "Library", "edit": "Layout", "done": "Done", "dashboardActions": "Dashboard actions",
       "markdown": { "empty": "Empty note" },
       "imageOutput": { "empty": "Run the workflow to preview images", "previous": "Previous image", "next": "Next image", "open": "Open full-screen image preview", "title": "Image preview", "viewer": "Full-screen image preview. Scroll to zoom, drag enlarged images to move, and double-click to reset.", "close": "Close full-screen image preview", "zoomIn": "Zoom in", "zoomOut": "Zoom out", "fit": "Fit to screen" },
       "textOutput": { "empty": "Run the workflow to preview a value", "plain": "Plain text", "markdown": "Markdown", "content": "Previewed value" },
@@ -148,9 +148,13 @@
     },
     "quickGroup": {
       "title": "Quick Group Manager",
+      "titleWithIcon": "⚡ Quick Group Manager",
       "untitled": "Untitled group",
       "groups": "Workflow groups",
+      "nodes": "nodes",
       "refresh": "Refresh groups",
+      "enable": "Enable",
+      "disable": "Disable",
       "navigate": "Go to {group}",
       "navigateUnavailable": "This group cannot be located on the current canvas.",
       "reorder": "Drag to reorder; Alt+Arrow keys also work",
@@ -160,6 +164,8 @@
       "noGroups": "No visual groups are available in this graph.",
       "noFilteredGroups": "No groups match the selected colors.",
       "mode": { "aria": "Disabled group mode", "mute": "Mute", "bypass": "Bypass" },
+      "status": { "enabled": "Enabled", "disabled": "Disabled", "mixed": "Mixed", "empty": "Empty", "unknown": "Unknown" },
+      "error": { "generic": "The manager could not be updated." },
       "filter": {
         "aria": "Choose group colors", "all": "All groups",
         "empty": "No colors", "uncolored": "No color", "missing": "No current group uses this color"

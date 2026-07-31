@@ -47,7 +47,7 @@
 | 参数接收器 | `js/parameter_receiver.js` | Receiver Binding、Get 所有权、显式同步、菜单和状态显示 |
 | 枚举选通 | `js/enum_switch.js` | 分支编辑、选项绑定、同步提示、保线和 routes payload 注入 |
 | 分辨率预设 | `js/resolution_preset.js`、`js/lib/resolution_preset_model.js` | 状态规范化、预设匹配、二维映射、DOM 交互、个人预设请求和 width / height payload 注入 |
-| 组管理与导航 | `js/quick_group_manager.js`、`js/lib/{group_navigation,group_navigation_model}.js` | 全局图事件、DOM、颜色范围、排序、原子模式事务、共享组边界导航，以及手工导航清单与组合键模型 |
+| 组管理与导航 | `js/quick_group_manager.js`、`js/lib/{quick_group_manager_runtime,group_navigation,group_navigation_model}.js` | 全局图事件、DOM、颜色范围、排序、原子模式事务、共享组边界导航，以及手工导航清单与组合键模型 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |
@@ -55,7 +55,7 @@
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
 | Discord 分享 | `js/discord_share.js`、`js/lib/{discord_share_capture,discord_share_client,discord_share_model}.js` | 工作区侧栏底栏/顶栏入口、社区链接、Preview Any 绑定、最新成功执行快照、成员验证和相册发送 |
 | DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_source_sync,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_providers,parameter_sections,native_output_controls,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V2 页面、二维网格占位、稳定控件尺寸提示、可选布局组、参数投影、ComfyUI 内置只读执行预览、全图组导航、完整侧边栏预设、词库管理、便携备份和显式来源组同步；预设纯模型与运行时应用协调器分离，模型、来源快照、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
-| 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,numeric,boolean,choice,text,taglist,image,image_compare,image_output,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
+| 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,quick_group_manager,numeric,boolean,choice,text,taglist,image,image_compare,image_output,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、QuickGroupManager 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,parameter_option_sources,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、动态选项来源适配、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
 | DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
@@ -147,12 +147,11 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 ### QuickGroupManager
 
-1. `quick_group_manager_runtime.js` 是节点 DOM 与 workspace 聚合页共用的唯一发现、快照、级联预检和图事务边界；两种表面不复制 Manager 状态。
-2. 全局 `graphChanged` 监听在动画帧内合并刷新，节点实例和 workspace 只读取所属 graph 的实时组快照。
-3. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化；环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
-4. 通过预检后，在一个 Manager 所属 graph 的变更边界内提交全部模式；其它 Manager 只刷新显示。
-5. workspace 通过 `allGraphNodes()` 扫描根图、嵌套 Subgraph 和共享 Subgraph 定义，按 Manager 所属 graph 分卡；组定位先切换到所属 graph，不以 `app.graph` 猜测作用域。
-6. 节点行与 workspace 组行共用组边界适配器；定位只改变画布视图，不修改 Manager 状态。
+1. `quick_group_manager_runtime.js` 是节点 DOM 与侧边栏整体控件共用的唯一状态快照、级联预检和图事务边界；两种表面不复制 Manager 状态。
+2. QuickGroupManager 通过 Control Provider 以单一稳定 binding 暴露到 Dashboard，侧边栏卡片只投影该节点，不复制另一份组管理状态。
+3. 全局 `graphChanged` 监听在动画帧内合并刷新，节点实例和侧边栏控件只读取所属 graph 的实时组快照。
+4. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化；环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
+5. 通过预检后，在一个 Manager 所属 graph 的变更边界内提交全部模式；Dashboard 预设通过同一整体 codec 保存和恢复 Manager 配置及组状态。
 
 ### 节点强调色
 
@@ -261,7 +260,7 @@ const unregister = registerParameterOptionSourceAdapter({
 
 - KJNodes 只对 ParameterReceiver 的绑定、同步、ParameterPanel 的 Set/Get 辅助功能，以及 EnumSwitch 通过 Get 自动识别参数源可选依赖；缺失时明确报错，不模拟成功。跨图绑定只允许面板位于当前节点所在图或父级图，保持 KJNodes 的词法作用域。
 - Classic 与 Nodes 2.0 为支持范围；App Mode 暂不支持。
-- ParameterReceiver 的节点与真实槽只作用于自身所在图；托管 Get 默认留在接收器所属图，已有 Get 位于合法下级子图时保持原作用域，并沿真实 Subgraph 边界维护连接。禁止把子图中的 Get 隐式移动到 `app.graph` 或当前可见画布图。QuickGroupManager 节点只修改自身所属 graph；workspace 的“⚡ 快速组”页只做跨 graph 的聚合视图，不递归改写其它 Manager 的状态。
+- ParameterReceiver 的节点与真实槽只作用于自身所在图；托管 Get 默认留在接收器所属图，已有 Get 位于合法下级子图时保持原作用域，并沿真实 Subgraph 边界维护连接。禁止把子图中的 Get 隐式移动到 `app.graph` 或当前可见画布图。QuickGroupManager 节点及其 Dashboard 整体控件只修改自身所属 graph，不跨作用域聚合或递归改写其它 Manager 的状态。
 - DIY 侧边栏只投影 Subgraph 整体公开的兼容 widget，不遍历或绑定内部节点。
 - SimpleNotify 只在发起执行的前端产生提醒，不表示并行分支、整个工作流或队列完成。
 - ResolutionPreset 只输出精确宽高；比例与 MP 为只读摘要，不负责图像、Latent、模型推荐、裁剪、缩放或 batch。

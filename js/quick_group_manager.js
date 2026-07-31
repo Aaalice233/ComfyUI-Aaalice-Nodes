@@ -11,6 +11,7 @@ import {
 	quickGroupManagerGroups,
 	quickGroupManagerSnapshot,
 	quickGroupManagerState,
+	refreshQuickGroupManagerControls,
 	setQuickGroupManagerOffMode,
 } from "./lib/quick_group_manager_runtime.js";
 import { navigateToVisualGroup } from "./lib/group_navigation.js";
@@ -80,6 +81,7 @@ function commit(node, mutate) {
 		graph?.afterChange?.();
 		graph?.change?.();
 		graph?.setDirtyCanvas?.(true, true);
+		refreshQuickGroupManagerControls(node);
 	}
 }
 
@@ -87,7 +89,7 @@ function scheduleRenderAll() {
 	if (refreshFrame) return;
 	refreshFrame = requestAnimationFrame(() => {
 		refreshFrame = 0;
-		for (const node of mountedManagers) if (node.graph) render(node);
+		for (const node of mountedManagers) if (node.graph) { render(node); refreshQuickGroupManagerControls(node); }
 	});
 }
 

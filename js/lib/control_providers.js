@@ -6,6 +6,7 @@ import { listNativeOutputControls, resolveNativeOutputControl } from "./native_o
 import { recommendedControlRowSpan } from "./dashboard_sizing.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
 import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
+import { applyQuickGroupManagerPreset, isQuickGroupManager, quickGroupManagerPresetSnapshot, quickGroupManagerSnapshot, validateQuickGroupManagerPreset } from "./quick_group_manager_runtime.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
 
@@ -174,6 +175,38 @@ controlProviders.register({
 					notifyParameterChanged(node, { structure: false });
 				});
 			},
+		};
+	},
+});
+
+controlProviders.register({
+	id: "quick-group-manager",
+	supportsNode: (node) => isQuickGroupManager(node),
+	list(node) {
+		const hostId = ensureHostId(node);
+		const groupCount = quickGroupManagerSnapshot(node).groups.length;
+		return [{
+			label: "⚡ Quick Group Manager",
+			binding: { provider: this.id, hostId, controlId: "manager", valueType: "quick-group-manager" },
+			columnSpan: 12,
+			rowSpan: Math.max(12, Math.min(32, 5 + groupCount * 4)),
+		}];
+	},
+	resolve(node, binding) {
+		if (binding.controlId !== "manager" || binding.valueType !== "quick-group-manager") return { status: "missing", node };
+		const snapshot = quickGroupManagerSnapshot(node);
+		return {
+			status: "ok", family: "comfy", kind: "quick-group-manager", controlId: "manager", node, control: node,
+			label: "⚡ Quick Group Manager", value: snapshot.state, options: { manager: node },
+			presettable: true, minRowSpan: 12,
+			readPresetValue() { return quickGroupManagerPresetSnapshot(node); },
+			validatePresetValue(entry) {
+				if (!entry || entry.valueType !== binding.valueType) return "type-mismatch";
+				return validateQuickGroupManagerPreset(entry.payload);
+			},
+			applyPresetValue(entry, { transaction = true } = {}) { return applyQuickGroupManagerPreset(node, entry.payload, { transaction }); },
+			setValue(next) { return applyQuickGroupManagerPreset(node, next); },
+			flushValue() {},
 		};
 	},
 });

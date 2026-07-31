@@ -149,7 +149,6 @@ test("shares cascade preflight and graph transaction logic with workspace", () =
 	assert.ok(cascadeIndex >= 0 && preflightIndex > cascadeIndex && mutationIndex > preflightIndex);
 	assert.match(runtime, /beforeChange/);
 	assert.match(runtime, /afterChange/);
-	assert.match(runtime, /allGraphNodes/);
 	assert.doesNotMatch(runtime, /setInterval\s*\(/);
 });
 

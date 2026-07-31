@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
 	applyQuickGroupManagerAction,
-	quickGroupManagerNodes,
+	applyQuickGroupManagerPreset,
+	quickGroupManagerPresetSnapshot,
 	quickGroupManagerSnapshot,
 	setQuickGroupManagerOffMode,
 } from "../js/lib/quick_group_manager_runtime.js";
@@ -21,23 +22,9 @@ function graph(id, groups = []) {
 		beforeChange() { this.beforeChangeCount++; }, afterChange() { this.afterChangeCount++; }, change() { this.changeCount++; }, setDirtyCanvas() { this.dirtyCount++; } };
 }
 
-function node(mode = GROUP_MODE.ALWAYS) {
-	return { mode };
+function node(mode = GROUP_MODE.ALWAYS, id = null) {
+	return id == null ? { mode } : { id, mode };
 }
-
-test("discovers root, nested and shared subgraph managers once", () => {
-	const root = graph("root");
-	root.rootGraph = root;
-	const nested = graph("nested");
-	nested.rootGraph = root;
-	const rootManager = manager(root, 1);
-	const nestedManager = manager(nested, 2);
-	const wrapperA = { id: 10, subgraph: nested };
-	const wrapperB = { id: 11, subgraph: nested };
-	root._nodes = [rootManager, wrapperA, wrapperB];
-	nested._nodes = [nestedManager];
-	assert.deepEqual(quickGroupManagerNodes(root), [rootManager, nestedManager]);
-});
 
 test("returns an ordered, filtered read-only snapshot for the manager graph", () => {
 	const red = group("red", "Red", [node()], "#ff0000");
@@ -79,6 +66,21 @@ test("updates the off mode without a second transaction when unchanged", () => {
 	assert.equal(unchanged.ok, true);
 	assert.equal(unchanged.changed, false);
 	assert.equal(managerGraph.beforeChangeCount, 1);
+});
+
+test("captures and restores manager configuration and group node modes", () => {
+	const member = node(GROUP_MODE.ALWAYS, 101);
+	const managed = group("managed", "Managed", [member]);
+	const managerGraph = graph("root", [managed]);
+	const current = manager(managerGraph, 1, { offMode: "bypass", groupOrder: ["managed"] });
+	const snapshot = quickGroupManagerPresetSnapshot(current);
+	member.mode = GROUP_MODE.BYPASS;
+	current.properties.quickGroupManagerState.offMode = "mute";
+	const result = applyQuickGroupManagerPreset(current, snapshot, { transaction: false });
+	assert.equal(result.ok, true);
+	assert.equal(member.mode, GROUP_MODE.ALWAYS);
+	assert.equal(current.properties.quickGroupManagerState.offMode, "bypass");
+	assert.equal(managerGraph.beforeChangeCount, 0);
 });
 
 test("rejects invalid linkage before changing node modes", () => {

@@ -45,6 +45,13 @@ QuickGroupManager 是当前图的纯前端组控制器。它不参与 Prompt I/O
 - 每个导航项可以独立设置水平和垂直目标偏移，以及 10%–300% 的目标缩放倍率。偏移使用整数画布坐标，默认 `(0, 0)`；缩放默认 82%，表示组边界目标占据视口的比例，超过 100% 允许主动裁切大组。导航时先取实时组边界，再应用偏移和缩放。条目次要信息明确显示非零偏移和当前缩放。
 - 导航清单、快捷键、偏移和缩放以版本化模型写入工作流 `extra`，增加、移除和修改设置都进入图事务并提醒保存；搜索和定位只属于会话状态。实时组状态通过 `graphChanged` 合并刷新，不递归进入 Subgraph。
 
+## 参数面板整体控件
+
+- QuickGroupManager 以一个稳定 `quick-group-manager` Binding 添加到 ParameterPanel 侧边栏，不把组拆成独立参数，也不创建第二份 Manager 状态。
+- 侧边栏控件展示当前所属 graph 的组列表、实时状态与 Mute / Bypass；组开关和模式转换都委托 `quick_group_manager_runtime.js`，失败时整次图事务不落部分结果。
+- Dashboard 预设捕获 Manager 的规范化配置及当前组节点模式；恢复时按稳定组 ID 和节点 ID应用，缺失成员只跳过不可恢复项并保留其它有效状态。
+- 节点、侧边栏和预设只在 Manager 所属 graph 内工作，不能因侧边栏显示而扫描或改写其它 graph。
+
 ## 联动规则
 
 - 每个源组可分别配置“开启时”和“关闭时”的目标动作；同一阶段中一个目标只能有一个最终动作。
@@ -53,16 +60,6 @@ QuickGroupManager 是当前图的纯前端组控制器。它不参与 Prompt I/O
 - 保存前拒绝自引用、环路、缺失目标和冲突路径；已删除目标保持可见，允许修复或删除。
 - 执行前先计算完整级联和节点模式变更；跨颜色目标作为终点，规则不跨 Manager 继续传播。
 - 同一节点因重叠组收到不同最终模式时整次操作中止；失败不得留下部分修改。
-
-## Workspace 快速组页面
-
-`⚡ 快速组` 页面与 Controls、Groups、Library 并列，是 QuickGroupManager 的只读聚合视图。它不持有工作流状态，所有开关和 Mute / Bypass 操作都委托给 `js/lib/quick_group_manager_runtime.js`。
-
-- 页面使用 `allGraphNodes()` 扫描根图、嵌套 Subgraph 和共享 Subgraph 定义；同一 Manager 只显示一次，并按 Manager 所属 graph 分卡。
-- 卡片显示 Manager 名称、作用域、组数量、Mute / Bypass，以及每个组的颜色、节点数、实时状态、定位按钮和快速开关。
-- 定位前切换到 Manager 所属 graph，再使用 `navigateToVisualGroup()`；定位只改变画布视图，不改变节点模式或组状态。
-- 搜索是会话状态，只筛选 Manager 与组名称；`graphChanged` 在动画帧内合并刷新，不使用轮询。
-- Classic 与 Nodes 2.0 复用共享控件、焦点和滚动语义；空状态和窄侧栏保持可读，状态不能只靠颜色表达。
 
 ## 验收重点
 

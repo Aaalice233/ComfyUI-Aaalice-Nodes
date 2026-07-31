@@ -9,6 +9,7 @@ import { renderMarkdownControl } from "./markdown.js";
 import { renderImageCompareControl } from "./image_compare.js";
 import { renderImageOutputControl } from "./image_output.js";
 import { renderTextOutputControl } from "./text_output.js";
+import { renderQuickGroupManagerControl } from "./quick_group_manager.js";
 
 export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	numeric: (spec, port) => renderNumericControl(spec, port),
@@ -21,4 +22,5 @@ export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	"image-compare": (spec) => renderImageCompareControl(spec),
 	"image-output": (spec) => renderImageOutputControl(spec),
 	"text-output": (spec) => renderTextOutputControl(spec),
+	"quick-group-manager": (spec) => renderQuickGroupManagerControl(spec),
 });

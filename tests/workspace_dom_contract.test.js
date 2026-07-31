@@ -24,6 +24,8 @@ const nativeOutputControls = readFileSync(join(ROOT, "js", "lib", "native_output
 const imageOutputControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_output.js"), "utf8");
 const textOutputControl = readFileSync(join(ROOT, "js", "lib", "controls", "text_output.js"), "utf8");
 const comfyControls = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js"), "utf8");
+const quickGroupControl = readFileSync(join(ROOT, "js", "lib", "controls", "quick_group_manager.js"), "utf8");
+const runtime = readFileSync(join(ROOT, "js", "lib", "quick_group_manager_runtime.js"), "utf8");
 const controlRegistry = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
 const uiSource = readFileSync(join(ROOT, "js", "lib", "ui.js"), "utf8");
@@ -203,23 +205,20 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(zhLocale, /"groupNavigation"/);
 });
 
-test("aggregates QuickGroupManagers across graph scopes in a dedicated workspace page", () => {
-	assert.match(workspace, /value: "quickGroups"/);
-	assert.match(workspace, /function renderQuickGroups/);
-	assert.match(workspace, /allGraphNodes\(app\.graph\)/);
-	assert.match(workspace, /quickGroupManagerSnapshot/);
-	assert.match(workspace, /createQuickGroupManagerCard/);
-	assert.match(workspace, /navigateQuickGroupManagerGroup/);
-	assert.match(workspace, /setQuickGroupManagerOffMode/);
-	assert.match(workspace, /applyQuickGroupManagerAction/);
-	assert.match(workspace, /quickGroups: \{ query: "", searchOpen: false/);
-	assert.match(workspace, /aaalice\.workspace\.quickGroups\.search/);
-	assert.match(workspace, /aaalice\.workspace\.quickGroups\.empty/);
-	assert.match(theme, /data-workspace="quickGroups"/);
-	assert.match(theme, /aa-quick-groups-card/);
-	assert.match(enLocale, /"quickGroups"/);
-	assert.match(zhLocale, /"quickGroups"/);
-	assert.doesNotMatch(workspace, /setInterval\s*\(/);
+test("projects QuickGroupManager as one presettable sidebar control instead of a workspace page", () => {
+	assert.match(providers, /id: "quick-group-manager"/);
+	assert.match(providers, /valueType: "quick-group-manager"/);
+	assert.match(providers, /quickGroupManagerPresetSnapshot/);
+	assert.match(providers, /applyQuickGroupManagerPreset/);
+	assert.match(comfyControls, /"quick-group-manager"/);
+	assert.match(quickGroupControl, /renderQuickGroupManagerControl/);
+	assert.match(runtime, /quickGroupManagerPresetSnapshot/);
+	assert.match(runtime, /applyQuickGroupManagerPreset/);
+	assert.doesNotMatch(workspace, /value: "quickGroups"/);
+	assert.doesNotMatch(workspace, /function renderQuickGroups/);
+	assert.doesNotMatch(theme, /aa-quick-groups-card/);
+	assert.doesNotMatch(enLocale, /"quickGroups"/);
+	assert.doesNotMatch(zhLocale, /"quickGroups"/);
 });
 
 test("providers cover generic, Aaalice and public subgraph widgets by stable host identity", () => {
