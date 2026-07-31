@@ -4,7 +4,10 @@ import {
 	DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN,
 	DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
 	DASHBOARD_GRID_COLUMNS,
+	DASHBOARD_MIN_CONTROL_COLUMN_SPAN,
 	DASHBOARD_SEPARATOR_ROW_SPAN,
+	normalizeDashboardColumnSpan,
+	normalizeDashboardRowSpan,
 	recommendedGroupRowSpan,
 } from "./dashboard_sizing.js";
 
@@ -60,6 +63,16 @@ export function normalizeGroupSource(source) {
 	};
 }
 
+function normalizeControlLayout(layout) {
+	const columnSpan = normalizeDashboardColumnSpan(layout.columnSpan);
+	return {
+		...layout,
+		column: Math.min(layout.column, DASHBOARD_GRID_COLUMNS - columnSpan),
+		columnSpan,
+		rowSpan: normalizeDashboardRowSpan(layout.rowSpan),
+	};
+}
+
 function assertUnique(id, ids) {
 	if (!id || typeof id !== "string") throw new DashboardModelError("Dashboard identity is missing", "invalid-id");
 	if (ids.has(id)) throw new DashboardModelError(`Duplicate dashboard identity: ${id}`, "duplicate-id");
@@ -72,6 +85,24 @@ function assertNoOverlap(entries, scope) {
 		for (let row = entry.layout.row; row < entry.layout.row + entry.layout.rowSpan; row++) for (let column = entry.layout.column; column < entry.layout.column + entry.layout.columnSpan; column++) {
 			const cell = `${row}:${column}`; if (cells.has(cell)) throw new DashboardModelError(`Grid items overlap in ${scope}`, "overlap"); cells.add(cell);
 		}
+	}
+}
+
+function repairNormalizedOverlaps(entries, columns) {
+	const placed = [];
+	for (const entry of [...entries].sort((left, right) => left.layout.row - right.layout.row || left.layout.column - right.layout.column)) {
+		const base = entry.layout;
+		const columnsToTry = [base.column, ...Array.from({ length: columns }, (_, column) => column).filter((column) => column !== base.column)];
+		let next = base;
+		for (let row = base.row; row < base.row + 10000; row++) {
+			const column = columnsToTry.find((candidateColumn) => candidateColumn + base.columnSpan <= columns && !placed.some((other) => {
+				return row < other.row + other.rowSpan && row + base.rowSpan > other.row
+					&& candidateColumn < other.column + other.columnSpan && candidateColumn + base.columnSpan > other.column;
+			}));
+			if (column != null) { next = { ...base, row, column }; break; }
+		}
+		entry.layout = next;
+		placed.push(next);
 	}
 }
 
@@ -102,6 +133,7 @@ export function normalizeDashboard(raw) {
 				...(source ? { source } : {}), widthMode, layout: normalizeLayout(sourceGroup.layout, { rowSpan: 1, legacyColumns }),
 			});
 		}
+		const rawItems = [];
 		const groupIds = new Set(page.groups.map((group) => group.id));
 		for (const sourceItem of sourcePage.items) {
 			assertUnique(sourceItem?.id, ids);
@@ -111,6 +143,8 @@ export function normalizeDashboard(raw) {
 			if (groupId && !groupIds.has(groupId)) throw new DashboardModelError(`Dashboard item references missing group: ${groupId}`, "missing-group");
 			const source = kind === "separator" ? normalizeGroupSource(sourceItem.source) : null;
 			const groupSource = kind === "control" ? normalizeGroupSource(sourceItem.groupSource) : null;
+			const layout = normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns });
+			rawItems.push({ id: sourceItem.id, groupId, layout });
 			page.items.push({
 				id: sourceItem.id, kind, binding: kind === "control" ? normalizeBinding(sourceItem.binding) : null,
 				label: String(sourceItem.label || ""), groupId,
@@ -118,17 +152,25 @@ export function normalizeDashboard(raw) {
 				...(typeof sourceItem.labelOverride === "string" ? { labelOverride: sourceItem.labelOverride } : {}),
 				...(groupSource ? { groupSource } : {}),
 				...(source ? { source } : {}),
-				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns }),
+				layout: kind === "control" ? normalizeControlLayout(layout) : layout,
 			});
+		}
+		const rawPageEntries = [...rawItems.filter((item) => !item.groupId), ...page.groups];
+		if (rawPageEntries.some((entry) => entry.layout.columnSpan < DASHBOARD_MIN_CONTROL_COLUMN_SPAN)) assertNoOverlap(rawPageEntries, `page ${sourcePage.id}`);
+		for (const group of page.groups) {
+			const rawMembers = rawItems.filter((item) => item.groupId === group.id);
+			if (rawMembers.some((entry) => entry.layout.columnSpan < DASHBOARD_MIN_CONTROL_COLUMN_SPAN)) assertNoOverlap(rawMembers, `group ${group.id}`);
 		}
 		for (const group of page.groups) {
 			const members = page.items.filter((item) => item.groupId === group.id);
-			const minimumColumnSpan = groupContentColumnSpan(members);
-			if (group.widthMode === "auto") group.layout.columnSpan = minimumColumnSpan;
-			else group.layout.columnSpan = Math.max(group.layout.columnSpan, minimumColumnSpan);
+			repairNormalizedOverlaps(members, DASHBOARD_GRID_COLUMNS);
+			const minimumColumnSpan = Math.min(DASHBOARD_GRID_COLUMNS, groupContentColumnSpan(members));
+			if (group.widthMode === "auto") group.layout.columnSpan = normalizeDashboardColumnSpan(minimumColumnSpan, { minimum: minimumColumnSpan });
+			else group.layout.columnSpan = normalizeDashboardColumnSpan(Math.max(group.layout.columnSpan, minimumColumnSpan), { minimum: minimumColumnSpan });
 			group.layout.column = Math.min(group.layout.column, DASHBOARD_GRID_COLUMNS - group.layout.columnSpan);
 			group.layout.rowSpan = recommendedGroupRowSpan(members);
 		}
+		repairNormalizedOverlaps([...page.items.filter((item) => !item.groupId), ...page.groups], DASHBOARD_GRID_COLUMNS);
 		assertNoOverlap([...page.items.filter((item) => !item.groupId), ...page.groups], `page ${page.id}`);
 		for (const group of page.groups) assertNoOverlap(page.items.filter((item) => item.groupId === group.id), `group ${group.id}`);
 		result.pages.push(page);
@@ -139,7 +181,8 @@ export function normalizeDashboard(raw) {
 export function createPage(name = "Page") { return { id: stableId("page"), name, gridColumns: DASHBOARD_GRID_COLUMNS, tone: null, items: [], groups: [] }; }
 export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }, groupSource = null) {
 	const sourceLabel = String(label || ""); const normalizedSource = normalizeGroupSource(groupSource);
-	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label: sourceLabel, labelSource: sourceLabel || null, labelOverride: null, groupId: null, ...(normalizedSource ? { groupSource: normalizedSource } : {}), layout: normalizeLayout(layout) };
+	const normalizedLayout = normalizeControlLayout(normalizeLayout(layout));
+	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label: sourceLabel, labelSource: sourceLabel || null, labelOverride: null, groupId: null, ...(normalizedSource ? { groupSource: normalizedSource } : {}), layout: normalizedLayout };
 }
 export function createSeparatorItem(label = "", row = 0, source = null) {
 	const normalizedSource = normalizeGroupSource(source);
@@ -155,7 +198,7 @@ export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, sou
 	return {
 		id: stableId("group"), name: sourceName, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", showTitle: true, widthMode: "auto",
 		...(normalizedSource ? { source: normalizedSource, nameSource: sourceName } : {}), nameOverride: null,
-		layout: { row, column: 0, columnSpan: Math.max(1, Math.min(DASHBOARD_GRID_COLUMNS, Math.round(Number(columnSpan)) || DASHBOARD_GRID_COLUMNS)), rowSpan: 1 },
+		layout: { row, column: 0, columnSpan: normalizeDashboardColumnSpan(columnSpan, { minimum: 1 }), rowSpan: 1 },
 	};
 }
 

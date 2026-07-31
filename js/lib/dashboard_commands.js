@@ -2,7 +2,7 @@
 
 import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { compactScope, firstAvailableLayout, groupMemberColumnSpan, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
-import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, snapDashboardColumnSpan, snapDashboardRowSpan } from "./dashboard_sizing.js";
 import { planSourceGroupSync } from "./dashboard_source_sync.js";
 
 function copy(model) { return structuredClone(normalizeDashboard(model)); }
@@ -205,7 +205,7 @@ export function moveItems(model, itemIds, targetPageId, { groupId = null, row = 
 export function resizeItems(model, itemIds, columnSpan) {
 	const ids = new Set(itemIds); const next = copy(model); const touched = [];
 	for (const page of next.pages) for (const item of page.items) if (ids.has(item.id) && item.kind === "control") {
-		item.layout.columnSpan = Math.max(DASHBOARD_MIN_CONTROL_COLUMN_SPAN, Math.min(page.gridColumns, Math.round(Number(columnSpan)) || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN));
+		item.layout.columnSpan = snapDashboardColumnSpan(columnSpan, { minimum: DASHBOARD_MIN_CONTROL_COLUMN_SPAN, maximum: page.gridColumns, fallback: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN });
 		item.layout.column = Math.min(item.layout.column, page.gridColumns - item.layout.columnSpan);
 		touched.push({ page, item });
 	}
@@ -222,8 +222,8 @@ export function resizeItems(model, itemIds, columnSpan) {
 export function resizeItem(model, itemId, { columnSpan, rowSpan }) {
 	const next = copy(model); const { page, item } = findItem(next, itemId);
 	if (!page || item?.kind !== "control") return next;
-	item.layout.columnSpan = Math.max(DASHBOARD_MIN_CONTROL_COLUMN_SPAN, Math.min(page.gridColumns, Math.round(Number(columnSpan)) || item.layout.columnSpan));
-	item.layout.rowSpan = Math.max(1, Math.round(Number(rowSpan)) || item.layout.rowSpan);
+	item.layout.columnSpan = snapDashboardColumnSpan(columnSpan, { minimum: DASHBOARD_MIN_CONTROL_COLUMN_SPAN, maximum: page.gridColumns, fallback: item.layout.columnSpan });
+	item.layout.rowSpan = snapDashboardRowSpan(rowSpan, { minimum: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, fallback: normalizeDashboardRowSpan(item.layout.rowSpan) });
 	item.layout.column = Math.min(item.layout.column, page.gridColumns - item.layout.columnSpan);
 	placeEntry(page, item.id, item.layout, { groupId: item.groupId });
 	if (item.groupId) placeEntry(page, item.groupId, page.groups.find((group) => group.id === item.groupId)?.layout || { row: 0, column: 0 });
@@ -236,7 +236,7 @@ export function resizeGroup(model, groupId, { columnSpan }) {
 		const group = page.groups.find((entry) => entry.id === groupId);
 		if (!group) continue;
 		const minimum = groupMemberColumnSpan(page.items.filter((item) => item.groupId === group.id));
-		group.layout.columnSpan = Math.max(minimum, Math.min(page.gridColumns, Math.round(Number(columnSpan)) || group.layout.columnSpan));
+		group.layout.columnSpan = snapDashboardColumnSpan(columnSpan, { minimum: minimum, maximum: page.gridColumns, fallback: normalizeDashboardColumnSpan(group.layout.columnSpan, { minimum }) });
 		group.widthMode = "fixed";
 		placeEntry(page, group.id, group.layout);
 		return normalizeDashboard(next);

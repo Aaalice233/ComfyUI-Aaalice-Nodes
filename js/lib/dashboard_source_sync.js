@@ -2,7 +2,7 @@
 
 import { normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { orderedItems, refreshGroupRowSpans } from "./dashboard_layout.js";
-import { DASHBOARD_GRID_COLUMNS } from "./dashboard_sizing.js";
+import { DASHBOARD_GRID_COLUMNS, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./dashboard_sizing.js";
 
 export const SOURCE_SYNC_STATUS = Object.freeze({
 	SYNCED: "synced",
@@ -51,8 +51,9 @@ export function buildSourceSnapshot(controls, source, { status = "ok", label = "
 		if (seen.has(key)) return invalidSnapshot(normalizedSource, `Duplicate source control binding: ${key}`);
 		seen.add(key);
 		if (typeof control.label !== "string") return invalidSnapshot(normalizedSource, `Source control label is invalid: ${key}`);
-		const rowSpan = Math.round(Number(control.rowSpan ?? 1)); const columnSpan = Math.round(Number(control.columnSpan ?? 1));
-		if (!Number.isFinite(rowSpan) || rowSpan < 1 || !Number.isFinite(columnSpan) || columnSpan < 1 || columnSpan > DASHBOARD_GRID_COLUMNS) return invalidSnapshot(normalizedSource, `Source control footprint is invalid: ${key}`);
+		const rawRowSpan = Math.round(Number(control.rowSpan ?? 1)); const rawColumnSpan = Math.round(Number(control.columnSpan ?? 1));
+		if (!Number.isFinite(rawRowSpan) || rawRowSpan < 1 || !Number.isFinite(rawColumnSpan) || rawColumnSpan < 1 || rawColumnSpan > DASHBOARD_GRID_COLUMNS) return invalidSnapshot(normalizedSource, `Source control footprint is invalid: ${key}`);
+		const rowSpan = normalizeDashboardRowSpan(rawRowSpan); const columnSpan = normalizeDashboardColumnSpan(rawColumnSpan);
 		snapshot.push({
 			key,
 			binding: { ...control.binding },

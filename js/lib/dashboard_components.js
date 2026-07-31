@@ -1,6 +1,7 @@
 /** Pure Dashboard V2 grid/group DOM composition. */
 
 import { groupMemberColumnSpan, orderedItems, projectGroupScope, projectScope } from "./dashboard_layout.js";
+import { dashboardSizeToken } from "./dashboard_sizing.js";
 import { el, icon, iconButton, inlineRename } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
@@ -10,6 +11,8 @@ function applyGridPosition(element, projected, source = projected) {
 	element.style.setProperty("--aa-dashboard-row-span", String(projected.rowSpan));
 	element.dataset.dropRow = String(source.row); element.dataset.dropColumn = String(source.column); element.dataset.dropRowSpan = String(source.rowSpan);
 	element.dataset.dropColumnSpan = String(source.columnSpan);
+	const size = dashboardSizeToken(source);
+	if (size) element.dataset.dashboardSize = size.id;
 }
 
 export function createDashboardGroup({ group, members, memberProjection = null, columns = 12, editMode = false, selected = false, showHeader = true, showTitle = true, labels = {}, renderItem, onMenu, onRename, onSync }) {

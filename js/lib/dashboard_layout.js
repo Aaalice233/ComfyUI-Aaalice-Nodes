@@ -1,6 +1,6 @@
-/** Pure fine-grained Dashboard V2 placement and responsive projection. */
+/** Pure Dashboard V2 placement and responsive projection over discrete card footprints. */
 
-import { DASHBOARD_GRID_COLUMNS, recommendedGroupRowSpan } from "./dashboard_sizing.js";
+import { DASHBOARD_GRID_COLUMNS, normalizeDashboardColumnSpan, recommendedGroupRowSpan } from "./dashboard_sizing.js";
 
 function visualOrder(left, right) { return left.layout.row - right.layout.row || left.layout.column - right.layout.column || left.id.localeCompare(right.id); }
 export function orderedItems(items) { return [...items].sort(visualOrder); }
@@ -39,10 +39,9 @@ export function groupMemberColumnSpan(members) {
 export function refreshGroupRowSpans(page) {
 	for (const group of page.groups) {
 		const members = page.items.filter((item) => item.groupId === group.id);
-		const minimumColumnSpan = groupMemberColumnSpan(members);
-		if (group.widthMode === "fixed") group.layout.columnSpan = Math.max(group.layout.columnSpan, minimumColumnSpan);
-		else group.layout.columnSpan = minimumColumnSpan;
-		group.layout.columnSpan = Math.max(1, Math.min(page.gridColumns || DASHBOARD_GRID_COLUMNS, group.layout.columnSpan));
+		const minimumColumnSpan = Math.min(page.gridColumns || DASHBOARD_GRID_COLUMNS, groupMemberColumnSpan(members));
+		const requestedColumnSpan = group.widthMode === "fixed" ? Math.max(group.layout.columnSpan, minimumColumnSpan) : minimumColumnSpan;
+		group.layout.columnSpan = normalizeDashboardColumnSpan(requestedColumnSpan, { minimum: minimumColumnSpan });
 		group.layout.column = Math.min(group.layout.column, (page.gridColumns || DASHBOARD_GRID_COLUMNS) - group.layout.columnSpan);
 		group.layout.rowSpan = recommendedGroupRowSpan(members);
 	}
@@ -95,7 +94,6 @@ export function placeEntry(page, entryId, target, { groupId = null } = {}) {
 	return placeEntries(page, [entryId], { groupId });
 }
 
-// Runtime footprint upgrades must move only the projected entry; canonical layout stays unchanged.
 function projectWithoutOverlap(layout, placed) {
 	let row = layout.row;
 	while (placed.some((candidate) => overlaps({ ...layout, row }, candidate))) row++;
@@ -117,18 +115,6 @@ export function projectScope(entries, columns = 12) {
 		result.set(entry.id, layout); placed.push(layout);
 	}
 	return result;
-}
-
-export function projectControlFootprints(page, getRowSpan) {
-	if (!page || typeof getRowSpan !== "function") return page;
-	let changed = false;
-	const items = page.items.map((item) => {
-		const rowSpan = Number(getRowSpan(item));
-		if (!Number.isFinite(rowSpan) || rowSpan <= item.layout.rowSpan) return item;
-		changed = true;
-		return { ...item, layout: { ...item.layout, rowSpan } };
-	});
-	return changed ? { ...page, items } : page;
 }
 
 export function projectGroupScope(members, columns = DASHBOARD_GRID_COLUMNS, includeHeader = true) {

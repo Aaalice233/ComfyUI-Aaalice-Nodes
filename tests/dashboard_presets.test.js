@@ -19,7 +19,7 @@ import {
 const binding = { provider: "aaalice-parameter", hostId: "host-a", controlId: "steps", valueType: "number" };
 const layout = (column = 0) => ({
 	version: 2,
-	pages: [{ id: "page-a", name: "Main", gridColumns: 12, tone: null, groups: [], items: [{ id: "item-a", kind: "control", binding, label: "Steps", groupId: null, layout: { row: 0, column, columnSpan: 6, rowSpan: 7 } }] }],
+	pages: [{ id: "page-a", name: "Main", gridColumns: 12, tone: null, groups: [], items: [{ id: "item-a", kind: "control", binding, label: "Steps", groupId: null, layout: { row: 0, column, columnSpan: 6, rowSpan: 13 } }] }],
 });
 const values = (steps = 20) => ({ "aaalice-parameter:host-a:steps": { valueType: "number", payload: steps } });
 const snapshot = (steps = 20, column = 0) => ({ dashboard: layout(column), values: values(steps) });

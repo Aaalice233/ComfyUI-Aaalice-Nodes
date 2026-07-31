@@ -3,7 +3,7 @@
 import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
 import { partitionParameterSections } from "./parameter_sections.js";
 import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
-import { recommendedControlRowSpan } from "./dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
 import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
 import { applyQuickGroupManagerPreset, isQuickGroupManager, quickGroupManagerPresetSnapshot, quickGroupManagerSnapshot, validateQuickGroupManagerPreset } from "./quick_group_manager_runtime.js";
@@ -189,7 +189,7 @@ controlProviders.register({
 			label: "⚡ Quick Group Manager",
 			binding: { provider: this.id, hostId, controlId: "manager", valueType: "quick-group-manager" },
 			columnSpan: 12,
-			rowSpan: Math.max(12, Math.min(32, 5 + groupCount * 4)),
+			rowSpan: normalizeDashboardRowSpan(Math.max(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, Math.min(36, 5 + groupCount * 4))),
 		}];
 	},
 	resolve(node, binding) {
@@ -198,7 +198,7 @@ controlProviders.register({
 		return {
 			status: "ok", family: "comfy", kind: "quick-group-manager", controlId: "manager", node, control: node,
 			label: "⚡ Quick Group Manager", value: snapshot.state, options: { manager: node },
-			presettable: true, minRowSpan: 12,
+			presettable: true, minRowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
 			readPresetValue() { return quickGroupManagerPresetSnapshot(node); },
 			validatePresetValue(entry) {
 				if (!entry || entry.valueType !== binding.valueType) return "type-mismatch";
@@ -220,8 +220,8 @@ controlProviders.register({
 			label: control.label,
 			availability: control.availability,
 			binding: { provider: this.id, hostId, controlId: control.controlId, valueType: control.valueType },
-			columnSpan: control.columnSpan,
-			rowSpan: control.rowSpan,
+			columnSpan: normalizeDashboardColumnSpan(control.columnSpan),
+			rowSpan: normalizeDashboardRowSpan(control.rowSpan),
 		}));
 	},
 	resolve(node, binding) {
@@ -258,8 +258,8 @@ const widgetProvider = (id, promoted) => ({
 			label: adapted.label,
 			availability: adapted.availability,
 			binding: { provider: id, hostId, controlId: adapted.controlId, valueType: adapted.valueType, adapterId: adapted.adapterId },
-			columnSpan: adapted.columnSpan,
-			rowSpan: adapted.rowSpan || recommendedControlRowSpan({ value: adapted.value, options: adapted.options, paramType: adapted.kind || adapted.control?.param_type || adapted.control?.type }),
+			columnSpan: normalizeDashboardColumnSpan(adapted.columnSpan),
+			rowSpan: normalizeDashboardRowSpan(adapted.rowSpan || recommendedControlRowSpan({ value: adapted.value, options: adapted.options, paramType: adapted.kind || adapted.control?.param_type || adapted.control?.type })),
 		}));
 	},
 	resolve(node, binding) {

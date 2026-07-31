@@ -17,8 +17,7 @@ import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, d
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { SOURCE_SYNC_STATUS, buildSourceSnapshot, inspectSourceGroup } from "./lib/dashboard_source_sync.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
-import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
-import { projectControlFootprints } from "./lib/dashboard_layout.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
@@ -370,21 +369,6 @@ function controlTitle(item, resolved) {
 	if (item.labelOverride != null) return item.labelOverride;
 	if (item.binding?.provider === "quick-group-manager") return t("aaalice.quickGroup.titleWithIcon", "⚡ Quick Group Manager");
 	return item.label || resolved.label || item.binding.controlId;
-}
-
-function isHeaderOnlyControl(resolved) {
-	if (resolved.status !== "ok") return false;
-	if (resolved.kind === "seed" || resolved.control?.param_type === "seed" || typeof resolved.value === "boolean") return true;
-	if (typeof resolved.value !== "number") return false;
-	const minimum = Number(resolved.options?.min);
-	const maximum = Number(resolved.options?.max);
-	return !(Number.isFinite(minimum) && Number.isFinite(maximum) && maximum > minimum);
-}
-
-function projectedControlRowSpan(item) {
-	if (item.kind !== "control" || item.layout.rowSpan >= DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN) return item.layout.rowSpan;
-	const resolved = resolve(item.binding);
-	return isHeaderOnlyControl(resolved) ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : item.layout.rowSpan;
 }
 
 function sourceGroupIdentity(sourceGroup) {
@@ -804,8 +788,8 @@ function syncCurrentPageSourceGroups(pageId) {
 
 function renderDashboard(container, host) {
 	container.classList.toggle("is-layout-editing", editMode);
-	const model = dashboard(); const page = currentPage(model); const projectedPage = projectControlFootprints(page, projectedControlRowSpan);
-	const layoutPage = projectedPage ? { ...projectedPage, groups: projectedPage.groups.map((group) => {
+	const model = dashboard(); const page = currentPage(model);
+	const layoutPage = page ? { ...page, groups: page.groups.map((group) => {
 		const sync = group.source ? sourceGroupViewState(page, group) : null;
 		return { ...group, name: resolveGroupTitle(group), syncStatus: sync?.status || null, syncSummary: sync?.summary || null, syncReason: sync?.reason || "" };
 	}) } : null;

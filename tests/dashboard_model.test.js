@@ -36,7 +36,7 @@ test("Dashboard V2 pages directly own grid control cards", () => {
 	const { model, page } = modelWithPage();
 	const next = addItems(model, page.id, [{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } }]);
 	assert.equal(next.version, 2); assert.equal(next.pages[0].gridColumns, 12); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
@@ -117,7 +117,7 @@ test("source-grouped controls create and reuse one layout group", () => {
 	assert.equal(next.pages[0].groups[0].name, "Sampler"); assert.equal(next.pages[0].groups[0].tone, "blue");
 	assert.ok(next.pages[0].items.every((item) => item.groupId === group.id));
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 }, { row: 12, column: 0, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 }, { row: 13, column: 0, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
@@ -200,9 +200,9 @@ test("separator-scoped controls are packed from the section origin", () => {
 	const positive = next.pages[0].groups.find((group) => group.source.scopeId === "separator:positive");
 	const members = next.pages[0].items.filter((item) => item.groupId === positive.id);
 	assert.deepEqual(members.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 6, rowSpan: 9 },
-		{ row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
-		{ row: 9, column: 0, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 },
+		{ row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
+		{ row: 13, column: 0, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
@@ -267,7 +267,7 @@ test("legacy two-column pages normalize once into the twelve-column grid", () =>
 	const normalized = normalizeDashboard(legacy);
 	assert.equal(normalized.pages[0].gridColumns, 12);
 	assert.deepEqual(normalized.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
@@ -276,10 +276,10 @@ test("Dashboard V1 is rejected instead of migrated", () => {
 });
 
 test("control footprints are stable presentation categories rather than DOM measurements", () => {
-	assert.equal(recommendedControlRowSpan({ value: 30, options: { min: 1, max: 100 }, paramType: "slider" }), 12);
-	assert.equal(recommendedControlRowSpan({ value: 0, options: { min: 0, max: 100, control_after_generate: "fixed" }, paramType: "seed" }), 12);
+	assert.equal(recommendedControlRowSpan({ value: 30, options: { min: 1, max: 100 }, paramType: "slider" }), 13);
+	assert.equal(recommendedControlRowSpan({ value: 0, options: { min: 0, max: 100, control_after_generate: "fixed" }, paramType: "seed" }), 13);
 	assert.equal(recommendedControlRowSpan({ value: true }), 13);
-	assert.equal(recommendedControlRowSpan({ value: ["cat"], paramType: "taglist" }), 12);
+	assert.equal(recommendedControlRowSpan({ value: ["cat"], paramType: "taglist" }), 13);
 	assert.equal(recommendedGroupRowSpan([{ layout: { row: 6, rowSpan: 6 } }]), 19);
 	assert.equal(dashboardCardHeight(5), 24);
 	assert.equal(dashboardCardHeight(7), 36);
@@ -331,7 +331,7 @@ test("group projection reserves height from the same collision-free member layou
 	assert.equal(projectGroupScope(members, 12, false).rowSpan, 24);
 });
 
-test("fine-grained rows allow a short card below another card beside a tall card", () => {
+test("projection keeps independent row geometry beside a taller card", () => {
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
 		{ label: "Tall", binding, rowSpan: 12 },
 		{ label: "Top", binding: { ...binding, controlId: "top" }, rowSpan: 6 },
@@ -339,13 +339,13 @@ test("fine-grained rows allow a short card below another card beside a tall card
 	]);
 	const bottom = next.pages[0].items[2]; next = moveItems(next, [bottom.id], page.id, { row: 6, column: 6 });
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 },
-		{ row: 0, column: 6, columnSpan: 6, rowSpan: 6 },
-		{ row: 6, column: 6, columnSpan: 6, rowSpan: 6 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 },
+		{ row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
+		{ row: 13, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
-test("overlap moves only the operated card and preserves the existing layout", () => {
+test("normalization migrates legacy footprints before moving the operated card", () => {
 	const page = createPage("P"); const makeItem = (id, row, column, controlId = id) => ({
 		id, kind: "control", label: id, binding: { ...binding, controlId }, groupId: null,
 		layout: { row, column, columnSpan: 6, rowSpan: 6 },
@@ -356,14 +356,14 @@ test("overlap moves only the operated card and preserves the existing layout", (
 	], groups: [] }] });
 	model = moveItems(model, ["moving"], page.id, { row: 12, column: 0 });
 	const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
-	assert.deepEqual(layouts.moving, { row: 24, column: 0, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts["collision-a"], { row: 12, column: 0, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts["collision-b"], { row: 18, column: 0, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts.neighbor, { row: 12, column: 6, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts["unrelated-gap"], { row: 30, column: 6, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts.moving, { row: 43, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["collision-a"], { row: 12, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["collision-b"], { row: 25, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts.neighbor, { row: 13, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["unrelated-gap"], { row: 30, column: 0, columnSpan: 6, rowSpan: 13 });
 });
 
-test("multi-card movement preserves internal offsets without displacing existing cards", () => {
+test("normalized multi-card movement preserves the selected footprint", () => {
 	const page = createPage("P"); const makeItem = (id, row, column) => ({
 		id, kind: "control", label: id, binding: { ...binding, controlId: id }, groupId: null,
 		layout: { row, column, columnSpan: 6, rowSpan: 6 },
@@ -374,11 +374,11 @@ test("multi-card movement preserves internal offsets without displacing existing
 	], groups: [] }] });
 	model = moveItems(model, ["selected-left", "selected-right"], page.id, { row: 12, column: 0 });
 	const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
-	assert.deepEqual(layouts["selected-left"], { row: 18, column: 0, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts["selected-right"], { row: 18, column: 6, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts["collision-left"], { row: 12, column: 0, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts["collision-right"], { row: 12, column: 6, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts.unrelated, { row: 30, column: 6, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["selected-left"], { row: 43, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["selected-right"], { row: 43, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["collision-left"], { row: 13, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["collision-right"], { row: 13, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts.unrelated, { row: 30, column: 6, columnSpan: 6, rowSpan: 13 });
 });
 
 test("groups own no duplicate member list and delete preserves controls", () => {
@@ -389,7 +389,7 @@ test("groups own no duplicate member list and delete preserves controls", () => 
 	const group = next.pages[0].groups[0]; assert.equal(group.name, "Sampling"); assert.equal("itemIds" in group, false); assert.ok(next.pages[0].items.every((item) => item.groupId === group.id));
 	next = deleteGroup(next, page.id, group.id); assert.equal(next.pages[0].groups.length, 0); assert.equal(next.pages[0].items.length, 2); assert.ok(next.pages[0].items.every((item) => item.groupId === null));
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
@@ -469,12 +469,12 @@ test("compaction packs group members and tightens the group frame before repacki
 	next = compactDashboard(next, page.id);
 	const packed = next.pages[0];
 	assert.deepEqual(packed.items.map((item) => item.layout), [
-		{ row: 0, column: 0, columnSpan: 6, rowSpan: 12 },
-		{ row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
-		{ row: 12, column: 0, columnSpan: 6, rowSpan: 12 },
-		{ row: 31, column: 0, columnSpan: 6, rowSpan: 12 },
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 },
+		{ row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
+		{ row: 13, column: 0, columnSpan: 6, rowSpan: 13 },
+		{ row: 33, column: 0, columnSpan: 6, rowSpan: 13 },
 	]);
-	assert.equal(packed.groups[0].layout.rowSpan, 31);
+	assert.equal(packed.groups[0].layout.rowSpan, 33);
 	assert.equal(packed.items[3].layout.row, packed.groups[0].layout.rowSpan);
 });
 
@@ -484,8 +484,8 @@ test("width changes and explicit compaction remain deterministic", () => {
 	]);
 	next = resizeItems(next, [next.pages[0].items[0].id], 12); next = compactDashboard(next, page.id);
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
-		{ row: 12, column: 0, columnSpan: 12, rowSpan: 12 }, { row: 0, column: 0, columnSpan: 6, rowSpan: 12 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
-	]); assert.deepEqual(firstAvailableLayout(next.pages[0], { columnSpan: 6, rowSpan: 12 }), { row: 24, column: 0, columnSpan: 6, rowSpan: 12 });
+		{ row: 13, column: 0, columnSpan: 12, rowSpan: 13 }, { row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
+	]); assert.deepEqual(firstAvailableLayout(next.pages[0], { columnSpan: 6, rowSpan: 12 }), { row: 26, column: 0, columnSpan: 6, rowSpan: 12 });
 });
 
 test("free card resize snaps both axes without moving neighboring cards", () => {
@@ -494,8 +494,8 @@ test("free card resize snaps both axes without moving neighboring cards", () => 
 	]);
 	const firstId = next.pages[0].items[0].id;
 	next = resizeItem(next, firstId, { columnSpan: 9.4, rowSpan: 15.6 });
-	assert.deepEqual(next.pages[0].items.find((item) => item.id === firstId).layout, { row: 12, column: 0, columnSpan: 9, rowSpan: 16 });
-	assert.deepEqual(next.pages[0].items[1].layout, { row: 0, column: 6, columnSpan: 6, rowSpan: 12 });
+	assert.deepEqual(next.pages[0].items.find((item) => item.id === firstId).layout, { row: 13, column: 0, columnSpan: 9, rowSpan: 18 });
+	assert.deepEqual(next.pages[0].items[1].layout, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 });
 	next = resizeItem(next, firstId, { columnSpan: 1, rowSpan: 2 });
 	assert.equal(next.pages[0].items.find((item) => item.id === firstId).layout.columnSpan, 3);
 });
@@ -508,8 +508,8 @@ test("resizing a grouped card refreshes its group without moving external cards"
 	const group = next.pages[0].groups[0]; const member = next.pages[0].items.find((item) => item.groupId === group.id);
 	next = resizeItem(next, member.id, { columnSpan: 12, rowSpan: 20 });
 	const resizedGroup = next.pages[0].groups.find((item) => item.id === group.id);
-	assert.equal(resizedGroup.layout.rowSpan, 39);
-	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "c").layout.row, 12);
+	assert.equal(resizedGroup.layout.rowSpan, 38);
+	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "c").layout.row, 13);
 });
 
 test("grouping preserves member geometry and never compacts unrelated cards", () => {
@@ -522,11 +522,11 @@ test("grouping preserves member geometry and never compacts unrelated cards", ()
 	], groups: [] }] });
 	model = createGroup(model, page.id, ["selected-a", "selected-b"], { name: "Selection" });
 	const group = model.pages[0].groups[0]; const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
-	assert.equal(group.layout.row, 6);
+	assert.equal(group.layout.row, 43);
 	assert.equal(group.layout.columnSpan, 12);
-	assert.deepEqual(layouts["selected-a"], { row: 0, column: 0, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts["selected-b"], { row: 6, column: 6, columnSpan: 6, rowSpan: 6 });
-	assert.deepEqual(layouts.fixed, { row: 30, column: 0, columnSpan: 6, rowSpan: 6 });
+	assert.deepEqual(layouts["selected-a"], { row: 0, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["selected-b"], { row: 6, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts.fixed, { row: 30, column: 0, columnSpan: 6, rowSpan: 13 });
 });
 
 test("groups derive their width from local member geometry and preserve fixed widths", () => {
@@ -551,7 +551,7 @@ test("legacy full-width groups migrate once and resize collision moves only the 
 	assert.equal(legacy.pages[0].groups[0].layout.columnSpan, 6);
 	const resized = resizeGroup(legacy, "group", { columnSpan: 12 });
 	assert.equal(resized.pages[0].groups[0].layout.columnSpan, 12);
-	assert.equal(resized.pages[0].groups[0].layout.row, 12);
+	assert.equal(resized.pages[0].groups[0].layout.row, 13);
 	assert.equal(resized.pages[0].items.find((item) => item.id === "external").layout.row, 0);
 });
 

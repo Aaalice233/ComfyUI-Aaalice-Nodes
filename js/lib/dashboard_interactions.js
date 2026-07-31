@@ -1,7 +1,7 @@
 /** Pointer-driven transient Dashboard V2 layout editing. */
 
 import { applyMarqueeSelection, containedIds, intersectingSelectionIds, nearestInDirection, nextClickSelection, selectionRectangle } from "./dashboard_selection.js";
-import { DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN, nextDashboardColumnSpan, nextDashboardRowSpan, snapDashboardColumnSpan, snapDashboardRowSpan } from "./dashboard_sizing.js";
 
 const DRAG_THRESHOLD = 5;
 
@@ -146,7 +146,7 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 				elements: [entry], element: entry, grid,
 				sourceColumn: Math.max(0, Number(entry.dataset.dropColumn) || 0), sourceColumnSpan, sourceRowSpan,
 				minColumnSpan: Math.max(1, Number(entry.dataset.dashboardMinColumnSpan) || (resizeKind === "item" ? DASHBOARD_MIN_CONTROL_COLUMN_SPAN : 1)),
-				minRowSpan: Math.max(1, Number(entry.dataset.dashboardMinRowSpan) || 1),
+				minRowSpan: resizeKind === "item" ? Math.max(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, Number(entry.dataset.dashboardMinRowSpan) || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN) : 1,
 				sourceColumns: Math.max(1, Number(grid.dataset.dashboardSourceColumns) || DASHBOARD_GRID_COLUMNS),
 				visibleColumns: Math.max(1, Number(grid.dataset.dashboardColumns) || DASHBOARD_GRID_COLUMNS),
 				nextColumnSpan: sourceColumnSpan, nextRowSpan: sourceRowSpan, dragging: false, preview: null,
@@ -189,8 +189,9 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			const columnWidth = (Math.max(1, rect.width - horizontalPadding) - columnGap * (gesture.visibleColumns - 1)) / gesture.visibleColumns;
 			const columnDelta = gesture.visibleColumns === 1 ? 0 : Math.round(dx / Math.max(1, columnWidth + columnGap));
 			const rowDelta = Math.round(dy / Math.max(1, rowHeight + rowGap));
-			gesture.nextColumnSpan = Math.max(gesture.minColumnSpan, Math.min(gesture.sourceColumns - gesture.sourceColumn, gesture.sourceColumnSpan + columnDelta));
-			gesture.nextRowSpan = gesture.resizeKind === "group" ? gesture.sourceRowSpan : Math.max(gesture.minRowSpan, gesture.sourceRowSpan + rowDelta);
+			const maximumColumnSpan = gesture.sourceColumns - gesture.sourceColumn;
+			gesture.nextColumnSpan = snapDashboardColumnSpan(gesture.sourceColumnSpan + columnDelta, { minimum: gesture.minColumnSpan, maximum: maximumColumnSpan, fallback: gesture.sourceColumnSpan });
+			gesture.nextRowSpan = gesture.resizeKind === "group" ? gesture.sourceRowSpan : snapDashboardRowSpan(gesture.sourceRowSpan + rowDelta, { minimum: gesture.minRowSpan, fallback: gesture.sourceRowSpan });
 			gesture.element.classList.add("is-resizing"); root.classList.add("is-dragging");
 			showResizePreview(gesture, gesture.nextColumnSpan, gesture.nextRowSpan); autoScroll(event.clientY); return;
 		}
@@ -254,10 +255,10 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			const columnSpan = Math.max(1, Number(entry.dataset.dropColumnSpan) || 1);
 			const rowSpan = Math.max(1, Number(entry.dataset.dropRowSpan) || 1);
 			const minColumnSpan = Math.max(1, Number(entry.dataset.dashboardMinColumnSpan) || (resizeKind === "item" ? DASHBOARD_MIN_CONTROL_COLUMN_SPAN : 1));
-			const minRowSpan = Math.max(1, Number(entry.dataset.dashboardMinRowSpan) || 1);
+			const minRowSpan = resizeKind === "item" ? Math.max(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, Number(entry.dataset.dashboardMinRowSpan) || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN) : 1;
 			const step = event.shiftKey ? 2 : 1;
-			const nextColumnSpan = visibleColumns === 1 ? columnSpan : event.key === "ArrowLeft" ? Math.max(minColumnSpan, columnSpan - step) : event.key === "ArrowRight" ? Math.min(sourceColumns - sourceColumn, columnSpan + step) : columnSpan;
-			const nextRowSpan = resizeKind === "group" ? rowSpan : event.key === "ArrowUp" ? Math.max(minRowSpan, rowSpan - step) : event.key === "ArrowDown" ? rowSpan + step : rowSpan;
+			const nextColumnSpan = visibleColumns === 1 ? columnSpan : event.key === "ArrowLeft" ? nextDashboardColumnSpan(columnSpan, -step, { minimum: minColumnSpan, maximum: sourceColumns - sourceColumn }) : event.key === "ArrowRight" ? nextDashboardColumnSpan(columnSpan, step, { minimum: minColumnSpan, maximum: sourceColumns - sourceColumn }) : columnSpan;
+			const nextRowSpan = resizeKind === "group" ? rowSpan : event.key === "ArrowUp" ? nextDashboardRowSpan(rowSpan, -step, { minimum: minRowSpan }) : event.key === "ArrowDown" ? nextDashboardRowSpan(rowSpan, step, { minimum: minRowSpan }) : rowSpan;
 			event.preventDefault();
 			if (resizeKind === "group") onResizeGroup?.(entry.dataset.dashboardGroupId, { columnSpan: nextColumnSpan });
 			else onResizeItem?.(entry.dataset.dashboardItemId, { columnSpan: nextColumnSpan, rowSpan: nextRowSpan });

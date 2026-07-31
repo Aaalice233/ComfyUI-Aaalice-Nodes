@@ -347,7 +347,7 @@ test("markdown notes adapt between full rendering and a hover-to-read bar by hei
 	assert.doesNotMatch(workspace, /cardCompact|onToggleCompact|item\.compact/);
 	assert.doesNotMatch(components, /onToggleCompact|is-compact" : ""/);
 	assert.doesNotMatch(workspaceControls, /cardCompact/);
-	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = 28/);
+	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = DASHBOARD_HEIGHT_SIZES\[2\]\.rowSpan/);
 	assert.doesNotMatch(theme, /aa-control-card\.is-compact/);
 	assert.match(theme, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h1/);
 	assert.match(theme, /\.aa-control-markdown__body \{[^}]*overflow-y: auto/);
@@ -444,8 +444,7 @@ test("control cards move management into an accessible context menu", () => {
 test("header-only controls use a separate title row and value row", () => {
 	assert.match(numericControl, /headerOnly: !hasRange/);
 	assert.match(components, /control\?\.dataset\?\.headerOnly === "true"/);
-	assert.match(workspace, /projectControlFootprints\(page, projectedControlRowSpan\)/);
-	assert.match(workspace, /isHeaderOnlyControl\(resolved\)/);
+	assert.doesNotMatch(workspace, /projectControlFootprints|projectedControlRowSpan|isHeaderOnlyControl/);
 	assert.match(workspace, /enabled: t\("aaalice\.common\.enabled", "Enabled"\)/);
 	assert.match(workspace, /disabled: t\("aaalice\.common\.disabled", "Disabled"\)/);
 	assert.match(theme, /\.aa-dashboard-grid-v2, \.aa-dashboard-group-grid \{[^}]*grid-auto-rows: 4px;[^}]*align-items: stretch;/);
@@ -839,7 +838,7 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(enLocale, /"showTitle": "Show group title"/);
 	assert.match(zhLocale, /"showTitle": "显示组标题"/);
 	assert.match(dashboardComponents, /projectGroupScope\(members, groupColumns, showHeader\)/);
-	assert.match(dashboardLayout, /projectControlFootprints/);
+	assert.doesNotMatch(dashboardLayout, /projectControlFootprints/);
 	assert.match(dashboardLayout, /projectGroupScope/);
 	assert.match(dashboardLayout, /projectWithoutOverlap/);
 	assert.doesNotMatch(workspace, /projectHeaderOnlyControlFootprints/);
@@ -861,8 +860,11 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 
 test("Dashboard footprints are stable model hints rather than DOM measurements", () => {
 	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
-	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = 13/);
-	assert.match(dashboardSizing, /if \(typeof value === "number"\) return DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
+	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
+	assert.match(dashboardSizing, /DASHBOARD_SIZE_CATALOG/);
+	assert.match(dashboardSizing, /normalizeDashboardColumnSpan/);
+	assert.match(dashboardSizing, /normalizeDashboardRowSpan/);
+	assert.match(dashboardSizing, /if \(options\.multiline\) return DASHBOARD_STANDARD_CONTROL_ROW_SPAN/);
 	assert.match(dashboardSizing, /export function dashboardCardHeight/);
 	assert.match(dashboardSizing, /export function recommendedControlRowSpan/);
 	assert.match(dashboardSizing, /export function recommendedGroupRowSpan/);
