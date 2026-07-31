@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from comfy_api.latest import io
+import folder_paths
 
 from .._lib.parameter_images import (
     image_reference_fingerprint,
@@ -12,6 +13,8 @@ from .._lib.parameter_values import (
     MAX_TUNABLE_PARAMS,
     parameters_to_outputs,
     parse_parameters_json,
+    validate_model_references,
+    validate_parameters_list,
 )
 
 
@@ -97,6 +100,27 @@ class ParameterPanel(io.ComfyNode):
             hidden=[io.Hidden.unique_id],
             accept_all_inputs=True,
         )
+
+    @classmethod
+    def validate_inputs(
+        cls,
+        parameters_json: str = "[]",
+        validate_dynamic_values: bool = True,
+    ) -> bool | str:
+        try:
+            parameters = parse_parameters_json(parameters_json)
+            validate_parameters_list(
+                parameters,
+                validate_dynamic_values=bool(validate_dynamic_values),
+            )
+            if validate_dynamic_values:
+                validate_model_references(
+                    parameters,
+                    resolve_path=folder_paths.get_full_path,
+                )
+        except ValueError as exc:
+            return str(exc)
+        return True
 
     @classmethod
     def fingerprint_inputs(

@@ -29,11 +29,15 @@ function findSourceGroup(page, source) {
 function normalizeSourceGroup(sourceGroup) {
 	const source = normalizeGroupSource(sourceGroup?.source);
 	if (!source) return null;
+	const separator = sourceGroup.separator?.label != null
+		? { label: String(sourceGroup.separator.label) }
+		: null;
 	return {
 		source,
 		name: String(sourceGroup.name || "Group"),
 		tone: sourceGroup.tone,
 		forceGroup: Boolean(source.scopeId || sourceGroup.forceGroup),
+		...(separator ? { separator } : {}),
 	};
 }
 
@@ -41,34 +45,107 @@ function sourceGroupKey(source) {
 	return `${source.provider}\u0000${source.hostId}\u0000${source.scopeId || ""}`;
 }
 
+function findSourceSeparator(page, source) {
+	return page.items.find((item) => item.kind === "separator" && sameGroupSource(item.source, source)) || null;
+}
+
+function addSourceSeparator(page, requestedGroup) {
+	if (!requestedGroup.separator || findSourceSeparator(page, requestedGroup.source)) return;
+	const item = createSeparatorItem(requestedGroup.separator.label, 0, requestedGroup.source);
+	item.layout = firstAvailableLayout(page, { columnSpan: page.gridColumns, rowSpan: item.layout.rowSpan });
+	page.items.push(item);
+}
+
+function createControlFromSpec(control, layout = { row: 0, column: 0 }) {
+	return createControlItem(control.binding, control.label, {
+		...layout,
+		columnSpan: control.columnSpan || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN,
+		rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
+	});
+}
+
+function placeGroupItems(page, controls) {
+	const localPage = { ...page, items: [], groups: [] };
+	const items = controls.map((control) => createControlFromSpec(control));
+	for (const item of items) {
+		item.layout = firstAvailableLayout(localPage, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
+		localPage.items.push(item);
+	}
+	return items;
+}
+
 export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
 	let next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
-	const plans = new Map();
+	const plans = new Map(); const entries = [];
 	for (const control of controls) {
-		const item = createControlItem(control.binding, control.label, { row: 0, column: 0, columnSpan: control.columnSpan || DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: control.rowSpan || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN });
-		item.layout = firstAvailableLayout(page, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan }); page.items.push(item);
 		const requestedGroup = normalizeSourceGroup(control.sourceGroup || sourceGroup);
-		if (!requestedGroup) continue;
+		if (!requestedGroup) { entries.push({ type: "control", control }); continue; }
 		const key = sourceGroupKey(requestedGroup.source);
-		if (!plans.has(key)) plans.set(key, { requestedGroup, itemIds: [] });
-		plans.get(key).itemIds.push(item.id);
+		if (!plans.has(key)) {
+			const plan = { requestedGroup, controls: [] };
+			plans.set(key, plan); entries.push({ type: "group", plan });
+		}
+		plans.get(key).controls.push(control);
 	}
-	for (const { requestedGroup, itemIds } of plans.values()) {
-		const currentPage = findPage(next, pageId);
-		const existingGroup = findSourceGroup(currentPage, requestedGroup.source);
-		if (existingGroup) {
-			next = moveItems(next, itemIds, pageId, { groupId: existingGroup.id });
+
+	// Scoped sections are laid out in their own coordinate space before the group
+	// is placed on the page. Otherwise controls from later sections occupy page
+	// cells while earlier groups are being created, which preserves global gaps
+	// inside the group and makes the result depend on section count.
+	for (const entry of entries) {
+		if (entry.type === "control") {
+			const currentPage = findPage(next, pageId);
+			const item = createControlFromSpec(entry.control);
+			item.layout = firstAvailableLayout(currentPage, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
+			currentPage.items.push(item);
 			continue;
 		}
-		const candidateIds = requestedGroup.forceGroup
-			? itemIds
-			: currentPage.items.filter((item) => !item.groupId && sameControlHost(item.binding, requestedGroup.source)).map((item) => item.id);
-		if (candidateIds.length < (requestedGroup.forceGroup ? 1 : 2)) continue;
+		const { requestedGroup, controls: groupControls } = entry.plan;
+		const currentPage = findPage(next, pageId);
+		const existingGroup = findSourceGroup(currentPage, requestedGroup.source);
+		if (requestedGroup.forceGroup) {
+			addSourceSeparator(currentPage, requestedGroup);
+			if (existingGroup) {
+				const itemIds = groupControls.map((control) => {
+					const item = createControlFromSpec(control);
+					item.layout = firstAvailableLayout(currentPage, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
+					currentPage.items.push(item);
+					return item.id;
+				});
+				next = moveItems(next, itemIds, pageId, { groupId: existingGroup.id });
+				continue;
+			}
+			const items = placeGroupItems(currentPage, groupControls);
+			currentPage.items.push(...items);
+			createGroupInPage(currentPage, items.map((item) => item.id), {
+				name: requestedGroup.name,
+				tone: requestedGroup.tone,
+				source: requestedGroup.source,
+				allowSingle: true,
+			});
+			continue;
+		}
+
+		// An unscoped source group is the legacy auto-grouping path. Keep its
+		// existing-host adoption behavior, but do not apply it to separator scopes.
+		const itemIds = groupControls.map((control) => {
+			const item = createControlFromSpec(control);
+			item.layout = firstAvailableLayout(currentPage, { columnSpan: item.layout.columnSpan, rowSpan: item.layout.rowSpan });
+			currentPage.items.push(item);
+			return item.id;
+		});
+		const group = findSourceGroup(currentPage, requestedGroup.source);
+		if (group) {
+			next = moveItems(next, itemIds, pageId, { groupId: group.id });
+			continue;
+		}
+		const candidateIds = currentPage.items.filter((item) => !item.groupId && sameControlHost(item.binding, requestedGroup.source)).map((item) => item.id);
+		if (candidateIds.length < 2) continue;
 		next = createGroup(next, pageId, candidateIds, {
 			name: requestedGroup.name,
 			tone: requestedGroup.tone,
 			source: requestedGroup.source,
-			allowSingle: requestedGroup.forceGroup,
+			allowSingle: false,
 		});
 	}
 	return normalizeDashboard(next);
@@ -162,10 +239,10 @@ export function resizeItem(model, itemId, { columnSpan, rowSpan }) {
 	return normalizeDashboard(next);
 }
 
-export function createGroup(model, pageId, itemIds, { name = "Group", tone = "neutral", source = null, allowSingle = false } = {}) {
+function createGroupInPage(page, itemIds, { name = "Group", tone = "neutral", source = null, allowSingle = false } = {}) {
 	if (itemIds.length < (allowSingle ? 1 : 2)) throw new Error("A layout group requires at least two items");
-	const next = copy(model); const page = findPage(next, pageId); const ids = new Set(itemIds);
-	if (!page || itemIds.some((id) => !page.items.some((item) => item.id === id))) throw new Error("Layout group items must belong to one page");
+	const ids = new Set(itemIds);
+	if (itemIds.some((id) => !page.items.some((item) => item.id === id))) throw new Error("Layout group items must belong to one page");
 	const selected = page.items.filter((item) => ids.has(item.id));
 	const absoluteLayouts = new Map(selected.map((item) => {
 		const parent = item.groupId ? page.groups.find((group) => group.id === item.groupId) : null;
@@ -177,7 +254,15 @@ export function createGroup(model, pageId, itemIds, { name = "Group", tone = "ne
 		const layout = absoluteLayouts.get(item.id);
 		item.groupId = group.id; item.layout = { ...layout, row: layout.row - row };
 	}
-	removeEmptyGroups(page); placeEntry(page, group.id, group.layout); return normalizeDashboard(next);
+	removeEmptyGroups(page); placeEntry(page, group.id, group.layout);
+	return group;
+}
+
+export function createGroup(model, pageId, itemIds, options = {}) {
+	const next = copy(model); const page = findPage(next, pageId);
+	if (!page) throw new Error("Dashboard target page is missing");
+	createGroupInPage(page, itemIds, options);
+	return normalizeDashboard(next);
 }
 
 export function assignToGroup(model, pageId, itemIds, groupId) { return moveItems(model, itemIds, pageId, { groupId }); }

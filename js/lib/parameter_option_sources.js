@@ -78,10 +78,12 @@ export function registerParameterOptionSourceAdapter(definition) {
 	if (!inputs.length && typeof definition?.resolveOptions !== "function") {
 		throw new Error(`Parameter option source ${id} needs an input adapter or resolver`);
 	}
+	const declaredKind = typeof definition?.kind === "string" ? definition.kind.trim() : "";
 	const adapter = {
 		id,
 		labelKey: String(definition?.labelKey || ""),
 		labelFallback: String(definition?.labelFallback || id),
+		kind: declaredKind || null,
 		inputs,
 		resolveOptions: typeof definition?.resolveOptions === "function" ? definition.resolveOptions : null,
 		fallbackOptions: normalizedOptions(definition?.fallbackOptions),
@@ -114,7 +116,9 @@ export function parameterOptionSourceAdapter(id) {
 		id: adapter.id,
 		labelKey: adapter.labelKey,
 		labelFallback: adapter.labelFallback,
+		kind: adapter.kind,
 		available: adapter.available,
+		resolved: adapter.resolved,
 	};
 }
 
@@ -125,7 +129,9 @@ export function availableParameterOptionSourceAdapters() {
 			id: adapter.id,
 			labelKey: adapter.labelKey,
 			labelFallback: adapter.labelFallback,
+			kind: adapter.kind,
 			available: true,
+			resolved: adapter.resolved,
 		}));
 }
 
@@ -134,6 +140,7 @@ for (const adapter of [
 		id: "sampler",
 		labelKey: "aaalice.pcp.sources.sampler",
 		labelFallback: "Sampler",
+		kind: "sampler",
 		inputs: [{ nodeName: "KSampler", inputName: "sampler_name" }],
 		fallbackOptions: SAMPLER_FALLBACK_OPTIONS,
 	},
@@ -141,6 +148,7 @@ for (const adapter of [
 		id: "scheduler",
 		labelKey: "aaalice.pcp.sources.scheduler",
 		labelFallback: "Scheduler",
+		kind: "scheduler",
 		inputs: [{ nodeName: "KSampler", inputName: "scheduler" }],
 		fallbackOptions: SCHEDULER_FALLBACK_OPTIONS,
 	},
@@ -148,54 +156,63 @@ for (const adapter of [
 		id: "checkpoint",
 		labelKey: "aaalice.pcp.sources.checkpoint",
 		labelFallback: "Checkpoint",
+		kind: "model",
 		inputs: [{ nodeName: "CheckpointLoaderSimple", inputName: "ckpt_name" }],
 	},
 	{
 		id: "lora",
 		labelKey: "aaalice.pcp.sources.lora",
 		labelFallback: "LoRA",
+		kind: "model",
 		inputs: [{ nodeName: "LoraLoader", inputName: "lora_name" }],
 	},
 	{
 		id: "controlnet",
 		labelKey: "aaalice.pcp.sources.controlnet",
 		labelFallback: "ControlNet",
+		kind: "model",
 		inputs: [{ nodeName: "ControlNetLoader", inputName: "control_net_name" }],
 	},
 	{
 		id: "upscale_model",
 		labelKey: "aaalice.pcp.sources.upscaleModel",
 		labelFallback: "Upscale model",
+		kind: "model",
 		inputs: [{ nodeName: "UpscaleModelLoader", inputName: "model_name" }],
 	},
 	{
 		id: "wd_timm_model",
 		labelKey: "aaalice.pcp.sources.wdTimmModel",
 		labelFallback: "WD Timm tagger model",
+		kind: "model",
 		inputs: [{ nodeName: "WDTimmTagger", inputName: "model_name" }],
 	},
 	{
 		id: "prompt_expand_rule",
 		labelKey: "aaalice.pcp.sources.promptExpandRule",
 		labelFallback: "Prompt Assistant · Expand rule",
+		kind: "rule",
 		inputs: [{ nodeName: "PromptExpand", inputName: "rule" }],
 	},
 	{
 		id: "prompt_llm_service",
 		labelKey: "aaalice.pcp.sources.promptLlmService",
 		labelFallback: "Prompt Assistant · LLM service",
+		kind: "service",
 		inputs: [{ nodeName: "PromptExpand", inputName: "llm_service" }],
 	},
 	{
 		id: "prompt_vision_rule",
 		labelKey: "aaalice.pcp.sources.promptVisionRule",
 		labelFallback: "Prompt Assistant · Vision rule",
+		kind: "rule",
 		inputs: [{ nodeName: "ImageCaptionNode", inputName: "rule" }],
 	},
 	{
 		id: "prompt_vlm_service",
 		labelKey: "aaalice.pcp.sources.promptVlmService",
 		labelFallback: "Prompt Assistant · VLM service",
+		kind: "service",
 		inputs: [{ nodeName: "ImageCaptionNode", inputName: "vlm_service" }],
 	},
 ]) registerParameterOptionSourceAdapter(adapter);

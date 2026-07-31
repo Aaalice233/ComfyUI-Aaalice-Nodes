@@ -38,11 +38,13 @@ test("only detected non-empty option sources become selectable", () => {
 	assert.equal(available.includes("wd_timm_model"), true);
 	assert.equal(available.includes("upscale_model"), false);
 	assert.deepEqual(parameterOptionSourceOptions("wd_timm_model"), ["wd-vit-tagger-v3", "wd-swinv2-tagger-v3"]);
+	assert.equal(parameterOptionSourceAdapter("wd_timm_model")?.kind, "model");
 });
 
 test("a new option source is added through one adapter registration", () => {
 	const unregister = registerParameterOptionSourceAdapter({
 		id: "vendor_model",
+		kind: "model",
 		labelKey: "vendor.model",
 		labelFallback: "Vendor model",
 		inputs: [{ nodeName: "VendorLoader", inputName: "model" }],
@@ -62,7 +64,9 @@ test("a new option source is added through one adapter registration", () => {
 			id: "vendor_model",
 			labelKey: "vendor.model",
 			labelFallback: "Vendor model",
+			kind: "model",
 			available: true,
+			resolved: true,
 		});
 	} finally {
 		unregister();
@@ -81,4 +85,20 @@ test("invalid or duplicate adapters fail explicitly", () => {
 		}),
 		/already registered/,
 	);
+});
+
+test("built-in model sources expose model semantics without changing their ids", () => {
+	assert.equal(parameterOptionSourceAdapter("checkpoint")?.kind, "model");
+	assert.equal(parameterOptionSourceAdapter("lora")?.kind, "model");
+	assert.equal(parameterOptionSourceAdapter("controlnet")?.kind, "model");
+	assert.equal(parameterOptionSourceAdapter("upscale_model")?.kind, "model");
+	assert.equal(parameterOptionSourceAdapter("wd_timm_model")?.kind, "model");
+	assert.equal(parameterOptionSourceAdapter("sampler")?.kind, "sampler");
+	assert.equal(parameterOptionSourceAdapter("prompt_llm_service")?.kind, "service");
+});
+
+test("non-model sources are not classified as model files", () => {
+	assert.notEqual(parameterOptionSourceAdapter("sampler")?.kind, "model");
+	assert.notEqual(parameterOptionSourceAdapter("prompt_expand_rule")?.kind, "model");
+	assert.notEqual(parameterOptionSourceAdapter("prompt_vlm_service")?.kind, "model");
 });

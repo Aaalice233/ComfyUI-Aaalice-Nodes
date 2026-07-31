@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { normalizeImageReference } from "./image_reference.js";
 import { hasDuplicateOptions } from "./parameter_options.js";
 import { normalizeChoiceValue } from "./parameter_choice_value.js";
-import { parameterOptionSourceOptions } from "./parameter_option_sources.js";
+import { parameterOptionSourceAdapter, parameterOptionSourceOptions } from "./parameter_option_sources.js";
 import { normalizeTagListValue } from "./taglist_value.js";
 
 export const MAX_TUNABLE = 32;
@@ -74,9 +74,15 @@ function defaultValueForType(paramType, config = {}) {
 	return null;
 }
 
-function normalizeParameterValue(parameter) {
+function preserveInvalidChoice(parameter) {
+	return parameterOptionSourceAdapter(parameter?.config?.source)?.kind === "model";
+}
+
+export function normalizeParameterValue(parameter) {
 	if (["dropdown", "enum"].includes(parameter?.param_type)) {
-		parameter.value = normalizeChoiceValue(parameter.value, parameter.config?.options);
+		parameter.value = normalizeChoiceValue(parameter.value, parameter.config?.options, {
+			preserveInvalid: preserveInvalidChoice(parameter),
+		});
 		return;
 	}
 	if (parameter?.param_type === "taglist") {
@@ -103,7 +109,9 @@ export function createParameter(paramType, partial = {}) {
 	}
 	if (["dropdown", "enum"].includes(paramType)) {
 		if (config.source) config.options = dynamicOptions(config.source);
-		if (!Array.isArray(config.options) || !config.options.length) config.options = ["option_a", "option_b"];
+		if (!config.source && (!Array.isArray(config.options) || !config.options.length)) {
+			config.options = ["option_a", "option_b"];
+		}
 	}
 	const name = partial.name || (paramType === "separator" ? "Section" : paramType);
 	const parameter = {

@@ -32,13 +32,14 @@ import {
 	materializeParameters,
 	newParamId,
 	normalizeDynamicOptions,
+	normalizeParameterValue,
 	notifyParameterChanged,
 	setCustomName,
 	tunableMeta,
 	uniqueName,
 	validateParametersDraft,
 } from "./lib/param_model.js";
-import { normalizeChoiceValue } from "./lib/parameter_choice_value.js";
+import { findParameterModelIssues } from "./lib/parameter_model_preflight.js";
 import {
 	availableParameterOptionSourceAdapters,
 	parameterOptionSourceAdapter,
@@ -64,6 +65,7 @@ const MIN_WIDTH = PARAMETER_NODE_LAYOUT.minWidth;
 const mountedParameterPanels = new Set();
 let vueOutputObserver = null;
 let vueOutputFrame = 0;
+let dynamicOptionsRefreshPromise = null;
 
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
@@ -555,7 +557,7 @@ function renderInspector(editor, parameter, rerender) {
 			if (source.value === "custom") delete parameter.config.source;
 			else parameter.config.source = source.value;
 			normalizeDynamicOptions([parameter]);
-			if (!parameter.config.options.includes(parameter.value)) parameter.value = parameter.config.options[0] ?? "";
+			normalizeParameterValue(parameter);
 			options.value = (parameter.config.options || []).join("\n");
 			syncOptionsField();
 			editor.dirty = true;
@@ -563,7 +565,7 @@ function renderInspector(editor, parameter, rerender) {
 		});
 		options.addEventListener("input", () => {
 			parameter.config.options = options.value.split("\n").map((item) => item.trim()).filter(Boolean);
-			parameter.value = normalizeChoiceValue(parameter.value, parameter.config.options);
+			normalizeParameterValue(parameter);
 			editor.dirty = true;
 			editor.updateValidation?.();
 		});
@@ -952,6 +954,88 @@ function setupParameterPanel(node, loaded = false) {
 	node._aaaliceParameterRedraw();
 }
 
+function sourceLabel(source) {
+	const adapter = parameterOptionSourceAdapter(source);
+	return adapter ? t(adapter.labelKey, adapter.labelFallback) : source;
+}
+
+function showModelPreflightIssues(issues) {
+	const issue = issues[0];
+	const values = {
+		parameter: issue.name,
+		source: sourceLabel(issue.source),
+		value: issue.value,
+		count: issues.length,
+	};
+	let detail;
+	if (issue.status === "missing") {
+		detail = message(
+			"aaalice.pcp.preflight.missingModel",
+			"Model {value} for parameter {parameter} is unavailable from {source}. Restore it or choose another model, then try again.",
+			values,
+		);
+	} else if (issue.status === "source_unavailable") {
+		detail = message(
+			"aaalice.pcp.preflight.sourceUnavailable",
+			"The model source {source} has no available models. Check the model folder, then try again.",
+			values,
+		);
+	} else {
+		detail = message(
+			"aaalice.pcp.preflight.sourceUnverified",
+			"The model source {source} could not be verified. Refresh ComfyUI model lists, then try again.",
+			values,
+		);
+	}
+	if (issues.length > 1) {
+		detail += ` ${message("aaalice.pcp.preflight.moreIssues", "{count} model references need attention.", values)}`;
+	}
+	toast("error", detail);
+}
+
+function refreshDynamicOptionsForNodes(nodes) {
+	for (const node of nodes || []) {
+		if (!isParameterPanel(node)) continue;
+		normalizeDynamicOptions(ensureParameters(node));
+		node._aaaliceParameterRedraw?.();
+	}
+}
+
+async function loadComfyNodeDefs() {
+	const response = await api.fetchApi("/object_info");
+	if (!response?.ok) throw new Error(`object_info request failed (${response?.status || "unknown"})`);
+	return response.json();
+}
+
+function refreshDynamicOptionsFromServer() {
+	if (!dynamicOptionsRefreshPromise) {
+		dynamicOptionsRefreshPromise = loadComfyNodeDefs()
+			.then((nodeDefs) => {
+				refreshParameterOptionSources(nodeDefs);
+				return nodeDefs;
+			})
+			.finally(() => { dynamicOptionsRefreshPromise = null; });
+	}
+	return dynamicOptionsRefreshPromise;
+}
+
+async function preflightModelReferences() {
+	const nodes = allGraphNodes(app.graph).filter(isParameterPanel);
+	if (!nodes.length) return true;
+	await refreshDynamicOptionsFromServer();
+	refreshDynamicOptionsForNodes(nodes);
+	const issues = findParameterModelIssues(nodes);
+	if (issues.length) {
+		showModelPreflightIssues(issues);
+		return false;
+	}
+	return true;
+}
+
+function refreshMountedDynamicOptions() {
+	refreshDynamicOptionsForNodes(mountedParameterPanels);
+}
+
 function installPromptHook() {
 	if (app._aaaliceParameterPanelPromptHook) return;
 	app._aaaliceParameterPanelPromptHook = true;
@@ -973,24 +1057,22 @@ function installPromptHook() {
 	};
 	const queue = app.queuePrompt?.bind(app);
 	if (queue) app.queuePrompt = async function (...args) {
+		try {
+			if (!await preflightModelReferences()) return false;
+		} catch (error) {
+			console.error("[Aaalice] Failed to verify ParameterPanel model sources", error);
+			toast("error", t(
+				"aaalice.pcp.preflight.refreshFailed",
+				"Unable to verify model sources. Refresh ComfyUI model lists, then try again.",
+			));
+			return false;
+		}
 		const result = await queue(...args);
-		for (const node of allGraphNodes(app.graph).filter(isParameterPanel)) applySeedAfterQueue(node);
+		if (result === true) {
+			for (const node of allGraphNodes(app.graph).filter(isParameterPanel)) applySeedAfterQueue(node);
+		}
 		return result;
 	};
-}
-
-async function loadComfyNodeDefs() {
-	const response = await api.fetchApi("/object_info");
-	if (!response?.ok) throw new Error(`object_info request failed (${response?.status || "unknown"})`);
-	return response.json();
-}
-
-function refreshMountedDynamicOptions() {
-	for (const node of mountedParameterPanels) {
-		if (!isParameterPanel(node)) continue;
-		normalizeDynamicOptions(ensureParameters(node));
-		node._aaaliceParameterRedraw?.();
-	}
 }
 
 function hookPrototype(nodeType) {
@@ -1008,7 +1090,7 @@ app.registerExtension({
 	name: "ComfyUI.Aaalice.ParameterPanel",
 	async init() {
 		try {
-			refreshParameterOptionSources(await loadComfyNodeDefs());
+			await refreshDynamicOptionsFromServer();
 			refreshMountedDynamicOptions();
 		}
 		catch (error) { console.warn("[Aaalice] Failed to load dynamic parameter options", error); }

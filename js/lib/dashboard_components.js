@@ -13,7 +13,14 @@ function applyGridPosition(element, projected, source = projected) {
 	element.dataset.dropColumnSpan = String(source.columnSpan);
 }
 
-export function createDashboardGroup({ group, members, columns = 12, editMode = false, selected = false, labels = {}, renderItem, onMenu, onRename }) {
+function sameSource(left, right) {
+	return Boolean(left && right)
+		&& left.provider === right.provider
+		&& left.hostId === right.hostId
+		&& (left.scopeId || null) === (right.scopeId || null);
+}
+
+export function createDashboardGroup({ group, members, columns = 12, editMode = false, selected = false, showHeader = true, labels = {}, renderItem, onMenu, onRename }) {
 	const title = el("h3", null, group.name);
 	if (onRename) {
 		title.title = labels.renameHint || "Double-click to rename";
@@ -32,7 +39,7 @@ export function createDashboardGroup({ group, members, columns = 12, editMode = 
 		const card = renderItem(item); card.classList.add("is-group-member"); card.dataset.dashboardGroupMember = group.id;
 		applyGridPosition(card, projection.get(item.id), item.layout); grid.append(card);
 	}
-	const root = el("section", { className: `aa-dashboard-group aa-dashboard-composite-card is-${group.tone}${selected ? " is-selected" : ""}`, attrs: { "data-dashboard-group-id": group.id, "data-drop-row": String(group.layout.row), "data-drop-column": "0" }, children: [header, grid] });
+	const root = el("section", { className: `aa-dashboard-group aa-dashboard-composite-card is-${group.tone}${selected ? " is-selected" : ""}`, attrs: { "data-dashboard-group-id": group.id, "data-drop-row": String(group.layout.row), "data-drop-column": "0", "aria-label": group.name }, children: [ ...(showHeader ? [header] : []), grid] });
 	root.addEventListener("contextmenu", (event) => { if (!editMode || event.target.closest("[data-dashboard-item-id]")) return; event.preventDefault(); onMenu?.(event, group); });
 	header.addEventListener("keydown", (event) => { if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return; event.preventDefault(); onMenu?.(event, group); });
 	applyGridPosition(root, group.projectedLayout || group.layout, group.layout); return root;
@@ -44,6 +51,7 @@ export function createDashboardGrid({ page, columns = 12, editMode = false, sele
 	const ungrouped = orderedItems(page.items.filter((item) => !item.groupId));
 	const projectedGroups = page.groups.map((group) => ({
 		...group,
+		showHeader: editMode || !page.items.some((item) => item.kind === "separator" && item.layout.row <= group.layout.row && sameSource(item.source, group.source)),
 		layout: {
 			...group.layout,
 			rowSpan: projectedGroupRowSpan(page.items.filter((item) => item.groupId === group.id), columns),
@@ -51,12 +59,12 @@ export function createDashboardGrid({ page, columns = 12, editMode = false, sele
 	}));
 	const topEntries = [...ungrouped, ...projectedGroups]; const projection = projectScope(topEntries, columns);
 	for (const item of ungrouped) { const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); applyGridPosition(card, projection.get(item.id), item.layout); root.append(card); }
-	for (const sourceGroup of orderedItems(page.groups)) {
+	for (const sourceGroup of orderedItems(projectedGroups)) {
 		const group = { ...sourceGroup, projectedLayout: projection.get(sourceGroup.id) };
 		root.append(createDashboardGroup({
 		group, members: page.items.filter((item) => item.groupId === group.id), columns, editMode, selected: selectedGroupIds.has(group.id), labels, renderItem: (item) => {
 			const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); return card;
-		}, onMenu: onGroupMenu, onRename: onRenameGroup,
+		}, showHeader: group.showHeader, onMenu: onGroupMenu, onRename: onRenameGroup,
 	})); }
 	return root;
 }

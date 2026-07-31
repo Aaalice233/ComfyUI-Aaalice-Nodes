@@ -101,9 +101,11 @@ export function normalizeDashboard(raw) {
 			if (!["control", "separator"].includes(kind)) throw new DashboardModelError(`Unsupported dashboard item kind: ${kind}`, "invalid-kind");
 			const groupId = sourceItem.groupId == null ? null : String(sourceItem.groupId);
 			if (groupId && !groupIds.has(groupId)) throw new DashboardModelError(`Dashboard item references missing group: ${groupId}`, "missing-group");
+			const source = kind === "separator" ? normalizeGroupSource(sourceItem.source) : null;
 			page.items.push({
 				id: sourceItem.id, kind, binding: kind === "control" ? normalizeBinding(sourceItem.binding) : null,
 				label: String(sourceItem.label || ""), groupId,
+				...(source ? { source } : {}),
 				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns }),
 			});
 		}
@@ -119,8 +121,13 @@ export function createPage(name = "Page") { return { id: stableId("page"), name,
 export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }) {
 	return { id: stableId("item"), kind: "control", binding: normalizeBinding(binding), label, groupId: null, layout: normalizeLayout(layout) };
 }
-export function createSeparatorItem(label = "", row = 0) {
-	return { id: stableId("item"), kind: "separator", binding: null, label, groupId: null, layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN } };
+export function createSeparatorItem(label = "", row = 0, source = null) {
+	const normalizedSource = normalizeGroupSource(source);
+	return {
+		id: stableId("item"), kind: "separator", binding: null, label, groupId: null,
+		...(normalizedSource ? { source: normalizedSource } : {}),
+		layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN },
+	};
 }
 export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, source = null) {
 	const normalizedSource = normalizeGroupSource(source);

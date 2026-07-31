@@ -15,6 +15,14 @@ PARAM_TYPES_TUNABLE = frozenset(
 PARAM_TYPES_ALL = PARAM_TYPES_TUNABLE | {PARAM_TYPE_SEPARATOR}
 
 ImageResolver = Callable[[Any], Any]
+ModelPathResolver = Callable[[str, str], str | None]
+
+MODEL_SOURCE_FOLDERS = {
+    "checkpoint": "checkpoints",
+    "lora": "loras",
+    "controlnet": "controlnet",
+    "upscale_model": "upscale_models",
+}
 
 
 def parse_parameters_json(raw: str | None) -> list[dict[str, Any]]:
@@ -99,14 +107,17 @@ def validate_parameters_list(
         if param_type in {"dropdown", "enum"}:
             options = config.get("options")
             if not isinstance(options, list) or not options:
-                raise ValueError(f"parameter {pid!r}: {param_type} requires options")
-            if not all(isinstance(option, str) and option for option in options):
-                raise ValueError(f"parameter {pid!r}: options must be non-empty strings")
-            if validate_dynamic_values and str(parameter.get("value", "")) not in options:
-                raise ValueError(
-                    f"parameter {pid!r}: selected value "
-                    f"{parameter.get('value')!r} is unavailable"
-                )
+                # An unconnected dynamic source is not part of this execution.
+                if validate_dynamic_values or not config.get("source"):
+                    raise ValueError(f"parameter {pid!r}: {param_type} requires options")
+            else:
+                if not all(isinstance(option, str) and option for option in options):
+                    raise ValueError(f"parameter {pid!r}: options must be non-empty strings")
+                if validate_dynamic_values and str(parameter.get("value", "")) not in options:
+                    raise ValueError(
+                        f"parameter {pid!r}: selected value "
+                        f"{parameter.get('value')!r} is unavailable"
+                    )
         if param_type == "taglist":
             value = parameter.get("value")
             if not isinstance(value, list):
@@ -124,6 +135,28 @@ def validate_parameters_list(
             behavior = config.get("control_after_generate", "fixed")
             if behavior not in {"fixed", "increment", "decrement", "randomize"}:
                 raise ValueError(f"parameter {pid!r}: invalid seed behavior {behavior!r}")
+
+
+def validate_model_references(
+    parameters: list[dict[str, Any]], *, resolve_path: ModelPathResolver
+) -> None:
+    """Validate known model sources without importing ComfyUI runtime modules."""
+    for parameter in parameters:
+        if parameter.get("param_type") not in {"dropdown", "enum"}:
+            continue
+        source = str((parameter.get("config") or {}).get("source") or "")
+        folder = MODEL_SOURCE_FOLDERS.get(source)
+        if folder is None:
+            continue
+        value = str(parameter.get("value", ""))
+        if resolve_path(folder, value):
+            continue
+        pid = str(parameter.get("id", "?"))
+        name = str(parameter.get("name", pid))
+        raise ValueError(
+            f"parameter {pid!r} ({name!r}): model {value!r} from source "
+            f"{source!r} was not found in {folder!r}"
+        )
 
 
 def coerce_parameter_value(

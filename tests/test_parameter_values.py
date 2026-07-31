@@ -7,6 +7,7 @@ from nodes._lib.parameter_values import (
     MAX_TUNABLE_PARAMS,
     parameters_to_outputs,
     parse_parameters_json,
+    validate_model_references,
     validate_parameters_list,
 )
 
@@ -43,6 +44,42 @@ class ParameterValueTests(unittest.TestCase):
         parameters_to_outputs([dynamic], validate_dynamic_values=False)
         with self.assertRaisesRegex(ValueError, "unavailable"):
             parameters_to_outputs([dynamic], validate_dynamic_values=True)
+
+    def test_known_model_sources_use_the_injected_path_resolver(self):
+        model = {
+            "id": "checkpoint",
+            "name": "Checkpoint",
+            "param_type": "dropdown",
+            "value": "base.safetensors",
+            "config": {"source": "checkpoint", "options": ["base.safetensors"]},
+        }
+        calls = []
+        validate_model_references(
+            [model],
+            resolve_path=lambda folder, value: calls.append((folder, value)) or "/models/base.safetensors",
+        )
+        self.assertEqual(calls, [("checkpoints", "base.safetensors")])
+
+    def test_missing_known_model_reference_reports_identity_and_source(self):
+        model = {
+            "id": "upscale",
+            "name": "Upscale model",
+            "param_type": "dropdown",
+            "value": "missing.pth",
+            "config": {"source": "upscale_model", "options": ["missing.pth"]},
+        }
+        with self.assertRaisesRegex(ValueError, "upscale.*Upscale model.*missing\\.pth.*upscale_model"):
+            validate_model_references([model], resolve_path=lambda _folder, _value: None)
+
+    def test_unknown_model_source_is_not_guessed(self):
+        model = {
+            "id": "vendor",
+            "name": "Vendor model",
+            "param_type": "dropdown",
+            "value": "vendor.bin",
+            "config": {"source": "vendor_model", "options": ["vendor.bin"]},
+        }
+        validate_model_references([model], resolve_path=lambda _folder, _value: None)
 
     def test_parameter_names_are_case_insensitively_unique(self):
         with self.assertRaisesRegex(ValueError, "duplicate parameter name"):

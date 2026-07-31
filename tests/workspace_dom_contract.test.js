@@ -784,6 +784,7 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(providers, /partitionParameterSections\(ensureParameters\(node\)\)/);
 	assert.match(providers, /scopeId: `separator:\$\{section\.separator\.id\}`/);
 	assert.match(providers, /forceGroup: sectioned/);
+	assert.match(providers, /separator: \{ label: displayName\(section\.separator, section\.separator\.id\) \}/);
 	assert.doesNotMatch(workspace, /function sharedSourceGroup\(controls\)/);
 	assert.match(workspace, /addItems\(current, page\.id, chosen\)/);
 	assert.match(workspace, /className: "aa-add-controls-source-group"/);
@@ -791,8 +792,9 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(theme, /\.aa-add-controls-source-group \{[^}]*grid-column: 1 \/ -1;/);
 	assert.match(dashboardCommands, /function findSourceGroup/);
 	assert.match(dashboardCommands, /control\.sourceGroup \|\| sourceGroup/);
-	assert.match(dashboardCommands, /allowSingle: requestedGroup\.forceGroup/);
+	assert.match(dashboardCommands, /allowSingle: true/);
 	assert.match(dashboardComponents, /export function createDashboardGroup/);
+	assert.match(dashboardComponents, /showHeader: editMode \|\| !page\.items\.some/);
 	assert.match(dashboardComponents, /projectedGroupRowSpan\(page\.items\.filter\(\(item\) => item\.groupId === group\.id\), columns\)/);
 	assert.match(dashboardSizing, /if \(columns !== 1\) return recommendedGroupRowSpan\(members\)/);
 	assert.match(dashboardSizing, /members\.reduce\(\(total, item\) => total \+ item\.layout\.rowSpan, 0\)/);

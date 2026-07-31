@@ -116,6 +116,43 @@ test("separator group identity is stable across additions and preserves user nam
 	assert.deepEqual(next.pages[0].groups[0].source, sourceGroup.source);
 });
 
+test("separator-scoped controls are packed from the section origin", () => {
+	const { model, page } = modelWithPage();
+	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };
+	const source = (scopeId, name) => ({ source: { ...panelBinding, scopeId }, name, tone: "blue", forceGroup: true });
+	const next = addItems(model, page.id, [
+		{ label: "Negative", binding: { ...panelBinding, controlId: "negative", valueType: "boolean" }, rowSpan: 9, sourceGroup: source("separator:negative", "Negative") },
+		{ label: "Positive", binding: { ...panelBinding, controlId: "positive", valueType: "boolean" }, rowSpan: 9, sourceGroup: source("separator:positive", "Positive") },
+		{ label: "Rule", binding: { ...panelBinding, controlId: "rule" }, rowSpan: 12, sourceGroup: source("separator:positive", "Positive") },
+		{ label: "Service", binding: { ...panelBinding, controlId: "service" }, rowSpan: 12, sourceGroup: source("separator:positive", "Positive") },
+	]);
+	const positive = next.pages[0].groups.find((group) => group.source.scopeId === "separator:positive");
+	const members = next.pages[0].items.filter((item) => item.groupId === positive.id);
+	assert.deepEqual(members.map((item) => item.layout), [
+		{ row: 0, column: 0, columnSpan: 6, rowSpan: 9 },
+		{ row: 0, column: 6, columnSpan: 6, rowSpan: 12 },
+		{ row: 9, column: 0, columnSpan: 6, rowSpan: 12 },
+	]);
+});
+
+test("parameter section separators become stable top-level dashboard items", () => {
+	const { model, page } = modelWithPage();
+	const sourceGroup = {
+		source: { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" },
+		name: "Sampling", tone: "blue", forceGroup: true, separator: { label: "Sampling" },
+	};
+	let next = addItems(model, page.id, [{ label: "Steps", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a" }, sourceGroup }]);
+	let separators = next.pages[0].items.filter((item) => item.kind === "separator");
+	assert.equal(separators.length, 1);
+	assert.equal(separators[0].label, "Sampling");
+	assert.deepEqual(separators[0].source, sourceGroup.source);
+	assert.equal(separators[0].groupId, null);
+	assert.ok(separators[0].layout.row < next.pages[0].groups[0].layout.row);
+	next = addItems(next, page.id, [{ label: "CFG", binding: { ...binding, provider: "aaalice-parameter", hostId: "panel-a", controlId: "cfg" }, sourceGroup }]);
+	separators = next.pages[0].items.filter((item) => item.kind === "separator");
+	assert.equal(separators.length, 1);
+});
+
 test("scoped controls do not fall into an unscoped legacy source group", () => {
 	const { model, page } = modelWithPage();
 	const panelBinding = { ...binding, provider: "aaalice-parameter", hostId: "panel-a" };

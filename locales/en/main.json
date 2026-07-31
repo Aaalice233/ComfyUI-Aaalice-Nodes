@@ -329,6 +329,13 @@
         "receiverNavigateFailed": "The Parameter Receiver cannot be opened on the current canvas."
       },
       "inline": { "editValue": "Edit value" },
+      "preflight": {
+        "missingModel": "Model {value} for parameter {parameter} is unavailable from {source}. Restore it or choose another model, then try again.",
+        "sourceUnavailable": "The model source {source} has no available models. Check the model folder, then try again.",
+        "sourceUnverified": "The model source {source} could not be verified. Refresh ComfyUI model lists, then try again.",
+        "moreIssues": "{count} model references need attention.",
+        "refreshFailed": "Unable to verify model sources. Refresh ComfyUI model lists, then try again."
+      },
       "error": {
 		"maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: {reason}",
 		"imageUploadResponse": "The server response did not include an image filename.", "imageFileType": "Choose an image file."

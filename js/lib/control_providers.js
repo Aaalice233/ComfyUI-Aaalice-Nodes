@@ -96,6 +96,7 @@ controlProviders.register({
 				name: section.separator ? displayName(section.separator, section.separator.id) : parameterPanelTitle(node),
 				tone: "blue",
 				forceGroup: sectioned,
+				...(section.separator ? { separator: { label: displayName(section.separator, section.separator.id) } } : {}),
 			};
 			return section.parameters.map((parameter) => ({
 				label: displayName(parameter, parameter.id),

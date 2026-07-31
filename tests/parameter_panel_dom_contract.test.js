@@ -366,3 +366,26 @@ test("image parameters upload dropped image files through the existing upload pa
 	assert.match(assetControlSource, /bindImageDropTarget\(root/);
 	assert.match(themeSource, /\.aa-image-asset-control__select\.is-drop-target\s*\{/);
 });
+
+test("parameter panel preserves model references and preflights them before queueing", () => {
+	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+	const modelSource = readFileSync(join(ROOT, "js", "lib", "param_model.js"), "utf8");
+	const choiceSource = readFileSync(join(ROOT, "js", "lib", "parameter_choice_value.js"), "utf8");
+	const sourceRegistry = readFileSync(join(ROOT, "js", "lib", "parameter_option_sources.js"), "utf8");
+	const preflightSource = readFileSync(join(ROOT, "js", "lib", "parameter_model_preflight.js"), "utf8");
+
+	assert.match(choiceSource, /preserveInvalid = false/);
+	assert.match(modelSource, /preserveInvalid: preserveInvalidChoice\(parameter\)/);
+	assert.match(modelSource, /if \(!config\.source && \(!Array\.isArray\(config\.options\) \|\| !config\.options\.length\)\)/);
+	assert.match(sourceRegistry, /kind: "model"/);
+	assert.match(sourceRegistry, /const declaredKind = typeof definition\?\.kind/);
+	assert.match(preflightSource, /_aaaliceParamId/);
+	assert.match(preflightSource, /source_unavailable/);
+	assert.match(preflightSource, /source_unverified/);
+	assert.match(panelSource, /await preflightModelReferences\(\)/);
+	assert.match(panelSource, /refreshDynamicOptionsFromServer/);
+	assert.match(panelSource, /findParameterModelIssues\(nodes\)/);
+	assert.match(panelSource, /return false;/);
+	assert.match(panelSource, /app\.extensionManager\?\.toast\?\.add/);
+	assert.doesNotMatch(panelSource, /hidden.*Combo|widgets_values/);
+});

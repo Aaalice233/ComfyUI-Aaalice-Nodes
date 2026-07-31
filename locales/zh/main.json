@@ -329,6 +329,13 @@
         "receiverNavigateFailed": "当前画布无法打开参数接收器。"
       },
       "inline": { "editValue": "编辑数值" },
+      "preflight": {
+        "missingModel": "参数“{parameter}”引用的模型“{value}”不在当前 {source} 列表中。请恢复该模型或选择其他模型后重试。",
+        "sourceUnavailable": "模型来源“{source}”当前没有可用模型。请检查模型目录后重试。",
+        "sourceUnverified": "无法验证模型来源“{source}”。请刷新 ComfyUI 模型列表后重试。",
+        "moreIssues": "还有 {count} 个模型引用需要处理。",
+        "refreshFailed": "无法验证模型来源。请刷新 ComfyUI 模型列表后重试。"
+      },
       "error": {
 		"maxParameters": "最多只能添加 {count} 个可调参数。", "imageUpload": "图像上传失败：{reason}",
 		"imageUploadResponse": "服务器响应中没有图像文件名。", "imageFileType": "请选择图像文件。"
