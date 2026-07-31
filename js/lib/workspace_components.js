@@ -147,15 +147,22 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, editMo
 			const active = entry.id === page?.id;
 			const row = el("button", {
 				className: `aa-dashboard-page-menu__row${active ? " is-active" : ""}`,
-				attrs: { type: "button", role: "option", "aria-selected": String(active), draggable: editMode ? "true" : null },
+				attrs: { type: "button", role: "option", "aria-selected": String(active) },
 				children: [
 					el("span", "aa-dashboard-page-menu__index", String(entryIndex + 1).padStart(2, "0")),
 					el("span", "aa-dashboard-page-menu__name", entry.name),
+					...(editMode ? [el("span", { className: "aa-dashboard-page-menu__drag-handle", attrs: { draggable: "true", "aria-hidden": "true", title: labels.reorderPage || "Drag to reorder" }, children: [icon("drag")] })] : []),
 					...(active ? [icon("statusCheck", { className: "aa-dashboard-page-menu__check" })] : []),
 				],
 			});
 			row.dataset.pageId = entry.id;
-			row.addEventListener("click", () => { popover?.close(); if (!active) onSelectPage?.(entry.id); });
+			row.addEventListener("click", (event) => { if (event.target.closest?.(".aa-dashboard-page-menu__drag-handle")) return; popover?.close(); if (!active) onSelectPage?.(entry.id); });
+			row.addEventListener("keydown", (event) => {
+				if (!editMode || !event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+				event.preventDefault();
+				const target = pages[entryIndex + (event.key === "ArrowUp" ? -1 : 1)];
+				if (target) onReorderPage?.(entry.id, target.id);
+			});
 			rows.push(row); list.append(row);
 		});
 		list.addEventListener("keydown", (event) => {
@@ -166,15 +173,23 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, editMo
 			rows[(next + rows.length) % rows.length]?.focus();
 		});
 		if (editMode) {
+			const clearDropTargets = () => rows.forEach((row) => row.classList.remove("is-drop-target"));
 			list.addEventListener("dragstart", (event) => {
-				const row = event.target.closest(".aa-dashboard-page-menu__row");
-				if (row) event.dataTransfer?.setData("application/x-aaalice-page", row.dataset.pageId);
+				const handle = event.target.closest(".aa-dashboard-page-menu__drag-handle");
+				if (!handle) return;
+				const row = handle.closest(".aa-dashboard-page-menu__row");
+				if (row) { event.dataTransfer?.setData("application/x-aaalice-page", row.dataset.pageId); event.dataTransfer.effectAllowed = "move"; row.classList.add("is-dragging"); }
 			});
-			list.addEventListener("dragover", (event) => { if (event.target.closest(".aa-dashboard-page-menu__row")) event.preventDefault(); });
+			list.addEventListener("dragend", (event) => { event.target.closest(".aa-dashboard-page-menu__row")?.classList.remove("is-dragging"); clearDropTargets(); });
+			list.addEventListener("dragover", (event) => {
+				const row = event.target.closest(".aa-dashboard-page-menu__row");
+				if (!row) return;
+				event.preventDefault(); clearDropTargets(); row.classList.add("is-drop-target");
+			});
 			list.addEventListener("drop", (event) => {
 				const row = event.target.closest(".aa-dashboard-page-menu__row");
 				if (!row) return;
-				event.preventDefault();
+				event.preventDefault(); clearDropTargets();
 				const source = event.dataTransfer?.getData("application/x-aaalice-page");
 				if (source && source !== row.dataset.pageId) { popover?.close(); onReorderPage?.(source, row.dataset.pageId); }
 			});

@@ -13,9 +13,11 @@ function statusClass(status) {
 }
 
 function createGroupRow(group, labels, onRefresh) {
-	const status = classifyGroupNodes(group.nodes);
+	const nodes = Array.isArray(group.nodes) ? group.nodes : [];
+	const status = classifyGroupNodes(nodes);
 	const color = normalizeColor(group.color);
-	const name = String(group.title || labels.untitled);
+	const name = String(group.title || labels.untitled || "Untitled group");
+	const statusLabels = labels.status || {};
 	const toggle = button({
 		label: status === GROUP_STATE.ENABLED ? labels.disable : labels.enable,
 		variant: "ghost",
@@ -32,7 +34,7 @@ function createGroupRow(group, labels, onRefresh) {
 		el("span", { className: `aa-quick-group-control__marker${color ? "" : " is-uncolored"}`, attrs: { "aria-hidden": "true" } }),
 		el("div", { className: "aa-quick-group-control__copy", children: [
 			el("strong", { text: name }),
-			el("small", { text: `${group.nodes.length} ${labels.nodes} · ${labels.status[status] || labels.status.unknown}` }),
+			el("small", { text: `${nodes.length} ${labels.nodes || "nodes"} · ${statusLabels[status] || statusLabels.unknown || status}` }),
 		] }),
 		toggle,
 	] });
@@ -41,11 +43,15 @@ function createGroupRow(group, labels, onRefresh) {
 export function renderQuickGroupManagerControl(spec) {
 	const manager = spec.options?.manager;
 	const labels = spec.labels || {};
-	const root = el("section", { className: "aa-quick-group-control", attrs: { "aria-label": labels.title || spec.label } });
+	const root = el("section", { className: "aa-quick-group-control", attrs: { "aria-label": labels.title || spec.label || "Quick Group Manager" } });
 	let destroyed = false;
 	let refresh = () => {};
 	const draw = () => {
 		if (destroyed) return;
+		if (!manager) {
+			root.replaceChildren(emptyState({ iconName: "statusError", className: "aa-quick-group-control__empty is-error", title: labels.error || "Quick Group Manager is unavailable" }));
+			return;
+		}
 		const snapshot = quickGroupManagerSnapshot(manager);
 		const mode = segmentedControl({
 			value: snapshot.state.offMode,

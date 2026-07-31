@@ -558,8 +558,13 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /aria-haspopup": "dialog"/);
 	assert.match(components, /createAnchoredPopover\(\{[\s\S]*?aa-dashboard-page-popover/);
 	assert.match(components, /application\/x-aaalice-page/);
+	assert.match(components, /aa-dashboard-page-menu__drag-handle/);
+	assert.match(components, /clearDropTargets/);
+	assert.match(components, /onReorderPage\?\.\(entry\.id, target\.id\)/);
 	assert.match(workspace, /onSelectPage: selectPage/);
 	assert.match(workspace, /onReorderPage: reorderPage/);
+	assert.match(workspace, /try \{ resolved = resolve\(item\.binding\); \}/);
+	assert.match(workspace, /flushActiveDashboardPresetOnSave\(\)/);
 	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex \+ 1\]\?\.id/);
 	assert.match(components, /aria-current/);
 	assert.match(components, /ArrowUp/);
@@ -582,6 +587,8 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /\.aa-dashboard-page-menu__row\.is-active/);
 	assert.match(theme, /\.aa-dashboard-page-menu__index/);
 	assert.match(theme, /\.aa-dashboard-page-menu__name/);
+	assert.match(theme, /\.aa-dashboard-page-menu__drag-handle/);
+	assert.match(theme, /\.aa-dashboard-page-menu__row\.is-drop-target/);
 	assert.match(theme, /margin-right: auto/);
 	assert.match(theme, /backdrop-filter: blur\(12px\)/);
 	assert.match(workspace, /initialEdge: detail\.source === "boundary" && direction === "backward" \? "bottom" : "top"/);

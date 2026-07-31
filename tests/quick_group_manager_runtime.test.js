@@ -37,6 +37,15 @@ test("returns an ordered, filtered read-only snapshot for the manager graph", ()
 	assert.deepEqual(snapshot.groups.map((item) => item.id), ["red", "blue"]);
 });
 
+test("keeps sidebar and preset snapshots safe when a graph group has no member cache", () => {
+	const incomplete = { id: "incomplete", title: "Incomplete", recomputeInsideNodes() {} };
+	const current = manager(graph("root", [incomplete]), 1);
+	const snapshot = quickGroupManagerSnapshot(current);
+	assert.deepEqual(snapshot.groups, [incomplete]);
+	assert.deepEqual(quickGroupManagerPresetSnapshot(current).groups, [{ id: "incomplete", nodes: [] }]);
+	assert.equal(applyQuickGroupManagerPreset(current, { version: 1, state: snapshot.state, groups: [{ id: "incomplete", nodes: [] }] }, { transaction: false }).ok, true);
+});
+
 test("applies a linkage cascade in one graph transaction", () => {
 	const first = group("first", "First", [node()]);
 	const secondNode = node();

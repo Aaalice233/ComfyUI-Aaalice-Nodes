@@ -1318,6 +1318,12 @@
 .aa-dashboard-page-menu__name { min-width: 0; flex: 1; overflow: hidden; font-size: 11.5px; font-weight: 560; text-overflow: ellipsis; white-space: nowrap; }
 .aa-dashboard-page-menu__row.is-active .aa-dashboard-page-menu__name { color: color-mix(in srgb, var(--aa-ui-accent) 40%, var(--aa-ui-text)); font-weight: 660; }
 .aa-dashboard-page-menu__check { width: 12px; height: 12px; flex: none; color: color-mix(in srgb, var(--aa-ui-accent) 70%, var(--aa-ui-text)); }
+.aa-dashboard-page-menu__drag-handle { display: inline-grid; width: 18px; height: 22px; flex: none; place-items: center; border-radius: 5px; color: var(--aa-ui-muted); cursor: grab; opacity: .64; }
+.aa-dashboard-page-menu__drag-handle:hover { background: color-mix(in srgb, var(--aa-ui-accent) 12%, transparent); color: var(--aa-ui-accent); opacity: 1; }
+.aa-dashboard-page-menu__drag-handle:active, .aa-dashboard-page-menu__row.is-dragging .aa-dashboard-page-menu__drag-handle { cursor: grabbing; }
+.aa-dashboard-page-menu__drag-handle .aa-ui-icon { width: 13px; height: 13px; }
+.aa-dashboard-page-menu__row.is-dragging { opacity: .56; }
+.aa-dashboard-page-menu__row.is-drop-target { background: color-mix(in srgb, var(--aa-ui-accent) 14%, var(--aa-ui-control)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aa-ui-accent) 46%, transparent); }
 .aa-dashboard-page-heading__title { min-width: 0; margin: 0; padding: 4px 9px; overflow: hidden; outline: 0; border-radius: 8px; color: var(--aa-ui-text); cursor: text; font-size: 16px; font-weight: 720; letter-spacing: -.01em; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; transition: background-color .14s ease, box-shadow .14s ease, color .14s ease; }
 .aa-dashboard-page-heading__title:hover { background: color-mix(in srgb, var(--aa-ui-control) 72%, transparent); }
 .aa-dashboard-page-heading__title:focus-visible { background: color-mix(in srgb, var(--aa-ui-control) 78%, transparent); box-shadow: 0 0 0 2px var(--aa-ui-accent-soft); color: color-mix(in srgb, var(--aa-ui-accent) 26%, var(--aa-ui-text)); }

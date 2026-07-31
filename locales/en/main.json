@@ -65,7 +65,7 @@
         "noMatchesTitle": "No matching groups", "noMatches": "Try another group name."
       },
       "empty": { "title": "Build your control pages",  "description": "Create a page, then add controls from any compatible node's context menu.", "page": "Add controls from a compatible node's context menu." },
-      "page": { "pages": "Dashboard pages", "add": "Add page", "name": "Page name", "default": "Generation", "menu": "Page actions", "switch": "Switch page", "tone": "Page color", "toneDefault": "Default", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
+      "page": { "pages": "Dashboard pages", "reorder": "Drag to reorder pages", "add": "Add page", "name": "Page name", "default": "Generation", "menu": "Page actions", "switch": "Switch page", "tone": "Page color", "toneDefault": "Default", "rename": "Rename page", "delete": "Delete page", "duplicate": "Duplicate page", "deleteConfirm": "Delete this dashboard page?" },
       "target": { "page": "Page", "newPage": "New page" },
       "renameHint": "Double-click to rename",
       "card": { "menu": "Control card menu", "move": "Move control", "remove": "Remove control", "width": "Toggle card width", "resize": "Resize card; arrow keys adjust by one grid unit" },

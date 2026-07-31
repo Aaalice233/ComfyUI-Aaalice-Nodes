@@ -75,7 +75,7 @@ export function quickGroupManagerPresetSnapshot(node) {
 		state: structuredClone(snapshot.state),
 		groups: snapshot.groups.map((group) => ({
 			id: String(group.id),
-			nodes: group.nodes.map((member) => ({ id: nodeIdentity(member), mode: Number(member?.mode ?? 0) })).filter((member) => member.id),
+			nodes: (Array.isArray(group.nodes) ? group.nodes : []).map((member) => ({ id: nodeIdentity(member), mode: Number(member?.mode ?? 0) })).filter((member) => member.id),
 		})),
 	};
 }
@@ -99,7 +99,7 @@ export function applyQuickGroupManagerPreset(node, value, { transaction = true }
 	for (const savedGroup of value.groups) {
 		const group = groupsById.get(String(savedGroup.id));
 		if (!group) continue;
-		const membersById = new Map(group.nodes.map((member) => [nodeIdentity(member), member]));
+		const membersById = new Map((Array.isArray(group.nodes) ? group.nodes : []).map((member) => [nodeIdentity(member), member]));
 		for (const savedMember of savedGroup.nodes) {
 			const member = membersById.get(String(savedMember.id));
 			if (!member) continue;

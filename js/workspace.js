@@ -154,13 +154,16 @@ function updateDashboardPresetState(callback, detail = null) {
 
 /** Ctrl+S 保存工作流时把工作副本冲刷进当前基准预设，随后的保存序列化自然包含它。 */
 function flushActiveDashboardPresetOnSave() {
-	const state = dashboardPresetState();
-	const baseline = state.presets.find((preset) => preset.id === state.baselinePresetId);
-	if (!baseline) return;
-	const snapshot = currentDashboardPresetSnapshot(undefined, baseline.values);
-	if (!compareDashboardPreset(baseline, snapshot).modified) return;
-	try { updateDashboardPresetState((current) => replaceDashboardPreset(current, baseline.id, snapshot)); }
-	catch (error) { notifyDashboardPresetError(error); }
+	try {
+		const state = dashboardPresetState();
+		const baseline = state.presets.find((preset) => preset.id === state.baselinePresetId);
+		if (!baseline) return;
+		const snapshot = currentDashboardPresetSnapshot(undefined, baseline.values);
+		if (!compareDashboardPreset(baseline, snapshot).modified) return;
+		updateDashboardPresetState((current) => replaceDashboardPreset(current, baseline.id, snapshot));
+	} catch (error) {
+		notifyDashboardPresetError(error);
+	}
 }
 
 function clearLegacyDashboardPresets() {
@@ -536,7 +539,7 @@ async function applyDashboardPreset(presetId, { restore = false } = {}) {
 
 function workspaceLabels() {
 	return {
-		pages: t("aaalice.workspace.page.pages", "Dashboard pages"), duplicatePage: t("aaalice.workspace.page.duplicate", "Duplicate page"),
+		pages: t("aaalice.workspace.page.pages", "Dashboard pages"), reorderPage: t("aaalice.workspace.page.reorder", "Drag to reorder pages"), duplicatePage: t("aaalice.workspace.page.duplicate", "Duplicate page"),
 		switchPage: t("aaalice.workspace.page.switch", "Switch page"),
 		pageTone: t("aaalice.workspace.page.tone", "Page color"), toneDefault: t("aaalice.workspace.page.toneDefault", "Default"),
 		tones: Object.fromEntries(DASHBOARD_TONES.map((value) => [value, t(`aaalice.workspace.group.tones.${value}`, value)])),
@@ -859,10 +862,17 @@ function renderDashboard(container, host) {
 	};
 	const presetState = dashboardPresetState();
 	const baselinePreset = presetState.presets.find((item) => item.id === presetState.baselinePresetId) || null;
-	const currentPresetSnapshot = currentDashboardPresetSnapshot(model);
-	const presetComparison = baselinePreset ? compareDashboardPreset(baselinePreset, currentPresetSnapshot) : null;
+	let currentPresetSnapshot = null;
+	let presetComparison = null;
+	let presetSnapshotError = null;
+	try {
+		currentPresetSnapshot = currentDashboardPresetSnapshot(model);
+		presetComparison = baselinePreset ? compareDashboardPreset(baselinePreset, currentPresetSnapshot) : null;
+	} catch (error) {
+		presetSnapshotError = error;
+	}
 	const presetPicker = createDashboardPresetPicker({
-		presets: presetState.presets, baselineId: baselinePreset?.id || null, comparison: presetComparison, error: dashboardPresetModelError, labels: dashboardPresetLabels(),
+		presets: presetState.presets, baselineId: baselinePreset?.id || null, comparison: presetComparison, error: dashboardPresetModelError || presetSnapshotError, labels: dashboardPresetLabels(),
 		onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
 		onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
 	});
@@ -950,8 +960,21 @@ function renderDashboard(container, host) {
 			});
 			separator.dataset.searchText = String(item.label || "").toLocaleLowerCase(); return separator;
 		}
-		const resolved = resolve(item.binding);
-		const control = resolved.status === "ok" ? createControlElement(resolved, { labels: workspaceLabels(), onCommit: (_value, detail = {}) => { if (detail.redraw !== false) scheduleRender("dashboard"); }, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference) }) : button({ label: t("aaalice.workspace.binding.rebind", "Rebind"), variant: "secondary", size: "sm", onClick: () => openRebind(item) });
+		let resolved;
+		try { resolved = resolve(item.binding); }
+		catch (error) { resolved = { status: "error", error, binding: item.binding }; }
+		let control;
+		if (resolved.status === "ok") {
+			try {
+				control = createControlElement(resolved, { labels: workspaceLabels(), onCommit: (_value, detail = {}) => { if (detail.redraw !== false) scheduleRender("dashboard"); }, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference) });
+			} catch (error) {
+				resolved = { ...resolved, status: "error", error };
+			}
+		}
+		if (!control) {
+			const errorLabel = resolved.status === "error" ? t("aaalice.workspace.binding.error", "Control unavailable due to an error") : t("aaalice.workspace.binding.rebind", "Rebind");
+			control = button({ label: errorLabel, variant: "secondary", size: "sm", onClick: () => openRebind(item) });
+		}
 		const cardTitle = controlTitle(item, resolved);
 		const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, description: resolved.status === "ok" ? String(resolved.control?.description || "") : "", editMode, labels: workspaceLabels(), onManage: (context) => openCardActions(context, item), onMove: () => openMoveControl(item),
 			onRemove: () => updateDashboard((current) => removeItems(current, [item.id])), onToggleSpan: () => updateDashboard((current) => resizeItems(current, [item.id], item.layout.columnSpan === DASHBOARD_GRID_COLUMNS ? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN : DASHBOARD_GRID_COLUMNS)),

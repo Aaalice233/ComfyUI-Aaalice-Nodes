@@ -65,7 +65,7 @@
         "noMatchesTitle": "没有匹配的组", "noMatches": "请尝试其他组名称。"
       },
       "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。", "page": "请从兼容节点的右键菜单添加参数。" },
-      "page": { "pages": "侧边栏页面", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "switch": "切换页面", "tone": "页面颜色", "toneDefault": "默认", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
+      "page": { "pages": "侧边栏页面", "reorder": "拖拽调整页面顺序", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "switch": "切换页面", "tone": "页面颜色", "toneDefault": "默认", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
       "target": { "page": "页面", "newPage": "新页面" },
       "renameHint": "双击重命名",
       "card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "resize": "调整卡片大小；方向键按网格单位调整" },
