@@ -2,6 +2,8 @@
 
 export const DASHBOARD_SEPARATOR_ROW_SPAN = 5;
 export const DASHBOARD_GROUP_CHROME_ROW_SPAN = 7;
+// The group frame still needs room for its padding when the header is hidden.
+export const DASHBOARD_GROUP_FRAME_ROW_SPAN = 3;
 export const DASHBOARD_DEFAULT_CONTROL_ROW_SPAN = 12;
 export const DASHBOARD_MARKDOWN_ROW_SPAN = 28;
 export const DASHBOARD_GRID_COLUMNS = 12;
@@ -29,15 +31,15 @@ export function recommendedControlRowSpan({ value } = {}) {
 }
 
 export function recommendedGroupRowSpan(members = [], includeHeader = true) {
-	const chromeRows = includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 0;
+	const chromeRows = includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : DASHBOARD_GROUP_FRAME_ROW_SPAN;
 	const contentRows = members.reduce((extent, item) => Math.max(extent, item.layout.row + item.layout.rowSpan), 0);
-	return Math.max(includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 1, chromeRows + contentRows);
+	return Math.max(chromeRows, chromeRows + contentRows);
 }
 
 /** A one-column group must reserve the stacked height of every member. */
 export function projectedGroupRowSpan(members = [], columns = DASHBOARD_GRID_COLUMNS, includeHeader = true) {
 	if (columns !== 1) return recommendedGroupRowSpan(members, includeHeader);
-	const chromeRows = includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 0;
+	const chromeRows = includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : DASHBOARD_GROUP_FRAME_ROW_SPAN;
 	const contentRows = members.reduce((total, item) => total + item.layout.rowSpan, 0);
-	return Math.max(includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 1, chromeRows + contentRows);
+	return Math.max(chromeRows, chromeRows + contentRows);
 }

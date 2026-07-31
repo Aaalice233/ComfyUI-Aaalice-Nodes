@@ -427,6 +427,9 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-title \{[^}]*grid-column: 1;[^}]*grid-row: 1;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-boolean \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+	assert.match(theme, /\.aa-control-boolean \{[^}]*width: 100%;[^}]*height: 32px;/);
+	assert.doesNotMatch(theme, /\.aa-control-card-header \.aa-control-boolean-status \{\s*display: none;/);
+	assert.match(components, /root\.append\(header, control/);
 	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) 28px;[^}]*grid-template-rows: 14px 30px;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-seed-mode\.aa-ui-button \{[^}]*grid-column: 2;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-numeric-value \{[^}]*text-align: center;/);
@@ -932,8 +935,8 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 		assert.match(workspace, /aa-section-rule aa-section-rule--start/);
 		assert.match(workspace, /aa-section-rule aa-section-rule--end/);
 		assert.match(workspace, /role: "separator"/);
-		assert.match(theme, /\.aa-section-rule--start, \.aa-section-rule--end\s*\{[^}]*background-color:\s*var\(--aa-section-line\)/s);
-		assert.doesNotMatch(theme, /\.aa-section-rule--(?:start|end)\s*\{[^}]*linear-gradient/s);
+		assert.match(theme, /\.aa-section-rule--start\s*\{[^}]*linear-gradient\(90deg, transparent/s);
+		assert.match(theme, /\.aa-section-rule--end\s*\{[^}]*linear-gradient\(90deg, var\(--aa-section-core\)/s);
 		assert.doesNotMatch(theme, /aa-section-spectrum/);
 		assert.match(theme, /\.aaalice-pcp-node-section-label,[\s\S]*\.aa-dashboard-separator-label \{[^}]*text-align: center;/);
 	assert.match(theme, /grid-row: var\(--aa-dashboard-row\) \/ span var\(--aa-dashboard-row-span\)/);

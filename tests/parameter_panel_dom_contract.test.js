@@ -114,7 +114,7 @@ test("parameter labels keep a small gap above their controls", () => {
 	assert.match(themeSource, /\.aaalice-pcp-node-root \.aaalice-pcp-node-row\s*\{[^}]*row-gap:\s*2px/s);
 });
 
-test("separator parameters use computed monochrome etched rules around a neutral title plate", () => {
+test("separator parameters use accent-faded rules around a neutral title plate", () => {
 	const panelSource = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
 	const layoutSource = readFileSync(join(ROOT, "js", "lib", "parameter_layout.js"), "utf8");
 	const themeSource = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
@@ -125,9 +125,9 @@ test("separator parameters use computed monochrome etched rules around a neutral
 	assert.match(panelSource, /role: "separator"/);
 	assert.match(layoutSource, /sectionHeight:\s*24/);
 	assert.match(themeSource, /--aa-section-core:\s*color-mix\(in srgb, var\(--aa-section-accent\) 62%, var\(--aaalice-node-value\)\)/);
-	assert.match(themeSource, /\.aa-section-rule--start, \.aa-section-rule--end\s*\{[^}]*background-color:\s*var\(--aa-section-line\)/s);
-	assert.doesNotMatch(themeSource, /\.aa-section-rule--(?:start|end)\s*\{[^}]*linear-gradient/s);
-	assert.match(themeSource, /\.aa-section-rule::after\s*\{[^}]*width:\s*12px[^}]*height:\s*2px[^}]*background:\s*var\(--aa-section-core\)/s);
+	assert.match(themeSource, /\.aa-section-rule--start\s*\{[^}]*linear-gradient\(90deg, transparent/s);
+	assert.match(themeSource, /\.aa-section-rule--end\s*\{[^}]*linear-gradient\(90deg, var\(--aa-section-core\)/s);
+	assert.match(themeSource, /\.aa-section-rule::after\s*\{[^}]*width:\s*14px[^}]*height:\s*1px[^}]*background:\s*var\(--aa-section-core\)/s);
 	assert.doesNotMatch(themeSource, /aa-section-spectrum|calc\(h \+ (?:120|240)\)/);
 	assert.match(themeSource, /\.aaalice-pcp-node-section-label,[\s\S]*background:\s*var\(--aa-section-surface\)[^}]*box-shadow:[^}]*text-align:\s*center/s);
 	assert.match(themeSource, /\.aa-dashboard-separator-label/);
