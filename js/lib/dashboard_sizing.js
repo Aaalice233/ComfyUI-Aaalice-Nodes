@@ -29,6 +29,7 @@ export const DASHBOARD_HEIGHT_SIZES = Object.freeze([
 	Object.freeze({ id: "standard", rowSpan: 18 }),
 	Object.freeze({ id: "tall", rowSpan: 28 }),
 	Object.freeze({ id: "media", rowSpan: 36 }),
+	Object.freeze({ id: "panel", rowSpan: 52 }),
 ]);
 
 /** All supported width/height pairings; the catalog is the only resize vocabulary. */
@@ -48,6 +49,8 @@ export const DASHBOARD_DEFAULT_CONTROL_ROW_SPAN = DASHBOARD_HEIGHT_SIZES[0].rowS
 export const DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = DASHBOARD_DEFAULT_CONTROL_ROW_SPAN;
 export const DASHBOARD_STANDARD_CONTROL_ROW_SPAN = DASHBOARD_HEIGHT_SIZES[1].rowSpan;
 export const DASHBOARD_MARKDOWN_ROW_SPAN = DASHBOARD_HEIGHT_SIZES[2].rowSpan;
+export const DASHBOARD_LARGE_CONTROL_ROW_SPAN = DASHBOARD_HEIGHT_SIZES[3].rowSpan;
+export const DASHBOARD_PANEL_CONTROL_ROW_SPAN = DASHBOARD_HEIGHT_SIZES[4].rowSpan;
 
 function boundedCandidates(candidates, minimum = 1, maximum = Number.POSITIVE_INFINITY) {
 	return candidates.filter((value) => value >= minimum && value <= maximum);

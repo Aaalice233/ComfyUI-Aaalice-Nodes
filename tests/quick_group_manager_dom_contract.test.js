@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../js/quick_group_manager.js", import.meta.url), "utf8");
+const controlSource = readFileSync(new URL("../js/lib/controls/quick_group_manager.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../js/lib/theme.css", import.meta.url), "utf8");
 const ui = readFileSync(new URL("../js/lib/ui.js", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../js/lib/quick_group_manager_runtime.js", import.meta.url), "utf8");
@@ -114,6 +115,12 @@ test("previews existing linkage rules only when a group has rules", () => {
 });
 
 test("animates and color-codes the mute/bypass mode switcher", () => {
+	assert.match(controlSource, /iconName: "volumeOff"/);
+	assert.match(controlSource, /iconName: "skipForward"/);
+	assert.match(controlSource, /aa-quick-group-control__mode/);
+	assert.match(styles, /\.aa-quick-group-control__mode\s*\{[\s\S]*height:\s*32px/);
+	assert.match(styles, /\.aa-quick-group-control__mode\[data-value="bypass"\][\s\S]*--qgm-mode-color:\s*var\(--aa-ui-accent\)/);
+	assert.match(styles, /\.aa-quick-group-control__mode \.aa-ui-segmented__thumb[\s\S]*transition:/);
 	assert.match(source, /aaalice-qgm-segmented is-\$\{state\.offMode\}/);
 	assert.match(source, /aaalice-qgm-segmented-thumb/);
 	assert.match(source, /iconName:\s*"volumeOff"/);
@@ -129,6 +136,28 @@ test("animates and color-codes the mute/bypass mode switcher", () => {
 	assert.match(styles, /\.aaalice-qgm-segmented\.is-bypass[\s\S]*--qgm-mode-color:\s*var\(--aa-ui-accent\)/);
 	assert.match(styles, /\.aaalice-qgm-segmented\.is-bypass \.aaalice-qgm-segmented-thumb[\s\S]*translateX\(100%\)/);
 	assert.match(styles, /prefers-reduced-motion:\s*reduce[\s\S]*\.aaalice-qgm/);
+});
+
+test("uses the Dashboard card as the single visual frame", () => {
+	assert.match(styles, /\.aa-quick-group-control\s*\{[\s\S]*padding:\s*0[\s\S]*border:\s*0[\s\S]*background:\s*transparent[\s\S]*box-shadow:\s*none/);
+});
+
+test("uses row brightness instead of status and node-count text", () => {
+	assert.doesNotMatch(controlSource, /labels\.nodes|labels\.status|<small/);
+	assert.match(styles, /\.aa-quick-group-control__row\.is-enabled[\s\S]*background:/);
+	assert.match(styles, /\.aa-quick-group-control__row\.is-disabled[\s\S]*opacity:/);
+	assert.match(styles, /\.aaalice-qgm-row\.is-enabled[\s\S]*background:/);
+	assert.match(styles, /\.aaalice-qgm-row\.is-disabled[\s\S]*opacity:/);
+});
+
+test("makes each non-empty manager row a keyboard and pointer toggle target", () => {
+	assert.match(source, /role: "group", tabindex: hasNodes \? "0" : "-1"/);
+	assert.match(source, /row\.addEventListener\("click"/);
+	assert.match(source, /event\.target\?\.closest\?\.\("button/);
+	assert.match(source, /row\.addEventListener\("keydown"/);
+	assert.match(source, /currentStatus === GROUP_STATE\.ENABLED \? "disable" : "enable"/);
+	assert.match(styles, /\.aaalice-qgm-switch\s*\{[\s\S]*width:\s*42px[\s\S]*height:\s*26px/);
+	assert.match(styles, /\.aa-quick-group-control__toggle\.aa-ui-toggle\s*\{[\s\S]*width:\s*42px[\s\S]*height:\s*24px/);
 });
 
 test("provides filtered drag ordering, keyboard ordering and accessible popovers", () => {

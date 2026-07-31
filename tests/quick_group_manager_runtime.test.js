@@ -37,6 +37,31 @@ test("returns an ordered, filtered read-only snapshot for the manager graph", ()
 	assert.deepEqual(snapshot.groups.map((item) => item.id), ["red", "blue"]);
 });
 
+test("recovers live members when a group cache is empty during graph hydration", () => {
+	const member = { id: 101, mode: GROUP_MODE.ALWAYS, pos: [20, 20], size: [40, 40], boundingRect: [20, 20, 40, 40] };
+	const visual = { id: "visual", title: "Visual", nodes: [], color: null, _bounding: [0, 0, 120, 120], recomputeInsideNodes() {} };
+	const current = manager(graph("root", [visual]), 1);
+	current.graph._nodes = [member];
+	const snapshot = quickGroupManagerSnapshot(current);
+	assert.deepEqual(snapshot.groups[0].nodes, [member]);
+	const result = applyQuickGroupManagerAction(current, "visual", "disable");
+	assert.equal(result.ok, true);
+	assert.equal(member.mode, GROUP_MODE.NEVER);
+});
+
+test("keeps cached members when a graph group refresh fails", () => {
+	const cached = group("cached", "Cached", [node()]);
+	cached.recomputeInsideNodes = () => { throw new Error("incomplete graph"); };
+	const current = manager(graph("root", [cached]), 1);
+	const originalError = console.error;
+	console.error = () => {};
+	try {
+		assert.deepEqual(quickGroupManagerSnapshot(current).groups, [cached]);
+	} finally {
+		console.error = originalError;
+	}
+});
+
 test("keeps sidebar and preset snapshots safe when a graph group has no member cache", () => {
 	const incomplete = { id: "incomplete", title: "Incomplete", recomputeInsideNodes() {} };
 	const current = manager(graph("root", [incomplete]), 1);

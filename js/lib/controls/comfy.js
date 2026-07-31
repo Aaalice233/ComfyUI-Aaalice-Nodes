@@ -22,5 +22,5 @@ export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	"image-compare": (spec) => renderImageCompareControl(spec),
 	"image-output": (spec) => renderImageOutputControl(spec),
 	"text-output": (spec) => renderTextOutputControl(spec),
-	"quick-group-manager": (spec) => renderQuickGroupManagerControl(spec),
+	"quick-group-manager": (spec, port) => renderQuickGroupManagerControl(spec, port),
 });

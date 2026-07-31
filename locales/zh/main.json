@@ -151,10 +151,7 @@
       "titleWithIcon": "⚡ 快速组管理器",
       "untitled": "未命名组",
       "groups": "工作流组",
-      "nodes": "节点",
       "refresh": "刷新组",
-      "enable": "启用",
-      "disable": "禁用",
       "navigate": "跳转到 {group}",
       "navigateUnavailable": "无法在当前画布中定位这个组。",
       "reorder": "拖拽排序；也可使用 Alt+方向键",
@@ -164,8 +161,6 @@
       "noGroups": "当前图中没有可视组。",
       "noFilteredGroups": "没有符合所选颜色的组。",
       "mode": { "aria": "关闭组的处理方式", "mute": "静音", "bypass": "绕过" },
-      "status": { "enabled": "启用", "disabled": "禁用", "mixed": "混合", "empty": "空组", "unknown": "未知" },
-      "error": { "generic": "无法更新该管理器。" },
       "filter": {
         "aria": "选择组颜色", "all": "全部组",
         "empty": "未选择颜色", "uncolored": "无颜色", "missing": "当前没有组使用该颜色"
@@ -176,6 +171,7 @@
         "missingTarget": "已删除的组 #{id}", "noMatches": "没有匹配的组"
       },
       "error": {
+        "generic": "无法更新该管理器。", "unavailable": "快速组管理器暂时不可用",
         "self": "组不能联动自身。", "cycle": "联动规则中存在环路。",
         "missing": "组 {id} 已不存在。", "conflict": "组 {id} 收到了互相冲突的动作。",
         "empty": "组 {id} 中没有节点。", "nodeConflict": "重叠组为同一个节点指定了不同模式。",

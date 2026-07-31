@@ -3,7 +3,7 @@
 import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
 import { partitionParameterSections } from "./parameter_sections.js";
 import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
-import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
+import { DASHBOARD_PANEL_CONTROL_ROW_SPAN, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
 import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
 import { applyQuickGroupManagerPreset, isQuickGroupManager, quickGroupManagerPresetSnapshot, quickGroupManagerSnapshot, validateQuickGroupManagerPreset } from "./quick_group_manager_runtime.js";
@@ -59,6 +59,11 @@ function validatePresetPayload(entry, { valueType, options = {} } = {}) {
 
 function parameterPanelTitle(node) {
 	return String(node?.title || node?.type || node?.comfyClass || "Parameter Panel");
+}
+
+function quickGroupManagerTitle(node) {
+	const title = typeof node?.getTitle === "function" ? node.getTitle() : node?.title;
+	return String(title || node?.type || "⚡ Quick Group Manager");
 }
 
 function sameSource(left, right) {
@@ -184,12 +189,11 @@ controlProviders.register({
 	supportsNode: (node) => isQuickGroupManager(node),
 	list(node) {
 		const hostId = ensureHostId(node);
-		const groupCount = quickGroupManagerSnapshot(node).groups.length;
 		return [{
-			label: "⚡ Quick Group Manager",
+			label: quickGroupManagerTitle(node),
 			binding: { provider: this.id, hostId, controlId: "manager", valueType: "quick-group-manager" },
 			columnSpan: 12,
-			rowSpan: normalizeDashboardRowSpan(Math.max(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, Math.min(36, 5 + groupCount * 4))),
+			rowSpan: normalizeDashboardRowSpan(DASHBOARD_PANEL_CONTROL_ROW_SPAN),
 		}];
 	},
 	resolve(node, binding) {
@@ -197,8 +201,8 @@ controlProviders.register({
 		const snapshot = quickGroupManagerSnapshot(node);
 		return {
 			status: "ok", family: "comfy", kind: "quick-group-manager", controlId: "manager", node, control: node,
-			label: "⚡ Quick Group Manager", value: snapshot.state, options: { manager: node },
-			presettable: true, minRowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
+			label: quickGroupManagerTitle(node), value: snapshot.state, options: { manager: node },
+			presettable: true, minRowSpan: DASHBOARD_PANEL_CONTROL_ROW_SPAN,
 			readPresetValue() { return quickGroupManagerPresetSnapshot(node); },
 			validatePresetValue(entry) {
 				if (!entry || entry.valueType !== binding.valueType) return "type-mismatch";

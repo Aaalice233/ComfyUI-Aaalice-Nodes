@@ -140,6 +140,8 @@ ComfyUI-Aaalice-Nodes/
 - 第三方 KJ Set/Get 只能通过其公开命名与校验 API 更新（如 `validateName()`、`update()`、`setName()` / `onRename()`），并遵守其 `previousName` 和作用域规则；禁止只写 widget 值或标题后假定整条虚拟链已同步。跨子图时所有查找、事件和创建操作使用节点所属 graph，不能退回 `app.graph` 猜测。
 - 自动同步必须在创建、加载、复制、重命名和结构提交后幂等收敛；手动“刷新链路”只能作为可诊断的恢复操作，不能用于掩盖缺失的事件、错误的真源或竞态。
 - 参数控件的“渲染类型”和“选项来源”必须由独立适配层管理。第三方类型通过稳定 adapter 注册其发现条件、身份、读写、序列化、校验和可用性；未检测到真实来源或来源为空时不显示对应类型，业务节点不得散落硬编码探测。
+- `js/lib/controls/registry.js` 注册的每个 renderer 必须通过 `js/lib/controls/contract.js` 的 `controlView()` 返回完整控件视图，不能手写 `{ root, destroy }` 等不完整对象；宿主会统一读取 `headerAccessories`、`kind`、`headerOnly`、`update` 和 `destroy`，新增 renderer 必须配套契约测试或实际挂载烟测，避免控件创建阶段异常后整张侧边栏只显示错误状态。
+- 绑定画布节点的侧边栏控件标题必须以对应节点的实时公开显示标题为真源（优先使用 `getTitle()`），不得在 Provider 或 workspace 层写死通用标题；节点重命名、加载和复制后的标题必须通过现有事件刷新链同步，用户明确设置的 `labelOverride` 才可以覆盖源标题，稳定 binding identity 不得依赖标题。
 - 同一参数类型在 ParameterPanel、侧边栏和公开子图 widget 中必须复用同一控件适配与状态协议。图像参数统一提供资产浏览、独立上传、清空和预览；Seed 统一持久化“数值 + after-generate 行为”，固定、递增、递减、随机四种模式不得退化成锁定/解锁布尔值。
 
 ## 5. 领域不变量

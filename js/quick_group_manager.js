@@ -446,7 +446,8 @@ function groupRow(node, group, visibleGroups) {
 	const state = stateFor(node);
 	const id = String(group.id);
 	const status = classifyGroupNodes(group.nodes);
-	const row = el("div", { className: `aaalice-qgm-row is-${status}`, attrs: { "data-group-id": id } });
+	const hasNodes = status !== GROUP_STATE.EMPTY;
+	const row = el("div", { className: `aaalice-qgm-row is-${status}`, attrs: { "data-group-id": id, role: "group", tabindex: hasNodes ? "0" : "-1", "aria-disabled": String(!hasNodes), "aria-label": groupLabel(group) } });
 	const drag = el("button", { className: "aaalice-qgm-drag", attrs: { type: "button", draggable: true, title: t("aaalice.quickGroup.reorder", "Drag to reorder; Alt+Arrow keys also work"), "aria-label": message("aaalice.quickGroup.reorderGroup", "Reorder {group}", { group: groupLabel(group) }) }, children: [icon("drag")] });
 	drag.addEventListener("dragstart", (event) => { event.dataTransfer?.setData("text/plain", id); event.dataTransfer.effectAllowed = "move"; row.classList.add("is-dragging"); });
 	drag.addEventListener("dragend", () => row.classList.remove("is-dragging"));
@@ -474,8 +475,22 @@ function groupRow(node, group, visibleGroups) {
 	}
 	link.addEventListener("click", () => openRuleEditor(node, group, link));
 	const enabled = status === GROUP_STATE.ENABLED;
-	const toggle = el("button", { className: `aaalice-qgm-switch${enabled ? " is-on" : ""}${status === GROUP_STATE.MIXED ? " is-mixed" : ""}`, attrs: { type: "button", role: "switch", "aria-checked": status === GROUP_STATE.MIXED ? "mixed" : enabled, disabled: status === GROUP_STATE.EMPTY, title: status === GROUP_STATE.EMPTY ? t("aaalice.quickGroup.emptyGroup", "This group has no nodes") : null, "aria-label": message("aaalice.quickGroup.toggle", "Toggle {group}", { group: groupLabel(group) }) }, children: [el("span", "aaalice-qgm-switch-thumb")] });
-	toggle.addEventListener("click", () => applyGroupAction(node, id, enabled ? "disable" : "enable"));
+	const toggle = el("button", { className: `aaalice-qgm-switch${enabled ? " is-on" : ""}${status === GROUP_STATE.MIXED ? " is-mixed" : ""}`, attrs: { type: "button", role: "switch", "aria-checked": status === GROUP_STATE.MIXED ? "mixed" : enabled, disabled: !hasNodes, title: !hasNodes ? t("aaalice.quickGroup.emptyGroup", "This group has no nodes") : null, "aria-label": message("aaalice.quickGroup.toggle", "Toggle {group}", { group: groupLabel(group) }) }, children: [el("span", "aaalice-qgm-switch-thumb")] });
+	const activate = () => {
+		const currentStatus = classifyGroupNodes(group.nodes);
+		if (currentStatus === GROUP_STATE.EMPTY) return;
+		applyGroupAction(node, id, currentStatus === GROUP_STATE.ENABLED ? "disable" : "enable");
+	};
+	toggle.addEventListener("click", activate);
+	row.addEventListener("click", (event) => {
+		if (event.target?.closest?.("button, input, select, textarea, [contenteditable='true']")) return;
+		activate();
+	});
+	row.addEventListener("keydown", (event) => {
+		if (!hasNodes || !["Enter", " "].includes(event.key)) return;
+		event.preventDefault();
+		activate();
+	});
 	row.append(drag, name, locate, link, toggle);
 	return row;
 }

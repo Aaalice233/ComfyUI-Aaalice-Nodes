@@ -149,8 +149,8 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 1. `quick_group_manager_runtime.js` 是节点 DOM 与侧边栏整体控件共用的唯一状态快照、级联预检和图事务边界；两种表面不复制 Manager 状态。
 2. QuickGroupManager 通过 Control Provider 以单一稳定 binding 暴露到 Dashboard，侧边栏卡片只投影该节点，不复制另一份组管理状态。
-3. 全局 `graphChanged` 监听在动画帧内合并刷新，节点实例和侧边栏控件只读取所属 graph 的实时组快照。
-4. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化；环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。
+3. 全局 `graphChanged` 监听在动画帧内合并刷新，节点实例和侧边栏控件只读取所属 graph 的实时组快照；组成员优先使用官方 `recomputeInsideNodes()`，图恢复期间为空时再从当前 `children` / 几何边界恢复实时节点，不把空缓存当成永久事实。
+4. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化；环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。节点面和侧边栏都通过同一 runtime 提交模式，并在图事务完成后刷新另一表面。
 5. 通过预检后，在一个 Manager 所属 graph 的变更边界内提交全部模式；Dashboard 预设通过同一整体 codec 保存和恢复 Manager 配置及组状态。
 
 ### 节点强调色
@@ -252,7 +252,7 @@ const unregister = registerParameterOptionSourceAdapter({
 - DOM widget 通过 `getMinHeight()` 声明与当前几何无关的稳定内容下限。Classic 只有内容本身定义最小高度且界面不要求再次缩短时才可走 LiteGraph grow-only 路径；可手动缩放的列表节点使用固定下限和内部滚动。Nodes 2.0 尺寸继续由原生 DOM 测量持有。
 - `computeSize()`、`getMinHeight()` 和布局刷新不得读取当前 `node.size`、已拉伸 wrapper 或 `scrollHeight` 后再作为最小值，否则会形成只增不减的尺寸反馈环。
 - 全尺寸 DOM widget 的 wrapper 与业务根不接收指针，只让真实控件命中；缩放期间全部 DOM 后代让出事件，保证 LiteGraph 左右下角原生缩放手柄持续可用。
-- QuickGroupManager 没有协议槽，最小高度由当前可见组数量决定且列表不使用内部滚动；`graphChanged` 不得替换为状态轮询。
+- QuickGroupManager 没有协议槽，侧边栏整体控件使用尺寸目录的 `panel`（52 行）内容下限，组列表在固定工具栏下独立滚动；`graphChanged` 不得替换为状态轮询。
 - ResolutionPreset 使用固定内容下限、内部坐标板和两个真实原生输出槽；空白画布不接收指针，只有三个控制柄和表单控件命中。
 - 节点 DOM 根不覆盖原生背景、外边框或圆角；Classic 使用 LiteGraph `bgcolor`，Nodes 2.0 保留原生容器轮廓。
 

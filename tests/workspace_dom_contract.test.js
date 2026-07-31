@@ -207,16 +207,32 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 
 test("projects QuickGroupManager as one presettable sidebar control instead of a workspace page", () => {
 	assert.match(providers, /id: "quick-group-manager"/);
+	assert.match(providers, /function quickGroupManagerTitle\(node\)/);
+	assert.match(providers, /typeof node\?\.getTitle === "function"/);
+	assert.match(providers, /label: quickGroupManagerTitle\(node\)/);
+	assert.match(workspace, /if \(item\.binding\?\.provider === "quick-group-manager"\) return resolved\.label \|\| item\.label/);
 	assert.match(providers, /valueType: "quick-group-manager"/);
 	assert.match(providers, /quickGroupManagerPresetSnapshot/);
 	assert.match(providers, /applyQuickGroupManagerPreset/);
 	assert.match(comfyControls, /"quick-group-manager"/);
-	assert.match(quickGroupControl, /renderQuickGroupManagerControl/);
+	assert.match(quickGroupControl, /renderQuickGroupManagerControl\(spec, port = \{\}\)/);
+	assert.match(quickGroupControl, /toggleSwitch/);
+	assert.match(quickGroupControl, /row\.addEventListener\("click"/);
+	assert.match(quickGroupControl, /row\.addEventListener\("keydown"/);
+	assert.match(quickGroupControl, /data-capture-wheel/);
+	assert.match(quickGroupControl, /pointerenter/);
+	assert.match(quickGroupControl, /port\.onError/);
+	assert.match(comfyControls, /"quick-group-manager": \(spec, port\) => renderQuickGroupManagerControl\(spec, port\)/);
+	assert.match(quickGroupControl, /controlView/);
 	assert.match(runtime, /quickGroupManagerPresetSnapshot/);
 	assert.match(runtime, /applyQuickGroupManagerPreset/);
 	assert.doesNotMatch(workspace, /value: "quickGroups"/);
 	assert.doesNotMatch(workspace, /function renderQuickGroups/);
 	assert.doesNotMatch(theme, /aa-quick-groups-card/);
+	assert.match(theme, /\.aa-quick-group-control__list[\s\S]*overflow-y: auto/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="quick-group-manager"\][\s\S]*flex-direction: column/);
+	assert.match(providers, /DASHBOARD_PANEL_CONTROL_ROW_SPAN/);
+	assert.match(workspace, /DASHBOARD_PANEL_CONTROL_ROW_SPAN/);
 	assert.doesNotMatch(enLocale, /"quickGroups"/);
 	assert.doesNotMatch(zhLocale, /"quickGroups"/);
 });

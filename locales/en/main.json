@@ -151,10 +151,7 @@
       "titleWithIcon": "⚡ Quick Group Manager",
       "untitled": "Untitled group",
       "groups": "Workflow groups",
-      "nodes": "nodes",
       "refresh": "Refresh groups",
-      "enable": "Enable",
-      "disable": "Disable",
       "navigate": "Go to {group}",
       "navigateUnavailable": "This group cannot be located on the current canvas.",
       "reorder": "Drag to reorder; Alt+Arrow keys also work",
@@ -164,8 +161,6 @@
       "noGroups": "No visual groups are available in this graph.",
       "noFilteredGroups": "No groups match the selected colors.",
       "mode": { "aria": "Disabled group mode", "mute": "Mute", "bypass": "Bypass" },
-      "status": { "enabled": "Enabled", "disabled": "Disabled", "mixed": "Mixed", "empty": "Empty", "unknown": "Unknown" },
-      "error": { "generic": "The manager could not be updated." },
       "filter": {
         "aria": "Choose group colors", "all": "All groups",
         "empty": "No colors", "uncolored": "No color", "missing": "No current group uses this color"
@@ -176,6 +171,7 @@
         "missingTarget": "Missing group #{id}", "noMatches": "No matching groups"
       },
       "error": {
+        "generic": "The manager could not be updated.", "unavailable": "Quick Group Manager is unavailable",
         "self": "A group cannot link to itself.", "cycle": "The linkage contains a cycle.",
         "missing": "Group {id} no longer exists.", "conflict": "Group {id} receives conflicting actions.",
         "empty": "Group {id} has no nodes.", "nodeConflict": "Overlapping groups assign different modes to the same node.",

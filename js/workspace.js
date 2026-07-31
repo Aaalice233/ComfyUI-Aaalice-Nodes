@@ -17,7 +17,7 @@ import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, d
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { SOURCE_SYNC_STATUS, buildSourceSnapshot, inspectSourceGroup } from "./lib/dashboard_source_sync.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
-import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_PANEL_CONTROL_ROW_SPAN, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
@@ -370,7 +370,7 @@ function resolveGroupTitle(group) {
 
 function controlTitle(item, resolved) {
 	if (item.labelOverride != null) return item.labelOverride;
-	if (item.binding?.provider === "quick-group-manager") return t("aaalice.quickGroup.titleWithIcon", "⚡ Quick Group Manager");
+	if (item.binding?.provider === "quick-group-manager") return resolved.label || item.label || item.binding.controlId;
 	return item.label || resolved.label || item.binding.controlId;
 }
 
@@ -597,10 +597,10 @@ function workspaceLabels() {
 		},
 		enabled: t("aaalice.common.enabled", "Enabled"), disabled: t("aaalice.common.disabled", "Disabled"),
 		quickGroupManager: {
-			title: t("aaalice.quickGroup.title", "Quick Group Manager"), groups: t("aaalice.quickGroup.groups", "groups"), nodes: t("aaalice.quickGroup.nodes", "nodes"),
+			title: t("aaalice.quickGroup.title", "Quick Group Manager"), groups: t("aaalice.quickGroup.groups", "groups"),
 			mute: t("aaalice.quickGroup.mode.mute", "Mute"), bypass: t("aaalice.quickGroup.mode.bypass", "Bypass"), modeAria: t("aaalice.quickGroup.mode.aria", "Disabled group mode"),
-			refresh: t("aaalice.quickGroup.refresh", "Refresh groups"), enable: t("aaalice.quickGroup.enable", "Enable"), disable: t("aaalice.quickGroup.disable", "Disable"), toggle: t("aaalice.quickGroup.toggle", "Toggle {group}"), untitled: t("aaalice.quickGroup.untitled", "Untitled group"), empty: t("aaalice.quickGroup.noGroups", "No visual groups are available in this graph."),
-			status: { enabled: t("aaalice.quickGroup.status.enabled", "Enabled"), disabled: t("aaalice.quickGroup.status.disabled", "Disabled"), mixed: t("aaalice.quickGroup.status.mixed", "Mixed"), empty: t("aaalice.quickGroup.status.empty", "Empty"), unknown: t("aaalice.quickGroup.status.unknown", "Unknown") },
+			refresh: t("aaalice.quickGroup.refresh", "Refresh groups"), toggle: t("aaalice.quickGroup.toggle", "Toggle {group}"), untitled: t("aaalice.quickGroup.untitled", "Untitled group"), empty: t("aaalice.quickGroup.noGroups", "No visual groups are available in this graph."), emptyGroup: t("aaalice.quickGroup.emptyGroup", "This group has no nodes"),
+			error: t("aaalice.quickGroup.error.unavailable", "Quick Group Manager is unavailable"),
 			onError: (result) => app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.quickGroup.title", "Quick Group Manager"), detail: result?.message || t("aaalice.quickGroup.error.generic", "The manager could not be updated.") }),
 		},
 		selectOption: t("aaalice.workspace.binding.selectOption", "Select an option"),
@@ -792,7 +792,11 @@ function syncCurrentPageSourceGroups(pageId) {
 function renderDashboard(container, host) {
 	container.classList.toggle("is-layout-editing", editMode);
 	const model = dashboard(); const page = currentPage(model);
-	const layoutPage = page ? { ...page, groups: page.groups.map((group) => {
+	const layoutPage = page ? { ...page, items: page.items.map((item) => {
+		if (item.binding?.valueType !== "quick-group-manager") return item;
+		const rowSpan = Math.max(Number(item.layout?.rowSpan) || 0, DASHBOARD_PANEL_CONTROL_ROW_SPAN);
+		return rowSpan === item.layout?.rowSpan ? item : { ...item, layout: { ...item.layout, rowSpan } };
+	}), groups: page.groups.map((group) => {
 		const sync = group.source ? sourceGroupViewState(page, group) : null;
 		return { ...group, name: resolveGroupTitle(group), syncStatus: sync?.status || null, syncSummary: sync?.summary || null, syncReason: sync?.reason || "" };
 	}) } : null;

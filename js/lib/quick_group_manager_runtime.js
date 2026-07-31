@@ -26,10 +26,89 @@ export function quickGroupManagerState(node, { persist = true } = {}) {
 	return state;
 }
 
+function iterableItems(value) {
+	if (Array.isArray(value)) return value;
+	if (value && typeof value[Symbol.iterator] === "function") return [...value];
+	return [];
+}
+
+function isGroupLike(value) {
+	return typeof value?.recomputeInsideNodes === "function";
+}
+
+function isNodeLike(value) {
+	return value && !isGroupLike(value) && value.mode != null;
+}
+
+function collectGroupNodes(group, seenGroups = new Set(), seenNodes = new Set()) {
+	if (!group || seenGroups.has(group)) return [];
+	seenGroups.add(group);
+	const result = [];
+	const addNode = (candidate) => {
+		if (!isNodeLike(candidate) || seenNodes.has(candidate)) return;
+		seenNodes.add(candidate);
+		result.push(candidate);
+	};
+	for (const candidate of Array.isArray(group.nodes) ? group.nodes : []) addNode(candidate);
+	const children = [...iterableItems(group.children), ...iterableItems(group._children)];
+	for (const child of children) {
+		if (isGroupLike(child)) {
+			for (const nested of collectGroupNodes(child, seenGroups, seenNodes)) result.push(nested);
+		} else addNode(child);
+	}
+	return result;
+}
+
+function rectangle(value) {
+	if (!value) return null;
+	const result = [value[0] ?? value.x, value[1] ?? value.y, value[2] ?? value.width, value[3] ?? value.height].map(Number);
+	return result.every(Number.isFinite) ? result : null;
+}
+
+function geometricGroupNodes(group, graph) {
+	const bounds = rectangle(group?._bounding);
+	if (!bounds) return [];
+	const graphNodes = iterableItems(graph?.nodes);
+	const nodes = graphNodes.length ? graphNodes : iterableItems(graph?._nodes);
+	return nodes.filter((candidate) => {
+		if (!isNodeLike(candidate)) return false;
+		const boundsForNode = rectangle(candidate.boundingRect) || rectangle([
+			candidate.pos?.[0], candidate.pos?.[1], candidate.size?.[0], candidate.size?.[1],
+		]);
+		if (!boundsForNode) return false;
+		const centerX = boundsForNode[0] + boundsForNode[2] / 2;
+		const centerY = boundsForNode[1] + boundsForNode[3] / 2;
+		return centerX >= bounds[0] && centerX < bounds[0] + bounds[2]
+			&& centerY >= bounds[1] && centerY < bounds[1] + bounds[3];
+	});
+}
+
+function sameNodes(left, right) {
+	return Array.isArray(left) && left.length === right.length && left.every((node, index) => node === right[index]);
+}
+
+function groupView(group, nodes) {
+	if (sameNodes(group.nodes, nodes) || (!Array.isArray(group.nodes) && nodes.length === 0)) return group;
+	return { ...group, nodes };
+}
+
 export function quickGroupManagerGroups(node) {
-	const groups = [...(node?.graph?._groups || [])];
-	for (const group of groups) group.recomputeInsideNodes?.();
-	return groups;
+	const graph = node?.graph;
+	const groups = Array.isArray(graph?._groups) ? graph._groups.filter(Boolean) : [];
+	return groups.map((group) => {
+		let refreshFailed = false;
+		try {
+			group.recomputeInsideNodes?.();
+		} catch (error) {
+			refreshFailed = true;
+			// A partially restored graph can fail while rebuilding one group. Keep its cached members so one bad group cannot blank the whole sidebar.
+			console.error("[Aaalice] Could not refresh QuickGroupManager group members", group, error);
+		}
+		let nodes = collectGroupNodes(group);
+		if (!nodes.length) nodes = geometricGroupNodes(group, graph);
+		if (!nodes.length && refreshFailed && Array.isArray(group.nodes)) nodes = group.nodes;
+		return groupView(group, nodes);
+	});
 }
 
 export function quickGroupManagerSnapshot(node) {

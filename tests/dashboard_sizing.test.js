@@ -18,9 +18,9 @@ import {
 
 test("the Dashboard size catalog exposes composable width and height vocabularies", () => {
 	assert.deepEqual(DASHBOARD_CONTROL_COLUMN_SPANS, [3, 6, 9, 12]);
-	assert.deepEqual(DASHBOARD_CONTROL_ROW_SPANS, [13, 18, 28, 36]);
-	assert.equal(DASHBOARD_SIZE_CATALOG.length, 16);
-	assert.equal(new Set(DASHBOARD_SIZE_CATALOG.map((size) => size.id)).size, 16);
+	assert.deepEqual(DASHBOARD_CONTROL_ROW_SPANS, [13, 18, 28, 36, 52]);
+	assert.equal(DASHBOARD_SIZE_CATALOG.length, 20);
+	assert.equal(new Set(DASHBOARD_SIZE_CATALOG.map((size) => size.id)).size, 20);
 	assert.deepEqual(dashboardSizeToken({ columnSpan: 6, rowSpan: 18 }), {
 		id: "half-standard", columnSpan: 6, rowSpan: 18, width: "half", height: "standard",
 	});
@@ -32,7 +32,7 @@ test("normalization grows legacy footprints to the next supported size", () => {
 	assert.equal(normalizeDashboardColumnSpan(12), 12);
 	assert.equal(normalizeDashboardRowSpan(7), 13);
 	assert.equal(normalizeDashboardRowSpan(14), 18);
-	assert.equal(normalizeDashboardRowSpan(40), 36);
+	assert.equal(normalizeDashboardRowSpan(40), 52);
 });
 
 test("interactive resizing moves through the same paired size vocabulary", () => {
@@ -42,6 +42,7 @@ test("interactive resizing moves through the same paired size vocabulary", () =>
 	assert.equal(nextDashboardColumnSpan(9, -1), 6);
 	assert.equal(nextDashboardRowSpan(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, 1), 18);
 	assert.equal(nextDashboardRowSpan(28, 1), 36);
+	assert.equal(nextDashboardRowSpan(36, 1), 52);
 });
 
 test("control recommendations use the shared compact and standard heights", () => {
