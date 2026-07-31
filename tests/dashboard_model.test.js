@@ -244,8 +244,11 @@ test("single-column groups reserve enough projected height for every stacked mem
 		{ id: "c", layout: { row: 12, column: 0, columnSpan: 6, rowSpan: 9 } },
 	];
 	assert.equal(recommendedGroupRowSpan(members), 28);
+	assert.equal(recommendedGroupRowSpan(members, false), 21);
 	assert.equal(projectedGroupRowSpan(members, 1), 35);
+	assert.equal(projectedGroupRowSpan(members, 1, false), 28);
 	assert.equal(projectedGroupRowSpan(members, 12), 28);
+	assert.equal(projectedGroupRowSpan(members, 12, false), 21);
 });
 
 test("fine-grained rows allow a short card below another card beside a tall card", () => {

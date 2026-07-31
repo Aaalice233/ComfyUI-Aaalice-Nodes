@@ -36,14 +36,16 @@ export function recommendedControlRowSpan({ value, options = {}, paramType = "" 
 	return DASHBOARD_DEFAULT_CONTROL_ROW_SPAN;
 }
 
-export function recommendedGroupRowSpan(members = []) {
+export function recommendedGroupRowSpan(members = [], includeHeader = true) {
+	const chromeRows = includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 0;
 	const contentRows = members.reduce((extent, item) => Math.max(extent, item.layout.row + item.layout.rowSpan), 0);
-	return Math.max(DASHBOARD_GROUP_CHROME_ROW_SPAN, DASHBOARD_GROUP_CHROME_ROW_SPAN + contentRows);
+	return Math.max(includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 1, chromeRows + contentRows);
 }
 
 /** A one-column group must reserve the stacked height of every member. */
-export function projectedGroupRowSpan(members = [], columns = DASHBOARD_GRID_COLUMNS) {
-	if (columns !== 1) return recommendedGroupRowSpan(members);
+export function projectedGroupRowSpan(members = [], columns = DASHBOARD_GRID_COLUMNS, includeHeader = true) {
+	if (columns !== 1) return recommendedGroupRowSpan(members, includeHeader);
+	const chromeRows = includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 0;
 	const contentRows = members.reduce((total, item) => total + item.layout.rowSpan, 0);
-	return Math.max(DASHBOARD_GROUP_CHROME_ROW_SPAN, DASHBOARD_GROUP_CHROME_ROW_SPAN + contentRows);
+	return Math.max(includeHeader ? DASHBOARD_GROUP_CHROME_ROW_SPAN : 1, chromeRows + contentRows);
 }

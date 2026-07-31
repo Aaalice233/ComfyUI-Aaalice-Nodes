@@ -794,9 +794,9 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(dashboardCommands, /control\.sourceGroup \|\| sourceGroup/);
 	assert.match(dashboardCommands, /allowSingle: true/);
 	assert.match(dashboardComponents, /export function createDashboardGroup/);
-	assert.match(dashboardComponents, /showHeader: editMode \|\| !page\.items\.some/);
-	assert.match(dashboardComponents, /projectedGroupRowSpan\(page\.items\.filter\(\(item\) => item\.groupId === group\.id\), columns === 1 \? 1 : Math\.max/);
-	assert.match(dashboardSizing, /if \(columns !== 1\) return recommendedGroupRowSpan\(members\)/);
+	assert.match(dashboardComponents, /const showHeader = editMode \|\| !page\.items\.some/);
+	assert.match(dashboardComponents, /projectedGroupRowSpan\(members, groupColumns, showHeader\)/);
+	assert.match(dashboardSizing, /if \(columns !== 1\) return recommendedGroupRowSpan\(members, includeHeader\)/);
 	assert.match(dashboardSizing, /members\.reduce\(\(total, item\) => total \+ item\.layout\.rowSpan, 0\)/);
 	assert.match(dashboardComponents, /aa-dashboard-composite-card/);
 	assert.match(dashboardComponents, /classList\.add\("is-group-member"\)/);

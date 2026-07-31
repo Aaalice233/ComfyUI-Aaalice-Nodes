@@ -58,14 +58,16 @@ export function createDashboardGrid({ page, columns = 12, editMode = false, sele
 	const root = el("div", { className: `aa-dashboard-grid-v2${editMode ? " is-editing" : ""}`, attrs: { "data-dashboard-page-id": page.id, "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(page.gridColumns), tabindex: "0", "aria-label": `${page.name}. ${labels.pageMenu || "Page actions"}` } });
 	root.style.setProperty("--aa-dashboard-columns", String(columns));
 	const ungrouped = orderedItems(page.items.filter((item) => !item.groupId));
-	const projectedGroups = page.groups.map((group) => ({
-		...group,
-		showHeader: editMode || !page.items.some((item) => item.kind === "separator" && item.layout.row <= group.layout.row && sameSource(item.source, group.source)),
-		layout: {
-			...group.layout,
-			rowSpan: projectedGroupRowSpan(page.items.filter((item) => item.groupId === group.id), columns === 1 ? 1 : Math.max(1, Number(group.layout.columnSpan) || columns)),
-		},
-	}));
+	const projectedGroups = page.groups.map((group) => {
+		const showHeader = editMode || !page.items.some((item) => item.kind === "separator" && item.layout.row <= group.layout.row && sameSource(item.source, group.source));
+		const members = page.items.filter((item) => item.groupId === group.id);
+		const groupColumns = columns === 1 ? 1 : Math.max(1, Number(group.layout.columnSpan) || columns);
+		return {
+			...group,
+			showHeader,
+			layout: { ...group.layout, rowSpan: projectedGroupRowSpan(members, groupColumns, showHeader) },
+		};
+	});
 	const topEntries = [...ungrouped, ...projectedGroups]; const projection = projectScope(topEntries, columns);
 	for (const item of ungrouped) { const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); applyGridPosition(card, projection.get(item.id), item.layout); root.append(card); }
 	for (const sourceGroup of orderedItems(projectedGroups)) {
