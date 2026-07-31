@@ -1,7 +1,7 @@
 /** Immutable Dashboard V2 commands composed from pure model/layout helpers. */
 
 import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
-import { compactScope, firstAvailableLayout, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
+import { compactScope, firstAvailableLayout, groupMemberColumnSpan, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN } from "./dashboard_sizing.js";
 
 function copy(model) { return structuredClone(normalizeDashboard(model)); }
@@ -239,6 +239,20 @@ export function resizeItem(model, itemId, { columnSpan, rowSpan }) {
 	return normalizeDashboard(next);
 }
 
+export function resizeGroup(model, groupId, { columnSpan }) {
+	const next = copy(model);
+	for (const page of next.pages) {
+		const group = page.groups.find((entry) => entry.id === groupId);
+		if (!group) continue;
+		const minimum = groupMemberColumnSpan(page.items.filter((item) => item.groupId === group.id));
+		group.layout.columnSpan = Math.max(minimum, Math.min(page.gridColumns, Math.round(Number(columnSpan)) || group.layout.columnSpan));
+		group.widthMode = "fixed";
+		placeEntry(page, group.id, group.layout);
+		return normalizeDashboard(next);
+	}
+	return next;
+}
+
 function createGroupInPage(page, itemIds, { name = "Group", tone = "neutral", source = null, allowSingle = false } = {}) {
 	if (itemIds.length < (allowSingle ? 1 : 2)) throw new Error("A layout group requires at least two items");
 	const ids = new Set(itemIds);
@@ -249,10 +263,12 @@ function createGroupInPage(page, itemIds, { name = "Group", tone = "neutral", so
 		return [item.id, { ...item.layout, row: item.layout.row + (parent?.layout.row || 0), column: item.layout.column + (parent?.layout.column || 0) }];
 	}));
 	const row = Math.min(...[...absoluteLayouts.values()].map((layout) => layout.row));
-	const group = createLayoutGroup(name, tone, row, source); page.groups.push(group);
+	const column = Math.min(...[...absoluteLayouts.values()].map((layout) => layout.column));
+	const width = Math.max(...[...absoluteLayouts.values()].map((layout) => layout.column + layout.columnSpan)) - column;
+	const group = createLayoutGroup(name, tone, row, source, width); page.groups.push(group);
 	for (const item of selected) {
 		const layout = absoluteLayouts.get(item.id);
-		item.groupId = group.id; item.layout = { ...layout, row: layout.row - row };
+		item.groupId = group.id; item.layout = { ...layout, row: layout.row - row, column: layout.column - column };
 	}
 	removeEmptyGroups(page); placeEntry(page, group.id, group.layout);
 	return group;
@@ -308,7 +324,7 @@ export function moveGroups(model, groupIds, targetPageId) {
 				target.items.push(item);
 			}
 			refreshGroupRowSpans(target);
-			group.layout = firstAvailableLayout(target, { columnSpan: target.gridColumns, rowSpan: group.layout.rowSpan });
+			group.layout = firstAvailableLayout(target, { columnSpan: group.layout.columnSpan, rowSpan: group.layout.rowSpan });
 		}
 		removeEmptyGroups(page);
 	}

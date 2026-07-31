@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { firstAvailableLayout, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, projectedGroupRowSpan, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
 
@@ -440,9 +440,36 @@ test("grouping preserves member geometry and never compacts unrelated cards", ()
 	model = createGroup(model, page.id, ["selected-a", "selected-b"], { name: "Selection" });
 	const group = model.pages[0].groups[0]; const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
 	assert.equal(group.layout.row, 6);
+	assert.equal(group.layout.columnSpan, 12);
 	assert.deepEqual(layouts["selected-a"], { row: 0, column: 0, columnSpan: 6, rowSpan: 6 });
 	assert.deepEqual(layouts["selected-b"], { row: 6, column: 6, columnSpan: 6, rowSpan: 6 });
 	assert.deepEqual(layouts.fixed, { row: 30, column: 0, columnSpan: 6, rowSpan: 6 });
+});
+
+test("groups derive their width from local member geometry and preserve fixed widths", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [{ label: "A", binding }]);
+	const itemId = next.pages[0].items[0].id; next = createGroup(next, page.id, [itemId], { allowSingle: true });
+	let group = next.pages[0].groups[0];
+	assert.equal(group.layout.columnSpan, 6);
+	assert.equal(group.widthMode, "auto");
+	next = resizeGroup(next, group.id, { columnSpan: 12 }); group = next.pages[0].groups[0];
+	assert.equal(group.layout.columnSpan, 12);
+	assert.equal(group.widthMode, "fixed");
+	next = resizeGroup(next, group.id, { columnSpan: 1 });
+	assert.equal(next.pages[0].groups[0].layout.columnSpan, 6);
+});
+
+test("legacy full-width groups migrate once and resize collision moves only the group", () => {
+	const page = createPage("P");
+	const legacy = normalizeDashboard({ version: 2, pages: [{ ...page, items: [
+		{ id: "member", kind: "control", label: "A", binding, groupId: "group", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 12 } },
+		{ id: "external", kind: "control", label: "C", binding: { ...binding, controlId: "c" }, groupId: null, layout: { row: 0, column: 6, columnSpan: 6, rowSpan: 12 } },
+	], groups: [{ id: "group", name: "Legacy", tone: "blue", layout: { row: 0, column: 0, columnSpan: 12, rowSpan: 1 } }] }] });
+	assert.equal(legacy.pages[0].groups[0].layout.columnSpan, 6);
+	const resized = resizeGroup(legacy, "group", { columnSpan: 12 });
+	assert.equal(resized.pages[0].groups[0].layout.columnSpan, 12);
+	assert.equal(resized.pages[0].groups[0].layout.row, 12);
+	assert.equal(resized.pages[0].items.find((item) => item.id === "external").layout.row, 0);
 });
 
 test("duplicating a page regenerates layout identities and preserves bindings", () => {

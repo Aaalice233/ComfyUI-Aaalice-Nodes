@@ -75,6 +75,10 @@ function assertNoOverlap(entries, scope) {
 	}
 }
 
+function groupContentColumnSpan(items) {
+	return items.length ? Math.max(...items.map((item) => item.layout.column + item.layout.columnSpan)) : 1;
+}
+
 export function normalizeDashboard(raw) {
 	if (raw == null) return emptyDashboard();
 	if (raw?.version !== DASHBOARD_VERSION) throw new DashboardModelError(`Unsupported dashboard version: ${raw?.version ?? "missing"}`, "unsupported-version");
@@ -89,9 +93,10 @@ export function normalizeDashboard(raw) {
 		for (const sourceGroup of sourcePage.groups) {
 			assertUnique(sourceGroup?.id, ids);
 			const source = normalizeGroupSource(sourceGroup.source);
+			const widthMode = sourceGroup.widthMode === "fixed" ? "fixed" : "auto";
 			page.groups.push({
 				id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: DASHBOARD_TONES.includes(sourceGroup.tone) ? sourceGroup.tone : "neutral",
-				...(source ? { source } : {}), layout: normalizeLayout(sourceGroup.layout, { fullWidth: true, rowSpan: 1, legacyColumns }),
+				...(source ? { source } : {}), widthMode, layout: normalizeLayout(sourceGroup.layout, { rowSpan: 1, legacyColumns }),
 			});
 		}
 		const groupIds = new Set(page.groups.map((group) => group.id));
@@ -109,7 +114,14 @@ export function normalizeDashboard(raw) {
 				layout: normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns }),
 			});
 		}
-		for (const group of page.groups) group.layout.rowSpan = recommendedGroupRowSpan(page.items.filter((item) => item.groupId === group.id));
+		for (const group of page.groups) {
+			const members = page.items.filter((item) => item.groupId === group.id);
+			const minimumColumnSpan = groupContentColumnSpan(members);
+			if (group.widthMode === "auto") group.layout.columnSpan = minimumColumnSpan;
+			else group.layout.columnSpan = Math.max(group.layout.columnSpan, minimumColumnSpan);
+			group.layout.column = Math.min(group.layout.column, DASHBOARD_GRID_COLUMNS - group.layout.columnSpan);
+			group.layout.rowSpan = recommendedGroupRowSpan(members);
+		}
 		assertNoOverlap([...page.items.filter((item) => !item.groupId), ...page.groups], `page ${page.id}`);
 		for (const group of page.groups) assertNoOverlap(page.items.filter((item) => item.groupId === group.id), `group ${group.id}`);
 		result.pages.push(page);
@@ -129,12 +141,12 @@ export function createSeparatorItem(label = "", row = 0, source = null) {
 		layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: DASHBOARD_SEPARATOR_ROW_SPAN },
 	};
 }
-export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, source = null) {
+export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, source = null, columnSpan = DASHBOARD_GRID_COLUMNS) {
 	const normalizedSource = normalizeGroupSource(source);
 	return {
-		id: stableId("group"), name, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral",
+		id: stableId("group"), name, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", widthMode: "auto",
 		...(normalizedSource ? { source: normalizedSource } : {}),
-		layout: { row, column: 0, columnSpan: DASHBOARD_GRID_COLUMNS, rowSpan: 1 },
+		layout: { row, column: 0, columnSpan: Math.max(1, Math.min(DASHBOARD_GRID_COLUMNS, Math.round(Number(columnSpan)) || DASHBOARD_GRID_COLUMNS)), rowSpan: 1 },
 	};
 }
 

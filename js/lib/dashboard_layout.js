@@ -1,6 +1,6 @@
 /** Pure fine-grained Dashboard V2 placement and responsive projection. */
 
-import { recommendedGroupRowSpan } from "./dashboard_sizing.js";
+import { DASHBOARD_GRID_COLUMNS, recommendedGroupRowSpan } from "./dashboard_sizing.js";
 
 function visualOrder(left, right) { return left.layout.row - right.layout.row || left.layout.column - right.layout.column || left.id.localeCompare(right.id); }
 export function orderedItems(items) { return [...items].sort(visualOrder); }
@@ -32,8 +32,20 @@ function firstFree(used, { columns = 12, columnSpan = 1, rowSpan = 1, startRow =
 	}
 }
 
+export function groupMemberColumnSpan(members) {
+	return members.length ? Math.max(...members.map((item) => item.layout.column + item.layout.columnSpan)) : 1;
+}
+
 export function refreshGroupRowSpans(page) {
-	for (const group of page.groups) group.layout.rowSpan = recommendedGroupRowSpan(page.items.filter((item) => item.groupId === group.id));
+	for (const group of page.groups) {
+		const members = page.items.filter((item) => item.groupId === group.id);
+		const minimumColumnSpan = groupMemberColumnSpan(members);
+		if (group.widthMode === "fixed") group.layout.columnSpan = Math.max(group.layout.columnSpan, minimumColumnSpan);
+		else group.layout.columnSpan = minimumColumnSpan;
+		group.layout.columnSpan = Math.max(1, Math.min(page.gridColumns || DASHBOARD_GRID_COLUMNS, group.layout.columnSpan));
+		group.layout.column = Math.min(group.layout.column, (page.gridColumns || DASHBOARD_GRID_COLUMNS) - group.layout.columnSpan);
+		group.layout.rowSpan = recommendedGroupRowSpan(members);
+	}
 	return page;
 }
 

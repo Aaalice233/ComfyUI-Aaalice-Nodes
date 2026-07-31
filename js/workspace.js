@@ -13,7 +13,7 @@ import {
 	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
 } from "./lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
-import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
+import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, resizeGroup, resizeItem, resizeItems, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
@@ -514,6 +514,7 @@ function workspaceLabels() {
 		groupMenu: t("aaalice.workspace.group.menu", "Layout group menu"),
 		renameHint: t("aaalice.workspace.renameHint", "Double-click to rename"),
 		resizeCard: t("aaalice.workspace.card.resize", "Resize card; arrow keys adjust by one grid unit"),
+		resizeGroup: t("aaalice.workspace.group.resize", "Resize layout group; left and right arrows adjust width"),
 		seedMode: {
 			header: t("aaalice.pcp.seedMode.header", "After each workflow run, update the seed using:"),
 			fixed: { label: t("aaalice.pcp.seedMode.fixed", "Fixed value"), description: t("aaalice.pcp.seedMode.fixedDescription", "Keep the current seed unchanged") },
@@ -923,6 +924,7 @@ function renderDashboard(container, host) {
 		onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; updateSelectionUi(); },
 		onDropItems: (ids, target) => updateDashboard((current) => target.precise === false ? moveItems(current, ids, page.id, { groupId: target.groupId }) : moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row)),
 		onResizeItem: (itemId, size) => updateDashboard((current) => resizeItem(current, itemId, size)),
+		onResizeGroup: (groupId, size) => updateDashboard((current) => resizeGroup(current, groupId, size)),
 	});
 	updateSelectionUi();
 	applyDashboardSearch = (value) => {
