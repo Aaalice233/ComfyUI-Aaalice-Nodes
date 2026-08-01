@@ -210,7 +210,7 @@ test("projects QuickGroupManager as one presettable sidebar control instead of a
 	assert.match(providers, /function quickGroupManagerTitle\(node\)/);
 	assert.match(providers, /typeof node\?\.getTitle === "function"/);
 	assert.match(providers, /label: quickGroupManagerTitle\(node\)/);
-	assert.match(workspace, /if \(item\.binding\?\.provider === "quick-group-manager"\) return resolved\.label \|\| item\.label/);
+	assert.match(workspace, /function controlTitle\(item, resolved\) \{[\s\S]*return resolved\.label \|\| item\.label \|\| item\.binding\.controlId/);
 	assert.match(providers, /valueType: "quick-group-manager"/);
 	assert.match(providers, /quickGroupManagerPresetSnapshot/);
 	assert.match(providers, /applyQuickGroupManagerPreset/);
@@ -230,6 +230,9 @@ test("projects QuickGroupManager as one presettable sidebar control instead of a
 	assert.doesNotMatch(workspace, /function renderQuickGroups/);
 	assert.doesNotMatch(theme, /aa-quick-groups-card/);
 	assert.match(theme, /\.aa-quick-group-control__list[\s\S]*overflow-y: auto/);
+	assert.match(theme, /\.aa-quick-group-control__row:hover, \.aa-quick-group-control__row:focus-visible \{[^}]*border-color: transparent;/);
+	assert.match(theme, /\.aa-quick-group-control__row\.is-enabled \{[^}]*border-color: transparent;[^}]*box-shadow: inset 3px 0/);
+	assert.match(theme, /\.aa-quick-group-control__row\.is-mixed \{[^}]*border-color: transparent;[^}]*box-shadow: inset 3px 0/);
 	assert.match(theme, /\.aa-control-card\[data-control-kind="quick-group-manager"\][\s\S]*flex-direction: column/);
 	assert.match(providers, /DASHBOARD_PANEL_CONTROL_ROW_SPAN/);
 	assert.match(workspace, /DASHBOARD_PANEL_CONTROL_ROW_SPAN/);
@@ -574,7 +577,8 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /aria-haspopup": "dialog"/);
 	assert.match(components, /createAnchoredPopover\(\{[\s\S]*?aa-dashboard-page-popover/);
 	assert.match(components, /application\/x-aaalice-page/);
-	assert.match(components, /aa-dashboard-page-menu__drag-handle/);
+	assert.match(components, /el\("span", \{ className: "aa-dashboard-page-menu__drag-handle"/);
+	assert.doesNotMatch(components, /\.\.\.\(editMode \? \[el\("span", \{ className: "aa-dashboard-page-menu__drag-handle"/);
 	assert.match(components, /clearDropTargets/);
 	assert.match(components, /onReorderPage\?\.\(entry\.id, target\.id\)/);
 	assert.match(workspace, /onSelectPage: selectPage/);
@@ -584,6 +588,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex \+ 1\]\?\.id/);
 	assert.match(components, /aria-current/);
 	assert.match(components, /ArrowUp/);
+	assert.doesNotMatch(components, /if \(!editMode \|\| !event\.altKey/);
 	assert.doesNotMatch(components, /aa-workspace-brand/);
 	assert.match(components, /ariaLabel: title/);
 	assert.match(components, /root\.dataset\.workspace = activeTab/);
@@ -1050,9 +1055,12 @@ test("add-controls dialog uses a compact structured picker", () => {
 	assert.match(workspace, /binding\.addSelected/);
 	assert.match(workspace, /\.\.\.\(duplicateKeys\.size \? \[duplicateSetting\] : \[\]\)/);
 	assert.match(workspace, /confirmButton\.disabled = selected\.size === 0/);
+	assert.match(workspace, /aa-add-controls-row-status/);
+	assert.doesNotMatch(workspace, /destinationHint|chooseControlsHint|allowDuplicateHint/);
+	assert.doesNotMatch(workspace, /description: added \?/);
 	assert.match(workspace, /size: "md", className: "aa-add-controls-dialog-shell"/);
 	assert.match(theme, /\.aa-add-controls-list \{ display: grid;/);
-	assert.match(theme, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+	assert.match(theme, /grid-template-columns: repeat\(auto-fit, minmax\(280px, 1fr\)\)/);
 });
 
 test("adding controls reminds the user to save the workflow", () => {
@@ -1298,6 +1306,13 @@ test("sidebar tab remounts triggered by reactive value writes never interrupt an
 	assert.match(workspace, /renderedWorkspaceTabs\.has\(element\)/);
 	assert.match(workspace, /if \(!hasActiveControlGestures\(\)\) scheduleRender\(\);/);
 	assert.match(workspace, /renderedWorkspaceTabs\.add\(element\); renderWorkspace\(element\);/);
+});
+
+test("source control titles follow the current node or parameter name", () => {
+	assert.match(workspace, /typeof node\.getTitle === "function" \? node\.getTitle\(\) : node\.title/);
+	assert.match(workspace, /parameter\.id, parameter\.type, parameter\.name/);
+	assert.match(workspace, /return resolved\.label \|\| item\.label \|\| item\.binding\.controlId/);
+	assert.match(workspace, /window\.addEventListener\(EVENT_PARAMETER_CHANGED, \(event\) => \{/);
 });
 
 test("group and card titles support double-click inline rename", () => {

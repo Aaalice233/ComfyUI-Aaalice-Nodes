@@ -75,7 +75,7 @@
       "unsupported": { "title": "不支持旧版侧边栏布局", "description": "Dashboard V2 使用新的网格模型，请重置尚未发布的旧布局后继续。", "reset": "重置侧边栏" },
       "binding": {
         "menu": "📌 添加参数到侧边栏…", "add": "添加参数到侧边栏", "added": "已添加",
-        "allowDuplicate": "允许重复卡片", "allowDuplicateHint": "允许已存在于侧边栏的参数再次创建镜像卡片。", "destination": "投放位置", "destinationHint": "选择接收这些参数的页面。", "chooseControls": "选择参数", "chooseControlsHint": "默认选中所有可添加参数，点击卡片可取消。", "selectedControls": "个参数已选", "selectAll": "全选", "clearAll": "全不选", "addSelected": "添加参数 · {count}", "rebind": "重新绑定", "noCompatible": "当前没有兼容参数。",
+        "allowDuplicate": "允许重复卡片", "destination": "投放位置", "chooseControls": "选择参数", "selectedControls": "个参数已选", "selectAll": "全选", "clearAll": "全不选", "addSelected": "添加参数 · {count}", "rebind": "重新绑定", "noCompatible": "当前没有兼容参数。",
 		"missing": "参数绑定已失效", "incompatible": "参数类型不兼容", "selectOption": "请选择", "noOptions": "暂无可用选项", "unset": "当前暂无可用值", "unavailable": "控件暂时不可用", "error": "控件发生错误，暂时不可用", "saveWorkflowReminder": "请保存工作流以保留这些侧边栏参数，否则修改将会丢失。"
       },
       "preset": { "title": "布局备份", "export": "导出布局", "import": "导入布局", "missingConfirm": "个绑定已失效或类型不兼容。是否仍导入布局并跳过不兼容的值？" },

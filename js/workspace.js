@@ -206,8 +206,9 @@ function widgetOptionSignature(widget) {
 function graphStructureSignature() {
 	return graphNodes().map((node) => JSON.stringify([
 		node.id, node.type, node.comfyClass, node.properties?.aaaliceHostId,
+		typeof node.getTitle === "function" ? node.getTitle() : node.title,
 		(node.widgets || []).map((widget) => [widget.name, widget.type, widgetOptionSignature(widget)]),
-		(node.properties?.parameters || []).map((parameter) => [parameter.id, parameter.type]),
+		(node.properties?.parameters || []).map((parameter) => [parameter.id, parameter.type, parameter.name]),
 	])).join("|");
 }
 
@@ -370,8 +371,7 @@ function resolveGroupTitle(group) {
 
 function controlTitle(item, resolved) {
 	if (item.labelOverride != null) return item.labelOverride;
-	if (item.binding?.provider === "quick-group-manager") return resolved.label || item.label || item.binding.controlId;
-	return item.label || resolved.label || item.binding.controlId;
+	return resolved.label || item.label || item.binding.controlId;
 }
 
 function sourceGroupIdentity(sourceGroup) {
@@ -911,7 +911,6 @@ function renderDashboard(container, host) {
 			page,
 			pages: model.pages,
 			index: activePageIndex,
-			editMode,
 			labels: workspaceLabels(),
 			className: pageTransitionClass.trim(),
 			onRename: renamePage,
@@ -1834,7 +1833,7 @@ function openAddControls(node) {
 	const pageSelect = selectControl({ ariaLabel: t("aaalice.workspace.target.page", "Page"), onChange: () => rebuildTargets() });
 	const targetGrid = el("div", "aa-add-controls-target-grid");
 	const destinationPanel = el("section", { className: "aa-add-controls-section aa-add-controls-destination", children: [
-		el("div", { className: "aa-add-controls-destination-copy", children: [el("h3", null, t("aaalice.workspace.binding.destination", "Destination")), el("p", null, t("aaalice.workspace.binding.destinationHint", "Choose where the selected controls will appear."))] }),
+		el("div", { className: "aa-add-controls-destination-copy", children: [icon("layout"), el("strong", null, t("aaalice.workspace.binding.destination", "Destination"))] }),
 		targetGrid,
 	] });
 	const rebuildTargets = () => {
@@ -1873,7 +1872,7 @@ function openAddControls(node) {
 		drawList();
 	} });
 	const duplicateSetting = el("div", { className: "aa-add-controls-duplicate", children: [
-		el("div", { children: [el("strong", null, t("aaalice.workspace.binding.allowDuplicate", "Allow duplicate cards")), el("small", null, t("aaalice.workspace.binding.allowDuplicateHint", "Permit another card for controls already placed in the sidebar."))] }), duplicateToggle,
+		el("strong", null, t("aaalice.workspace.binding.allowDuplicate", "Allow duplicate cards")), duplicateToggle,
 	] });
 	selectAllButton = button({ label: t("aaalice.workspace.binding.selectAll", "Select all"), variant: "ghost", size: "sm", className: "aa-add-controls-select-all", onClick: () => {
 		const keys = eligibleKeys(); const allSelected = keys.length > 0 && keys.every((key) => selected.has(key));
@@ -1882,7 +1881,7 @@ function openAddControls(node) {
 	} });
 	const pickerActions = el("div", { className: "aa-add-controls-picker-actions", children: [selectionCount, selectAllButton] });
 	const controlPicker = el("section", { className: "aa-add-controls-section aa-add-controls-picker", children: [
-		el("header", { className: "aa-add-controls-section-header", children: [el("div", { children: [el("h3", null, t("aaalice.workspace.binding.chooseControls", "Choose controls")), el("p", null, t("aaalice.workspace.binding.chooseControlsHint", "Select one or more controls to add to this page."))] }), pickerActions] }),
+		el("header", { className: "aa-add-controls-section-header", children: [el("h3", null, t("aaalice.workspace.binding.chooseControls", "Choose controls")), pickerActions] }),
 		...(duplicateKeys.size ? [duplicateSetting] : []), list,
 	] });
 	drawList = () => {
@@ -1902,7 +1901,8 @@ function openAddControls(node) {
 				}
 			}
 			const key = bindingKey(control.binding); const added = existing.has(key);
-			const row = createListRow({ title: control.label, description: added ? t("aaalice.workspace.binding.added", "Already added") : controlAvailabilityDescription(control), selected: selected.has(key), onSelect: (checked) => { if (checked) selected.add(key); else selected.delete(key); updateSelectionState(); } });
+			const status = added ? badge(t("aaalice.workspace.binding.added", "Already added"), { className: "aa-add-controls-row-status" }) : control.availability?.state && control.availability.state !== "ready" ? badge(controlAvailabilityDescription(control), { className: "aa-add-controls-row-status is-warning" }) : null;
+			const row = createListRow({ title: control.label, selected: selected.has(key), actions: status ? [status] : [], onSelect: (checked) => { if (checked) selected.add(key); else selected.delete(key); updateSelectionState(); } });
 			row.selectionControl.setDisabled(added && !allowDuplicate); list.append(row);
 		}
 		updateSelectionState();
