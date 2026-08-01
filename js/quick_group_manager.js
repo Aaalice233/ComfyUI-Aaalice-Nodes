@@ -633,12 +633,8 @@ function setupManager(node, { initializeSize = false } = {}) {
 	};
 	const previousGetWidgetOnPos = node.getWidgetOnPos;
 	node.getWidgetOnPos = function (x, y) {
-		// LiteGraph checks widgets before resize handles. Yield the native corner
-		// hit area so the full-size DOM widget cannot swallow node resizing.
-		if (this.findResizeDirection?.(x, y)) {
-			if (app.canvas?.pointer?.isDown) beginResizePassthrough(this);
-			return undefined;
-		}
+		// Keep hit testing pure; resize state starts only after this node owns the gesture.
+		if (this.findResizeDirection?.(x, y)) return undefined;
 		return previousGetWidgetOnPos?.apply(this, arguments);
 	};
 	const previousResize = node.onResize;

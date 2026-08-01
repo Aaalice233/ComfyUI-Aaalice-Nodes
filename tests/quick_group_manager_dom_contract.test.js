@@ -66,7 +66,7 @@ test("allows vertical growth while keeping content top-aligned and enforcing its
 	assert.match(source, /_aaaliceQuickPlacementCleanup/);
 	assert.match(source, /node\.getWidgetOnPos\s*=/);
 	assert.match(source, /findResizeDirection\?\.\(x, y\)/);
-	assert.match(source, /app\.canvas\?\.pointer\?\.isDown/);
+	assert.doesNotMatch(source, /app\.canvas\?\.pointer\?\.isDown/);
 	const renderBody = source.slice(source.indexOf("function render(node)"), source.indexOf("function placeToolbarWidget"));
 	assert.doesNotMatch(renderBody, /setSize/);
 	assert.match(styles, /\.aaalice-qgm-body[\s\S]*height:\s*100%/);

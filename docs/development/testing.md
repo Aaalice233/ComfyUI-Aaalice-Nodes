@@ -219,7 +219,8 @@ SimpleNotify 还需覆盖：
 - 一个渠道失败不阻断另一渠道，工作流本身不因提醒失败而失败。
 - 同类权限或音频错误单页面会话只 toast 一次。
 - 右键“启用并测试提醒”读取当前 widget，并在用户操作中申请权限和播放测试音。
-- Classic 与 Nodes 2.0 均验证固定时无缩放、取消固定后四角可用；至少从右下角完成一次增高和缩短，消息、通知开关、声音开关与音量控件不得先于缩放角命中。同一共享回归同步覆盖 `GroupIsEnabled` 与 `SimpleStringSplit`。
+- Classic 与 Nodes 2.0 均验证固定时无缩放、取消固定后四角可用；至少从右下角完成一次增高和缩短，消息、通知开关、声音开关与音量控件不得先于缩放角命中。同一回归同步覆盖 `GroupIsEnabled` 与 `SimpleStringSplit`，并抽查一个非目标内置节点保持原始 `getWidgetOnPos`、`resizable` 和拖拽行为。
+- 原生 widget passthrough 的自动测试必须实际调用包装方法：角区不返回 widget、非角区保留第三个参数并委托原实现、`resizable = false` 不被绕过、重复安装幂等。DOM passthrough 还必须确认命中查询不读取 `app.canvas.pointer.isDown` 或产生监听器/class 副作用，只有 `app.canvas.resizing_node === this` 时才进入缩放状态。
 
 PromptSelector、词库与 DIY 侧边栏还需覆盖：
 

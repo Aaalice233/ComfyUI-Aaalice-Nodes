@@ -23,12 +23,9 @@ export function installDomWidgetResizePassthrough(node, ...elements) {
 	node._aaaliceDomWidgetResizePatched = true;
 	const previousGetWidgetOnPos = node.getWidgetOnPos;
 	node.getWidgetOnPos = function (x, y) {
-		// LiteGraph checks widgets before resize handles. Yield native corners so
-		// a full-size DOM widget cannot consume the resize interaction.
-		if (this.findResizeDirection?.(x, y)) {
-			if (app.canvas?.pointer?.isDown) beginResizePassthrough(this);
-			return undefined;
-		}
+		// Hit testing must stay side-effect free: another active gesture may query
+		// this node while the shared canvas pointer is down.
+		if (this.findResizeDirection?.(x, y)) return undefined;
 		return previousGetWidgetOnPos?.apply(this, arguments);
 	};
 	const previousResize = node.onResize;

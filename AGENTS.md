@@ -115,8 +115,8 @@ ComfyUI-Aaalice-Nodes/
 - Nodes 2.0 内需要独立滚动的 DOM 区域必须遵循当前 ComfyUI 前端的焦点式滚轮捕获协议：包含滚动区的可聚焦业务根声明 `data-capture-wheel="true"`，并保证滚轮到达宿主捕获阶段前其自身或后代已经取得焦点。宿主 `TransformPane` 在捕获阶段先于目标元素处理 `wheel`，因此禁止试图在滚动区自身的 `wheel` 回调中补焦点；需要悬停即滚动时应在 `pointerenter` 等更早事件中建立焦点，同时不得抢走外部文本编辑控件的焦点。业务代码不得用 `preventDefault()`、`stopPropagation()`、捕获阶段拦截或伪造并转发 `WheelEvent` 与画布争夺滚轮；当前 Standard 导航模式下的 `Ctrl` / `Meta` + 滚轮必须保留给宿主缩放。
 - `data-capture-wheel` 属于前端实现契约，不是 `addDOMWidget` 公共文档承诺。新增滚动 DOM widget 或升级 ComfyUI 前端时，必须先核对当前安装版本的 `useCanvasInteractions`（或其后继实现），不得从旧项目复制滚轮补丁。
 - 全尺寸 DOM widget 必须让出 LiteGraph 原生缩放角、拖拽和放置命中；CSS `pointer-events` 不能代替原生命中检测。
-- Classic 会先执行 `node.getWidgetOnPos()` 再检查 `findResizeDirection()`；即使没有自绘 DOM，贴近底角的原生 widget 也可能吞掉完整缩放命中。包内此类节点必须在 `js/node_resize.js` 登记并复用 `js/lib/dom_widget_resize.js`，新增或调整最后一个 widget 时同步覆盖，禁止自绘假手柄。
-- 固定节点由宿主将 `resizable` 设为 `false`；业务修复不得覆盖固定状态。Nodes 2.0 的四角手柄也由宿主渲染，包内只负责让出命中和同步真实尺寸；回归必须分别验证固定时不可缩放与取消固定后四角可用。
+- Classic 会先执行 `node.getWidgetOnPos()` 再检查 `findResizeDirection()`；即使没有自绘 DOM，贴近底角的原生 widget 也可能吞掉完整缩放命中。此类纯原生节点只允许在 `beforeRegisterNodeDef` 按精确 node id 为对应 `nodeType` 安装 `js/lib/native_widget_resize.js`，禁止用全局 `nodeCreated`、`loadedGraphNode`、全图扫描、运行时名称猜测或改写 `resizable` 扩大影响面。全尺寸 DOM 节点复用 `js/lib/dom_widget_resize.js`，两类路径均禁止自绘假手柄。
+- `getWidgetOnPos()` 是纯命中查询，不得读取全局按下状态、注册 document 监听器、切换 class 或启动缩放副作用；只有宿主已将当前节点设为 `resizing_node` 后，才能在 `onResize` 中进入缩放期 DOM 让渡。固定节点由宿主将 `resizable` 设为 `false`，业务修复不得覆盖；Nodes 2.0 的四角手柄也由宿主渲染，包内只负责让出命中和同步真实尺寸。回归必须证明非目标节点完全不变，并分别验证固定时不可缩放与取消固定后四角可用。
 - DOM overlay 根和 Comfy wrapper 默认不接收指针，只给真实交互控件开启命中；缩放期间根及全部后代必须停用命中，底部和四角保留原生手柄安全区。
 - DOM widget 与原生 slot 共用空间时使用 LiteGraph 的叠放语义，不得通过隐藏槽或事后劫持 `arrange()` 修正重复高度。
 - 自定义布局在 `onResize` 中从新尺寸重算 DOM 几何、真实 slot 和 Nodes 2.0 标记，并请求画布重绘。
@@ -276,7 +276,7 @@ Tooltip、Hover Card、已选摘要浮层等多实体信息预览**不得**落�
 - [ ] 信息浮层/悬浮预览已按身份、状态、类别、元数据芯片分层上色；无整块单调灰面，身份属性挂在实际上色根节点
 - [ ] README、roadmap、架构和公开限制按职责更新
 - [ ] Classic 与 Nodes 2.0 主路径已验证，或已明确交给用户刷新验收
-- [ ] 可缩放节点已分别检查固定与取消固定，原生 widget 和 DOM widget 均未抢占四角命中，也没有自绘宿主手柄
+- [ ] 可缩放节点已分别检查固定与取消固定，原生 widget 和 DOM widget 均未抢占四角命中，也没有自绘宿主手柄；非目标节点的 `getWidgetOnPos`、`resizable` 与拖拽行为保持不变
 - [ ] 根图、嵌套 Subgraph 及适用时的共享 Subgraph 多实例路径已验证；没有依赖 `app.graph`、当前画布或裸 Node Id
 - [ ] 真实 slot、序列化真源和内部 payload 边界未破坏
 - [ ] 文档位置正确，链接和 ADR 状态有效，`AGENTS.md` 少于 500 行

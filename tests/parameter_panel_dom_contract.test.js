@@ -313,7 +313,8 @@ test("parameter panel keeps native resize corners and a stable minimum width", (
 	assert.doesNotMatch(themeSource, /aaalice-parameter-output-hidden/);
 	assert.match(resizeSource, /node\.getWidgetOnPos = function/);
 	assert.match(resizeSource, /findResizeDirection\?\.\(x, y\)/);
-	assert.match(resizeSource, /app\.canvas\?\.pointer\?\.isDown/);
+	assert.doesNotMatch(resizeSource, /app\.canvas\?\.pointer\?\.isDown/);
+	assert.match(resizeSource, /app\.canvas\?\.resizing_node === this/);
 	assert.match(themeSource, /\.aaalice-pcp-node-root\.is-resizing[\s\S]*pointer-events:\s*none\s*!important/);
 	assert.match(panelSource, /growClassicDomWidgetNode\(node\)/);
 	assert.match(panelSource, /node\.widgets_up = true/);
