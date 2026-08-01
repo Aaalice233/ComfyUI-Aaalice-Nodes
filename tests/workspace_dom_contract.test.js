@@ -919,10 +919,10 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(theme, /\.aa-control-card-title::before \{[^}]*background: var\(--aa-control-kind-tone, transparent\)/);
 	assert.match(theme, /\.aa-control-card\[data-control-kind="numeric"\] \{ --aa-control-kind-tone/);
 	assert.match(theme, /\.aa-control-card\[data-control-kind="boolean"\] \{ --aa-control-kind-tone/);
-	assert.match(theme, /\.aa-workspace-control-input \{[^}]*opacity: \.62;/);
-	assert.match(theme, /\.aa-control-card:focus-within \.aa-workspace-control-input[^}]*\{ opacity: 1; \}/);
-	assert.match(theme, /:has\(\.aa-control-card:hover\) \.aa-control-card:not\(:hover\):not\(:focus-within\) \.aa-workspace-control-input \{ opacity: \.45; \}/);
-	assert.match(theme, /\.aa-control-card\[data-control-kind="image"\] \.aa-workspace-control-input[^}]*\{ opacity: 1; \}/);
+	assert.match(theme, /\.aa-workspace-control-input \{[^}]*width: 100%;[^}]*margin-top: 5px;[^}]*\}/);
+	assert.doesNotMatch(theme, /\.aa-workspace-control-input \{[^}]*opacity:/);
+	assert.doesNotMatch(theme, /\.aa-control-card:(?:hover|focus-within) \.aa-workspace-control-input/);
+	assert.doesNotMatch(theme, /:has\(\.aa-control-card:hover\).*\.aa-workspace-control-input/);
 	assert.match(theme, /\.aa-control-card\[data-control-kind="text"\] > input\.aa-workspace-control-input \{[^}]*min-height:\s*34px;[^}]*padding-block:\s*6px;/);
 	assert.match(theme, /\.aa-control-card\[data-control-kind="text"\] > textarea\.aa-workspace-control-input \{[^}]*min-height:\s*58px;[^}]*padding-block:\s*7px;/);
 	assert.match(theme, /\.aa-control-choice-select \.aa-ui-select__native \{[^}]*height:\s*32px;[^}]*min-height:\s*32px;/);
