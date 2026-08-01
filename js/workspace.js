@@ -1873,7 +1873,12 @@ function renderWorkspace(root) {
 	const autoSaveControl = el("div", {
 		className: "aa-workspace-auto-save",
 		attrs: { role: "group", "aria-label": t("aaalice.workspace.autoSave.label", "Sidebar preset auto-save") },
-		children: [el("span", "aa-workspace-auto-save__label", t("aaalice.workspace.autoSave.label", "Auto-save")), autoSaveStatus, autoSaveToggle],
+		children: [
+			el("span", { className: "aa-workspace-auto-save__icon", attrs: { "aria-hidden": "true" }, children: [icon("save")] }),
+			el("span", "aa-workspace-auto-save__label", t("aaalice.workspace.autoSave.label", "Auto-save")),
+			autoSaveStatus,
+			autoSaveToggle,
+		],
 	});
 	attachDescriptionTooltip(autoSaveControl, autoSaveDescription);
 	const syncAutoSaveControl = () => {

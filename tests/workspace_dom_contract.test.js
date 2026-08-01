@@ -1155,8 +1155,10 @@ test("sidebar preset auto-save is enabled by default and lives beside the pin co
 	assert.match(workspace, /autoSaveControl/);
 	assert.match(workspace, /footerActions: \[autoSaveControl, pinButton\]/);
 	assert.match(workspace, /attachDescriptionTooltip\(autoSaveControl, autoSaveDescription\)/);
+	assert.match(workspace, /icon\("save"\)/);
 	assert.match(theme, /\.aa-workspace-auto-save \{/);
-	assert.match(theme, /\.aa-workspace-auto-save__status/);
+	assert.match(theme, /\.aa-workspace-auto-save__status::before/);
+	assert.match(theme, /\.aa-workspace-auto-save \.aa-ui-toggle\.is-on \.aa-ui-toggle__thumb/);
 	assert.match(enLocale, /"enabledHint": "Auto-save is enabled by default/);
 	assert.match(zhLocale, /"enabledHint": "自动保存默认开启/);
 });
