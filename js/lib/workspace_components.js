@@ -1,6 +1,6 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, isScrollInteractionActive, searchToggleButton, segmentedControl } from "./ui.js";
+import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, searchToggleButton, segmentedControl } from "./ui.js";
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
@@ -135,11 +135,9 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 			icon("moveDown", { className: "aa-dashboard-page-heading__folio-arrow" }),
 		],
 	});
-	let popover = null; let openTimer = 0; let closeTimer = 0;
-	const cancelTimers = () => { clearTimeout(openTimer); clearTimeout(closeTimer); openTimer = 0; closeTimer = 0; };
+	let popover = null;
 	const openPageMenu = ({ focusOnOpen = true } = {}) => {
 		if (popover) return;
-		cancelTimers();
 		folio.setAttribute("aria-expanded", "true");
 		const rows = [];
 		const list = el("div", { className: "aa-dashboard-page-menu", attrs: { role: "listbox", "aria-label": labels.pages || "Dashboard pages" } });
@@ -149,9 +147,9 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 				className: `aa-dashboard-page-menu__row${active ? " is-active" : ""}`,
 				attrs: { type: "button", role: "option", "aria-selected": String(active) },
 				children: [
+					el("span", { className: "aa-dashboard-page-menu__drag-handle", attrs: { draggable: "true", "aria-hidden": "true", title: labels.reorderPage || "Drag to reorder" }, children: [icon("drag")] }),
 					el("span", "aa-dashboard-page-menu__index", String(entryIndex + 1).padStart(2, "0")),
 					el("span", "aa-dashboard-page-menu__name", entry.name),
-					el("span", { className: "aa-dashboard-page-menu__drag-handle", attrs: { draggable: "true", "aria-hidden": "true", title: labels.reorderPage || "Drag to reorder" }, children: [icon("drag")] }),
 					...(active ? [icon("statusCheck", { className: "aa-dashboard-page-menu__check" })] : []),
 				],
 			});
@@ -195,30 +193,10 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 		popover = createAnchoredPopover({
 			anchor: folio, ariaLabel: labels.pages || "Dashboard pages", className: "aa-dashboard-page-popover", width: 220, focusOnOpen,
 			transientHover: true,
-			onClose: () => { popover = null; folio.setAttribute("aria-expanded", "false"); cancelTimers(); },
+			onClose: () => { popover = null; folio.setAttribute("aria-expanded", "false"); },
 		});
 		popover.root.append(list);
-		// 悬停展开的菜单在指针移入弹层时保持打开，离开按钮与弹层后才延迟关闭。
-		popover.root.addEventListener("pointerenter", () => clearTimeout(closeTimer));
-		popover.root.addEventListener("pointerleave", scheduleClose);
 	};
-	const scheduleOpen = () => {
-		if (isScrollInteractionActive(folio)) return;
-		clearTimeout(closeTimer);
-		if (popover || openTimer) return;
-		// 悬停打开不窃取焦点，避免打断正在进行的输入。
-		openTimer = setTimeout(() => {
-			openTimer = 0;
-			if (!isScrollInteractionActive(folio)) openPageMenu({ focusOnOpen: false });
-		}, 140);
-	};
-	const scheduleClose = () => {
-		clearTimeout(openTimer);
-		if (!popover || closeTimer) return;
-		closeTimer = setTimeout(() => { closeTimer = 0; popover?.close(); }, 240);
-	};
-	folio.addEventListener("pointerenter", scheduleOpen);
-	folio.addEventListener("pointerleave", scheduleClose);
 	folio.addEventListener("click", () => { if (popover) popover.close(); else openPageMenu(); });
 	return el("div", {
 		className: `aa-dashboard-page-heading${className ? ` ${className}` : ""}`,

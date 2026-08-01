@@ -580,7 +580,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /aria-haspopup": "dialog"/);
 	assert.match(components, /createAnchoredPopover\(\{[\s\S]*?aa-dashboard-page-popover/);
 	assert.match(components, /application\/x-aaalice-page/);
-	assert.match(components, /el\("span", \{ className: "aa-dashboard-page-menu__drag-handle"/);
+	assert.match(components, /children: \[\s*el\("span", \{ className: "aa-dashboard-page-menu__drag-handle"[\s\S]*?el\("span", "aa-dashboard-page-menu__index"/);
 	assert.doesNotMatch(components, /\.\.\.\(editMode \? \[el\("span", \{ className: "aa-dashboard-page-menu__drag-handle"/);
 	assert.match(components, /clearDropTargets/);
 	assert.match(components, /onReorderPage\?\.\(entry\.id, target\.id\)/);
@@ -773,11 +773,12 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(components, /aa-dashboard-page-heading__folio-index/);
 	assert.match(components, /aa-dashboard-page-heading__folio-total/);
 	assert.match(components, /aa-dashboard-page-heading__folio-arrow/);
-	assert.match(components, /folio\.addEventListener\("pointerenter", scheduleOpen\)/);
-	assert.match(components, /folio\.addEventListener\("pointerleave", scheduleClose\)/);
-	assert.match(components, /openPageMenu\(\{ focusOnOpen: false \}\)/);
-	assert.match(components, /popover\.root\.addEventListener\("pointerenter"/);
-	assert.match(components, /popover\.root\.addEventListener\("pointerleave", scheduleClose\)/);
+	assert.doesNotMatch(components, /folio\.addEventListener\("pointerenter"/);
+	assert.doesNotMatch(components, /folio\.addEventListener\("pointerleave"/);
+	assert.doesNotMatch(components, /scheduleOpen|scheduleClose|openPageMenu\(\{ focusOnOpen: false \}\)/);
+	assert.doesNotMatch(components, /popover\.root\.addEventListener\("pointerenter"/);
+	assert.doesNotMatch(components, /popover\.root\.addEventListener\("pointerleave"/);
+	assert.match(components, /folio\.addEventListener\("click", \(\) => \{ if \(popover\) popover\.close\(\); else openPageMenu\(\); \}\)/);
 	assert.match(uiSource, /focusOnOpen = true/);
 	assert.match(uiSource, /if \(focusOnOpen\) \(focusableElements\(root\)\[0\] \|\| root\)\.focus\(\)/);
 	assert.match(components, /onSelectPage\?\.\(entry\.id\)/);
@@ -839,9 +840,8 @@ test("layout editing exposes an extensible component picker", () => {
 	assert.match(theme, /\.aa-dashboard-component-option\.aa-ui-button:hover:not\(:disabled\)/);
 });
 
-test("workspace scrolling suppresses transient hover interactions until motion settles", () => {
+test("workspace scrolling closes transient surfaces until motion settles", () => {
 	assert.match(components, /bindScrollInteractionGuard\(root\)/);
-	assert.match(components, /isScrollInteractionActive\(folio\)/);
 	assert.match(uiSource, /SCROLL_INTERACTION_ATTRIBUTE = "data-aa-scroll-active"/);
 	assert.match(uiSource, /root\.addEventListener\("wheel", onWheel, \{ capture: true, passive: true \}\)/);
 	assert.match(uiSource, /root\.addEventListener\("scroll", begin, \{ capture: true, passive: true \}\)/);
@@ -850,6 +850,7 @@ test("workspace scrolling suppresses transient hover interactions until motion s
 	assert.match(uiSource, /if \(isScrollInteractionActive\(nextAnchor\)\) return;/);
 	assert.match(uiSource, /isAnchoredWithin: \(container\)/);
 	assert.match(components, /transientHover: true/);
+	assert.doesNotMatch(components, /悬停展开/);
 	assert.doesNotMatch(uiSource, /preventDefault\(\).*SCROLL_INTERACTION/s);
 });
 
@@ -1144,6 +1145,20 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(zhLocale, /"title": "侧边栏预设"/);
 	assert.match(enLocale, /"preset": \{ "title": "Layout backup"/);
 	assert.match(zhLocale, /"preset": \{ "title": "布局备份"/);
+});
+
+test("sidebar preset auto-save is enabled by default and lives beside the pin control", () => {
+	assert.match(workspace, /SIDEBAR_AUTO_SAVE_STORAGE_KEY = "aaalice\.workspace\.sidebarPresetAutoSave"/);
+	assert.match(workspace, /function loadSidebarPresetAutoSave\(\)[\s\S]*return true;/);
+	assert.match(workspace, /function autoSaveActiveDashboardPreset\(\)/);
+	assert.match(workspace, /scheduleActiveDashboardPresetAutoSave\(\)/);
+	assert.match(workspace, /autoSaveControl/);
+	assert.match(workspace, /footerActions: \[autoSaveControl, pinButton\]/);
+	assert.match(workspace, /attachDescriptionTooltip\(autoSaveControl, autoSaveDescription\)/);
+	assert.match(theme, /\.aa-workspace-auto-save \{/);
+	assert.match(theme, /\.aa-workspace-auto-save__status/);
+	assert.match(enLocale, /"enabledHint": "Auto-save is enabled by default/);
+	assert.match(zhLocale, /"enabledHint": "自动保存默认开启/);
 });
 
 test("library rows keep a stable thumbnail column and distinguish entry actions", () => {

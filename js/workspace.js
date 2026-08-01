@@ -27,6 +27,7 @@ import { addGroupNavigationEntry, emptyGroupNavigation, isEditableShortcutTarget
 import { applyCategoryColor, categorySelectOption, nativeCategoryOption } from "./lib/category_color.js";
 import { collectionDisplayName, isDefaultCollection } from "./lib/collection.js";
 import { badge, button, createContextMenu, createDialog, createTooltip, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl, toggleSwitch } from "./lib/ui.js";
+import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow,
@@ -42,18 +43,22 @@ const LEGACY_VALUE_PRESETS_EXTRA_KEY = "aaaliceSidebarValuePresets";
 const GROUP_NAVIGATION_EXTRA_KEY = "aaaliceGroupNavigation";
 const TAB_ID = "aaalice-workspace";
 const SIDEBAR_PIN_STORAGE_KEY = "aaalice.workspace.sidebarPinned";
+const SIDEBAR_AUTO_SAVE_STORAGE_KEY = "aaalice.workspace.sidebarPresetAutoSave";
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
 const dashboardBoundaryPagingState = { locked: false, resetTimer: 0 };
 const workspacePinTooltip = createTooltip({ delay: 220, closeDelay: 60 });
 let activeWorkspace = "dashboard";
 let sidebarPinned = loadSidebarPinned();
+let sidebarPresetAutoSave = loadSidebarPresetAutoSave();
 let activePageId = null;
 let editMode = false;
 let dashboardModelError = null;
 let dashboardPresetModelError = null;
 let groupNavigationModelError = null;
 let renderFrame = 0;
+let dashboardPresetAutoSaveFrame = 0;
+let dashboardPresetAutoSaveRunning = false;
 const workspaceViewState = {
 	dashboard: { query: "", searchOpen: false, focusSearch: false, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
 	library: { query: "", searchOpen: false, focusSearch: false, categoryId: "", collectionId: "", selected: new Set() },
@@ -83,6 +88,25 @@ function saveSidebarPinned(value) {
 		globalThis.localStorage?.setItem(SIDEBAR_PIN_STORAGE_KEY, String(value));
 	} catch (error) {
 		console.warn("[Aaalice] Unable to save the sidebar pin preference", error);
+	}
+}
+
+function loadSidebarPresetAutoSave() {
+	try {
+		const stored = globalThis.localStorage?.getItem(SIDEBAR_AUTO_SAVE_STORAGE_KEY);
+		if (stored === "true") return true;
+		if (stored === "false") return false;
+	} catch (error) {
+		console.warn("[Aaalice] Unable to read the sidebar preset auto-save preference", error);
+	}
+	return true;
+}
+
+function saveSidebarPresetAutoSave(value) {
+	try {
+		globalThis.localStorage?.setItem(SIDEBAR_AUTO_SAVE_STORAGE_KEY, String(value));
+	} catch (error) {
+		console.warn("[Aaalice] Unable to save the sidebar preset auto-save preference", error);
 	}
 }
 
@@ -133,7 +157,7 @@ function updateDashboard(callback) {
 	if (dashboardModelError) throw dashboardModelError;
 	const graph = app.graph; graph?.beforeChange?.();
 	try { graph.extra ||= {}; graph.extra[EXTRA_KEY] = normalizeDashboard(callback(dashboard()) || dashboard()); }
-	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
+	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); scheduleActiveDashboardPresetAutoSave(); }
 }
 
 function dashboardPresetState() {
@@ -422,6 +446,31 @@ function currentDashboardPresetSnapshot(model = dashboard(), previousValues = nu
 	}
 	const captured = captureDashboardValues(model, (binding) => resolve(binding));
 	return { dashboard: model, values: mergeCapturedPresetValues(captured, previousValues), bindings: captured.bindings };
+}
+
+function autoSaveActiveDashboardPreset() {
+	if (!sidebarPresetAutoSave || dashboardPresetAutoSaveRunning) return;
+	try {
+		const state = dashboardPresetState();
+		const baseline = state.presets.find((preset) => preset.id === state.baselinePresetId);
+		if (!baseline) return;
+		const snapshot = currentDashboardPresetSnapshot(undefined, baseline.values);
+		if (!compareDashboardPreset(baseline, snapshot).modified) return;
+		dashboardPresetAutoSaveRunning = true;
+		updateDashboardPresetState((current) => replaceDashboardPreset(current, baseline.id, snapshot));
+	} catch (error) {
+		notifyDashboardPresetError(error);
+	} finally {
+		dashboardPresetAutoSaveRunning = false;
+	}
+}
+
+function scheduleActiveDashboardPresetAutoSave() {
+	if (!sidebarPresetAutoSave || dashboardPresetAutoSaveFrame) return;
+	dashboardPresetAutoSaveFrame = requestAnimationFrame(() => {
+		dashboardPresetAutoSaveFrame = 0;
+		autoSaveActiveDashboardPreset();
+	});
 }
 
 function availableDashboardPresetName(fileName, state = dashboardPresetState()) {
@@ -1807,6 +1856,31 @@ function renderWorkspace(root) {
 		else if (activeWorkspace === "groups") renderGroupNavigation(shell.content);
 		else renderLibrary(shell.content);
 	};
+	const autoSaveDescription = () => sidebarPresetAutoSave
+		? t("aaalice.workspace.autoSave.enabledHint", "Auto-save is enabled by default. Changes to the active sidebar preset are saved automatically.")
+		: t("aaalice.workspace.autoSave.disabledHint", "Auto-save is off. Update the active sidebar preset manually when you want to keep changes.");
+	const autoSaveStatus = el("span", "aa-workspace-auto-save__status");
+	const autoSaveToggle = toggleSwitch({
+		checked: sidebarPresetAutoSave,
+		label: t("aaalice.workspace.autoSave.toggle", "Automatically save the active sidebar preset"),
+		onChange: (value) => {
+			sidebarPresetAutoSave = value;
+			saveSidebarPresetAutoSave(value);
+			syncAutoSaveControl();
+			if (value) scheduleActiveDashboardPresetAutoSave();
+		},
+	});
+	const autoSaveControl = el("div", {
+		className: "aa-workspace-auto-save",
+		attrs: { role: "group", "aria-label": t("aaalice.workspace.autoSave.label", "Sidebar preset auto-save") },
+		children: [el("span", "aa-workspace-auto-save__label", t("aaalice.workspace.autoSave.label", "Auto-save")), autoSaveStatus, autoSaveToggle],
+	});
+	attachDescriptionTooltip(autoSaveControl, autoSaveDescription);
+	const syncAutoSaveControl = () => {
+		autoSaveStatus.textContent = sidebarPresetAutoSave ? t("aaalice.workspace.autoSave.on", "On") : t("aaalice.workspace.autoSave.off", "Off");
+		autoSaveToggle.setLabel(autoSaveDescription());
+		autoSaveControl.setAttribute("data-auto-save", String(sidebarPresetAutoSave));
+	};
 	const pinLabel = () => sidebarPinned
 		? t("aaalice.workspace.pin.pinned", "Pinned: clicking outside keeps the sidebar open. Click to enable auto-close.")
 		: t("aaalice.workspace.pin.unpinned", "Auto-close enabled: clicking outside closes the sidebar. Click to pin.");
@@ -1827,8 +1901,9 @@ function renderWorkspace(root) {
 	pinButton.addEventListener("mouseleave", () => workspacePinTooltip.hide());
 	pinButton.addEventListener("focus", () => workspacePinTooltip.show(pinButton, pinLabel, { immediate: true }));
 	pinButton.addEventListener("blur", () => workspacePinTooltip.hide());
+	syncAutoSaveControl();
 	syncPinButton();
-	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [pinButton], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
+	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [autoSaveControl, pinButton], onTabChange: (value) => { activeWorkspace = value; renderActiveWorkspace(); } });
 	root.append(shell.root); renderActiveWorkspace();
 }
 
@@ -1966,7 +2041,7 @@ app.registerExtension({
 		} });
 		installWorkspaceCanvasAutoClose();
 		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphSyncSignature();
-		api.addEventListener("graphChanged", scheduleGraphSync);
+		api.addEventListener("graphChanged", () => { scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
 		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。
 		window.addEventListener("keydown", (event) => {
 			if (event.repeat || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || String(event.key).toLowerCase() !== "s") return;
@@ -1975,9 +2050,10 @@ app.registerExtension({
 			flushActiveDashboardPresetOnSave();
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
-		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => scheduleRender("dashboard"));
+		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => { scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave(); });
 		window.addEventListener(EVENT_PARAMETER_CHANGED, (event) => {
 			if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard");
+			scheduleActiveDashboardPresetAutoSave();
 		});
 		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
 	},

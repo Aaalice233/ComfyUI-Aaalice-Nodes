@@ -19,7 +19,7 @@ test("Discord share is statically imported by the package frontend entrypoint", 
 test("share entry uses the compact Aaalice workspace footer and public action bar contract", () => {
 	assert.match(workspaceComponents, /data-aa-workspace-footer-actions/);
 	assert.match(workspaceComponents, /footerActions/);
-	assert.match(workspaceSource, /footerActions:\s*\[pinButton\]/);
+	assert.match(workspaceSource, /footerActions:\s*\[autoSaveControl,\s*pinButton\]/);
 	assert.doesNotMatch(workspaceSource, /headerActions:\s*\[pinButton\]/);
 	assert.match(source, /WORKSPACE_FOOTER_SELECTOR/);
 	assert.match(source, /iconName:\s*"github"/);

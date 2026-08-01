@@ -179,10 +179,21 @@ test("gallery cards use direct selection and adaptive animated overlay actions",
 
 test("favorite entry stays visible before login and explains unavailable writes", () => {
 	assert.match(source, /favoriteCapability\?\.favoriteRead \|\| favoriteCapability\?\.favoriteWrite/);
-	assert.match(source, /if \(!hasSourceCredentials\(source\)\) \{ showFavoriteNotice\(source, "login"\); return false; \}/);
+	assert.match(source, /if \(!hasSourceCredentials\(source\)\) \{[\s\S]*?showFavoriteNotice\(source, "login"\);[\s\S]*?return false;/);
 	assert.match(source, /label\("card\.favoriteConfigure", "Configure account"\)/);
 	assert.match(source, /dialog\.close\(\); openGallerySettings\(\)/);
-	assert.match(source, /if \(!cap\?\.favoriteWrite\) \{ showFavoriteNotice\(source, "readOnly"\); return false; \}/);
+	assert.match(source, /if \(!cap\?\.favoriteWrite\) \{[\s\S]*?showFavoriteNotice\(source, "readOnly"\);[\s\S]*?return false;/);
+	assert.match(source, /function notifyFavorite\(source, targetFavorite, error = null\)/);
+	assert.match(source, /app\.extensionManager\?\.toast\?\.add\?\.\(/);
+	assert.match(source, /notifyFavorite\(post\.source, targetFavorite\)/);
+	assert.match(source, /notifyFavorite\(post\.source, targetFavorite, error\)/);
+	assert.match(source, /notifyFavorite\(detail\.source, targetFavorite\)/);
+	assert.match(source, /notifyFavorite\(detail\.source, targetFavorite, error\)/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.card.favoriteAdded, "string");
+		assert.equal(typeof locale.aaalice.gallery.card.favoriteRemoved, "string");
+		assert.equal(typeof locale.aaalice.gallery.card.favoriteFailed, "string");
+	}
 	assert.match(theme, /\.aa-gallery-favorite-notice \{/);
 });
 

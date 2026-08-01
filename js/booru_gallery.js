@@ -313,11 +313,31 @@ function showFavoriteNotice(source, reason) {
 	dialog = createDialog({ title: needsLogin ? label("card.favoriteLoginTitle", "Account required") : label("card.favoriteReadOnlyTitle", "Favorites are read-only"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: actions }), size: "compact" });
 }
 
-function canWriteFavorite(source) {
+function canWriteFavorite(source, targetFavorite = true) {
 	const cap = capability(source);
-	if (!cap?.favoriteWrite) { showFavoriteNotice(source, "readOnly"); return false; }
-	if (!hasSourceCredentials(source)) { showFavoriteNotice(source, "login"); return false; }
+	if (!cap?.favoriteWrite) {
+		showFavoriteNotice(source, "readOnly");
+		notifyFavorite(source, targetFavorite, label("card.favoriteReadOnlyBody", "This source currently supports reading favorites, but not adding them.").replace("{source}", cap?.displayName || source));
+		return false;
+	}
+	if (!hasSourceCredentials(source)) {
+		showFavoriteNotice(source, "login");
+		notifyFavorite(source, targetFavorite, label("card.favoriteLoginBody", "Configure your {source} account before adding favorites.").replace("{source}", cap?.displayName || source));
+		return false;
+	}
 	return true;
+}
+
+function notifyFavorite(source, targetFavorite, error = null) {
+	const detail = error
+		? label("card.favoriteFailed", "Could not update favorite: {reason}").replace("{reason}", error?.message || String(error))
+		: label(targetFavorite ? "card.favoriteAdded" : "card.favoriteRemoved", targetFavorite ? "Added to favorites." : "Removed from favorites.");
+	app.extensionManager?.toast?.add?.({
+		severity: error ? "error" : "success",
+		summary: `${capability(source)?.displayName || source} · ${targetFavorite ? label("card.favorite", "Favorite") : label("card.unfavorite", "Remove favorite")}`,
+		detail,
+		life: error ? 5000 : 3200,
+	});
 }
 
 function sectionHeading(title, hint = "") {
@@ -589,9 +609,10 @@ function createGalleryCard(node, controller, post, index) {
 	let actionIndex = 1;
 	const favoriteCapability = capability(post.source);
 	const favoriteAction = (favoriteCapability?.favoriteRead || favoriteCapability?.favoriteWrite) ? actionButton("favorite", "favorite", post.favorite ? label("card.unfavorite", "Remove favorite") : label("card.favorite", "Favorite"), actionIndex++, async () => {
-		if (!canWriteFavorite(post.source)) return;
-		try { await controller.toggleFavorite(post); card._aaGalleryUpdate?.(); favoriteAction.classList.add("is-acknowledged"); }
-		catch (error) { controller.showError(error); }
+		const targetFavorite = !Boolean(post.favorite);
+		if (!canWriteFavorite(post.source, targetFavorite)) return;
+		try { await controller.toggleFavorite(post); card._aaGalleryUpdate?.(); favoriteAction.classList.add("is-acknowledged"); notifyFavorite(post.source, targetFavorite); }
+		catch (error) { notifyFavorite(post.source, targetFavorite, error); controller.showError(error); }
 	}) : null;
 	const copyPromptAction = actionButton("copy", "copyPrompt", label("card.copyPrompt", "Copy prompt"), actionIndex++, async () => {
 		try { if (await controller.copyPostPrompt(post)) copyPromptAction.classList.add("is-acknowledged"); }
@@ -1219,7 +1240,7 @@ function buildController(node, elements) {
 			finally { control.disabled = false; }
 		} }));
 		const cap = capability(detail.source);
-		if (cap?.favoriteRead || cap?.favoriteWrite) actions.push(button({ className: `aa-gallery-detail__action is-favorite${detail.favorite ? " is-active" : ""}`, label: detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"), iconName: "favorite", variant: "ghost", onClick: async (event) => { if (!canWriteFavorite(detail.source)) return; const control = event.currentTarget; const previous = Boolean(detail.favorite); detail.favorite = !previous; control.disabled = true; try { await jsonRequest(`${API}/favorite`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: detail.source, postId: detail.postId, favorite: detail.favorite }) }); control.classList.toggle("is-active", detail.favorite); control.querySelector(".aa-ui-button__label").textContent = detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"); } catch (error) { detail.favorite = previous; showError(error); } finally { control.disabled = false; } } }));
+		if (cap?.favoriteRead || cap?.favoriteWrite) actions.push(button({ className: `aa-gallery-detail__action is-favorite${detail.favorite ? " is-active" : ""}`, label: detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"), iconName: "favorite", variant: "ghost", onClick: async (event) => { const targetFavorite = !Boolean(detail.favorite); if (!canWriteFavorite(detail.source, targetFavorite)) return; const control = event.currentTarget; const previous = Boolean(detail.favorite); detail.favorite = targetFavorite; control.disabled = true; try { await jsonRequest(`${API}/favorite`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: detail.source, postId: detail.postId, favorite: detail.favorite }) }); control.classList.toggle("is-active", detail.favorite); control.querySelector(".aa-ui-button__label").textContent = detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"); notifyFavorite(detail.source, targetFavorite); } catch (error) { detail.favorite = previous; notifyFavorite(detail.source, targetFavorite, error); showError(error); } finally { control.disabled = false; } } }));
 		const tagTotal = tagCount(detail.tags);
 		const facts = [
 			["resolution", label("detail.resolution", "Resolution"), dimensions(detail)],
