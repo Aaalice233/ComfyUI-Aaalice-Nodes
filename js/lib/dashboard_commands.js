@@ -1,4 +1,4 @@
-/** Immutable Dashboard V2 commands composed from pure model/layout helpers. */
+/** Immutable Dashboard V3 commands composed from pure integer-grid helpers. */
 
 import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { compactScope, firstAvailableLayout, groupMemberColumnSpan, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
@@ -301,9 +301,9 @@ export function deleteGroup(model, pageId, groupId) {
 	return normalizeDashboard(next);
 }
 
-export function moveGroup(model, pageId, groupId, row) {
+export function moveGroup(model, pageId, groupId, row, column = 0) {
 	const next = copy(model); const page = findPage(next, pageId); const group = page?.groups.find((entry) => entry.id === groupId); if (!group) return next;
-	placeEntry(page, groupId, { row, column: 0 }, { groupId: null }); return normalizeDashboard(next);
+	placeEntry(page, groupId, { row, column }, { groupId: null }); return normalizeDashboard(next);
 }
 
 // 整组跨页移动：组身份、成员和成员间的相对排列一起带走，组框落在目标页空位。

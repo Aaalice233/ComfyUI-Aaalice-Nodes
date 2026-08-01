@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroup, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { buildSourceSnapshot, planSourceGroupSync } from "../js/lib/dashboard_source_sync.js";
 import { firstAvailableLayout, projectGroupScope, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
@@ -32,10 +32,10 @@ test("group titles default to visible and preserve an explicit hidden setting", 
 	assert.equal(next.pages[0].groups[0].showTitle, false);
 });
 
-test("Dashboard V2 pages directly own grid control cards", () => {
+test("Dashboard V3 pages directly own integer-grid control cards", () => {
 	const { model, page } = modelWithPage();
 	const next = addItems(model, page.id, [{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } }]);
-	assert.equal(next.version, 2); assert.equal(next.pages[0].gridColumns, 12); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
+	assert.equal(next.version, 3); assert.equal(next.pages[0].gridColumns, 12); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
 		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
 });
@@ -259,15 +259,27 @@ test("specialized controls can request an initial full-width footprint", () => {
 	assert.deepEqual(next.pages[0].items[0].layout, { row: 0, column: 0, columnSpan: 12, rowSpan: 36 });
 });
 
-test("legacy two-column pages normalize once into the twelve-column grid", () => {
+test("Dashboard V2 two-column pages migrate once into Dashboard V3", () => {
 	const legacy = { version: 2, pages: [{ id: "page", name: "Legacy", items: [
 		{ id: "left", kind: "control", binding, groupId: null, layout: { row: 0, column: 0, columnSpan: 1, rowSpan: 12 } },
 		{ id: "right", kind: "control", binding: { ...binding, controlId: "cfg" }, groupId: null, layout: { row: 0, column: 1, columnSpan: 1, rowSpan: 12 } },
 	], groups: [] }] };
 	const normalized = normalizeDashboard(legacy);
+	assert.equal(normalized.version, 3);
 	assert.equal(normalized.pages[0].gridColumns, 12);
 	assert.deepEqual(normalized.pages[0].items.map((item) => item.layout), [
 		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
+	]);
+});
+
+test("Dashboard V3 preserves arbitrary valid integer control spans", () => {
+	const model = normalizeDashboard({ version: 3, pages: [{ id: "page", name: "Integer grid", gridColumns: 12, tone: null, groups: [], items: [
+		{ id: "left", kind: "control", binding, label: "Left", groupId: null, layout: { row: 0, column: 2, columnSpan: 5, rowSpan: 17 } },
+		{ id: "right", kind: "control", binding: { ...binding, controlId: "cfg" }, label: "Right", groupId: null, layout: { row: 0, column: 7, columnSpan: 5, rowSpan: 19 } },
+	] }] });
+	assert.deepEqual(model.pages[0].items.map((item) => item.layout), [
+		{ row: 0, column: 2, columnSpan: 5, rowSpan: 17 },
+		{ row: 0, column: 7, columnSpan: 5, rowSpan: 19 },
 	]);
 });
 
@@ -315,6 +327,24 @@ test("grid projection moves later entries when a projected footprint grows", () 
 	assert.equal(projection.get("b").row, 13);
 	assert.equal(projection.get("c").row, 25);
 	assert.equal(entries[1].layout.row, 12);
+});
+
+test("runtime size projections grow and shrink collision-free without changing canonical layouts", () => {
+	const entries = [
+		{ id: "a", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 13 } },
+		{ id: "b", layout: { row: 0, column: 6, columnSpan: 6, rowSpan: 13 } },
+		{ id: "c", layout: { row: 13, column: 0, columnSpan: 6, rowSpan: 13 } },
+	];
+	const canonical = structuredClone(entries);
+	const grown = projectScope(entries, 12, new Map([["a", { columnSpan: 9, rowSpan: 20 }]]));
+	assert.deepEqual(grown.get("a"), { row: 0, column: 0, columnSpan: 9, rowSpan: 20 });
+	assert.deepEqual(grown.get("b"), { row: 20, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(grown.get("c"), { row: 20, column: 0, columnSpan: 6, rowSpan: 13 });
+	const shrunk = projectScope(entries, 12, new Map([["a", { columnSpan: 3, rowSpan: 14 }]]));
+	assert.deepEqual(shrunk.get("a"), { row: 0, column: 0, columnSpan: 3, rowSpan: 14 });
+	assert.deepEqual(shrunk.get("b"), { row: 0, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(shrunk.get("c"), { row: 14, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(entries, canonical);
 });
 
 test("group projection reserves height from the same collision-free member layout", () => {
@@ -488,16 +518,17 @@ test("width changes and explicit compaction remain deterministic", () => {
 	]); assert.deepEqual(firstAvailableLayout(next.pages[0], { columnSpan: 6, rowSpan: 12 }), { row: 26, column: 0, columnSpan: 6, rowSpan: 12 });
 });
 
-test("free card resize snaps both axes without moving neighboring cards", () => {
+test("free card resize snaps both axes to integers without moving neighboring cards", () => {
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
 		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } },
 	]);
 	const firstId = next.pages[0].items[0].id;
 	next = resizeItem(next, firstId, { columnSpan: 9.4, rowSpan: 15.6 });
-	assert.deepEqual(next.pages[0].items.find((item) => item.id === firstId).layout, { row: 13, column: 0, columnSpan: 9, rowSpan: 18 });
+	assert.deepEqual(next.pages[0].items.find((item) => item.id === firstId).layout, { row: 13, column: 0, columnSpan: 9, rowSpan: 16 });
 	assert.deepEqual(next.pages[0].items[1].layout, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 });
 	next = resizeItem(next, firstId, { columnSpan: 1, rowSpan: 2 });
 	assert.equal(next.pages[0].items.find((item) => item.id === firstId).layout.columnSpan, 3);
+	assert.equal(next.pages[0].items.find((item) => item.id === firstId).layout.rowSpan, 13);
 });
 
 test("resizing a grouped card refreshes its group without moving external cards", () => {
@@ -508,7 +539,7 @@ test("resizing a grouped card refreshes its group without moving external cards"
 	const group = next.pages[0].groups[0]; const member = next.pages[0].items.find((item) => item.groupId === group.id);
 	next = resizeItem(next, member.id, { columnSpan: 12, rowSpan: 20 });
 	const resizedGroup = next.pages[0].groups.find((item) => item.id === group.id);
-	assert.equal(resizedGroup.layout.rowSpan, 38);
+	assert.equal(resizedGroup.layout.rowSpan, 40);
 	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "c").layout.row, 13);
 });
 
@@ -553,6 +584,26 @@ test("legacy full-width groups migrate once and resize collision moves only the 
 	assert.equal(resized.pages[0].groups[0].layout.columnSpan, 12);
 	assert.equal(resized.pages[0].groups[0].layout.row, 13);
 	assert.equal(resized.pages[0].items.find((item) => item.id === "external").layout.row, 0);
+});
+
+test("automatic layout compaction is idempotent", () => {
+	const { model, page } = modelWithPage(); let sparse = addItems(model, page.id, [
+		{ label: "A", binding, columnSpan: 5, rowSpan: 17 },
+		{ label: "B", binding: { ...binding, controlId: "b" }, columnSpan: 7, rowSpan: 15 },
+		{ label: "C", binding: { ...binding, controlId: "c" }, columnSpan: 4, rowSpan: 19 },
+	]);
+	sparse.pages[0].items[2].layout.row = 50;
+	const compacted = compactDashboard(sparse, page.id);
+	assert.deepEqual(compactDashboard(compacted, page.id), compacted);
+	assert.ok(compacted.pages[0].items.every((item) => Number.isInteger(item.layout.columnSpan) && Number.isInteger(item.layout.rowSpan)));
+});
+
+test("moving a group preserves its requested integer column", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [{ label: "A", binding, columnSpan: 5, rowSpan: 17 }]);
+	next = createGroup(next, page.id, [next.pages[0].items[0].id], { allowSingle: true });
+	const groupId = next.pages[0].groups[0].id;
+	next = moveGroup(next, page.id, groupId, 4, 5);
+	assert.deepEqual(next.pages[0].groups[0].layout, { row: 4, column: 5, columnSpan: 5, rowSpan: 24 });
 });
 
 test("duplicating a page regenerates layout identities and preserves bindings", () => {

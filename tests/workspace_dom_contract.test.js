@@ -237,8 +237,15 @@ test("projects QuickGroupManager as one presettable sidebar control instead of a
 	assert.match(theme, /\.aa-quick-group-control__row\.is-mixed \{[^}]*border-color: transparent;[^}]*box-shadow: inset 3px 0/);
 	assert.match(theme, /\.aa-control-card\[data-control-kind="quick-group-manager"\][\s\S]*flex-direction: column/);
 	assert.match(providers, /dashboardContentRowSpan/);
-	assert.match(providers, /rowSpan: quickGroupManagerRowSpan\(snapshot\)/);
-	assert.match(workspace, /liveControlRowSpan\(item\)/);
+	assert.match(providers, /rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
+	assert.match(providers, /layoutProjection: \{ rowSpan: quickGroupManagerRowSpan\(snapshot\) \}/);
+	assert.match(workspace, /function resolvePageControls\(page\)/);
+	assert.match(workspace, /resolved\.layoutProjection/);
+	assert.match(workspace, /normalizeDashboardColumnSpan\(resolved\.layoutProjection\.columnSpan\)/);
+	assert.match(workspace, /normalizeDashboardRowSpan\(resolved\.layoutProjection\.rowSpan, \{ minimum \}\)/);
+	assert.match(workspace, /sizeProjections\.set\(item\.id, projection\)/);
+	assert.match(workspace, /createDashboardGrid\(\{ page: resolvedPage, sizeProjections/);
+	assert.doesNotMatch(workspace, /projectContentSizedControls|reflowContentSizedScope|liveControlRowSpan/);
 	assert.doesNotMatch(enLocale, /"quickGroups"/);
 	assert.doesNotMatch(zhLocale, /"quickGroups"/);
 });
@@ -369,7 +376,7 @@ test("markdown notes adapt between full rendering and a hover-to-read bar by hei
 	assert.doesNotMatch(workspace, /cardCompact|onToggleCompact|item\.compact/);
 	assert.doesNotMatch(components, /onToggleCompact|is-compact" : ""/);
 	assert.doesNotMatch(workspaceControls, /cardCompact/);
-	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = DASHBOARD_HEIGHT_SIZES\[2\]\.rowSpan/);
+	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = 28/);
 	assert.doesNotMatch(theme, /aa-control-card\.is-compact/);
 	assert.match(theme, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h1/);
 	assert.match(theme, /\.aa-control-markdown__body \{[^}]*overflow-y: auto/);
@@ -854,7 +861,7 @@ test("workspace scrolling closes transient surfaces until motion settles", () =>
 	assert.doesNotMatch(uiSource, /preventDefault\(\).*SCROLL_INTERACTION/s);
 });
 
-test("Dashboard V2 replaces mandatory sections with optional grid groups", () => {
+test("Dashboard V3 replaces mandatory sections with optional grid groups", () => {
 	assert.match(workspace, /createGroup\(current, page\.id/);
 	assert.match(providers, /partitionParameterSections\(ensureParameters\(node\)\)/);
 	assert.match(providers, /scopeId: `separator:\$\{section\.separator\.id\}`/);
@@ -877,7 +884,7 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(workspace, /target\.showTitle = showTitle/);
 	assert.match(enLocale, /"showTitle": "Show group title"/);
 	assert.match(zhLocale, /"showTitle": "显示组标题"/);
-	assert.match(dashboardComponents, /projectGroupScope\(members, groupColumns, showHeader\)/);
+	assert.match(dashboardComponents, /projectGroupScope\(members, groupColumns, showHeader, sizeProjections\)/);
 	assert.doesNotMatch(dashboardLayout, /projectControlFootprints/);
 	assert.match(dashboardLayout, /projectGroupScope/);
 	assert.match(dashboardLayout, /projectWithoutOverlap/);
@@ -898,10 +905,12 @@ test("Dashboard V2 replaces mandatory sections with optional grid groups", () =>
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group \.aa-control-card\.is-group-member:is\(\.is-selected, \.is-drop-target\)/);
 });
 
-test("Dashboard footprints are stable model hints rather than DOM measurements", () => {
+test("Dashboard footprints use bounded integer spans rather than a discrete size catalog", () => {
+	assert.match(dashboardModel, /export const DASHBOARD_VERSION = 3/);
 	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
 	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
-	assert.match(dashboardSizing, /DASHBOARD_SIZE_CATALOG/);
+	assert.doesNotMatch(dashboardSizing, /DASHBOARD_SIZE_CATALOG|DASHBOARD_CONTROL_(?:COLUMN|ROW)_SPANS|dashboardSizeToken/);
+	assert.match(dashboardSizing, /function boundedInteger/);
 	assert.match(dashboardSizing, /normalizeDashboardColumnSpan/);
 	assert.match(dashboardSizing, /normalizeDashboardRowSpan/);
 	assert.match(dashboardSizing, /if \(options\.multiline\) return DASHBOARD_STANDARD_CONTROL_ROW_SPAN/);
@@ -910,6 +919,10 @@ test("Dashboard footprints are stable model hints rather than DOM measurements",
 	assert.match(dashboardSizing, /export function recommendedGroupRowSpan/);
 	assert.doesNotMatch(dashboardSizing, /document|getComputedStyle|ResizeObserver/);
 	assert.match(dashboardLayout, /layout\.row \+ layout\.rowSpan/);
+	assert.match(dashboardComponents, /function markProjectedAxes/);
+	assert.match(theme, /data-dashboard-auto-row-span[^}]*cursor: ew-resize/);
+	assert.match(theme, /data-dashboard-auto-column-span[^}]*cursor: ns-resize/);
+	assert.match(theme, /data-dashboard-auto-row-span\]\[data-dashboard-auto-column-span[^}]*display: none/);
 });
 
 test("dashboard cards expose equal visual gutters without changing fine row geometry", () => {
@@ -956,7 +969,7 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(numericControl, /if \(valueButton\.isConnected\) return;/);
 });
 
-test("Dashboard V2 layout editing uses transient pointer gestures and one command commit", () => {
+test("Dashboard V3 layout editing uses transient integer-grid gestures and one command commit", () => {
 	assert.match(dashboardInteractions, /pointerdown/);
 	assert.match(dashboardInteractions, /setPointerCapture/);
 	assert.match(dashboardInteractions, /translate3d/);
@@ -985,7 +998,7 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(dashboardInteractions, /mode = event\.altKey \? "subtract" : "add"/);
 	assert.match(dashboardInteractions, /toLowerCase\(\) === "a"/);
 	assert.match(dashboardInteractions, /event\.key === " " && !event\.repeat/);
-	assert.match(dashboardInteractions, /precise = current\.elements\.every/);
+	assert.match(dashboardInteractions, /precise = Number\(target\.grid\.dataset\.dashboardColumns\) !== 1 && current\.elements\.every/);
 	assert.match(dashboardInteractions, /containedIds/);
 	assert.match(dashboardInteractions, /dashboardGroupMember/);
 	assert.match(dashboardSelection, /export function containedIds/);
@@ -1025,6 +1038,8 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(dashboardSizing, /DASHBOARD_GRID_COLUMNS = 12/);
 	assert.match(dashboardSizing, /DASHBOARD_MIN_CONTROL_COLUMN_SPAN = 3/);
 	assert.match(components, /data-dashboard-resize-handle/);
+	assert.match(dashboardComponents, /element\.dataset\.dropRow = String\(source\.row\)[\s\S]*element\.dataset\.dropColumnSpan = String\(source\.columnSpan\)/);
+	assert.match(dashboardComponents, /element\.dataset\.projectedRow = String\(projected\.row\)[\s\S]*element\.dataset\.projectedColumnSpan = String\(projected\.columnSpan\)/);
 	assert.match(dashboardInteractions, /kind: "resize"/);
 	assert.match(dashboardInteractions, /gesture\.preview\.dataset\.dropRow = gesture\.element\.dataset\.dropRow/);
 	assert.match(dashboardInteractions, /gesture\.preview\.dataset\.dropColumn = gesture\.element\.dataset\.dropColumn/);
@@ -1032,6 +1047,9 @@ test("Dashboard V2 layout editing uses transient pointer gestures and one comman
 	assert.match(dashboardInteractions, /Math\.round\(dy/);
 	assert.match(dashboardInteractions, /onResizeItem\?\./);
 	assert.match(dashboardInteractions, /onResizeGroup\?\./);
+	assert.match(dashboardInteractions, /const step = event\.shiftKey \? 2 : 1/);
+	assert.match(dashboardInteractions, /nextDashboardColumnSpan\(columnSpan, -step/);
+	assert.match(dashboardInteractions, /nextDashboardRowSpan\(rowSpan, step/);
 	assert.match(workspace, /onResizeItem: \(itemId, size\) => updateDashboard/);
 	assert.match(workspace, /onResizeGroup: \(groupId, size\) => updateDashboard/);
 	assert.match(theme, /\.aa-dashboard-resize-handle/);

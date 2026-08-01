@@ -1,7 +1,6 @@
-/** Pure Dashboard V2 grid/group DOM composition. */
+/** Pure Dashboard V3 grid/group DOM composition. */
 
 import { groupMemberColumnSpan, orderedItems, projectGroupScope, projectScope } from "./dashboard_layout.js";
-import { dashboardSizeToken } from "./dashboard_sizing.js";
 import { el, icon, iconButton, inlineRename } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
@@ -9,13 +8,16 @@ function applyGridPosition(element, projected, source = projected) {
 	element.style.setProperty("--aa-dashboard-column", String(projected.column + 1));
 	element.style.setProperty("--aa-dashboard-column-span", String(projected.columnSpan));
 	element.style.setProperty("--aa-dashboard-row-span", String(projected.rowSpan));
-	element.dataset.dropRow = String(source.row); element.dataset.dropColumn = String(source.column); element.dataset.dropRowSpan = String(source.rowSpan);
-	element.dataset.dropColumnSpan = String(source.columnSpan);
-	const size = dashboardSizeToken(source);
-	if (size) element.dataset.dashboardSize = size.id;
+	element.dataset.dropRow = String(source.row); element.dataset.dropColumn = String(source.column); element.dataset.dropRowSpan = String(source.rowSpan); element.dataset.dropColumnSpan = String(source.columnSpan);
+	element.dataset.projectedRow = String(projected.row); element.dataset.projectedColumn = String(projected.column); element.dataset.projectedRowSpan = String(projected.rowSpan); element.dataset.projectedColumnSpan = String(projected.columnSpan);
 }
 
-export function createDashboardGroup({ group, members, memberProjection = null, columns = 12, editMode = false, selected = false, showHeader = true, showTitle = true, labels = {}, renderItem, onMenu, onRename, onSync }) {
+function markProjectedAxes(element, projection) {
+	if (Number.isFinite(Number(projection?.rowSpan))) element.dataset.dashboardAutoRowSpan = "true";
+	if (Number.isFinite(Number(projection?.columnSpan))) element.dataset.dashboardAutoColumnSpan = "true";
+}
+
+export function createDashboardGroup({ group, members, memberProjection = null, sizeProjections = null, columns = 12, editMode = false, selected = false, showHeader = true, showTitle = true, labels = {}, renderItem, onMenu, onRename, onSync }) {
 	const title = el("h3", null, group.name);
 	if (!showTitle) title.classList.add("is-title-hidden");
 	if (onRename) {
@@ -46,10 +48,10 @@ export function createDashboardGroup({ group, members, memberProjection = null, 
 	] });
 	const groupColumns = columns === 1 ? 1 : Math.max(1, Number(group.layout.columnSpan) || columns);
 	const grid = el("div", { className: "aa-dashboard-group-grid", attrs: { "data-dashboard-columns": String(groupColumns), "data-dashboard-source-columns": String(group.layout.columnSpan) } }); grid.style.setProperty("--aa-dashboard-columns", String(groupColumns));
-	const projection = memberProjection || projectGroupScope(members, groupColumns, showHeader).projection;
+	const projection = memberProjection || projectGroupScope(members, groupColumns, showHeader, sizeProjections).projection;
 	for (const item of orderedItems(members)) {
 		const card = renderItem(item); card.classList.add("is-group-member"); card.dataset.dashboardGroupMember = group.id;
-		const projected = projection.get(item.id); applyGridPosition(card, projected, columns === 1 ? item.layout : projected); grid.append(card);
+		const projected = projection.get(item.id); applyGridPosition(card, projected, item.layout); markProjectedAxes(card, sizeProjections?.get?.(item.id)); grid.append(card);
 	}
 	const root = el("section", { className: `aa-dashboard-group aa-dashboard-composite-card is-${group.tone}${selected ? " is-selected" : ""}`, attrs: {
 		"data-dashboard-group-id": group.id, "data-drop-row": String(group.layout.row), "data-drop-column": String(group.layout.column),
@@ -63,10 +65,10 @@ export function createDashboardGroup({ group, members, memberProjection = null, 
 	root.addEventListener("contextmenu", (event) => { if (!editMode || event.target.closest("[data-dashboard-item-id]")) return; event.preventDefault(); onMenu?.(event, group); });
 	header.addEventListener("keydown", (event) => { if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return; event.preventDefault(); onMenu?.(event, group); });
 	const projectedLayout = group.projectedLayout || group.layout;
-	applyGridPosition(root, projectedLayout, columns === 1 ? group.layout : projectedLayout); return root;
+	applyGridPosition(root, projectedLayout, group.layout); return root;
 }
 
-export function createDashboardGrid({ page, columns = 12, editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), labels = {}, renderItem, onGroupMenu, onRenameGroup, onSyncGroup }) {
+export function createDashboardGrid({ page, sizeProjections = null, columns = 12, editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), labels = {}, renderItem, onGroupMenu, onRenameGroup, onSyncGroup }) {
 	const root = el("div", { className: `aa-dashboard-grid-v2${editMode ? " is-editing" : ""}`, attrs: { "data-dashboard-page-id": page.id, "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(page.gridColumns), tabindex: "0", "aria-label": `${page.name}. ${labels.pageMenu || "Page actions"}` } });
 	root.style.setProperty("--aa-dashboard-columns", String(columns));
 	const ungrouped = orderedItems(page.items.filter((item) => !item.groupId));
@@ -74,22 +76,24 @@ export function createDashboardGrid({ page, columns = 12, editMode = false, sele
 		const showHeader = editMode || group.showTitle !== false || Boolean(group.source && group.syncStatus);
 		const members = page.items.filter((item) => item.groupId === group.id);
 		const groupColumns = columns === 1 ? 1 : Math.max(1, Number(group.layout.columnSpan) || columns);
-		const projectedMembers = projectGroupScope(members, groupColumns, showHeader);
-		return {
-			...group,
-			showHeader,
-			memberProjection: projectedMembers.projection,
-			layout: { ...group.layout, rowSpan: projectedMembers.rowSpan },
-		};
+		const projectedMembers = projectGroupScope(members, groupColumns, showHeader, sizeProjections);
+		return { ...group, showHeader, memberProjection: projectedMembers.projection, projectedRowSpan: projectedMembers.rowSpan };
 	});
-	const topEntries = [...ungrouped, ...projectedGroups]; const projection = projectScope(topEntries, columns);
-	for (const item of ungrouped) { const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); const projected = projection.get(item.id); applyGridPosition(card, projected, columns === 1 ? item.layout : projected); root.append(card); }
+	const topSizeProjections = new Map();
+	for (const item of ungrouped) if (sizeProjections?.has?.(item.id)) topSizeProjections.set(item.id, sizeProjections.get(item.id));
+	for (const group of projectedGroups) topSizeProjections.set(group.id, { rowSpan: group.projectedRowSpan });
+	const topEntries = [...ungrouped, ...page.groups]; const projection = projectScope(topEntries, columns, topSizeProjections);
+	for (const item of ungrouped) {
+		const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id));
+		const projected = projection.get(item.id); applyGridPosition(card, projected, item.layout); markProjectedAxes(card, sizeProjections?.get?.(item.id)); root.append(card);
+	}
 	for (const sourceGroup of orderedItems(projectedGroups)) {
 		const group = { ...sourceGroup, projectedLayout: projection.get(sourceGroup.id) };
 		root.append(createDashboardGroup({
-		group, members: page.items.filter((item) => item.groupId === group.id), memberProjection: group.memberProjection, columns, editMode, selected: selectedGroupIds.has(group.id), labels, renderItem: (item) => {
-			const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); return card;
-		}, showHeader: group.showHeader, showTitle: group.showTitle !== false, onMenu: onGroupMenu, onRename: onRenameGroup, onSync: onSyncGroup,
-	})); }
+			group, members: page.items.filter((item) => item.groupId === group.id), memberProjection: group.memberProjection, sizeProjections, columns, editMode, selected: selectedGroupIds.has(group.id), labels, renderItem: (item) => {
+				const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); return card;
+			}, showHeader: group.showHeader, showTitle: group.showTitle !== false, onMenu: onGroupMenu, onRename: onRenameGroup, onSync: onSyncGroup,
+		}));
+	}
 	return root;
 }

@@ -2,13 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-	DASHBOARD_CONTROL_COLUMN_SPANS,
-	DASHBOARD_CONTROL_ROW_SPANS,
-	DASHBOARD_SIZE_CATALOG,
 	DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
 	dashboardCardHeight,
 	dashboardContentRowSpan,
-	dashboardSizeToken,
 	nextDashboardColumnSpan,
 	nextDashboardRowSpan,
 	normalizeDashboardColumnSpan,
@@ -18,42 +14,44 @@ import {
 	snapDashboardRowSpan,
 } from "../js/lib/dashboard_sizing.js";
 
-test("the Dashboard size catalog exposes composable width and height vocabularies", () => {
-	assert.deepEqual(DASHBOARD_CONTROL_COLUMN_SPANS, [3, 6, 9, 12]);
-	assert.deepEqual(DASHBOARD_CONTROL_ROW_SPANS, [13, 18, 28, 36, 52]);
-	assert.equal(DASHBOARD_SIZE_CATALOG.length, 20);
-	assert.equal(new Set(DASHBOARD_SIZE_CATALOG.map((size) => size.id)).size, 20);
-	assert.deepEqual(dashboardSizeToken({ columnSpan: 6, rowSpan: 18 }), {
-		id: "half-standard", columnSpan: 6, rowSpan: 18, width: "half", height: "standard",
-	});
-});
-
-test("normalization grows legacy footprints to the next supported size", () => {
+test("normalization preserves arbitrary integer spans inside Dashboard V3 bounds", () => {
 	assert.equal(normalizeDashboardColumnSpan(1), 3);
-	assert.equal(normalizeDashboardColumnSpan(7), 9);
+	assert.equal(normalizeDashboardColumnSpan(5), 5);
+	assert.equal(normalizeDashboardColumnSpan(7), 7);
 	assert.equal(normalizeDashboardColumnSpan(12), 12);
+	assert.equal(normalizeDashboardColumnSpan(20), 12);
 	assert.equal(normalizeDashboardRowSpan(7), 13);
-	assert.equal(normalizeDashboardRowSpan(14), 18);
-	assert.equal(normalizeDashboardRowSpan(40), 52);
+	assert.equal(normalizeDashboardRowSpan(14), 14);
+	assert.equal(normalizeDashboardRowSpan(40), 40);
+	assert.equal(normalizeDashboardRowSpan(87), 87);
 });
 
-test("interactive resizing moves through the same paired size vocabulary", () => {
-	assert.equal(snapDashboardColumnSpan(7), 6);
-	assert.equal(snapDashboardRowSpan(15), 13);
-	assert.equal(nextDashboardColumnSpan(6, 1), 9);
-	assert.equal(nextDashboardColumnSpan(9, -1), 6);
-	assert.equal(nextDashboardRowSpan(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, 1), 18);
-	assert.equal(nextDashboardRowSpan(28, 1), 36);
-	assert.equal(nextDashboardRowSpan(36, 1), 52);
+test("pointer sizing snaps to the nearest integer grid unit", () => {
+	assert.equal(snapDashboardColumnSpan(7.4), 7);
+	assert.equal(snapDashboardColumnSpan(7.6), 8);
+	assert.equal(snapDashboardRowSpan(15.4), 15);
+	assert.equal(snapDashboardRowSpan(15.6), 16);
+	assert.equal(snapDashboardColumnSpan(11.8, { maximum: 10 }), 10);
+	assert.equal(snapDashboardRowSpan(14.2, { minimum: 15 }), 15);
 });
 
-test("control recommendations use the shared compact and standard heights", () => {
+test("keyboard sizing advances one integer unit and accepts the caller's Shift step", () => {
+	assert.equal(nextDashboardColumnSpan(6, 1), 7);
+	assert.equal(nextDashboardColumnSpan(9, -1), 8);
+	assert.equal(nextDashboardColumnSpan(6, 2), 8);
+	assert.equal(nextDashboardRowSpan(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, 1), 14);
+	assert.equal(nextDashboardRowSpan(28, -1), 27);
+	assert.equal(nextDashboardRowSpan(36, 2), 38);
+});
+
+test("control recommendations remain defaults rather than a size whitelist", () => {
 	assert.equal(recommendedControlRowSpan({ value: false }), 13);
 	assert.equal(recommendedControlRowSpan({ value: "text", options: { multiline: true } }), 18);
+	assert.equal(normalizeDashboardRowSpan(19), 19);
 });
 
-test("content-sized projections grow past the persisted panel size without changing the catalog", () => {
+test("content-sized projections can grow beyond recommended panel heights", () => {
 	assert.equal(dashboardContentRowSpan(dashboardCardHeight(52), { minimum: 52 }), 52);
 	assert.equal(dashboardContentRowSpan(dashboardCardHeight(52) + 1, { minimum: 52 }), 53);
-	assert.equal(DASHBOARD_CONTROL_ROW_SPANS.at(-1), 52);
+	assert.equal(dashboardContentRowSpan(dashboardCardHeight(73), { minimum: 13 }), 73);
 });

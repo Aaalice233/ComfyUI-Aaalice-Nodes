@@ -44,7 +44,7 @@ test("source sync adds, renames, updates types, reorders, and preserves group ge
 	assert.equal(result.summary.reordered, 1, "reordered");
 	const managed = orderedItems(nextPage.items.filter((item) => item.groupId === nextGroup.id && item.groupSource));
 	assert.deepEqual(managed.map((item) => item.binding.controlId), ["cfg", "steps", "seed"]);
-	assert.equal(nextPage.items.find((item) => item.binding.controlId === "steps").layout.rowSpan, 18);
+	assert.equal(nextPage.items.find((item) => item.binding.controlId === "steps").layout.rowSpan, 14);
 	assert.equal(nextPage.items.find((item) => item.binding.controlId === "cfg").label, "Guidance");
 	assert.equal(nextPage.items.find((item) => item.binding.controlId === "cfg").binding.valueType, "boolean");
 });

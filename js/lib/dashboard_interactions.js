@@ -1,4 +1,4 @@
-/** Pointer-driven transient Dashboard V2 layout editing. */
+/** Pointer-driven transient Dashboard V3 integer-grid editing. */
 
 import { applyMarqueeSelection, containedIds, intersectingSelectionIds, nearestInDirection, nextClickSelection, selectionRectangle } from "./dashboard_selection.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN, nextDashboardColumnSpan, nextDashboardRowSpan, snapDashboardColumnSpan, snapDashboardRowSpan } from "./dashboard_sizing.js";
@@ -83,16 +83,18 @@ function showResizePreview(gesture, columnSpan, rowSpan) {
 		gesture.sizeLabel = document.createElement("span"); gesture.sizeLabel.className = "aa-dashboard-resize-size"; gesture.preview.append(gesture.sizeLabel);
 		gesture.preview.setAttribute("aria-hidden", "true");
 	}
-	const visibleColumnSpan = gesture.visibleColumns === 1 ? 1 : columnSpan;
+	const previewColumnSpan = gesture.autoColumnSpan ? gesture.projectedColumnSpan : columnSpan;
+	const previewRowSpan = gesture.autoRowSpan ? gesture.projectedRowSpan : rowSpan;
+	const visibleColumnSpan = gesture.visibleColumns === 1 ? 1 : previewColumnSpan;
 	gesture.preview.style.setProperty("--aa-dashboard-row", gesture.element.style.getPropertyValue("--aa-dashboard-row"));
 	gesture.preview.style.setProperty("--aa-dashboard-column", gesture.element.style.getPropertyValue("--aa-dashboard-column"));
 	gesture.preview.style.setProperty("--aa-dashboard-column-span", String(visibleColumnSpan));
-	gesture.preview.style.setProperty("--aa-dashboard-row-span", String(rowSpan));
+	gesture.preview.style.setProperty("--aa-dashboard-row-span", String(previewRowSpan));
 	gesture.preview.dataset.dropRow = gesture.element.dataset.dropRow;
 	gesture.preview.dataset.dropColumn = gesture.element.dataset.dropColumn;
 	gesture.preview.dataset.dropRowSpan = String(rowSpan);
 	gesture.preview.dataset.dropColumnSpan = String(columnSpan);
-	gesture.sizeLabel.textContent = `${columnSpan} × ${rowSpan}`;
+	gesture.sizeLabel.textContent = `${previewColumnSpan} × ${previewRowSpan}`;
 	if (gesture.preview.parentElement !== gesture.grid) gesture.grid.append(gesture.preview);
 }
 
@@ -145,6 +147,8 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 				itemId: itemEntry?.dataset.dashboardItemId || null, groupId: groupEntry?.dataset.dashboardGroupId || null,
 				elements: [entry], element: entry, grid,
 				sourceColumn: Math.max(0, Number(entry.dataset.dropColumn) || 0), sourceColumnSpan, sourceRowSpan,
+				projectedColumnSpan: Math.max(1, Number(entry.dataset.projectedColumnSpan) || sourceColumnSpan), projectedRowSpan: Math.max(1, Number(entry.dataset.projectedRowSpan) || sourceRowSpan),
+				autoColumnSpan: entry.dataset.dashboardAutoColumnSpan === "true", autoRowSpan: entry.dataset.dashboardAutoRowSpan === "true",
 				minColumnSpan: Math.max(1, Number(entry.dataset.dashboardMinColumnSpan) || (resizeKind === "item" ? DASHBOARD_MIN_CONTROL_COLUMN_SPAN : 1)),
 				minRowSpan: resizeKind === "item" ? Math.max(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, Number(entry.dataset.dashboardMinRowSpan) || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN) : 1,
 				sourceColumns: Math.max(1, Number(grid.dataset.dashboardSourceColumns) || DASHBOARD_GRID_COLUMNS),
@@ -168,7 +172,7 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		}
 		const selection = clickSelection(entry, { additive: additiveFor(event) }); const itemId = entry.dataset.dashboardItemId; const groupId = entry.dataset.dashboardGroupId;
 		const elements = itemId ? itemElements().filter((element) => selection.items.has(element.dataset.dashboardItemId)) : [entry];
-		const layouts = elements.map((element) => ({ row: Number(element.dataset.dropRow) || 0, column: Number(element.dataset.dropColumn) || 0, rowSpan: Number(element.dataset.dropRowSpan) || 1, columnSpan: Number(element.dataset.dropColumnSpan) || 1 }));
+		const layouts = elements.map((element) => ({ row: Number(element.dataset.projectedRow) || 0, column: Number(element.dataset.projectedColumn) || 0, rowSpan: Number(element.dataset.projectedRowSpan) || 1, columnSpan: Number(element.dataset.projectedColumnSpan) || 1 }));
 		const footprint = selectionFootprint(layouts); const selectionRect = elements.map((element) => element.getBoundingClientRect()).reduce((bounds, rect) => ({ left: Math.min(bounds.left, rect.left), top: Math.min(bounds.top, rect.top), right: Math.max(bounds.right, rect.right), bottom: Math.max(bounds.bottom, rect.bottom) }));
 		const columnSpan = footprint.columnSpan; const rowSpan = footprint.rowSpan;
 		const grabColumnOffset = grabSpanOffset(event.clientX, selectionRect.left, selectionRect.right - selectionRect.left, columnSpan);
@@ -190,8 +194,8 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			const columnDelta = gesture.visibleColumns === 1 ? 0 : Math.round(dx / Math.max(1, columnWidth + columnGap));
 			const rowDelta = Math.round(dy / Math.max(1, rowHeight + rowGap));
 			const maximumColumnSpan = gesture.sourceColumns - gesture.sourceColumn;
-			gesture.nextColumnSpan = snapDashboardColumnSpan(gesture.sourceColumnSpan + columnDelta, { minimum: gesture.minColumnSpan, maximum: maximumColumnSpan, fallback: gesture.sourceColumnSpan });
-			gesture.nextRowSpan = gesture.resizeKind === "group" ? gesture.sourceRowSpan : snapDashboardRowSpan(gesture.sourceRowSpan + rowDelta, { minimum: gesture.minRowSpan, fallback: gesture.sourceRowSpan });
+			gesture.nextColumnSpan = gesture.autoColumnSpan ? gesture.sourceColumnSpan : snapDashboardColumnSpan(gesture.sourceColumnSpan + columnDelta, { minimum: gesture.minColumnSpan, maximum: maximumColumnSpan, fallback: gesture.sourceColumnSpan });
+			gesture.nextRowSpan = gesture.resizeKind === "group" || gesture.autoRowSpan ? gesture.sourceRowSpan : snapDashboardRowSpan(gesture.sourceRowSpan + rowDelta, { minimum: gesture.minRowSpan, fallback: gesture.sourceRowSpan });
 			gesture.element.classList.add("is-resizing"); root.classList.add("is-dragging");
 			showResizePreview(gesture, gesture.nextColumnSpan, gesture.nextRowSpan); autoScroll(event.clientY); return;
 		}
@@ -231,10 +235,10 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			else onResizeItem?.(current.itemId, { columnSpan: current.nextColumnSpan, rowSpan: current.nextRowSpan });
 		}
 		else if (current.kind === "drag" && current.dragging && target) {
-			if (current.groupId) onDropGroup?.(current.groupId, { row: target.row });
+			if (current.groupId) onDropGroup?.(current.groupId, { row: target.row, column: target.column });
 			else {
-				// 同网格内保持精确落点；跨网格拖放改为在目标区域按空位追加，避免局部坐标错位重叠。
-				const precise = current.elements.every((element) => element.parentElement === target.grid);
+				// 同一十二列网格保留精确落点；跨网格或窄栏投影按目标区域空位追加，避免把视图坐标写回规范布局。
+				const precise = Number(target.grid.dataset.dashboardColumns) !== 1 && current.elements.every((element) => element.parentElement === target.grid);
 				onDropItems?.(current.itemIds, { groupId: target.groupId, row: target.row, column: target.column, precise });
 			}
 		}
@@ -249,6 +253,8 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			if (!entry || !grid) return;
 			const resizeKind = groupEntry && !itemEntry ? "group" : "item";
 			if (resizeKind === "group" && !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+			if (entry.dataset.dashboardAutoColumnSpan === "true" && ["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+			if (entry.dataset.dashboardAutoRowSpan === "true" && ["ArrowUp", "ArrowDown"].includes(event.key)) return;
 			const sourceColumns = Math.max(1, Number(grid.dataset.dashboardSourceColumns) || DASHBOARD_GRID_COLUMNS);
 			const visibleColumns = Math.max(1, Number(grid.dataset.dashboardColumns) || DASHBOARD_GRID_COLUMNS);
 			const sourceColumn = Math.max(0, Number(entry.dataset.dropColumn) || 0);

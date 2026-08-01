@@ -18,7 +18,7 @@ import {
 
 const binding = { provider: "aaalice-parameter", hostId: "host-a", controlId: "steps", valueType: "number" };
 const layout = (column = 0) => ({
-	version: 2,
+	version: 3,
 	pages: [{ id: "page-a", name: "Main", gridColumns: 12, tone: null, groups: [], items: [{ id: "item-a", kind: "control", binding, label: "Steps", groupId: null, layout: { row: 0, column, columnSpan: 6, rowSpan: 13 } }] }],
 });
 const values = (steps = 20) => ({ "aaalice-parameter:host-a:steps": { valueType: "number", payload: steps } });
@@ -48,6 +48,20 @@ test("preset management preserves identity and does not apply duplicates", () =>
 	state = removeDashboardPreset(state, originalId);
 	assert.equal(state.baselinePresetId, null);
 	assert.deepEqual(state.presets.map((preset) => preset.name), ["Portrait XL copy"]);
+});
+
+test("preset state migrates embedded Dashboard V2 snapshots to V3", () => {
+	const state = normalizeDashboardPresetState({
+		version: 1,
+		baselinePresetId: "preset-a",
+		presets: [{
+			id: "preset-a", name: "Legacy", values: {},
+			dashboard: { version: 2, pages: [{ id: "page-a", name: "Main", groups: [], items: [{ id: "item-a", kind: "control", binding, label: "Steps", groupId: null, layout: { row: 0, column: 1, columnSpan: 1, rowSpan: 14 } }] }] },
+		}],
+	});
+	assert.equal(state.presets[0].dashboard.version, 3);
+	assert.deepEqual(state.presets[0].dashboard.pages[0].items[0].layout, { row: 0, column: 6, columnSpan: 6, rowSpan: 14 });
+	assert.equal(state.baselinePresetId, "preset-a");
 });
 
 test("preset state rejects old value-only state and invalid payloads", () => {

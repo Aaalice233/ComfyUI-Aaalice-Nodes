@@ -1,4 +1,4 @@
-/** Pure workflow-owned Dashboard V2 model and preset codec. */
+/** Pure workflow-owned Dashboard V3 integer-grid model and V2 migration codec. */
 
 import {
 	DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN,
@@ -11,7 +11,7 @@ import {
 	recommendedGroupRowSpan,
 } from "./dashboard_sizing.js";
 
-export const DASHBOARD_VERSION = 2;
+export const DASHBOARD_VERSION = 3;
 export const DASHBOARD_TONES = Object.freeze(["neutral", "blue", "green", "amber", "purple", "red"]);
 
 export class DashboardModelError extends Error {
@@ -79,30 +79,33 @@ function assertUnique(id, ids) {
 	ids.add(id);
 }
 
+function layoutsOverlap(left, right) {
+	return left.column < right.column + right.columnSpan
+		&& left.column + left.columnSpan > right.column
+		&& left.row < right.row + right.rowSpan
+		&& left.row + left.rowSpan > right.row;
+}
+
 function assertNoOverlap(entries, scope) {
-	const cells = new Set();
-	for (const entry of entries) {
-		for (let row = entry.layout.row; row < entry.layout.row + entry.layout.rowSpan; row++) for (let column = entry.layout.column; column < entry.layout.column + entry.layout.columnSpan; column++) {
-			const cell = `${row}:${column}`; if (cells.has(cell)) throw new DashboardModelError(`Grid items overlap in ${scope}`, "overlap"); cells.add(cell);
+	for (let index = 0; index < entries.length; index++) {
+		for (let candidate = index + 1; candidate < entries.length; candidate++) {
+			if (layoutsOverlap(entries[index].layout, entries[candidate].layout)) throw new DashboardModelError(`Grid items overlap in ${scope}`, "overlap");
 		}
 	}
 }
 
 function repairNormalizedOverlaps(entries, columns) {
 	const placed = [];
-	for (const entry of [...entries].sort((left, right) => left.layout.row - right.layout.row || left.layout.column - right.layout.column)) {
+	for (const entry of [...entries].sort((left, right) => left.layout.row - right.layout.row || left.layout.column - right.layout.column || left.id.localeCompare(right.id))) {
 		const base = entry.layout;
 		const columnsToTry = [base.column, ...Array.from({ length: columns }, (_, column) => column).filter((column) => column !== base.column)];
-		let next = base;
-		for (let row = base.row; row < base.row + 10000; row++) {
-			const column = columnsToTry.find((candidateColumn) => candidateColumn + base.columnSpan <= columns && !placed.some((other) => {
-				return row < other.row + other.rowSpan && row + base.rowSpan > other.row
-					&& candidateColumn < other.column + other.columnSpan && candidateColumn + base.columnSpan > other.column;
-			}));
-			if (column != null) { next = { ...base, row, column }; break; }
-		}
-		entry.layout = next;
-		placed.push(next);
+		const rowsToTry = [...new Set([base.row, ...placed.map((layout) => layout.row + layout.rowSpan).filter((row) => row >= base.row)])].sort((left, right) => left - right);
+		const next = rowsToTry.map((row) => {
+			const column = columnsToTry.find((candidateColumn) => candidateColumn + base.columnSpan <= columns && !placed.some((other) => layoutsOverlap({ ...base, row, column: candidateColumn }, other)));
+			return column == null ? null : { ...base, row, column };
+		}).find(Boolean);
+		entry.layout = next || { ...base, row: Math.max(base.row, ...placed.map((layout) => layout.row + layout.rowSpan)) };
+		placed.push(entry.layout);
 	}
 }
 
@@ -112,13 +115,14 @@ function groupContentColumnSpan(items) {
 
 export function normalizeDashboard(raw) {
 	if (raw == null) return emptyDashboard();
-	if (raw?.version !== DASHBOARD_VERSION) throw new DashboardModelError(`Unsupported dashboard version: ${raw?.version ?? "missing"}`, "unsupported-version");
+	const sourceVersion = Number(raw?.version);
+	if (![2, DASHBOARD_VERSION].includes(sourceVersion)) throw new DashboardModelError(`Unsupported dashboard version: ${raw?.version ?? "missing"}`, "unsupported-version");
 	const ids = new Set(); const result = emptyDashboard();
 	if (!Array.isArray(raw.pages)) throw new DashboardModelError("Dashboard pages must be an array");
 	for (const sourcePage of raw.pages) {
 		assertUnique(sourcePage?.id, ids);
-		const legacyColumns = sourcePage?.gridColumns !== DASHBOARD_GRID_COLUMNS;
-		if (sourcePage?.gridColumns != null && sourcePage.gridColumns !== DASHBOARD_GRID_COLUMNS) throw new DashboardModelError(`Unsupported dashboard grid: ${sourcePage.gridColumns}`, "unsupported-grid");
+		const legacyColumns = sourceVersion === 2 && sourcePage?.gridColumns == null;
+		if (!legacyColumns && sourcePage?.gridColumns !== DASHBOARD_GRID_COLUMNS) throw new DashboardModelError(`Unsupported dashboard grid: ${sourcePage?.gridColumns ?? "missing"}`, "unsupported-grid");
 		const page = { id: sourcePage.id, name: String(sourcePage.name || "Page"), gridColumns: DASHBOARD_GRID_COLUMNS, tone: DASHBOARD_TONES.includes(sourcePage.tone) ? sourcePage.tone : null, items: [], groups: [] };
 		if (!Array.isArray(sourcePage.groups) || !Array.isArray(sourcePage.items)) throw new DashboardModelError("Dashboard page collections are invalid");
 		for (const sourceGroup of sourcePage.groups) {

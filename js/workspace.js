@@ -17,7 +17,7 @@ import { addItems, addSeparator, assignToGroup, compactDashboard, createGroup, d
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { SOURCE_SYNC_STATUS, buildSourceSnapshot, inspectSourceGroup } from "./lib/dashboard_source_sync.js";
 import { bindDashboardBoundaryPaging, bindDashboardInteractions } from "./lib/dashboard_interactions.js";
-import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_PANEL_CONTROL_ROW_SPAN, dashboardColumnsForWidth } from "./lib/dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { closeImagePreview, createSelectableImagePreview } from "./lib/image_preview.js";
 import { bindPromptEntryDetails, closePromptEntryDetails } from "./lib/prompt_entry_details.js";
@@ -147,8 +147,9 @@ function graphNodes() { return app.graph?._nodes || []; }
 function dashboard() {
 	app.graph.extra ||= {};
 	try {
-		const value = normalizeDashboard(app.graph.extra[EXTRA_KEY] ?? null); dashboardModelError = null;
-		if (!app.graph.extra[EXTRA_KEY]) app.graph.extra[EXTRA_KEY] = value;
+		const source = app.graph.extra[EXTRA_KEY] ?? null;
+		const value = normalizeDashboard(source); dashboardModelError = null;
+		if (!source || source.version !== value.version) app.graph.extra[EXTRA_KEY] = value;
 		return value;
 	} catch (error) { dashboardModelError = error; return emptyDashboard(); }
 }
@@ -162,7 +163,10 @@ function updateDashboard(callback) {
 
 function dashboardPresetState() {
 	try {
-		const value = normalizeDashboardPresetState(app.graph?.extra?.[DASHBOARD_PRESETS_EXTRA_KEY] ?? null); dashboardPresetModelError = null; return value;
+		const source = app.graph?.extra?.[DASHBOARD_PRESETS_EXTRA_KEY] ?? null;
+		const value = normalizeDashboardPresetState(source); dashboardPresetModelError = null;
+		if (source && source.presets?.some((preset) => preset.dashboard?.version !== value.presets.find((entry) => entry.id === preset.id)?.dashboard.version)) app.graph.extra[DASHBOARD_PRESETS_EXTRA_KEY] = value;
+		return value;
 	} catch (error) { dashboardPresetModelError = error; return emptyDashboardPresetState(); }
 }
 
@@ -389,10 +393,24 @@ async function removePage(page) {
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
 
-function liveControlRowSpan(item) {
-	if (item.binding?.valueType !== "quick-group-manager") return 0;
-	try { return Number(resolve(item.binding)?.rowSpan) || DASHBOARD_PANEL_CONTROL_ROW_SPAN; }
-	catch { return DASHBOARD_PANEL_CONTROL_ROW_SPAN; }
+function resolvePageControls(page) {
+	const controls = new Map(); const sizeProjections = new Map();
+	for (const item of page?.items || []) {
+		if (item.kind !== "control") continue;
+		let resolved;
+		try { resolved = resolve(item.binding); }
+		catch (error) { resolved = { status: "error", error, binding: item.binding }; }
+		controls.set(item.id, resolved);
+		if (resolved.status !== "ok" || !resolved.layoutProjection || typeof resolved.layoutProjection !== "object") continue;
+		const projection = {};
+		if (Number.isFinite(Number(resolved.layoutProjection.columnSpan)) && Number(resolved.layoutProjection.columnSpan) > 0) projection.columnSpan = normalizeDashboardColumnSpan(resolved.layoutProjection.columnSpan);
+		if (Number.isFinite(Number(resolved.layoutProjection.rowSpan)) && Number(resolved.layoutProjection.rowSpan) > 0) {
+			const minimum = Math.max(DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, Number(resolved.minRowSpan) || DASHBOARD_DEFAULT_CONTROL_ROW_SPAN);
+			projection.rowSpan = normalizeDashboardRowSpan(resolved.layoutProjection.rowSpan, { minimum });
+		}
+		if (Object.keys(projection).length) sizeProjections.set(item.id, projection);
+	}
+	return { controls, sizeProjections };
 }
 
 function resolveGroupTitle(group) {
@@ -847,17 +865,14 @@ function syncCurrentPageSourceGroups(pageId) {
 function renderDashboard(container, host) {
 	container.classList.toggle("is-layout-editing", editMode);
 	const model = dashboard(); const page = currentPage(model);
-	const layoutPage = page ? { ...page, items: page.items.map((item) => {
-		if (item.binding?.valueType !== "quick-group-manager") return item;
-		const rowSpan = Math.max(Number(item.layout?.rowSpan) || 0, DASHBOARD_PANEL_CONTROL_ROW_SPAN, liveControlRowSpan(item));
-		return rowSpan === item.layout?.rowSpan ? item : { ...item, layout: { ...item.layout, rowSpan } };
-	}), groups: page.groups.map((group) => {
+	const resolvedPage = page ? { ...page, groups: page.groups.map((group) => {
 		const sync = group.source ? sourceGroupViewState(page, group) : null;
 		return { ...group, name: resolveGroupTitle(group), syncStatus: sync?.status || null, syncSummary: sync?.summary || null, syncReason: sync?.reason || "" };
 	}) } : null;
+	const { controls: resolvedControls, sizeProjections } = resolvePageControls(resolvedPage);
 	const viewState = workspaceViewState.dashboard;
 	if (dashboardModelError) {
-		container.append(emptyState({ iconName: "statusWarning", className: "aa-workspace-empty aa-dashboard-unsupported", title: t("aaalice.workspace.unsupported.title", "Old dashboard layout is unsupported"), description: t("aaalice.workspace.unsupported.description", "Dashboard V2 uses a new grid model. Reset the unpublished layout to continue."), actions: [button({ label: t("aaalice.workspace.unsupported.reset", "Reset dashboard"), iconName: "delete", variant: "danger", onClick: () => {
+		container.append(emptyState({ iconName: "statusWarning", className: "aa-workspace-empty aa-dashboard-unsupported", title: t("aaalice.workspace.unsupported.title", "Old dashboard layout is unsupported"), description: t("aaalice.workspace.unsupported.description", "This dashboard uses an unsupported layout model. Reset it to continue."), actions: [button({ label: t("aaalice.workspace.unsupported.reset", "Reset dashboard"), iconName: "delete", variant: "danger", onClick: () => {
 			const graph = app.graph; graph?.beforeChange?.(); try { graph.extra ||= {}; graph.extra[EXTRA_KEY] = emptyDashboard(); dashboardModelError = null; activePageId = null; } finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
 		} })] })); return;
 	}
@@ -1018,9 +1033,11 @@ function renderDashboard(container, host) {
 			});
 			separator.dataset.searchText = String(item.label || "").toLocaleLowerCase(); return separator;
 		}
-		let resolved;
-		try { resolved = resolve(item.binding); }
-		catch (error) { resolved = { status: "error", error, binding: item.binding }; }
+		let resolved = resolvedControls.get(item.id);
+		if (!resolved) {
+			try { resolved = resolve(item.binding); }
+			catch (error) { resolved = { status: "error", error, binding: item.binding }; }
+		}
 		let control;
 		if (resolved.status === "ok") {
 			try {
@@ -1043,7 +1060,7 @@ function renderDashboard(container, host) {
 		card.dataset.dashboardItemId = item.id; card.dataset.searchText = String(cardTitle).toLocaleLowerCase(); return card;
 	};
 	const columns = dashboardColumnsForWidth(container.clientWidth);
-	const grid = createDashboardGrid({ page: layoutPage, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu, onSyncGroup: (group) => syncDashboardSourceGroup(page.id, group.id),
+	const grid = createDashboardGrid({ page: resolvedPage, sizeProjections, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu, onSyncGroup: (group) => syncDashboardSourceGroup(page.id, group.id),
 		onRenameGroup: (group, name) => updateDashboard((current) => {
 			const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id);
 			if (target) target.nameOverride = name;
@@ -1140,7 +1157,7 @@ function renderDashboard(container, host) {
 	};
 	dashboardInteraction = bindDashboardInteractions(grid, { editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds,
 		onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; updateSelectionUi(); },
-		onDropItems: (ids, target) => updateDashboard((current) => target.precise === false ? moveItems(current, ids, page.id, { groupId: target.groupId }) : moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row)),
+		onDropItems: (ids, target) => updateDashboard((current) => target.precise === false ? moveItems(current, ids, page.id, { groupId: target.groupId }) : moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row, target.column)),
 		onResizeItem: (itemId, size) => updateDashboard((current) => resizeItem(current, itemId, size)),
 		onResizeGroup: (groupId, size) => updateDashboard((current) => resizeGroup(current, groupId, size)),
 	});
