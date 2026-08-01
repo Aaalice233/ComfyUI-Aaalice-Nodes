@@ -251,8 +251,12 @@ function render(node) {
 		const active = document.activeElement;
 		if (active && root.contains(active)) return;
 		if (active instanceof HTMLElement && active.matches('input, textarea, select, [contenteditable="true"]')) return;
+		list.classList.add("is-wheel-capture-focused");
 		list.focus({ preventScroll: true });
 	});
+	const clearWheelCaptureFocus = () => list.classList.remove("is-wheel-capture-focused");
+	list.addEventListener("keydown", clearWheelCaptureFocus);
+	list.addEventListener("blur", clearWheelCaptureFocus);
 	const query = String(node._aaalicePromptQuery || "");
 	const searchOpen = Boolean(node._aaalicePromptSearchOpen);
 	const toolbar = el("div", { className: `aa-prompt-selector-toolbar${searchOpen ? " is-searching" : ""}`, attrs: { role: "search", "aria-label": t("aaalice.promptSelector.filters", "Prompt filters") } });
