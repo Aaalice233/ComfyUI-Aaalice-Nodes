@@ -119,13 +119,8 @@ export function renderQuickGroupManagerControl(spec, port = {}) {
 		}
 		syncHeader(snapshot);
 		const list = el("div", { className: "aa-quick-group-control__list", attrs: {
-			tabindex: "0", role: "list", "aria-label": labels.groups || DEFAULT_LABELS.groups, "data-capture-wheel": "true",
+			role: "list", "aria-label": labels.groups || DEFAULT_LABELS.groups,
 		} });
-		list.addEventListener("pointerenter", () => {
-			const active = document.activeElement;
-			if (active && active !== document.body && !root.contains(active) && active.matches?.("input, textarea, select, [contenteditable='true']")) return;
-			list.focus({ preventScroll: true });
-		});
 		if (snapshot.visibleGroups.length) {
 			for (const group of snapshot.visibleGroups) list.append(createGroupRow(group, manager, labels, draw, port.onError));
 		} else {

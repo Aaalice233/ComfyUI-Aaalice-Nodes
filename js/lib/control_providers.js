@@ -3,12 +3,27 @@
 import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
 import { partitionParameterSections } from "./parameter_sections.js";
 import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
-import { DASHBOARD_PANEL_CONTROL_ROW_SPAN, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
+import { DASHBOARD_PANEL_CONTROL_ROW_SPAN, dashboardContentRowSpan, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
 import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
 import { applyQuickGroupManagerPreset, isQuickGroupManager, quickGroupManagerPresetSnapshot, quickGroupManagerSnapshot, validateQuickGroupManagerPreset } from "./quick_group_manager_runtime.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
+
+const QUICK_GROUP_MANAGER_CARD_PADDING = 15;
+const QUICK_GROUP_MANAGER_HEADER_HEIGHT = 32;
+const QUICK_GROUP_MANAGER_LIST_PADDING = 2;
+const QUICK_GROUP_MANAGER_ROW_HEIGHT = 39;
+const QUICK_GROUP_MANAGER_ROW_GAP = 4;
+const QUICK_GROUP_MANAGER_EMPTY_HEIGHT = 70;
+
+function quickGroupManagerRowSpan(snapshot) {
+	const count = Array.isArray(snapshot?.visibleGroups) ? snapshot.visibleGroups.length : 0;
+	const listHeight = count
+		? (count * QUICK_GROUP_MANAGER_ROW_HEIGHT) + (Math.max(0, count - 1) * QUICK_GROUP_MANAGER_ROW_GAP) + QUICK_GROUP_MANAGER_LIST_PADDING
+		: QUICK_GROUP_MANAGER_EMPTY_HEIGHT + QUICK_GROUP_MANAGER_LIST_PADDING;
+	return dashboardContentRowSpan(QUICK_GROUP_MANAGER_CARD_PADDING + QUICK_GROUP_MANAGER_HEADER_HEIGHT + listHeight, { minimum: DASHBOARD_PANEL_CONTROL_ROW_SPAN });
+}
 
 export function ensureHostId(node) {
 	node.properties ||= {};
@@ -202,6 +217,7 @@ controlProviders.register({
 		return {
 			status: "ok", family: "comfy", kind: "quick-group-manager", controlId: "manager", node, control: node,
 			label: quickGroupManagerTitle(node), value: snapshot.state, options: { manager: node },
+			rowSpan: quickGroupManagerRowSpan(snapshot),
 			presettable: true, minRowSpan: DASHBOARD_PANEL_CONTROL_ROW_SPAN,
 			readPresetValue() { return quickGroupManagerPresetSnapshot(node); },
 			validatePresetValue(entry) {

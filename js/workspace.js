@@ -365,6 +365,12 @@ async function removePage(page) {
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
 
+function liveControlRowSpan(item) {
+	if (item.binding?.valueType !== "quick-group-manager") return 0;
+	try { return Number(resolve(item.binding)?.rowSpan) || DASHBOARD_PANEL_CONTROL_ROW_SPAN; }
+	catch { return DASHBOARD_PANEL_CONTROL_ROW_SPAN; }
+}
+
 function resolveGroupTitle(group) {
 	return group.nameOverride != null ? group.nameOverride : group.name;
 }
@@ -794,7 +800,7 @@ function renderDashboard(container, host) {
 	const model = dashboard(); const page = currentPage(model);
 	const layoutPage = page ? { ...page, items: page.items.map((item) => {
 		if (item.binding?.valueType !== "quick-group-manager") return item;
-		const rowSpan = Math.max(Number(item.layout?.rowSpan) || 0, DASHBOARD_PANEL_CONTROL_ROW_SPAN);
+		const rowSpan = Math.max(Number(item.layout?.rowSpan) || 0, DASHBOARD_PANEL_CONTROL_ROW_SPAN, liveControlRowSpan(item));
 		return rowSpan === item.layout?.rowSpan ? item : { ...item, layout: { ...item.layout, rowSpan } };
 	}), groups: page.groups.map((group) => {
 		const sync = group.source ? sourceGroupViewState(page, group) : null;

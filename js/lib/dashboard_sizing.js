@@ -116,6 +116,15 @@ export function dashboardCardHeight(rowSpan) {
 	return (rowSpan * DASHBOARD_GRID_TRACK_HEIGHT) + ((rowSpan - 1) * DASHBOARD_GRID_TRACK_GAP) - (DASHBOARD_CARD_GAP - DASHBOARD_GRID_TRACK_GAP);
 }
 
+/** Calculate a transient content footprint without changing the persisted size vocabulary. */
+export function dashboardContentRowSpan(contentHeight, { minimum = 1 } = {}) {
+	const height = Number(contentHeight);
+	let rowSpan = Math.max(1, Math.ceil(Number(minimum) || 1));
+	if (!Number.isFinite(height)) return rowSpan;
+	while (dashboardCardHeight(rowSpan) < Math.max(0, height)) rowSpan += 1;
+	return rowSpan;
+}
+
 export function recommendedControlRowSpan({ value, options = {} } = {}) {
 	if (options.multiline) return DASHBOARD_STANDARD_CONTROL_ROW_SPAN;
 	return typeof value === "boolean" ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN;

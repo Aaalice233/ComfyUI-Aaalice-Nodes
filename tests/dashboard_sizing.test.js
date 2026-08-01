@@ -6,6 +6,8 @@ import {
 	DASHBOARD_CONTROL_ROW_SPANS,
 	DASHBOARD_SIZE_CATALOG,
 	DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
+	dashboardCardHeight,
+	dashboardContentRowSpan,
 	dashboardSizeToken,
 	nextDashboardColumnSpan,
 	nextDashboardRowSpan,
@@ -48,4 +50,10 @@ test("interactive resizing moves through the same paired size vocabulary", () =>
 test("control recommendations use the shared compact and standard heights", () => {
 	assert.equal(recommendedControlRowSpan({ value: false }), 13);
 	assert.equal(recommendedControlRowSpan({ value: "text", options: { multiline: true } }), 18);
+});
+
+test("content-sized projections grow past the persisted panel size without changing the catalog", () => {
+	assert.equal(dashboardContentRowSpan(dashboardCardHeight(52), { minimum: 52 }), 52);
+	assert.equal(dashboardContentRowSpan(dashboardCardHeight(52) + 1, { minimum: 52 }), 53);
+	assert.equal(DASHBOARD_CONTROL_ROW_SPANS.at(-1), 52);
 });

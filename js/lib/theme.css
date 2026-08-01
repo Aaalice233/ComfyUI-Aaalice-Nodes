@@ -3682,16 +3682,16 @@ button.aa-discord-share-entry--topbar:disabled {
 }
 
 .aa-control-card[data-control-kind="quick-group-manager"] { display: flex; min-height: 0; flex-direction: column; }
-.aa-control-card[data-control-kind="quick-group-manager"] > .aa-quick-group-control { flex: 1 1 auto; min-height: 0; }
+.aa-control-card[data-control-kind="quick-group-manager"] > .aa-quick-group-control { flex: 0 0 auto; min-height: auto; }
 .aa-quick-group-control {
 	display: flex;
 	min-width: 0;
 	min-height: 0;
-	height: 100%;
+	height: auto;
 	flex-direction: column;
 	gap: 6px;
 	padding: 0;
-	overflow: hidden;
+	overflow: visible;
 	border: 0;
 	border-radius: 0;
 	background: transparent;
@@ -3729,8 +3729,7 @@ button.aa-discord-share-entry--topbar:disabled {
 .aa-quick-group-control__mode button .aa-ui-icon { width: 14px; height: 14px; opacity: .62; transition: color .18s ease, opacity .18s ease, transform .18s cubic-bezier(.2, .82, .22, 1); }
 .aa-quick-group-control__mode button.is-active .aa-ui-icon { color: var(--qgm-mode-color); opacity: 1; transform: scale(1.08); }
 .aa-quick-group-control__mode button:active { transform: scale(.96); }
-.aa-quick-group-control__list { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; flex-direction: column; gap: 4px; padding: 1px 3px 1px 1px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--aa-ui-border-soft) transparent; scrollbar-width: thin; }
-.aa-quick-group-control__list:focus-visible { outline: 1px solid color-mix(in srgb, var(--aa-ui-accent) 48%, transparent); outline-offset: -1px; border-radius: 6px; }
+.aa-quick-group-control__list { display: flex; min-width: 0; min-height: auto; flex: 0 0 auto; flex-direction: column; gap: 4px; padding: 1px 3px 1px 1px; overflow: visible; }
 .aa-quick-group-control__row { display: grid; min-width: 0; min-height: 39px; flex: 0 0 auto; grid-template-columns: 4px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 4px 5px; border: 1px solid transparent; border-radius: 7px; background: color-mix(in srgb, var(--aa-ui-control) 58%, transparent); cursor: pointer; transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, opacity .18s ease; }
 .aa-quick-group-control__row:hover, .aa-quick-group-control__row:focus-visible { border-color: transparent; background: color-mix(in srgb, var(--aa-ui-accent) 7%, var(--aa-ui-control)); }
 .aa-quick-group-control__row.is-enabled { border-color: transparent; background: color-mix(in srgb, var(--aa-ui-accent) 10%, var(--aa-ui-control)); box-shadow: inset 3px 0 color-mix(in srgb, var(--aa-ui-accent) 76%, transparent); }
