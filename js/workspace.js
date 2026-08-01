@@ -1153,7 +1153,7 @@ function renderDashboard(container, host) {
 	if (pageSnapshot) {
 		pageSnapshot.classList.add("is-page-leaving", `is-page-leaving-${pageTransition.direction}`);
 		pageSnapshot.addEventListener("animationend", () => pageSnapshot.remove(), { once: true });
-		setTimeout(() => pageSnapshot.remove(), 360);
+		setTimeout(() => pageSnapshot.remove(), 260);
 	}
 	const pageStage = el("div", { className: "aa-dashboard-page-stage", children: [...(pageSnapshot ? [pageSnapshot] : []), scroll] });
 	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, selectionBar.root] }); container.append(body);

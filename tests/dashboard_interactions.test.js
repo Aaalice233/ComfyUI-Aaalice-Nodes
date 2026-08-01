@@ -1,8 +1,37 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { grabSpanOffset, selectionFootprint } from "../js/lib/dashboard_interactions.js";
+import { bindDashboardBoundaryPaging, grabSpanOffset, selectionFootprint } from "../js/lib/dashboard_interactions.js";
 import { applyMarqueeSelection, containedIds, nearestInDirection, nextClickSelection } from "../js/lib/dashboard_selection.js";
+
+function boundaryScroller() {
+	let wheelListener = null;
+	return {
+		scrollHeight: 100,
+		clientHeight: 100,
+		scrollTop: 0,
+		isConnected: true,
+		addEventListener(type, listener) { if (type === "wheel") wheelListener = listener; },
+		removeEventListener(type, listener) { if (type === "wheel" && wheelListener === listener) wheelListener = null; },
+		wheel(deltaY = 100) {
+			let prevented = false;
+			wheelListener?.({ defaultPrevented: false, ctrlKey: false, deltaX: 0, deltaY, preventDefault() { prevented = true; } });
+			return prevented;
+		},
+	};
+}
+
+test("boundary paging promptly re-arms after a short wheel pause", async (context) => {
+	const scroller = boundaryScroller(); const state = {}; let advances = 0;
+	const dispose = bindDashboardBoundaryPaging(scroller, { state, canAdvance: () => true, onAdvance: () => { advances += 1; } });
+	context.after(() => { dispose(); clearTimeout(state.resetTimer); });
+	assert.equal(scroller.wheel(), true);
+	assert.equal(scroller.wheel(), false);
+	assert.equal(advances, 1);
+	await new Promise((resolve) => setTimeout(resolve, 120));
+	assert.equal(scroller.wheel(), true);
+	assert.equal(advances, 2);
+});
 
 test("drag grab offset preserves the pointer anchor across grid spans", () => {
 	assert.equal(grabSpanOffset(150, 0, 300, 6), 3);

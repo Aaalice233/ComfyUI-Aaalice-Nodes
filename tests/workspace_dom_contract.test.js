@@ -625,6 +625,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /backdrop-filter: blur\(12px\)/);
 	assert.match(workspace, /initialEdge: detail\.source === "boundary" && direction === "backward" \? "bottom" : "top"/);
 	assert.match(workspace, /aa-dashboard-scroll\$\{pageTransitionClass\}/);
+	assert.match(dashboardInteractions, /PAGE_GESTURE_SETTLE_DELAY = 80/);
 	assert.match(dashboardInteractions, /export function bindDashboardBoundaryPaging/);
 	assert.match(dashboardInteractions, /isEnabled = \(\) => true/);
 	assert.match(dashboardInteractions, /event\.defaultPrevented/);
@@ -645,8 +646,9 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /@keyframes aa-dashboard-page-forward-out/);
 	assert.match(theme, /@keyframes aa-dashboard-page-backward-in/);
 	assert.match(theme, /@keyframes aa-dashboard-page-backward-out/);
-	assert.match(theme, /\.aa-dashboard-scroll\.is-page-entering-forward/);
-	assert.match(theme, /\.aa-dashboard-scroll\.is-page-leaving-forward/);
+	assert.match(theme, /\.aa-dashboard-scroll\.is-page-entering-forward \{[^}]*animation:[^;]*\.18s/);
+	assert.match(theme, /\.aa-dashboard-scroll\.is-page-leaving-forward \{[^}]*animation:[^;]*\.18s/);
+	assert.match(workspace, /setTimeout\(\(\) => pageSnapshot\.remove\(\), 260\)/);
 	assert.match(theme, /prefers-reduced-motion: reduce[\s\S]*\.aa-dashboard-scroll\.is-page-entering/);
 });
 

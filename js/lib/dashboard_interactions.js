@@ -4,8 +4,9 @@ import { applyMarqueeSelection, containedIds, intersectingSelectionIds, nearestI
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN, nextDashboardColumnSpan, nextDashboardRowSpan, snapDashboardColumnSpan, snapDashboardRowSpan } from "./dashboard_sizing.js";
 
 const DRAG_THRESHOLD = 5;
+const PAGE_GESTURE_SETTLE_DELAY = 80;
 
-export function bindDashboardBoundaryPaging(scroller, { state = {}, isEnabled = () => true, canAdvance = () => false, canRetreat = () => false, onAdvance, onRetreat, settleDelay = 220 } = {}) {
+export function bindDashboardBoundaryPaging(scroller, { state = {}, isEnabled = () => true, canAdvance = () => false, canRetreat = () => false, onAdvance, onRetreat, settleDelay = PAGE_GESTURE_SETTLE_DELAY } = {}) {
 	const armNextGesture = () => {
 		clearTimeout(state.resetTimer);
 		state.resetTimer = setTimeout(() => { state.locked = false; }, settleDelay);
