@@ -58,7 +58,8 @@
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,quick_group_manager,numeric,boolean,choice,text,taglist,image,image_compare,image_output,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、QuickGroupManager 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{param_model,parameter_option_sources,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、动态选项来源适配、校验、差异和可单测规划 |
 | 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
-| DOM 与媒体辅助 | `js/lib/{dom_widget_resize,node_accent,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 缩放命中、节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
+| 节点缩放 | `js/node_resize.js`、`js/lib/dom_widget_resize.js` | 原生 widget 节点登记、Classic 四角命中让渡、缩放期 DOM 失效和生命周期清理 |
+| DOM 与媒体辅助 | `js/lib/{node_accent,image_reference,image_upload,safe_markdown,simple_notify_runtime}.js`、`js/vendor/` | 节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
 
 共享 `js/lib` 模块不得自行注册扩展或拥有工作流状态。业务入口负责生命周期和画布事务，纯模型保持无 DOM、无 ComfyUI 运行时依赖。
@@ -251,6 +252,8 @@ const unregister = registerParameterOptionSourceAdapter({
 - 动态槽变化由共享提交器原子发布：先更新所属图的公开 slot 数组，再刷新 LiteGraph concrete snapshot，并在节点所属 `graph` 发布官方槽标签事件；布局模块不得直接维护私有 concrete 数组或劫持 `_setConcreteSlots()`。不得恢复隐藏槽数组。
 - DOM widget 通过 `getMinHeight()` 声明与当前几何无关的稳定内容下限。Classic 只有内容本身定义最小高度且界面不要求再次缩短时才可走 LiteGraph grow-only 路径；可手动缩放的列表节点使用固定下限和内部滚动。Nodes 2.0 尺寸继续由原生 DOM 测量持有。
 - `computeSize()`、`getMinHeight()` 和布局刷新不得读取当前 `node.size`、已拉伸 wrapper 或 `scrollHeight` 后再作为最小值，否则会形成只增不减的尺寸反馈环。
+- Classic 的 `LGraphCanvas` 先解析 `getWidgetOnPos()`，再检查 `findResizeDirection()`；底部原生控件即使没有自绘 DOM 也会压缩或吞掉角区。`js/node_resize.js` 当前为 `SimpleNotify`、`GroupIsEnabled` 与 `SimpleStringSplit` 安装共享 passthrough；全尺寸 DOM 节点由各自业务入口安装同一 helper。
+- 固定节点的 `resizable = false` 属于 ComfyUI 宿主契约，缩放支持不覆盖该状态。Nodes 2.0 的四个原生 DOM 手柄同样由宿主拥有；业务层不绘制替代手柄，只保证控件不覆盖命中，并同步真实内容层与布局尺寸。
 - 全尺寸 DOM widget 的 wrapper 与业务根不接收指针，只让真实控件命中；缩放期间全部 DOM 后代让出事件，保证 LiteGraph 左右下角原生缩放手柄持续可用。
 - Provider 可返回非持久的 `layoutProjection`（`rowSpan` / `columnSpan`）描述当前内容占位；Dashboard 使用同一矩形投影算法在页面和组内消解碰撞并重排后续项，但渲染元素的 `data-drop-*` 与工作流中的规范布局仍保留原值。QuickGroupManager 复用该通用投影，按当前可见组数量生成临时高度，不写回持久尺寸；组列表不建立内部滚动，`graphChanged` 不得替换为状态轮询。
 - ResolutionPreset 使用固定内容下限、内部坐标板和两个真实原生输出槽；空白画布不接收指针，只有三个控制柄和表单控件命中。
