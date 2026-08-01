@@ -49,6 +49,7 @@ import {
 	PARAMETER_NODE_LAYOUT,
 	computeParameterLayout,
 	drawParameterStaticLayer,
+	invalidateParameterLayout,
 	syncNativeOutputLayout,
 } from "./lib/parameter_layout.js";
 import {
@@ -63,6 +64,7 @@ import { parameterControlSpec } from "./lib/controls/specs.js";
 const NODE = "ParameterPanel";
 const MIN_WIDTH = PARAMETER_NODE_LAYOUT.minWidth;
 const mountedParameterPanels = new Set();
+const pendingVueOutputPanels = new Set();
 let vueOutputObserver = null;
 let vueOutputFrame = 0;
 let dynamicOptionsRefreshPromise = null;
@@ -224,45 +226,91 @@ function ensureParameterPanelMenu(node) {
 	};
 }
 
-function markVueOutputs(node) {
-	if (typeof document === "undefined") return;
-	const id = String(node.id);
-	for (const element of document.querySelectorAll("[data-node-id]")) {
-		if (element.getAttribute("data-node-id") !== id) continue;
-		const layout = node._aaaliceParameterLayout || computeParameterLayout(node);
+function usesVueNodes() {
+	return globalThis.LiteGraph?.vueNodesMode === true || app.canvas?.vueNodesMode === true;
+}
+
+function markVueOutputElement(element, layout, rows) {
+	const slots = [...element.querySelectorAll(".lg-slot--output")];
+	if (!slots.length) return;
+	element.classList.add("aaalice-parameter-panel-node");
+	element.style.setProperty("--aaalice-parameter-content-height", `${layout.height}px`);
+	element.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
+	element.style.setProperty("--aaalice-output-slot-height", `${PARAMETER_NODE_LAYOUT.outputSlotHeight}px`);
+	const outputColumn = slots[0]?.parentElement;
+	const slotLayer = outputColumn?.parentElement;
+	const body = slotLayer?.parentElement;
+	const widgets = body?.querySelector?.(".lg-node-widgets");
+	outputColumn?.classList.add("aaalice-parameter-output-column");
+	slotLayer?.classList.add("aaalice-parameter-slot-layer");
+	body?.classList.add("aaalice-parameter-node-body");
+	widgets?.classList.add("aaalice-parameter-widget-layer");
+	for (let index = 0; index < slots.length; index += 1) {
+		const row = rows.get(index);
+		slots[index].style.setProperty("--aaalice-output-top", `${Math.max(0, Number(row?.output?.top || 0) - PARAMETER_NODE_LAYOUT.outputSlotHeight / 2)}px`);
+	}
+}
+
+function markVueOutputs(panels) {
+	if (!usesVueNodes() || typeof document === "undefined") return;
+	const panelsById = new Map();
+	for (const panel of panels) {
+		if (!panel?.graph) continue;
+		const id = String(panel.id);
+		const layout = panel._aaaliceParameterLayout || computeParameterLayout(panel);
 		const rows = new Map(layout.rows.filter((row) => row.kind === "parameter").map((row) => [row.index, row]));
-		const slots = [...element.querySelectorAll(".lg-slot--output")];
-		if (!slots.length) continue;
-		element.classList.add("aaalice-parameter-panel-node");
-		element.style.setProperty("--aaalice-parameter-content-height", `${layout.height}px`);
-		element.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
-		element.style.setProperty("--aaalice-output-slot-height", `${PARAMETER_NODE_LAYOUT.outputSlotHeight}px`);
-		const outputColumn = slots[0]?.parentElement;
-		const slotLayer = outputColumn?.parentElement;
-		const body = slotLayer?.parentElement;
-		const widgets = body?.querySelector?.(".lg-node-widgets");
-		outputColumn?.classList.add("aaalice-parameter-output-column");
-		slotLayer?.classList.add("aaalice-parameter-slot-layer");
-		body?.classList.add("aaalice-parameter-node-body");
-		widgets?.classList.add("aaalice-parameter-widget-layer");
-		for (let index = 0; index < slots.length; index += 1) {
-			const slot = slots[index];
-			const row = rows.get(index);
-			slot.style.setProperty("--aaalice-output-top", `${Math.max(0, Number(row?.output?.top || 0) - PARAMETER_NODE_LAYOUT.outputSlotHeight / 2)}px`);
+		if (!panelsById.has(id)) panelsById.set(id, []);
+		panelsById.get(id).push({ layout, rows });
+	}
+	if (!panelsById.size) return;
+	for (const element of document.querySelectorAll("[data-node-id]")) {
+		for (const presentation of panelsById.get(element.getAttribute("data-node-id")) || []) {
+			markVueOutputElement(element, presentation.layout, presentation.rows);
 		}
 	}
 }
 
+function scheduleVueOutputs(node) {
+	if (!node || !usesVueNodes() || typeof requestAnimationFrame !== "function") return;
+	pendingVueOutputPanels.add(node);
+	if (vueOutputFrame) return;
+	vueOutputFrame = requestAnimationFrame(() => {
+		vueOutputFrame = 0;
+		const panels = [...pendingVueOutputPanels];
+		pendingVueOutputPanels.clear();
+		markVueOutputs(panels);
+	});
+}
+
+function scheduleVueOutputsFromMutations(records) {
+	if (!usesVueNodes()) return;
+	const panelsById = new Map();
+	for (const panel of mountedParameterPanels) {
+		if (!panel?.graph) continue;
+		const id = String(panel.id);
+		if (!panelsById.has(id)) panelsById.set(id, []);
+		panelsById.get(id).push(panel);
+	}
+	const ids = new Set();
+	const collectOwner = (element) => {
+		const owner = element?.matches?.("[data-node-id]") ? element : element?.closest?.("[data-node-id]");
+		if (owner) ids.add(owner.getAttribute("data-node-id"));
+	};
+	for (const record of records) {
+		collectOwner(record.target);
+		for (const added of record.addedNodes || []) {
+			if (added?.nodeType !== 1) continue;
+			collectOwner(added);
+			for (const element of added.querySelectorAll?.("[data-node-id]") || []) ids.add(element.getAttribute("data-node-id"));
+		}
+	}
+	for (const id of ids) for (const panel of panelsById.get(id) || []) scheduleVueOutputs(panel);
+}
+
 function ensureVueOutputObserver() {
 	if (vueOutputObserver || typeof MutationObserver === "undefined" || !document.body) return;
-	vueOutputObserver = new MutationObserver(() => {
-		if (vueOutputFrame) return;
-		vueOutputFrame = requestAnimationFrame(() => {
-			vueOutputFrame = 0;
-			for (const panel of mountedParameterPanels) if (panel?.graph) markVueOutputs(panel);
-		});
-	});
-	vueOutputObserver.observe(document.body, { childList: true, subtree: true });
+	vueOutputObserver = new MutationObserver(scheduleVueOutputsFromMutations);
+	vueOutputObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-node-id"] });
 }
 
 function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) {
@@ -315,9 +363,7 @@ function syncPanelOutputs(node, nextMeta = tunableMeta(ensureParameters(node))) 
 	if (structureChanged || namesChanged || presentationChanged) {
 		publishDynamicSlotState(node, { outputs: true });
 	} else refreshDynamicSlotGeometry(node);
-	markVueOutputs(node);
-	if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => markVueOutputs(node));
-	setTimeout(() => markVueOutputs(node), 0);
+	scheduleVueOutputs(node);
 	node.setDirtyCanvas?.(true, true);
 }
 
@@ -331,8 +377,8 @@ document.addEventListener("keydown", (event) => {
 	closeImagePreview();
 });
 
-function valueControl(node, parameter, heading = null) {
-	const persist = (detail = {}) => notifyParameterChanged(node, { structure: false, ...detail });
+function valueControl(node, parameter, heading = null, views = null) {
+	const persist = (detail = {}) => notifyParameterChanged(node, { structure: false, parameterId: parameter.id, ...detail });
 	const seedModeLabels = {
 		header: t("aaalice.pcp.seedMode.header", "After each workflow run, update the seed using:"),
 		fixed: {
@@ -404,6 +450,7 @@ function valueControl(node, parameter, heading = null) {
 	} else if (spec.kind === "seed") {
 		view.root.classList.add("aa-control-seed-inline"); view.root.append(...view.headerAccessories);
 	}
+	views?.set(String(parameter.id), view);
 	return view.root;
 }
 
@@ -411,12 +458,31 @@ function destroyRenderedControls(root) {
 	destroySharedControls(root);
 }
 
+function updateParameterControls(node, parameterId = null) {
+	const views = node._aaaliceParameterControlViews;
+	if (!(views instanceof Map) || !views.size) return false;
+	const targetId = parameterId == null ? null : String(parameterId);
+	let updated = false;
+	for (const parameter of ensureParameters(node)) {
+		if (targetId != null && String(parameter.id) !== targetId) continue;
+		const view = views.get(String(parameter.id));
+		if (!view) continue;
+		view.update({ value: parameter.value, options: parameter.config || {} });
+		updated = true;
+	}
+	if (updated) node.setDirtyCanvas?.(true, true);
+	return updated;
+}
+
 function renderNode(node, root) {
 	closeImagePreview();
 	destroyRenderedControls(root);
 	root.replaceChildren();
+	const controls = new Map();
+	node._aaaliceParameterControlViews = controls;
 	const parameters = ensureParameters(node);
 	const layout = computeParameterLayout(node);
+	const rowsById = new Map(layout.rows.map((row) => [String(row.id), row]));
 	root.classList.toggle("aaalice-pcp-canvas-static", app.canvas?.vueNodesMode !== true);
 	root.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
 	root.style.setProperty("--aaalice-node-content-height", `${layout.height}px`);
@@ -438,7 +504,7 @@ function renderNode(node, root) {
 		}
 		const row = el("div", "aaalice-pcp-node-row");
 		row.dataset.parameterId = parameter.id;
-		const geometry = layout.rows.find((candidate) => candidate.id === parameter.id);
+		const geometry = rowsById.get(String(parameter.id));
 		if (geometry) row.style.minHeight = `${geometry.height}px`;
 		const heading = el("div", "aaalice-pcp-node-row-heading");
 		const label = el("span", "aaalice-pcp-node-name", displayName(parameter));
@@ -450,7 +516,7 @@ function renderNode(node, root) {
 			heading.append(trigger);
 			attachDescriptionTooltip(trigger, parameter.description);
 		} else heading.append(label);
-		row.append(heading, valueControl(node, parameter, heading));
+		row.append(heading, valueControl(node, parameter, heading, controls));
 		root.append(row);
 	}
 	if (!parameters.length) root.append(el("div", "aaalice-pcp-empty", t("aaalice.pcp.empty", "No parameters. Use the node context menu to edit.")));
@@ -461,7 +527,7 @@ function syncParameterResizeLayout(node, root) {
 	refreshDynamicSlotGeometry(node);
 	root.style.setProperty("--aaalice-output-column-width", `${layout.outputColumn.width}px`);
 	root.style.setProperty("--aaalice-node-content-height", `${layout.height}px`);
-	markVueOutputs(node);
+	scheduleVueOutputs(node);
 	node.setDirtyCanvas?.(true, true);
 }
 
@@ -854,19 +920,19 @@ async function openParameterEditor(node) {
 
 function setupParameterPanel(node, loaded = false) {
 	if (!isParameterPanel(node)) return;
+	invalidateParameterLayout(node);
 	ensureVueOutputObserver();
 	registerParameterPanelKj(node);
 	ensureParameterPanelMenu(node);
 	mountedParameterPanels.add(node);
 	if (node._aaaliceParameterPanelMounted) {
 		node._aaaliceParameterAccent?.sync();
-		syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
+		node._aaaliceParameterRedraw?.();
 		return;
 	}
 	node._aaaliceParameterPanelMounted = true;
 	ensureParameters(node);
 	normalizeDynamicOptions(node.properties.parameters);
-	syncPanelOutputs(node, tunableMeta(ensureParameters(node)));
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] ParameterPanel requires addDOMWidget");
 	// The controls and native outputs intentionally share the same vertical
 	// region. Tell LiteGraph before adding the widget so its own measurement
@@ -878,7 +944,7 @@ function setupParameterPanel(node, loaded = false) {
 	const height = () => nodeHeight(node);
 		const widget = addLifecycleDOMWidget(node, "aaalice_parameter_panel", "custom", root, {
 		serialize: false,
-		hideOnZoom: false,
+		hideOnZoom: true,
 		margin: 0,
 		getMinHeight: height,
 		getValue: () => "",
@@ -912,25 +978,38 @@ function setupParameterPanel(node, loaded = false) {
 		growClassicDomWidgetNode(node);
 		node.setDirtyCanvas?.(true, true);
 	};
+	node._aaaliceParameterValueUpdate = (parameterId = null) => updateParameterControls(node, parameterId);
 	const onChange = (event) => {
 		if (event.detail?.node && event.detail.node !== node) return;
 		if (!event.detail?.node && event.detail?.nodeId != null && String(event.detail.nodeId) !== String(node.id)) return;
+		if (event.detail?.structure === false) {
+			if (event.detail?.redraw !== false) node._aaaliceParameterValueUpdate?.(event.detail?.parameterId);
+			return;
+		}
 		if (event.detail?.redraw === false) return;
+		invalidateParameterLayout(node);
 		node._aaaliceParameterRedraw?.();
 	};
 	window.addEventListener(EVENT_PARAMETER_CHANGED, onChange);
 	const previousConnections = node.onConnectionsChange;
 	node.onConnectionsChange = function () {
 		const value = previousConnections?.apply(this, arguments);
-		if (!this._aaaliceApplyingOutputMeta) setTimeout(() => {
-			syncPanelOutputs(this, tunableMeta(ensureParameters(this)));
-			this._aaaliceParameterRedraw?.();
-		}, 0);
+		if (!this._aaaliceApplyingOutputMeta && !this._aaaliceParameterConnectionRefresh) {
+			this._aaaliceParameterConnectionRefresh = setTimeout(() => {
+				this._aaaliceParameterConnectionRefresh = null;
+				if (this.graph) syncPanelOutputs(this, tunableMeta(ensureParameters(this)));
+			}, 0);
+		}
 		return value;
 	};
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		mountedParameterPanels.delete(this);
+		pendingVueOutputPanels.delete(this);
+		if (this._aaaliceParameterConnectionRefresh) clearTimeout(this._aaaliceParameterConnectionRefresh);
+		this._aaaliceParameterConnectionRefresh = null;
+		this._aaaliceParameterControlViews = null;
+		delete this._aaaliceParameterValueUpdate;
 		this._aaaliceParameterAccent?.dispose();
 		this._aaaliceParameterAccent = null;
 		cleanupDomWidgetResizePassthrough(this);
@@ -943,11 +1022,9 @@ function setupParameterPanel(node, loaded = false) {
 	node.onConfigure = function () {
 		const value = previousConfigure?.apply(this, arguments);
 		ensureParameters(this);
+		invalidateParameterLayout(this);
 		this._aaaliceParameterAccent?.sync();
-		setTimeout(() => {
-			syncPanelOutputs(this, tunableMeta(ensureParameters(this)));
-			this._aaaliceParameterRedraw?.();
-		}, 0);
+		setTimeout(() => { if (this.graph) this._aaaliceParameterRedraw?.(); }, 0);
 		return value;
 	};
 	if (!loaded) node.setSize?.(node.computeSize());

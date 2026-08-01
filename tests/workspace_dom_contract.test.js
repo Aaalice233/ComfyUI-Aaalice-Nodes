@@ -278,7 +278,8 @@ test("numeric control gestures preview live inside one graph history boundary", 
 	assert.match(numericControl, /pointerdown/);
 	assert.match(workspaceControls, /setValue\(next, \{ transaction: false, transient: true \}\)/);
 	assert.match(providers, /flushValue/);
-	assert.match(providers, /node\._aaaliceParameterRedraw\?\.\(\)/);
+	assert.match(providers, /node\._aaaliceParameterValueUpdate\?\.\(parameter\.id\)/);
+	assert.doesNotMatch(providers, /if \(transient\) \{ node\._aaaliceParameterRedraw/);
 	assert.match(numericControl, /pointerup/);
 	assert.match(workspaceControls, /beforeChange/);
 	assert.match(workspaceControls, /afterChange/);

@@ -135,6 +135,8 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器上。Bridge 缺失、K
 
 KJNodes 对整个包是可选依赖。未安装时，包含 ParameterReceiver 的工作流仍可加载，但绑定和同步会明确报错，不会模拟路由。
 
+大量 Set/Get 节点下，KJNodes 自身的虚拟连线绘制和画布性能独立于本包。如果拖动画布卡顿，除非正在检查连线，否则将 **KJNodes → Set & Get → Show links** 保持为 `never`，并启用 **KJNodes → Performance → Single-canvas mode during pan**。阴影和连线边框开关还可用少量视觉细节换取更多性能余量。
+
 </details>
 
 <details>

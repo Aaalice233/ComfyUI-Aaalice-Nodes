@@ -37,3 +37,17 @@ test("routes every top-level custom node DOM mount through the lifecycle helper"
 
 	assert.deepEqual(directMounts, []);
 });
+
+test("top-level node DOM widgets use the host low-quality transform fallback", () => {
+	const jsDirectory = new URL("../js/", import.meta.url);
+	const widgetModules = readdirSync(jsDirectory, { withFileTypes: true })
+		.filter((entry) => entry.isFile() && entry.name.endsWith(".js"))
+		.map((entry) => ({ name: entry.name, source: readFileSync(new URL(entry.name, jsDirectory), "utf8") }))
+		.filter(({ source }) => /addLifecycleDOMWidget\s*\(/.test(source));
+
+	assert.ok(widgetModules.length > 0);
+	for (const { name, source } of widgetModules) {
+		assert.doesNotMatch(source, /hideOnZoom:\s*false/, name);
+		assert.match(source, /hideOnZoom:\s*true/, name);
+	}
+});

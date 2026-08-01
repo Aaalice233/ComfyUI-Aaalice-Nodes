@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("../js/enum_switch.js", import.meta.url), "utf8");
+const layoutSource = readFileSync(new URL("../js/lib/enum_switch_layout.js", import.meta.url), "utf8");
 
 test("sync status uses the shared accessible icon button", () => {
 	assert.match(source, /iconButton\(\{/);
@@ -31,6 +32,21 @@ test("classic and Nodes 2.0 lifecycle paths are both installed", () => {
 	assert.match(source, /node\.widgets_up = true/);
 	assert.match(source, /node\.widgets_start_y = -\(Number\(globalThis\.LiteGraph\?\.NODE_TITLE_HEIGHT\) \|\| 30\)/);
 	assert.doesNotMatch(source, /node\._arrangeWidgets = function|placeStatusWidget/);
+});
+
+test("explicit slot changes publish once without wrapping the per-frame concrete-slot refresh", () => {
+	assert.match(source, /const structureChanged = current\.routes\.length !== normalized\.length/);
+	assert.match(source, /syncSlots\(node, structureChanged\)/);
+	assert.match(source, /let presentationChanged = structureChanged \|\| \(node\.inputs\?\.length \|\| 0\) !== routes\.length \+ 1/);
+	assert.match(source, /presentationChanged \|\|= input\.label !== label/);
+	assert.match(source, /publishDynamicSlotState\(node, \{ inputs: true \}\)/);
+	assert.doesNotMatch(source, /node\._setConcreteSlots\s*=/);
+	assert.doesNotMatch(source, /_aaaliceEnumSlotPatch|syncEnumConcreteInputs/);
+	assert.doesNotMatch(layoutSource, /_setConcreteSlots|_concreteInputs/);
+});
+
+test("value-only panel changes do not refresh enum structure", () => {
+	assert.match(source, /const panelChange = \(event\) => \{\s*if \(event\.detail\?\.structure === false\) return;/);
 });
 
 test("shared dialogs mount immediately without a second open call", () => {

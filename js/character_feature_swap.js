@@ -137,7 +137,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaaliceCharacterSwapAccent = bindNodeAccent(node, root);
 	addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
-		hideOnZoom: false,
+		hideOnZoom: true,
 		margin: 0,
 		getMinHeight: () => MIN_WIDGET_HEIGHT,
 		getValue: () => "",

@@ -62,6 +62,7 @@ const NODE = "ParameterReceiver";
 const GET_NODE = "GetNode";
 const OWNER_KEY = "aaaliceReceiverOwner";
 const mountedReceivers = new Set();
+const pendingReceiverRenders = new WeakMap();
 let vueReceiverObserver = null;
 let vueReceiverFrame = 0;
 
@@ -269,6 +270,21 @@ function receiverNodeSize(receiver) {
 	return Math.max(72, layout.contentTop + layout.height + 12);
 }
 
+function cancelScheduledReceiverRender(receiver) {
+	if (!pendingReceiverRenders.has(receiver)) return;
+	clearTimeout(pendingReceiverRenders.get(receiver));
+	pendingReceiverRenders.delete(receiver);
+}
+
+function scheduleReceiverRender(receiver) {
+	if (!mountedReceivers.has(receiver) || pendingReceiverRenders.has(receiver)) return;
+	const timer = setTimeout(() => {
+		pendingReceiverRenders.delete(receiver);
+		if (mountedReceivers.has(receiver) && receiver?.graph) render(receiver);
+	}, 0);
+	pendingReceiverRenders.set(receiver, timer);
+}
+
 function enforceReceiverWidth(receiver, { initialize = false } = {}) {
 	const currentWidth = Number(receiver.size?.[0]) || 0;
 	const targetWidth = initialize
@@ -284,7 +300,7 @@ function enforceReceiverWidth(receiver, { initialize = false } = {}) {
 function syncReceiverResizeLayout(receiver) {
 	syncReceiverLayout(receiver, receiver.inputs?.length || 0);
 	refreshDynamicSlotGeometry(receiver);
-	markVueReceiverSlots(receiver);
+	scheduleVueReceiverSlots();
 	receiver.setDirtyCanvas?.(true, true);
 }
 
@@ -300,53 +316,88 @@ function disconnectReceiverOutputs(receiver) {
 	}
 }
 
-function markVueReceiverSlots(receiver) {
-	if (typeof document === "undefined") return;
-	const id = String(receiver.id);
+function isVueNodesMode() {
+	return globalThis.LiteGraph?.vueNodesMode === true;
+}
+
+function markVueReceiverElement(receiver, element) {
 	const slotCount = receiver.inputs?.length || 0;
-	for (const element of document.querySelectorAll("[data-node-id]")) {
-		if (element.getAttribute("data-node-id") !== id) continue;
-		const layout = receiver._aaaliceReceiverLayout || computeReceiverLayout(receiver, slotCount);
-		const inputSlots = [...element.querySelectorAll(".lg-slot--input")];
-		const outputSlots = [...element.querySelectorAll(".lg-slot--output")];
-		const inputColumn = inputSlots[0]?.parentElement;
-		const outputColumn = outputSlots[0]?.parentElement;
-		const slotLayer = inputColumn?.parentElement || outputColumn?.parentElement;
-		const body = slotLayer?.parentElement;
-		const widgets = body?.querySelector?.(".lg-node-widgets");
-		element.classList.add("aaalice-parameter-receiver-node");
-		// Nodes 2.0 resize reads the node element's inline minimum instead
-		// of the computed minimum owned by the widget content.
-		element.style.setProperty("min-width", `${RECEIVER_LAYOUT.minWidth}px`);
-		element.style.setProperty("--aaalice-receiver-content-height", `${layout.height}px`);
-		element.style.setProperty("--aaalice-receiver-slot-height", `${RECEIVER_LAYOUT.rowHeight}px`);
-		inputColumn?.classList.add("aaalice-receiver-input-column");
-		outputColumn?.classList.add("aaalice-receiver-output-column");
-		slotLayer?.classList.add("aaalice-receiver-slot-layer");
-		body?.classList.add("aaalice-receiver-node-body");
-		widgets?.classList.add("aaalice-receiver-widget-layer");
-		for (const slots of [inputSlots, outputSlots]) {
-			for (let index = 0; index < slots.length; index += 1) {
-				const slot = slots[index];
-				slot.style.setProperty("--aaalice-receiver-slot-top", `${RECEIVER_LAYOUT.headerHeight + index * RECEIVER_LAYOUT.rowHeight}px`);
-			}
+	const layout = computeReceiverLayout(receiver, slotCount);
+	const inputSlots = [...element.querySelectorAll(".lg-slot--input")];
+	const outputSlots = [...element.querySelectorAll(".lg-slot--output")];
+	const inputColumn = inputSlots[0]?.parentElement;
+	const outputColumn = outputSlots[0]?.parentElement;
+	const slotLayer = inputColumn?.parentElement || outputColumn?.parentElement;
+	const body = slotLayer?.parentElement;
+	const widgets = body?.querySelector?.(".lg-node-widgets");
+	element.classList.add("aaalice-parameter-receiver-node");
+	// Nodes 2.0 resize reads the node element's inline minimum instead
+	// of the computed minimum owned by the widget content.
+	element.style.setProperty("min-width", `${RECEIVER_LAYOUT.minWidth}px`);
+	element.style.setProperty("--aaalice-receiver-content-height", `${layout.height}px`);
+	element.style.setProperty("--aaalice-receiver-slot-height", `${RECEIVER_LAYOUT.rowHeight}px`);
+	inputColumn?.classList.add("aaalice-receiver-input-column");
+	outputColumn?.classList.add("aaalice-receiver-output-column");
+	slotLayer?.classList.add("aaalice-receiver-slot-layer");
+	body?.classList.add("aaalice-receiver-node-body");
+	widgets?.classList.add("aaalice-receiver-widget-layer");
+	for (const slots of [inputSlots, outputSlots]) {
+		for (let index = 0; index < slots.length; index += 1) {
+			const slot = slots[index];
+			slot.style.setProperty("--aaalice-receiver-slot-top", `${RECEIVER_LAYOUT.headerHeight + index * RECEIVER_LAYOUT.rowHeight}px`);
 		}
 	}
 }
 
+function markVueReceiverSlots() {
+	if (!isVueNodesMode() || typeof document === "undefined") return;
+	const receiversById = new Map();
+	for (const receiver of mountedReceivers) {
+		if (!receiver?.graph) continue;
+		const id = String(receiver.id);
+		if (!receiversById.has(id) || receiver.graph === app.canvas?.graph) receiversById.set(id, receiver);
+	}
+	if (!receiversById.size) return;
+	for (const element of document.querySelectorAll("[data-node-id]")) {
+		const receiver = receiversById.get(element.getAttribute("data-node-id"));
+		if (receiver) markVueReceiverElement(receiver, element);
+	}
+}
+
+function scheduleVueReceiverSlots() {
+	if (!isVueNodesMode() || vueReceiverFrame || typeof requestAnimationFrame !== "function") return;
+	vueReceiverFrame = requestAnimationFrame(() => {
+		vueReceiverFrame = 0;
+		markVueReceiverSlots();
+	});
+}
+
+function receiverMutationsNeedSync(records) {
+	if (!isVueNodesMode()) return false;
+	const receiverIds = new Set([...mountedReceivers].filter((receiver) => receiver?.graph).map((receiver) => String(receiver.id)));
+	if (!receiverIds.size) return false;
+	const matchesReceiver = (element) => {
+		const owner = element?.matches?.("[data-node-id]") ? element : element?.closest?.("[data-node-id]");
+		if (owner && receiverIds.has(owner.getAttribute("data-node-id"))) return true;
+		for (const candidate of element?.querySelectorAll?.("[data-node-id]") || []) {
+			if (receiverIds.has(candidate.getAttribute("data-node-id"))) return true;
+		}
+		return false;
+	};
+	return records.some((record) => matchesReceiver(record.target)
+		|| [...(record.addedNodes || [])].some((added) => added?.nodeType === 1 && matchesReceiver(added)));
+}
+
 function ensureVueReceiverObserver() {
 	if (vueReceiverObserver || typeof MutationObserver === "undefined" || !document.body) return;
-	vueReceiverObserver = new MutationObserver(() => {
-		if (vueReceiverFrame) return;
-		vueReceiverFrame = requestAnimationFrame(() => {
-			vueReceiverFrame = 0;
-			for (const receiver of mountedReceivers) if (receiver?.graph) markVueReceiverSlots(receiver);
-		});
+	vueReceiverObserver = new MutationObserver((records) => {
+		if (receiverMutationsNeedSync(records)) scheduleVueReceiverSlots();
 	});
-	vueReceiverObserver.observe(document.body, { childList: true, subtree: true });
+	vueReceiverObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-node-id"] });
 }
 
 function render(receiver) {
+	cancelScheduledReceiverRender(receiver);
 	const root = receiver._aaaliceReceiverRoot;
 	if (!root) return;
 	const current = binding(receiver);
@@ -379,7 +430,7 @@ function render(receiver) {
 		widget.y = layout.contentTop;
 	}
 	root.style.minHeight = `${layout.height}px`;
-	markVueReceiverSlots(receiver);
+	scheduleVueReceiverSlots();
 	growClassicDomWidgetNode(receiver);
 	receiver.setDirtyCanvas?.(true, true);
 }
@@ -785,7 +836,7 @@ function setupReceiver(receiver, loaded = false) {
 	const root = el("div", "aaalice-pcp aaalice-pcp-node-root aaalice-receiver-root");
 	receiver._aaaliceReceiverRoot = root;
 	const widget = addLifecycleDOMWidget(receiver, "aaalice_parameter_receiver", "custom", root, {
-		serialize: false, hideOnZoom: false, margin: 0,
+		serialize: false, hideOnZoom: true, margin: 0,
 		getMinHeight: () => computeReceiverLayout(receiver, receiver.inputs?.length || 0).height,
 		getValue: () => "", setValue: () => {},
 	});
@@ -809,7 +860,7 @@ function setupReceiver(receiver, loaded = false) {
 	const previousConnections = receiver.onConnectionsChange;
 	receiver.onConnectionsChange = function () {
 		const result = previousConnections?.apply(this, arguments);
-		if (!this._aaaliceReshapingReceiverSlots) setTimeout(() => render(this), 0);
+		if (!this._aaaliceReshapingReceiverSlots) scheduleReceiverRender(this);
 		return result;
 	};
 	const previousClone = receiver.clone;
@@ -822,22 +873,26 @@ function setupReceiver(receiver, loaded = false) {
 		return cloned;
 	};
 	const onPanelChange = (event) => {
+		const detail = event.detail || {};
+		if (event.type === EVENT_PARAMETER_CHANGED && detail.structure === false) return;
+		const current = binding(receiver);
+		const changedNodeId = detail.nodeId ?? detail.node?.id;
+		if (changedNodeId == null || String(changedNodeId) !== String(current.panelNodeId)) return;
 		const source = panelFor(receiver);
-		if (event.detail?.node) {
-			if (event.detail.node !== source) return;
-		} else if (String(event.detail?.nodeId) !== String(binding(receiver).panelNodeId)) return;
-		if (event.detail?.removed) {
-			setTimeout(() => render(receiver), 0);
+		if (detail.node && detail.node !== source) return;
+		if (detail.removed) {
+			scheduleReceiverRender(receiver);
 			return;
 		}
-		const panel = event.detail?.node || panelFor(receiver);
-		if (panel) refreshNames(receiver, panel, event.detail?.setNames);
+		const panel = detail.node || source;
+		if (panel) refreshNames(receiver, panel, detail.setNames);
 		else render(receiver);
 	};
 	window.addEventListener(EVENT_PARAMETER_CHANGED, onPanelChange);
 	window.addEventListener(EVENT_PARAMETER_KJ_CHANGED, onPanelChange);
 	const previousRemoved = receiver.onRemoved;
 	receiver.onRemoved = function () {
+		cancelScheduledReceiverRender(this);
 		mountedReceivers.delete(this);
 		cleanupDomWidgetResizePassthrough(this);
 		window.removeEventListener(EVENT_PARAMETER_CHANGED, onPanelChange);
@@ -850,7 +905,7 @@ function setupReceiver(receiver, loaded = false) {
 	receiver.onConfigure = function () {
 		const result = previousConfigure?.apply(this, arguments);
 		this.properties.receiverBinding = normalizeReceiverBinding(this.properties?.receiverBinding);
-		setTimeout(() => render(this), 0);
+		scheduleReceiverRender(this);
 		return result;
 	};
 	widget.y = Number(receiver.constructor?.slot_start_y) || 4;

@@ -135,6 +135,8 @@ Deleting a connected parameter requires confirmation because its links must be r
 
 KJNodes is optional for the package as a whole. Without it, ParameterReceiver workflows still load, but bind and sync report an error instead of simulating routing.
 
+For very large Set/Get graphs, KJNodes' virtual-link renderer and canvas performance remain independent from this package. If canvas panning is slow, keep **KJNodes → Set & Get → Show links** at `never` unless inspecting links, and enable **KJNodes → Performance → Single-canvas mode during pan**. Optional shadow and connection-border switches trade visual detail for more headroom.
+
 </details>
 
 <details>

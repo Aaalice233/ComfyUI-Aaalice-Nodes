@@ -8,6 +8,8 @@ export const RECEIVER_LAYOUT = Object.freeze({
 	emptyRowsHeight: 28,
 });
 
+const receiverLayoutCache = new WeakMap();
+
 export function reshapeReceiverSlots(node, requestedCount) {
 	const count = Math.max(0, Math.min(32, Number(requestedCount) || 0));
 	if ((node.inputs?.length || 0) === count && (node.outputs?.length || 0) === count) return;
@@ -29,20 +31,25 @@ export function reshapeReceiverSlots(node, requestedCount) {
 }
 
 export function computeReceiverLayout(node, count) {
-	const visibleCount = Math.max(0, Math.min(32, Number(count) || 0));
-	const contentTop = Number(node?.constructor?.slot_start_y) || 4;
-	const rowsHeight = visibleCount ? visibleCount * RECEIVER_LAYOUT.rowHeight : RECEIVER_LAYOUT.emptyRowsHeight;
-	return {
-		width: Math.max(RECEIVER_LAYOUT.minWidth, Number(node?.size?.[0]) || RECEIVER_LAYOUT.minWidth),
-		contentTop,
-		visibleCount,
+	const slotCount = Math.max(0, Math.min(32, Number(count) || 0));
+	const slotStartY = Number(node?.constructor?.slot_start_y) || 4;
+	const width = Math.max(RECEIVER_LAYOUT.minWidth, Number(node?.size?.[0]) || RECEIVER_LAYOUT.minWidth);
+	const cached = node && typeof node === "object" ? receiverLayoutCache.get(node) : null;
+	if (cached?.width === width && cached.slotCount === slotCount && cached.slotStartY === slotStartY) return cached.layout;
+	const rowsHeight = slotCount ? slotCount * RECEIVER_LAYOUT.rowHeight : RECEIVER_LAYOUT.emptyRowsHeight;
+	const layout = {
+		width,
+		contentTop: slotStartY,
+		visibleCount: slotCount,
 		height: RECEIVER_LAYOUT.headerHeight + rowsHeight,
-		rows: Array.from({ length: visibleCount }, (_, index) => ({
+		rows: Array.from({ length: slotCount }, (_, index) => ({
 			index,
 			top: RECEIVER_LAYOUT.headerHeight + RECEIVER_LAYOUT.rowHeight * index,
 			center: RECEIVER_LAYOUT.headerHeight + RECEIVER_LAYOUT.rowHeight * (index + 0.5),
 		})),
 	};
+	if (node && typeof node === "object") receiverLayoutCache.set(node, { width, slotCount, slotStartY, layout });
+	return layout;
 }
 
 export function syncReceiverLayout(node, count) {

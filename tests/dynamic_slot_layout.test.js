@@ -4,7 +4,6 @@ import test from "node:test";
 import {
 	reshapeEnumBranchInputs,
 	reshapeEnumBranchInputsPreservingLinks,
-	syncEnumConcreteInputs,
 } from "../js/lib/enum_switch_layout.js";
 import {
 	parameterOutputPresentationChanged,
@@ -250,12 +249,34 @@ test("reordering EnumSwitch routes restores sources by stable route id", () => {
 	]);
 });
 
-test("Nodes 2.0 concrete enum inputs follow the actual native slot count", () => {
+test("explicit EnumSwitch input changes rebuild concrete slots and publish the official label event", () => {
+	const events = [];
 	const node = slotNode(3, 0);
+	node.id = 18;
+	node.graph = { trigger(type, detail) { events.push({ type, detail }); } };
 	node.inputs[1].label = "draft";
+	node.inputs[1].localized_name = "draft";
+	node.inputs[1].lazy = true;
 	node.inputs[2].label = "final";
+	node.inputs[2].localized_name = "final";
+	node.inputs[2].lazy = true;
+	node.inputs[2]._aaaliceProtocolName = "branch_2";
 	node._concreteInputs = Array.from({ length: 33 }, () => ({}));
-	syncEnumConcreteInputs(node);
+	let rebuilds = 0;
+	node._setConcreteSlots = function () {
+		rebuilds += 1;
+		this._concreteInputs = this.inputs.map((slot) => ({ ...slot }));
+	};
+
+	publishDynamicSlotState(node, { inputs: true });
+
+	assert.equal(rebuilds, 1);
 	assert.equal(node._concreteInputs.length, 3);
 	assert.equal(node._concreteInputs[2].label, "final");
+	assert.equal(node._concreteInputs[2].localized_name, "final");
+	assert.equal(node._concreteInputs[2].lazy, true);
+	assert.equal(node._concreteInputs[2]._aaaliceProtocolName, "branch_2");
+	assert.deepEqual(events, [
+		{ type: "node:slot-label:changed", detail: { nodeId: 18, slotType: 1 } },
+	]);
 });

@@ -8,9 +8,19 @@ const styles = readFileSync(new URL("../js/lib/theme.css", import.meta.url), "ut
 const ui = readFileSync(new URL("../js/lib/ui.js", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../js/lib/quick_group_manager_runtime.js", import.meta.url), "utf8");
 
-test("mounts a synchronous non-serializing DOM widget across node lifecycles", () => {
+function loadMinimumBodyHeightHelpers() {
+	const start = source.indexOf("const MIN_BODY_HEIGHT");
+	const end = source.indexOf("const mountedManagers", start);
+	assert.ok(start >= 0 && end > start);
+	return Function(`${source.slice(start, end)}\nreturn { cacheMinimumBodyHeight, minimumBodyHeight };`)();
+}
+
+test("mounts synchronous non-serializing DOM widgets with low-zoom fallback", () => {
 	assert.match(source, /addLifecycleDOMWidget\(node, WIDGET/);
-	assert.match(source, /serialize:\s*false/);
+	const widgetSetup = source.slice(source.indexOf("addLifecycleDOMWidget(node, TOOLBAR_WIDGET"), source.indexOf("const previousComputeSize"));
+	assert.equal(widgetSetup.match(/serialize:\s*false/g)?.length, 2);
+	assert.equal(widgetSetup.match(/hideOnZoom:\s*true/g)?.length, 2);
+	assert.doesNotMatch(widgetSetup, /hideOnZoom:\s*false/);
 	assert.match(source, /beforeRegisterNodeDef/);
 	assert.match(source, /nodeCreated/);
 	assert.match(source, /loadedGraphNode/);
@@ -23,6 +33,27 @@ test("uses graph events and animation-frame coalescing without polling", () => {
 	assert.match(source, /addEventListener\("graphChanged"/);
 	assert.match(source, /requestAnimationFrame/);
 	assert.doesNotMatch(source, /setInterval\s*\(/);
+});
+
+test("caches visible-group height outside per-frame sizing callbacks", () => {
+	const { cacheMinimumBodyHeight, minimumBodyHeight } = loadMinimumBodyHeightHelpers();
+	const node = {};
+	assert.equal(minimumBodyHeight(node), 82);
+	cacheMinimumBodyHeight(node, 3);
+	assert.equal(minimumBodyHeight(node), 140);
+	assert.equal(minimumBodyHeight(node), 140);
+	cacheMinimumBodyHeight(node, 1);
+	assert.equal(minimumBodyHeight(node), 82);
+
+	const helperSource = source.slice(source.indexOf("const MIN_BODY_HEIGHT"), source.indexOf("const mountedManagers"));
+	assert.doesNotMatch(helperSource, /quickGroupManagerSnapshot|quickGroupManagerGroups|groupsFor|orderedVisibleGroups/);
+	const renderBody = source.slice(source.indexOf("function render(node)"), source.indexOf("function placeToolbarWidget"));
+	assert.match(renderBody, /const \{ groups, state, visibleGroups \} = snapshot;\s*cacheMinimumBodyHeight\(node, visibleGroups\.length\)/);
+	const hotPathSource = source.slice(source.indexOf("addLifecycleDOMWidget(node, WIDGET"), source.indexOf("const previousArrangeWidgets"));
+	assert.doesNotMatch(hotPathSource, /quickGroupManagerSnapshot|quickGroupManagerGroups|groupsFor|orderedVisibleGroups/);
+	assert.match(source, /if \(node\._aaaliceQuickMounted\) \{\s*stateFor\(node\);[\s\S]*?render\(node\);[\s\S]*?return;/);
+	assert.match(source, /mountedManagers\.add\(node\);\s*cacheMinimumBodyHeight\(node, 0\)/);
+	assert.match(source, /requestAnimationFrame\(\(\) => \{\s*render\(this\);\s*placeToolbarWidget\(this\);/);
 });
 
 test("keeps the compact header single-line without redundant visible labels", () => {

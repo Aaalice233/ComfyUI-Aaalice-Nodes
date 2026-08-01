@@ -26,10 +26,10 @@ import {
 	promptNodesForGraphNode,
 } from "./lib/graph_scope.js";
 import { getGraphLink, getGraphNode } from "./parameter_panel_kj.js";
+import { publishDynamicSlotState } from "./lib/dynamic_slots.js";
 import {
 	reshapeEnumBranchInputs,
 	reshapeEnumBranchInputsPreservingLinks,
-	syncEnumConcreteInputs,
 } from "./lib/enum_switch_layout.js";
 
 const NODE = "EnumSwitch";
@@ -151,6 +151,8 @@ function connectionImpact(node, routes) {
 function applyRoutes(node, nextRoutes) {
 	const current = state(node);
 	const normalized = nextRoutes.map((route) => ({ id: route.id, key: String(route.key).trim() }));
+	const structureChanged = current.routes.length !== normalized.length
+		|| current.routes.some((route, index) => String(route.id) !== String(normalized[index]?.id));
 	markGraphChange(node, true);
 	try {
 		reshapeEnumBranchInputsPreservingLinks(
@@ -161,7 +163,7 @@ function applyRoutes(node, nextRoutes) {
 			(nodeId) => getGraphNode(node.graph, nodeId),
 		);
 		current.routes = normalized;
-		syncSlots(node);
+		syncSlots(node, structureChanged);
 	} finally {
 		markGraphChange(node, false);
 	}
@@ -169,20 +171,24 @@ function applyRoutes(node, nextRoutes) {
 	fitEnumStructure(node);
 }
 
-function syncSlots(node) {
+function syncSlots(node, structureChanged = false) {
 	const routes = state(node).routes;
+	let presentationChanged = structureChanged || (node.inputs?.length || 0) !== routes.length + 1;
 	reshapeEnumBranchInputs(node, routes.length);
 	for (const input of node.inputs || []) input._aaaliceProtocolName ||= input.name;
 	for (let index = 0; index < routes.length; index += 1) {
 		const input = node.inputs?.find((slot) => (slot._aaaliceProtocolName || slot.name) === `branch_${index + 1}`);
 		if (!input) continue;
-		const route = routes[index];
-		input.label = route?.key || "";
-		input.localized_name = input.label;
+		const label = routes[index]?.key || "";
+		presentationChanged ||= input.label !== label
+			|| input.localized_name !== label
+			|| input.lazy !== true;
+		input.label = label;
+		input.localized_name = label;
 		input.lazy = true;
 	}
-	syncEnumConcreteInputs(node);
-	node.setDirtyCanvas?.(true, true);
+	if (presentationChanged) publishDynamicSlotState(node, { inputs: true });
+	else node.setDirtyCanvas?.(true, true);
 }
 
 function fitEnumStructure(node, initial = false) {
@@ -416,7 +422,7 @@ function setupEnumSwitch(node, loaded = false) {
 	node._aaaliceEnumRoot = root;
 	const widget = addLifecycleDOMWidget(node, "aaalice_enum_status", "enum_status", root, {
 		serialize: false,
-		hideOnZoom: false,
+		hideOnZoom: true,
 		margin: 0,
 		getMinHeight: () => 0,
 		getHeight: () => 0,
@@ -440,6 +446,7 @@ function setupEnumSwitch(node, loaded = false) {
 		return result;
 	};
 	const panelChange = (event) => {
+		if (event.detail?.structure === false) return;
 		const current = state(node).binding;
 		if (current?.panelNodeId == null || event.detail?.nodeId == null) return;
 		const changedNode = event.detail?.node;
@@ -463,15 +470,6 @@ function setupEnumSwitch(node, loaded = false) {
 		scheduleConnectedBindingRefresh(this);
 		return result;
 	};
-	if (!node._aaaliceEnumSlotPatch) {
-		node._aaaliceEnumSlotPatch = true;
-		const previousConcrete = node._setConcreteSlots;
-		if (typeof previousConcrete === "function") node._setConcreteSlots = function () {
-			const result = previousConcrete.apply(this, arguments);
-			syncEnumConcreteInputs(this);
-			return result;
-		};
-	}
 	render(node);
 	scheduleConnectedBindingRefresh(node);
 	if (!loaded) fitEnumStructure(node, true);

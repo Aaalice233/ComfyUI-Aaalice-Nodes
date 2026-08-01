@@ -57,17 +57,3 @@ export function reshapeEnumBranchInputsPreservingLinks(
 		if (inputIndex != null) connection.source.connect?.(connection.originSlot, node, inputIndex);
 	}
 }
-
-export function syncEnumConcreteInputs(node) {
-	if (!Array.isArray(node?._concreteInputs)) return;
-	node._concreteInputs = node._concreteInputs.slice(0, node.inputs?.length || 0);
-	for (let index = 0; index < node._concreteInputs.length; index += 1) {
-		const source = node.inputs?.[index];
-		const target = node._concreteInputs[index];
-		if (!source || !target) continue;
-		for (const field of ["name", "label", "localized_name", "type", "shape", "color", "color_off", "color_on", "lazy", "_aaaliceProtocolName"]) {
-			if (source[field] === undefined) delete target[field];
-			else target[field] = source[field];
-		}
-	}
-}

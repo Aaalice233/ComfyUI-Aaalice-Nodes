@@ -333,6 +333,7 @@ export function registerParameterPanelKj(panel) {
 	if (!isParameterPanel(panel) || panel._aaaliceParameterPanelKjMounted) return;
 	panel._aaaliceParameterPanelKjMounted = true;
 	const onParameterChange = (event) => {
+		if (event.detail?.structure === false) return;
 		if (event.detail?.node && event.detail.node !== panel) return;
 		if (!event.detail?.node && event.detail?.nodeId != null && String(event.detail.nodeId) !== String(panel.id)) return;
 		scheduleRefresh(panel);

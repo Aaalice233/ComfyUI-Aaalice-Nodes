@@ -175,24 +175,24 @@ controlProviders.register({
 				const decoded = decodeSeedPresetEntry(entry, parameter.config?.control_after_generate || "randomize");
 				const apply = () => {
 					parameter.value = decoded.value; parameter.config ||= {}; parameter.config.control_after_generate = decoded.behavior;
-					notifyParameterChanged(node, { structure: false, workspaceRedraw });
+					notifyParameterChanged(node, { structure: false, parameterId: parameter.id, workspaceRedraw });
 				};
 				return transaction ? graphTransaction(node, apply) : apply();
 			},
 			setValue(next, { transaction = true, transient = false, workspaceRedraw = true } = {}) {
 				const apply = () => {
 					parameter.value = next;
-					if (transient) { node._aaaliceParameterRedraw?.(); node.setDirtyCanvas?.(true, true); }
-					else notifyParameterChanged(node, { structure: false, workspaceRedraw });
+					if (transient) { node._aaaliceParameterValueUpdate?.(parameter.id); node.setDirtyCanvas?.(true, true); }
+					else notifyParameterChanged(node, { structure: false, parameterId: parameter.id, workspaceRedraw });
 				};
 				return transaction ? graphTransaction(node, apply) : apply();
 			},
-			flushValue() { notifyParameterChanged(node, { structure: false }); },
+			flushValue() { notifyParameterChanged(node, { structure: false, parameterId: parameter.id }); },
 			setSeedBehavior(behavior) {
 				if (!SEED_AFTER_GENERATE_MODES.includes(behavior)) throw new TypeError(`Invalid seed behavior: ${behavior}`);
 				return graphTransaction(node, () => {
 					parameter.config ||= {}; parameter.config.control_after_generate = behavior;
-					notifyParameterChanged(node, { structure: false });
+					notifyParameterChanged(node, { structure: false, parameterId: parameter.id });
 				});
 			},
 		};

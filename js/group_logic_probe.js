@@ -18,6 +18,7 @@ const FOOTER_HEIGHT = 40;
 const MAX_VISIBLE_ROWS = 6;
 const EXPECTS = ["enabled", "disabled"];
 const nodeTypes = new WeakSet();
+const normalizedStates = new WeakMap();
 
 function isProbe(node) {
 	return nodeTypes.has(node?.constructor)
@@ -38,8 +39,13 @@ function normalizeState(raw) {
 
 function stateFor(node) {
 	node.properties ||= {};
-	node.properties[PROPERTY] = normalizeState(node.properties[PROPERTY]);
-	return node.properties[PROPERTY];
+	const raw = node.properties[PROPERTY];
+	const cached = normalizedStates.get(node);
+	if (cached === raw && cached !== undefined) return cached;
+	const normalized = normalizeState(raw);
+	node.properties[PROPERTY] = normalized;
+	normalizedStates.set(node, normalized);
+	return normalized;
 }
 
 function commit(node, mutate) {
@@ -123,7 +129,12 @@ function minHeightFor(node) {
 }
 
 function setupProbe(node, { initializeSize = false } = {}) {
-	if (!isProbe(node) || node._aaGroupLogicMounted) return;
+	if (!isProbe(node)) return;
+	if (node._aaGroupLogicMounted) {
+		stateFor(node);
+		render(node);
+		return;
+	}
 	node._aaGroupLogicMounted = true;
 	stateFor(node);
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] GroupLogicProbe requires addDOMWidget");
@@ -170,7 +181,7 @@ function setupProbe(node, { initializeSize = false } = {}) {
 	node._aaGroupLogicEmpty = empty;
 	addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
-		hideOnZoom: false,
+		hideOnZoom: true,
 		margin: 0,
 		getMinHeight: () => minHeightFor(node),
 		getValue: () => "",
@@ -184,6 +195,7 @@ function setupProbe(node, { initializeSize = false } = {}) {
 	};
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
+		normalizedStates.delete(this);
 		cleanupDomWidgetResizePassthrough(this);
 		this._aaGroupLogicRoot?.remove?.();
 		this._aaGroupLogicRoot = null;

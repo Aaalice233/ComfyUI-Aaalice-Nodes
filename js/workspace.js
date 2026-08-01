@@ -225,14 +225,24 @@ function scheduleRender(view = null) {
 	});
 }
 
+function ownDataPropertyValue(object, name) {
+	if (!object) return undefined;
+	const descriptor = Object.getOwnPropertyDescriptor(object, name);
+	return descriptor && Object.prototype.hasOwnProperty.call(descriptor, "value") ? descriptor.value : undefined;
+}
+
 function widgetOptionSignature(widget) {
-	const values = widget?.options?.values || widget?.options?.options;
+	const options = ownDataPropertyValue(widget, "options");
+	if (!options) return null;
+	const primaryValues = ownDataPropertyValue(options, "values");
+	const values = Array.isArray(primaryValues) ? primaryValues : ownDataPropertyValue(options, "options");
+	// Accessor-backed choices are runtime state and refresh through CONTROL_HOST_INVALIDATED_EVENT instead.
 	if (!Array.isArray(values)) return null;
 	return values.map((item) => typeof item === "object" && item !== null ? String(item.value ?? item.label ?? "") : String(item));
 }
 
-function graphStructureSignature() {
-	return graphNodes().map((node) => JSON.stringify([
+function graphStructureSignature(nodes = graphNodes()) {
+	return nodes.map((node) => JSON.stringify([
 		node.id, node.type, node.comfyClass, node.properties?.aaaliceHostId,
 		typeof node.getTitle === "function" ? node.getTitle() : node.title,
 		(node.widgets || []).map((widget) => [widget.name, widget.type, widgetOptionSignature(widget)]),
@@ -241,23 +251,28 @@ function graphStructureSignature() {
 }
 
 // 结构相同的工作流（如同一工作流的多个版本）可能携带不同看板与预设；签名必须覆盖，否则切换标签页时选择器显示陈旧状态
-function graphSyncSignature() {
+function graphSyncSignature(nodes = graphNodes()) {
 	const extra = app.graph?.extra;
-	return `${graphStructureSignature()}|${JSON.stringify([extra?.[EXTRA_KEY] ?? null, extra?.[DASHBOARD_PRESETS_EXTRA_KEY] ?? null])}`;
+	return `${graphStructureSignature(nodes)}|${JSON.stringify([extra?.[EXTRA_KEY] ?? null, extra?.[DASHBOARD_PRESETS_EXTRA_KEY] ?? null])}`;
 }
 
 let graphSyncFrame = 0;
+let graphSyncForceRender = false;
 let previousGraphStructure = "";
 const sourceSyncLocks = new Set();
 
-function scheduleGraphSync() {
+function scheduleGraphSync(forceRender = false) {
+	graphSyncForceRender ||= forceRender;
 	if (graphSyncFrame) return;
 	graphSyncFrame = requestAnimationFrame(() => {
 		graphSyncFrame = 0;
-		repairDuplicateHostIds(graphNodes());
-		for (const node of graphNodes()) patchNodeMenu(node);
-		const signature = graphSyncSignature();
-		if (signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleRender("dashboard"); }
+		const shouldForceRender = graphSyncForceRender;
+		graphSyncForceRender = false;
+		const nodes = graphNodes();
+		repairDuplicateHostIds(nodes);
+		for (const node of nodes) patchNodeMenu(node);
+		const signature = graphSyncSignature(nodes);
+		if (shouldForceRender || signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleRender("dashboard"); }
 		scheduleRender("groups");
 	});
 }
@@ -2041,6 +2056,7 @@ app.registerExtension({
 	},
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
+	afterConfigureGraph() { scheduleGraphSync(true); },
 	setup() {
 		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.sidebarTitle", "Aaalice"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => {
 			element.classList.add("aa-workspace-host"); mounted.add(element);
@@ -2062,7 +2078,7 @@ app.registerExtension({
 			return () => { workspaceWidthObservers.get(element)?.disconnect(); workspaceWidthObservers.delete(element); workspacePinTooltip.hide(); closeImagePreview(); closePromptEntryDetails(); destroyVirtualLists(element); element.classList.remove("aa-workspace-host"); mounted.delete(element); };
 		} });
 		installWorkspaceCanvasAutoClose();
-		repairDuplicateHostIds(graphNodes()); for (const node of graphNodes()) patchNodeMenu(node); previousGraphStructure = graphSyncSignature();
+		const nodes = graphNodes(); repairDuplicateHostIds(nodes); for (const node of nodes) patchNodeMenu(node); previousGraphStructure = graphSyncSignature(nodes);
 		api.addEventListener("graphChanged", () => { scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
 		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。
 		window.addEventListener("keydown", (event) => {

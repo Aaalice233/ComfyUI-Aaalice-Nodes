@@ -105,6 +105,10 @@ ComfyUI-Aaalice-Nodes/
 - 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
 - `graph.onTrigger`、`onNodeAdded`、`onNodeRemoved` 等图级回调是 ComfyUI 前端管理器会安装、链式调用并在重建时恢复的单一插槽，不得由业务节点长期占用或自行覆盖来监听属性变化。优先使用官方图事件、节点生命周期或保留原描述符语义的节点级观察；任何包装都必须幂等、可卸载，且不能截断 Nodes 2.0 的事件链。
+- `computeSize()`、`getMinHeight()`、`getMaxHeight()`、`_arrangeWidgets()`、`onDrawForeground()` 和 `onDrawBackground()` 都属于画布逐帧热路径：必须保持有界 O(1)，禁止遍历图、规范化状态、重建数组/Map、查询 DOM、读取计算样式或安装监听器。派生布局与主题值按节点及结构输入缓存，在结构提交、加载恢复、主题变化和移除时精确失效；位置和无关高度变化不得打穿缓存。
+- 参数值变化必须通过保留的 `controlView().update()` 定向更新；不得重建 ParameterPanel DOM、重算结构布局、同步 KJ Set/Get 名称或刷新 ParameterReceiver。参数增删、重排、重命名和类型变化才进入结构同步。
+- Nodes 2.0 重挂观察器必须先按 `data-node-id` 等稳定身份过滤相关 mutation，再按 animation frame 合并；同一模块每帧最多进行一次 DOM 查询，不得按节点各自全页扫描或用“立即 + rAF + timeout”重复补写。富 DOM widget 默认允许宿主 `hideOnZoom` 低缩放降级，确需低缩放持续可见时必须说明业务理由。
+- KJ Set/Get 的虚拟连线绘制和性能开关属于 KJNodes，不得由本包 monkey patch。性能诊断必须把本包热路径与 KJNodes 的 `Show links`、单节点 `drawConnection` 及 Performance 设置分开验证，避免把第三方逐帧绘制归因给 ParameterPanel。
 
 ### 4.2 DOM widget 与缩放
 
@@ -279,5 +283,6 @@ Tooltip、Hover Card、已选摘要浮层等多实体信息预览**不得**落�
 - [ ] 可缩放节点已分别检查固定与取消固定，原生 widget 和 DOM widget 均未抢占四角命中，也没有自绘宿主手柄；非目标节点的 `getWidgetOnPos`、`resizable` 与拖拽行为保持不变
 - [ ] 根图、嵌套 Subgraph 及适用时的共享 Subgraph 多实例路径已验证；没有依赖 `app.graph`、当前画布或裸 Node Id
 - [ ] 真实 slot、序列化真源和内部 payload 边界未破坏
+- [ ] 逐帧尺寸/绘制回调没有图遍历、状态规范化、DOM 查询、计算样式读取或对象重建；结构缓存有精确失效测试，高密度节点画布的平移/缩放路径已评估
 - [ ] 文档位置正确，链接和 ADR 状态有效，`AGENTS.md` 少于 500 行
 - [ ] 已完成风险匹配的代码检查，并明确说明未执行的 GUI 或人工验收

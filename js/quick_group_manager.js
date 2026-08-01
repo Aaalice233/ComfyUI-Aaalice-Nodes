@@ -37,6 +37,21 @@ const MIN_BODY_HEIGHT = 82;
 const GROUP_ROW_HEIGHT = 42;
 const GROUP_ROW_GAP = 2;
 const GROUP_LIST_VERTICAL_MARGIN = 10;
+const minimumBodyHeights = new WeakMap();
+
+function minimumBodyHeightForVisibleCount(count) {
+	if (!count) return MIN_BODY_HEIGHT;
+	return Math.max(MIN_BODY_HEIGHT, (count * GROUP_ROW_HEIGHT) + (Math.max(0, count - 1) * GROUP_ROW_GAP) + GROUP_LIST_VERTICAL_MARGIN);
+}
+
+function cacheMinimumBodyHeight(node, visibleGroupCount) {
+	minimumBodyHeights.set(node, minimumBodyHeightForVisibleCount(visibleGroupCount));
+}
+
+function minimumBodyHeight(node) {
+	return minimumBodyHeights.get(node) ?? MIN_BODY_HEIGHT;
+}
+
 const mountedManagers = new Set();
 let graphListenerInstalled = false;
 let refreshFrame = 0;
@@ -144,12 +159,6 @@ function createPopover(node, anchor, className, ariaLabel) {
 	node._aaaliceQuickPopover = popup;
 	node._aaaliceQuickAccent?.sync(popup.root);
 	return node._aaaliceQuickPopover;
-}
-
-function minimumBodyHeight(node) {
-	const count = orderedVisibleGroups(groupsFor(node), stateFor(node)).length;
-	if (!count) return MIN_BODY_HEIGHT;
-	return Math.max(MIN_BODY_HEIGHT, (count * GROUP_ROW_HEIGHT) + (Math.max(0, count - 1) * GROUP_ROW_GAP) + GROUP_LIST_VERTICAL_MARGIN);
 }
 
 function filterEntries(state) {
@@ -509,6 +518,7 @@ function render(node) {
 	if (hoverAnchor && !toolbar.contains(hoverAnchor)) closeHoverTooltip(node);
 	const snapshot = quickGroupManagerSnapshot(node);
 	const { groups, state, visibleGroups } = snapshot;
+	cacheMinimumBodyHeight(node, visibleGroups.length);
 	state.groupOrder = reconcileGroupOrder(state.groupOrder, groups);
 	syncToolbar(node, state);
 	const list = el("div", { className: "aaalice-qgm-list", attrs: { role: "list", "aria-label": t("aaalice.quickGroup.groups", "Workflow groups") } });
@@ -586,11 +596,15 @@ function beginPlacementPassthrough(node) {
 function setupManager(node, { initializeSize = false } = {}) {
 	if (!isManager(node)) return;
 	if (node._aaaliceQuickMounted) {
+		stateFor(node);
 		node._aaaliceQuickAccent?.sync();
+		render(node);
+		placeToolbarWidget(node);
 		return;
 	}
 	node._aaaliceQuickMounted = true;
 	mountedManagers.add(node);
+	cacheMinimumBodyHeight(node, 0);
 	installGraphListener();
 	ensureVueManagerObserver();
 	stateFor(node);
@@ -599,7 +613,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node._aaaliceQuickToolbar = toolbar;
 		const toolbarWidget = addLifecycleDOMWidget(node, TOOLBAR_WIDGET, "custom", toolbar, {
 		serialize: false,
-		hideOnZoom: false,
+		hideOnZoom: true,
 		margin: 0,
 		getMinHeight: () => 0,
 		getMaxHeight: () => 0,
@@ -613,7 +627,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	node._aaaliceQuickAccent = bindNodeAccent(node, () => [toolbar, root]);
 		addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
-		hideOnZoom: false,
+		hideOnZoom: true,
 		margin: 0,
 		getMinHeight: () => minimumBodyHeight(node),
 		getMaxHeight: () => minimumBodyHeight(node),
@@ -665,15 +679,15 @@ function setupManager(node, { initializeSize = false } = {}) {
 		quickGroupManagerState(this);
 		this._aaaliceQuickAccent?.sync();
 		requestAnimationFrame(() => {
-			enforceMinimumSize(this);
-			placeToolbarWidget(this);
 			render(this);
+			placeToolbarWidget(this);
 		});
 		return result;
 	};
 	const previousRemoved = node.onRemoved;
 	node.onRemoved = function () {
 		mountedManagers.delete(this);
+		minimumBodyHeights.delete(this);
 		closePopover(this);
 		this._aaaliceQuickHoverTooltip?.destroy();
 		this._aaaliceQuickHoverTooltip = null;

@@ -350,7 +350,7 @@ function setup(node, loaded = false) {
 	if (!isSelector(node) || node._aaalicePromptSelectorMounted) return;
 	node._aaalicePromptSelectorMounted = true; stateFor(node);
 	const root = isolate(el("div", { className: "aa-prompt-selector", attrs: { "data-capture-wheel": "true" } })); node._aaalicePromptSelectorRoot = root;
-	addLifecycleDOMWidget(node, "aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
+	addLifecycleDOMWidget(node, "aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousMenu = node.getExtraMenuOptions;
 	node.getExtraMenuOptions = function (_canvas, options = []) {

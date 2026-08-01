@@ -2,6 +2,10 @@
 import { displayName, ensureParameters, isTunable, tunableMeta } from "./param_model.js";
 import { app } from "../../../scripts/app.js";
 
+const parameterLayouts = new WeakMap();
+let parameterBorderColorCache = null;
+let parameterThemeObserver = null;
+
 export const PARAMETER_NODE_LAYOUT = Object.freeze({
 	minWidth: 370,
 	outputColumn: 53,
@@ -58,9 +62,18 @@ function controlRect(width, rowTop, parameter, outputWidth) {
 	};
 }
 
+export function invalidateParameterLayout(node) {
+	if (!node || typeof node !== "object") return;
+	parameterLayouts.delete(node);
+	delete node._aaaliceParameterLayout;
+}
+
 export function computeParameterLayout(node) {
 	const width = Math.max(PARAMETER_NODE_LAYOUT.minWidth, Number(node.size?.[0]) || PARAMETER_NODE_LAYOUT.minWidth);
 	const contentTop = Number(node.constructor?.slot_start_y) || 0;
+	const source = node.properties?.parameters;
+	const cached = parameterLayouts.get(node);
+	if (cached && cached.width === width && cached.contentTop === contentTop && cached.source === source) return cached.layout;
 	const parameters = ensureParameters(node);
 	const outputWidth = outputColumnWidth(parameters);
 	const rows = [];
@@ -121,7 +134,7 @@ export function computeParameterLayout(node) {
 		cursor + PARAMETER_NODE_LAYOUT.bodyPadding,
 		outputStackHeight,
 	);
-	return {
+	const layout = {
 		width,
 		height: contentHeight,
 		contentTop,
@@ -130,6 +143,8 @@ export function computeParameterLayout(node) {
 		meta,
 		outputColumn: { left: width - outputWidth, width: outputWidth },
 	};
+	parameterLayouts.set(node, { width, contentTop, source: node.properties.parameters, layout });
+	return layout;
 }
 
 export function syncNativeOutputLayout(node, layout = computeParameterLayout(node)) {
@@ -147,10 +162,22 @@ export function syncNativeOutputLayout(node, layout = computeParameterLayout(nod
 	return layout;
 }
 
+function parameterBorderColor() {
+	if (parameterBorderColorCache) return parameterBorderColorCache;
+	const root = typeof document === "undefined" ? null : document.documentElement;
+	const styles = root && typeof getComputedStyle === "function" ? getComputedStyle(root) : null;
+	parameterBorderColorCache = styles?.getPropertyValue("--border-color").trim() || "#4d496a";
+	if (!parameterThemeObserver && root && typeof MutationObserver === "function") {
+		parameterThemeObserver = new MutationObserver(() => { parameterBorderColorCache = null; });
+		parameterThemeObserver.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
+		if (document.body) parameterThemeObserver.observe(document.body, { attributes: true, attributeFilter: ["class", "style"] });
+	}
+	return parameterBorderColorCache;
+}
+
 export function drawParameterStaticLayer(ctx, node, layout = node._aaaliceParameterLayout || computeParameterLayout(node)) {
 	if (!ctx || node?.flags?.collapsed || app.canvas?.vueNodesMode === true) return;
-	const styles = typeof getComputedStyle === "function" ? getComputedStyle(document.documentElement) : null;
-	const border = styles?.getPropertyValue("--border-color").trim() || "#4d496a";
+	const border = parameterBorderColor();
 	ctx.save();
 	ctx.translate(0, layout.contentTop);
 	// Reserve a quiet output rail like Quick Latent without painting fake

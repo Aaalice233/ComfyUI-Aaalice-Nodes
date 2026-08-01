@@ -1601,7 +1601,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) openGallerySettings();
 		else controller.search();
 	});
-	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: false, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
+	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
 	const previousResize = node.onResize; node.onResize = function (size) {
 		clampGallerySize(size);

@@ -139,3 +139,46 @@ test("receiver does not keep protocol-only slots in the canvas arrays", () => {
 	assert.doesNotMatch(receiverSource, /_processNodeClick|getInputPos", "getOutputPos|-1e6/);
 	assert.doesNotMatch(layoutSource, /_aaaliceAllReceiver|withVisibleReceiverSlots/);
 });
+
+test("receiver coalesces deferred renders per node and cancels removal work", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	assert.match(receiverSource, /const pendingReceiverRenders = new WeakMap\(\)/);
+	assert.match(receiverSource, /function scheduleReceiverRender\(receiver\) \{\s*if \(!mountedReceivers\.has\(receiver\) \|\| pendingReceiverRenders\.has\(receiver\)\) return;/s);
+	assert.match(receiverSource, /pendingReceiverRenders\.set\(receiver, timer\)/);
+	assert.match(receiverSource, /receiver\.onConnectionsChange = function \(\) \{[\s\S]*scheduleReceiverRender\(this\)/);
+	assert.doesNotMatch(receiverSource, /onConnectionsChange = function \(\) \{[\s\S]*?setTimeout\(\(\) => render\(this\)/);
+	assert.match(receiverSource, /receiver\.onRemoved = function \(\) \{\s*cancelScheduledReceiverRender\(this\);/s);
+});
+
+test("receiver batches one Nodes 2.0 DOM scan for all mounted instances", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	assert.match(receiverSource, /function isVueNodesMode\(\) \{\s*return globalThis\.LiteGraph\?\.vueNodesMode === true;\s*\}/s);
+	assert.match(receiverSource, /function scheduleVueReceiverSlots\(\) \{\s*if \(!isVueNodesMode\(\) \|\| vueReceiverFrame/);
+	assert.match(receiverSource, /vueReceiverFrame = requestAnimationFrame\(\(\) => \{\s*vueReceiverFrame = 0;\s*markVueReceiverSlots\(\);/s);
+	assert.match(receiverSource, /const receiversById = new Map\(\);[\s\S]*for \(const receiver of mountedReceivers\)[\s\S]*receiversById\.set\(id, receiver\)/);
+	assert.match(receiverSource, /for \(const element of document\.querySelectorAll\("\[data-node-id\]"\)\)[\s\S]*receiversById\.get\(element\.getAttribute\("data-node-id"\)\)/);
+	assert.equal((receiverSource.match(/document\.querySelectorAll\("\[data-node-id\]"\)/g) || []).length, 1);
+	assert.match(receiverSource, /function receiverMutationsNeedSync\(records\)/);
+	assert.match(receiverSource, /new MutationObserver\(\(records\) => \{\s*if \(receiverMutationsNeedSync\(records\)\) scheduleVueReceiverSlots\(\);/s);
+	assert.doesNotMatch(receiverSource, /markVueReceiverSlots\(receiver\)/);
+});
+
+test("receiver filters value-only and unrelated panel events before graph lookup", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	const start = receiverSource.indexOf("const onPanelChange = (event) => {");
+	const end = receiverSource.indexOf("window.addEventListener(EVENT_PARAMETER_CHANGED", start);
+	assert.ok(start >= 0 && end > start);
+	const handler = receiverSource.slice(start, end);
+	const valueOnlyGuard = handler.indexOf("event.type === EVENT_PARAMETER_CHANGED && detail.structure === false");
+	const bindingIdGuard = handler.indexOf("String(changedNodeId) !== String(current.panelNodeId)");
+	const panelLookup = handler.indexOf("const source = panelFor(receiver);");
+	assert.ok(valueOnlyGuard >= 0);
+	assert.ok(bindingIdGuard > valueOnlyGuard);
+	assert.ok(panelLookup > bindingIdGuard);
+});
+
+test("receiver allows host low-zoom DOM fallback", () => {
+	const receiverSource = readFileSync(join(ROOT, "js", "parameter_receiver.js"), "utf8");
+	assert.match(receiverSource, /serialize:\s*false, hideOnZoom:\s*true, margin:\s*0/);
+	assert.doesNotMatch(receiverSource, /hideOnZoom:\s*false/);
+});

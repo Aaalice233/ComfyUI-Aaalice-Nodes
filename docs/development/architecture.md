@@ -100,6 +100,14 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 挂载和状态恢复是两个独立职责：`nodeCreated` 或 setup 可以先用默认状态建立 DOM，但 `onConfigure` 只能作为早期同步，不能假定此时工作流恢复已经结束。`loadedGraphNode` 必须即使在组件已挂载时也重新读取 `node.properties`，同步所有受持久状态控制的 DOM，并重新计算或请求派生内容。初始化期间已经发出的异步请求必须用 `AbortController` 或 generation 机制失效；否则默认请求可能晚于恢复请求返回，让界面看似回到默认值，而手动刷新后才恢复正确状态。
 
+### Canvas 性能边界
+
+1. LiteGraph 在拖拽和平移期间会逐帧调用尺寸、排列和绘制回调。ParameterPanel 布局按参数数组身份、节点宽度和 slot 起点缓存；ParameterReceiver 按槽数、宽度和 slot 起点缓存；QuickGroupManager 的可见组快照只在事件驱动的 `render()` 中生成，逐帧高度回调只读取缓存；GroupLogicProbe 的规范化状态按原始对象身份复用。节点位置和无关高度变化不使这些缓存失效。
+2. 参数值与结构走不同失效域：值变化按稳定 Parameter Id 调用已挂载 `controlView().update()`，不替换 DOM、不重算布局、不同步 KJ 名称，也不刷新 Receiver；结构变化才重塑原生槽并刷新依赖链。EnumSwitch 仅在 route 结构、标签或 lazy 展示变化时调用动态槽提交器，不包装宿主逐帧 `_setConcreteSlots()`。
+3. ParameterPanel 与 ParameterReceiver 的 Nodes 2.0 DOM 标记先按 `data-node-id` 过滤 mutation，再在 animation frame 内合并为一次文档扫描。重挂恢复和业务更新共用该调度器，禁止叠加立即、rAF 和 timeout 三次扫描。所有顶层节点 DOM widget 使用宿主 `hideOnZoom` 低质量变换路径，画布平移或缩放期间临时绘制占位，稳定后仍用同一持久状态恢复。
+4. Workspace 图签名只读取 widget/options 的静态 own data property；accessor-backed 动态选项由 `CONTROL_HOST_INVALIDATED_EVENT` 失效，加载、撤销和重做由 `afterConfigureGraph` 强制恢复，不在签名阶段执行第三方 getter。
+5. KJ Set/Get 的虚拟连线绘制属于 KJNodes 自身：其 Show links、单节点 `drawConnection` 和 Performance 设置可能独立增加每帧图扫描与连线绘制。本包只通过公开 Set/Get API 做事件驱动的结构同步，不改写 KJNodes 的 canvas renderer。
+
 ### FetchFromKrita
 
 1. 前端生命周期只幂等挂载界面并读取 Bridge 状态；刷新不会提前抓取执行图像，任何状态都不写入工作流。
