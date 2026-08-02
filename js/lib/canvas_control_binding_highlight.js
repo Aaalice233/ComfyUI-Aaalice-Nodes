@@ -9,28 +9,7 @@ const pendingDomStates = new Map();
 let domMode = null;
 let mountObserver = null;
 let mountRefreshFrame = 0;
-let canvasColor = null;
-
-function canvasBindingColor() {
-	if (canvasColor) return canvasColor;
-	const promoted = globalThis.LiteGraph?.WIDGET_PROMOTED_OUTLINE_COLOR;
-	if (typeof promoted === "string" && promoted.trim()) {
-		canvasColor = promoted;
-		return canvasColor;
-	}
-	if (typeof document !== "undefined") {
-		const style = getComputedStyle(document.documentElement);
-		for (const name of ["--p-primary-color", "--primary-color"]) {
-			const value = style.getPropertyValue(name).trim();
-			if (value) {
-				canvasColor = value;
-				return canvasColor;
-			}
-		}
-	}
-	canvasColor = "#0b8ce9";
-	return canvasColor;
-}
+const CANVAS_BINDING_COLOR = "#a855f7";
 
 function restoreProperty(object, name, descriptor) {
 	try {
@@ -63,7 +42,7 @@ function drawFallbackOutline(ctx, width, y, height) {
 	const margin = 15;
 	const outlineWidth = Math.max(0, width - margin * 2);
 	ctx.save();
-	ctx.strokeStyle = canvasBindingColor();
+	ctx.strokeStyle = CANVAS_BINDING_COLOR;
 	ctx.lineWidth = 1.5;
 	ctx.beginPath();
 	if (typeof ctx.roundRect === "function") ctx.roundRect(margin, y, outlineWidth, height, Math.min(6, height / 2));
@@ -79,11 +58,11 @@ function installWidgetMarker(widget) {
 	let installed = false;
 
 	if (typeof widget.getOutlineColor === "function") {
-		const wrapper = function () { return canvasBindingColor(); };
+		const wrapper = function () { return CANVAS_BINDING_COLOR; };
 		installed = installProperty(widget, "getOutlineColor", wrapper, state) || installed;
 	}
 
-	if (typeof widget.draw === "function") {
+	if (!installed && typeof widget.draw === "function") {
 		const original = widget.draw;
 		const wrapper = function (...args) {
 			const result = original.apply(this, args);
@@ -93,7 +72,7 @@ function installWidgetMarker(widget) {
 		if (installProperty(widget, "draw", wrapper, state)) {
 			installed = true;
 		}
-	} else if (typeof widget.drawWidget === "function" && typeof widget.getOutlineColor !== "function") {
+	} else if (!installed && typeof widget.drawWidget === "function") {
 		const original = widget.drawWidget;
 		const wrapper = function (ctx, options = {}) {
 			const result = original.apply(this, arguments);
@@ -106,7 +85,7 @@ function installWidgetMarker(widget) {
 	}
 
 	if (!installed && "outline_color" in widget) {
-		const value = canvasBindingColor();
+		const value = CANVAS_BINDING_COLOR;
 		if (installProperty(widget, "outline_color", value, state)) installed = true;
 	}
 	if (!installed) return false;

@@ -16,7 +16,7 @@
 }
 
 .aaalice-sidebar-bound-widget {
-	--aaalice-bound-accent: var(--p-primary-color, var(--primary-color, #0b8ce9));
+	--aaalice-bound-accent: var(--p-purple-500, #a855f7);
 	--aaalice-bound-accent-soft: color-mix(in srgb, var(--aaalice-bound-accent) 32%, transparent);
 }
 .lg-node-widget.aaalice-sidebar-bound-widget > :last-child {

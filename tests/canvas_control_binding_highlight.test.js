@@ -15,8 +15,12 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 	assert.match(highlight, /\["generic-widget", "subgraph-widget"\]/);
 	assert.match(highlight, /resolved\.widget \|\|/);
 	assert.match(highlight, /getOutlineColor/);
+	assert.match(highlight, /CANVAS_BINDING_COLOR = \"#a855f7\"/);
+	assert.doesNotMatch(highlight, /WIDGET_PROMOTED_OUTLINE_COLOR/);
+	assert.match(highlight, /if \(!installed && typeof widget\.draw === \"function\"\)/);
 	assert.match(highlight, /data-testid=\\?\"node-widgets/);
 	assert.match(highlight, /DOM_BOUND_CLASS/);
+	assert.match(theme, /--p-purple-500, #a855f7/);
 	assert.match(theme, /\.lg-node-widget\.aaalice-sidebar-bound-widget/);
 });
 
