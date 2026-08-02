@@ -459,6 +459,10 @@ test("dashboard cards can link and manage multiple compatible node controls", ()
 	assert.match(workspace, /node\.properties\?\.\[HOST_ID_PROPERTY\]/);
 	assert.match(workspace, /const liveControls = controlProviders\.list\(node\)/);
 	assert.match(workspace, /const liveTarget = compatibleCardTargets\(liveSource\.binding\)/);
+	assert.match(workspace, /targets\.push\(\{ page, item, source, resolved: resolvedSet/);
+	assert.match(workspace, /resolvedBindings\.set\(bindingKey\(liveSource\.binding\), liveTarget\.source\.resolved\)/);
+	assert.match(workspace, /commitDashboardBindingSet\(next, liveTarget\.item\.id, \{ synchronize: true, resolvedBindings \}\)/);
+	assert.match(workspace, /resolvedBindings\.has\(bindingKey\(binding\)\)/);
 	assert.match(workspace, /controlLabel: label/);
 	assert.match(workspace, /preferredBindingTarget\(source\?\.control\.label, targets\)/);
 	assert.match(workspace, /linkableControlSources\(controls\)\.length > 0/);
