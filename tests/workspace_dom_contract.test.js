@@ -173,6 +173,7 @@ test("shared dialogs mount immediately without obsolete open calls", () => {
 test("node context-menu add is independent from layout edit mode", () => {
 	assert.match(workspace, /function patchNodeMenu/);
 	assert.match(workspace, /📌 Add controls to sidebar/);
+	assert.match(workspace, /const defaultPageId = page\?\.id \|\| model\.pages\[0\]\?\.id \|\| ""/);
 	const menuBody = workspace.match(/function patchNodeMenu[\s\S]*?\n}/)?.[0] || "";
 	assert.doesNotMatch(menuBody, /editMode/);
 	assert.match(menuBody, /installNodeControlMenu/);
@@ -452,7 +453,10 @@ test("dashboard cards can link and manage multiple compatible node controls", ()
 	assert.match(workspace, /removeLinkedBinding\(model, itemId, binding\)/);
 	assert.match(workspace, /replacePrimaryBinding\(dashboard\(\), item\.id, selected\.binding\)/);
 	assert.match(workspace, /synchronizeFromPrimary/);
-	assert.match(workspace, /entries: \[[\s\S]*binding\.menu[\s\S]*binding\.linkMenu/);
+	assert.match(workspace, /entries: \[[\s\S]*binding\.linkMenu[\s\S]*binding\.menu/);
+	assert.match(workspace, /function bindingLabelScore/);
+	assert.match(workspace, /controlLabel: label/);
+	assert.match(workspace, /preferredBindingTarget\(source\?\.control\.label, targets\)/);
 	assert.match(workspace, /linkableControlSources\(controls\)\.length > 0/);
 	assert.match(workspace, /initialFocus: \(\) => syncButton\.disabled \? closeButton : syncButton/);
 	assert.match(workspace, /installLinkedSeedQueueLifecycle/);

@@ -879,7 +879,8 @@ function compatibleCardTargets(sourceBinding, model = dashboard()) {
 			if (resolvedSet.status !== "ok") continue;
 			const primary = resolvedSet.bindingSet.entries[0];
 			if (!inspectControlLinkCompatibility(primary, source).ok) continue;
-			targets.push({ page, item, resolved: resolvedSet, label: `${page.name} · ${controlTitle(item, resolvedSet)}` });
+			const label = controlTitle(item, resolvedSet);
+			targets.push({ page, item, resolved: resolvedSet, label: `${page.name} · ${label}`, controlLabel: label });
 		}
 	}
 	const totals = new Map(); const occurrences = new Map();
@@ -2304,6 +2305,25 @@ function dashboardHasBinding(model, binding) {
 	return model.pages.some((page) => page.items.some((item) => item.kind === "control" && controlItemBindings(item).some((candidate) => bindingTargetKey(candidate) === targetKey)));
 }
 
+function bindingLabelScore(sourceLabel, targetLabel) {
+	const source = String(sourceLabel || "").normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, "");
+	const target = String(targetLabel || "").normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, "");
+	if (!source || !target) return 0;
+	if (source === target) return 1000;
+	const shorter = Math.min(source.length, target.length); const longer = Math.max(source.length, target.length);
+	if (shorter < 2 || !(source.includes(target) || target.includes(source))) return 0;
+	return 700 + Math.round((shorter / longer) * 200);
+}
+
+function preferredBindingTarget(sourceLabel, targets) {
+	let best = targets[0] || null; let bestScore = 0;
+	for (const target of targets) {
+		const score = bindingLabelScore(sourceLabel, target.controlLabel || target.label);
+		if (score > bestScore) { best = target; bestScore = score; }
+	}
+	return best;
+}
+
 function linkableControlSources(controls) {
 	const model = dashboard();
 	return controls.map((control) => ({ control, resolved: resolvedBindingEntry(control.binding) }))
@@ -2338,7 +2358,8 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 	const refreshTargets = () => {
 		const source = sources.find(({ control }) => bindingKey(control.binding) === sourceSelect.value);
 		targets = source ? compatibleCardTargets(source.control.binding) : [];
-		targetSelect.setOptions(targets.map((target) => ({ label: target.label, value: target.item.id })), targets[0]?.item.id || "");
+		const preferred = preferredBindingTarget(source?.control.label, targets);
+		targetSelect.setOptions(targets.map((target) => ({ label: target.label, value: target.item.id })), preferred?.item.id || "");
 		targetSelect.setDisabled(!targets.length); if (confirmButton) confirmButton.disabled = !targets.length;
 	};
 	body.append(
@@ -2365,16 +2386,18 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 function openAddControls(node, ownerElement = null) {
 	if (node?.graph !== app.graph) return;
 	const controls = controlProviders.list(node); if (!controls.length) return;
-	let model = dashboard(); let page = currentPage(model); let selected = new Set();
+	let model = dashboard(); let page = currentPage(model); const defaultPageId = page?.id || model.pages[0]?.id || ""; let selected = new Set();
 	const body = el("div", "aa-add-controls-dialog"); const list = el("div", "aa-add-controls-list");
-	const pageSelect = selectControl({ ariaLabel: t("aaalice.workspace.target.page", "Page"), onChange: () => rebuildTargets() });
+	const pageSelect = selectControl({ value: defaultPageId, ariaLabel: t("aaalice.workspace.target.page", "Page"), onChange: () => rebuildTargets() });
 	const targetGrid = el("div", "aa-add-controls-target-grid");
 	const destinationPanel = el("section", { className: "aa-add-controls-section aa-add-controls-destination", children: [
 		el("div", { className: "aa-add-controls-destination-copy", children: [icon("layout"), el("strong", null, t("aaalice.workspace.binding.destination", "Destination"))] }),
 		targetGrid,
 	] });
 	const rebuildTargets = () => {
-		model = dashboard(); page = model.pages.find((item) => item.id === pageSelect.control.value) || model.pages[0];
+		model = dashboard();
+		const preferredPageId = pageSelect.control.value || defaultPageId || activePageId;
+		page = model.pages.find((item) => item.id === preferredPageId) || model.pages[0];
 		pageSelect.setOptions(model.pages.map((item) => ({ label: item.name, value: item.id })), page?.id);
 	};
 	if (!model.pages.length) {
@@ -2458,8 +2481,8 @@ function patchNodeMenu(node) {
 			return controlProviders.list(candidate);
 		},
 		entries: [
-			{ label: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"), when: (candidate) => candidate?.graph === app.graph, open: (candidate, _controls, canvas) => openAddControls(candidate, canvas?.canvas || canvas || null) },
 			{ label: t("aaalice.workspace.binding.linkMenu", "🔗 Link to an existing sidebar parameter…"), when: (candidate, controls) => candidate?.graph === app.graph && linkableControlSources(controls).length > 0, open: (candidate, controls, canvas) => openLinkControls(candidate, controls, canvas?.canvas || canvas || null) },
+			{ label: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"), when: (candidate) => candidate?.graph === app.graph, open: (candidate, _controls, canvas) => openAddControls(candidate, canvas?.canvas || canvas || null) },
 		],
 	});
 }
