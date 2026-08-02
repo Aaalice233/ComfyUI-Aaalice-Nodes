@@ -1,4 +1,4 @@
-/** ComfyUI widget family. Policies stay separate from Aaalice parameter controls. */
+/** ComfyUI widget family. */
 
 import { renderBooleanControl } from "./boolean.js";
 import { renderChoiceControl } from "./choice.js";

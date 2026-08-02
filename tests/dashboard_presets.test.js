@@ -17,7 +17,7 @@ import {
 } from "../js/lib/dashboard_presets.js";
 import { bindingKey, legacyBindingKey } from "../js/lib/dashboard_model.js";
 
-const binding = { provider: "aaalice-parameter", hostId: "host-a", controlId: "steps", valueType: "number" };
+const binding = { provider: "test-source", hostId: "host-a", controlId: "steps", valueType: "number" };
 const KEY = bindingKey(binding);
 const layout = (column = 0) => ({
 	version: 4,

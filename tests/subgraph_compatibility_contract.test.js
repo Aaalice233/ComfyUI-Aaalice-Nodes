@@ -7,8 +7,6 @@ function source(path) {
 }
 
 const payloadInjectors = [
-	"../js/parameter_panel.js",
-	"../js/enum_switch.js",
 	"../js/character_feature_swap.js",
 	"../js/prompt_selector.js",
 	"../js/resolution_preset.js",
@@ -36,8 +34,6 @@ test("interactive setup scans nested subgraph definitions", () => {
 		"../js/fetch_from_krita.js",
 		"../js/group_is_enabled.js",
 		"../js/group_logic_probe.js",
-		"../js/parameter_panel.js",
-		"../js/parameter_receiver.js",
 		"../js/quick_group_manager.js",
 	]) {
 		const contents = source(path);

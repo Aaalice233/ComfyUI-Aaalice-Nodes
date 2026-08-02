@@ -27,10 +27,10 @@ function precisionForStep(step) {
 }
 
 export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_SAFE_INTEGER, step = 1, onCommit }) {
-	if (!anchor || anchor.ownerDocument?.querySelector(".aaalice-parameter-inline-editor")) return null;
+	if (!anchor || anchor.ownerDocument?.querySelector(".aa-control-inline-editor")) return null;
 	const rect = anchor.getBoundingClientRect();
 	const view = anchor.ownerDocument.defaultView || window;
-	const host = anchor.closest(".aaalice-pcp-node-root, .aa-workspace");
+	const host = anchor.closest(".aa-workspace");
 	const anchorStyle = view.getComputedStyle(anchor);
 	let editorBackground = anchorStyle.backgroundColor;
 	let editorColor = anchorStyle.color;
@@ -52,7 +52,7 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 		probe.remove();
 	}
 	const input = anchor.ownerDocument.createElement("input");
-	input.className = "aaalice-parameter-inline-editor aa-control-inline-number";
+	input.className = "aa-control-inline-editor aa-control-inline-number";
 	input.type = "number"; input.inputMode = "decimal";
 	input.min = String(min); input.max = String(max); input.step = String(step); input.value = String(value);
 	input.style.setProperty("--aaalice-inline-editor-bg", editorBackground);

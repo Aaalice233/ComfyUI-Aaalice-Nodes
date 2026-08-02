@@ -1,11 +1,9 @@
 /** Extensible registry that projects node controls without owning their values. */
 
-import { displayName, ensureParameters, isParameterPanel, isTunable, notifyParameterChanged } from "./param_model.js";
-import { partitionParameterSections } from "./parameter_sections.js";
 import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardContentRowSpan, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
-import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
-import { adaptWidgetControl, controlValueType, listAdaptedWidgetControls, resolveAdaptedWidgetControl } from "./widget_control_adapters.js";
+import { SEED_AFTER_GENERATE_MODES } from "./seed_preset.js";
+import { adaptWidgetControl, listAdaptedWidgetControls, resolveAdaptedWidgetControl } from "./widget_control_adapters.js";
 import { applyQuickGroupManagerPreset, isQuickGroupManager, quickGroupManagerPresetSnapshot, quickGroupManagerSnapshot, validateQuickGroupManagerPreset } from "./quick_group_manager_runtime.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
@@ -73,10 +71,6 @@ function validatePresetPayload(entry, { valueType, options = {}, numericDomain =
 	return true;
 }
 
-function parameterPanelTitle(node) {
-	return String(node?.title || node?.type || node?.comfyClass || "Parameter Panel");
-}
-
 function quickGroupManagerTitle(node) {
 	const title = typeof node?.getTitle === "function" ? node.getTitle() : node?.title;
 	return String(title || node?.type || "⚡ Quick Group Manager");
@@ -121,93 +115,6 @@ class ProviderRegistry {
 }
 
 export const controlProviders = new ProviderRegistry();
-
-controlProviders.register({
-	id: "aaalice-parameter",
-	supportsNode: (node) => isParameterPanel(node),
-	list(node) {
-		const hostId = ensureHostId(node);
-		const sections = partitionParameterSections(ensureParameters(node))
-			.map((section) => ({ ...section, parameters: section.parameters.filter(isTunable) }))
-			.filter((section) => section.parameters.length);
-		const sectioned = sections.some((section) => section.separator);
-		return sections.flatMap((section) => {
-			const source = {
-				provider: this.id,
-				hostId,
-				...(section.separator ? { scopeId: `separator:${section.separator.id}` } : {}),
-			};
-			const sourceGroup = {
-				source,
-				name: section.separator ? displayName(section.separator, section.separator.id) : parameterPanelTitle(node),
-				tone: "blue",
-				forceGroup: sectioned,
-			};
-			return section.parameters.map((parameter) => ({
-				label: displayName(parameter, parameter.id),
-				binding: { provider: this.id, hostId, controlId: parameter.id, valueType: controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference") },
-				sourceGroup,
-				rowSpan: recommendedControlRowSpan({ value: parameter.value, options: parameter.config, paramType: parameter.param_type }),
-			}));
-		});
-	},
-	resolveGroup(node, source) {
-		if (!source.scopeId) return { status: "ok", label: parameterPanelTitle(node) };
-		if (!source.scopeId.startsWith("separator:")) return { status: "missing", node };
-		const separatorId = source.scopeId.slice("separator:".length);
-		const separator = ensureParameters(node).find((item) => item.id === separatorId && item.param_type === "separator");
-		return separator ? { status: "ok", label: displayName(separator, separator.id) } : { status: "missing", node };
-	},
-	resolve(node, binding) {
-		const parameter = ensureParameters(node).find((item) => item.id === binding.controlId && isTunable(item));
-		if (!parameter) return { status: "missing", node };
-		const currentType = controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference");
-		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
-		const seed = parameter.param_type === "seed";
-		const numericDomain = seed ? "integer" : parameter.param_type === "slider" ? (Number(parameter.config?.step ?? 1) === 1 ? "integer" : "float") : null;
-		const availability = ["dropdown", "enum"].includes(parameter.param_type) && parameter.config?.source && !parameter.config?.options?.length
-			? { state: "empty", reason: "no-options" }
-			: { state: "ready" };
-		const options = seed ? { ...(parameter.config || {}), behaviors: SEED_AFTER_GENERATE_MODES } : parameter.config || {};
-		return {
-			status: "ok", family: "aaalice", kind: seed ? "seed" : null, numericDomain, controlId: binding.controlId, node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
-			options, availability, linkable: true, presettable: true, hasCustomPresetCodec: true, supportsSeedBehavior: seed, seedBehaviors: seed ? SEED_AFTER_GENERATE_MODES : [],
-			readPresetValue() { return seed ? createSeedPresetPayload(parameter.value, parameter.config?.control_after_generate) : structuredClone(parameter.value); },
-			validatePresetValue(entry) {
-				return seed ? validateSeedPresetEntry(entry, parameter.config || {}) : validatePresetPayload(entry, { valueType: binding.valueType, options: parameter.config || {}, numericDomain });
-			},
-			validateLinkedValue(next) {
-				return seed ? validateSeedPresetEntry({ valueType: binding.valueType, payload: createSeedPresetPayload(next, parameter.config?.control_after_generate) }, parameter.config || {}) : validatePresetPayload({ valueType: binding.valueType, payload: next }, { valueType: binding.valueType, options: parameter.config || {}, numericDomain });
-			},
-			applyPresetValue(entry, { transaction = true, workspaceRedraw = true } = {}) {
-				if (!seed) return this.setValue(structuredClone(entry.payload), { transaction, workspaceRedraw });
-				const decoded = decodeSeedPresetEntry(entry, parameter.config?.control_after_generate || "randomize");
-				const apply = () => {
-					parameter.value = decoded.value; parameter.config ||= {}; parameter.config.control_after_generate = decoded.behavior;
-					notifyParameterChanged(node, { structure: false, parameterId: parameter.id, workspaceRedraw });
-				};
-				return transaction ? graphTransaction(node, apply) : apply();
-			},
-			setValue(next, { transaction = true, transient = false, workspaceRedraw = true } = {}) {
-				const apply = () => {
-					parameter.value = next;
-					if (transient) { node._aaaliceParameterValueUpdate?.(parameter.id); node.setDirtyCanvas?.(true, true); }
-					else notifyParameterChanged(node, { structure: false, parameterId: parameter.id, workspaceRedraw });
-				};
-				return transaction ? graphTransaction(node, apply) : apply();
-			},
-			flushValue() { notifyParameterChanged(node, { structure: false, parameterId: parameter.id }); },
-			setSeedBehavior(behavior, { transaction = true, workspaceRedraw = true } = {}) {
-				if (!SEED_AFTER_GENERATE_MODES.includes(behavior)) throw new TypeError(`Invalid seed behavior: ${behavior}`);
-				const apply = () => {
-					parameter.config ||= {}; parameter.config.control_after_generate = behavior;
-					notifyParameterChanged(node, { structure: false, parameterId: parameter.id, workspaceRedraw });
-				};
-				return transaction ? graphTransaction(node, apply) : apply();
-			},
-		};
-	},
-});
 
 controlProviders.register({
 	id: "quick-group-manager",
@@ -280,7 +187,7 @@ const widgetProvider = (id, promoted) => ({
 	supportsNode(node) {
 		const subgraph = Boolean(node?.isSubgraphNode?.());
 		return promoted ? subgraph && listAdaptedWidgetControls(node, { promoted: true }).length > 0
-			: !isParameterPanel(node) && !subgraph && listAdaptedWidgetControls(node).length > 0;
+			: !subgraph && listAdaptedWidgetControls(node).length > 0;
 	},
 	list(node) {
 		const hostId = ensureHostId(node);
@@ -289,7 +196,7 @@ const widgetProvider = (id, promoted) => ({
 			availability: adapted.availability,
 			binding: { provider: id, hostId, controlId: adapted.controlId, valueType: adapted.valueType, adapterId: adapted.adapterId },
 			columnSpan: normalizeDashboardColumnSpan(adapted.columnSpan),
-			rowSpan: normalizeDashboardRowSpan(adapted.rowSpan || recommendedControlRowSpan({ value: adapted.value, options: adapted.options, paramType: adapted.kind || adapted.control?.param_type || adapted.control?.type })),
+			rowSpan: normalizeDashboardRowSpan(adapted.rowSpan || recommendedControlRowSpan({ value: adapted.value, options: adapted.options, paramType: adapted.kind || adapted.control?.type })),
 		}));
 	},
 	resolve(node, binding) {

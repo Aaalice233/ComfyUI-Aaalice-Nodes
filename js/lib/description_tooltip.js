@@ -13,7 +13,7 @@ export function attachDescriptionTooltip(trigger, description) {
 			return;
 		}
 		descriptionTooltip.show(trigger, resolveDescription, {
-			className: "aaalice-parameter-tooltip",
+			className: "aa-description-tooltip",
 			contentMode: "markdown",
 			immediate,
 			interactive: true,

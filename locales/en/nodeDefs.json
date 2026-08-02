@@ -20,14 +20,6 @@
     },
     "outputs": { "0": { "name": "Value", "tooltip": "The unchanged input value." } }
   },
-  "EnumSwitch": {
-    "display_name": "🔀 Enum Switch",
-    "description": "Select one lazy branch by an exact string value using only the current native branch inputs.",
-    "inputs": {
-      "selector": { "name": "Selector", "tooltip": "Connect the string value used to select a matching branch." }
-    },
-    "outputs": { "0": { "name": "Output", "tooltip": "Value from the selected branch." } }
-  },
   "GroupIsEnabled": {
     "display_name": "🚦 Group Is Enabled",
     "description": "Report whether the selected visual group is fully disabled at the moment the prompt is queued.",
@@ -43,51 +35,6 @@
     "outputs": {
       "0": { "name": "Result", "tooltip": "Combined probe result; connect to a lazy conditional branch such as ImpactConditionalBranch's cond." }
     }
-  },
-  "ParameterPanel": {
-    "display_name": "🎛️ Parameter Panel",
-    "description": "Edit one parameter set and materialize up to 32 active direct outputs; edit structure from the node context menu.",
-    "inputs": {},
-    "outputs": {
-      "0": { "name": "Output 1", "tooltip": "Parameter slot 1" },
-      "1": { "name": "Output 2", "tooltip": "Parameter slot 2" },
-      "2": { "name": "Output 3", "tooltip": "Parameter slot 3" },
-      "3": { "name": "Output 4", "tooltip": "Parameter slot 4" },
-      "4": { "name": "Output 5", "tooltip": "Parameter slot 5" },
-      "5": { "name": "Output 6", "tooltip": "Parameter slot 6" },
-      "6": { "name": "Output 7", "tooltip": "Parameter slot 7" },
-      "7": { "name": "Output 8", "tooltip": "Parameter slot 8" },
-      "8": { "name": "Output 9", "tooltip": "Parameter slot 9" },
-      "9": { "name": "Output 10", "tooltip": "Parameter slot 10" },
-      "10": { "name": "Output 11", "tooltip": "Parameter slot 11" },
-      "11": { "name": "Output 12", "tooltip": "Parameter slot 12" },
-      "12": { "name": "Output 13", "tooltip": "Parameter slot 13" },
-      "13": { "name": "Output 14", "tooltip": "Parameter slot 14" },
-      "14": { "name": "Output 15", "tooltip": "Parameter slot 15" },
-      "15": { "name": "Output 16", "tooltip": "Parameter slot 16" },
-      "16": { "name": "Output 17", "tooltip": "Parameter slot 17" },
-      "17": { "name": "Output 18", "tooltip": "Parameter slot 18" },
-      "18": { "name": "Output 19", "tooltip": "Parameter slot 19" },
-      "19": { "name": "Output 20", "tooltip": "Parameter slot 20" },
-      "20": { "name": "Output 21", "tooltip": "Parameter slot 21" },
-      "21": { "name": "Output 22", "tooltip": "Parameter slot 22" },
-      "22": { "name": "Output 23", "tooltip": "Parameter slot 23" },
-      "23": { "name": "Output 24", "tooltip": "Parameter slot 24" },
-      "24": { "name": "Output 25", "tooltip": "Parameter slot 25" },
-      "25": { "name": "Output 26", "tooltip": "Parameter slot 26" },
-      "26": { "name": "Output 27", "tooltip": "Parameter slot 27" },
-      "27": { "name": "Output 28", "tooltip": "Parameter slot 28" },
-      "28": { "name": "Output 29", "tooltip": "Parameter slot 29" },
-      "29": { "name": "Output 30", "tooltip": "Parameter slot 30" },
-      "30": { "name": "Output 31", "tooltip": "Parameter slot 31" },
-      "31": { "name": "Output 32", "tooltip": "Parameter slot 32" }
-    }
-  },
-  "ParameterReceiver": {
-    "display_name": "📡 Parameter Receiver",
-    "description": "Bind a Parameter Panel and expose only its actual KJ Get values as dynamic native slots.",
-    "inputs": {},
-    "outputs": {}
   },
   "PromptSelector": {
     "display_name": "📚 Prompt Selector",

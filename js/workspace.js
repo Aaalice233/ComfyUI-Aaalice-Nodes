@@ -36,15 +36,11 @@ import {
 	createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createPageRail, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
-import { updateBoundControlValues } from "./lib/control_value_channel.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
 import { invalidateWidgetControlAdapterCache } from "./lib/widget_control_adapters.js";
-import { allGraphNodes } from "./lib/graph_scope.js";
-import { applySeedAfterQueue, EVENT_PARAMETER_CHANGED, isParameterPanel } from "./lib/param_model.js";
 
 const EXTRA_KEY = "aaaliceSidebar";
 const DASHBOARD_PRESETS_EXTRA_KEY = "aaaliceSidebarPresets";
-const LEGACY_VALUE_PRESETS_EXTRA_KEY = "aaaliceSidebarValuePresets";
 const GROUP_NAVIGATION_EXTRA_KEY = "aaaliceGroupNavigation";
 const TAB_ID = "aaalice-workspace";
 const SIDEBAR_PIN_STORAGE_KEY = "aaalice.workspace.sidebarPinned";
@@ -207,17 +203,6 @@ function flushActiveDashboardPresetOnSave() {
 	}
 }
 
-function clearLegacyDashboardPresets() {
-	const graph = app.graph; const extra = graph?.extra;
-	if (!extra || !Object.prototype.hasOwnProperty.call(extra, LEGACY_VALUE_PRESETS_EXTRA_KEY)) return;
-	graph?.beforeChange?.();
-	try {
-		delete extra[LEGACY_VALUE_PRESETS_EXTRA_KEY];
-		if (!extra[DASHBOARD_PRESETS_EXTRA_KEY]) extra[DASHBOARD_PRESETS_EXTRA_KEY] = emptyDashboardPresetState();
-	} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); }
-	remindWorkflowSave(t("aaalice.workspace.dashboardPreset.legacyCleared", "Old parameter-only presets were cleared. Save the workflow to finish upgrading."));
-}
-
 function remindWorkflowSave(detail) {
 	app.extensionManager?.toast?.add?.({
 		severity: "warn",
@@ -302,20 +287,7 @@ function graphStructureSignature(nodes = graphNodes()) {
 		node.id, node.type, node.comfyClass, node.properties?.aaaliceHostId,
 		typeof node.getTitle === "function" ? node.getTitle() : node.title,
 		(node.widgets || []).map(widgetStructureSignature),
-		(node.properties?.parameters || []).map((parameter) => [parameter.id, parameter.type, parameter.name]),
 	])).join("|");
-}
-
-function syncParameterValueViews(detail = {}) {
-	const node = detail.node;
-	const hostId = node?.properties?.[HOST_ID_PROPERTY];
-	const parameters = node?.properties?.parameters;
-	if (!hostId || !Array.isArray(parameters)) return;
-	for (const parameter of parameters) {
-		if (!parameter?.id || (detail.parameterId != null && String(parameter.id) !== String(detail.parameterId))) continue;
-		const key = bindingKey({ provider: "aaalice-parameter", hostId, controlId: String(parameter.id) });
-		updateBoundControlValues([key], parameter.value, { sourceKey: key, seedBehavior: parameter.config?.control_after_generate });
-	}
 }
 
 // 结构相同的工作流（如同一工作流的多个版本）可能携带不同看板与预设；签名必须覆盖，否则切换标签页时选择器显示陈旧状态
@@ -932,17 +904,13 @@ function commitDashboardBindingSet(next, itemId, { synchronize = false } = {}) {
 	}
 }
 
-function prepareLinkedSeedGraph(graph) {
-	for (const node of allGraphNodes(graph).filter(isParameterPanel)) applySeedAfterQueue(node);
-}
-
 function synchronizeLinkedSeedsForGraph(graph, { phase = "after-queue" } = {}) {
 	const model = normalizeDashboard(graph?.extra?.[EXTRA_KEY] ?? null);
 	const nodes = graph?._nodes || [];
 	const outcome = synchronizeLinkedBindingSets(model, (binding) => controlProviders.resolve(binding, nodes), { kind: "seed", transaction: false });
 	if (outcome.issues.length) {
 		const issue = outcome.issues[0];
-		const error = new ControlBindingSetError("Linked Seed parameters could not be synchronized", "linked-seed-sync-failed", issue.binding || null, issue.error || null);
+		const error = new ControlBindingSetError("Linked Seed controls could not be synchronized", "linked-seed-sync-failed", issue.binding || null, issue.error || null);
 		error.issues = outcome.issues;
 		throw error;
 	}
@@ -952,7 +920,6 @@ function synchronizeLinkedSeedsForGraph(graph, { phase = "after-queue" } = {}) {
 
 function installLinkedSeedQueueHook() {
 	installLinkedSeedQueueLifecycle(app, {
-		prepareGraph: prepareLinkedSeedGraph,
 		synchronizeGraph: synchronizeLinkedSeedsForGraph,
 		onError(error) { console.error("[Aaalice] Unable to reconcile linked seeds while queueing", error); notifyControlBindingError(error); },
 	});
@@ -2248,7 +2215,6 @@ function destroyWorkspaceSidebar() {
 }
 
 function renderWorkspace(root) {
-	clearLegacyDashboardPresets();
 	for (const candidate of workspaceOwnershipObservers.keys()) if (candidate !== root && !isWorkspaceRootInteractive(candidate)) closeWorkspaceTransientSurfaces(candidate);
 	closeWorkspaceTransientSurfaces(root, { closeBindings: false }); destroyVirtualLists(root);
 	destroySharedControls(root);
@@ -2546,11 +2512,6 @@ app.registerExtension({
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => { invalidateWidgetControlAdapterCache(event.detail?.node || null); scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave(); });
-		window.addEventListener(EVENT_PARAMETER_CHANGED, (event) => {
-			if (event.detail?.structure === false) syncParameterValueViews(event.detail);
-			else if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard");
-			scheduleActiveDashboardPresetAutoSave();
-		});
 		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
 	},
 });

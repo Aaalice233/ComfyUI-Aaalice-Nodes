@@ -1,4 +1,4 @@
-/** Surface-neutral contracts for shared parameter controls. */
+/** Surface-neutral contracts for shared widget controls. */
 
 const CONTROL_AVAILABILITY_STATES = new Set(["ready", "empty", "unset", "unavailable", "error"]);
 
@@ -8,9 +8,9 @@ export function normalizeControlSpec(spec = {}) {
 	if (!CONTROL_AVAILABILITY_STATES.has(availability.state || "ready")) throw new TypeError(`Invalid control availability state: ${availability.state}`);
 	return Object.freeze({
 		id: String(spec.id || ""),
-		family: spec.family === "comfy" ? "comfy" : "aaalice",
+		family: "comfy",
 		kind: spec.kind,
-		label: String(spec.label || spec.id || "Parameter"),
+		label: String(spec.label || spec.id || "Control"),
 		value: spec.value,
 		options: Object.freeze({ ...(spec.options || {}) }),
 		labels: Object.freeze({ ...(spec.labels || {}) }),

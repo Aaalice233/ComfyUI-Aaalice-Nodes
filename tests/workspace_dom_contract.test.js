@@ -17,7 +17,6 @@ const choiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "choice.j
 const booleanControl = readFileSync(join(ROOT, "js", "lib", "controls", "boolean.js"), "utf8");
 const taglistControl = readFileSync(join(ROOT, "js", "lib", "controls", "taglist.js"), "utf8");
 const textControl = readFileSync(join(ROOT, "js", "lib", "controls", "text.js"), "utf8");
-const imageControl = readFileSync(join(ROOT, "js", "lib", "controls", "image.js"), "utf8");
 const imageChoiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_choice.js"), "utf8");
 const markdownControl = readFileSync(join(ROOT, "js", "lib", "controls", "markdown.js"), "utf8");
 const nativeOutputControls = readFileSync(join(ROOT, "js", "lib", "native_output_controls.js"), "utf8");
@@ -42,7 +41,6 @@ const groupNavigation = readFileSync(join(ROOT, "js", "lib", "group_navigation.j
 const groupNavigationModel = readFileSync(join(ROOT, "js", "lib", "group_navigation_model.js"), "utf8");
 const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
-const imageUpload = readFileSync(join(ROOT, "js", "lib", "image_upload.js"), "utf8");
 const imageAssetControl = readFileSync(join(ROOT, "js", "lib", "image_asset_control.js"), "utf8");
 const imageAssets = readFileSync(join(ROOT, "js", "lib", "image_assets.js"), "utf8");
 const promptEntryDetails = readFileSync(join(ROOT, "js", "lib", "prompt_entry_details.js"), "utf8");
@@ -250,9 +248,8 @@ test("projects QuickGroupManager as one presettable sidebar control instead of a
 	assert.doesNotMatch(zhLocale, /"quickGroups"/);
 });
 
-test("providers cover generic, Aaalice and public subgraph widgets by stable host identity", () => {
+test("providers cover native and public subgraph widgets by stable host identity", () => {
 	assert.match(providers, /HOST_ID_PROPERTY/);
-	assert.match(providers, /aaalice-parameter/);
 	assert.match(providers, /generic-widget/);
 	assert.match(providers, /subgraph-widget/);
 	assert.match(providers, /listAdaptedWidgetControls/);
@@ -278,8 +275,8 @@ test("numeric control gestures preview live inside one graph history boundary", 
 	assert.match(numericControl, /pointerdown/);
 	assert.match(workspaceControls, /setValue\(next, \{ transaction: false, transient: true \}\)/);
 	assert.match(providers, /flushValue/);
-	assert.match(providers, /node\._aaaliceParameterValueUpdate\?\.\(parameter\.id\)/);
-	assert.doesNotMatch(providers, /if \(transient\) \{ node\._aaaliceParameterRedraw/);
+	assert.match(providers, /adapted\.setValue\(next\)/);
+	assert.doesNotMatch(providers, /ParameterPanel|ParameterReceiver|EnumSwitch/);
 	assert.match(numericControl, /pointerup/);
 	assert.match(workspaceControls, /beforeChange/);
 	assert.match(workspaceControls, /afterChange/);
@@ -299,27 +296,6 @@ test("numeric control gestures preview live inside one graph history boundary", 
 	assert.match(theme, /\.aa-control-numeric-value/);
 	assert.match(uiStyles, /::-webkit-slider-runnable-track/);
 	assert.match(components, /control\?\.headerAccessories/);
-});
-
-test("dashboard image controls share upload, drop, thumbnail, and preview behavior", () => {
-	assert.match(imageControl, /renderImageControl/);
-	assert.match(imageControl, /aa-control-image/);
-	assert.match(imageControl, /createImageAssetControl\(\{/);
-	assert.match(imageControl, /onChange: \(next\) => port\.commit\(next\)/);
-	assert.match(imagePreview, /export function bindImagePreview/);
-	assert.match(imageUpload, /export function isImageFile/);
-	assert.match(imageUpload, /export async function uploadImageFile/);
-	assert.match(imageUpload, /export function bindImageDropTarget/);
-	assert.doesNotMatch(imageUpload, /createImageUploadControl/);
-	assert.match(imageAssetControl, /bindImagePreview\(select, "", "", \{ immediate: true, resolve: viewSource \}\)/);
-	assert.match(imageAssetControl, /closeImagePreviewWithin\(root\)/);
-	assert.match(imagePreview, /previewTooltip\.isAnchoredWithin\(container\)/);
-	assert.match(workspace, /notifyWorkspaceImageUpload/);
-	assert.match(theme, /\.aa-image-asset-control__thumb\s*\{[^}]*object-fit:\s*cover/s);
-	assert.match(theme, /\.aa-image-asset-control__select\.has-image::before/);
-	assert.match(theme, /\.aa-image-asset-control__select\.is-drop-target/);
-	assert.match(theme, /\.aa-image-asset-control:hover \.aa-image-asset-control__clear/);
-	assert.match(theme, /\.aa-image-asset-control\s*\{[^}]*height:\s*32px/s);
 });
 
 test("image inputs share a native-shaped asset browser and separate upload action", () => {
@@ -383,7 +359,7 @@ test("markdown notes adapt between full rendering and a hover-to-read bar by hei
 	assert.doesNotMatch(workspaceControls, /cardCompact/);
 	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = 28/);
 	assert.doesNotMatch(theme, /aa-control-card\.is-compact/);
-	assert.match(theme, /:is\(\.aaalice-parameter-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h1/);
+	assert.match(theme, /:is\(\.aa-description-tooltip, \.aa-control-markdown__body, \.aa-text-output__body\) h1/);
 	assert.match(theme, /\.aa-control-markdown__body \{[^}]*overflow-y: auto/);
 	assert.match(theme, /\.aa-control-markdown__bar \{[^}]*height: 32px;/);
 	assert.match(theme, /\.aa-control-markdown__bar:hover/);
@@ -398,7 +374,6 @@ test("dashboard tag-list controls reuse the shared interactive chip editor", () 
 	assert.match(theme, /\.aa-taglist-control \{[^}]*display: flex;[^}]*height: 32px;[^}]*box-sizing: border-box;[^}]*overflow-x: auto;/);
 	assert.match(theme, /\.aa-taglist-control::\-webkit-scrollbar \{ display: none; \}/);
 	assert.match(theme, /\.aa-taglist-options \{ display: contents; \}/);
-	assert.match(theme, /\.aaalice-pcp\.aaalice-pcp-node-root \.aa-taglist-control > input\.aa-taglist-input,[\s\S]*border: 0;[^}]*background: transparent;[^}]*box-shadow: none;/);
 	assert.match(theme, /\.aa-taglist-chip\.is-selected/);
 	assert.match(theme, /\.aa-taglist-chip\.is-disabled/);
 	assert.match(theme, /\[data-control-tone="11"\]/);
@@ -407,24 +382,17 @@ test("dashboard tag-list controls reuse the shared interactive chip editor", () 
 	assert.match(taglistControl, /input\.hasAttribute\("data-autocomplete-plus-open"\)/);
 	assert.match(textControl, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
 	assert.match(textControl, /spec\.options\.multiline \? document\.createElement\("textarea"\) : document\.createElement\("input"\)/);
-	assert.match(workspace, /event\.detail\?\.workspaceRedraw !== false/);
+	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT/);
 });
 
-test("seed behavior reuses one four-mode shared control across the node and dashboard", () => {
-	const parameterPanel = readFileSync(join(ROOT, "js", "parameter_panel.js"), "utf8");
+test("seed behavior reuses one four-mode shared control across the dashboard", () => {
 	assert.match(numericControl, /export function createSeedModeControl/);
 	assert.match(numericControl, /SEED_BEHAVIORS = Object\.freeze\(\["fixed", "increment", "decrement", "randomize"\]\)/);
 	assert.match(numericControl, /createAnchoredPopover/);
 	assert.match(numericControl, /control\.setBehavior/);
 	assert.match(numericControl, /role: "radiogroup"/);
 	assert.match(numericControl, /option\.setAttribute\("role", "radio"\)/);
-	assert.match(parameterPanel, /createSharedControl\(spec/);
-	assert.match(parameterPanel, /setSeedBehavior\(behavior\)/);
 	assert.match(workspaceControls, /createSharedControl\(spec/);
-	assert.match(providers, /control_after_generate = behavior/);
-	assert.match(providers, /adapted\.setSeedBehavior\(behavior\)/);
-	assert.match(providers, /createSeedPresetPayload\(parameter\.value, parameter\.config\?\.control_after_generate\)/);
-	assert.match(providers, /parameter\.config\.control_after_generate = decoded\.behavior/);
 	assert.match(theme, /\.aa-control-seed-popover/);
 	for (const behavior of ["fixed", "increment", "decrement", "randomize"]) {
 		assert.match(theme, new RegExp(`data-seed-behavior="${behavior}"`));
@@ -445,7 +413,7 @@ test("dashboard enum and boolean controls reuse the shared themed controls", () 
 	assert.match(booleanControl, /root\.classList\.toggle\("is-on", current\)/);
 	assert.match(booleanControl, /event\.target\.closest\("\.aa-ui-toggle"\)/);
 	assert.match(booleanControl, /attrs: \{ "aria-hidden": "true" \}/);
-	assert.match(controlRegistry, /AAALICE_CONTROL_RENDERERS/);
+	assert.doesNotMatch(controlRegistry, /AAALICE_CONTROL_RENDERERS/);
 	assert.match(controlRegistry, /COMFY_CONTROL_RENDERERS/);
 	assert.match(components, /root\.dataset\.controlKind/);
 	assert.match(theme, /\.aa-control-choice-select/);
@@ -512,7 +480,7 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-boolean \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-boolean \{[^}]*width: 100%;[^}]*height: 32px;/);
 	assert.doesNotMatch(theme, /\.aa-control-card-header \.aa-control-boolean-status \{\s*display: none;/);
-	assert.match(theme, /\.aaalice-pcp-node-root \.aa-control-boolean \{\s*pointer-events: auto;/);
+	assert.doesNotMatch(theme, /aaalice-pcp-node-root/);
 	assert.match(components, /root\.append\(header, control/);
 	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) 28px;[^}]*grid-template-rows: 14px 30px;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-seed-mode\.aa-ui-button \{[^}]*grid-column: 2;[^}]*grid-row: 2;/);
@@ -971,9 +939,8 @@ test("workspace scrolling closes transient surfaces until motion settles", () =>
 
 test("Dashboard V4 replaces mandatory sections with optional grid groups", () => {
 	assert.match(workspace, /createGroup\(current, page\.id/);
-	assert.match(providers, /partitionParameterSections\(ensureParameters\(node\)\)/);
-	assert.match(providers, /scopeId: `separator:\$\{section\.separator\.id\}`/);
-	assert.match(providers, /forceGroup: sectioned/);
+	assert.match(providers, /const widgetProvider = \(id, promoted\)/);
+	assert.match(providers, /sourceSnapshot\(source, nodes\)/);
 	assert.doesNotMatch(providers, /separator: \{ label: displayName\(section\.separator, section\.separator\.id\) \}/);
 	assert.doesNotMatch(workspace, /function sharedSourceGroup\(controls\)/);
 	assert.match(workspace, /addItems\(current, page\.id, chosen\)/);
@@ -1015,7 +982,7 @@ test("Dashboard V4 replaces mandatory sections with optional grid groups", () =>
 
 test("Dashboard footprints use bounded integer spans rather than a discrete size catalog", () => {
 	assert.match(dashboardModel, /export const DASHBOARD_VERSION = 4/);
-	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
+	assert.match(providers, /recommendedControlRowSpan/);
 	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
 	assert.doesNotMatch(dashboardSizing, /DASHBOARD_SIZE_CATALOG|DASHBOARD_CONTROL_(?:COLUMN|ROW)_SPANS|dashboardSizeToken/);
 	assert.match(dashboardSizing, /function boundedInteger/);
@@ -1141,7 +1108,7 @@ test("Dashboard V4 layout editing uses transient integer-grid gestures and one c
 		assert.match(theme, /\.aa-section-rule--start\s*\{[^}]*linear-gradient\(90deg, transparent/s);
 		assert.match(theme, /\.aa-section-rule--end\s*\{[^}]*linear-gradient\(90deg, var\(--aa-section-core\)/s);
 		assert.doesNotMatch(theme, /aa-section-spectrum/);
-		assert.match(theme, /\.aaalice-pcp-node-section-label,[\s\S]*\.aa-dashboard-separator-label \{[^}]*text-align: center;/);
+		assert.match(theme, /\.aa-dashboard-separator-label \{[^}]*text-align: center;/);
 	assert.match(theme, /grid-row: var\(--aa-dashboard-row\) \/ span var\(--aa-dashboard-row-span\)/);
 	assert.match(dashboardSizing, /DASHBOARD_GRID_COLUMNS = 12/);
 	assert.match(dashboardSizing, /DASHBOARD_MIN_CONTROL_COLUMN_SPAN = 3/);
@@ -1204,7 +1171,6 @@ test("adding controls reminds the user to save the workflow", () => {
 test("complete sidebar presets track layout and values as a custom working copy", () => {
 	assert.match(workspace, /const DASHBOARD_PRESETS_EXTRA_KEY = "aaaliceSidebarPresets"/);
 	assert.match(workspace, /graphSyncSignature[\s\S]*DASHBOARD_PRESETS_EXTRA_KEY/);
-	assert.match(workspace, /delete extra\[LEGACY_VALUE_PRESETS_EXTRA_KEY\]/);
 	assert.match(workspace, /createDashboardPresetPicker\(\{/);
 	assert.doesNotMatch(workspace, /!editMode \? createDashboardPresetPicker/);
 	assert.match(workspace, /currentDashboardPresetSnapshot/);
@@ -1459,8 +1425,8 @@ test("reactive sidebar render re-entry is a no-op and value updates preserve con
 	assert.match(components, /linkedBadge\.dataset\.linkedLabel = linkedLabel/);
 	assert.match(components, /linkedBadge\.dataset\.linkedMixedLabel/);
 	assert.match(workspace, /syncKeys: controlItemBindings\(item\)\.map\(bindingKey\)/);
-	assert.match(workspace, /if \(event\.detail\?\.structure === false\) syncParameterValueViews\(event\.detail\)/);
-	assert.match(workspace, /else if \(event\.detail\?\.workspaceRedraw !== false\) scheduleRender\("dashboard"\)/);
+	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT/);
+	assert.match(workspace, /scheduleRender\("dashboard"\)/);
 	assert.match(workspace, /if \(renderedWorkspaceTabs\.has\(element\)\) return;/);
 	assert.doesNotMatch(workspace, /onCommit:[^\n]*scheduleRender\("dashboard"\)/);
 	assert.match(workspace, /if \(hasActiveControlGestures\(\)\) \{ deferredWorkspaceRender = true; return; \}/);
@@ -1468,11 +1434,11 @@ test("reactive sidebar render re-entry is a no-op and value updates preserve con
 	assert.match(workspace, /aa-workspace-placeholder/);
 });
 
-test("source control titles follow the current node or parameter name", () => {
+test("source control titles use live node and binding labels", () => {
 	assert.match(workspace, /typeof node\.getTitle === "function" \? node\.getTitle\(\) : node\.title/);
-	assert.match(workspace, /parameter\.id, parameter\.type, parameter\.name/);
 	assert.match(workspace, /return resolved\.label \|\| item\.label \|\| item\.binding\.controlId/);
-	assert.match(workspace, /window\.addEventListener\(EVENT_PARAMETER_CHANGED, \(event\) => \{/);
+	assert.match(workspace, /function controlTitle\(item, resolved\)/);
+	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT/);
 });
 
 test("group and card titles support double-click inline rename", () => {
@@ -1488,7 +1454,7 @@ test("group and card titles support double-click inline rename", () => {
 	assert.match(workspace, /function controlTitle\(item, resolved\)/);
 	assert.match(workspace, /function resolveGroupTitle\(group\)/);
 	assert.match(workspace, /name\.value = resolveGroupTitle\(group\)/);
-	assert.match(workspace, /window\.addEventListener\(EVENT_PARAMETER_CHANGED, \(event\) => \{/);
+	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT/);
 	assert.match(workspace, /buildSourceSnapshot\(sourceResult\.controls, group\.source/);
 	assert.match(workspace, /inspectSourceGroup\(group, page\?\.items\.filter/);
 	assert.match(workspace, /syncCurrentPageSourceGroups\(page\.id\)/);

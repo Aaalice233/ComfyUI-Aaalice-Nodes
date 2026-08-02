@@ -89,7 +89,7 @@
         "error": "Sidebar preset error", "noContent": "There is no sidebar layout to save.", "invalid": "Invalid value", "unused": "Not on sidebar",
         "unsavedTitle": "Current changes are unsaved", "unsavedHint": "Save the current layout and values before switching, or discard them.", "discardSwitch": "Discard and switch", "saveSwitch": "Save and switch", "saveAsSwitch": "Save as and switch",
         "partialHint": "Some controls cannot be restored safely. Review them before applying the compatible layout and values.", "applyCompatible": "Apply compatible preset",
-        "saveWorkflowReminder": "Save the workflow to keep these sidebar presets.", "savedReminder": "Sidebar preset updated. Save the workflow to keep it.", "appliedReminder": "Sidebar preset applied. Save the workflow to keep the layout and values.", "legacyCleared": "Old parameter-only presets were cleared. Save the workflow to finish upgrading."
+        "saveWorkflowReminder": "Save the workflow to keep these sidebar presets.", "savedReminder": "Sidebar preset updated. Save the workflow to keep it.", "appliedReminder": "Sidebar preset applied. Save the workflow to keep the layout and values."
       },
       "transfer": {
 		"backup": "Portable backup", "layoutPreset": "Layout backup", "preflight": "Safety check", "review": "Import preview",
@@ -193,72 +193,6 @@
         "soundFailed": "The alert sound could not be played. Use ‘Enable and Test Alerts’ from the node menu to test it."
       }
     },
-    "receiver": {
-      "binding": { "none": "No parameter panel bound", "bound": "Bound: {title}", "title": "Bind Parameter Panel", "action": "Bind" },
-      "status": {
-        "unbound": "No Parameter Panel is bound. Click to select one.", "synced": "Synced", "needsSync": "The Parameter Panel structure changed. Click to synchronize.",
-        "sourceMissing": "The source panel is missing. Click to bind another one.", "kjMissing": "KJNodes is unavailable, so synchronization cannot run."
-      },
-      "menu": {
-        "bind": "🔗 Bind Parameter Panel…", "sync": "🔄 Sync from Parameter Panel",
-        "locate": "🎯 Locate Parameter Panel", "detach": "✂️ Detach",
-        "noPanels": "No Parameter Panels are visible in this graph or its parent graphs"
-      },
-      "confirm": {
-        "createSets": "Create {count} missing KJ Set node(s)?",
-        "removeImpact": "Removed parameters affect receiver links / additional Get consumers (receiver / extra Get):",
-        "detach": "Detach this receiver? {count} managed or downstream connection(s) are affected."
-      },
-      "toast": {
-        "kjMissing": "KJNodes is required to bind or sync a Parameter Receiver.",
-        "syncFailed": "Parameter Receiver sync failed: {reason}",
-        "synced": "Parameter Receiver synchronized: {count} parameter(s).",
-        "sourceMissing": "The bound Parameter Panel no longer exists.",
-        "scopeUnsupported": "A receiver can bind a panel in its current graph or an ancestor graph.",
-        "packedScopeUnsupported": "Managed KJ Get/Set nodes span incompatible subgraphs.",
-        "navigateFailed": "The bound Parameter Panel cannot be opened on the current canvas."
-      },
-      "error": {
-        "getApi": "KJ GetNode naming API is unavailable.", "createGet": "Unable to create a KJ Get node.",
-        "missingSet": "A required KJ Set node is missing.", "missingGet": "A required KJ Get node is missing.",
-        "incompleteSync": "Parameter Receiver synchronization did not commit consistently.",
-        "incompleteParameterSync": "Parameter \"{name}\" did not synchronize consistently."
-      }
-    },
-    "enumSwitch": {
-      "status": {
-        "needsSync": "Parameter options changed: {added} added, {removed} removed. Click to synchronize.",
-        "sourceMissing": "The bound enum parameter is missing. Click to bind another source."
-      },
-      "menu": {
-        "edit": "⚙️ Edit Branches…", "bind": "🔗 Bind Enum Parameter…",
-        "sync": "🔄 Sync from Parameter Panel", "detach": "✂️ Detach"
-      },
-      "editor": {
-        "title": "Edit Enum Switch branches", "branchLabel": "Branch {index}",
-        "moveUp": "Move up", "moveDown": "Move down", "add": "Add branch"
-      },
-      "binding": {
-        "title": "Bind enum parameter", "bind": "Bind",
-        "noEnums": "No enum or dropdown parameters are available in this graph."
-      },
-      "confirm": {
-        "removeImpact": "Synchronizing or editing removes {count} connected branch(es). Their links will be disconnected."
-      },
-      "toast": { "synced": "Enum Switch synchronized: {count} branches." },
-      "validation": {
-        "branchCount": "Enum Switch requires 1 to {count} branches.",
-        "branchIds": "Branch ids must be unique.",
-        "emptyKey": "Branch keys cannot be empty.",
-        "duplicateKey": "Duplicate branch key: {key}"
-      },
-      "error": {
-        "noOptions": "The bound enum has no options.",
-        "tooManyOptions": "The bound enum has more than {count} options.",
-        "emptyOption": "The bound enum contains an empty option.",
-        "duplicateOptions": "The bound enum contains duplicate options."
-      }
-    },
     "characterSwap": {
       "features": {
         "label": "Replace features", "placeholder": "Enter features and press Enter", "append": "+ Add feature",
@@ -300,11 +234,7 @@
       "settings": { "entry": "Booru Gallery", "short": "Settings", "open": "Configure Gallery…", "openComfy": "Open ComfyUI settings", "openFailed": "Open ComfyUI settings", "pathHint": "Click the gear in the lower-left corner, then open Aaalice Nodes → Booru Gallery to configure accounts and Gallery settings.", "title": "Booru Gallery", "keepCredential": "Configured; leave blank to keep", "clearCredential": "Clear saved value", "credentialWillClear": "Saved value will be cleared", "credential": { "username": "Username", "apiKey": "API key", "userId": "User ID" }, "test": "Test connection", "testing": "Testing…", "connected": "Connection succeeded.", "configured": "Configured", "notConfigured": "Not configured", "favoriteRead": "Favorite read", "favoriteWrite": "Favorite write", "tagGroups": "Tag groups", "rankings": "Rankings", "publicOnly": "Public access", "publicHint": "No account is required for this source.", "introTitle": "Your gallery, tuned your way", "intro": "Credentials stay on this device. Workflow files only keep node selections and Prompt rules.", "sourceCount": "{count} sources", "accountCount": "{count} accounts ready", "navigation": "Settings sections", "navAccounts": "Accounts", "navBrowse": "Browsing", "navPrompt": "Prompt", "navPerformance": "Storage", "sourcesTitle": "Sources & accounts", "sourcesHint": "Review login status and the capabilities each site actually supports", "browseTitle": "Browsing defaults", "browseHint": "Applied when a new Gallery node is created", "selectionStamp": "Selection stamp", "selectionStampHint": "Used by selected cards in every Gallery node.", "blacklist": "Content blacklist", "blacklistIntro": "Hide posts containing any blocked tag before cards are shown.", "blacklistHint": "One exact site tag per line. This hides posts; it does not change generated prompts.", "blacklistPlaceholder": "watermark\ntext\nmale_focus", "blacklistCount": "{count} blocked tags", "blacklistScope": "Search · Rankings · Favorites", "promptTitle": "Prompt defaults", "promptHint": "Only affects newly created nodes", "performanceTitle": "Network & storage", "performanceHint": "Shared by every Gallery node", "defaultSource": "Default source", "defaultRating": "Default Rating", "excluded": "Default excluded prompt tags", "tooltip": "Show hover details", "tooltipHint": "Load a larger preview and metadata after hovering.", "timeout": "Request timeout (seconds)", "cacheBudget": "Original cache budget (MiB)", "clearCache": "Clear Gallery cache", "clearCacheHint": "Removes cached originals and metadata; your selections are not affected.", "cacheCleared": "Gallery cache cleared.", "save": "Save changes" }
     },
     "pcp": {
-      "empty": "No parameters. Use the node context menu to edit.",
-      "builtin": { "seed": "Seed", "steps": "Steps", "cfg": "CFG", "sampler": "Sampler", "scheduler": "Scheduler", "denoise": "Denoise" },
-	  "types": { "slider": "Slider", "seed": "Seed", "switch": "Switch", "string": "String", "dropdown": "Dropdown", "enum": "Enum", "image": "Image", "taglist": "Tag list", "separator": "Separator" },
-	  "sources": { "custom": "Custom", "unavailable": "{source} (unavailable)", "sampler": "Sampler", "scheduler": "Scheduler", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "Upscale model", "wdTimmModel": "WD Timm tagger model", "promptExpandRule": "Prompt Assistant · Expand rule", "promptLlmService": "Prompt Assistant · LLM service", "promptVisionRule": "Prompt Assistant · Vision rule", "promptVlmService": "Prompt Assistant · VLM service" },
-		  "seedMode": {
+      "seedMode": {
 		    "header": "After each workflow run, update the seed using:",
 		    "fixed": "Fixed value",
 		    "fixedDescription": "Keep the current seed unchanged",
@@ -315,60 +245,9 @@
 		    "randomize": "Randomize",
 		    "randomizeDescription": "Choose a new random seed after each workflow run"
 		  },
-      "confirm": { "parameterLinks": "Downstream links will be disconnected." },
-      "kj": {
-        "menu": "🔗 Create and link KJ Set nodes for all parameters",
-        "noParameters": "No tunable parameters are available.",
-        "linkFailed": "Some KJ Set nodes could not be linked: {reason}",
-        "createFailed": "Unable to create a KJ Set node.",
-        "connectFailed": "The KJ Set node could not be connected.",
-        "graphUnavailable": "The current graph is unavailable.",
-        "scopeUnsupported": "KJ routing only supports the current graph or a descendant subgraph.",
-        "created": "KJ Set nodes ready: {count} created, {arranged} arranged.",
-        "syncReceivers": "🔄 Sync Parameter Receivers",
-        "locateReceivers": "🎯 Locate Parameter Receiver",
-        "noReceivers": "No bound Parameter Receivers are available.",
-        "receiversSynced": "Parameter Receivers synchronized: {count}.",
-        "receiversPartiallySynced": "Parameter Receivers synchronized: {count} of {total}.",
-        "receiverNavigateFailed": "The Parameter Receiver cannot be opened on the current canvas."
-      },
-      "inline": { "editValue": "Edit value" },
-      "preflight": {
-        "missingModel": "Model {value} for parameter {parameter} is unavailable from {source}. Restore it or choose another model, then try again.",
-        "sourceUnavailable": "The model source {source} has no available models. Check the model folder, then try again.",
-        "sourceUnverified": "The model source {source} could not be verified. Refresh ComfyUI model lists, then try again.",
-        "moreIssues": "{count} model references need attention.",
-        "refreshFailed": "Unable to verify model sources. Refresh ComfyUI model lists, then try again."
-      },
       "error": {
-		"maxParameters": "At most {count} tunable parameters.", "imageUpload": "Image upload failed: {reason}",
+		"imageUpload": "Image upload failed: {reason}",
 		"imageUploadResponse": "The server response did not include an image filename.", "imageFileType": "Choose an image file."
-      },
-      "validation": {
-        "parameterIdsUnique": "Parameter ids must be unique.", "parameterNamesUnique": "Parameter names must be unique.",
-        "sliderRange": "{name}: invalid slider range.", "optionsRequired": "{name}: options are required.",
-        "optionsUnique": "{name}: options must be unique."
-      },
-      "editor": {
-        "title": "Edit parameters", "menu": "⚙️ Edit Parameters…", "add": "Add parameter",
-        "selectParameter": "Select a parameter to edit its settings.", "discard": "Discard unsaved parameter changes?",
-        "emptyTitle": "No parameter selected",
-        "renameHint": "Double-click to rename",
-		"reorderHint": "Drag to reorder · Double-click to rename", "parameterType": "Parameter type", "chooseTypeHint": "Choose a type to create it immediately.",
-		"unsaved": "Unsaved changes", "noChanges": "No pending changes", "saveWorkflowReminder": "Save the workflow to keep these parameter changes; otherwise they will be lost.",
-        "parameterCount": "{count} parameters", "general": "General", "valueRules": "Value rules",
-		"optionsBehavior": "Options and behavior", "valueHint": "Set the parameter value on the node after saving."
-      },
-      "field": {
-        "description": "Parameter description", "descriptionPlaceholder": "Markdown supported", "options": "Options (one per line)",
-        "source": "Source", "enumDisplay": "Display style", "multiline": "Multiline", "seedBehavior": "After generate",
-        "minimum": "Minimum", "maximum": "Maximum", "step": "Step"
-      },
-      "enumDisplay": {
-        "auto": "Auto", "dropdown": "Dropdown"
-      },
-      "seedBehavior": {
-        "fixed": "Keep fixed", "increment": "Increment", "decrement": "Decrement", "randomize": "Randomize"
       },
       "image": {
 		"none": "Choose image", "upload": "Upload from device", "drop": "Drop image here", "uploaded": "Image uploaded: {filename}", "clear": "Clear selected image",

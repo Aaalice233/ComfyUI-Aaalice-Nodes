@@ -2,26 +2,6 @@
 
 本文件统一产品和工作流语境中的称呼，不记录字段名、路径、测试步骤或实现方案。
 
-## 参数创作
-
-- **ParameterPanel（参数面板）**：拥有一组有序参数并把可调值直接提供给工作流的图节点。避免使用 ParameterControlPanel、child-panel container。
-
-- **Parameter（参数）**：一个具备稳定身份、名称、类型、当前值和可选说明的可调值。避免使用 Field、setting、slot。
-
-- **Separator（分隔项）**：只用于组织参数显示、不产生值或输出的展示项。避免使用 Empty Parameter、heading Parameter。
-
-- **Parameter Identity（参数身份）**：参数在所属 ParameterPanel 内的稳定身份；显示名称与顺序都不是身份。避免使用 Parameter name、output position。
-
-- **Direct Parameter Output（参数直接输出）**：一个 Parameter 直接提供给工作流的值，不经过中间打包或拆包节点。避免使用 Parameter pack、break output。
-
-- **ParameterReceiver（参数接收器）**：绑定一个 ParameterPanel，把对应 Get 值收束为一组同名直接输出的图节点。避免使用 Breaker、Parameter pack。
-
-- **Receiver Binding（接收器绑定）**：ParameterReceiver 与一个 ParameterPanel 及其稳定参数身份之间的显式关系。面板标题、参数名称与槽位顺序都不是绑定身份。
-
-- **Managed Get（托管 Get）**：由 ParameterReceiver 创建或认领、专门把一个参数送入接收器的 KJ Get；存在其他消费者时不能随接收器同步而删除。
-
-- **Receiver Sync（接收器同步）**：由用户显式触发，把新增、删除和重排应用到托管 Get 与接收器槽位的结构操作。名称变化不属于结构同步。
-
 ## 工作流控制与工具
 
 - **Prompt Entry（提示词条）**：词库中具有稳定身份、正文和可选组织信息的一条可复用提示词。分类、收藏夹和显示标题都不是词条身份。避免使用 Prompt Snapshot、Node Prompt。
@@ -48,33 +28,31 @@
 
 - **Virtual Masonry（虚拟瀑布流）**：按图片自然比例和最短列排列、但只挂载视口附近卡片 DOM 的浏览布局。避免使用 Fixed-row grid、Full DOM gallery。
 
-- **Control Host（参数宿主）**：在当前工作流中拥有一个或多个可投影参数的节点或子图整体。节点标题、位置和临时画布编号都不是宿主身份。
+- **Control Host（控件宿主）**：在当前工作流中拥有一个或多个可投影控件的节点或子图整体。节点标题、位置和临时画布编号都不是宿主身份。
 
-- **Control Binding（参数绑定）**：侧边栏参数卡片与一个 Control Host 上稳定参数身份之间的显式关系。显示名称不是绑定身份。
+- **Control Binding（控件绑定）**：侧边栏控件卡片与一个 Control Host 上稳定控件身份之间的显式关系。显示名称不是绑定身份。
 
-- **Control Binding Set（参数联动集）**：一张侧边栏参数卡片所控制的全部兼容 Control Binding；其中一个 Primary Binding 决定卡片展示，其余 Binding 只作为同一用户输入的目标。避免使用 Synced Cards、Copied Parameter。
+- **Control Binding Set（控件联动集）**：一张侧边栏控件卡片所控制的全部兼容 Control Binding；其中一个 Primary Binding 决定卡片展示，其余 Binding 只作为同一用户输入的目标。避免使用 Synced Cards、Copied Control。
 
-- **Dashboard Page（控制页面）**：用户在侧边栏中直接组织参数卡片、分隔项和可选布局组的一个可切换页面。避免使用 Auto Page、Section。
+- **Dashboard Page（控制页面）**：用户在侧边栏中直接组织控件卡片、分隔项和可选布局组的一个可切换页面。避免使用 Auto Page、Section。
 
-- **Dashboard Control Card（侧边栏参数卡片）**：Control Binding Set 在控制页面中的可调投影；它可以控制一个或多个兼容参数，独立放置或加入一个布局组。避免使用 Section Item、Copied Parameter。
+- **Dashboard Control Card（侧边栏控件卡片）**：Control Binding Set 在控制页面中的可调投影；它可以控制一个或多个兼容控件，独立放置或加入一个布局组。避免使用 Section Item、Copied Control。
 
-- **Layout Group（布局组）**：控制页面中对若干参数卡片进行命名、识别和整体移动的可选单层组合；删除布局组只解除成员关系。避免使用 Dashboard Section、Nested Group。
+- **Layout Group（布局组）**：控制页面中对若干控件卡片进行命名、识别和整体移动的可选单层组合；删除布局组只解除成员关系。避免使用 Dashboard Section、Nested Group。
 
-- **Grid Position（网格位置）**：参数卡片或布局组在控制页面细粒度结构化网格中的逻辑锚点，不代表像素坐标或参数身份。避免使用 Canvas Position、DOM Position。
+- **Grid Position（网格位置）**：控件卡片或布局组在控制页面细粒度结构化网格中的逻辑锚点，不代表像素坐标或控件身份。避免使用 Canvas Position、DOM Position。
 
-- **Grid Footprint（网格占位）**：一个参数卡片或布局组在网格中实际占据的矩形单元范围；不同高度的卡片可以在彼此旁边独立填充剩余空间。避免使用 DOM Size、Visual Row。
+- **Grid Footprint（网格占位）**：一个控件卡片或布局组在网格中实际占据的矩形单元范围；不同高度的卡片可以在彼此旁边独立填充剩余空间。避免使用 DOM Size、Visual Row。
 
-- **Dashboard Preset（侧边栏预设）**：可移植的页面布局、Control Binding 与导出时参数值集合；它不包含 Prompt Library。
+- **Dashboard Preset（侧边栏预设）**：可移植的页面布局、Control Binding 与导出时控件值集合；它不包含 Prompt Library。
 
-- **Missing Binding（失效绑定）**：目标宿主或参数身份无法精确解析、但仍被保留以供人工重新绑定的 Control Binding。避免使用 Auto Rebind、Name Match。
+- **Missing Binding（失效绑定）**：目标宿主或控件身份无法精确解析、但仍被保留以供人工重新绑定的 Control Binding。避免使用 Auto Rebind、Name Match。
 
 - **QuickGroupManager（快速组管理器）**：在当前图中按独立范围显示、排序和切换可视组的控制节点。避免使用 GroupMuteManager、GroupBypassManager。
 
 - **Managed Group Scope（纳管组范围）**：一个 QuickGroupManager 当前显示并允许手动操作的组集合，由颜色筛选决定。避免使用 Global Group State、shared Manager scope。
 
 - **Group Linkage Rule（组联动规则）**：用户直接切换某组时，由同一个 QuickGroupManager 规划的后续组状态变化。外部状态变化和其它 Manager 的操作不属于联动触发。避免使用 Cross-manager cascade、automatic graph sync。
-
-- **EnumSwitch（枚举选通）**：根据一个精确字符串 key，只执行并输出对应分支的控制节点。避免使用 Fallback Switch、Value Switch。
 
 - **ResolutionPreset（分辨率预设）**：通过内置预设、个人预设、精确输入或二维拖拽选择并输出确定宽高的工具节点。它不按百万像素推算尺寸，也不生成、裁剪或缩放图像。
 
@@ -83,10 +61,6 @@
 - **Krita Bridge（Krita 桥接器）**：随包提供、由用户显式安装到 Krita 的共享本机插件。它只负责执行短请求并交换请求关联的媒体快照，不负责启动、关闭或定位 Krita。
 
 - **Krita Snapshot（Krita 快照）**：一次执行从 Krita 当前活动文档读取的可见合成图、文档元数据与选区蒙版。它是瞬时执行结果，不是工作流状态或可持续编辑会话。
-
-- **Branch Key（分支键）**：用户可见、区分大小写并用于精确选择分支的稳定字符串。避免使用 Branch Index、display label。
-
-- **Route Identity（路由身份）**：分支连接在重命名和重排中的稳定身份；Branch Key 和槽位顺序都不是身份。
 
 - **Execution-point Alert（执行到达提醒）**：当执行到达工作流中的指定节点时，由前端发出的桌面通知或声音。它不表示其它并行分支完成。
 

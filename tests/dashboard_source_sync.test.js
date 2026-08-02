@@ -6,7 +6,7 @@ import { addItems } from "../js/lib/dashboard_commands.js";
 import { buildSourceSnapshot, inspectSourceGroup, planSourceGroupSync, SOURCE_SYNC_STATUS } from "../js/lib/dashboard_source_sync.js";
 import { orderedItems } from "../js/lib/dashboard_layout.js";
 
-const source = { provider: "aaalice-parameter", hostId: "panel-a", scopeId: "separator:sampling" };
+const source = { provider: "test-source", hostId: "host-a", scopeId: "source:sampling" };
 const binding = (controlId, valueType = "number") => ({ provider: source.provider, hostId: source.hostId, controlId, valueType });
 const descriptor = (controlId, label, valueType = "number") => ({ binding: binding(controlId, valueType), label, sourceGroup: { source, name: "Sampling" }, rowSpan: 12, columnSpan: 6 });
 const modelWithSourceGroup = (controls = [descriptor("steps", "Steps"), descriptor("cfg", "CFG")]) => {

@@ -30,7 +30,7 @@ import {
 
 const primary = { provider: "generic-widget", hostId: "host-a", controlId: "steps", valueType: "number" };
 const linkedCfg = { provider: "generic-widget", hostId: "host-b", controlId: "cfg", valueType: "number" };
-const linkedSeed = { provider: "aaalice-parameter", hostId: "panel-a", controlId: "seed", valueType: "number", adapterId: "seed" };
+const linkedSeed = { provider: "generic-widget", hostId: "host-d", controlId: "seed", valueType: "number", adapterId: "seed" };
 const booleanTarget = { provider: "generic-widget", hostId: "host-c", controlId: "enabled", valueType: "boolean" };
 
 function rawDashboard({ version = 4, linkedBindings } = {}) {

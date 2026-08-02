@@ -24,7 +24,7 @@ function graph(id, nodes = []) {
 }
 
 function nestedFixture() {
-	const leafNode = { id: 9, type: "ParameterPanel" };
+	const leafNode = { id: 9, type: "PromptSelector" };
 	const leaf = graph("leaf", [leafNode]);
 	const innerWrapper = { id: 4, subgraph: leaf };
 	const middle = graph("middle", [innerWrapper]);
@@ -55,7 +55,7 @@ test("qualified execution ids include every enclosing subgraph node", () => {
 });
 
 test("shared subgraph definitions address every wrapper execution", () => {
-	const sharedNode = { id: 9, type: "EnumSwitch" };
+	const sharedNode = { id: 9, type: "GroupLogicProbe" };
 	const shared = graph("shared", [sharedNode]);
 	const root = graph(null, [{ id: 2, subgraph: shared }, { id: 7, subgraph: shared }]);
 	shared.rootGraph = root;
@@ -72,7 +72,7 @@ test("graph references resolve duplicate node ids without drifting graphs", () =
 	const duplicate = { id: 9, type: "Other" };
 	duplicate.graph = root;
 	root._nodes.push(duplicate);
-	assert.equal(findNodeByGraphRef(root, "leaf", 9)?.type, "ParameterPanel");
+	assert.equal(findNodeByGraphRef(root, "leaf", 9)?.type, "PromptSelector");
 	assert.equal(findNodeByGraphRef(root, "root", 9)?.type, "Other");
 	assert.equal(allGraphNodes(root).length, 5);
 });

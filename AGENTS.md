@@ -54,14 +54,12 @@
 | 前端性能、富 DOM、画布卡顿或热路径 | @docs/development/performance.md、@docs/development/testing.md |
 | 发布、版本和 Registry | @docs/development/release.md |
 | 前端视觉、组件、主题或可访问性 | @docs/design/ui-system.md |
-| ParameterPanel / ParameterReceiver 交互与布局 | @docs/design/parameter-system.md、@docs/adr/0012-dashboard-source-scoped-groups.md |
 | QuickGroupManager 交互与布局 | @docs/design/quick-group-manager.md |
 | ResolutionPreset、画幅坐标板或个人分辨率预设 | @docs/design/resolution-preset.md |
 | FetchFromKrita 或 Krita Bridge | @docs/adr/README.md、@docs/adr/0011-krita-bridge-execution-snapshots.md |
 | BooruGalleryNode、多站点画廊或虚拟瀑布流 | @docs/design/booru-gallery.md、@docs/adr/0010-booru-gallery-capability-snapshots-masonry.md |
 | Discord 分享、最新运行相册或成员验证中继 | @docs/design/discord-share.md |
 | PromptSelector、词库或 DIY 侧边栏 | @docs/design/prompt-selector-workspace.md、@docs/adr/0007-independent-prompt-library-live-references.md、@docs/adr/0008-stable-dashboard-control-bindings.md、@docs/adr/0012-dashboard-source-scoped-groups.md、@docs/adr/0013-dashboard-multi-target-binding-sets.md |
-| 参数身份、序列化真源、接收器同步或动态槽协议 | @docs/adr/README.md、@docs/adr/0002-parameter-stable-id-direct-output-rebind.md、@docs/adr/0003-workflow-serialization-source-of-truth.md、@docs/adr/0004-parameter-receiver-explicit-get-sync.md、@docs/adr/0006-dynamic-native-business-slots.md |
 
 新增专题文档时，若其内容会影响实现或验收，必须同时补到本节。README 面向用户，不作为默认开发上下文注入。
 
@@ -109,13 +107,13 @@ ComfyUI-Aaalice-Nodes/
 ### 4.2 性能优化硬规则
 
 - 性能问题必须先按“本包、ComfyUI 前端、第三方插件、浏览器/环境”分层归因，再在责任边界内修复根因。不得为掩盖本包的全量重建、图遍历或 DOM 抖动而修改 ComfyUI 内核或其它插件，也不得用节流、延迟、轮询、静默降级或限制数量制造表面流畅。
-- ComfyUI 前端把自定义侧栏页签的 render 回调包在 Vue effect 中，渲染期读取的响应式状态（widgetValueStore 等）会成为依赖；参数写值后宿主可能再次调用 render。只要页签仍拥有原工作区树，重复 render 必须立即幂等返回，禁止把响应式重入解释为结构失效。Dashboard 参数预览与提交按稳定 Binding Key 通过已挂载 `controlView().update()` 定向同步所有可见投影，不得调用 `renderWorkspace()`、重新解析 Provider、替换卡片 DOM 或依赖重建后的补动画；只有布局、绑定、控件类型、动态选项或可用性等结构变化才允许 `scheduleRender`。真实结构失效若发生在连续手势中，使用 `js/lib/workspace_controls.js` 的手势计数延后，并在手势结束后补一次完整渲染。
+- ComfyUI 前端把自定义侧栏页签的 render 回调包在 Vue effect 中，渲染期读取的响应式状态（widgetValueStore 等）会成为依赖；控件写值后宿主可能再次调用 render。只要页签仍拥有原工作区树，重复 render 必须立即幂等返回，禁止把响应式重入解释为结构失效。Dashboard 值预览与提交按稳定 Binding Key 通过已挂载 `controlView().update()` 定向同步所有可见投影，不得调用 `renderWorkspace()`、重新解析 Provider、替换卡片 DOM 或依赖重建后的补动画；只有布局、绑定、控件类型、动态选项或可用性等结构变化才允许 `scheduleRender`。真实结构失效若发生在连续手势中，使用 `js/lib/workspace_controls.js` 的手势计数延后，并在手势结束后补一次完整渲染。
 - `computeSize()`、`getMinHeight()`、`getMaxHeight()`、`_arrangeWidgets()`、`onDrawForeground()` 和 `onDrawBackground()` 都属于画布逐帧热路径：必须保持有界 O(1)，禁止遍历图、规范化状态、重建数组/Map、查询 DOM、读取计算样式或安装监听器。派生布局与主题值按节点及结构输入缓存，在结构提交、加载恢复、主题变化和移除时精确失效；位置和无关高度变化不得打穿缓存。
-- 参数值变化必须通过保留的 `controlView().update()` 定向更新；不得重建 ParameterPanel 或 Dashboard DOM、重算结构布局、重新枚举 Subgraph promoted widgets、同步 KJ Set/Get 名称或刷新 ParameterReceiver。参数增删、重排、重命名、类型或运行契约变化才进入结构同步。
+- 控件值变化必须通过保留的 `controlView().update()` 定向更新；不得重建 Dashboard DOM、重算结构布局或重新枚举 Subgraph promoted widgets。控件、绑定、选项或运行契约变化才进入结构同步。
 - Dashboard 的 Subgraph Provider 必须按宿主、Adapter Revision、widget 对象列表与稳定 Control Id 缓存 `Control Id -> promoted widget` 结构索引；解析已绑定控件时只重新适配目标 widget，禁止每张卡片重复适配全部兄弟 widgets。索引不得缓存参数值、availability、动态 options 或 preset payload，这些状态每次从真实 widget 读取；Adapter 变化、widget 对象结构变化、`graphChanged`、工作流恢复和 `CONTROL_HOST_INVALIDATED_EVENT` 必须失效缓存。回归测试必须同时锁定“缓存命中时只适配目标”和“失效后重新建立索引”。
 - Nodes 2.0 重挂观察器必须先按 `data-node-id` 等稳定身份过滤相关 mutation，再按 animation frame 合并；同一模块每帧最多进行一次 DOM 查询，不得按节点各自全页扫描或用“立即 + rAF + timeout”重复补写。富 DOM widget 默认允许宿主 `hideOnZoom` 低缩放降级，确需低缩放持续可见时必须说明业务理由。
-- KJ Set/Get 的虚拟连线绘制和性能开关属于 KJNodes，不得由本包 monkey patch。性能诊断必须把本包热路径与 KJNodes 的 `Show links`、单节点 `drawConnection` 及 Performance 设置分开验证，避免把第三方逐帧绘制归因给 ParameterPanel。
-- 性能回归必须覆盖普通点击、连续参数手势、节点/子图选中与移动、画布平移缩放、根图和嵌套/共享 Subgraph，并用调用次数、对象 identity、DOM 数量和浏览器长任务证明热路径没有退化。自动测试通过后仍需在真实重型工作流复测；静态检查不能代替实际响应延迟结论。
+- KJ Set/Get 的虚拟连线绘制和性能开关属于 KJNodes，不得由本包 monkey patch。性能诊断必须把本包热路径与 KJNodes 的 `Show links`、单节点 `drawConnection` 及 Performance 设置分开验证，避免把第三方逐帧绘制归因给本包。
+- 性能回归必须覆盖普通点击、连续控件手势、节点/子图选中与移动、画布平移缩放、根图和嵌套/共享 Subgraph，并用调用次数、对象 identity、DOM 数量和浏览器长任务证明热路径没有退化。自动测试通过后仍需在真实重型工作流复测；静态检查不能代替实际响应延迟结论。
 
 ### 4.3 DOM widget 与缩放
 
@@ -139,32 +137,21 @@ ComfyUI-Aaalice-Nodes/
 
 - Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责交互、焦点、键盘和 aria。
 - Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
-- 业务数量可变的槽不得用固定数组加隐藏标记模拟。ParameterPanel、ParameterReceiver 与 EnumSwitch 必须按当前状态使用原生 `addInput()` / `removeInput()` 与 `addOutput()` / `removeOutput()` 物化连续真实槽；后端可保留最多 32 路的有界 Schema。
-- 动态槽尾部增删不得断开仍处于稳定前缀中的槽；中间插入、删除或重排必须在断开前按稳定 Parameter Id / Route Id 保存源或目标节点及槽位引用，不能只保存会随 `disconnectInput()` / `disconnectOutput()` 一起失效的 link ID。
-- 动态原生槽的 `label` / `localized_name` 变化必须通过 ComfyUI 图事件 `node:slot-label:changed` 通知，并携带正确的 `NodeSlotType.INPUT` 或 `NodeSlotType.OUTPUT`。Nodes 2.0 的 `NodeSlots.vue` 消费 `useGraphNodeManager.ts` 提取的浅响应式槽数组，槽子组件仍按对象身份接收非深响应式数据；展示字段变化时必须同时发布新的槽对象身份，不能只换数组外壳。只修改槽字段、调用 `setDirtyCanvas()`、重建 `_concreteInputs` / `_concreteOutputs` 或自行判断画布模式都不能代替该失效协议。升级 ComfyUI 前端时必须重新核对这两个文件及事件处理器。
-- 动态槽必须分离协议身份与展示名称：`name` 保持后端 Schema、序列化和连线使用的稳定英文协议名，用户重命名只更新 `label` / `localized_name`；不得为了迫使 Vue 重挂载而改协议名或把显示文案写进稳定 id。
-- ComfyUI 的复制、粘贴与克隆路径会先 `createNode()`，再用 `configure()` 覆盖属性和槽；`onNodeCreated` 阶段生成的默认槽对象可能因此与已恢复的 `slotMeta` / 稳定参数身份不一致。动态槽恢复不能只比较持久元数据的新旧差异，还必须核对当前真实槽的稳定 Id、`label` 和 `localized_name`；即使元数据相同，只要槽对象仍是临时默认状态，也要重写槽并发布官方槽标签失效事件。相关回归必须覆盖“复制节点后删除或重排参数”。
 - Nodes 2.0 确需监听 DOM 重挂时使用幂等 `MutationObserver`；不需要重挂的节点不得常驻观察器，所有路径禁止持续轮询。
 
-### 4.5 参数链路与控件适配
+### 4.5 控件适配
 
-- 参数名称、顺序和值是三个不同变更域：重命名属于展示同步，必须立即传播到 ParameterPanel 槽、直属 KJ Set、同作用域 KJ Get 和已绑定 ParameterReceiver；增删、重排属于结构事务，必须按稳定 Parameter Id 重建顺序并恢复连线。不能把节点拖动、画布重绘或用户手动同步当作提交步骤。
-- 参数链的关联只能依赖面板身份、图作用域与稳定 Parameter Id；数组下标只表示当前视图顺序，不得作为跨保存、重排、复制或子图边界的长期身份。同步完成后必须逐项核对 Panel 槽、Set 名、Get 所有权、Receiver 槽和真实连接，再报告成功。
-- 第三方 KJ Set/Get 只能通过其公开命名与校验 API 更新（如 `validateName()`、`update()`、`setName()` / `onRename()`），并遵守其 `previousName` 和作用域规则；禁止只写 widget 值或标题后假定整条虚拟链已同步。跨子图时所有查找、事件和创建操作使用节点所属 graph，不能退回 `app.graph` 猜测。
-- 自动同步必须在创建、加载、复制、重命名和结构提交后幂等收敛；手动“刷新链路”只能作为可诊断的恢复操作，不能用于掩盖缺失的事件、错误的真源或竞态。
-- Dashboard V4 一张控件卡片允许一个主 `binding` 与多个有序 `linkedBindings`；主参数唯一拥有展示和读值语义，附加目标只参与写入。兼容性和原子写入只能走 `js/lib/control_binding_set.js`：要求同一 graph、Provider 明确可联动、Control Spec 类型和值域一致（含 Integer / Float 与图像目录），先快照全部目标并在一个图事务中写入，任一失败必须回滚全部已触达目标；Provider 不得吞掉 `false`、失败对象、Promise 或异常。动态选项为空、未赋值或临时不可用只暂停整卡写入，不能判坏持久关系；第三方 Seed 只有同时声明数值和执行后行为 codec 才可联动；每次 `graphToPrompt` 序列化前及 `queuePrompt` 完成后都必须以主 Seed 收敛整组状态。禁止 renderer、业务节点或工作区散落循环写入。预设必须展开并按无分隔符碰撞的稳定 Binding Key 去重全部目标并迁移旧 Key；来源同步只以主 binding 认领卡片，来源删除或类型漂移不得静默删除含附加目标的整张卡片。内部 Subgraph 节点仍不得被直接穿透绑定，只允许宿主公开 widget。
+- 控件身份、显示名称、值和选项属于不同变更域：名称变化只更新展示，控件、绑定、类型或运行契约变化才进入结构同步。稳定 Binding Identity 必须独立于标题、位置和当前数组下标。
+- 第三方适配器只能通过公开注册与校验 API 写回真实 widget；跨子图查找、事件和创建操作使用节点所属 graph，不能退回 `app.graph` 猜测。
+- 自动适配必须在创建、加载、复制、重命名和结构变化后幂等收敛；手动刷新只能作为诊断恢复操作，不能掩盖缺失事件、错误真源或竞态。
+- Dashboard V4 一张控件卡片允许一个主 `binding` 与多个有序 `linkedBindings`；主控件唯一拥有展示和读值语义，附加目标只参与写入。兼容性和原子写入只能走 `js/lib/control_binding_set.js`：要求同一 graph、Provider 明确可联动、Control Spec 类型和值域一致（含 Integer / Float 与图像目录），先快照全部目标并在一个图事务中写入，任一失败必须回滚全部已触达目标；Provider 不得吞掉 `false`、失败对象、Promise 或异常。动态选项为空、未赋值或临时不可用只暂停整卡写入，不能判坏持久关系；第三方 Seed 只有同时声明数值和执行后行为 codec 才可联动；每次 `graphToPrompt` 序列化前及 `queuePrompt` 完成后都必须以主 Seed 收敛整组状态。禁止 renderer、业务节点或工作区散落循环写入。预设必须展开并按无分隔符碰撞的稳定 Binding Key 去重全部目标并迁移旧 Key；来源同步只以主 binding 认领卡片，来源删除或类型漂移不得静默删除含附加目标的整张卡片。内部 Subgraph 节点仍不得被直接穿透绑定，只允许宿主公开 widget。
 - 参数控件的“渲染类型”和“选项来源”必须由独立适配层管理。第三方类型通过稳定 adapter 注册其发现条件、身份、读写、序列化、校验和可用性；未检测到真实来源或来源为空时不显示对应类型，业务节点不得散落硬编码探测。
 - `js/lib/controls/registry.js` 注册的每个 renderer 必须通过 `js/lib/controls/contract.js` 的 `controlView()` 返回完整控件视图，不能手写 `{ root, destroy }` 等不完整对象；宿主会统一读取 `headerAccessories`、`kind`、`headerOnly`、`update` 和 `destroy`，新增 renderer 必须配套契约测试或实际挂载烟测，避免控件创建阶段异常后整张侧边栏只显示错误状态。
 - 绑定画布节点的侧边栏控件标题必须以对应节点的实时公开显示标题为真源（优先使用 `getTitle()`），不得在 Provider 或 workspace 层写死通用标题；节点重命名、加载和复制后的标题必须通过现有事件刷新链同步，用户明确设置的 `labelOverride` 才可以覆盖源标题，稳定 binding identity 不得依赖标题。
-- 同一参数类型在 ParameterPanel、侧边栏和公开子图 widget 中必须复用同一控件适配与状态协议。图像参数统一提供资产浏览、独立上传、清空和预览；Seed 统一持久化“数值 + after-generate 行为”，固定、递增、递减、随机四种模式不得退化成锁定/解锁布尔值。
+- 同一控件类型在侧边栏和公开子图 widget 中必须复用同一控件适配与状态协议。图像控件统一提供资产浏览、独立上传、清空和预览；Seed 统一持久化“数值 + after-generate 行为”，固定、递增、递减、随机四种模式不得退化成锁定/解锁布尔值。
 
 ## 5. 领域不变量
 
-- `ParameterPanel` 是唯一参数创作节点，管理 0–32 个参数；前端只物化产生值的参数对应的连续输出。
-- Separator 不创建画布槽；后端未使用的有界协议位置不进入前端槽数组。参数身份由面板身份与稳定 Parameter Id 共同确定。
-- 参数结构只通过右键编辑器原子修改；删除已连接参数前必须确认。
-- `ParameterReceiver` 通过可见 KJ Get 和按绑定数量动态物化的真实 slot 工作；缺少 KJNodes 时明确失败，不模拟成功。
-- `EnumSwitch` 按当前 route 数量物化连续 lazy MatchType 分支；未知 selector 或未连接目标分支必须显式失败。
 - `SimpleNotify` 只表示执行到达，不表示并行分支完成或队列清空；通知副作用只发生在前端。
 - `GroupIsEnabled` 在 graphToPrompt 时按组标题快照组成员 mode 并注入 payload，探测器自身不计入判定；组不存在或为空时显式失败，不猜测状态。
 - `GroupLogicProbe` 复用同一快照注入机制（`js/lib/group_probe.js`），多条组条件按扁平 AND/OR 组合，不提供嵌套表达式；结果只输出单个布尔，懒执行分支交给 ImpactConditionalBranch 等既有节点，不在本包重复实现。

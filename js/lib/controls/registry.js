@@ -1,14 +1,10 @@
-/** Extensible renderer registry with explicit Aaalice and ComfyUI families. */
+/** Extensible renderer registry for native ComfyUI widget controls. */
 
-import { AAALICE_CONTROL_RENDERERS } from "./aaalice.js";
 import { COMFY_CONTROL_RENDERERS } from "./comfy.js";
 import { renderControlAvailability } from "./availability.js";
 import { controlPort, normalizeControlSpec } from "./contract.js";
 
-const families = new Map([
-	["aaalice", new Map(Object.entries(AAALICE_CONTROL_RENDERERS))],
-	["comfy", new Map(Object.entries(COMFY_CONTROL_RENDERERS))],
-]);
+const families = new Map([["comfy", new Map(Object.entries(COMFY_CONTROL_RENDERERS))]]);
 
 export function registerControlRenderer(family, kind, renderer) {
 	if (!families.has(family)) throw new TypeError(`Unsupported control family: ${family}`);

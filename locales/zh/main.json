@@ -89,7 +89,7 @@
         "error": "侧边栏预设错误", "noContent": "当前没有可以保存的侧边栏布局。", "invalid": "值无效", "unused": "侧边栏中不存在",
         "unsavedTitle": "当前修改尚未保存", "unsavedHint": "切换前可以保存当前布局和参数，也可以放弃修改。", "discardSwitch": "放弃并切换", "saveSwitch": "保存并切换", "saveAsSwitch": "另存并切换",
         "partialHint": "部分参数无法安全恢复，请确认后再应用其余兼容布局和参数。", "applyCompatible": "应用兼容内容",
-        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "savedReminder": "侧边栏预设已更新，请保存工作流。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "legacyCleared": "旧版纯参数预设已清空，请保存工作流以完成升级。"
+        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "savedReminder": "侧边栏预设已更新，请保存工作流。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。"
       },
       "transfer": {
 		"backup": "便携备份", "layoutPreset": "布局备份", "preflight": "安全检查", "review": "导入预览",
@@ -193,72 +193,6 @@
         "soundFailed": "无法播放提示音，请从节点右键菜单选择“启用并测试提醒”进行测试。"
       }
     },
-    "receiver": {
-      "binding": { "none": "未绑定参数面板", "bound": "已绑定：{title}", "title": "绑定参数面板", "action": "绑定" },
-      "status": {
-        "unbound": "尚未绑定参数面板，点击选择。", "synced": "已同步", "needsSync": "参数面板结构已变化，点击同步。",
-        "sourceMissing": "源面板不存在，点击重新绑定。", "kjMissing": "KJNodes 不可用，无法同步。"
-      },
-      "menu": {
-        "bind": "🔗 绑定参数面板…", "sync": "🔄 从参数面板同步",
-        "locate": "🎯 定位参数面板", "detach": "✂️ 解除绑定",
-        "noPanels": "当前图及其父级图中没有可用的参数面板"
-      },
-      "confirm": {
-        "createSets": "缺少 {count} 个 KJ Set，是否补齐？",
-        "removeImpact": "被移除的参数会影响接收器连线 / Get 的额外消费者（接收器 / 额外 Get）：",
-        "detach": "确定解除绑定吗？将影响 {count} 条托管或下游连线。"
-      },
-      "toast": {
-        "kjMissing": "绑定或同步参数接收器需要安装并启用 KJNodes。",
-        "syncFailed": "参数接收器同步失败：{reason}",
-        "synced": "参数接收器已同步：{count} 个参数。",
-        "sourceMissing": "已绑定的参数面板不存在。",
-        "scopeUnsupported": "参数接收器只能绑定当前图或父级图中的参数面板。",
-        "packedScopeUnsupported": "托管的 KJ Get/Set 节点分布在不兼容的子图中。",
-        "navigateFailed": "当前画布无法打开已绑定的参数面板。"
-      },
-      "error": {
-        "getApi": "KJ GetNode 命名接口不可用。", "createGet": "无法创建 KJ Get 节点。",
-        "missingSet": "缺少必要的 KJ Set 节点。", "missingGet": "缺少必要的 KJ Get 节点。",
-        "incompleteSync": "参数接收器未能一致地完成同步。",
-        "incompleteParameterSync": "参数“{name}”未能一致地完成同步。"
-      }
-    },
-    "enumSwitch": {
-      "status": {
-        "needsSync": "参数面板选项已变化：新增 {added} 项，移除 {removed} 项。点击同步。",
-        "sourceMissing": "绑定的枚举参数不存在，点击重新绑定。"
-      },
-      "menu": {
-        "edit": "⚙️ 编辑分支…", "bind": "🔗 绑定枚举参数…",
-        "sync": "🔄 从参数面板同步", "detach": "✂️ 解除绑定"
-      },
-      "editor": {
-        "title": "编辑枚举切换分支", "branchLabel": "分支 {index}",
-        "moveUp": "上移", "moveDown": "下移", "add": "添加分支"
-      },
-      "binding": {
-        "title": "绑定枚举参数", "bind": "绑定",
-        "noEnums": "当前工作流中没有可绑定的枚举或下拉参数。"
-      },
-      "confirm": {
-        "removeImpact": "同步或编辑会移除 {count} 个已有连线的分支，这些连线将被断开。"
-      },
-      "toast": { "synced": "枚举切换已同步：{count} 个分支。" },
-      "validation": {
-        "branchCount": "枚举切换需要 1–{count} 个分支。",
-        "branchIds": "分支 ID 不能重复。",
-        "emptyKey": "分支 key 不能为空。",
-        "duplicateKey": "分支 key 重复：{key}"
-      },
-      "error": {
-        "noOptions": "绑定的枚举没有选项。",
-        "tooManyOptions": "绑定的枚举超过 {count} 个选项。",
-        "emptyOption": "绑定的枚举包含空选项。",
-        "duplicateOptions": "绑定的枚举包含重复选项。"
-      }
-    },
     "characterSwap": {
       "features": {
         "label": "替换特征", "placeholder": "输入特征后按回车添加", "append": "+ 添加特征",
@@ -300,11 +234,7 @@
       "settings": { "entry": "Booru 画廊", "short": "设置", "open": "配置画廊…", "openComfy": "打开 ComfyUI 设置", "openFailed": "打开 ComfyUI 设置", "pathHint": "请点击 ComfyUI 界面左下角的齿轮，然后进入 Aaalice Nodes → Booru Gallery，配置账户登录和画廊设置。", "title": "Booru 画廊", "keepCredential": "已配置；留空保持原值", "clearCredential": "清除已保存值", "credentialWillClear": "保存后将清除此值", "credential": { "username": "用户名", "apiKey": "API Key", "userId": "用户 ID" }, "test": "测试连接", "testing": "正在测试…", "connected": "连接成功。", "configured": "已配置", "notConfigured": "未配置", "favoriteRead": "可读取收藏", "favoriteWrite": "可修改收藏", "tagGroups": "分类标签", "rankings": "排行榜", "publicOnly": "公开访问", "publicHint": "此来源无需登录即可使用。", "introTitle": "把画廊调整成顺手的样子", "intro": "凭据只保留在本机；工作流只保存节点选择和提示词规则。", "sourceCount": "{count} 个来源", "accountCount": "{count} 个账户就绪", "navigation": "设置分类", "navAccounts": "账户", "navBrowse": "浏览", "navPrompt": "提示词", "navPerformance": "存储", "sourcesTitle": "来源与账户", "sourcesHint": "集中查看登录状态，以及各网站真正支持的能力", "browseTitle": "浏览默认值", "browseHint": "创建新 Gallery 节点时应用", "selectionStamp": "选中印章", "selectionStampHint": "所有画廊节点的已选图片共用这一款印章。", "blacklist": "内容黑名单", "blacklistIntro": "帖子只要包含任意屏蔽标签，就不会进入瀑布流。", "blacklistHint": "每行一个网站原始标签，精确匹配。这里会隐藏帖子，不会修改输出提示词。", "blacklistPlaceholder": "watermark\ntext\nmale_focus", "blacklistCount": "已屏蔽 {count} 个标签", "blacklistScope": "搜索 · 排行榜 · 收藏夹", "promptTitle": "提示词默认值", "promptHint": "只影响之后创建的新节点", "performanceTitle": "网络与存储", "performanceHint": "由所有 Gallery 节点共享", "defaultSource": "默认来源", "defaultRating": "默认分级", "excluded": "新节点默认排除标签", "tooltip": "显示悬停详情", "tooltipHint": "悬停后加载更大预览图和帖子信息。", "timeout": "请求超时（秒）", "cacheBudget": "原图缓存预算（MiB）", "clearCache": "清理画廊缓存", "clearCacheHint": "移除已缓存的原图和元数据，不会影响节点选择。", "cacheCleared": "画廊缓存已清理。", "save": "保存更改" }
     },
     "pcp": {
-      "empty": "暂无参数，请通过节点右键菜单编辑。",
-      "builtin": { "seed": "种子", "steps": "步数", "cfg": "CFG", "sampler": "采样器", "scheduler": "调度器", "denoise": "降噪幅度" },
-	  "types": { "slider": "滑条", "seed": "种子", "switch": "开关", "string": "文本", "dropdown": "下拉框", "enum": "枚举", "image": "图像", "taglist": "标签列表", "separator": "分隔线" },
-	  "sources": { "custom": "自定义", "unavailable": "{source}（不可用）", "sampler": "采样器", "scheduler": "调度器", "checkpoint": "Checkpoint", "lora": "LoRA", "controlnet": "ControlNet", "upscaleModel": "放大模型", "wdTimmModel": "WD Timm 反推模型", "promptExpandRule": "提示词助手 · 扩写规则", "promptLlmService": "提示词助手 · LLM 服务", "promptVisionRule": "提示词助手 · 反推规则", "promptVlmService": "提示词助手 · VLM 服务" },
-		  "seedMode": {
+      "seedMode": {
 		    "header": "每次工作流运行后，按以下方式更新种子：",
 		    "fixed": "固定值",
 		    "fixedDescription": "保持当前种子不变",
@@ -315,60 +245,9 @@
 		    "randomize": "随机值",
 		    "randomizeDescription": "每次运行后随机生成新的种子"
 		  },
-      "confirm": { "parameterLinks": "将断开受影响的参数下游连线。" },
-      "kj": {
-        "menu": "🔗 为所有参数创建并连接 KJ Set",
-        "noParameters": "当前没有可调参数。",
-        "linkFailed": "部分 KJ Set 无法连接：{reason}",
-        "createFailed": "无法创建 KJ Set 节点。",
-        "connectFailed": "KJ Set 节点连接失败。",
-        "graphUnavailable": "当前工作流画布不可用。",
-        "scopeUnsupported": "KJ 路由只支持当前图或其下级子图。",
-        "created": "KJ Set 节点已就绪：新建 {count} 个，整理 {arranged} 个。",
-        "syncReceivers": "🔄 同步参数接收器",
-        "locateReceivers": "🎯 定位参数接收器",
-        "noReceivers": "当前没有已绑定的参数接收器。",
-        "receiversSynced": "已同步 {count} 个参数接收器。",
-        "receiversPartiallySynced": "已同步 {count}/{total} 个参数接收器。",
-        "receiverNavigateFailed": "当前画布无法打开参数接收器。"
-      },
-      "inline": { "editValue": "编辑数值" },
-      "preflight": {
-        "missingModel": "参数“{parameter}”引用的模型“{value}”不在当前 {source} 列表中。请恢复该模型或选择其他模型后重试。",
-        "sourceUnavailable": "模型来源“{source}”当前没有可用模型。请检查模型目录后重试。",
-        "sourceUnverified": "无法验证模型来源“{source}”。请刷新 ComfyUI 模型列表后重试。",
-        "moreIssues": "还有 {count} 个模型引用需要处理。",
-        "refreshFailed": "无法验证模型来源。请刷新 ComfyUI 模型列表后重试。"
-      },
       "error": {
-		"maxParameters": "最多只能添加 {count} 个可调参数。", "imageUpload": "图像上传失败：{reason}",
+		"imageUpload": "图像上传失败：{reason}",
 		"imageUploadResponse": "服务器响应中没有图像文件名。", "imageFileType": "请选择图像文件。"
-      },
-      "validation": {
-        "parameterIdsUnique": "参数 id 不能重复。", "parameterNamesUnique": "参数名称不能重复。",
-        "sliderRange": "{name}：滑条范围无效。", "optionsRequired": "{name}：至少需要一个选项。",
-        "optionsUnique": "{name}：选项不能重复。"
-      },
-      "editor": {
-        "title": "编辑参数", "menu": "⚙️ 编辑参数…", "add": "添加参数",
-        "selectParameter": "选择一个参数以编辑其设置。", "discard": "放弃尚未保存的参数修改？",
-        "emptyTitle": "尚未选择参数",
-        "renameHint": "双击重命名",
-		"reorderHint": "拖拽排序 · 双击重命名", "parameterType": "参数类型", "chooseTypeHint": "选择类型后立即创建。",
-		"unsaved": "有尚未保存的修改", "noChanges": "暂无待保存修改", "saveWorkflowReminder": "请保存工作流以保留这些参数修改，否则修改将会丢失。",
-        "parameterCount": "{count} 个参数", "general": "基础信息", "valueRules": "取值规则",
-		"optionsBehavior": "选项与行为", "valueHint": "保存后请回到节点上设置参数值。"
-      },
-      "field": {
-        "description": "参数说明", "descriptionPlaceholder": "支持 Markdown", "options": "选项（每行一个）",
-        "source": "选项来源", "enumDisplay": "显示方式", "multiline": "多行文本", "seedBehavior": "生成后行为",
-        "minimum": "最小值", "maximum": "最大值", "step": "步长"
-      },
-      "enumDisplay": {
-        "auto": "自动", "dropdown": "下拉框"
-      },
-      "seedBehavior": {
-        "fixed": "保持固定", "increment": "每次递增", "decrement": "每次递减", "randomize": "每次随机"
       },
       "image": {
 		"none": "选择图像", "upload": "从本机上传", "drop": "松开以选择图像", "uploaded": "图像上传成功：{filename}", "clear": "清空已选择图像",

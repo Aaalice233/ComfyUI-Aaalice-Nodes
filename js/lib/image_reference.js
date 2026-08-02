@@ -1,4 +1,4 @@
-/** Canonical ComfyUI image references used by ParameterPanel values. */
+/** Canonical ComfyUI image references used by image controls. */
 
 export function normalizeImageReference(value) {
 	if (typeof value === "string") {

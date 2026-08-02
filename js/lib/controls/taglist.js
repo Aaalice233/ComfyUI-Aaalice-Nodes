@@ -2,8 +2,6 @@
 
 import { normalizeTagListValue, parseTagListValue, tagToneIndexes } from "../taglist_value.js";
 import { el, icon, iconButton } from "../ui.js";
-import { controlView } from "./contract.js";
-
 function actionLabel(template, text) { return String(template).replaceAll("{tag}", text); }
 
 export function createTagListControl({ value = [], onChange = null, ariaLabel = "", labels = {} } = {}) {
@@ -58,9 +56,4 @@ export function createTagListControl({ value = [], onChange = null, ariaLabel = 
 	root.value = () => entries.map((entry) => ({ ...entry })); root.setValue = (next) => { entries = normalizeTagListValue(next); render(); };
 	root.addEventListener("pointerdown", (event) => { if (event.target === root) requestAnimationFrame(() => input.focus()); });
 	root.append(list, input); render(); return root;
-}
-
-export function renderTagListControl(spec, port) {
-	const root = createTagListControl({ value: spec.value, ariaLabel: spec.label, labels: spec.labels, onChange: (next) => port.commit(next, { redraw: false }) });
-	return controlView({ root, kind: "taglist", update: (next) => root.setValue(next.value) });
 }

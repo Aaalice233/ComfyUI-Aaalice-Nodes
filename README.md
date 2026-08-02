@@ -55,12 +55,9 @@ pip install -r requirements.txt
 
 | Node | Category | Purpose |
 |---|---|---|
-| `ParameterPanel` | `Aaalice/control` | Manage one parameter set and expose its active values as direct outputs. |
-| `ParameterReceiver` | `Aaalice/control` | Bind a ParameterPanel and collect its KJ Get values behind one compact output surface. |
 | `QuickGroupManager` | `Aaalice/control` | Enable, mute, or bypass color-scoped visual groups with ordering and linkage rules. |
 | `GroupIsEnabled` | `Aaalice/control` | Report at queue time whether a visual group is fully disabled. |
 | `GroupLogicProbe` | `Aaalice/control` | Combine multiple group enabled/disabled probes with AND/OR into one boolean for lazy branching. |
-| `EnumSwitch` | `Aaalice/tools` | Execute and output one branch selected by an exact string value. |
 | `ResolutionPreset` | `Aaalice/tools` | Pick an exact aligned width and height with presets, direct input, or a draggable canvas. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
@@ -68,17 +65,6 @@ pip install -r requirements.txt
 | `CharacterFeatureSwapNode` | `Aaalice/prompt` | Transfer selected character features while preserving the original prompt's language and format. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
 | `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
-
-<details>
-<summary><strong>EnumSwitch — lazy enum routing</strong></summary>
-
-- Match `selector` against 1–32 exact branch keys; unmatched or unconnected branches fail visibly.
-- Only configured branches appear as input sockets, so unused capacity cannot affect node sizing or mouse interactions.
-- Only the selected lazy branch executes, and every branch shares one inferred connection type.
-- Right-click and choose **⚙️ Edit Branches…** for standalone use.
-- A direct enum/dropdown output from ParameterPanel or ParameterReceiver is detected automatically. When its options change, the warning icon offers an explicit sync that preserves unchanged branch links.
-
-</details>
 
 <details>
 <summary><strong>ResolutionPreset — exact aligned dimensions</strong></summary>
@@ -99,43 +85,6 @@ The node has no inputs. Every execution reads the visible composite of Krita's c
 Close Krita, then open **ComfyUI Settings → Aaalice Nodes → Krita** to install and enable, or repair and re-enable, the bundled `Aaalice Comfy Bridge`. The action updates Krita's plugin setting automatically; start Krita afterward and test the connection. Bridge status and the last fetch summary are interface-only and never enter workflow JSON.
 
 Krita, ComfyUI, and the Bridge must run on the same machine. Missing Bridge, offline Krita, no active document, incompatible protocol, export failure, timeout, or invalid media fails the node explicitly; it never returns an old snapshot, placeholder image, or fallback input. The node does not launch or close Krita, choose among documents or layers, wait for editing, or provide a two-way editing session.
-
-</details>
-
-<details>
-<summary><strong>ParameterPanel — parameter authoring and direct outputs</strong></summary>
-
-New panels contain `Steps`, `CFG`, `Sampler`, `Scheduler`, `Denoise`, and `Seed`. Sampler and scheduler options follow the current ComfyUI installation.
-
-- Change values directly on the node.
-- Right-click the node and choose **⚙️ Edit Parameters…** to add, rename, reorder, copy, delete, or document parameters.
-- Custom enum and dropdown options use one value per line and must be unique.
-- Image parameters accept either a file-picker selection or an image dragged from the desktop or file manager. An empty selection or a selected file that no longer exists outputs one solid-black `512 × 512` image.
-- Connect each visible output directly to the matching downstream input. Links stay with the same parameter when it is renamed or reordered.
-- Seed supports fixed, increment, decrement, and randomize behavior. The inline behavior button opens all four choices and changes its icon to reflect the current mode.
-- If KJ Set/Get is installed, **🔗 Create and link KJ Set nodes for all parameters** is available from the node menu. Newly created collapsed Set nodes are arranged in a compact column to the panel's right.
-
-Deleting a connected parameter requires confirmation because its links must be removed. A panel can contain at most 32 value-producing parameters; separators do not create outputs. Only value-producing parameters appear as output sockets.
-
-</details>
-
-<details>
-<summary><strong>ParameterReceiver — compact KJ Get receiver</strong></summary>
-
-`ParameterReceiver` requires KJNodes Set/Get support for binding and synchronization. A receiver can bind a panel in its current graph or any parent graph, matching KJNodes' downward Set / upward Get scope. Right-click the receiver and choose **🔗 Bind Parameter Panel…**.
-
-- The first bind reuses existing KJ Set nodes and asks before creating missing ones. Matching collapsed Get nodes are arranged to the receiver's left.
-- Set/Get nodes packed inside a descendant subgraph remain managed through the subgraph's real input/output sockets. New parameters continue in the same managed Set/Get graph when that scope is unambiguous.
-- Parameter renames and panel-title changes refresh labels automatically. Adding, deleting, or reordering parameters changes the footer to **Needs sync**; use **🔄 Sync from Parameter Panel** to apply structural changes.
-- The ParameterPanel menu offers **🔄 Sync Parameter Receivers** for one-step synchronization of every bound receiver, plus **🎯 Locate Parameter Receiver**. The receiver keeps the matching **🎯 Locate Parameter Panel** action; both navigate across subgraph views.
-- Adding parameters at the end leaves existing connections untouched. Middle insertions and reordering keep surviving connections attached to the same parameters.
-- The receiver shows only the input and output sockets in its current binding, so unused capacity cannot interfere with resizing or connection gestures.
-- **🎯 Locate Parameter Panel** centers the bound source. **✂️ Detach** removes receiver-only managed Gets after confirming affected links.
-- If the source panel is deleted, the receiver keeps its configured sockets and current connections, reports **Source panel missing**, and can be explicitly rebound.
-
-KJNodes is optional for the package as a whole. Without it, ParameterReceiver workflows still load, but bind and sync report an error instead of simulating routing.
-
-For very large Set/Get graphs, KJNodes' virtual-link renderer and canvas performance remain independent from this package. If canvas panning is slow, keep **KJNodes → Set & Get → Show links** at `never` unless inspecting links, and enable **KJNodes → Performance → Single-canvas mode during pan**. Optional shadow and connection-border switches trade visual detail for more headroom.
 
 </details>
 
@@ -220,11 +169,11 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 
 ## Aaalice Workspace
 
-Open **Aaalice Workspace** from ComfyUI's left sidebar. **Controls** contains user-created dashboard pages; no page is generated automatically. Right-click any compatible node and choose **📌 Add controls to sidebar…** at any time, select its controls and a target page, then adjust the original values from the sidebar. To make one card drive multiple compatible controls, right-click another node and choose **🔗 Link to an existing sidebar parameter…**; the card badge shows its target count, and the card menu can inspect, unlink, synchronize, or rebind its primary control. Linked writes and Seed behavior changes are applied to every target in one workflow history transaction and roll back together on failure. ParameterPanel controls are listed and automatically grouped by the panel's Separators; a one-control section still gets its own group. Panels without Separators keep the compact behavior of creating one panel-named group after two cards are present. Later additions rejoin the matching group even after the group is renamed, without rearranging existing cards. Pages use a structured twelve-column grid with adjustable integer width and height spans; **Edit layout** enables snapped card resizing and placement, separators, optional named layout groups, multi-selection, grouping, and tidy-layout actions. Groups may contain controls from different nodes, move as one composite card, and disappear without deleting their cards when ungrouped. Grouping, ungrouping, moving, and resizing preserve unrelated cards and gaps; only the explicit tidy-layout action repacks the page.
+Open **Aaalice Workspace** from ComfyUI's left sidebar. **Controls** contains user-created dashboard pages; no page is generated automatically. Right-click any compatible node and choose **📌 Add controls to sidebar…** at any time, select its controls and a target page, then adjust the original values from the sidebar. To make one card drive multiple compatible controls, right-click another node and choose **🔗 Link to an existing sidebar parameter…**; the card badge shows its target count, and the card menu can inspect, unlink, synchronize, or rebind its primary control. Linked writes and Seed behavior changes are applied to every target in one workflow history transaction and roll back together on failure. Pages use a structured twelve-column grid with adjustable integer width and height spans; **Edit layout** enables snapped card resizing and placement, separators, optional named layout groups, multi-selection, grouping, and tidy-layout actions. Groups may contain controls from different nodes, move as one composite card, and disappear without deleting their cards when ungrouped. Grouping, ungrouping, moving, and resizing preserve unrelated cards and gaps; only the explicit tidy-layout action repacks the page.
 
 **Groups** replaces a floating canvas shortcut with a curated navigation list in the same sidebar. Add only the visual groups you want to navigate, then optionally assign each one a `Ctrl`, `Alt`, or `Command` key combination, a horizontal/vertical target offset in canvas units, and a target zoom from 10% to 300%. Click a row or press its shortcut to animate to that group's adjusted view. Navigation entries and view settings are saved with the workflow; live color, node count, enabled state, and group geometry still update from graph events.
 
-Simple nodes composed only of native `INT`, `FLOAT`, `BOOLEAN`, `STRING`, and `COMBO` widgets, all adjustable Aaalice parameters, compatible widgets publicly exposed by a subgraph as a whole, and ComfyUI's native `Preview Image`, `Preview as Text`, and `Compare Images` execution views can be added. `Preview Image` mirrors the latest image batch with navigation and an 800% zoomable full-window viewer. `Preview as Text` follows the node's plain-text or Markdown mode in a scrollable read-only card. The comparison card mirrors the latest A/B results with an interactive split and independent batch navigation. Click the comparison image to open a full-window viewer, then use the mouse wheel or zoom controls to magnify up to 800%, drag the enlarged images to inspect details, move the pointer across the viewer to compare, and double-click or use **Fit to screen** to reset the view. Presets save the card's layout and binding, not temporary preview URLs. Empty or not-yet-initialized native controls remain bindable and show a clear unavailable state until their options or value appear. The workspace never searches inside a subgraph. Nodes with custom panels are intentionally excluded from automatic projection and require an explicit adapter from their author or this package. Bindings use stable identities rather than node titles or positions; unresolved controls remain visible for manual rebind. The compact sidebar-preset picker saves and switches the complete page layout, groups, bindings, card geometry, and compatible values together, including each Seed control's value and after-generate mode. After a local change, the picker keeps showing the preset name in italics with a trailing `*`; a sidebar without a baseline preset shows a neutral **Select preset** placeholder. Changes can be saved, discarded, or stored as another preset with the popover header's **New preset** action; saving the workflow with `Ctrl`/`Cmd`+`S` also commits the working copy into the active preset in the same step. Presets are stored inside the workflow file: when you share a workflow (including publishing and installing through Aaalice Workflow Hub), recipients opening it find the presets you shipped in their own sidebar-preset picker. Importing a portable JSON backup creates and applies a named sidebar preset after the same validation flow; the backup never includes the prompt library. Version 0.2.0 clears the older parameter-only preset collection because it did not contain recoverable layout history.
+Simple nodes composed only of native `INT`, `FLOAT`, `BOOLEAN`, `STRING`, and `COMBO` widgets, compatible widgets publicly exposed by a subgraph as a whole, and ComfyUI's native `Preview Image`, `Preview as Text`, and `Compare Images` execution views can be added. `Preview Image` mirrors the latest image batch with navigation and an 800% zoomable full-window viewer. `Preview as Text` follows the node's plain-text or Markdown mode in a scrollable read-only card. The comparison card mirrors the latest A/B results with an interactive split and independent batch navigation. Click the comparison image to open a full-window viewer, then use the mouse wheel or zoom controls to magnify up to 800%, drag the enlarged images to inspect details, move the pointer across the viewer to compare, and double-click or use **Fit to screen** to reset the view. Presets save the card's layout and binding, not temporary preview URLs. Empty or not-yet-initialized native controls remain bindable and show a clear unavailable state until their options or value appear. The workspace never searches inside a subgraph. Nodes with custom panels are intentionally excluded from automatic projection and require an explicit adapter from their author or this package. Bindings use stable identities rather than node titles or positions; unresolved controls remain visible for manual rebind. The compact sidebar-preset picker saves and switches the complete page layout, groups, bindings, card geometry, and compatible values together, including each Seed control's value and after-generate mode. After a local change, the picker keeps showing the preset name in italics with a trailing `*`; a sidebar without a baseline preset shows a neutral **Select preset** placeholder. Changes can be saved, discarded, or stored as another preset with the popover header's **New preset** action; saving the workflow with `Ctrl`/`Cmd`+`S` also commits the working copy into the active preset in the same step. Presets are stored inside the workflow file: when you share a workflow (including publishing and installing through Aaalice Workflow Hub), recipients opening it find the presets you shipped in their own sidebar-preset picker. Importing a portable JSON backup creates and applies a named sidebar preset after the same validation flow; the backup never includes the prompt library.
 
 The **Library** workspace manages entries, flat categories, multi-membership favorite folders, tags, and one preview image per entry. Its selection action bar can move, export, or transactionally delete selected entries, and select or clear the current filtered result. Every library includes one non-deletable default favorite folder, while additional folders can organize entries by purpose. New categories receive distinct identification colors; edit a category to change its color, which is reused by category chips and filters in both the workspace and PromptSelector. It can export the full library or the current category/favorite folder as a ZIP with hashed assets. It imports current ZIP archives plus legacy `data.json + preview/` ZIP or JSON exports, migrating titles, prompts, notes, categories, favorite folders, tags, previews, and category colors when available. Import files, exports, and expanded archives are limited to 2 GiB; transfers are staged and streamed instead of loading the whole archive into memory. Imports are preflighted before applying; conflicts can keep local data, use imported data, or create a duplicate.
 
@@ -235,14 +184,13 @@ The **Library** workspace manages entries, flat categories, multi-membership fav
 - `PromptCleaningMaid` was removed in 0.8.0; workflows containing it must remove or replace it before execution.
 - App Mode is not supported.
 - Structural frontend updates can require recreating existing node instances after refresh.
-- ParameterReceiver binds a ParameterPanel in its current graph or an ancestor graph. It does not bind panels from descendant or sibling graphs, which are outside KJNodes' lexical Get scope.
 - QuickGroupManager only controls visual groups in its current graph and does not propagate linkage rules across manager instances.
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
 - CharacterFeatureSwapNode supports only the official DeepSeek API and requires a valid DeepSeek API key and available model; API availability, billing, privacy, and output quality are controlled by DeepSeek.
 - BooruGalleryNode depends on third-party site APIs and media hosts. Network availability, credentials, site limits, post metadata, and favorite behavior remain controlled by each site; only static JPG, PNG, WebP, and GIF posts are selectable.
 - FetchFromKrita requires a locally running Krita with the bundled Bridge enabled and an active document. It supports one active-document snapshot per execution and no remote or persistent editing session.
 - Prompt-library data lives in the current ComfyUI user directory and is not embedded in workflows; export it separately when moving workflows between installations.
-- Dashboard bindings automatically support simple native scalar/text/combo nodes, Aaalice parameters, and public subgraph widgets. A node containing an unknown custom widget or DOM panel is not partially projected; it requires an explicit adapter.
+- Dashboard bindings automatically support simple native scalar/text/combo nodes and public subgraph widgets. A node containing an unknown custom widget or DOM panel is not partially projected; it requires an explicit adapter.
 
 Keep [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) installed separately if you still need its original nodes.
 

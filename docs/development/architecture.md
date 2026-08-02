@@ -6,10 +6,7 @@
 
 | 节点 | Category | 执行职责 | 前端职责 |
 |---|---|---|---|
-| `ParameterPanel` | `Aaalice/control` | 根据本次 prompt payload 输出最多 32 个参数值 | 参数创作、控件、动态原生输出、结构编辑和 Seed 更新 |
-| `ParameterReceiver` | `Aaalice/control` | 有界 AnyType 逐路透传 | 绑定面板、管理可见 Get、显式同步和动态输入输出 |
 | `QuickGroupManager` | `Aaalice/control` | 无 Prompt I/O 和执行副作用 | 发现、过滤、排序并原子切换当前图的可视组 |
-| `EnumSwitch` | `Aaalice/tools` | 按精确字符串 lazy 选通一个同类型分支 | 分支编辑、跨 KJ Get 的面板选项绑定、显式同步和动态分支输入 |
 | `ResolutionPreset` | `Aaalice/tools` | 校验执行载荷并输出精确 width / height | 预设、精确输入、画幅拖拽、对齐和个人预设管理 |
 | `SimpleStringSplit` | `Aaalice/tools` | 拆分字符串、清理空白并移除空段 | 无业务前端 |
 | `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
@@ -22,11 +19,8 @@
 
 ## 后端边界
 
-- V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `CharacterFeatureSwapNode`、`PromptSelector` 与 `EnumSwitch` 的自定义校验签名分别只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
-- `nodes/control/parameter_panel.py` 声明最多 32 路输出，把前端注入的参数 payload 转换为有界值序列；解析和类型转换位于 `nodes/_lib/parameter_values.py`。图像参数通过 `nodes/_lib/parameter_images.py` 解析 ComfyUI 引用：未选择或文件不存在时输出单张 `512 × 512` 纯黑 IMAGE，已选择但解码、权限或其它读取错误仍明确失败；文件从缺失变为存在时会改变执行指纹，避免继续命中旧的黑图缓存。
-- `nodes/control/parameter_receiver.py` 声明最多 32 路可选 AnyType 输入输出；`nodes/_lib/receiver_values.py` 只按协议顺序透传，不保存绑定状态。
+- V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `CharacterFeatureSwapNode` 与 `PromptSelector` 的自定义校验签名只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
 - `nodes/control/quick_group_manager.py` 只注册无输入输出的 V3 节点；组发现和模式变化不进入后端。
-- `nodes/tools/enum_switch.py` 声明 selector、最多 32 个 lazy MatchType 分支和一个同类型输出；`nodes/_lib/enum_switch.py` 校验 routes payload 并选择精确协议输入。
 - `nodes/tools/resolution_preset.py` 没有可见输入，只接受前端注入的版本化 `resolution_json`，校验 ComfyUI 尺寸范围与基础 8 px 对齐后输出两个具名 INT。个人预设 Store 位于当前用户目录，使用线程锁、临时文件和原子替换；专用 HTTP 路由只负责 CRUD 和明确错误映射。
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
@@ -36,16 +30,12 @@
 - `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
 - Discord 分享不新增执行节点。`nodes/tools/discord_share_routes.py` 只向前端公开中继和社区 URL，Webhook、OAuth Secret 与成员会话不进入 ComfyUI Python 进程；可信中继实现位于 `deploy/discord-share-worker/`，负责 OAuth、逐次成员/角色校验、限流、公开 Target 清单和 Webhook 转发。频道配置以 Worker Secret 中的 `{ id, label, url, default, prefer_prompt_file }` 数组为真源，浏览器只接收不含 URL 的公开字段并提交 Target Id。`prefer_prompt_file` 只驱动客户端推荐状态，不强制覆盖用户最终选择。KV 只保存短时 OAuth handoff 与带 TTL 的会话；每次发送的用户级滥用保护由 Cloudflare 原生 Rate Limiting binding 承担，避免分享吞吐受 KV 每日写入额度限制。
 
-后端 32 路 Schema 是执行和校验上限，不是前端槽数组真源。ParameterPanel 的返回值仍填满有界输出协议；画布只物化当前参数对应的连续槽。
 
 ## 前端模块
 
 | 模块组 | 文件 | 职责 |
 |---|---|---|
 | 包入口 | `js/extension.js`、`js/i18n.js` | 加载共享样式、业务扩展和双语资源 |
-| 参数面板 | `js/parameter_panel.js`、`js/parameter_panel_kj.js` | 生命周期、控件、结构编辑、prompt 注入、Seed 行为和 KJ Set |
-| 参数接收器 | `js/parameter_receiver.js` | Receiver Binding、Get 所有权、显式同步、菜单和状态显示 |
-| 枚举选通 | `js/enum_switch.js` | 分支编辑、选项绑定、同步提示、保线和 routes payload 注入 |
 | 分辨率预设 | `js/resolution_preset.js`、`js/lib/resolution_preset_model.js` | 状态规范化、预设匹配、二维映射、DOM 交互、个人预设请求和 width / height payload 注入 |
 | 组管理与导航 | `js/quick_group_manager.js`、`js/lib/{quick_group_manager_runtime,group_navigation,group_navigation_model}.js` | 全局图事件、DOM、颜色范围、排序、原子模式事务、共享组边界导航，以及手工导航清单与组合键模型 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
@@ -54,10 +44,9 @@
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_model,virtual_masonry}.js` | 双行上下文工具栏、自然比例虚拟瀑布流、选择与详情、定高已选列表、设置入口和选择快照注入 |
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
 | Discord 分享 | `js/discord_share.js`、`js/lib/{discord_share_capture,discord_share_client,discord_share_model}.js` | 工作区侧栏底栏/顶栏入口、社区链接、Preview Any 绑定、最新成功执行快照、成员验证和相册发送 |
-| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_source_sync,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_binding_set,control_providers,parameter_sections,native_output_controls,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V4 十二列整数网格、矩形占位与确定性整理、可选布局组、运行时尺寸投影、ComfyUI 内置只读执行预览、全图组导航、完整侧边栏预设、词库管理、便携备份和显式来源组同步；预设纯模型与运行时应用协调器分离，模型、来源快照、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
-| 参数控件 | `js/lib/controls/{contract,registry,specs,availability,aaalice,comfy,quick_group_manager,numeric,boolean,choice,text,taglist,image,image_compare,image_output,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、Aaalice 与 ComfyUI 两套渲染策略、QuickGroupManager 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
-| 纯模型 | `js/lib/{param_model,parameter_option_sources,receiver_model,enum_switch_model,quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、动态选项来源适配、校验、差异和可单测规划 |
-| 动态槽与布局 | `js/lib/{dynamic_slots,parameter_layout,receiver_layout,enum_switch_layout,kj_set_layout}.js` | 原生槽数量、双模式位置、最小尺寸和 KJ Set 排列 |
+| DIY 左侧工作区 | `js/workspace.js`、`js/lib/{dashboard_model,dashboard_source_sync,dashboard_presets,dashboard_preset_runtime,dashboard_sizing,dashboard_layout,dashboard_commands,dashboard_components,dashboard_interactions,control_binding_set,control_providers,native_output_controls,control_host_events,node_control_menu,workspace_controls,widget_control_adapters}.js` | Dashboard V4 十二列整数网格、矩形占位与确定性整理、可选布局组、运行时尺寸投影、ComfyUI 内置只读执行预览、全图组导航、完整侧边栏预设、词库管理、便携备份和显式来源组同步；预设纯模型与运行时应用协调器分离，模型、来源快照、尺寸、布局、命令、交互、DOM、Provider、菜单装饰、事件失效与第三方 widget 适配保持单向职责 |
+| 参数控件 | `js/lib/controls/{contract,registry,specs,availability,comfy,quick_group_manager,numeric,boolean,choice,text,taglist,tag_pills,image_choice,image_compare,image_output,markdown,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、ComfyUI 控件策略、QuickGroupManager 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
+| 纯模型 | `js/lib/{quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 节点缩放 | `js/node_resize.js`、`js/lib/{native_widget_resize,dom_widget_resize}.js` | 精确 node type 的原生 widget 角区让渡、全尺寸 DOM 缩放期失效和生命周期清理 |
 | DOM 与媒体辅助 | `js/lib/{node_accent,image_reference,image_upload,safe_markdown,simple_notify_runtime,dom_widget_visibility}.js`、`js/vendor/` | 节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM、富 DOM 视口降载、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui.css`、`js/lib/theme.css` | 无业务按钮、Switcher、Toggle、Popover、主题 token 与节点专用布局 |
@@ -68,9 +57,6 @@
 
 | 功能 | 持久真源 | 实时派生数据 | 不得成为真源 |
 |---|---|---|---|
-| ParameterPanel | `node.properties.parameters` | 参数 meta、slot 布局、prompt payload | 服务端进程全局状态、DOM 控件值副本 |
-| ParameterReceiver | `node.properties.receiverBinding` | 面板图身份、面板名称、参数类型、同步状态、Get 连线 | 面板标题、槽索引、Get 显示名 |
-| EnumSwitch | `node.properties.enumSwitch`（含源 Panel Graph Id 与稳定 Parameter Id） | 分支标签、源选项 diff、routes payload | Branch Key、槽位置、DOM 顺序 |
 | ResolutionPreset | `node.properties.resolutionPresetState` | 预设匹配、坐标映射、比例与 MP 摘要、执行 payload | DOM 字段、`presetId`、个人预设缓存 |
 | ResolutionPreset 个人预设 | 当前 ComfyUI 用户目录 JSON | 当前用户的名称、尺寸、alignment 和稳定 UUID | 工作流 JSON、节点属性或浏览器存储 |
 | QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
@@ -86,11 +72,10 @@
 | Discord 成员会话 | 浏览器当前 Origin 的可撤销会话 | 中继逐次成员/角色校验 | Webhook、OAuth Secret 或工作流 |
 | Discord 频道选择 | 浏览器 `localStorage` | 中继公开的 Target Id 子集 | Webhook URL、工作流 JSON 或节点属性 |
 | Discord 长 Prompt 文件偏好 | 浏览器 `localStorage` | 是否把超过单 Embed 限制的 Prompt 改为 TXT 附件 | Prompt 正文、工作流 JSON 或频道密钥 |
-| DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 页面、组、卡片布局、稳定 Binding、来源组身份、`groupSource` 纳管关系、源标题快照和用户覆盖；参数值、目标解析和 Missing Binding 状态为实时派生 | 侧边栏 DOM、节点标题或位置、同步状态本身 |
-| DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、参数值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
+| DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 页面、组、卡片布局、稳定 Binding、来源组身份、`groupSource` 纳管关系、源标题快照和用户覆盖；控件值、目标解析和 Missing Binding 状态为实时派生 | 侧边栏 DOM、节点标题或位置、同步状态本身 |
+| DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、控件值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
 | Prompt Library | 用户目录 SQLite | 当前筛选、PromptSelector 引用解析 | 单个工作流、单个节点或浏览器缓存 |
 
-Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序位置不是身份；结构变化按稳定身份保存并恢复连线。
 
 ## 生命周期与数据流
 
@@ -102,9 +87,9 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 ### Canvas 性能边界
 
-1. LiteGraph 在拖拽和平移期间会逐帧调用尺寸、排列和绘制回调。ParameterPanel 布局按参数数组身份、节点宽度和 slot 起点缓存；ParameterReceiver 按槽数、宽度和 slot 起点缓存；QuickGroupManager 的可见组快照只在事件驱动的 `render()` 中生成，逐帧高度回调只读取缓存；GroupLogicProbe 的规范化状态按原始对象身份复用。节点位置和无关高度变化不使这些缓存失效。
-2. 参数值与结构走不同失效域：值变化按稳定 Parameter Id 调用已挂载 `controlView().update()`，不替换 DOM、不重算布局、不同步 KJ 名称，也不刷新 Receiver；结构变化才重塑原生槽并刷新依赖链。EnumSwitch 仅在 route 结构、标签或 lazy 展示变化时调用动态槽提交器，不包装宿主逐帧 `_setConcreteSlots()`。
-3. ParameterPanel 与 ParameterReceiver 的 Nodes 2.0 DOM 标记先按 `data-node-id` 过滤 mutation，再在 animation frame 内合并为一次文档扫描。重挂恢复和业务更新共用该调度器，禁止叠加立即、rAF 和 timeout 三次扫描。所有顶层节点 DOM widget 使用宿主 `hideOnZoom` 低质量变换路径，画布平移或缩放期间临时绘制占位，稳定后仍用同一持久状态恢复。
+1. LiteGraph 在拖拽和平移期间会逐帧调用尺寸、排列和绘制回调。QuickGroupManager 的可见组快照只在事件驱动的 `render()` 中生成，逐帧高度回调只读取缓存；GroupLogicProbe 的规范化状态按原始对象身份复用。节点位置和无关高度变化不使这些缓存失效。
+2. Dashboard 控件值通过已挂载 `controlView().update()` 定向更新，不替换 DOM、不重算布局；结构变化才重建控件并刷新依赖链。
+3. 所有顶层节点 DOM widget 使用宿主 `hideOnZoom` 低质量变换路径，画布平移或缩放期间临时绘制占位，稳定后仍用同一持久状态恢复。
 4. Booru Gallery 和 PromptSelector 的宿主 widget 保持注册，插件内部富内容由 `dom_widget_visibility` 以有限视口预热范围切换 active；离屏时虚拟列表/瀑布流释放条目 DOM 和图片源，只保留模型与 spacer 布局，返回视口后按同一 controller 恢复。该机制不修改 ComfyUI 核心、其它插件或工作流持久状态。
 5. Workspace 图签名只读取 widget/options 的静态 own data property；accessor-backed 动态选项由 `CONTROL_HOST_INVALIDATED_EVENT` 失效，加载、撤销和重做由 `afterConfigureGraph` 强制恢复，不在签名阶段执行第三方 getter。
 6. KJ Set/Get 的虚拟连线绘制属于 KJNodes 自身：其 Show links、单节点 `drawConnection` 和 Performance 设置可能独立增加每帧图扫描与连线绘制。本包只通过公开 Set/Get API 做事件驱动的结构同步，不改写 KJNodes 的 canvas renderer。
@@ -126,29 +111,6 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 4. 相册只展示最后一次成功执行的去重图像；尺寸由浏览器按需解码，当前缩略图和 Dialog 状态不持久化。提示词缺失时禁用发送并要求重新绑定、执行。
 5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、Target Id、图片类型/大小与提示词校验。一般 Prompt 以连续 fenced Embed 排在图像之前；关闭文件化时超过单个 Embed 的内容按顺序拆成最多十条消息，图像只附在最后一条；启用文件化且超过 1,500 字符时，改为 UTF-8 TXT 与图像同消息附件。首个 Embed 使用会话用户或当前 Guild Member 的昵称与 Discord CDN 头像表达作者身份，但不覆盖 Webhook 自身头像和名称；后续分段不重复作者。任一分段失败时中继尽力删除该频道已发出的分段，任何步骤失败都保持明确错误，部分频道失败会返回独立目标结果。
 
-### ParameterPanel
-
-1. 结构编辑器统一校验草稿并确认受影响连线。
-2. 一个图变更边界内更新 `node.properties.parameters`；尾部增删保留稳定输出，中间变更按 Parameter Id 重塑并重连真实端点。
-3. `graphToPrompt` 为本次执行注入参数 payload；节点面与侧边栏共用的图像值在执行时解析，空引用或已不存在的文件生成单张 `512 × 512` 纯黑 IMAGE。
-4. 执行成功后按 fixed、increment、decrement 或 randomize 更新 Seed，并通知依赖节点刷新。
-
-### ParameterReceiver
-
-1. 首次绑定或用户显式同步时，从接收器当前图及父级图读取源面板参数身份；绑定同时保存稳定 Graph Id 与 Panel Node Id。
-2. 创建或复用 KJ Set 与可见折叠 Get，按 Parameter Id 保存现有上下游连线；已有 Set/Get 位于下级子图时沿真实 Subgraph 输入输出槽追踪并在同一作用域补齐。
-3. 在一个图变更边界内增量调整真实输入输出和 Get 排列；稳定前缀保持原 link，中间变更再按 Parameter Id 恢复端点。
-4. 动态槽提交后立即校验输入/输出 Parameter Id、托管 Get 归属与连线、Set/Get 名称；全链路一致后才报告成功，否则回滚旧绑定并显示原始失败原因。
-5. 名称与类型变化只刷新显示；新增、删除和重排在显式同步前只显示“需要同步”。
-
-### EnumSwitch
-
-1. selector 直接连接 ParameterPanel / ParameterReceiver，或通过同图、父级图中的 KJ Get 连接时，按 ComfyUI 的 `resolveVirtualOutput()` / `getInputLink()` 协议解析源；绑定保存 Panel Graph Id 与稳定 Parameter Id，并在新建、加载和连接变化时幂等恢复。
-2. 独立编辑或显式源选项同步更新 routes。
-3. 尾部增删保留稳定前缀的原生槽；中间变更按 Route Id 保存真实端点，调整 `branch_1…branch_N` 后恢复未删除路由。
-4. `graphToPrompt` 注入 Route Id、Branch Key 与协议输入的映射。
-5. 后端只请求 selector 精确匹配的 lazy 分支；未知或未连接目标显式失败。
-
 ### ResolutionPreset
 
 1. `node.properties.resolutionPresetState` 保存版本、精确宽高、alignment、画布范围与可失效的显示提示 `presetId`；每次恢复都重新规范化和匹配。
@@ -167,7 +129,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 ### 节点强调色
 
 1. `js/lib/node_accent.js` 从节点当前 `color` / `bgcolor` 解析 Node Color，并把派生 token 写入业务 DOM 根。
-2. ParameterPanel 与 QuickGroupManager 在创建、加载、配置和业务重绘时同步初始颜色；ComfyUI 官方 `setColorOption()` 改色入口负责即时更新。
+2. QuickGroupManager 在创建、加载、配置和业务重绘时同步初始颜色；ComfyUI 官方 `setColorOption()` 改色入口负责即时更新。
 3. 共享层只提供 Node Color、Node Accent、柔色和对比色，不持有工作流状态，也不轮询节点。
 4. 业务 CSS 决定哪些普通激活态消费 Node Accent；警告、危险、筛选颜色和多档业务状态继续使用 ComfyUI 语义 token。
 
@@ -201,12 +163,12 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 
 ### DIY 左侧工作区
 
-1. 官方 Sidebar Tab 挂载参数控制与词库工作区；页面布局及页面顺序随工作流序列化，参数值仍由节点拥有。页码菜单通过专用拖拽手柄和键盘移动页面，不把排序状态藏在 DOM 或会话状态中。
-2. Control Provider Registry 分别解析简单 ComfyUI 原生 widget、内置只读执行预览、Aaalice 稳定参数和子图整体公开 widget；绑定只按稳定 Host ID、Control ID 与可选 Adapter ID 精确解析。原生 fallback 仅接受由 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 及其 LiteGraph 运行时别名（包括 `number`、`slider`、`knob`）组成的简单节点，并统一映射为 `numeric`、`boolean`、`text`、`choice`；`PreviewImage` 与 `PreviewAny` 由独立 `comfy-output` Provider 显式读取官方执行消息、恢复后的 `node.images` / `preview_text` 与显示模式，不把临时媒体或文本写入 Dashboard 或预设。出现未知自定义面板时不做部分猜测。结构支持、运行可用性和绑定健康度是三个独立维度：空选项或未赋值控件仍可建立绑定，并以 `ready`、`empty`、`unset`、`unavailable`、`error` 表示瞬时可用性，不得伪装成 `missing` 或 `incompatible`。
-3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。Provider 可为每个控件声明通用来源组提示；ParameterPanel Provider 先按 Separator 划分有序分区，再用 Separator 的稳定 Parameter Id 生成可选 `scopeId`。Dashboard 命令层只消费该提示，不理解 ParameterPanel 结构：有真实 Separator 的面板按非空分区自动建组，单参数分区也保留组，但不会自动创建 Dashboard 分隔项；无 Separator 的面板继续在同源卡片达到两个时按面板标题建组。后续新增卡片按完整来源身份加入原组，且不覆盖用户改名或重排既有布局。节点右键添加参数始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。Dashboard V4 持久化 12 列整数网格：控件 `columnSpan` 可取 3–12 的任意整数，`rowSpan` 可取不小于 13 的任意整数；Provider 未声明宽度的新建绑定统一以 6 列进入默认左、右双列布局，显式 Provider 尺寸和既有卡片跨度不被覆盖。拖拽、键盘和命令继续按整数单位自由调整宽高，窄侧栏的一列投影只改变显示，不反写规范布局。V2/V3 在读取时自动迁移为 V4；V2 旧双列的列位置与列跨度等比映射到 12 列，V3 十二列布局原样保留，原有有效整数行跨度保持不变。“整理布局”按完整矩形占位和稳定视觉顺序执行确定性紧凑排列，重复整理结果不变。
+1. 官方 Sidebar Tab 挂载控件与词库工作区；页面布局及页面顺序随工作流序列化，控件值仍由节点拥有。页码菜单通过专用拖拽手柄和键盘移动页面，不把排序状态藏在 DOM 或会话状态中。
+2. Control Provider Registry 分别解析简单 ComfyUI 原生 widget、内置只读执行预览和子图整体公开 widget；绑定只按稳定 Host ID、Control ID 与可选 Adapter ID 精确解析。原生 fallback 仅接受由 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 及其 LiteGraph 运行时别名（包括 `number`、`slider`、`knob`）组成的简单节点，并统一映射为 `numeric`、`boolean`、`text`、`choice`；`PreviewImage` 与 `PreviewAny` 由独立 `comfy-output` Provider 显式读取官方执行消息、恢复后的 `node.images` / `preview_text` 与显示模式，不把临时媒体或文本写入 Dashboard 或预设。出现未知自定义面板时不做部分猜测。结构支持、运行可用性和绑定健康度是三个独立维度：空选项或未赋值控件仍可建立绑定，并以 `ready`、`empty`、`unset`、`unavailable`、`error` 表示瞬时可用性，不得伪装成 `missing` 或 `incompatible`。
+3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。Provider 可为每个控件声明通用来源组提示；Dashboard 命令层只消费该通用描述，不读取节点私有结构。后续新增卡片按完整来源身份加入原组，且不覆盖用户改名或重排既有布局。节点右键添加控件始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。Dashboard V4 持久化 12 列整数网格：控件 `columnSpan` 可取 3–12 的任意整数，`rowSpan` 可取不小于 13 的任意整数；Provider 未声明宽度的新建绑定统一以 6 列进入默认左、右双列布局，显式 Provider 尺寸和既有卡片跨度不被覆盖。拖拽、键盘和命令继续按整数单位自由调整宽高，窄侧栏的一列投影只改变显示，不反写规范布局。V2/V3 在读取时自动迁移为 V4；V2 旧双列的列位置与列跨度等比映射到 12 列，V3 十二列布局原样保留，原有有效整数行跨度保持不变。“整理布局”按完整矩形占位和稳定视觉顺序执行确定性紧凑排列，重复整理结果不变。
 4. Dashboard V4 的控件卡片以 `binding` 保存唯一主参数，并以有序 `linkedBindings` 保存附加目标；主参数唯一拥有标题、描述、控件形态和读值语义。`control_binding_set.js` 是联动兼容性、运行时解析和原子写入的唯一边界：只接受同一图中均显式可写、可进入预设且 Control Spec 类型与值域一致的目标；数值必须区分 Integer / Float，图像选择还要匹配目录语义，Seed 必须同时支持数值与执行后行为 codec。一次侧边栏写入先快照全部目标，在一个 graph history 边界内逐项写入；任何返回失败、抛错或部分写入都会逆序回滚全部已触达目标，禁止在 renderer、Dashboard 模型或 Provider 外层散落循环写入。Workspace 在每次 `graphToPrompt` 序列化前及整次 `queuePrompt` 完成后，以主 Seed 的数值和执行后行为收敛附加 Seed；这样 `before` 与 `after` 更新策略、多批队列、工作流切换及 `randomize` 都不会让同一卡片的目标在实际 prompt 或下一次值中漂移。运行时 `availability` 与绑定健康分离：动态选项为空、未赋值或临时不可用只暂停整卡写入并显示可恢复状态，不能把持久联动判坏。节点右键菜单仅在存在兼容目标时提供绑定入口；卡片右键在有附加目标时管理联动，并保留主参数重绑。预设捕获和应用按字段元组编码的稳定 Binding Key 展开并全局去重所有目标，读取时迁移旧冒号 Key；来源同步只把主 binding 当作来源身份，来源删除或类型漂移不得删除含附加目标的整张卡片。
-5. Dashboard 卡片和来源组把源名称快照与用户显式改名分开保存：`labelSource` / `nameSource` 只记录最近一次来源同步，`labelOverride` / `nameOverride` 一旦存在就拥有展示优先级。自动来源组和其纳管卡片分别保存 `group.source` 与 `item.groupSource`（Provider、Host Id、Scope Id）；手动移出、入普通组、删除组和复制页面/卡片会清除或隔离纳管身份。Provider 通过 `sourceSnapshot()` 返回有序、稳定 Binding、当前类型和来源标题，`dashboard_source_sync.js` 只消费该通用描述，不读取 ParameterPanel 私有结构。
-6. ParameterPanel 变更事件只刷新来源组的派生状态，不自动改写 Dashboard。来源组标题右侧显示 `synced`、`needs-sync`、`syncing`、`missing-source` 或 `error` 状态；用户可执行单组同步，页面右键菜单只同步当前页来源组。纯模型同步按稳定 Binding / Scope Id 原子计算新增、删除、类型更新和重排，保留卡片尺寸、手动成员、组位置/宽度和用户覆盖；只删除明确由当前来源组纳管且来源快照确认已删除的卡片。旧布局首次同步只保守认领精确匹配项，无法确认来源的旧成员保留。
+5. Dashboard 卡片和来源组把源名称快照与用户显式改名分开保存：`labelSource` / `nameSource` 只记录最近一次来源同步，`labelOverride` / `nameOverride` 一旦存在就拥有展示优先级。自动来源组和其纳管卡片分别保存 `group.source` 与 `item.groupSource`（Provider、Host Id、Scope Id）；手动移出、入普通组、删除组和复制页面/卡片会清除或隔离纳管身份。Provider 通过 `sourceSnapshot()` 返回有序、稳定 Binding、当前类型和来源标题，`dashboard_source_sync.js` 只消费该通用描述，不读取节点私有结构。
+6. 来源变化只刷新来源组的派生状态，不自动改写 Dashboard。来源组标题右侧显示 `synced`、`needs-sync`、`syncing`、`missing-source` 或 `error` 状态；用户可执行单组同步，页面右键菜单只同步当前页来源组。纯模型同步按稳定 Binding / Scope Id 原子计算新增、删除、类型更新和重排，保留卡片尺寸、手动成员、组位置/宽度和用户覆盖；只删除明确由当前来源组纳管且来源快照确认已删除的卡片。旧布局首次同步只保守认领精确匹配项，无法确认来源的旧成员保留。
 7. 图变化在动画帧内合并刷新。失效或类型不兼容的绑定原样保留，布局备份导入跳过不兼容值并等待人工重绑。
 8. 侧边栏预设纯模型保存完整 Dashboard 与按稳定 Binding Key 索引的可序列化参数 payload，并从当前 Working Copy 与基准快照计算“已修改”状态；不存在基准时界面只显示中性占位。运行时协调器负责去重、捕获、预检以及布局与参数的共同应用和失败回滚；工作区入口负责 ComfyUI 图事务、对话框、切换保护和工作流序列化，Provider 继续是唯一写回节点的边界。预设集合与基准身份位于 `app.graph.extra.aaaliceSidebarPresets`，随工作流文件分发（含 Workflow Hub 的打包与安装，该插件原样保留 `extra`），跨插件契约是“不得剥离未知 extra 键”，Hub 侧零耦合。图同步签名同时覆盖看板与预设 extra，结构相同但持久状态不同的工作流切换标签页时必须刷新。预设保存规范化后的 V4 整数跨度；Provider 的运行时投影不进入持久快照。
 9. “组导航”只显示用户手动加入的可视组；版本化导航清单、唯一组合键、每项 X/Y 目标偏移和目标缩放写入 `app.graph.extra` 并随工作流保存，组状态与边界从当前图实时解析。定位时偏移实时边界的目标中心并按条目倍率计算目标画布缩放；搜索和定位只属于会话视图，导航范围不受 QuickGroupManager 的颜色筛选或排序影响。
@@ -222,8 +184,6 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 - 适配器使用稳定英文 `id` 和显式 `priority`。Dashboard Binding 保存 Adapter ID，重载后不会因新增适配器或优先级变化而漂移到另一实现。
 - 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并返回 `controlView()`，不得持有工作流状态。
 - Provider 负责图事务、节点 dirty 和绑定解析；适配器不得直接操作侧边栏 DOM，渲染器不得发现节点。适配器卸载函数应在第三方扩展销毁时调用。
-- ParameterPanel 的动态下拉来源通过同一个公开 `api.js` 注册；适配器只声明稳定 id、本地化标签及候选节点输入，不复制模型清单。注册表会复用最近一次 `/object_info` 快照，因此不依赖扩展加载顺序；候选输入没有解析到非空 Combo 时，该来源不会出现在新建参数的来源列表中。
-
 ```js
 import { registerWidgetControlAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/api.js";
 
@@ -247,21 +207,9 @@ const unregister = registerWidgetControlAdapter({
 });
 ```
 
-```js
-import { registerParameterOptionSourceAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/api.js";
-
-const unregister = registerParameterOptionSourceAdapter({
-  id: "vendor_model",
-  labelKey: "vendor.parameterSources.model",
-  labelFallback: "Vendor model",
-  inputs: [{ nodeName: "VendorModelLoader", inputName: "model_name" }],
-});
-```
-
 ## Classic、Nodes 2.0 与尺寸
 
 - Canvas/native 层负责真实 slot、连线和静态布局；DOM overlay 负责交互、焦点、键盘、tooltip 与 aria。
-- ParameterPanel、ParameterReceiver 与 EnumSwitch 的画布槽数组只包含当前业务项，槽 id 使用后端有界 Schema 的连续前缀。
 - 动态槽变化由共享提交器原子发布：先更新所属图的公开 slot 数组，再刷新 LiteGraph concrete snapshot，并在节点所属 `graph` 发布官方槽标签事件；布局模块不得直接维护私有 concrete 数组或劫持 `_setConcreteSlots()`。不得恢复隐藏槽数组。
 - DOM widget 通过 `getMinHeight()` 声明与当前几何无关的稳定内容下限。Classic 只有内容本身定义最小高度且界面不要求再次缩短时才可走 LiteGraph grow-only 路径；可手动缩放的列表节点使用固定下限和内部滚动。Nodes 2.0 尺寸继续由原生 DOM 测量持有。
 - `computeSize()`、`getMinHeight()` 和布局刷新不得读取当前 `node.size`、已拉伸 wrapper 或 `scrollHeight` 后再作为最小值，否则会形成只增不减的尺寸反馈环。
@@ -274,9 +222,8 @@ const unregister = registerParameterOptionSourceAdapter({
 
 ## 可选依赖与公开边界
 
-- KJNodes 只对 ParameterReceiver 的绑定、同步、ParameterPanel 的 Set/Get 辅助功能，以及 EnumSwitch 通过 Get 自动识别参数源可选依赖；缺失时明确报错，不模拟成功。跨图绑定只允许面板位于当前节点所在图或父级图，保持 KJNodes 的词法作用域。
 - Classic 与 Nodes 2.0 为支持范围；App Mode 暂不支持。
-- ParameterReceiver 的节点与真实槽只作用于自身所在图；托管 Get 默认留在接收器所属图，已有 Get 位于合法下级子图时保持原作用域，并沿真实 Subgraph 边界维护连接。禁止把子图中的 Get 隐式移动到 `app.graph` 或当前可见画布图。QuickGroupManager 节点及其 Dashboard 整体控件只修改自身所属 graph，不跨作用域聚合或递归改写其它 Manager 的状态。
+- QuickGroupManager 节点及其 Dashboard 整体控件只修改自身所属 graph，不跨作用域聚合或递归改写其它 Manager 的状态。
 - DIY 侧边栏只投影 Subgraph 整体公开的兼容 widget，不遍历或绑定内部节点。
 - SimpleNotify 只在发起执行的前端产生提醒，不表示并行分支、整个工作流或队列完成。
 - ResolutionPreset 只输出精确宽高；比例与 MP 为只读摘要，不负责图像、Latent、模型推荐、裁剪、缩放或 batch。

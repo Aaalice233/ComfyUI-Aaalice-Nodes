@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parameterControlSpec, resolvedControlSpec } from "../js/lib/controls/specs.js";
+import { resolvedControlSpec } from "../js/lib/controls/specs.js";
 import { normalizeControlSpec } from "../js/lib/controls/contract.js";
 import {
 	adaptWidgetControl,
@@ -17,41 +17,21 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const registrySource = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
-const aaaliceSource = readFileSync(join(ROOT, "js", "lib", "controls", "aaalice.js"), "utf8");
 const comfySource = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js"), "utf8");
 const publicApiSource = readFileSync(join(ROOT, "js", "api.js"), "utf8");
 const providerSource = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 
-test("shared controls keep Aaalice and ComfyUI policies in separate renderer families", () => {
-	assert.match(registrySource, /\["aaalice", new Map\(Object\.entries\(AAALICE_CONTROL_RENDERERS\)\)\]/);
-	assert.match(registrySource, /\["comfy", new Map\(Object\.entries\(COMFY_CONTROL_RENDERERS\)\)\]/);
-	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "taglist", "image"]) assert.match(aaaliceSource, new RegExp(`\\b${kind}:`));
-	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
-	assert.equal(parameterControlSpec({ id: "steps", param_type: "slider", value: 20, config: {} }).family, "aaalice");
+test("ComfyUI control specs normalize kinds and preserve explicit families", () => {
 	assert.equal(resolvedControlSpec({ family: "comfy", kind: "choice", label: "Mode", value: "a", options: {} }).family, "comfy");
 	assert.equal(resolvedControlSpec({ family: "comfy", kind: "vendor-meter", controlId: "meter", label: "Meter", value: 1 }).kind, "vendor-meter");
+	assert.equal(resolvedControlSpec({ value: 1 }).kind, "numeric");
+	assert.equal(resolvedControlSpec({ value: false }).kind, "boolean");
 });
 
-test("dropdown and enum parameters retain distinct choice presentations", () => {
-	const dropdown = parameterControlSpec({ id: "service", param_type: "dropdown", value: "a", config: { options: ["a", "b"] } });
-	const enumeration = parameterControlSpec({ id: "mode", param_type: "enum", value: "a", config: { options: ["a", "b"] } });
-	const forcedDropdown = parameterControlSpec({ id: "model", param_type: "enum", value: "a", config: { options: ["a", "b"], enum_display: "dropdown" } });
-	const sidebarForcedDropdown = resolvedControlSpec({
-		family: "aaalice",
-		controlId: "model",
-		control: { id: "model", param_type: "enum", config: { enum_display: "dropdown" } },
-		label: "Model",
-		value: "a",
-		options: { options: ["a", "b"], enum_display: "dropdown" },
-	});
-	assert.equal(dropdown.kind, "choice");
-	assert.equal(dropdown.presentation.segmented, false);
-	assert.equal(enumeration.kind, "choice");
-	assert.equal(enumeration.presentation.segmented, true);
-	assert.equal(forcedDropdown.presentation.segmented, false);
-	assert.equal(sidebarForcedDropdown.presentation.segmented, false);
+test("built-in ComfyUI renderer families expose their supported kinds", () => {
+	assert.match(registrySource, /\["comfy", new Map\(Object\.entries\(COMFY_CONTROL_RENDERERS\)\)\]/);
+	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
 });
-
 test("third-party renderers can extend a family without mutating built-ins", () => {
 	assert.match(publicApiSource, /CONTROL_ADAPTER_API_VERSION = 1/);
 	assert.match(publicApiSource, /registerControlRenderer/);

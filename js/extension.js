@@ -2,9 +2,6 @@
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady } from "./i18n.js";
 
-import "./parameter_panel.js";
-import "./parameter_receiver.js";
-import "./enum_switch.js";
 import "./group_is_enabled.js";
 import "./group_logic_probe.js";
 import "./quick_group_manager.js";

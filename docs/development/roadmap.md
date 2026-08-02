@@ -4,24 +4,20 @@
 
 ## 当前状态
 
-- 进度：`12 / 12` 个节点
+- 进度：`10 / 10` 个节点
 - 下一项：无
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
-- `ParameterReceiver` 承接 #16 的职责，旧名称为 `ParameterBreak`。
 
 ## 已完成
 
 | # | 当前实现 | 领域 | 职责 |
 |---:|---|---|---|
 | 1 | `SimpleStringSplit` | tools | 将文本拆分为清理后的字符串 list。 |
-| 3 | `EnumSwitch` | tools | 按精确字符串 key 惰性选通同类型分支。 |
 | 4 | `SimpleNotify` | tools | 在透明透传执行点提醒一次。 |
 | 8 | `ResolutionPreset` | tools | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
 | 11 | `PromptSelector` | prompt | 从独立词库跨分类选择、排序并加权输出提示词。 |
 | 12 | `CharacterFeatureSwapNode` | prompt | 通过 DeepSeek 官方 API 迁移当前节点选中的单角色特征。 |
-| 15 | `ParameterPanel` | control | 创作并直接输出最多 32 个参数。 |
-| 16 | `ParameterReceiver` | control | 按当前绑定动态接收并透传面板对应的 KJ Get。 |
 | 17 | `GroupIsEnabled` | control | 队列提交时快照可视组成员模式，报告是否被完全禁用。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
@@ -54,7 +50,7 @@
 
 | 前端扩展 | 职责 |
 |---|---|
-| Sidebar Workspace Presets | 以版本化快照保存全部侧边栏页面、布局、稳定绑定和参数值，并提供已修改状态、保存修改、放弃修改、另存为及事务化导入；预设随工作流 extra 分发。 |
+| Sidebar Workspace Presets | 以版本化快照保存全部侧边栏页面、布局、稳定绑定和控件值，并提供已修改状态、保存修改、放弃修改、另存为及事务化导入；预设随工作流 extra 分发。 |
 | Quick Group Navigation | 在 QuickGroupManager 行中直接定位，并在 Aaalice Workspace 维护手动添加、可配置组合键的组导航清单，不再占用画布悬浮入口。 |
 
 ## 更新规则

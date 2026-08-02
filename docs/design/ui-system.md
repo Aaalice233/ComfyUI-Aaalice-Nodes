@@ -1,6 +1,6 @@
 # UI 设计系统
 
-本规范定义 Aaalice 前端界面的共同视觉语言、渲染分层、颜色语义、组件边界和可访问性要求。业务节点的专用布局分别见 [参数系统](parameter-system.md) 和 [QuickGroupManager](quick-group-manager.md)。后端协议、状态真源和生命周期不在本文件定义。
+本规范定义 Aaalice 前端界面的共同视觉语言、渲染分层、颜色语义、组件边界和可访问性要求。QuickGroupManager 的专用布局见 [QuickGroupManager](quick-group-manager.md)。后端协议、状态真源和生命周期不在本文件定义。
 
 ## 1. 设计原则
 
@@ -104,7 +104,7 @@
 
 `js/lib/ui.js` 是无业务状态的 DOM 基础组件层；`js/lib/controls/` 以 Control Spec / Port / View 统一参数控件；`js/lib/workspace_components.js` 是工作区复合组件层；`js/lib/workspace_controls.js` 只负责把 Provider 结果接到共享控件并管理局部手势。各层只接收数据、已本地化字符串和回调，不导入 `t()`，不拥有工作流或词库状态。Control Provider 只负责发现、解析和写回，业务入口负责状态编排、生命周期与画布事务。
 
-共享参数控件固定分为两个 family：`aaalice` 复用 ParameterPanel 的完整交互和视觉语义，供节点面与侧边栏共同使用；`comfy` 面向普通 ComfyUI widget、内置执行预览、子图公开 widget 和第三方适配器，默认使用更中性的原生控件策略。两者可以复用数字、布尔和选择等底层 renderer，但 family 的策略注册必须独立，业务宿主不得复制控件实现。`Preview Image`、`Preview as Text` 和 `Compare Images` 属于只读执行视图：卡片与预设只保存稳定 Binding 和布局，不复制临时输出；执行或显示模式变化通过事件失效刷新，不轮询。
+共享控件统一使用 `comfy` family，覆盖普通 ComfyUI widget、内置执行预览、子图公开 widget 和第三方适配器；Provider 负责把不同来源规范化为同一 Control Spec，业务宿主不得复制控件实现。`Preview Image`、`Preview as Text` 和 `Compare Images` 属于只读执行视图：卡片与预设只保存稳定 Binding 和布局，不复制临时输出；执行或显示模式变化通过事件失效刷新，不轮询。
 
 | 组件 | 职责 |
 |---|---|
@@ -156,7 +156,7 @@ Dashboard V4 的规范布局使用 12 列、4px 行轨道和 2px 轨道间隔。
 
 布局模式的点阵属于实际 Dashboard Grid 的单层 CSS 平铺背景。Grid 至少覆盖当前视口，并由隐式网格轨道自然撑到最末布局行，所以把卡片拖到初始视口以下后点阵仍与吸附坐标一起连续向下延伸。禁止为点阵创建随行数增长的 DOM、在滚动时计算高度，或引入 `ResizeObserver`；普通模式不绘制该点阵。
 
-Dashboard 分隔项与 ParameterPanel 的 Separator 使用同一视觉语义：标题位于紧凑中性表面上，两侧为从当前 Node Accent 与正文色计算出的单色高亮刻线，外侧逐渐隐去，靠近标题处使用更明亮的短高光收口。分隔项保持静态，不使用彩虹、多色循环或持续动画；文字、位置和线条共同表达分区，布局模式下的删除操作悬浮在尾部，不得改变文字的居中位置。
+Dashboard 分隔项使用紧凑中性表面和统一的视觉语义：标题两侧为从当前 Node Accent 与正文色计算出的单色高亮刻线，外侧逐渐隐去，靠近标题处使用更明亮的短高光收口。分隔项保持静态，不使用彩虹、多色循环或持续动画；文字、位置和线条共同表达分区，布局模式下的删除操作悬浮在尾部，不得改变文字的居中位置。
 
 Dashboard 当前页标题旁使用紧凑的 `01/NN` 页码入口建立页面层级，点击后打开完整页面菜单；菜单行依次提供排序手柄、序号、名称和当前状态，不依赖悬浮展开。页面切换使用完整的纵向滚动过渡：进入后续页面时旧页整体向上退出、新页从下方进入；返回前序页面时方向相反。滚动舞台裁切过渡内容，页码入口、顶栏和布局操作保持稳定，页名使用更短、更弱的同步淡入。过渡保持在 180 ms 内，只在 Page Id 真正变化时触发，普通调参和重绘不得重复播放，并在 `prefers-reduced-motion: reduce` 下完全关闭。
 

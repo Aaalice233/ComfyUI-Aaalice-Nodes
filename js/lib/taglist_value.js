@@ -1,4 +1,4 @@
-/** Shared serialization for ParameterPanel toggleable tag-list values. */
+/** Shared serialization for toggleable tag-list values. */
 
 import { stableToneIndexes } from "./control_tones.js";
 
