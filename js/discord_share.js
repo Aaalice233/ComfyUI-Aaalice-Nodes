@@ -228,7 +228,7 @@ function createLongPromptFileControl(initialValue, onChange) {
 }
 
 function currentPlacement() {
-	return normalizeSharePlacement(app.ui.settings.getSettingValue(PLACEMENT_SETTING_ID, "sidebar"));
+	return normalizeSharePlacement(app.ui.settings.getSettingValue(PLACEMENT_SETTING_ID));
 }
 
 function setPlacement(next) {

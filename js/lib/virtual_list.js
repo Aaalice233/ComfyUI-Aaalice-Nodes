@@ -16,9 +16,16 @@ export function mountVirtualList(container, { rowHeight, gap = 0, overscan = 4, 
 	let previousStart = -1;
 	let previousEnd = -1;
 	let destroyed = false;
+	let active = true;
+	const clearRendered = () => {
+		previousStart = -1; previousEnd = -1;
+		spacer.style.height = items.length ? `${items.length * rowHeight}px` : "100%";
+		spacer.replaceChildren();
+	};
 
 	const draw = (force = false) => {
 		if (destroyed) return;
+		if (!active) { clearRendered(); return; }
 		if (!items.length) {
 			previousStart = 0; previousEnd = 0; spacer.style.height = "100%"; spacer.replaceChildren(renderEmpty?.() || ""); return;
 		}
@@ -42,8 +49,16 @@ export function mountVirtualList(container, { rowHeight, gap = 0, overscan = 4, 
 			if (container.scrollTop > maximum) container.scrollTop = maximum;
 			previousStart = -1; previousEnd = -1; draw(true);
 		},
+		setActive(nextActive) {
+			const next = Boolean(nextActive);
+			if (next === active) return;
+			active = next;
+			if (!active) { if (frame) cancelAnimationFrame(frame); frame = 0; clearRendered(); return; }
+			previousStart = -1; previousEnd = -1; draw(true);
+		},
 		refresh() { previousStart = -1; previousEnd = -1; draw(true); },
-		destroy() { if (destroyed) return; destroyed = true; if (frame) cancelAnimationFrame(frame); container.removeEventListener("scroll", schedule); resizeObserver?.disconnect(); if (container._aaaliceVirtualList === controller) delete container._aaaliceVirtualList; },
+		get active() { return active; },
+		destroy() { if (destroyed) return; destroyed = true; if (frame) cancelAnimationFrame(frame); container.removeEventListener("scroll", schedule); resizeObserver?.disconnect(); spacer.replaceChildren(); if (container._aaaliceVirtualList === controller) delete container._aaaliceVirtualList; },
 	};
 	container._aaaliceVirtualList = controller;
 	return controller;

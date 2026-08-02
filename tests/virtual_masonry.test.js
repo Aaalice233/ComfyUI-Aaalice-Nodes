@@ -53,3 +53,9 @@ test("masonry redraws once after synchronous data changes so restored widget geo
 	assert.match(source, /setItems\(next, \{ preserveScroll = true \} = \{\}\) \{[^\n]+draw\(true\); schedule\(\); \},/);
 	assert.match(source, /append\(next\) \{[^\n]+draw\(true\); schedule\(\); \},/);
 });
+
+test("masonry can release mounted cards while its host widget is offscreen", () => {
+	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
+	assert.match(source, /setActive\(nextActive\)/);
+	assert.match(source, /element\.querySelector\("img"\)\?\.removeAttribute\("src"\)/);
+});

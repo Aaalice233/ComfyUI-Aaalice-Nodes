@@ -18,6 +18,7 @@ import {
 } from "./lib/prompt_selector_model.js";
 import { button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate, searchToggleButton, selectControl } from "./lib/ui.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
+import { observeDOMWidgetVisibility } from "./lib/dom_widget_visibility.js";
 import { openPromptLibraryEntryEditor, openWorkspace } from "./workspace.js";
 
 const NODE = "PromptSelector";
@@ -307,6 +308,8 @@ function render(node) {
 		);
 	}
 	const virtualList = mountPromptEntries(node, list, state, visibleEntries);
+	node._aaalicePromptSelectorVirtualList = virtualList;
+	virtualList.setActive?.(node._aaalicePromptSelectorViewportActive !== false);
 	const missing = resolvePromptSelections(state, promptLibraryStore.snapshot.entries).filter((item) => item.missing).length;
 	const footer = el("footer", "aa-prompt-selector-footer");
 	const summary = el("button", { className: `aa-prompt-selector-summary${selectedOnly ? " is-active" : ""}${missing ? " is-error" : ""}`, attrs: {
@@ -350,6 +353,8 @@ function setup(node, loaded = false) {
 	if (!isSelector(node) || node._aaalicePromptSelectorMounted) return;
 	node._aaalicePromptSelectorMounted = true; stateFor(node);
 	const root = isolate(el("div", { className: "aa-prompt-selector", attrs: { "data-capture-wheel": "true" } })); node._aaalicePromptSelectorRoot = root;
+	node._aaalicePromptSelectorViewportActive = true;
+	node._aaalicePromptSelectorVisibility = observeDOMWidgetVisibility(root, { onChange: (active) => { node._aaalicePromptSelectorViewportActive = active; node._aaalicePromptSelectorVirtualList?.setActive?.(active); } });
 	addLifecycleDOMWidget(node, "aaalice_prompt_selector", "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousMenu = node.getExtraMenuOptions;
@@ -362,7 +367,7 @@ function setup(node, loaded = false) {
 	const previousConfigure = node.onConfigure;
 	node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); stateFor(this); render(this); return result; };
 	const previousRemoved = node.onRemoved;
-	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); closePromptEntryDetails(); closeSelectionSummary(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
+	node.onRemoved = function () { if (this._aaalicePromptFilterFrame) cancelAnimationFrame(this._aaalicePromptFilterFrame); this._aaalicePromptSelectorVisibility?.destroy?.(); this._aaalicePromptSelectorVisibility = null; this._aaalicePromptSelectorVirtualList = null; destroyVirtualLists(this._aaalicePromptSelectorRoot); closeImagePreview(); closePromptEntryDetails(); closeSelectionSummary(); cleanupDomWidgetResizePassthrough(this); this._aaalicePromptSelectorRoot?.remove(); return previousRemoved?.apply(this, arguments); };
 	const previousCompute = node.computeSize;
 	node.computeSize = function () { const size = previousCompute?.apply(this, arguments) || [MIN_WIDTH, MIN_HEIGHT]; return [Math.max(MIN_WIDTH, size[0]), Math.max(MIN_HEIGHT, size[1])]; };
 	render(node); if (!loaded) node.setSize?.(DEFAULT_SIZE);

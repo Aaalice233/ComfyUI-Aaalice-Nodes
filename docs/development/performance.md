@@ -1,0 +1,40 @@
+# 前端性能优化规范
+
+本文档规定本包在高密度 ComfyUI 画布中的性能边界，重点覆盖富 DOM widget、虚拟列表、虚拟瀑布流和 Nodes 2.0。目标是修复本包自身的工作量；不得通过修改 ComfyUI 内核或 monkey patch 其它插件来隐藏问题。
+
+## 1. 归因与边界
+
+- 先区分本包、ComfyUI 前端和其它插件的成本。节点选择、平移或缩放变慢时，至少分别检查本包 DOM 数量、长任务、虚拟连线和后端 CPU；不能把 KJNodes 的 `Show links` 或其它插件绘制归因给本包。
+- 本包只能管理自己创建的 DOM、事件监听器、图片请求和虚拟化控制器。ComfyUI 的宿主 widget 必须保持注册和挂载，不能删除宿主持有的 widget、改写核心渲染器或接管图级单槽回调。
+- 性能修复不得改变工作流序列化、节点身份、参数稳定 Id、Classic / Nodes 2.0 / Subgraph 兼容行为。状态继续以 `node.properties` 为真源，离屏只暂停派生视图和媒体资源。
+
+## 2. 富 DOM widget
+
+- 富 DOM widget 使用 `addLifecycleDOMWidget()` 同步挂载，并保留稳定的宿主元素；可将插件拥有的条目内容在离开视口后清空，再在返回视口时按持久状态恢复。
+- 使用一个以宿主元素为目标的 `IntersectionObserver` 管理可见性，默认用有限 `rootMargin` 预热。禁止用 `setInterval`、持续轮询、每帧全图扫描或每个节点独立扫描文档。
+- 可见性切换必须幂等且可销毁。节点移除、工作流重载和挂载失败时，必须断开 observer、取消 frame、释放图片引用并清理浮层和拖拽状态。
+- 离屏状态不得继续创建卡片、列表行、缩略图 `src`、hover 详情或预取回调；搜索、分页和持久状态同步仍可继续，但只能更新模型和有界布局数据。
+- `content-visibility: auto` 只能作为浏览器渲染降载，与内部虚拟化同时使用；必须提供稳定 `contain-intrinsic-size`，不能用当前 `scrollHeight`、DOM 高度或最后一次拉伸结果反推节点最小尺寸。
+- 恢复可见后必须通过同一个 controller 重新绘制，保留滚动位置、选择顺序、焦点保护和当前查询；不能依赖用户手动刷新或重新执行工作流。
+
+## 3. 虚拟列表与虚拟瀑布流
+
+- 虚拟列表只挂载视口加固定 overscan 范围内的行；虚拟瀑布流只挂载可见 placement。布局数组可以保留，但卡片 DOM、事件闭包和媒体 `src` 必须有界。
+- controller 必须提供 `setActive(boolean)`。切换为 inactive 时取消待处理 frame，释放已挂载条目和图片引用，同时保留足以计算滚动范围的 spacer；切换回 active 时强制一次完整可见范围绘制。
+- `setItems()`、`append()`、尺寸变化和刷新在 inactive 时只能更新布局与模型，不得触发 `renderItem`、`onVisibleItemsChange`、`onNearEnd` 或预取。
+- 可见范围变化使用 `requestAnimationFrame` 合并；不得在 `computeSize()`、`getMinHeight()`、`onDrawForeground()` 或 `onDrawBackground()` 中查询 DOM、遍历图或重建数组。
+- 删除条目时先调用业务 dispose，再移除媒体源；`destroy()` 必须幂等，且不遗留 `ResizeObserver`、scroll listener、animation frame 或 controller 引用。
+
+## 4. 局部更新与交互
+
+- 节点选中、移动、平移和缩放不应重建无关 widget。值变化使用已挂载控件的定向 `update()`；结构变化才重建列表、槽或布局。
+- 文本输入、IME、滚轮、拖拽、Popover 和 Dialog 期间不得整体替换包含交互元素的根 DOM。筛选只更新结果区域，并保留输入元素的 identity、焦点和选区。
+- 可见性回调只切换富内容 controller，不修改 `node.properties`，不触发 graph-wide redraw，不同步 KJ Set/Get 名称，也不改变节点尺寸真源。
+- Nodes 2.0 的滚轮捕获继续遵守当前 ComfyUI 前端协议：使用 `data-capture-wheel="true"`、`pointerenter` 预先聚焦和外部编辑保护；不得在 wheel 回调中阻止事件或伪造事件。
+
+## 5. 验收门槛
+
+- 静态检查必须确认所有富 DOM 入口使用生命周期挂载器；虚拟 controller 有 inactive 路径；observer 和 controller 在移除时清理；不存在新增轮询或全局 monkey patch。
+- 自动测试覆盖：可见性 entry 判定、active/inactive 往返、inactive 更新不创建条目、图片源释放、controller 销毁幂等，以及 Classic / Nodes 2.0 入口契约。
+- 浏览器验收使用同一工作流、缩放、窗口尺寸和节点可见范围，对比离屏节点数、DOM 后代数、长任务和选中响应；静态测试通过不能代替真实 FPS 或响应延迟结论。
+- 若仍然卡顿，关闭 KJNodes 虚拟连线或其它第三方富 DOM 后分别复测；只有确认成本来自本包，才继续在本包内优化。

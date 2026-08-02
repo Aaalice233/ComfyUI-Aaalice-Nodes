@@ -19,6 +19,7 @@
 | [架构](development/architecture.md) | 当前模块边界、状态真源、生命周期和数据流 |
 | [路线图](development/roadmap.md) | 内部编号、完成状态、下一项和开发排期 |
 | [测试与验收](development/testing.md) | 自动检查、隔离 GUI、回归矩阵和人工验收 runbook |
+| [性能优化规范](development/performance.md) | 富 DOM、虚拟列表、离屏降载、局部更新和性能归因边界 |
 | [发布流程](development/release.md) | Registry 元数据、发布步骤和发布后确认 |
 
 ## `design/`

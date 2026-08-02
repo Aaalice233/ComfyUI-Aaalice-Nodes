@@ -51,6 +51,7 @@
 | 文档整理、职责判断或查找入口 | @docs/README.md |
 | 节点重置、增删节点或调整优先级 | @docs/development/roadmap.md |
 | 测试、调试、GUI 验收或发布前检查 | @docs/development/testing.md |
+| 前端性能、富 DOM、画布卡顿或热路径 | @docs/development/performance.md、@docs/development/testing.md |
 | 发布、版本和 Registry | @docs/development/release.md |
 | 前端视觉、组件、主题或可访问性 | @docs/design/ui-system.md |
 | ParameterPanel / ParameterReceiver 交互与布局 | @docs/design/parameter-system.md、@docs/adr/0012-dashboard-source-scoped-groups.md |

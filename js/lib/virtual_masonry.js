@@ -61,9 +61,14 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 	container._aaaliceVirtualMasonry?.destroy(); container.classList.add("aa-virtual-masonry");
 	const spacer = document.createElement("div"); spacer.className = "aa-virtual-masonry__spacer"; container.replaceChildren(spacer);
 	const layout = new VirtualMasonryLayout({ width: container.clientWidth || 1, ...layoutOptions });
-	const mounted = new Map(); let frame = 0; let destroyed = false; let nearEndArmed = true; let sizesDirty = false; let visibleIndex = -1;
+	const mounted = new Map(); let frame = 0; let destroyed = false; let active = true; let nearEndArmed = true; let sizesDirty = false; let visibleIndex = -1;
+	const clearMounted = () => {
+		for (const element of mounted.values()) { element._aaVirtualMasonryDispose?.(); element.querySelector("img")?.removeAttribute("src"); element.remove(); }
+		mounted.clear();
+	};
 	const draw = (force = false) => {
 		if (destroyed) return; spacer.style.height = `${Math.ceil(layout.totalHeight)}px`;
+		if (!active) { clearMounted(); return; }
 		const visible = layout.visible(container.scrollTop, container.clientHeight || 1, overscanRatio); const wanted = new Set(visible.map((placement) => placement.key));
 		for (const [key, element] of mounted) if (!wanted.has(key)) { element._aaVirtualMasonryDispose?.(); element.querySelector("img")?.removeAttribute("src"); element.remove(); mounted.delete(key); }
 		for (const placement of visible) {
@@ -94,9 +99,10 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 		setItems(next, { preserveScroll = true } = {}) { if (!preserveScroll) container.scrollTop = 0; layout.setItems(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); schedule(); },
 		append(next) { layout.append(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); schedule(); },
 		updateItemSize(key, width, height) { const item = layout.items.find((candidate) => `${candidate.source}:${candidate.postId}` === key); if (!item || !(width > 0) || !(height > 0) || (item.width === width && item.height === height)) return; item.width = width; item.height = height; sizesDirty = true; schedule(); },
+		setActive(nextActive) { const next = Boolean(nextActive); if (next === active) return; active = next; if (!active) { if (frame) cancelAnimationFrame(frame); frame = 0; clearMounted(); return; } draw(true); schedule(); },
 		refresh() { draw(true); },
-		get mountedCount() { return mounted.size; }, get layout() { return layout; },
-		destroy() { if (destroyed) return; destroyed = true; if (frame) cancelAnimationFrame(frame); container.removeEventListener("scroll", schedule); resizeObserver?.disconnect(); for (const element of mounted.values()) { element._aaVirtualMasonryDispose?.(); element.querySelector("img")?.removeAttribute("src"); } mounted.clear(); spacer.remove(); if (container._aaaliceVirtualMasonry === controller) delete container._aaaliceVirtualMasonry; },
+		get active() { return active; }, get mountedCount() { return mounted.size; }, get layout() { return layout; },
+		destroy() { if (destroyed) return; destroyed = true; if (frame) cancelAnimationFrame(frame); container.removeEventListener("scroll", schedule); resizeObserver?.disconnect(); clearMounted(); spacer.remove(); if (container._aaaliceVirtualMasonry === controller) delete container._aaaliceVirtualMasonry; },
 	};
 	container._aaaliceVirtualMasonry = controller; draw(true); return controller;
 }

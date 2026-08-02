@@ -10,6 +10,7 @@ import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { mountVirtualList } from "./lib/virtual_list.js";
 import { mountVirtualMasonry } from "./lib/virtual_masonry.js";
+import { observeDOMWidgetVisibility } from "./lib/dom_widget_visibility.js";
 import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, isolate, listboxControl, multiSelectControl, searchToggleButton, segmentedControl } from "./lib/ui.js";
 import { createTagPillList } from "./lib/controls/tag_pills.js";
 
@@ -1596,6 +1597,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	selectedListRoot.addEventListener("drop", (event) => controller?.handleSelectedDrop(event));
 	selectedListRoot.addEventListener("dragleave", (event) => controller?.handleSelectedDragLeave(event));
 	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGallerySelectionMode = selectionMode; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
+	node._aaGalleryVisibility = observeDOMWidgetVisibility(root, { onChange: (active) => { elements.masonryController?.setActive(active); elements.selectedList?.setActive(active); } });
 	error.addEventListener("click", () => {
 		const sourceName = stateFor(node).source;
 		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) openGallerySettings();
@@ -1612,6 +1614,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
 	const previousRemoved = node.onRemoved; node.onRemoved = function () {
 		controller.destroy();
+		this._aaGalleryVisibility?.destroy?.();
+		this._aaGalleryVisibility = null;
 		selectedDropIndicator.remove();
 		cleanupDomWidgetResizePassthrough(this);
 		this._aaGalleryAccent?.dispose?.();

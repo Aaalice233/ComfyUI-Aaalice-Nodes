@@ -56,6 +56,11 @@ test("placement is one tri-state setting and both surfaces expose context menus"
 	assert.match(source, /if \(await confirmHideEntry\(\)\) setPlacement\("hidden"\)/);
 });
 
+test("placement lookup uses the registered setting default without the deprecated fallback argument", () => {
+	assert.match(source, /getSettingValue\(PLACEMENT_SETTING_ID\)/);
+	assert.doesNotMatch(source, /getSettingValue\(PLACEMENT_SETTING_ID,\s*"sidebar"\)/);
+});
+
 test("picker is latest-run only and requires a prompt before sending", () => {
 	assert.match(source, /captureEvents\.latest/);
 	assert.match(source, /send\.disabled\s*=\s*!hasPrompt/);

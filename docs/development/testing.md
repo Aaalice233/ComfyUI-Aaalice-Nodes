@@ -166,7 +166,7 @@ GUI 自动验收只能使用 Codex 内置浏览器：
 3. 官方节点同样复现时记录为上游或环境行为，不给本包增加私有时序补丁或兼容层。
 4. 只有本包复现时，才沿本包生命周期和状态真源继续定位。
 
-### 5.1 高密度画布性能
+### 5.1 高密度画布性能（规范详见 [性能优化规范](performance.md)）
 
 - 性能回归使用同一工作流、相同缩放、窗口尺寸和节点可见范围，分别记录静止、连续平移和连续缩放；Classic 与 Nodes 2.0 分开测，不能用静止流畅替代拖动画布结论。至少覆盖多个 ParameterPanel、32 路参数、批量 KJ Set/Get、多个 ParameterReceiver、QuickGroupManager、GroupLogicProbe 与 EnumSwitch，并包含根图和嵌套 Subgraph。
 - 自动测试以调用次数和对象身份锁定热路径，而不是依赖机器速度阈值：仅移动节点或修改无关高度时，ParameterPanel / Receiver 布局必须返回同一缓存对象；宽度、slot 起点、槽数或参数结构变化时必须失效。QuickGroupManager 的逐帧高度回调不得调用组快照或遍历图，EnumSwitch 不得包装 `_setConcreteSlots()`。
