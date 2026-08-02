@@ -7,6 +7,10 @@ const previewTooltip = createTooltip({ delay: IMAGE_PREVIEW_HOVER_DELAY, closeDe
 
 export function closeImagePreview() { previewTooltip.hide(); }
 
+export function closeImagePreviewWithin(container) {
+	if (previewTooltip.isAnchoredWithin(container)) previewTooltip.hide();
+}
+
 export function bindImagePreview(trigger, source, title, { immediate = false, hint = "", resolve = null } = {}) {
 	if (!source && !hint && !resolve) return;
 	const show = (immediate) => {

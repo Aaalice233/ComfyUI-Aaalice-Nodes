@@ -52,9 +52,11 @@
 
 - **Control Binding（参数绑定）**：侧边栏参数卡片与一个 Control Host 上稳定参数身份之间的显式关系。显示名称不是绑定身份。
 
+- **Control Binding Set（参数联动集）**：一张侧边栏参数卡片所控制的全部兼容 Control Binding；其中一个 Primary Binding 决定卡片展示，其余 Binding 只作为同一用户输入的目标。避免使用 Synced Cards、Copied Parameter。
+
 - **Dashboard Page（控制页面）**：用户在侧边栏中直接组织参数卡片、分隔项和可选布局组的一个可切换页面。避免使用 Auto Page、Section。
 
-- **Dashboard Control Card（侧边栏参数卡片）**：Control Binding 在控制页面中的可调投影；它可以独立放置，也可以加入一个布局组。避免使用 Section Item、Copied Parameter。
+- **Dashboard Control Card（侧边栏参数卡片）**：Control Binding Set 在控制页面中的可调投影；它可以控制一个或多个兼容参数，独立放置或加入一个布局组。避免使用 Section Item、Copied Parameter。
 
 - **Layout Group（布局组）**：控制页面中对若干参数卡片进行命名、识别和整体移动的可选单层组合；删除布局组只解除成员关系。避免使用 Dashboard Section、Nested Group。
 

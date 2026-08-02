@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroup, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { addLinkedBinding, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroup, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { buildSourceSnapshot, planSourceGroupSync } from "../js/lib/dashboard_source_sync.js";
 import { firstAvailableLayout, projectGroupScope, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
@@ -32,12 +32,17 @@ test("group titles default to visible and preserve an explicit hidden setting", 
 	assert.equal(next.pages[0].groups[0].showTitle, false);
 });
 
-test("Dashboard V3 pages directly own integer-grid control cards", () => {
+test("new controls use two-column defaults and retain manual width resizing", () => {
 	const { model, page } = modelWithPage();
-	const next = addItems(model, page.id, [{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } }]);
-	assert.equal(next.version, 3); assert.equal(next.pages[0].gridColumns, 12); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
+	let next = addItems(model, page.id, [{ label: "Steps", binding }, { label: "CFG", binding: { ...binding, controlId: "cfg" } }]);
+	assert.equal(next.version, 4); assert.equal(next.pages[0].gridColumns, 12); assert.equal(next.pages[0].items.length, 2); assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
 		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
+	const itemId = next.pages[0].items[0].id;
+	next = resizeItem(next, itemId, { columnSpan: 3, rowSpan: 13 });
+	assert.equal(next.pages[0].items.find((item) => item.id === itemId).layout.columnSpan, 3);
+	next = resizeItem(next, itemId, { columnSpan: 12, rowSpan: 13 });
+	assert.equal(next.pages[0].items.find((item) => item.id === itemId).layout.columnSpan, 12);
 });
 
 test("new source-bound controls and groups retain source label metadata", () => {
@@ -259,24 +264,25 @@ test("specialized controls can request an initial full-width footprint", () => {
 	assert.deepEqual(next.pages[0].items[0].layout, { row: 0, column: 0, columnSpan: 12, rowSpan: 36 });
 });
 
-test("Dashboard V2 two-column pages migrate once into Dashboard V3", () => {
+test("Dashboard V2 two-column pages migrate once into Dashboard V4", () => {
 	const legacy = { version: 2, pages: [{ id: "page", name: "Legacy", items: [
 		{ id: "left", kind: "control", binding, groupId: null, layout: { row: 0, column: 0, columnSpan: 1, rowSpan: 12 } },
 		{ id: "right", kind: "control", binding: { ...binding, controlId: "cfg" }, groupId: null, layout: { row: 0, column: 1, columnSpan: 1, rowSpan: 12 } },
 	], groups: [] }] };
 	const normalized = normalizeDashboard(legacy);
-	assert.equal(normalized.version, 3);
+	assert.equal(normalized.version, 4);
 	assert.equal(normalized.pages[0].gridColumns, 12);
 	assert.deepEqual(normalized.pages[0].items.map((item) => item.layout), [
 		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 }, { row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
-test("Dashboard V3 preserves arbitrary valid integer control spans", () => {
+test("Dashboard V3 integer-grid pages migrate to V4 without layout changes", () => {
 	const model = normalizeDashboard({ version: 3, pages: [{ id: "page", name: "Integer grid", gridColumns: 12, tone: null, groups: [], items: [
 		{ id: "left", kind: "control", binding, label: "Left", groupId: null, layout: { row: 0, column: 2, columnSpan: 5, rowSpan: 17 } },
 		{ id: "right", kind: "control", binding: { ...binding, controlId: "cfg" }, label: "Right", groupId: null, layout: { row: 0, column: 7, columnSpan: 5, rowSpan: 19 } },
 	] }] });
+	assert.equal(model.version, 4);
 	assert.deepEqual(model.pages[0].items.map((item) => item.layout), [
 		{ row: 0, column: 2, columnSpan: 5, rowSpan: 17 },
 		{ row: 0, column: 7, columnSpan: 5, rowSpan: 19 },
@@ -299,12 +305,18 @@ test("control footprints are stable presentation categories rather than DOM meas
 	assert.equal(dashboardCardHeight(12), 66);
 });
 
+test("binding identity cannot collide when provider fields contain delimiters", () => {
+	const left = { provider: "vendor:a", hostId: "b", controlId: "c", valueType: "number" };
+	const right = { provider: "vendor", hostId: "a:b", controlId: "c", valueType: "number" };
+	assert.notEqual(bindingKey(left), bindingKey(right));
+});
+
 test("third-party adapter identity survives normalization and preset keys", () => {
 	const adapted = { ...binding, adapterId: "vendor-controls" };
 	const { model, page } = modelWithPage();
 	const next = addItems(model, page.id, [{ label: "Steps", binding: adapted }]);
 	assert.equal(next.pages[0].items[0].binding.adapterId, "vendor-controls");
-	assert.equal(bindingKey(adapted), "generic-widget:host-a:steps:vendor-controls");
+	assert.equal(bindingKey(adapted), JSON.stringify(["generic-widget", "host-a", "steps", "vendor-controls"]));
 	assert.notEqual(bindingKey(adapted), bindingKey(binding));
 });
 
@@ -622,6 +634,14 @@ test("duplicating a source page isolates its source ownership", () => {
 	next = duplicatePage(next, page.id); const clone = next.pages[1];
 	assert.equal(clone.groups[0].source, undefined);
 	assert.ok(clone.items.every((item) => item.groupSource === undefined));
+});
+
+test("linked binding targets cannot be split across different dashboard cards", () => {
+	const { model, page } = modelWithPage();
+	let next = addItems(model, page.id, [{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "cfg" } }]);
+	const first = next.pages[0].items[0]; const second = next.pages[0].items[1];
+	next = addLinkedBinding(next, first.id, { ...binding, controlId: "shared" });
+	assert.throws(() => addLinkedBinding(next, second.id, { ...binding, controlId: "shared" }), (error) => error instanceof DashboardModelError && error.code === "binding-overlap");
 });
 
 test("duplicate ids, missing groups and overlapping cells fail visibly", () => {

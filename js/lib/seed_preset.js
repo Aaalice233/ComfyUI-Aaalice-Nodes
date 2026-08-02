@@ -15,6 +15,7 @@ export function validateSeedPresetEntry(entry, { min = null, max = null, behavio
 	if (!entry || entry.valueType !== "number") return "type-mismatch";
 	const value = payloadValue(entry);
 	if (typeof value !== "number" || !Number.isFinite(value)) return "invalid-number";
+	if (!Number.isInteger(value)) return "invalid-integer";
 	if (min !== null && min !== "" && Number.isFinite(Number(min)) && value < Number(min)) return "below-minimum";
 	if (max !== null && max !== "" && Number.isFinite(Number(max)) && value > Number(max)) return "above-maximum";
 	const payload = entry.payload;

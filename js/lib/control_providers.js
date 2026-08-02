@@ -55,11 +55,12 @@ function graphTransaction(node, callback) {
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); }
 }
 
-function validatePresetPayload(entry, { valueType, options = {} } = {}) {
+function validatePresetPayload(entry, { valueType, options = {}, numericDomain = null } = {}) {
 	if (!entry || entry.valueType !== valueType) return "type-mismatch";
 	const value = entry.payload;
 	if (valueType === "number") {
 		if (typeof value !== "number" || !Number.isFinite(value)) return "invalid-number";
+		if (numericDomain === "integer" && !Number.isInteger(value)) return "invalid-integer";
 		if (Number.isFinite(Number(options.min)) && value < Number(options.min)) return "below-minimum";
 		if (Number.isFinite(Number(options.max)) && value > Number(options.max)) return "above-maximum";
 	}
@@ -163,12 +164,20 @@ controlProviders.register({
 		const currentType = controlValueType(parameter.value) || (Array.isArray(parameter.value) ? "string-list" : "reference");
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
 		const seed = parameter.param_type === "seed";
+		const numericDomain = seed ? "integer" : parameter.param_type === "slider" ? (Number(parameter.config?.step ?? 1) === 1 ? "integer" : "float") : null;
+		const availability = ["dropdown", "enum"].includes(parameter.param_type) && parameter.config?.source && !parameter.config?.options?.length
+			? { state: "empty", reason: "no-options" }
+			: { state: "ready" };
+		const options = seed ? { ...(parameter.config || {}), behaviors: SEED_AFTER_GENERATE_MODES } : parameter.config || {};
 		return {
-			status: "ok", family: "aaalice", kind: seed ? "seed" : null, controlId: binding.controlId, node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
-			options: parameter.config || {},
+			status: "ok", family: "aaalice", kind: seed ? "seed" : null, numericDomain, controlId: binding.controlId, node, control: parameter, label: displayName(parameter, parameter.id), value: parameter.value,
+			options, availability, linkable: true, presettable: true, hasCustomPresetCodec: true, supportsSeedBehavior: seed, seedBehaviors: seed ? SEED_AFTER_GENERATE_MODES : [],
 			readPresetValue() { return seed ? createSeedPresetPayload(parameter.value, parameter.config?.control_after_generate) : structuredClone(parameter.value); },
 			validatePresetValue(entry) {
-				return seed ? validateSeedPresetEntry(entry, parameter.config || {}) : validatePresetPayload(entry, { valueType: binding.valueType, options: parameter.config || {} });
+				return seed ? validateSeedPresetEntry(entry, parameter.config || {}) : validatePresetPayload(entry, { valueType: binding.valueType, options: parameter.config || {}, numericDomain });
+			},
+			validateLinkedValue(next) {
+				return seed ? validateSeedPresetEntry({ valueType: binding.valueType, payload: createSeedPresetPayload(next, parameter.config?.control_after_generate) }, parameter.config || {}) : validatePresetPayload({ valueType: binding.valueType, payload: next }, { valueType: binding.valueType, options: parameter.config || {}, numericDomain });
 			},
 			applyPresetValue(entry, { transaction = true, workspaceRedraw = true } = {}) {
 				if (!seed) return this.setValue(structuredClone(entry.payload), { transaction, workspaceRedraw });
@@ -188,12 +197,13 @@ controlProviders.register({
 				return transaction ? graphTransaction(node, apply) : apply();
 			},
 			flushValue() { notifyParameterChanged(node, { structure: false, parameterId: parameter.id }); },
-			setSeedBehavior(behavior) {
+			setSeedBehavior(behavior, { transaction = true, workspaceRedraw = true } = {}) {
 				if (!SEED_AFTER_GENERATE_MODES.includes(behavior)) throw new TypeError(`Invalid seed behavior: ${behavior}`);
-				return graphTransaction(node, () => {
+				const apply = () => {
 					parameter.config ||= {}; parameter.config.control_after_generate = behavior;
-					notifyParameterChanged(node, { structure: false, parameterId: parameter.id });
-				});
+					notifyParameterChanged(node, { structure: false, parameterId: parameter.id, workspaceRedraw });
+				};
+				return transaction ? graphTransaction(node, apply) : apply();
 			},
 		};
 	},
@@ -283,34 +293,39 @@ const widgetProvider = (id, promoted) => ({
 		}));
 	},
 	resolve(node, binding) {
-		// 旧看板可能把普通原生适配器固化在 binding 中。允许它升级到后来加入的
-		// 专用适配器，否则图像上传 combo 会一直退化成没有缩略图的普通下拉框。
-		const adapterId = binding.adapterId === "comfy-native-widget" ? null : binding.adapterId || null;
-		const adapted = listAdaptedWidgetControls(node, { promoted, adapterId })
+		const requestedAdapterId = binding.adapterId || null;
+		let adapted = listAdaptedWidgetControls(node, { promoted, adapterId: requestedAdapterId })
 			.find((candidate) => candidate.controlId === binding.controlId);
+		if (binding.adapterId === "comfy-native-widget") {
+			const imageUpgrade = listAdaptedWidgetControls(node, { promoted })
+				.find((candidate) => candidate.controlId === binding.controlId && candidate.adapterId === "comfy-image-combo");
+			if (imageUpgrade && imageUpgrade.valueType === binding.valueType) adapted = imageUpgrade;
+		}
 		if (!adapted) return { status: "missing", node };
 		const currentType = adapted.valueType;
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
 		return {
-			status: "ok", family: "comfy", kind: adapted.kind, controlId: adapted.controlId, node, control: adapted.control, label: adapted.label, value: adapted.value, options: adapted.options, availability: adapted.availability,
-			presettable: adapted.presettable, minRowSpan: adapted.minRowSpan,
+			status: "ok", family: "comfy", kind: adapted.kind, numericDomain: adapted.numericDomain, controlId: adapted.controlId, node, control: adapted.control, label: adapted.label, value: adapted.value, options: adapted.options, availability: adapted.availability,
+			presettable: adapted.presettable, minRowSpan: adapted.minRowSpan, linkable: adapted.linkable, supportsSeedBehavior: adapted.supportsSeedBehavior, seedBehaviors: adapted.seedBehaviors, hasCustomPresetCodec: adapted.hasCustomPresetCodec,
 			readPresetValue() { return structuredClone(adapted.readPresetValue ? adapted.readPresetValue() : adapted.value); },
 			validatePresetValue(entry) {
 				if (!entry || entry.valueType !== binding.valueType) return "type-mismatch";
 				if (adapted.hasCustomPresetCodec) return adapted.validatePresetValue?.(entry) ?? true;
-				return validatePresetPayload(entry, { valueType: binding.valueType, options: adapted.options });
+				return validatePresetPayload(entry, { valueType: binding.valueType, options: adapted.options, numericDomain: adapted.numericDomain });
 			},
+			validateLinkedValue(next) { return adapted.validateLinkedValue?.(next) ?? true; },
 			applyPresetValue(entry, options = {}) {
 				const apply = () => adapted.applyPresetValue ? adapted.applyPresetValue(structuredClone(entry)) : adapted.setValue(structuredClone(entry.payload));
 				return options.transaction === false ? apply() : graphTransaction(node, apply);
 			},
-			setValue(next, { transaction = true } = {}) {
-				const apply = () => { adapted.setValue(next); node.setDirtyCanvas?.(true, true); };
+			setValue(next, { transaction = true, workspaceRedraw = true } = {}) {
+				const apply = () => { const result = adapted.setValue(next); if (workspaceRedraw) node.setDirtyCanvas?.(true, true); return result; };
 				return transaction ? graphTransaction(node, apply) : apply();
 			},
-			setSeedBehavior(behavior) {
+			setSeedBehavior(behavior, { transaction = true, workspaceRedraw = true } = {}) {
 				if (!SEED_AFTER_GENERATE_MODES.includes(behavior)) throw new TypeError(`Invalid seed behavior: ${behavior}`);
-				return graphTransaction(node, () => { adapted.setSeedBehavior(behavior); node.setDirtyCanvas?.(true, true); });
+				const apply = () => { const result = adapted.setSeedBehavior(behavior); if (workspaceRedraw) node.setDirtyCanvas?.(true, true); return result; };
+				return transaction ? graphTransaction(node, apply) : apply();
 			},
 		};
 	},

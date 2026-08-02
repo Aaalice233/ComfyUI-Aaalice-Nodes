@@ -22,7 +22,7 @@ function boundedInteger(value, { minimum = 1, maximum = Number.POSITIVE_INFINITY
 	const lower = Math.max(1, Math.ceil(Number(minimum) || 1));
 	const upperValue = Number(maximum);
 	const upper = Number.isFinite(upperValue) ? Math.max(lower, Math.floor(upperValue)) : Number.POSITIVE_INFINITY;
-	const numeric = Number(value);
+	const numeric = value == null ? Number.NaN : Number(value);
 	const fallbackValue = Number(fallback);
 	const rounded = Number.isFinite(numeric) ? Math.round(numeric) : Number.isFinite(fallbackValue) ? Math.round(fallbackValue) : lower;
 	return Math.max(lower, Math.min(upper, rounded));

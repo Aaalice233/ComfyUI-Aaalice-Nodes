@@ -22,7 +22,6 @@ import {
 	EVENT_PARAMETER_CHANGED,
 	MAX_TUNABLE,
 	PARAMETER_TYPE_ORDER,
-	applySeedAfterQueue,
 	cloneData,
 	countTunable,
 	createParameter,
@@ -1144,11 +1143,7 @@ function installPromptHook() {
 			));
 			return false;
 		}
-		const result = await queue(...args);
-		if (result === true) {
-			for (const node of allGraphNodes(app.graph).filter(isParameterPanel)) applySeedAfterQueue(node);
-		}
-		return result;
+		return queue(...args);
 	};
 }
 

@@ -4,35 +4,186 @@ import { applyMarqueeSelection, containedIds, intersectingSelectionIds, nearestI
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_GRID_COLUMNS, DASHBOARD_MIN_CONTROL_COLUMN_SPAN, nextDashboardColumnSpan, nextDashboardRowSpan, snapDashboardColumnSpan, snapDashboardRowSpan } from "./dashboard_sizing.js";
 
 const DRAG_THRESHOLD = 5;
-const PAGE_GESTURE_SETTLE_DELAY = 80;
+export const PAGE_PRECISION_GESTURE_GAP = 240;
+export const PAGE_PHYSICAL_STEP_DELAY = 180;
 
-export function bindDashboardBoundaryPaging(scroller, { state = {}, isEnabled = () => true, canAdvance = () => false, canRetreat = () => false, onAdvance, onRetreat, settleDelay = PAGE_GESTURE_SETTLE_DELAY } = {}) {
-	const armNextGesture = () => {
-		clearTimeout(state.resetTimer);
-		state.resetTimer = setTimeout(() => { state.locked = false; }, settleDelay);
-	};
-	const turnPage = (direction) => {
-		if (!isEnabled()) return false;
-		const allowed = direction > 0 ? canAdvance() : canRetreat();
-		if (state.locked || !allowed) return false;
-		state.locked = true;
-		if (direction > 0) onAdvance?.(); else onRetreat?.();
+function hasLegacyWheelDetent(event) {
+	const delta = Math.abs(Number(event.wheelDeltaY ?? event.wheelDelta));
+	if (!Number.isFinite(delta) || delta < 120) return false;
+	const steps = delta / 120;
+	return Math.abs(steps - Math.round(steps)) < 0.001;
+}
+
+function classifyWheelInput(event) {
+	// WheelEvent does not expose the hardware source. Treat only line/page deltas and Chromium's exact legacy detents as physical;
+	// ambiguous pixel deltas stay precision input so one misclassified fling can never enqueue several future pages.
+	const kind = Number(event.deltaMode) > 0 || hasLegacyWheelDetent(event) ? "physical" : "precision";
+	return { kind, direction: Math.sign(event.deltaY) };
+}
+
+function isAtBoundary(scroller, direction) {
+	const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+	return maxScrollTop <= 1 || (direction > 0 ? scroller.scrollTop >= maxScrollTop - 1 : scroller.scrollTop <= 1);
+}
+
+function clearPhysicalTimer(state) {
+	if (state.drainTimer != null) state.drainClear?.(state.drainTimer);
+	state.drainTimer = null; state.drainClear = null; state.drainDue = Infinity;
+}
+
+function clearQueuedPhysicalSteps(state) {
+	state.pendingSteps = 0; clearPhysicalTimer(state);
+}
+
+function clearPostScrollCheck(binding) {
+	if (!binding) return;
+	if (binding.postScrollFrame) binding.cancelFrame(binding.postScrollFrame);
+	binding.postScrollFrame = 0; binding.postScrollInput = null;
+}
+
+function hasScrollableDescendant(event, binding, direction) {
+	let current = event.target?.nodeType === 3 ? event.target.parentElement : event.target;
+	while (current && current !== binding.scroller && current !== binding.eventTarget) {
+		const maximum = Math.max(0, Number(current.scrollHeight) - Number(current.clientHeight));
+		const overflow = globalThis.getComputedStyle?.(current)?.overflowY;
+		const allowsScroll = overflow == null || overflow === "auto" || overflow === "scroll" || overflow === "overlay";
+		if (allowsScroll && maximum > 1 && (direction > 0 ? Number(current.scrollTop) < maximum - 1 : Number(current.scrollTop) > 1)) return true;
+		current = current.parentElement;
+	}
+	return false;
+}
+
+function schedulePhysicalDrain(state) {
+	const binding = state.binding;
+	if (!binding || !state.pendingSteps || state.awaitingPageId != null) return;
+	const now = binding.now(); const due = Math.max(now, Number(state.nextPhysicalAt) || 0);
+	if (state.drainTimer != null && state.drainDue <= due) return;
+	clearPhysicalTimer(state); state.drainDue = due; state.drainClear = binding.clearTimer;
+	state.drainTimer = binding.setTimer(() => {
+		state.drainTimer = null; state.drainClear = null; state.drainDue = Infinity; drainPhysicalSteps(state);
+	}, Math.max(0, due - now));
+}
+
+function drainPhysicalSteps(state) {
+	const binding = state.binding;
+	if (!binding || !state.pendingSteps) return false;
+	if (!binding.eventTarget.isConnected) { clearQueuedPhysicalSteps(state); return false; }
+	if (state.awaitingPageId != null) return true;
+	if (!binding.isEnabled()) { clearQueuedPhysicalSteps(state); return false; }
+	const direction = Math.sign(state.pendingSteps);
+	if (!isAtBoundary(binding.scroller, direction)) { clearQueuedPhysicalSteps(state); return false; }
+	const now = binding.now();
+	if (now < (Number(state.nextPhysicalAt) || 0)) { schedulePhysicalDrain(state); return true; }
+	const targetPageId = binding.requestPage(direction);
+	if (targetPageId == null || targetPageId === false) { clearQueuedPhysicalSteps(state); return false; }
+	state.pendingSteps -= direction; state.awaitingPageId = String(targetPageId); state.awaitingDirection = direction; state.nextPhysicalAt = now + binding.repeatDelay;
+	clearPhysicalTimer(state);
+	return true;
+}
+
+function queuePhysicalSteps(state, input) {
+	const pendingDirection = Math.sign(Number(state.pendingSteps) || 0);
+	state.pendingSteps = pendingDirection && pendingDirection !== input.direction ? input.direction : (Number(state.pendingSteps) || 0) + input.direction;
+	return drainPhysicalSteps(state);
+}
+
+function handleBoundaryInput(state, input, now) {
+	const binding = state.binding;
+	if (!binding || !binding.isEnabled()) return false;
+	if (input.kind === "physical") return queuePhysicalSteps(state, input);
+	if (state.awaitingPageId != null) {
+		if (!state.awaitingDirection || state.awaitingDirection === input.direction) return false;
+		clearQueuedPhysicalSteps(state);
+		if (state.precisionConsumed) return false;
+		state.pendingSteps = input.direction; state.precisionConsumed = true;
 		return true;
+	}
+	const queuedDirection = Math.sign(Number(state.pendingSteps) || 0);
+	if (queuedDirection && queuedDirection !== input.direction) clearQueuedPhysicalSteps(state);
+	if (state.precisionConsumed) return false;
+	const targetPageId = binding.requestPage(input.direction);
+	if (targetPageId == null || targetPageId === false) return false;
+	state.precisionConsumed = true; state.awaitingPageId = String(targetPageId); state.awaitingDirection = input.direction; state.nextPhysicalAt = now + binding.repeatDelay;
+	return true;
+}
+
+function queuePostScrollCheck(state, binding, input) {
+	// Native scrolling consumes the burst before this frame runs; retain only its final overflow direction, never replay every pulse.
+	binding.postScrollInput = input;
+	if (binding.postScrollFrame) return;
+	binding.postScrollFrame = binding.requestFrame(() => {
+		binding.postScrollFrame = 0; const pending = binding.postScrollInput; binding.postScrollInput = null;
+		if (!pending || state.binding !== binding || !binding.eventTarget.isConnected || !isAtBoundary(binding.scroller, pending.direction)) return;
+		handleBoundaryInput(state, pending, binding.now());
+	});
+}
+
+export function cancelDashboardBoundaryPaging(state = {}) {
+	clearQueuedPhysicalSteps(state); clearPostScrollCheck(state.binding); state.awaitingPageId = null; state.awaitingDirection = 0; state.nextPhysicalAt = 0;
+	if (Number.isFinite(Number(state.lastPrecisionAt))) state.precisionConsumed = true;
+}
+
+export function destroyDashboardBoundaryPaging(state = {}) {
+	state.binding?.detach?.(); cancelDashboardBoundaryPaging(state);
+	state.awaitingPageId = null; state.awaitingDirection = 0; state.boundPageId = null; state.nextPhysicalAt = 0; state.precisionConsumed = false; state.lastPrecisionAt = -Infinity;
+}
+
+export function bindDashboardBoundaryPaging(eventTarget, {
+	state = {}, scroller = eventTarget, pageId = null, isEnabled = () => true, requestPage = () => null,
+	precisionGap = PAGE_PRECISION_GESTURE_GAP, repeatDelay = PAGE_PHYSICAL_STEP_DELAY,
+	now = () => globalThis.performance?.now?.() ?? Date.now(), setTimer = (callback, delay) => setTimeout(callback, delay), clearTimer = (timer) => clearTimeout(timer),
+	requestFrame = (callback) => requestAnimationFrame(callback), cancelFrame = (frame) => cancelAnimationFrame(frame),
+} = {}) {
+	state.binding?.detach?.();
+	const normalizedPageId = pageId == null ? null : String(pageId); const previousPageId = state.boundPageId;
+	if (state.awaitingPageId != null) {
+		if (state.awaitingPageId !== normalizedPageId) { clearQueuedPhysicalSteps(state); state.nextPhysicalAt = 0; }
+		state.awaitingPageId = null; state.awaitingDirection = 0;
+	} else if (previousPageId != null && normalizedPageId !== previousPageId) { clearQueuedPhysicalSteps(state); state.nextPhysicalAt = 0; }
+	state.boundPageId = normalizedPageId;
+	const binding = {
+		eventTarget, scroller, isEnabled, requestPage, precisionGap, repeatDelay, now, setTimer, clearTimer, requestFrame, cancelFrame,
+		postScrollFrame: 0, postScrollInput: null, detach: null,
 	};
-	const atBoundary = (direction) => {
-		const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-		return maxScrollTop <= 1 || (direction > 0 ? scroller.scrollTop >= maxScrollTop - 1 : scroller.scrollTop <= 1);
+	const recordPrecisionInput = (input, currentTime) => {
+		if (input.kind !== "precision") return;
+		const lastPrecisionAt = Number(state.lastPrecisionAt);
+		if (!Number.isFinite(lastPrecisionAt) || currentTime - lastPrecisionAt >= binding.precisionGap) state.precisionConsumed = false;
+		state.lastPrecisionAt = currentTime;
+	};
+	const onWheelCapture = (event) => {
+		const isolated = event.target?.closest?.("[data-aa-isolated-events]");
+		if (!isolated || !eventTarget.contains?.(isolated) || (!event.deltaX && !event.deltaY)) return;
+		recordPrecisionInput(classifyWheelInput(event), binding.now());
+		clearPostScrollCheck(binding); clearQueuedPhysicalSteps(state);
 	};
 	const onWheel = (event) => {
-		if (event.defaultPrevented || event.ctrlKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-		const direction = Math.sign(event.deltaY);
-		armNextGesture();
-		if (!isEnabled() || state.locked || !(direction > 0 ? canAdvance() : canRetreat())) return;
-		if (atBoundary(direction)) { if (turnPage(direction)) event.preventDefault(); return; }
-		requestAnimationFrame(() => { if (scroller.isConnected && atBoundary(direction)) turnPage(direction); });
+		if (event.ctrlKey || event.metaKey || (!event.deltaX && !event.deltaY)) { clearPostScrollCheck(binding); clearQueuedPhysicalSteps(state); return; }
+		const currentTime = binding.now(); const input = classifyWheelInput(event);
+		recordPrecisionInput(input, currentTime);
+		if (!binding.isEnabled()) { cancelDashboardBoundaryPaging(state); return; }
+		if (!event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) { clearPostScrollCheck(binding); clearQueuedPhysicalSteps(state); return; }
+		if (event.defaultPrevented) { clearPostScrollCheck(binding); clearQueuedPhysicalSteps(state); return; }
+		if (hasScrollableDescendant(event, binding, input.direction)) { clearPostScrollCheck(binding); clearQueuedPhysicalSteps(state); return; }
+		if (isAtBoundary(scroller, input.direction)) {
+			clearPostScrollCheck(binding);
+			if (handleBoundaryInput(state, input, currentTime)) event.preventDefault();
+			return;
+		}
+		clearQueuedPhysicalSteps(state);
+		queuePostScrollCheck(state, binding, input);
 	};
-	scroller.addEventListener("wheel", onWheel, { passive: false });
-	return () => scroller.removeEventListener("wheel", onWheel);
+	binding.detach = () => {
+		eventTarget.removeEventListener("wheel", onWheelCapture, true);
+		eventTarget.removeEventListener("wheel", onWheel);
+		clearPostScrollCheck(binding);
+		if (state.binding === binding) state.binding = null;
+	};
+	state.binding = binding;
+	eventTarget.addEventListener("wheel", onWheelCapture, { capture: true, passive: true });
+	eventTarget.addEventListener("wheel", onWheel, { passive: false });
+	if (state.awaitingPageId == null && state.pendingSteps) schedulePhysicalDrain(state);
+	return binding.detach;
 }
 
 function gridTargetAt(grid, clientX, clientY) {
@@ -125,7 +276,7 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		for (const element of gesture.elements || []) { element.style.removeProperty("transform"); element.classList.remove("is-dragging", "is-resizing"); }
 		gesture.preview?.remove();
 		gesture.marquee?.remove();
-		root.classList.remove("is-dragging"); gesture = null;
+		root.classList.remove("is-dragging", "is-selecting"); gesture = null;
 	};
 	const autoScroll = (clientY) => {
 		const scroller = root.closest(".aa-dashboard-scroll") || root; const rect = scroller.getBoundingClientRect();
@@ -185,7 +336,10 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		if (!gesture || gesture.pointerId !== event.pointerId) return;
 		const dx = event.clientX - gesture.startX; const dy = event.clientY - gesture.startY;
 		if (!gesture.dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-		gesture.dragging = true;
+		if (!gesture.dragging) {
+			gesture.dragging = true;
+			if (gesture.kind === "marquee") root.classList.add("is-selecting");
+		}
 		if (gesture.kind === "resize") {
 			const style = getComputedStyle(gesture.grid); const rect = gesture.grid.getBoundingClientRect();
 			const horizontalPadding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);

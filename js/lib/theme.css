@@ -1413,7 +1413,9 @@
    while keeping the fine saved row geometry unchanged. */
 .aa-dashboard-grid-v2 > :is([data-dashboard-item-id], [data-dashboard-group-id]),
 .aa-dashboard-group-grid > [data-dashboard-item-id] { height: calc(100% - var(--aa-dashboard-card-gap) + var(--aa-dashboard-track-gap)); }
-.aa-dashboard-grid-v2.is-editing { min-height: 100%; padding: 5px; border-radius: 10px; background-color: color-mix(in srgb, var(--aa-ui-surface) 18%, transparent); background-image: radial-gradient(circle, color-mix(in srgb, var(--aa-ui-muted) 25%, transparent) 1px, transparent 1px); background-size: 12px 12px; user-select: none; }
+/* Drag previews create implicit rows below the viewport; intrinsic flex sizing keeps
+   the tiled background attached to those rows without any measured JS height. */
+.aa-dashboard-grid-v2.is-editing { min-height: 100%; flex: none; padding: 5px; border-radius: 10px; background-color: color-mix(in srgb, var(--aa-ui-surface) 18%, transparent); background-image: radial-gradient(circle, color-mix(in srgb, var(--aa-ui-muted) 25%, transparent) 1px, transparent 1px); background-size: 12px 12px; user-select: none; }
 .aa-dashboard-grid-v2.is-editing { cursor: crosshair; }
 .aa-dashboard-drop-preview { z-index: 4; min-height: 0; height: calc(100% - var(--aa-dashboard-card-gap) + var(--aa-dashboard-track-gap)); box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--aa-ui-accent) 72%, var(--aa-ui-border)); border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aa-ui-accent) 18%, transparent); pointer-events: none; }
 .aa-dashboard-drop-preview.is-resize { display: grid; place-items: end; border-style: dashed; background: color-mix(in srgb, var(--aa-ui-accent) 17%, transparent); }
@@ -1488,6 +1490,16 @@
 .aa-control-card.is-unavailable { border-color: color-mix(in srgb, var(--aa-ui-warning) 38%, var(--aa-ui-border-soft)); background: color-mix(in srgb, var(--aa-ui-warning) 5%, var(--aa-ui-control)); }
 .aa-control-card-title { min-width: 0; flex: 1; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; color: color-mix(in srgb, var(--aa-ui-text) 96%, var(--aa-ui-muted)); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; transition: color .16s ease; }
 .aa-control-card-title::before { width: 2.5px; height: 11px; flex: none; border-radius: 2px; background: var(--aa-control-kind-tone, transparent); box-shadow: 0 0 4px color-mix(in srgb, var(--aa-control-kind-tone, transparent) 45%, transparent); content: ""; }
+.aa-control-card-binding-count { display: inline-flex; height: 16px; flex: none; align-items: center; gap: 3px; padding: 0 5px; border-radius: 6px; background: color-mix(in srgb, var(--aa-ui-accent) 11%, var(--aa-ui-control)); color: color-mix(in srgb, var(--aa-ui-accent) 72%, var(--aa-ui-text)); font-size: 10px; font-weight: 720; line-height: 16px; box-shadow: var(--aa-ui-edge-shadow-soft); }
+.aa-control-card-binding-count .aa-ui-icon { width: 10px; height: 10px; }
+.aa-control-card-binding-count.is-mixed { background: color-mix(in srgb, var(--aa-ui-warning) 12%, var(--aa-ui-control)); color: color-mix(in srgb, var(--aa-ui-warning) 74%, var(--aa-ui-text)); }
+.aa-control-card-binding-count.is-mixed::after { width: 4px; height: 4px; border-radius: 50%; background: currentColor; content: ""; }
+.aa-control-card.is-header-only .aa-control-card-binding-count { position: absolute; z-index: 2; top: 6px; right: 8px; }
+.aa-control-card.is-header-only.has-linked-bindings .aa-control-card-title { padding-right: 38px; }
+.aa-link-controls-dialog, .aa-linked-bindings-dialog { display: grid; gap: 10px; min-width: 0; }
+.aa-linked-bindings-dialog { max-height: min(420px, 58vh); overflow-y: auto; }
+.aa-linked-bindings-dialog .aa-workspace-list-row { min-height: 44px; }
+.aa-linked-binding-role { flex: none; color: var(--aa-ui-accent); }
 .aa-control-card[data-control-kind="numeric"] { --aa-control-kind-tone: var(--p-blue-400, #6aa8ff); }
 .aa-control-card[data-control-kind="seed"] { --aa-control-kind-tone: var(--p-amber-400, #d9a94e); }
 .aa-control-card[data-control-kind="boolean"] { --aa-control-kind-tone: var(--p-green-400, #62b881); }

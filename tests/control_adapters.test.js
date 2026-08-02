@@ -53,6 +53,7 @@ test("dropdown and enum parameters retain distinct choice presentations", () => 
 test("third-party renderers can extend a family without mutating built-ins", () => {
 	assert.match(publicApiSource, /CONTROL_ADAPTER_API_VERSION = 1/);
 	assert.match(publicApiSource, /registerControlRenderer/);
+	assert.match(publicApiSource, /controlView/);
 	assert.match(publicApiSource, /registerWidgetControlAdapter/);
 	assert.match(publicApiSource, /invalidateControlHost/);
 	assert.match(registrySource, /export function registerControlRenderer/);
@@ -64,11 +65,13 @@ test("third-party widget adapters normalize custom identity, value access and wr
 	const unregister = registerWidgetControlAdapter({
 		id: "test-vendor-widget",
 		priority: 100,
+		linkable: true,
 		matches: ({ widget }) => widget.type === "VENDOR_NUMBER",
 		describe: ({ widget }) => ({
 			controlId: `vendor:${widget.name}`,
 			label: widget.displayName,
 			kind: "numeric",
+			numericDomain: "integer",
 			getValue: () => widget.payload.current,
 			options: { min: 0, max: 10, step: 1 },
 			setValue: (next) => { widget.payload.current = next; },
@@ -82,9 +85,23 @@ test("third-party widget adapters normalize custom identity, value access and wr
 		assert.equal(adapted.controlId, "vendor:strength");
 		assert.equal(adapted.valueType, "number");
 		assert.equal(adapted.kind, "numeric");
+		assert.equal(adapted.numericDomain, "integer");
+		assert.equal(adapted.linkable, true);
 		adapted.setValue(7);
 		assert.equal(widget.payload.current, 7);
+		assert.equal(adapted.readPresetValue(), 7);
 		assert.equal(listAdaptedWidgetControls(node)[0].value, 7);
+	} finally { unregister(); }
+});
+
+test("third-party widget adapters can opt out of multi-target linking", () => {
+	const unregister = registerWidgetControlAdapter({
+		id: "test-vendor-unlinked", priority: 100, matches: ({ widget }) => widget.type === "VENDOR_UNLINKED",
+		describe: ({ widget }) => ({ controlId: widget.name, kind: "text", value: widget.value, linkable: false }),
+	});
+	try {
+		const widget = { name: "prompt", type: "VENDOR_UNLINKED", value: "hello" };
+		assert.equal(adaptWidgetControl({ widgets: [widget] }, widget).linkable, false);
 	} finally { unregister(); }
 });
 
@@ -199,21 +216,83 @@ test("promoted image upload combos retain the image-choice adapter", () => {
 	assert.equal(control?.options.image_folder, "output");
 });
 
-test("legacy native combo bindings upgrade to the image preview adapter", () => {
-	assert.match(providerSource, /binding\.adapterId === "comfy-native-widget" \? null : binding\.adapterId/);
-	assert.match(providerSource, /listAdaptedWidgetControls\(node, \{ promoted, adapterId \}\)/);
+test("nested promoted widgets follow disambiguating source identity across subgraph layers", () => {
+	const nativeImage = {
+		constructor: { nodeData: { input: { required: { image: ["COMBO", { image_upload: true, image_folder: "output" }] } } } },
+		widgets: [{ name: "image", type: "combo", value: "nested.png", options: { values: ["nested.png"] } }],
+	};
+	const nestedHost = {
+		widgets: [
+			{ name: "image", type: "combo", value: "decoy.png", serialize: false, sourceNodeId: "99", sourceWidgetName: "image" },
+			{ name: "image", type: "combo", value: "nested.png", serialize: false, sourceNodeId: "20", sourceWidgetName: "image" },
+		],
+		isSubgraphNode: () => true,
+		subgraph: { getNodeById: (id) => id === "20" ? nativeImage : null },
+	};
+	const outerHost = {
+		widgets: [{ name: "image", type: "combo", value: "nested.png", serialize: false, sourceNodeId: "10", sourceWidgetName: "image", disambiguatingSourceNodeId: "20" }],
+		isSubgraphNode: () => true,
+		subgraph: { getNodeById: (id) => id === "10" ? nestedHost : null },
+	};
+	const [control] = listAdaptedWidgetControls(outerHost, { promoted: true });
+	assert.equal(control?.adapterId, "comfy-image-combo");
+	assert.equal(control?.options.image_folder, "output");
 });
 
-test("native numeric widgets expose the real step instead of the legacy 10x step", () => {
-	const node = { widgets: [
-		{ name: "batch", type: "INT", value: 4, options: { min: 1, max: 64, step: 10, step2: 1 } },
-		{ name: "cfg", type: "float", value: 7.5, options: { min: 0, max: 20, step: 5 } },
-		{ name: "strength", type: "float", value: 1, options: { min: -1, max: 2, step: 5, step2: 0.05 } },
+test("legacy native combo bindings upgrade to the image preview adapter", () => {
+	assert.match(providerSource, /requestedAdapterId = binding\.adapterId \|\| null/);
+	assert.match(providerSource, /candidate\.adapterId === "comfy-image-combo"/);
+	assert.match(providerSource, /listAdaptedWidgetControls\(node, \{ promoted, adapterId: requestedAdapterId \}\)/);
+});
+
+test("native numeric widgets expose real ComfyUI number slider and knob domains", () => {
+	const node = { constructor: { nodeData: { input: { required: { batch: ["INT", {}], cfg: ["FLOAT", {}], strength: ["FLOAT", {}] } } } }, widgets: [
+		{ name: "batch", type: "number", value: 4, options: { min: 1, max: 64, step: 10, step2: 1, precision: 0 } },
+		{ name: "cfg", type: "slider", value: 7.5, options: { min: 0, max: 20, step: 5, step2: 0.5, precision: 1, round: 0.1 } },
+		{ name: "strength", type: "knob", value: 1, options: { min: -1, max: 2, step: 5, step2: 0.05, precision: 2, round: 0.01 } },
 	] };
 	const [batch, cfg, strength] = listAdaptedWidgetControls(node);
 	assert.equal(batch.options.step, 1);
 	assert.equal(cfg.options.step, 0.5);
 	assert.equal(strength.options.step, 0.05);
+	assert.equal(batch.numericDomain, "integer");
+	assert.equal(cfg.numericDomain, "float");
+	assert.equal(strength.numericDomain, "float");
+});
+
+test("provider wrappers preserve adapter failure and async return contracts", () => {
+	assert.match(providerSource, /const result = adapted\.setValue\(next\);[\s\S]*?return result;/);
+	assert.match(providerSource, /const result = adapted\.setSeedBehavior\(behavior\);[\s\S]*?return result;/);
+	assert.match(providerSource, /if \(workspaceRedraw\) node\.setDirtyCanvas/);
+});
+
+test("native widget callbacks preserve explicit failures and asynchronous results", async () => {
+	const failedWidget = { name: "steps", type: "INT", value: 1, options: {}, callback: () => false };
+	const failed = adaptWidgetControl({ widgets: [failedWidget] }, failedWidget);
+	assert.equal(failed.setValue(2), false);
+	const pending = Promise.resolve(true);
+	const asyncWidget = { name: "cfg", type: "FLOAT", value: 1, options: {}, callback: () => pending };
+	const asynchronous = adaptWidgetControl({ widgets: [asyncWidget] }, asyncWidget);
+	assert.equal(asynchronous.setValue(2), pending);
+	await pending;
+});
+
+test("native Seed codecs propagate value and behavior callback failures", () => {
+	const behavior = { name: "control_after_generate", type: "combo", value: "fixed", options: { serialize: false, canvasOnly: true, values: ["fixed", "increment", "decrement", "randomize"] }, callback: () => ({ ok: false, message: "mode rejected" }) };
+	const seed = { name: "seed", type: "number", value: 1, options: { min: 0, max: 100, step2: 1, precision: 0 }, linkedWidgets: [behavior], callback: () => true };
+	const adapted = adaptWidgetControl({ widgets: [seed, behavior] }, seed);
+	assert.equal(adapted.supportsSeedBehavior, true);
+	assert.deepEqual(adapted.seedBehaviors, ["fixed", "increment", "decrement", "randomize"]);
+	assert.deepEqual(adapted.setSeedBehavior("randomize"), { ok: false, message: "mode rejected" });
+	assert.deepEqual(adapted.applyPresetValue({ valueType: "number", payload: { value: 2, control_after_generate: "fixed" } }), { ok: false, message: "mode rejected" });
+});
+
+test("image choice live writes allow clear and newly uploaded filenames without weakening preset validation", () => {
+	const widget = { name: "image", type: "COMBO", value: "old.png", options: { values: ["old.png"], image_upload: true, image_folder: "input" } };
+	const node = { constructor: { nodeData: { input: { required: { image: [["old.png"], { image_upload: true, image_folder: "input" }] } } } }, widgets: [widget] };
+	const adapted = adaptWidgetControl(node, widget);
+	assert.equal(adapted.validateLinkedValue(""), true);
+	assert.equal(adapted.validateLinkedValue("new.png"), true);
 });
 
 test("native Compare Images exposes a layout-only execution view", () => {

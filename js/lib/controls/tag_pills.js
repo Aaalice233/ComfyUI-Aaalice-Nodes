@@ -98,7 +98,7 @@ export function createTagPillList({ tokens = [], editable = false, allowAdd = fa
 				] : [];
 				const actions = contextMenuItems?.(token, { edit: beginEdit, applyMutation }) || defaults;
 				if (!actions.length) return;
-				createContextMenu({ x, y, ariaLabel: message(labels, "menu", "Tag actions"), items: actions });
+				createContextMenu({ x, y, ownerElement: pill, ariaLabel: message(labels, "menu", "Tag actions"), items: actions });
 			};
 			const openAnchoredMenu = () => {
 				const rect = pill.getBoundingClientRect();

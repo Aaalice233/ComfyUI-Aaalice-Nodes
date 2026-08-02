@@ -81,6 +81,7 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 		cleanup(); onCommit?.(next); restoreFocus();
 	};
 	const cancel = () => { if (!done) { done = true; cleanup(); restoreFocus(); } };
+	input.destroy = () => { if (!done) { done = true; cleanup(); } };
 	input.addEventListener("keydown", (event) => { event.stopPropagation(); if (event.key === "Enter") commit(); else if (event.key === "Escape") cancel(); });
 	input.addEventListener("blur", commit); view.addEventListener("wheel", commitOnWheel, true);
 	setTimeout(() => { input.focus(); input.select(); }, 0); return input;
@@ -209,7 +210,7 @@ export function renderNumericControl(spec, port) {
 	range.type = "range"; range.className = "aa-shared-range aa-control-numeric-range";
 	range.min = String(min); range.max = String(max); range.step = String(step); range.setAttribute("aria-label", spec.label);
 	const valueButton = el("button", { className: "aa-control-numeric-value", attrs: { type: "button", role: "spinbutton", "aria-label": spec.label, "aria-valuemin": String(min), "aria-valuemax": String(max), "data-parameter-id": spec.id, "data-aaalice-value-field": "true" } });
-	let current = 0; let gestureOpen = false; let gestureTimer = 0;
+	let current = 0; let gestureOpen = false; let gestureTimer = 0; let inlineEditor = null;
 	const normalize = (value) => { const clamped = Math.min(max, Math.max(min, Number(value))); return Number.isFinite(clamped) ? Number(clamped.toFixed(precision)) : current; };
 	const sync = (value) => {
 		current = normalize(value); valueButton.textContent = String(current); valueButton.setAttribute("aria-valuenow", String(current)); range.value = String(current);
@@ -245,7 +246,9 @@ export function renderNumericControl(spec, port) {
 	if (spec.presentation?.wheelAdjust !== false) {
 		root.addEventListener("wheel", adjust, { passive: false }); valueButton.addEventListener("wheel", adjust, { passive: false });
 	}
-	valueButton.addEventListener("click", () => createNumericEditor(valueButton, { value: current, min, max, step, onCommit: (next) => { sync(next); port.commit(current); flash(); } }));
+	valueButton.addEventListener("click", () => {
+		inlineEditor = createNumericEditor(valueButton, { value: current, min, max, step, onCommit: (next) => { inlineEditor = null; sync(next); port.commit(current); flash(); } });
+	});
 	valueButton.addEventListener("keydown", (event) => {
 		if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown"].includes(event.key)) return;
 		event.preventDefault(); const direction = event.key === "ArrowUp" || event.key === "PageUp" ? 1 : -1;
@@ -279,6 +282,11 @@ export function renderNumericControl(spec, port) {
 				setSeedBehaviorState(root, next.options.control_after_generate);
 			}
 		},
-		destroy: () => { clearTimeout(gestureTimer); seedModeControl?.destroy?.(); },
+		destroy: () => {
+			clearTimeout(gestureTimer); gestureTimer = 0;
+			inlineEditor?.destroy?.(); inlineEditor = null;
+			if (gestureOpen) { gestureOpen = false; port.endGesture(current); }
+			seedModeControl?.destroy?.();
+		},
 	});
 }

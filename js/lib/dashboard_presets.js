@@ -1,6 +1,6 @@
 /** Pure workflow-owned snapshots for sidebar layouts and their live values. */
 
-import { normalizeDashboard } from "./dashboard_model.js";
+import { bindingKey, controlItemBindings, legacyBindingKey, normalizeDashboard } from "./dashboard_model.js";
 
 export const DASHBOARD_PRESETS_VERSION = 1;
 export const DASHBOARD_PRESET_FILE_FORMAT = "aaalice-sidebar-preset";
@@ -62,7 +62,24 @@ function nameKey(value) { return normalizeName(value).toLocaleLowerCase(); }
 
 export function normalizeDashboardSnapshot(source) {
 	if (!source || typeof source !== "object") throw new DashboardPresetError("Sidebar preset snapshot is missing", "invalid-preset-snapshot");
-	return { dashboard: normalizeDashboard(source.dashboard), values: normalizeDashboardPresetValues(source.values || {}) };
+	const dashboard = normalizeDashboard(source.dashboard); const values = normalizeDashboardPresetValues(source.values || {}); const migratedKeys = new Set();
+	const legacyCandidates = new Map();
+	for (const page of dashboard.pages) for (const item of page.items) {
+		if (item.kind !== "control") continue;
+		for (const binding of controlItemBindings(item)) {
+			const key = bindingKey(binding); const legacyKey = legacyBindingKey(binding);
+			if (legacyKey === key) continue;
+			const candidates = legacyCandidates.get(legacyKey) || new Set(); candidates.add(key); legacyCandidates.set(legacyKey, candidates);
+		}
+	}
+	for (const [legacyKey, candidates] of legacyCandidates) {
+		if (candidates.size !== 1 || !Object.prototype.hasOwnProperty.call(values, legacyKey)) continue;
+		const [key] = candidates;
+		if (!Object.prototype.hasOwnProperty.call(values, key)) values[key] = structuredClone(values[legacyKey]);
+		migratedKeys.add(legacyKey);
+	}
+	for (const key of migratedKeys) delete values[key];
+	return { dashboard, values };
 }
 
 export function emptyDashboardPresetState() { return { version: DASHBOARD_PRESETS_VERSION, presets: [], baselinePresetId: null }; }

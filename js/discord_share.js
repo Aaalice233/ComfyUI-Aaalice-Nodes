@@ -298,6 +298,7 @@ function showEntryContextMenu(event, surface) {
 	createContextMenu({
 		x: event.clientX,
 		y: event.clientY,
+		ownerElement: event.currentTarget,
 		ariaLabel: label("menu.label", "Discord share entry"),
 		items,
 	});

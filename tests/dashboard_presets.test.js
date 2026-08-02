@@ -15,13 +15,15 @@ import {
 	serializeDashboardPreset,
 	setDashboardPresetBaseline,
 } from "../js/lib/dashboard_presets.js";
+import { bindingKey, legacyBindingKey } from "../js/lib/dashboard_model.js";
 
 const binding = { provider: "aaalice-parameter", hostId: "host-a", controlId: "steps", valueType: "number" };
+const KEY = bindingKey(binding);
 const layout = (column = 0) => ({
-	version: 3,
+	version: 4,
 	pages: [{ id: "page-a", name: "Main", gridColumns: 12, tone: null, groups: [], items: [{ id: "item-a", kind: "control", binding, label: "Steps", groupId: null, layout: { row: 0, column, columnSpan: 6, rowSpan: 13 } }] }],
 });
-const values = (steps = 20) => ({ "aaalice-parameter:host-a:steps": { valueType: "number", payload: steps } });
+const values = (steps = 20) => ({ [KEY]: { valueType: "number", payload: steps } });
 const snapshot = (steps = 20, column = 0) => ({ dashboard: layout(column), values: values(steps) });
 
 test("sidebar presets own complete layout and value snapshots", () => {
@@ -43,14 +45,14 @@ test("preset management preserves identity and does not apply duplicates", () =>
 	state = duplicateDashboardPreset(state, originalId, "Portrait XL copy");
 	assert.equal(state.presets.length, 2);
 	assert.equal(state.baselinePresetId, originalId);
-	state.presets[0].values["aaalice-parameter:host-a:steps"].payload = 99;
-	assert.equal(state.presets[1].values["aaalice-parameter:host-a:steps"].payload, 32);
+	state.presets[0].values[KEY].payload = 99;
+	assert.equal(state.presets[1].values[KEY].payload, 32);
 	state = removeDashboardPreset(state, originalId);
 	assert.equal(state.baselinePresetId, null);
 	assert.deepEqual(state.presets.map((preset) => preset.name), ["Portrait XL copy"]);
 });
 
-test("preset state migrates embedded Dashboard V2 snapshots to V3", () => {
+test("preset state migrates embedded Dashboard V2 snapshots to V4", () => {
 	const state = normalizeDashboardPresetState({
 		version: 1,
 		baselinePresetId: "preset-a",
@@ -59,9 +61,19 @@ test("preset state migrates embedded Dashboard V2 snapshots to V3", () => {
 			dashboard: { version: 2, pages: [{ id: "page-a", name: "Main", groups: [], items: [{ id: "item-a", kind: "control", binding, label: "Steps", groupId: null, layout: { row: 0, column: 1, columnSpan: 1, rowSpan: 14 } }] }] },
 		}],
 	});
-	assert.equal(state.presets[0].dashboard.version, 3);
+	assert.equal(state.presets[0].dashboard.version, 4);
 	assert.deepEqual(state.presets[0].dashboard.pages[0].items[0].layout, { row: 0, column: 6, columnSpan: 6, rowSpan: 14 });
 	assert.equal(state.baselinePresetId, "preset-a");
+});
+
+test("legacy colon-delimited preset keys migrate to collision-free tuple keys", () => {
+	const state = normalizeDashboardPresetState({
+		version: 1,
+		baselinePresetId: "preset-a",
+		presets: [{ id: "preset-a", name: "Legacy keys", dashboard: layout(), values: { [legacyBindingKey(binding)]: { valueType: "number", payload: 27 } } }],
+	});
+	assert.equal(state.presets[0].values[KEY].payload, 27);
+	assert.equal(Object.prototype.hasOwnProperty.call(state.presets[0].values, legacyBindingKey(binding)), false);
 });
 
 test("preset state rejects old value-only state and invalid payloads", () => {
@@ -77,16 +89,16 @@ test("preset state rejects old value-only state and invalid payloads", () => {
 test("comparison detects layout and value changes but ignores transient unavailability", () => {
 	const preset = { id: "p", name: "Portrait", ...snapshot() };
 	assert.deepEqual(compareDashboardPreset(preset, snapshot()), { layoutChanges: 0, valueChanges: 0, changed: 0, missing: 0, added: 0, modified: false, attention: false });
-	const changed = compareDashboardPreset(preset, { ...snapshot(24, 6), bindings: [{ key: "aaalice-parameter:host-a:steps", status: "ok" }] });
+	const changed = compareDashboardPreset(preset, { ...snapshot(24, 6), bindings: [{ key: KEY, status: "ok" }] });
 	assert.equal(changed.layoutChanges, 1); assert.equal(changed.valueChanges, 1); assert.equal(changed.modified, true);
-	const unavailable = compareDashboardPreset(preset, { dashboard: layout(), values: {}, bindings: [{ key: "aaalice-parameter:host-a:steps", status: "unavailable" }] });
+	const unavailable = compareDashboardPreset(preset, { dashboard: layout(), values: {}, bindings: [{ key: KEY, status: "unavailable" }] });
 	assert.equal(unavailable.modified, false); assert.equal(unavailable.attention, false);
-	const missing = compareDashboardPreset(preset, { dashboard: layout(), values: {}, bindings: [{ key: "aaalice-parameter:host-a:steps", status: "missing" }] });
+	const missing = compareDashboardPreset(preset, { dashboard: layout(), values: {}, bindings: [{ key: KEY, status: "missing" }] });
 	assert.equal(missing.modified, true); assert.equal(missing.attention, true);
 });
 
 test("legacy scalar seed presets compare against the current structured seed state", () => {
-	const key = "aaalice-parameter:host-a:steps";
+	const key = KEY;
 	const preset = { id: "p", name: "Legacy seed", dashboard: layout(), values: { [key]: { valueType: "number", payload: 20 } } };
 	const same = compareDashboardPreset(preset, { dashboard: layout(), values: { [key]: { valueType: "number", payload: { value: 20, control_after_generate: "fixed" } } } });
 	assert.equal(same.modified, false);

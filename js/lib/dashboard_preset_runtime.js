@@ -1,6 +1,6 @@
 /** Runtime bridge between sidebar preset snapshots and live control providers. */
 
-import { bindingKey } from "./dashboard_model.js";
+import { bindingKey, controlItemBindings } from "./dashboard_model.js";
 import { normalizeDashboardSnapshot } from "./dashboard_presets.js";
 
 export class DashboardPresetRuntimeError extends Error {
@@ -12,6 +12,12 @@ export class DashboardPresetRuntimeError extends Error {
 
 function synchronous(value, operation, key) {
 	if (value && typeof value.then === "function") throw new DashboardPresetRuntimeError(`Preset ${operation} must be synchronous: ${key}`, "async-preset-codec", key);
+	return value;
+}
+
+function successful(value, operation, key) {
+	synchronous(value, operation, key);
+	if (value === false || value?.ok === false) throw new DashboardPresetRuntimeError(value?.message || `Preset ${operation} was rejected: ${key}`, "rejected-preset-codec", key);
 	return value;
 }
 
@@ -29,38 +35,43 @@ function writePresetEntry(entry, value) {
 	const result = entry.resolved.applyPresetValue
 		? entry.resolved.applyPresetValue(value, { transaction: false, workspaceRedraw: false })
 		: entry.resolved.setValue(value.payload, { transaction: false, workspaceRedraw: false });
-	synchronous(result, "write", entry.key);
+	successful(result, "write", entry.key);
 }
 
 function uniqueBindings(dashboard) {
-	const result = new Map();
+	const bindings = new Map(); const conflicts = new Map();
 	for (const page of dashboard.pages || []) for (const item of page.items || []) {
 		if (item.kind !== "control") continue;
-		const key = bindingKey(item.binding); if (!result.has(key)) result.set(key, item.binding);
+		for (const binding of controlItemBindings(item)) {
+			const key = bindingKey(binding); const previous = bindings.get(key);
+			if (!previous) { bindings.set(key, binding); continue; }
+			if (previous.valueType !== binding.valueType) conflicts.set(key, [previous, binding]);
+		}
 	}
-	return result;
+	return { bindings, conflicts };
 }
 
 export function captureDashboardValues(dashboard, resolveBinding) {
-	const values = {}; const bindings = [];
-	for (const [key, binding] of uniqueBindings(dashboard)) {
+	const values = {}; const captured = []; const { bindings: unique, conflicts } = uniqueBindings(dashboard);
+	for (const [key, binding] of unique) {
+		if (conflicts.has(key)) { captured.push({ key, binding, status: "error", reason: "conflicting-value-type", conflicts: conflicts.get(key) }); continue; }
 		let resolved;
 		try { resolved = resolveBinding(binding); }
-		catch (error) { bindings.push({ key, binding, status: "error", error }); continue; }
+		catch (error) { captured.push({ key, binding, status: "error", error }); continue; }
 		const status = resolved?.status || "missing";
-		if (status === "ok" && resolved.presettable === false) { bindings.push({ key, binding, status: "layout-only" }); continue; }
+		if (status === "ok" && resolved.presettable === false) { captured.push({ key, binding, status: "layout-only" }); continue; }
 		const availability = status === "ok" ? runtimeAvailability(resolved) : null;
-		if (availability) { bindings.push({ key, binding, status: availability, resolved }); continue; }
+		if (availability) { captured.push({ key, binding, status: availability, resolved }); continue; }
 		let payload;
 		try { payload = status === "ok" ? readCurrentPayload(resolved, key) : undefined; }
-		catch (error) { bindings.push({ key, binding, status: "error", error }); continue; }
+		catch (error) { captured.push({ key, binding, status: "error", error }); continue; }
 		const captureStatus = status === "ok" && typeof payload === "undefined" ? "unset" : status;
-		bindings.push({ key, binding, status: captureStatus });
+		captured.push({ key, binding, status: captureStatus });
 		if (status !== "ok") continue;
 		if (typeof payload === "undefined") continue;
 		values[key] = { valueType: binding.valueType, payload };
 	}
-	return { values, bindings };
+	return { values, bindings: captured };
 }
 
 export function mergeCapturedPresetValues(snapshot, previousValues = {}) {
@@ -73,9 +84,10 @@ export function mergeCapturedPresetValues(snapshot, previousValues = {}) {
 }
 
 export function planDashboardPresetApplication(snapshot, resolveBinding) {
-	const normalized = normalizeDashboardSnapshot(snapshot); const dashboardBindings = uniqueBindings(normalized.dashboard); const entries = [];
+	const normalized = normalizeDashboardSnapshot(snapshot); const { bindings: dashboardBindings, conflicts } = uniqueBindings(normalized.dashboard); const entries = [];
 	for (const [key, binding] of dashboardBindings) {
 		const saved = normalized.values[key];
+		if (conflicts.has(key)) { entries.push({ key, binding, saved, status: "invalid", reason: "conflicting-value-type", conflicts: conflicts.get(key) }); continue; }
 		let resolved;
 		try { resolved = resolveBinding(binding); }
 		catch (error) { entries.push({ key, binding, saved, status: "invalid", reason: error.message, error }); continue; }
@@ -88,7 +100,7 @@ export function planDashboardPresetApplication(snapshot, resolveBinding) {
 		let validation;
 		try { validation = synchronous(resolved.validatePresetValue?.(saved), "validation", key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
-		if (validation === false || typeof validation === "string") { entries.push({ key, binding, saved, resolved, status: "invalid", reason: typeof validation === "string" ? validation : "invalid-value" }); continue; }
+		if (validation === false || validation?.ok === false || typeof validation === "string") { entries.push({ key, binding, saved, resolved, status: "invalid", reason: typeof validation === "string" ? validation : "invalid-value" }); continue; }
 		let previousPayload;
 		try { previousPayload = readCurrentPayload(resolved, key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }

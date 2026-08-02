@@ -56,3 +56,25 @@ test("control menu composes with existing node options and installs only once", 
 	assert.equal(options[1].content, "Add controls");
 	assert.equal(typeof options[1].callback, "function");
 });
+
+test("control menu exposes multiple actions from one live control discovery", () => {
+	const node = {};
+	const calls = [];
+	let discoveries = 0;
+	installNodeControlMenu(node, {
+		listControls: () => { discoveries += 1; return [{ id: "steps" }]; },
+		entries: [
+			{ label: "Hidden", when: () => false, open: () => calls.push(["hidden"]) },
+			{ label: "Add controls", when: (_candidate, controls) => controls.length === 1, open: (candidate, controls) => calls.push(["add", candidate, controls]) },
+			{ label: "Link existing", open: (candidate, controls) => calls.push(["link", candidate, controls]) },
+		],
+	});
+	const options = [];
+	node.getExtraMenuOptions(null, options);
+	assert.equal(discoveries, 1);
+	assert.deepEqual(options.map((entry) => entry.content), ["Add controls", "Link existing"]);
+	options[1].callback();
+	assert.equal(calls[0][0], "link");
+	assert.equal(calls[0][1], node);
+	assert.deepEqual(calls[0][2], [{ id: "steps" }]);
+});

@@ -59,7 +59,7 @@
 | FetchFromKrita 或 Krita Bridge | @docs/adr/README.md、@docs/adr/0011-krita-bridge-execution-snapshots.md |
 | BooruGalleryNode、多站点画廊或虚拟瀑布流 | @docs/design/booru-gallery.md、@docs/adr/0010-booru-gallery-capability-snapshots-masonry.md |
 | Discord 分享、最新运行相册或成员验证中继 | @docs/design/discord-share.md |
-| PromptSelector、词库或 DIY 侧边栏 | @docs/design/prompt-selector-workspace.md、@docs/adr/0007-independent-prompt-library-live-references.md、@docs/adr/0008-stable-dashboard-control-bindings.md、@docs/adr/0012-dashboard-source-scoped-groups.md |
+| PromptSelector、词库或 DIY 侧边栏 | @docs/design/prompt-selector-workspace.md、@docs/adr/0007-independent-prompt-library-live-references.md、@docs/adr/0008-stable-dashboard-control-bindings.md、@docs/adr/0012-dashboard-source-scoped-groups.md、@docs/adr/0013-dashboard-multi-target-binding-sets.md |
 | 参数身份、序列化真源、接收器同步或动态槽协议 | @docs/adr/README.md、@docs/adr/0002-parameter-stable-id-direct-output-rebind.md、@docs/adr/0003-workflow-serialization-source-of-truth.md、@docs/adr/0004-parameter-receiver-explicit-get-sync.md、@docs/adr/0006-dynamic-native-business-slots.md |
 
 新增专题文档时，若其内容会影响实现或验收，必须同时补到本节。README 面向用户，不作为默认开发上下文注入。
@@ -101,6 +101,7 @@ ComfyUI-Aaalice-Nodes/
 - 工作流持久状态以 `node.properties` 为真源。内部 payload 不暴露为 Schema widget，执行时由 `graphToPrompt` 注入。
 - 状态变化必须覆盖保存、加载、复制、撤销/重做和执行路径。
 - ComfyUI 前端把自定义侧栏页签的 render 回调包在 Vue effect 中，渲染期读取的响应式状态（widgetValueStore 等）会成为依赖；滑条预览等写值会触发页签整体重挂载。依赖 DOM identity 的持续交互（拖拽、滚轮手势、文本输入）所在的表面不得在交互期间整体重建：手势期间必须跳过重挂载与 `scheduleRender`（见 `js/lib/workspace_controls.js` 的手势计数），由手势结束后的提交渲染统一刷新。页签 render 回调会被重复调用，必须幂等，观察器等资源先断后建。提交时挂在旧元素上的一次性动画会随重建销毁，需要在重建后的新元素上补放。
+- Dashboard 边界翻页监听必须挂在不参与页面位移动画的稳定舞台上，状态按真实侧栏根实例隔离，并在重挂、切换表面或销毁时解除监听、计时器和动画帧。物理滚轮只能按 line/page delta 或精确 legacy detent 等强证据识别；一个事件只产生一个翻页意图，快速同向脉冲逐事件进入串行队列，物理/精密反向输入都替换旧方向，精密手势已消费时也必须先取消相反物理队列，禁止按 `deltaY` / `wheelDelta` 幅值猜测跨越页数。精密输入一次连续手势最多翻一页，同一斜向手势中的横向占优脉冲（包括 `deltaY === 0`）在启用与禁用态都只刷新已消费手势而不翻页；页面请求在实际执行时读取当前 Page Id，内部原生滚动、事件目标所在的嵌套滚动控件和停止传播的隔离控件优先消费输入并立即清掉旧页面队列，旧 post-scroll rAF 不得重复入队。手动选页、工作区/工作流切换、搜索、布局模式、网格或页面菜单拖拽开始必须同步取消失效意图；断连或隐藏的根不得继续出队，但禁用期间的精密脉冲仍须延长已消费手势时间。多侧栏根分别捕获过渡快照，共享 Page Id 的同帧反向请求回到原页时折叠为无过渡 no-op，其它请求按最终重绑定结果淘汰旧 awaiting；宿主移除、替换或隐藏自定义页签根时必须立即清理控制器及该根的锚定浮层、Tooltip 与 Context Menu，不得关闭其它根的菜单；首次挂载或持续 `v-show` 隐藏的根不得参与完整 Provider/控件重建，重新显示时补一次渲染，焦点请求只能由发起操作的可见根消费；多根生成的 DOM 控件 id 必须按根隔离，脱离根挂载的浮层必须记录显式 owner，控件销毁必须清除自己的浮动编辑器并闭合未完成手势。
 - 局部重绘不得无条件销毁仍有效的焦点、Popover、Dialog 或操作状态；只有锚点失效、节点移除或对应生命周期结束时才清理。
 - 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
@@ -145,6 +146,7 @@ ComfyUI-Aaalice-Nodes/
 - 参数链的关联只能依赖面板身份、图作用域与稳定 Parameter Id；数组下标只表示当前视图顺序，不得作为跨保存、重排、复制或子图边界的长期身份。同步完成后必须逐项核对 Panel 槽、Set 名、Get 所有权、Receiver 槽和真实连接，再报告成功。
 - 第三方 KJ Set/Get 只能通过其公开命名与校验 API 更新（如 `validateName()`、`update()`、`setName()` / `onRename()`），并遵守其 `previousName` 和作用域规则；禁止只写 widget 值或标题后假定整条虚拟链已同步。跨子图时所有查找、事件和创建操作使用节点所属 graph，不能退回 `app.graph` 猜测。
 - 自动同步必须在创建、加载、复制、重命名和结构提交后幂等收敛；手动“刷新链路”只能作为可诊断的恢复操作，不能用于掩盖缺失的事件、错误的真源或竞态。
+- Dashboard V4 一张控件卡片允许一个主 `binding` 与多个有序 `linkedBindings`；主参数唯一拥有展示和读值语义，附加目标只参与写入。兼容性和原子写入只能走 `js/lib/control_binding_set.js`：要求同一 graph、Provider 明确可联动、Control Spec 类型和值域一致（含 Integer / Float 与图像目录），先快照全部目标并在一个图事务中写入，任一失败必须回滚全部已触达目标；Provider 不得吞掉 `false`、失败对象、Promise 或异常。动态选项为空、未赋值或临时不可用只暂停整卡写入，不能判坏持久关系；第三方 Seed 只有同时声明数值和执行后行为 codec 才可联动；每次 `graphToPrompt` 序列化前及 `queuePrompt` 完成后都必须以主 Seed 收敛整组状态。禁止 renderer、业务节点或工作区散落循环写入。预设必须展开并按无分隔符碰撞的稳定 Binding Key 去重全部目标并迁移旧 Key；来源同步只以主 binding 认领卡片，来源删除或类型漂移不得静默删除含附加目标的整张卡片。内部 Subgraph 节点仍不得被直接穿透绑定，只允许宿主公开 widget。
 - 参数控件的“渲染类型”和“选项来源”必须由独立适配层管理。第三方类型通过稳定 adapter 注册其发现条件、身份、读写、序列化、校验和可用性；未检测到真实来源或来源为空时不显示对应类型，业务节点不得散落硬编码探测。
 - `js/lib/controls/registry.js` 注册的每个 renderer 必须通过 `js/lib/controls/contract.js` 的 `controlView()` 返回完整控件视图，不能手写 `{ root, destroy }` 等不完整对象；宿主会统一读取 `headerAccessories`、`kind`、`headerOnly`、`update` 和 `destroy`，新增 renderer 必须配套契约测试或实际挂载烟测，避免控件创建阶段异常后整张侧边栏只显示错误状态。
 - 绑定画布节点的侧边栏控件标题必须以对应节点的实时公开显示标题为真源（优先使用 `getTitle()`），不得在 Provider 或 workspace 层写死通用标题；节点重命名、加载和复制后的标题必须通过现有事件刷新链同步，用户明确设置的 `labelOverride` 才可以覆盖源标题，稳定 binding identity 不得依赖标题。

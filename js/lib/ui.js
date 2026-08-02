@@ -104,6 +104,7 @@ export function el(tag, options = null, text = null) {
 }
 
 export function isolate(element) {
+	element.setAttribute("data-aa-isolated-events", "");
 	for (const eventName of ["pointerdown", "mousedown", "wheel"]) element.addEventListener(eventName, (event) => event.stopPropagation());
 	return element;
 }
@@ -111,6 +112,7 @@ export function isolate(element) {
 let activeTooltip = null;
 let tooltipId = 0;
 const transientHoverSurfaces = new Set();
+const anchoredPopovers = new Set();
 const SCROLL_INTERACTION_ATTRIBUTE = "data-aa-scroll-active";
 const SCROLL_INTERACTION_SETTLE_DELAY = 180;
 
@@ -128,6 +130,16 @@ function closeTransientHoverSurfacesWithin(container) {
 	for (const surface of [...transientHoverSurfaces]) {
 		if (container.contains(surface.anchor)) surface.close();
 	}
+}
+
+export function closeAnchoredPopoversWithin(container) {
+	for (const surface of [...anchoredPopovers]) {
+		if (container?.contains?.(surface.anchor)) surface.close();
+	}
+}
+
+export function closeTooltipWithin(container) {
+	if (activeTooltip?.isAnchoredWithin?.(container)) activeTooltip.hide();
 }
 
 /** Suppress transient hover surfaces while a scroll or boundary-page gesture is still moving content. */
@@ -240,6 +252,7 @@ function renderTooltipContent(content, contentMode) {
 export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 	let root = null;
 	let anchor = null;
+	let pendingAnchor = null;
 	let showTimer = null;
 	let closeTimer = null;
 	let positionFrame = 0;
@@ -291,6 +304,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		root?.remove();
 		root = null;
 		anchor = null;
+		pendingAnchor = null;
 		interactive = false;
 		previousExpanded = null;
 		preferredPlacement = "auto";
@@ -310,6 +324,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		activeTooltip = controller;
 	};
 	const mount = (nextAnchor, content, { className = "", contentMode = "auto", interactive: nextInteractive = false, onMount = null, placement = "auto", point = null } = {}) => {
+		pendingAnchor = null;
 		if (isScrollInteractionActive(nextAnchor)) {
 			hide();
 			return;
@@ -361,6 +376,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 	const show = (nextAnchor, content, options = {}) => {
 		hide();
 		if (isScrollInteractionActive(nextAnchor)) return;
+		pendingAnchor = nextAnchor;
 		claimActive();
 		if (options.immediate) mount(nextAnchor, content, options);
 		else showTimer = setTimeout(() => mount(nextAnchor, content, options), delay);
@@ -378,7 +394,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 			target.focus({ preventScroll: true });
 			return true;
 		},
-		isAnchoredWithin: (container) => Boolean(anchor && container?.contains?.(anchor)),
+		isAnchoredWithin: (container) => Boolean((anchor || pendingAnchor) && container?.contains?.(anchor || pendingAnchor)),
 		isOpenFor: (candidate) => Boolean(root && anchor === candidate),
 		get anchor() { return anchor; },
 	};
@@ -804,16 +820,19 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 	reposition();
 	let closed = false;
 	let unregisterTransientHover = () => {};
+	let anchoredSurface = null;
 	const close = () => {
 		if (closed) return;
 		closed = true;
 		unregisterTransientHover();
+		if (anchoredSurface) anchoredPopovers.delete(anchoredSurface);
 		document.removeEventListener("pointerdown", outside, true);
 		document.removeEventListener("keydown", keydown, true);
 		root.remove();
 		previousFocus?.focus?.({ preventScroll: true });
 		onClose?.();
 	};
+	anchoredSurface = { anchor, close }; anchoredPopovers.add(anchoredSurface);
 	if (transientHover) unregisterTransientHover = registerTransientHoverSurface(anchor, close);
 	const outside = (event) => { if (!root.contains(event.target) && !anchor.contains(event.target)) close(); };
 	const keydown = (event) => {
@@ -827,6 +846,7 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 		else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 	};
 	setTimeout(() => {
+		if (closed) return;
 		reposition();
 		document.addEventListener("pointerdown", outside, true);
 		document.addEventListener("keydown", keydown, true);
@@ -837,9 +857,17 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 
 let activeContextMenu = null;
 
-export function createContextMenu({ x, y, ariaLabel = "Menu", items = [], onClose = null } = {}) {
+export function closeContextMenuWithin(container) {
+	if (activeContextMenu?.isOwnedBy?.(container)) activeContextMenu.close({ restoreFocus: false });
+}
+
+export function createContextMenu({ x, y, ariaLabel = "Menu", items = [], onClose = null, ownerElement: explicitOwnerElement = null } = {}) {
 	activeContextMenu?.close();
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+	const triggerElement = document.elementFromPoint?.(Number(x) || 0, Number(y) || 0) || null;
+	const ownerElement = explicitOwnerElement instanceof Element
+		? explicitOwnerElement
+		: triggerElement instanceof Element && !["body", "html"].includes(triggerElement.localName) ? triggerElement : previousFocus;
 	const root = isolate(el("div", { className: "aa-ui-context-menu", attrs: { role: "menu", "aria-label": ariaLabel, tabindex: -1 } }));
 	const menuItems = [];
 	let closed = false;
@@ -882,7 +910,7 @@ export function createContextMenu({ x, y, ariaLabel = "Menu", items = [], onClos
 	document.addEventListener("pointerdown", outside, true);
 	document.addEventListener("keydown", keydown, true);
 	(menuItems[0] || root).focus({ preventScroll: true });
-	activeContextMenu = { root, close };
+	activeContextMenu = { root, close, isOwnedBy: (container) => Boolean(container?.contains?.(ownerElement)) };
 	return activeContextMenu;
 }
 
@@ -894,10 +922,12 @@ export function createDialog({
 	className = "",
 	closeOnBackdrop = true,
 	confirmOnEnter = true,
+	initialFocus = null,
+	returnFocus = null,
 	onRequestClose = null,
 	onClose = null,
 } = {}) {
-	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+	const previousFocus = returnFocus instanceof HTMLElement ? returnFocus : document.activeElement instanceof HTMLElement ? document.activeElement : null;
 	const titleId = `aaalice-dialog-${Math.random().toString(36).slice(2)}`;
 	const overlay = el("div", "aa-ui-dialog-backdrop");
 	const dialog = el("section", {
@@ -969,7 +999,10 @@ export function createDialog({
 		if (closeOnBackdrop && event.target === overlay) requestClose(null);
 	});
 	document.body.append(overlay);
-	requestAnimationFrame(() => (focusableElements(dialog)[0] || dialog).focus());
+	requestAnimationFrame(() => {
+		const preferred = typeof initialFocus === "function" ? initialFocus({ dialog, body: bodyElement, footer: footerElement }) : initialFocus;
+		(preferred?.isConnected && typeof preferred.focus === "function" ? preferred : focusableElements(dialog)[0] || dialog).focus();
+	});
 	return { overlay, dialog, header, heading, body: bodyElement, footer: footerElement, close, requestClose };
 }
 

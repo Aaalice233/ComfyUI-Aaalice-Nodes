@@ -8,7 +8,7 @@ let activeControlGestures = 0;
 /** The sidebar must not rebuild its DOM while a drag/wheel gesture owns an element. */
 export function hasActiveControlGestures() { return activeControlGestures > 0; }
 
-export function createControlElement(resolved, { labels = {}, onInput, onCommit, onError, onSuccess } = {}) {
+export function createControlElement(resolved, { labels = {}, onInput, onCommit, onError, onSuccess, onWriteError } = {}) {
 	if (resolved?.status !== "ok") return null;
 	const availabilityLabels = labels.availability || {};
 	const imageLabels = {
@@ -38,25 +38,39 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean", wheelAdjust: false },
 	});
 	let gestureOpen = false;
+	const write = (callback, onComplete = null) => {
+		try { const result = callback(); onComplete?.(); return result; }
+		catch (error) { if (onWriteError) onWriteError(error); else throw error; return undefined; }
+	};
 	const view = createSharedControl(spec, {
 		preview(next) {
-			if (["numeric", "seed"].includes(spec.kind)) resolved.setValue(next, { transaction: false, transient: true });
-			onInput?.(next);
+			write(() => {
+				if (["numeric", "seed"].includes(spec.kind)) resolved.setValue(next, { transaction: false, transient: true });
+				onInput?.(next);
+			});
 		},
 		commit(next, detail = {}) {
-			resolved.setValue(next, { workspaceRedraw: detail.redraw !== false });
-			onCommit?.(next, detail);
+			write(() => resolved.setValue(next, { workspaceRedraw: detail.redraw !== false }), () => onCommit?.(next, detail));
 		},
 		beginGesture() {
 			if (gestureOpen) return;
-			gestureOpen = true; activeControlGestures += 1; resolved.node?.graph?.beforeChange?.();
+			write(() => {
+				resolved.node?.graph?.beforeChange?.();
+				gestureOpen = true; activeControlGestures += 1;
+			});
 		},
 		endGesture(next) {
 			if (!gestureOpen) return;
-			gestureOpen = false; activeControlGestures = Math.max(0, activeControlGestures - 1); resolved.flushValue?.();
-			resolved.node?.graph?.afterChange?.(); resolved.node?.graph?.setDirtyCanvas?.(true, true); onCommit?.(next);
+			gestureOpen = false; activeControlGestures = Math.max(0, activeControlGestures - 1);
+			try { resolved.flushValue?.(); }
+			catch (error) { if (onWriteError) onWriteError(error); else throw error; }
+			finally {
+				resolved.node?.graph?.afterChange?.();
+				resolved.node?.graph?.setDirtyCanvas?.(true, true);
+				onCommit?.(next);
+			}
 		},
-		setSeedBehavior: (behavior) => { resolved.setSeedBehavior?.(behavior); onCommit?.(resolved.value, { seedBehavior: behavior }); },
+		setSeedBehavior: (behavior) => write(() => resolved.setSeedBehavior?.(behavior), () => onCommit?.(resolved.value, { seedBehavior: behavior })),
 		onError,
 		onSuccess,
 	});

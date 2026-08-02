@@ -258,7 +258,7 @@ test("providers cover generic, Aaalice and public subgraph widgets by stable hos
 	assert.match(providers, /listAdaptedWidgetControls/);
 	assert.match(widgetAdapters, /registerWidgetControlAdapter/);
 	assert.match(widgetAdapters, /comfy-native-widget/);
-	assert.match(widgetAdapters, /valueType: definition\.valueType/);
+	assert.match(widgetAdapters, /valueType: kind === "choice" \? controlValueType\(widget\.value\)/);
 	assert.match(widgetAdapters, /state: "empty", reason: "no-options"/);
 	assert.doesNotMatch(widgetAdapters, /Boolean\(controlValueType\(widget\.value\)\)/);
 	assert.match(widgetAdapters, /priority/);
@@ -292,6 +292,8 @@ test("numeric control gestures preview live inside one graph history boundary", 
 	assert.match(numericControl, /addEventListener\("wheel"/);
 	assert.match(numericControl, /event\.shiftKey \? 10 : 1/);
 	assert.match(numericControl, /presentation\?\.wheelAdjust !== false/);
+	assert.match(numericControl, /inlineEditor\?\.destroy\?\.\(\)/);
+	assert.match(numericControl, /if \(gestureOpen\) \{ gestureOpen = false; port\.endGesture\(current\); \}/);
 	assert.match(workspaceControls, /wheelAdjust: false/);
 	assert.match(numericControl, /passive: false/);
 	assert.match(theme, /\.aa-control-numeric-value/);
@@ -310,6 +312,8 @@ test("dashboard image controls share upload, drop, thumbnail, and preview behavi
 	assert.match(imageUpload, /export function bindImageDropTarget/);
 	assert.doesNotMatch(imageUpload, /createImageUploadControl/);
 	assert.match(imageAssetControl, /bindImagePreview\(select, "", "", \{ immediate: true, resolve: viewSource \}\)/);
+	assert.match(imageAssetControl, /closeImagePreviewWithin\(root\)/);
+	assert.match(imagePreview, /previewTooltip\.isAnchoredWithin\(container\)/);
 	assert.match(workspace, /notifyWorkspaceImageUpload/);
 	assert.match(theme, /\.aa-image-asset-control__thumb\s*\{[^}]*object-fit:\s*cover/s);
 	assert.match(theme, /\.aa-image-asset-control__select\.has-image::before/);
@@ -471,6 +475,30 @@ test("control cards move management into an accessible context menu", () => {
 	assert.match(uiStyles, /\.aa-ui-context-menu__item\.is-danger/);
 });
 
+test("dashboard cards can link and manage multiple compatible node controls", () => {
+	assert.match(workspace, /function openLinkControls/);
+	assert.match(workspace, /addLinkedBinding\(dashboard\(\), target\.item\.id, source\.control\.binding\)/);
+	assert.match(workspace, /function openManageLinkedBindings/);
+	assert.match(workspace, /syncButton\.disabled = bindings\.length < 2 \|\| resolvedSet\.status !== "ok"/);
+	assert.match(workspace, /issueBadge = issue \? badge/);
+	assert.match(workspace, /removeLinkedBinding\(model, itemId, binding\)/);
+	assert.match(workspace, /replacePrimaryBinding\(dashboard\(\), item\.id, selected\.binding\)/);
+	assert.match(workspace, /synchronizeFromPrimary/);
+	assert.match(workspace, /entries: \[[\s\S]*binding\.menu[\s\S]*binding\.linkMenu/);
+	assert.match(workspace, /linkableControlSources\(controls\)\.length > 0/);
+	assert.match(workspace, /initialFocus: \(\) => syncButton\.disabled \? closeButton : syncButton/);
+	assert.match(workspace, /installLinkedSeedQueueLifecycle/);
+	assert.match(workspace, /synchronizeLinkedBindingSets\(model, \(binding\) => controlProviders\.resolve\(binding, nodes\), \{ kind: "seed", transaction: false \}\)/);
+	assert.match(workspace, /function createBindingDialog/);
+	assert.match(workspace, /closeBindingDialogs\(element\)/);
+	assert.match(ui, /returnFocus = null/);
+	assert.match(workspace, /function controlBindingErrorDetail/);
+	assert.match(ui, /initialFocus = null/);
+	assert.match(components, /aa-control-card-binding-count/);
+	assert.match(theme, /\.aa-control-card-binding-count/);
+	assert.match(workspaceControls, /if \(onWriteError\) onWriteError\(error\)/);
+});
+
 test("header-only controls use a separate title row and value row", () => {
 	assert.match(numericControl, /headerOnly: !hasRange/);
 	assert.match(components, /control\?\.dataset\?\.headerOnly === "true"/);
@@ -530,7 +558,7 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.match(components, /event\.key === "Escape"/);
 	assert.match(components, /queueMicrotask/);
 	assert.match(workspace, /workspaceViewState = \{/);
-	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false, selectedItemIds: new Set\(\)/);
+	assert.match(workspace, /dashboard: \{ query: "", searchOpen: false, focusSearch: false, focusHost: null, selectedItemIds: new Set\(\)/);
 	assert.match(workspace, /viewState\.searchOpen = open; viewState\.focusSearch = open/);
 	assert.doesNotMatch(workspace, /if \(!open\) viewState\.query = ""/);
 	assert.doesNotMatch(workspace, /container\._aaalice(?:Dashboard|Library)(?:Query|SearchOpen|SearchShouldFocus)/);
@@ -594,9 +622,11 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /onReorderPage\?\.\(entry\.id, target\.id\)/);
 	assert.match(workspace, /onSelectPage: selectPage/);
 	assert.match(workspace, /onReorderPage: reorderPage/);
-	assert.match(workspace, /try \{ resolved = resolve\(item\.binding\); \}/);
+	assert.match(workspace, /try \{ resolved = resolveControlBindingSet\(item, resolve\); \}/);
 	assert.match(workspace, /flushActiveDashboardPresetOnSave\(\)/);
-	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex \+ 1\]\?\.id/);
+	assert.match(workspace, /const currentIndex = model\.pages\.findIndex/);
+	assert.match(workspace, /model\.pages\[currentIndex \+ direction\]/);
+	assert.match(workspace, /source: "boundary", model/);
 	assert.match(components, /aria-current/);
 	assert.match(components, /ArrowUp/);
 	assert.doesNotMatch(components, /if \(!editMode \|\| !event\.altKey/);
@@ -614,7 +644,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /\.aa-workspace-tabs\[data-value="library"\]/);
 	assert.match(theme, /\.aa-workspace-tabs \{[^}]*display: grid;[^}]*overflow: hidden;/);
 	assert.match(theme, /transform \.2s cubic-bezier/);
-	assert.doesNotMatch(workspace.match(/function renderWorkspace[\s\S]*?\n}/)?.[0] || "", /scheduleRender/);
+	assert.match(workspace, /onTabChange: \(value\) => \{ cancelAllDashboardBoundaryPaging\(\); activeWorkspace = value; scheduleRender\(\); \}/);
 	assert.doesNotMatch(components, /aa-control-card-indicator/);
 	assert.match(theme, /\.aa-dashboard-page-menu__row\.is-active/);
 	assert.match(theme, /\.aa-dashboard-page-menu__index/);
@@ -625,20 +655,69 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /backdrop-filter: blur\(12px\)/);
 	assert.match(workspace, /initialEdge: detail\.source === "boundary" && direction === "backward" \? "bottom" : "top"/);
 	assert.match(workspace, /aa-dashboard-scroll\$\{pageTransitionClass\}/);
-	assert.match(dashboardInteractions, /PAGE_GESTURE_SETTLE_DELAY = 80/);
+	assert.match(dashboardInteractions, /function classifyWheelInput/);
+	assert.match(dashboardInteractions, /function hasLegacyWheelDetent/);
+	assert.match(dashboardInteractions, /event\.wheelDeltaY \?\? event\.wheelDelta/);
+	assert.match(dashboardInteractions, /pendingSteps/);
+	assert.match(dashboardInteractions, /awaitingPageId/);
 	assert.match(dashboardInteractions, /export function bindDashboardBoundaryPaging/);
-	assert.match(dashboardInteractions, /isEnabled = \(\) => true/);
+	assert.match(dashboardInteractions, /export function cancelDashboardBoundaryPaging/);
+	assert.match(dashboardInteractions, /export function destroyDashboardBoundaryPaging/);
+	assert.match(dashboardInteractions, /function hasScrollableDescendant/);
+	assert.match(dashboardInteractions, /clearPostScrollCheck\(binding\)/);
+	assert.match(dashboardInteractions, /!binding\.eventTarget\.isConnected/);
 	assert.match(dashboardInteractions, /event\.defaultPrevented/);
+	assert.match(dashboardInteractions, /event\.metaKey/);
 	assert.match(dashboardInteractions, /direction > 0 \? scroller\.scrollTop >= maxScrollTop - 1 : scroller\.scrollTop <= 1/);
-	assert.match(workspace, /isEnabled: \(\) => !viewState\.searchOpen && !scroll\.querySelector\("\.aa-dashboard-grid-v2\.is-dragging"\)/);
-	assert.match(workspace, /canAdvance: \(\) => activePageIndex >= 0/);
-	assert.match(workspace, /canRetreat: \(\) => activePageIndex > 0/);
-	assert.doesNotMatch(workspace, /canAdvance: \(\) => !editMode/);
-	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex \+ 1\]\?\.id, \{ source: "boundary" \}\)/);
-	assert.match(workspace, /selectPage\(model\.pages\[activePageIndex - 1\]\?\.id, \{ source: "boundary" \}\)/);
+	assert.match(workspace, /bindDashboardBoundaryPaging\(pageStage/);
+	assert.match(workspace, /scroller: scroll/);
+	assert.match(workspace, /pageId: page\.id/);
+	assert.match(workspace, /dashboardBoundaryPagingStates = new WeakMap/);
+	assert.match(workspace, /state: boundaryPagingState/);
+	assert.match(workspace, /destroyDashboardBoundaryPagingForRoot/);
+	assert.match(workspace, /container\.addEventListener\("pointerdown", cancelAllDashboardBoundaryPaging, true\)/);
+	assert.match(workspace, /beforeConfigureGraph\(\) \{ closeBindingDialogs\(\); cancelAllDashboardBoundaryPaging\(\); workspaceViewState\.dashboard\.pageTransition = null; \}/);
+	assert.doesNotMatch(workspace, /beforeConfigureGraph\(\)[\s\S]{0,220}queueMicrotask/);
+	assert.match(workspace, /isEnabled: \(\) => activeWorkspace === "dashboard" && isWorkspaceRootInteractive\(host\) && !viewState\.searchOpen/);
+	assert.match(workspace, /requestPage: \(direction\) =>/);
+	assert.doesNotMatch(workspace, /onAdvance: \(\) => selectPage\(model\.pages\[activePageIndex/);
+	assert.doesNotMatch(workspace, /onRetreat: \(\) => selectPage\(model\.pages\[activePageIndex/);
+	assert.match(workspace, /destroy: destroyWorkspaceSidebar/);
+	assert.match(workspace, /workspaceOwnedTrees = new WeakMap/);
+	assert.match(workspace, /workspaceOwnershipObservers = new Map/);
+	assert.match(workspace, /workspaceParentObservers = new Map/);
+	assert.match(workspace, /root\.childElementCount === 1 && root\.firstElementChild === ownedTree/);
+	assert.match(workspace, /root\.checkVisibility && !root\.checkVisibility\(\)/);
+	assert.match(workspace, /else if \(isWorkspaceRootInteractive\(root\)\) renderWorkspace\(root\)/);
+	assert.match(workspace, /if \(!interactive\) \{ wasInteractive = false; suspendWorkspaceRoot\(element\); return; \}/);
+	assert.match(workspace, /if \(!wasInteractive\) \{ wasInteractive = true; lastColumnBucket = next; scheduleRender\(\)/);
+	assert.match(workspace, /focusHost === host && isWorkspaceRootInteractive\(host\)/);
+	assert.match(workspace, /workspacePinTooltips = new WeakMap\(\)/);
+	assert.doesNotMatch(workspace, /mounted\.delete\(element\);\s*workspacePinTooltip\.hide\(\)/);
+	assert.match(workspace, /ownershipObserver\.observe\(element, \{ childList: true \}\)/);
+	assert.match(workspace, /parentObserver\.observe\(element\.parentElement, \{ childList: true \}\)/);
 	assert.match(workspace, /captureDashboardPageSnapshot/);
+	assert.match(workspace, /captureDashboardPageSnapshots/);
+	assert.match(workspace, /pageTransition\?\.snapshots\?\.get\(host\)/);
+	assert.match(workspace, /snapshotField\.type !== "file"/);
+	assert.match(workspace, /onReorderStart: cancelAllDashboardBoundaryPaging/);
+	assert.match(components, /onReorderStart\?\.\(\)/);
+	assert.match(workspace, /if \(detail\.source !== "boundary"\) cancelAllDashboardBoundaryPaging\(\)/);
+	assert.match(workspace, /cancelAllDashboardBoundaryPaging\(\); activeWorkspace = view/);
+	assert.match(workspace, /closeWorkspaceTransientSurfaces\(element\);/);
+	assert.match(workspace, /closeWorkspaceTransientSurfaces\(ownedTree\)/);
+	assert.match(workspace, /function suspendWorkspaceRoot\(element\)/);
+	assert.match(workspace, /destroySharedControls\(ownedTree\)/);
+	assert.match(ui, /export function closeAnchoredPopoversWithin/);
+	assert.match(ui, /export function closeContextMenuWithin/);
+	assert.match(ui, /export function closeTooltipWithin/);
+	assert.match(ui, /isOwnedBy: \(container\)/);
+	assert.match(workspace, /if \(!interactive\)/);
+	assert.match(ui, /if \(closed\) return;\s*reposition\(\)/);
 	assert.match(workspace, /\.aa-dashboard-scroll:not\(\.is-page-leaving\)/);
 	assert.match(workspace, /pageTransition\?\.initialEdge === "bottom"/);
+	assert.match(workspace, /setScrollTopImmediately\(scroll, scroll\.scrollHeight - scroll\.clientHeight\)/);
+	assert.match(workspace, /if \(previousTransition && id === fromPageId\)/);
 	assert.doesNotMatch(workspace, /showTemporarily|pageRail/);
 	assert.match(workspace, /aa-dashboard-page-stage/);
 	assert.match(theme, /\.aa-dashboard-page-stage \{[^}]*overflow: hidden;/);
@@ -828,6 +907,10 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 
 test("detached context menus retain theme tokens and visible hover feedback", () => {
 	assert.match(uiStyles, /\.aa-ui-popover,\s*\n\.aa-ui-context-menu,\s*\n\.aa-ui-tooltip/);
+	assert.match(ui, /ownerElement: explicitOwnerElement = null/);
+	assert.match(ui, /explicitOwnerElement instanceof Element/);
+	assert.match(workspace, /ownerElement: host/);
+	assert.match(workspace, /ownerElement: event\.currentTarget/);
 	assert.match(uiStyles, /\.aa-ui-context-menu__item\.aa-ui-button:hover:not\(:disabled\)[^}]*border-color: transparent;[^}]*background: color-mix\(in srgb, var\(--aa-ui-accent\) 14%, var\(--aa-ui-control\)\)[^}]*box-shadow: none/);
 });
 
@@ -867,7 +950,7 @@ test("workspace scrolling closes transient surfaces until motion settles", () =>
 	assert.doesNotMatch(uiSource, /preventDefault\(\).*SCROLL_INTERACTION/s);
 });
 
-test("Dashboard V3 replaces mandatory sections with optional grid groups", () => {
+test("Dashboard V4 replaces mandatory sections with optional grid groups", () => {
 	assert.match(workspace, /createGroup\(current, page\.id/);
 	assert.match(providers, /partitionParameterSections\(ensureParameters\(node\)\)/);
 	assert.match(providers, /scopeId: `separator:\$\{section\.separator\.id\}`/);
@@ -912,7 +995,7 @@ test("Dashboard V3 replaces mandatory sections with optional grid groups", () =>
 });
 
 test("Dashboard footprints use bounded integer spans rather than a discrete size catalog", () => {
-	assert.match(dashboardModel, /export const DASHBOARD_VERSION = 3/);
+	assert.match(dashboardModel, /export const DASHBOARD_VERSION = 4/);
 	assert.match(providers, /rowSpan: recommendedControlRowSpan/);
 	assert.match(dashboardSizing, /DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN = DASHBOARD_DEFAULT_CONTROL_ROW_SPAN/);
 	assert.doesNotMatch(dashboardSizing, /DASHBOARD_SIZE_CATALOG|DASHBOARD_CONTROL_(?:COLUMN|ROW)_SPANS|dashboardSizeToken/);
@@ -975,7 +1058,7 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(numericControl, /if \(valueButton\.isConnected\) return;/);
 });
 
-test("Dashboard V3 layout editing uses transient integer-grid gestures and one command commit", () => {
+test("Dashboard V4 layout editing uses transient integer-grid gestures and one command commit", () => {
 	assert.match(dashboardInteractions, /pointerdown/);
 	assert.match(dashboardInteractions, /setPointerCapture/);
 	assert.match(dashboardInteractions, /translate3d/);
@@ -1031,8 +1114,9 @@ test("Dashboard V3 layout editing uses transient integer-grid gestures and one c
 	assert.doesNotMatch(theme, /\.is-layout-editing \.aa-dashboard-scroll \{ padding-bottom: 72px; \}/);
 	assert.match(theme, /\.aa-dashboard-scroll \{[^}]*display: flex;[^}]*flex-direction: column;/);
 	assert.match(theme, /\.aa-dashboard-grid-v2 \{[^}]*flex: 1;/);
-		assert.match(theme, /\.aa-dashboard-grid-v2\.is-editing \{[^}]*min-height: 100%;/);
-		assert.match(workspace, /aa-dashboard-separator-label/);
+	assert.match(theme, /\.aa-dashboard-grid-v2\.is-editing \{[^}]*min-height: 100%;[^}]*flex: none;[^}]*radial-gradient[^}]*background-size: 12px 12px;/);
+	assert.doesNotMatch(dashboardComponents, /scrollHeight|offsetHeight|clientHeight|ResizeObserver|style\.height/);
+	assert.match(workspace, /aa-dashboard-separator-label/);
 		assert.match(workspace, /aa-section-rule aa-section-rule--start/);
 		assert.match(workspace, /aa-section-rule aa-section-rule--end/);
 		assert.match(workspace, /role: "separator"/);
@@ -1192,14 +1276,15 @@ test("library rows keep a stable thumbnail column and distinguish entry actions"
 	assert.match(workspace, /aa-library-entry-preview/);
 	assert.doesNotMatch(workspace, /checkbox\.type = "checkbox"/);
 	assert.match(workspace, /mountVirtualList/);
-	assert.match(workspace, /closeImagePreview/);
+	assert.match(workspace, /onBeforeRender: \(\) => closeTooltipWithin\(list\)/);
 	assert.match(workspace, /className: "aa-library-entry-edit"/);
 	assert.match(workspace, /className: "aa-library-entry-delete"/);
 	assert.match(workspace, /el\("label", \{ className: "aa-library-entry-copy"/);
-	assert.match(workspace, /for: `aa-library-entry-\$\{entry\.id\}`/);
+	assert.match(workspace, /const inputId = `aa-library-entry-\$\{workspaceRootId\(host\)\}-\$\{entry\.id\}`/);
+	assert.match(workspace, /for: inputId/);
 	assert.match(workspace, /preview\.input\.click\(\)/);
 	assert.match(workspace, /bindPromptEntryDetails\(copy, entry\)/);
-	assert.match(workspace, /closePromptEntryDetails\(\)/);
+	assert.doesNotMatch(workspace, /closePromptEntryDetails\(\)/);
 	assert.match(theme, /\.aa-library-entry \{[^}]*grid-template-columns: 48px minmax\(0, 1fr\) auto/);
 	assert.match(theme, /\.aa-library-entry\.is-selected/);
 	assert.match(uiStyles, /\.aa-image-preview-selectable:has\(input:checked\) \.aa-image-preview-selection/);
@@ -1349,7 +1434,8 @@ test("sidebar tab remounts triggered by reactive value writes never interrupt an
 	assert.match(workspaceControls, /export function hasActiveControlGestures/);
 	assert.match(workspace, /renderedWorkspaceTabs\.has\(element\)/);
 	assert.match(workspace, /if \(!hasActiveControlGestures\(\)\) scheduleRender\(\);/);
-	assert.match(workspace, /renderedWorkspaceTabs\.add\(element\); renderWorkspace\(element\);/);
+	assert.match(workspace, /if \(isWorkspaceRootVisible\(element\)\) renderWorkspace\(element\)/);
+	assert.match(workspace, /aa-workspace-placeholder/);
 });
 
 test("source control titles follow the current node or parameter name", () => {

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+	DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN,
 	DASHBOARD_DEFAULT_CONTROL_ROW_SPAN,
 	dashboardCardHeight,
 	dashboardContentRowSpan,
@@ -14,7 +15,9 @@ import {
 	snapDashboardRowSpan,
 } from "../js/lib/dashboard_sizing.js";
 
-test("normalization preserves arbitrary integer spans inside Dashboard V3 bounds", () => {
+test("normalization preserves arbitrary integer spans inside Dashboard V4 bounds", () => {
+	assert.equal(normalizeDashboardColumnSpan(null), DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN);
+	assert.equal(normalizeDashboardColumnSpan(undefined), DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN);
 	assert.equal(normalizeDashboardColumnSpan(1), 3);
 	assert.equal(normalizeDashboardColumnSpan(5), 5);
 	assert.equal(normalizeDashboardColumnSpan(7), 7);

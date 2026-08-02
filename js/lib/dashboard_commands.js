@@ -1,6 +1,6 @@
-/** Immutable Dashboard V3 commands composed from pure integer-grid helpers. */
+/** Immutable Dashboard V4 commands composed from pure integer-grid helpers. */
 
-import { createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
+import { DashboardModelError, bindingKey, controlItemBindings, createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeBinding, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { compactScope, firstAvailableLayout, groupMemberColumnSpan, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, snapDashboardColumnSpan, snapDashboardRowSpan } from "./dashboard_sizing.js";
 import { planSourceGroupSync } from "./dashboard_source_sync.js";
@@ -165,6 +165,44 @@ export function duplicateItems(model, pageId, itemIds) {
 
 export function updateItem(model, itemId, callback) {
 	const next = copy(model); const { item } = findItem(next, itemId); if (item) callback(item); return normalizeDashboard(next);
+}
+
+function requireControlItem(model, itemId) {
+	const { item } = findItem(model, itemId);
+	if (item?.kind !== "control") throw new Error("Dashboard target control item is missing");
+	return item;
+}
+
+export function addLinkedBinding(model, itemId, binding) {
+	const next = copy(model); const item = requireControlItem(next, itemId); const normalized = normalizeBinding(binding);
+	const setSignature = (candidate) => JSON.stringify(controlItemBindings(candidate).map(bindingKey).sort());
+	const nextSignature = setSignature({ binding: item.binding, linkedBindings: [...(item.linkedBindings || []), normalized] });
+	for (const page of next.pages) for (const candidate of page.items) {
+		if (candidate.kind !== "control" || candidate.id === itemId || !controlItemBindings(candidate).some((entry) => bindingKey(entry) === bindingKey(normalized))) continue;
+		if (setSignature(candidate) !== nextSignature) throw new DashboardModelError("A linked parameter already belongs to another sidebar binding set", "binding-overlap");
+	}
+	item.linkedBindings = [...(item.linkedBindings || []), normalized];
+	return normalizeDashboard(next);
+}
+
+export function removeLinkedBinding(model, itemId, binding) {
+	const next = copy(model); const item = requireControlItem(next, itemId);
+	const key = bindingKey(normalizeBinding(binding));
+	const linkedBindings = (item.linkedBindings || []).filter((candidate) => bindingKey(candidate) !== key);
+	if (linkedBindings.length) item.linkedBindings = linkedBindings;
+	else delete item.linkedBindings;
+	return normalizeDashboard(next);
+}
+
+export function replacePrimaryBinding(model, itemId, binding) {
+	const next = copy(model); const item = requireControlItem(next, itemId);
+	const primaryBinding = normalizeBinding(binding); const key = bindingKey(primaryBinding);
+	const linkedBindings = (item.linkedBindings || []).filter((candidate) => bindingKey(candidate) !== key);
+	item.binding = primaryBinding;
+	if (linkedBindings.length) item.linkedBindings = linkedBindings;
+	else delete item.linkedBindings;
+	delete item.groupSource;
+	return normalizeDashboard(next);
 }
 
 export function moveItems(model, itemIds, targetPageId, { groupId = null, row = null, column = 0 } = {}) {

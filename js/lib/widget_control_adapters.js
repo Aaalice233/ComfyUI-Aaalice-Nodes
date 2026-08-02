@@ -7,7 +7,8 @@ import { DASHBOARD_MARKDOWN_ROW_SPAN } from "./dashboard_sizing.js";
 const adapters = [];
 
 const SIMPLE_NATIVE_WIDGETS = Object.freeze({
-	int: { kind: "numeric", valueType: "number" }, float: { kind: "numeric", valueType: "number" }, number: { kind: "numeric", valueType: "number" },
+	int: { kind: "numeric", valueType: "number", numericDomain: "integer" }, float: { kind: "numeric", valueType: "number", numericDomain: "float" },
+	number: { kind: "numeric", valueType: "number", numericDomain: null }, slider: { kind: "numeric", valueType: "number", numericDomain: null }, knob: { kind: "numeric", valueType: "number", numericDomain: null }, gradientslider: { kind: "numeric", valueType: "number", numericDomain: "float" },
 	boolean: { kind: "boolean", valueType: "boolean" }, toggle: { kind: "boolean", valueType: "boolean" },
 	string: { kind: "text", valueType: "string" }, text: { kind: "text", valueType: "string" }, customtext: { kind: "text", valueType: "string" },
 	combo: { kind: "choice", valueType: "string" },
@@ -64,7 +65,32 @@ function supportsNativeFallback(node, promoted) {
 	return (node?.widgets || []).every((widget) => isInactiveNativeWidget(node, widget) || Boolean(simpleNativeWidgetDefinition(widget)));
 }
 
-function optionValues(options = {}) { return Array.isArray(options.values) ? options.values : Array.isArray(options.options) ? options.options : []; }
+function optionValues(options = {}, context = null) {
+	let source = options.values ?? options.options ?? [];
+	if (typeof source === "function") source = source(context?.widget, context?.node) || [];
+	if (!Array.isArray(source) && source && typeof source === "object") return Object.entries(source).map(([value, label]) => ({ value, label: String(label) }));
+	return Array.isArray(source) ? source : [];
+}
+
+function normalizedChoiceOptions(options, context) {
+	return { ...options, values: optionValues(options, context) };
+}
+
+function nativeWidgetCanvas(node) { return node?.graph?.list_of_graphcanvas?.[0] || null; }
+
+function setNativeWidgetValue(node, widget, next) {
+	const canvas = nativeWidgetCanvas(node);
+	if (typeof widget?.setValue === "function" && canvas) return widget.setValue(next, { node, canvas });
+	const oldValue = widget.value;
+	if (Object.is(oldValue, next)) return;
+	const value = widget.type === "number" || typeof oldValue === "number" ? Number(next) : next;
+	widget.value = value;
+	if (widget.options?.property && node?.properties?.[widget.options.property] !== undefined) node.setProperty?.(widget.options.property, value);
+	const result = widget.callback?.(value, canvas, node, canvas?.graph_mouse, undefined);
+	node?.onWidgetChanged?.(widget.name || "", value, oldValue, widget);
+	node?.graph?.incrementVersion?.();
+	return result;
+}
 
 // ComfyUI 前端按旧约定把 widget 的 step 放大 10 倍存储（deprecated），step2 才是真实步长。
 function realWidgetStep(options = {}) {
@@ -100,6 +126,19 @@ function seedBehaviorValues(widget) {
 	return values?.map((value) => String(typeof value === "object" ? value.value ?? value.label : value)) || SEED_AFTER_GENERATE_MODES;
 }
 
+function nativeNumericDomain(node, widget, definition) {
+	if (definition?.numericDomain) return definition.numericDomain;
+	const owner = resolveWidgetDefinitionOwner(node, widget);
+	const inputs = { ...(owner.node?.constructor?.nodeData?.input?.required || {}), ...(owner.node?.constructor?.nodeData?.input?.optional || {}) };
+	const input = inputs?.[owner.widget?.name];
+	const type = String(Array.isArray(input) ? input[0] : input?.type || "").toUpperCase();
+	if (type === "INT") return "integer";
+	if (type === "FLOAT") return "float";
+	if (widgetType(owner.widget) === "gradientslider" || Object.prototype.hasOwnProperty.call(owner.widget?.options || {}, "round")) return "float";
+	if (Number(owner.widget?.options?.precision) === 0 && Number.isInteger(Number(owner.widget?.options?.step2))) return "integer";
+	return null;
+}
+
 export function adaptWidgetControl(node, widget, { promoted = false, adapterId = null } = {}) {
 	const context = { node, widget, promoted };
 	const adapter = adapters.find((candidate) => (!adapterId || candidate.id === adapterId) && candidate.matches(context));
@@ -107,21 +146,27 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	const described = adapter.describe(context);
 	if (!described) return null;
 	if (typeof described !== "object" || typeof described.then === "function") throw new TypeError(`Widget control adapter ${adapter.id} must return a synchronous descriptor`);
-	const value = typeof described.getValue === "function" ? described.getValue(context) : ("value" in described ? described.value : widget.value);
+	const currentValue = () => typeof described.getValue === "function" ? described.getValue(context) : ("value" in described ? described.value : widget.value);
+	const value = currentValue();
 	const kind = described.kind || null;
 	const valueType = described.valueType || controlValueType(value) || KIND_VALUE_TYPES[kind] || null;
 	if (!valueType) return null;
 	if (typeof valueType !== "string") throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid valueType`);
 	if (kind != null && (typeof kind !== "string" || !kind)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid kind`);
+	const numericDomain = described.numericDomain ?? null;
+	if (numericDomain != null && !["integer", "float"].includes(numericDomain)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid numericDomain`);
 	const controlId = String(described.controlId || widget.name || "");
 	if (!controlId) throw new TypeError(`Widget control adapter ${adapter.id} returned an empty controlId`);
-	const options = described.options || widget.options || {};
+	const rawOptions = described.options || widget.options || {};
+	const options = kind === "choice" ? normalizedChoiceOptions(rawOptions, context) : rawOptions;
 	const availabilitySource = typeof described.getAvailability === "function" ? described.getAvailability(context) : described.availability;
 	const availability = normalizeAvailability(availabilitySource, { kind, currentValue: value, options });
 	const presetHooks = ["readPresetValue", "validatePresetValue", "applyPresetValue"]
 		.map((hook) => typeof described[hook] === "function" || typeof adapter[hook] === "function");
 	if (presetHooks.some(Boolean) && !presetHooks.every(Boolean)) throw new TypeError(`Widget control adapter ${adapter.id} must provide the complete preset codec`);
 	const hasCustomPresetCodec = presetHooks.every(Boolean);
+	const supportsSeedBehavior = kind === "seed" && hasCustomPresetCodec && (typeof described.setSeedBehavior === "function" || typeof adapter.setSeedBehavior === "function");
+	const seedBehaviors = kind === "seed" ? optionValues({ values: described.seedBehaviors || options.behaviors || [] }).map(String) : [];
 	return {
 		adapterId: adapter.id,
 		controlId,
@@ -129,9 +174,13 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 		value,
 		valueType,
 		kind,
+		numericDomain,
 		options,
 		availability,
 		presettable: described.presettable !== false,
+		linkable: described.linkable === true || adapter.linkable === true,
+		supportsSeedBehavior,
+		seedBehaviors,
 		columnSpan: Number.isFinite(Number(described.columnSpan)) ? Number(described.columnSpan) : null,
 		rowSpan: Number.isFinite(Number(described.rowSpan)) ? Number(described.rowSpan) : null,
 		minRowSpan: Number.isFinite(Number(described.minRowSpan)) ? Number(described.minRowSpan) : null,
@@ -141,17 +190,23 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 		setValue(next) {
 			if (typeof described.setValue === "function") return described.setValue(next, context);
 			if (typeof adapter.setValue === "function") return adapter.setValue(next, context);
-			widget.value = next; widget.callback?.(next);
+			return setNativeWidgetValue(node, widget, next);
 		},
 		readPresetValue() {
 			if (typeof described.readPresetValue === "function") return described.readPresetValue(context);
 			if (typeof adapter.readPresetValue === "function") return adapter.readPresetValue(context);
-			return value;
+			return currentValue();
 		},
 		validatePresetValue(entry) {
 			if (typeof described.validatePresetValue === "function") return described.validatePresetValue(entry, context);
 			if (typeof adapter.validatePresetValue === "function") return adapter.validatePresetValue(entry, context);
 			return true;
+		},
+		validateLinkedValue(next) {
+			if (typeof described.validateLinkedValue === "function") return described.validateLinkedValue(next, context);
+			if (typeof adapter.validateLinkedValue === "function") return adapter.validateLinkedValue(next, context);
+			if (["image", "image-choice"].includes(kind) && valueType === "string") return typeof next === "string" ? true : "invalid-string";
+			return this.validatePresetValue({ valueType, payload: next });
 		},
 		applyPresetValue(entry) {
 			if (typeof described.applyPresetValue === "function") return described.applyPresetValue(entry, context);
@@ -192,20 +247,32 @@ function bindImageCompareInvalidation(node, widget) {
 
 // 图像上传 combo 在新前端只把标记留在节点定义的 input spec 里，旧路径则落在 widget.options 上，两处都要认。
 function resolveWidgetDefinitionOwner(node, widget) {
-	let currentNode = node;
-	let currentWidget = widget;
-	const visited = new Set();
-	while (isPromotedWidget(currentWidget) && currentNode?.isSubgraphNode?.()) {
-		const key = `${currentWidget.sourceNodeId}:${currentWidget.sourceWidgetName}`;
+	if (!isPromotedWidget(widget) || !node?.isSubgraphNode?.()) return { node, widget };
+	let currentHost = node;
+	let currentNodeId = widget.sourceNodeId;
+	let currentWidgetName = widget.sourceWidgetName;
+	let currentSourceNodeId = widget.disambiguatingSourceNodeId;
+	const hostIds = new WeakMap(); const visited = new Set(); let nextHostId = 0;
+	for (let depth = 0; depth < 100; depth++) {
+		if (!hostIds.has(currentHost)) hostIds.set(currentHost, nextHostId++);
+		const key = `${hostIds.get(currentHost)}:${currentNodeId}:${currentWidgetName}:${currentSourceNodeId || ""}`;
 		if (visited.has(key)) break;
 		visited.add(key);
-		const interiorNode = currentNode.subgraph?.getNodeById?.(currentWidget.sourceNodeId);
-		const interiorWidget = (interiorNode?.widgets || []).find((candidate) => candidate?.name === currentWidget.sourceWidgetName);
-		if (!interiorNode || !interiorWidget) break;
-		currentNode = interiorNode;
-		currentWidget = interiorWidget;
+		const interiorNode = currentHost.subgraph?.getNodeById?.(currentNodeId);
+		if (!interiorNode) break;
+		const interiorWidget = currentSourceNodeId
+			? (interiorNode.widgets || []).find((candidate) => isPromotedWidget(candidate) && (candidate.disambiguatingSourceNodeId ?? candidate.sourceNodeId) === currentSourceNodeId && (candidate.sourceWidgetName === currentWidgetName || candidate.name === currentWidgetName))
+			: (interiorNode.widgets || []).find((candidate) => candidate?.name === currentWidgetName);
+		if (!interiorWidget) break;
+		if (!isPromotedWidget(interiorWidget)) return { node: interiorNode, widget: interiorWidget };
+		const nextHost = interiorWidget.node?.isSubgraphNode?.() ? interiorWidget.node : interiorNode?.isSubgraphNode?.() ? interiorNode : null;
+		if (!nextHost) break;
+		currentHost = nextHost;
+		currentNodeId = interiorWidget.sourceNodeId;
+		currentWidgetName = interiorWidget.sourceWidgetName;
+		currentSourceNodeId = undefined;
 	}
-	return { node: currentNode, widget: currentWidget };
+	return { node, widget };
 }
 
 function imageUploadComboOptions(node, widget) {
@@ -244,6 +311,7 @@ registerWidgetControlAdapter({
 registerWidgetControlAdapter({
 	id: "comfy-image-combo",
 	priority: 100,
+	linkable: true,
 	matches({ node, widget }) {
 		return isImageUploadCombo(node, widget);
 	},
@@ -295,12 +363,14 @@ function isPromotedWidget(widget) {
 registerWidgetControlAdapter({
 	id: "comfy-native-widget",
 	priority: -1000,
+	linkable: true,
 	matches({ node, widget, promoted }) {
 		return supportsNativeFallback(node, promoted) && Boolean(simpleNativeWidgetDefinition(widget, { promoted }));
 	},
 	describe({ node, widget, promoted }) {
 		const definition = simpleNativeWidgetDefinition(widget, { promoted });
-		const seedMode = linkedSeedModeWidget(node, widget);
+		const numericDomain = nativeNumericDomain(node, widget, definition);
+		const seedMode = numericDomain !== "float" ? linkedSeedModeWidget(node, widget) : null;
 		const kind = seedMode ? "seed" : definition.kind;
 		const options = { ...(widget.options || {}) };
 		if (kind === "numeric" || kind === "seed") options.step = realWidgetStep(widget.options);
@@ -308,21 +378,24 @@ registerWidgetControlAdapter({
 			controlId: widget.name,
 			label: widget.label || widget.name,
 			value: widget.value,
-			valueType: definition.valueType,
+			valueType: kind === "choice" ? controlValueType(widget.value) || definition.valueType : definition.valueType,
 			kind,
-			options: { ...options, ...(seedMode ? { control_after_generate: seedMode.value } : {}) },
+			numericDomain: seedMode ? "integer" : numericDomain,
+			options: { ...options, ...(seedMode ? { control_after_generate: seedMode.value, behaviors: seedBehaviorValues(seedMode) } : {}) },
+			...(seedMode ? { seedBehaviors: seedBehaviorValues(seedMode) } : {}),
 			...(seedMode ? {
 				readPresetValue: () => createSeedPresetPayload(widget.value, seedMode.value),
 				validatePresetValue: (entry) => validateSeedPresetEntry(entry, { ...(widget.options || {}), behaviors: seedBehaviorValues(seedMode) }),
 				applyPresetValue: (entry) => {
 					const decoded = decodeSeedPresetEntry(entry, seedMode.value);
-					widget.value = decoded.value; widget.callback?.(widget.value);
-					if (decoded.hasBehavior) { seedMode.value = decoded.behavior; seedMode.callback?.(seedMode.value); }
+					const valueResult = setNativeWidgetValue(node, widget, decoded.value);
+					if (valueResult === false || valueResult?.ok === false || valueResult?.then) return valueResult;
+					if (decoded.hasBehavior) return setNativeWidgetValue(node, seedMode, decoded.behavior);
+					return valueResult;
 				},
 				setSeedBehavior: (behavior) => {
 					if (!seedBehaviorValues(seedMode).includes(behavior)) throw new TypeError(`Seed behavior is not supported: ${behavior}`);
-					seedMode.value = behavior;
-					seedMode.callback?.(seedMode.value);
+					return setNativeWidgetValue(node, seedMode, behavior);
 				},
 			} : {}),
 		};

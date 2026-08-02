@@ -94,7 +94,7 @@ export function createDashboardComponentPicker({ options = [], labels = {}, onSe
 	return { root, trigger, close: () => popover?.close() };
 }
 
-export function createDashboardPageHeading({ page, pages = [], index = 0, labels = {}, className = "", onRename, onSelectPage, onReorderPage } = {}) {
+export function createDashboardPageHeading({ page, pages = [], index = 0, labels = {}, className = "", onRename, onSelectPage, onReorderStart, onReorderPage } = {}) {
 	const renameHint = labels.renameHint || "Double-click to rename";
 	const renameLabel = labels.renamePage || "Rename page";
 	const title = el("h2", {
@@ -159,7 +159,7 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 				if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
 				event.preventDefault();
 				const target = pages[entryIndex + (event.key === "ArrowUp" ? -1 : 1)];
-				if (target) onReorderPage?.(entry.id, target.id);
+				if (target) { onReorderStart?.(); onReorderPage?.(entry.id, target.id); }
 			});
 			rows.push(row); list.append(row);
 		});
@@ -174,6 +174,7 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 		list.addEventListener("dragstart", (event) => {
 			const handle = event.target.closest(".aa-dashboard-page-menu__drag-handle");
 			if (!handle) return;
+			onReorderStart?.();
 			const row = handle.closest(".aa-dashboard-page-menu__row");
 			if (row) { event.dataTransfer?.setData("application/x-aaalice-page", row.dataset.pageId); event.dataTransfer.effectAllowed = "move"; row.classList.add("is-dragging"); }
 		});
@@ -364,10 +365,10 @@ export function createCollapsibleSearch({ open = false, value = "", label, close
 	return { toggle, panel, input };
 }
 
-export function createControlCard({ item, title, control, status = "ok", description = "", editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onGroup, onUngroup, onRenameTitle }) {
+export function createControlCard({ item, title, control, status = "ok", description = "", linkedCount = 0, mixed = false, editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onGroup, onUngroup, onRenameTitle }) {
 	const headerOnly = control?.dataset?.headerOnly === "true";
 	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
-	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
+	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}${linkedCount ? " has-linked-bindings" : ""}${mixed ? " has-mixed-bindings" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
 	if (control?.dataset?.controlKind) root.dataset.controlKind = control.dataset.controlKind;
 	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
 	root.dataset.dashboardMinRowSpan = String(control?.dataset?.dashboardMinRowSpan || (headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN));
@@ -382,10 +383,18 @@ export function createControlCard({ item, title, control, status = "ok", descrip
 	}
 	header.append(titleElement);
 	if (description) attachDescriptionTooltip(titleElement, description);
+	if (linkedCount) {
+		const total = linkedCount + 1;
+		const linkedLabel = String(labels.linkedParameters || "Controls {count} parameters").replace("{count}", String(total));
+		const linkedStatus = mixed ? `${linkedLabel} · ${labels.mixedValues || "Values differ"}` : linkedLabel;
+		const linkedBadge = el("span", { className: `aa-control-card-binding-count${mixed ? " is-mixed" : ""}`, attrs: { "aria-label": linkedStatus }, children: [icon("link"), el("span", null, String(total))] });
+		attachDescriptionTooltip(linkedBadge, linkedStatus);
+		header.append(linkedBadge);
+	}
 	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);
 	root.append(header, control || el("p", "aa-control-card-error", status === "incompatible" ? (labels.incompatible || "Incompatible control") : (labels.missing || "Missing binding")));
 	if (editMode && item.kind === "control") root.append(el("button", { className: "aa-dashboard-resize-handle", attrs: { type: "button", "data-dashboard-resize-handle": "true", "aria-label": labels.resizeCard || "Resize card" } }));
-	const openMenu = (x, y) => onManage?.({ x, y, editMode, onMove, onRemove, onToggleSpan, onGroup, onUngroup });
+	const openMenu = (x, y) => onManage?.({ x, y, ownerElement: root, editMode, onMove, onRemove, onToggleSpan, onGroup, onUngroup });
 	root.addEventListener("contextmenu", (event) => {
 		const input = event.target.closest?.("input, textarea, [contenteditable='true']");
 		const preservesNativeEditing = input?.matches?.("textarea, [contenteditable='true'], input:not([type='range']):not([type='checkbox']):not([type='radio']):not([type='button']):not([type='file'])");

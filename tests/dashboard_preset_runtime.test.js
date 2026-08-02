@@ -6,7 +6,7 @@ import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardV
 import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "../js/lib/seed_preset.js";
 
 const binding = (controlId, valueType = "number") => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType });
-const dashboard = (...bindings) => ({ version: 3, pages: [
+const dashboard = (...bindings) => ({ version: 4, pages: [
 	{ id: "page-a", name: "A", gridColumns: 12, tone: null, groups: [], items: bindings.map((item, index) => ({ id: `item-${index}`, kind: "control", binding: item, label: "", groupId: null, layout: { row: index * 13, column: 0, columnSpan: 6, rowSpan: 13 } })) },
 	{ id: "page-b", name: "B", gridColumns: 12, tone: null, groups: [], items: bindings.length ? [{ id: "mirror", kind: "control", binding: bindings[0], label: "", groupId: null, layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 13 } }] : [] },
 ] });
@@ -23,6 +23,53 @@ test("value capture deduplicates mirrored cards and skips unresolved or unset co
 	assert.deepEqual(calls, ["steps", "cfg", "empty"]);
 	assert.deepEqual(result.values, { [bindingKey(steps)]: { valueType: "number", payload: 28 } });
 	assert.deepEqual(result.bindings.map(({ status }) => status), ["ok", "missing", "unset"]);
+});
+
+test("one V4 card captures its primary and every linked target", () => {
+	const primary = binding("primary"); const linkedA = binding("linked-a"); const linkedB = binding("linked-b");
+	const layout = dashboard(primary); const calls = [];
+	layout.pages[0].items[0].linkedBindings = [linkedA, linkedB];
+	const payloads = { primary: 1, "linked-a": 2, "linked-b": 3 };
+	const result = captureDashboardValues(layout, (candidate) => {
+		calls.push(candidate.controlId);
+		return { status: "ok", readPresetValue: () => payloads[candidate.controlId] };
+	});
+	assert.deepEqual(calls, ["primary", "linked-a", "linked-b"]);
+	assert.deepEqual(result.values, {
+		[bindingKey(primary)]: { valueType: "number", payload: 1 },
+		[bindingKey(linkedA)]: { valueType: "number", payload: 2 },
+		[bindingKey(linkedB)]: { valueType: "number", payload: 3 },
+	});
+	assert.deepEqual(result.bindings.map(({ status }) => status), ["ok", "ok", "ok"]);
+});
+
+test("capture globally deduplicates linked targets in stable layout order", () => {
+	const first = binding("first"); const shared = binding("shared"); const second = binding("second");
+	const layout = dashboard(first, second); const resolves = []; const reads = [];
+	layout.pages[0].items[0].linkedBindings = [shared];
+	layout.pages[0].items[1].linkedBindings = [shared];
+	layout.pages[1].items[0].linkedBindings = [shared];
+	const payloads = { first: 1, shared: 2, second: 3 };
+	const result = captureDashboardValues(layout, (candidate) => {
+		resolves.push(candidate.controlId);
+		return { status: "ok", readPresetValue: () => { reads.push(candidate.controlId); return payloads[candidate.controlId]; } };
+	});
+	assert.deepEqual(resolves, ["first", "shared", "second"]);
+	assert.deepEqual(reads, ["first", "shared", "second"]);
+	assert.deepEqual(Object.keys(result.values), [bindingKey(first), bindingKey(shared), bindingKey(second)]);
+});
+
+test("conflicting value types for one physical binding fail explicitly instead of first-win deduplication", () => {
+	const numeric = binding("shared", "number"); const text = binding("shared", "string");
+	const layout = dashboard(numeric); layout.pages[0].items.push({ id: "conflict", kind: "control", binding: text, label: "", groupId: null, layout: { row: 26, column: 0, columnSpan: 6, rowSpan: 13 } });
+	const captured = captureDashboardValues(layout, () => { throw new Error("conflicting bindings must not resolve"); });
+	assert.equal(captured.values.shared, undefined);
+	assert.equal(captured.bindings.find((entry) => entry.key === bindingKey(numeric)).reason, "conflicting-value-type");
+	const reversed = structuredClone(layout); reversed.pages[0].items.reverse();
+	for (const candidate of [layout, reversed]) {
+		const plan = planDashboardPresetApplication(snapshot(candidate, { [bindingKey(numeric)]: { valueType: "number", payload: 1 } }), () => { throw new Error("conflicting bindings must not resolve"); });
+		assert.equal(plan.issues.find((entry) => entry.key === bindingKey(numeric)).reason, "conflicting-value-type");
+	}
 });
 
 test("layout-only views keep bindings without persisting transient values", () => {
@@ -66,25 +113,58 @@ test("application planning separates ready, absent, incompatible and invalid val
 	assert.deepEqual(plan.issues.map(({ status }) => status), ["invalid", "incompatible", "unused"]);
 });
 
-test("preset application writes each binding once and rolls back an interrupted transaction", () => {
-	const first = binding("first"); const second = binding("second"); const state = { first: 1, second: 2 }; const writes = [];
-	const resolved = (candidate) => ({
-		status: "ok", node: { setDirtyCanvas() {} },
-		readPresetValue: () => state[candidate.controlId], validatePresetValue: () => true,
-		applyPresetValue(entry) {
-			writes.push([candidate.controlId, entry.payload]);
-			if (candidate.controlId === "second" && entry.payload === 20) throw new Error("vendor write failed");
-			state[candidate.controlId] = entry.payload;
-		},
+test("linked targets surface missing and invalid values in application issues", () => {
+	const primary = binding("primary"); const missing = binding("missing"); const invalid = binding("invalid");
+	const layout = dashboard(primary);
+	layout.pages[0].items[0].linkedBindings = [missing, invalid];
+	const preset = snapshot(layout, {
+		[bindingKey(primary)]: { valueType: "number", payload: 10 },
+		[bindingKey(missing)]: { valueType: "number", payload: 20 },
+		[bindingKey(invalid)]: { valueType: "number", payload: 30 },
 	});
-	const preset = snapshot(dashboard(first, second), {
+	const plan = planDashboardPresetApplication(preset, (candidate) => {
+		if (candidate.controlId === "missing") return { status: "missing" };
+		if (candidate.controlId === "invalid") return { status: "ok", value: 3, validatePresetValue: () => "invalid-linked-value" };
+		return { status: "ok", value: 1, validatePresetValue: () => true };
+	});
+	assert.deepEqual(plan.ready.map(({ key }) => key), [bindingKey(primary)]);
+	assert.deepEqual(plan.issues.map(({ key, status }) => [key, status]), [
+		[bindingKey(missing), "missing"],
+		[bindingKey(invalid), "invalid"],
+	]);
+	assert.equal(plan.issues[1].reason, "invalid-linked-value");
+});
+
+test("preset application resolves each unique linked binding once and rolls all targets back", () => {
+	const first = binding("first"); const linked = binding("linked"); const last = binding("last");
+	const state = { first: 1, linked: 2, last: 3 }; const resolves = []; const reads = []; const writes = [];
+	const resolved = (candidate) => {
+		resolves.push(candidate.controlId);
+		return {
+			status: "ok", node: { setDirtyCanvas() {} },
+			readPresetValue: () => { reads.push(candidate.controlId); return state[candidate.controlId]; }, validatePresetValue: () => true,
+			applyPresetValue(entry) {
+				writes.push([candidate.controlId, entry.payload]);
+				state[candidate.controlId] = entry.payload;
+				if (candidate.controlId === "last" && entry.payload === 30) throw new Error("vendor write failed");
+			},
+		};
+	};
+	const layout = dashboard(first, last);
+	layout.pages[0].items[0].linkedBindings = [linked];
+	layout.pages[0].items[1].linkedBindings = [linked];
+	layout.pages[1].items[0].linkedBindings = [linked];
+	const preset = snapshot(layout, {
 		[bindingKey(first)]: { valueType: "number", payload: 10 },
-		[bindingKey(second)]: { valueType: "number", payload: 20 },
+		[bindingKey(linked)]: { valueType: "number", payload: 20 },
+		[bindingKey(last)]: { valueType: "number", payload: 30 },
 	});
 	const plan = planDashboardPresetApplication(preset, resolved);
+	assert.deepEqual(resolves, ["first", "linked", "last"]);
+	assert.deepEqual(reads, ["first", "linked", "last"]);
 	assert.throws(() => applyDashboardPresetPlan(plan), /vendor write failed/);
-	assert.deepEqual(state, { first: 1, second: 2 });
-	assert.deepEqual(writes, [["first", 10], ["second", 20], ["second", 2], ["first", 1]]);
+	assert.deepEqual(state, { first: 1, linked: 2, last: 3 });
+	assert.deepEqual(writes, [["first", 10], ["linked", 20], ["last", 30], ["last", 3], ["linked", 2], ["first", 1]]);
 });
 
 test("application rolls back a codec that mutates before throwing", () => {
@@ -94,6 +174,16 @@ test("application rolls back a codec that mutates before throwing", () => {
 		applyPresetValue(entry) { current = entry.payload; if (entry.payload === 9) throw new Error("failed after write"); },
 	}));
 	assert.throws(() => applyDashboardPresetPlan(plan), /failed after write/);
+	assert.equal(current, 1);
+});
+
+test("explicit preset codec rejection rolls a partially mutated value back", () => {
+	const target = binding("target"); let current = 1;
+	const plan = planDashboardPresetApplication(snapshot(dashboard(target), { [bindingKey(target)]: { valueType: "number", payload: 9 } }), () => ({
+		status: "ok", readPresetValue: () => current, validatePresetValue: () => true,
+		applyPresetValue(entry) { current = entry.payload; return entry.payload === 9 ? { ok: false, message: "rejected" } : true; },
+	}));
+	assert.throws(() => applyDashboardPresetPlan(plan), /rejected/);
 	assert.equal(current, 1);
 });
 
@@ -155,5 +245,18 @@ test("layout and values roll back together when a preset write fails", () => {
 	}));
 	assert.throws(() => applyDashboardSnapshotPlan(plan, { readDashboard: () => currentDashboard, writeDashboard: (next) => { currentDashboard = next; } }), /write failed/);
 	assert.equal(currentValue, 1);
+	assert.equal(currentDashboard.pages[0].items[0].binding.controlId, "old");
+});
+
+test("explicit codec rejection rolls back earlier targets and the Dashboard layout", () => {
+	const first = binding("first"); const second = binding("second"); let state = { first: 1, second: 2 }; let currentDashboard = dashboard(binding("old"));
+	const plan = planDashboardPresetApplication(snapshot(dashboard(first, second), {
+		[bindingKey(first)]: { valueType: "number", payload: 10 }, [bindingKey(second)]: { valueType: "number", payload: 20 },
+	}), (candidate) => ({
+		status: "ok", readPresetValue: () => state[candidate.controlId], validatePresetValue: () => true,
+		applyPresetValue(entry) { state[candidate.controlId] = entry.payload; return candidate.controlId === "second" && entry.payload === 20 ? { ok: false, message: "manager conflict" } : true; },
+	}));
+	assert.throws(() => applyDashboardSnapshotPlan(plan, { readDashboard: () => currentDashboard, writeDashboard: (next) => { currentDashboard = next; } }), /manager conflict/);
+	assert.deepEqual(state, { first: 1, second: 2 });
 	assert.equal(currentDashboard.pages[0].items[0].binding.controlId, "old");
 });

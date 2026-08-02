@@ -1,4 +1,4 @@
-/** Pure workflow-owned Dashboard V3 integer-grid model and V2 migration codec. */
+/** Pure workflow-owned Dashboard V4 integer-grid model and V2/V3 migration codec. */
 
 import {
 	DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN,
@@ -11,7 +11,7 @@ import {
 	recommendedGroupRowSpan,
 } from "./dashboard_sizing.js";
 
-export const DASHBOARD_VERSION = 3;
+export const DASHBOARD_VERSION = 4;
 export const DASHBOARD_TONES = Object.freeze(["neutral", "blue", "green", "amber", "purple", "red"]);
 
 export class DashboardModelError extends Error {
@@ -24,12 +24,26 @@ export function stableId(prefix) {
 
 export function emptyDashboard() { return { version: DASHBOARD_VERSION, pages: [] }; }
 
-function normalizeBinding(binding) {
+export function normalizeBinding(binding) {
 	if (!binding || typeof binding !== "object") throw new DashboardModelError("Control binding is missing", "invalid-binding");
 	for (const field of ["provider", "hostId", "controlId", "valueType"]) {
 		if (typeof binding[field] !== "string" || !binding[field]) throw new DashboardModelError(`Control binding field ${field} is invalid`, "invalid-binding");
 	}
 	return { provider: binding.provider, hostId: binding.hostId, controlId: binding.controlId, valueType: binding.valueType, ...(typeof binding.adapterId === "string" && binding.adapterId ? { adapterId: binding.adapterId } : {}) };
+}
+
+function normalizeLinkedBindings(primaryBinding, linkedBindings) {
+	if (linkedBindings === undefined) return [];
+	if (!Array.isArray(linkedBindings)) throw new DashboardModelError("Linked control bindings must be an array", "invalid-binding");
+	const keys = new Set([bindingKey(primaryBinding)]); const normalizedBindings = [];
+	for (const binding of linkedBindings) {
+		const normalized = normalizeBinding(binding);
+		const key = bindingKey(normalized);
+		if (keys.has(key)) throw new DashboardModelError(`Duplicate control binding: ${key}`, "duplicate-binding");
+		if (normalized.valueType !== primaryBinding.valueType) throw new DashboardModelError(`Linked control binding has incompatible value type: ${key}`, "incompatible-binding");
+		keys.add(key); normalizedBindings.push(normalized);
+	}
+	return normalizedBindings;
 }
 
 function normalizeLayout(layout, { fullWidth = false, rowSpan = null, legacyColumns = false } = {}) {
@@ -116,7 +130,7 @@ function groupContentColumnSpan(items) {
 export function normalizeDashboard(raw) {
 	if (raw == null) return emptyDashboard();
 	const sourceVersion = Number(raw?.version);
-	if (![2, DASHBOARD_VERSION].includes(sourceVersion)) throw new DashboardModelError(`Unsupported dashboard version: ${raw?.version ?? "missing"}`, "unsupported-version");
+	if (![2, 3, DASHBOARD_VERSION].includes(sourceVersion)) throw new DashboardModelError(`Unsupported dashboard version: ${raw?.version ?? "missing"}`, "unsupported-version");
 	const ids = new Set(); const result = emptyDashboard();
 	if (!Array.isArray(raw.pages)) throw new DashboardModelError("Dashboard pages must be an array");
 	for (const sourcePage of raw.pages) {
@@ -147,10 +161,13 @@ export function normalizeDashboard(raw) {
 			if (groupId && !groupIds.has(groupId)) throw new DashboardModelError(`Dashboard item references missing group: ${groupId}`, "missing-group");
 			const source = kind === "separator" ? normalizeGroupSource(sourceItem.source) : null;
 			const groupSource = kind === "control" ? normalizeGroupSource(sourceItem.groupSource) : null;
+			const primaryBinding = kind === "control" ? normalizeBinding(sourceItem.binding) : null;
+			const linkedBindings = kind === "control" ? normalizeLinkedBindings(primaryBinding, sourceItem.linkedBindings) : [];
 			const layout = normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns });
 			rawItems.push({ id: sourceItem.id, groupId, layout });
 			page.items.push({
-				id: sourceItem.id, kind, binding: kind === "control" ? normalizeBinding(sourceItem.binding) : null,
+				id: sourceItem.id, kind, binding: primaryBinding,
+				...(linkedBindings.length ? { linkedBindings } : {}),
 				label: String(sourceItem.label || ""), groupId,
 				...(typeof sourceItem.labelSource === "string" ? { labelSource: sourceItem.labelSource } : {}),
 				...(typeof sourceItem.labelOverride === "string" ? { labelOverride: sourceItem.labelOverride } : {}),
@@ -182,6 +199,9 @@ export function normalizeDashboard(raw) {
 	return result;
 }
 
+export function controlItemBindings(item) { return item?.binding ? [item.binding, ...(item.linkedBindings || [])] : []; }
+export function linkedBindingCount(item) { return Math.max(0, controlItemBindings(item).length - 1); }
+
 export function createPage(name = "Page") { return { id: stableId("page"), name, gridColumns: DASHBOARD_GRID_COLUMNS, tone: null, items: [], groups: [] }; }
 export function createControlItem(binding, label = "", layout = { row: 0, column: 0, columnSpan: DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN }, groupSource = null) {
 	const sourceLabel = String(label || ""); const normalizedSource = normalizeGroupSource(groupSource);
@@ -211,6 +231,10 @@ export function findItem(model, itemId) {
 	for (const page of model.pages) { const item = page.items.find((entry) => entry.id === itemId); if (item) return { page, item }; }
 	return { page: null, item: null };
 }
-export function bindingKey(binding) {
+export function legacyBindingKey(binding) {
 	return `${binding.provider}:${binding.hostId}:${binding.controlId}${binding.adapterId ? `:${binding.adapterId}` : ""}`;
+}
+
+export function bindingKey(binding) {
+	return JSON.stringify([binding.provider, binding.hostId, binding.controlId, binding.adapterId || null]);
 }

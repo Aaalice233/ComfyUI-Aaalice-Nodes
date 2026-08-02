@@ -2,7 +2,7 @@
 
 import { api } from "../../../scripts/api.js";
 import { loadImageAssets } from "./image_assets.js";
-import { bindImagePreview, closeImagePreview } from "./image_preview.js";
+import { bindImagePreview, closeImagePreview, closeImagePreviewWithin } from "./image_preview.js";
 import { imageAssetKey } from "./image_asset_model.js";
 import { imageReferenceViewPath, normalizeImageReference } from "./image_reference.js";
 import { bindImageDropTarget, uploadImageFile } from "./image_upload.js";
@@ -287,6 +287,6 @@ export function createImageAssetControl({
 	return {
 		root,
 		update(next) { sync(next?.reference ?? next); },
-		destroy() { popover?.close(); closeImagePreview(); },
+		destroy() { popover?.close(); closeImagePreviewWithin(root); },
 	};
 }

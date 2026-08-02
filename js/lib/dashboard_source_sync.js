@@ -2,7 +2,7 @@
 
 import { normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { orderedItems, refreshGroupRowSpans } from "./dashboard_layout.js";
-import { DASHBOARD_GRID_COLUMNS, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_GRID_COLUMNS, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./dashboard_sizing.js";
 
 export const SOURCE_SYNC_STATUS = Object.freeze({
 	SYNCED: "synced",
@@ -21,6 +21,14 @@ function sameSource(left, right) {
 
 function sourceControlKey(binding) {
 	return `${binding?.provider || ""}\u0000${binding?.hostId || ""}\u0000${binding?.controlId || ""}\u0000${binding?.adapterId || ""}`;
+}
+
+function hasLinkedBindings(item) {
+	return Array.isArray(item?.linkedBindings) && item.linkedBindings.length > 0;
+}
+
+function canApplySourceBinding(item, binding) {
+	return !hasLinkedBindings(item) || item.linkedBindings.every((linkedBinding) => linkedBinding.valueType === binding.valueType && sourceControlKey(linkedBinding) !== sourceControlKey(binding));
 }
 
 function invalidSnapshot(source, reason) {
@@ -51,7 +59,7 @@ export function buildSourceSnapshot(controls, source, { status = "ok", label = "
 		if (seen.has(key)) return invalidSnapshot(normalizedSource, `Duplicate source control binding: ${key}`);
 		seen.add(key);
 		if (typeof control.label !== "string") return invalidSnapshot(normalizedSource, `Source control label is invalid: ${key}`);
-		const rawRowSpan = Math.round(Number(control.rowSpan ?? 1)); const rawColumnSpan = Math.round(Number(control.columnSpan ?? 1));
+		const rawRowSpan = Math.round(Number(control.rowSpan ?? DASHBOARD_DEFAULT_CONTROL_ROW_SPAN)); const rawColumnSpan = Math.round(Number(control.columnSpan ?? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN));
 		if (!Number.isFinite(rawRowSpan) || rawRowSpan < 1 || !Number.isFinite(rawColumnSpan) || rawColumnSpan < 1 || rawColumnSpan > DASHBOARD_GRID_COLUMNS) return invalidSnapshot(normalizedSource, `Source control footprint is invalid: ${key}`);
 		const rowSpan = normalizeDashboardRowSpan(rawRowSpan); const columnSpan = normalizeDashboardColumnSpan(rawColumnSpan);
 		snapshot.push({
@@ -70,7 +78,7 @@ function managedItems(group, members, snapshot) {
 	const current = new Set(snapshot.controls.map((control) => control.key));
 	const explicit = members.filter((item) => item.groupSource && sameSource(item.groupSource, group.source));
 	const explicitIds = new Set(explicit.map((item) => item.id));
-	const legacy = members.filter((item) => !item.groupSource && current.has(sourceControlKey(item.binding)) && !explicitIds.has(item.id));
+	const legacy = members.filter((item) => !item.groupSource && !hasLinkedBindings(item) && current.has(sourceControlKey(item.binding)) && !explicitIds.has(item.id));
 	return [...explicit, ...legacy];
 }
 
@@ -86,12 +94,18 @@ function diffSourceGroup(group, members, snapshot) {
 	const managed = managedItems(group, members, snapshot);
 	const managedKeys = new Set(managed.map((item) => sourceControlKey(item.binding)));
 	if (managedKeys.size !== managed.length) return { status: SOURCE_SYNC_STATUS.ERROR, added: 0, removed: 0, renamed: 0, reordered: 0, updated: 0, preservedManual: members.length - managed.length, reason: "Source group contains duplicate managed bindings" };
-	const added = snapshot.controls.filter((control) => !managedKeys.has(control.key)).length;
-	const removed = members.filter((item) => item.groupSource && sameSource(item.groupSource, group.source) && !byKey.has(sourceControlKey(item.binding))).length;
-	let renamed = 0; let updated = 0;
-	for (const item of managed) {
+	const representedKeys = new Set(members.map((item) => sourceControlKey(item.binding)));
+	const added = snapshot.controls.filter((control) => !representedKeys.has(control.key)).length;
+	const detached = managed.filter((item) => {
 		const source = byKey.get(sourceControlKey(item.binding));
-		if (!source) continue;
+		return hasLinkedBindings(item) && ((!source && item.groupSource) || (source && !canApplySourceBinding(item, source.binding)));
+	});
+	const detachedIds = new Set(detached.map((item) => item.id));
+	const removed = managed.filter((item) => item.groupSource && !byKey.has(sourceControlKey(item.binding)) && !detachedIds.has(item.id)).length;
+	const activeManaged = managed.filter((item) => byKey.has(sourceControlKey(item.binding)) && !detachedIds.has(item.id));
+	let renamed = 0; let updated = 0;
+	for (const item of activeManaged) {
+		const source = byKey.get(sourceControlKey(item.binding));
 		const legacyLabel = !item.groupSource && item.labelSource == null && item.label && item.label !== source.label;
 		if (item.labelOverride == null && !legacyLabel && (item.labelSource !== source.label || item.label !== source.label)) renamed++;
 		if (item.binding.valueType !== source.binding.valueType || item.binding.adapterId !== source.binding.adapterId) updated++;
@@ -99,10 +113,11 @@ function diffSourceGroup(group, members, snapshot) {
 	const groupName = snapshot.label;
 	const legacyGroupName = !group.nameSource && group.name && group.name !== groupName;
 	const groupRenamed = group.nameOverride == null && groupName && !legacyGroupName && (group.nameSource !== groupName || group.name !== groupName);
+	const reordered = compareOrder(managed.filter((item) => !detachedIds.has(item.id)), snapshot);
 	return {
-		status: added || removed || renamed || updated || groupRenamed || compareOrder(managed, snapshot) ? SOURCE_SYNC_STATUS.NEEDS_SYNC : SOURCE_SYNC_STATUS.SYNCED,
-		added, removed, renamed: renamed + (groupRenamed ? 1 : 0), reordered: compareOrder(managed, snapshot) ? 1 : 0, updated,
-		preservedManual: members.length - managed.length,
+		status: added || removed || detached.length || renamed || updated || groupRenamed || reordered ? SOURCE_SYNC_STATUS.NEEDS_SYNC : SOURCE_SYNC_STATUS.SYNCED,
+		added, removed, renamed: renamed + (groupRenamed ? 1 : 0), reordered: reordered ? 1 : 0, updated,
+		preservedManual: members.length - managed.length + detached.length,
 		reason: "",
 	};
 }
@@ -163,30 +178,33 @@ export function planSourceGroupSync(model, pageId, groupId, snapshot) {
 	const managedKeys = new Set(managed.map((item) => sourceControlKey(item.binding)));
 	if (managedKeys.size !== managed.length) throw new Error("Source group contains duplicate managed bindings");
 	const managedByKey = new Map(managed.map((item) => [sourceControlKey(item.binding), item]));
+	const representedKeys = new Set(members.map((item) => sourceControlKey(item.binding)));
 	const beforeByKey = new Map(managedByKey);
 	const beforeOrder = orderedItems(managed).map((item) => sourceControlKey(item.binding));
-	const renamedCount = snapshot.controls.reduce((count, control) => {
-		const item = beforeByKey.get(control.key);
-		const legacyLabel = item && !item.groupSource && item.labelSource == null && item.label && item.label !== control.label;
-		return count + (item && item.labelOverride == null && !legacyLabel && (item.labelSource !== control.label || item.label !== control.label) ? 1 : 0);
-	}, 0);
-	const updatedCount = snapshot.controls.reduce((count, control) => {
-		const item = beforeByKey.get(control.key);
-		return count + (item && (item.binding.valueType !== control.binding.valueType || item.binding.adapterId !== control.binding.adapterId) ? 1 : 0);
-	}, 0);
-	const addedCount = snapshot.controls.filter((control) => !beforeByKey.has(control.key)).length;
-	const removedIds = new Set();
-	for (const item of managed) if (item.groupSource && !sourceByKey.has(sourceControlKey(item.binding))) removedIds.add(item.id);
+	const addedCount = snapshot.controls.filter((control) => !representedKeys.has(control.key)).length;
+	const removedIds = new Set(); const detachedIds = new Set();
+	for (const item of managed) {
+		if (!item.groupSource || sourceByKey.has(sourceControlKey(item.binding))) continue;
+		if (hasLinkedBindings(item)) { setManagedSource(item, null); detachedIds.add(item.id); }
+		else removedIds.add(item.id);
+	}
 	page.items = page.items.filter((item) => !removedIds.has(item.id));
-	const activeManaged = managed.filter((item) => !removedIds.has(item.id));
+	const activeManaged = managed.filter((item) => !removedIds.has(item.id) && !detachedIds.has(item.id));
+	let renamedCount = 0; let updatedCount = 0;
 	for (const source of snapshot.controls) {
 		let item = managedByKey.get(source.key);
+		if (!item && representedKeys.has(source.key)) continue;
 		if (!item) {
 			item = createItemFromControl(source, { row: 0, column: 0, columnSpan: source.columnSpan, rowSpan: source.rowSpan }, snapshot.source);
 			item.groupId = group.id; page.items.push(item); activeManaged.push(item); managedByKey.set(source.key, item);
+		} else if (!canApplySourceBinding(item, source.binding)) {
+			setManagedSource(item, null); detachedIds.add(item.id);
+			continue;
 		}
-		item.binding = { ...source.binding };
 		const legacyLabel = !item.groupSource && item.labelSource == null && item.label && item.label !== source.label;
+		if (item.labelOverride == null && !legacyLabel && (item.labelSource !== source.label || item.label !== source.label)) renamedCount++;
+		if (item.binding.valueType !== source.binding.valueType || item.binding.adapterId !== source.binding.adapterId) updatedCount++;
+		item.binding = { ...source.binding };
 		setManagedSource(item, snapshot.source);
 		if (item.labelOverride == null && legacyLabel) item.labelOverride = item.label;
 		if (item.labelOverride == null) { item.labelSource = source.label; item.label = source.label; }
@@ -198,16 +216,17 @@ export function planSourceGroupSync(model, pageId, groupId, snapshot) {
 	const groupRenamed = Boolean(groupName && group.nameOverride == null && !legacyGroupName && (group.nameSource !== groupName || group.name !== groupName));
 	if (groupName && group.nameOverride == null && legacyGroupName) group.nameOverride = group.name;
 	if (groupName && group.nameOverride == null) { group.nameSource = groupName; group.name = groupName; }
-	packManagedItems(page, group, activeManaged, snapshot);
+	packManagedItems(page, group, activeManaged.filter((item) => !detachedIds.has(item.id)), snapshot);
 	if (!page.items.some((item) => item.groupId === group.id)) page.groups = page.groups.filter((entry) => entry.id !== group.id);
 	refreshGroupRowSpans(page);
-	const expectedBeforeOrder = snapshot.controls.map((control) => control.key).filter((key) => beforeOrder.includes(key));
+	const comparableBeforeOrder = beforeOrder.filter((key) => !detachedIds.has(beforeByKey.get(key)?.id));
+	const expectedBeforeOrder = snapshot.controls.map((control) => control.key).filter((key) => comparableBeforeOrder.includes(key));
 	return { next: normalizeDashboard(next), summary: {
 		added: addedCount,
 		removed: removedIds.size,
 		renamed: renamedCount + (groupRenamed ? 1 : 0),
-		reordered: beforeOrder.join("\u0000") !== expectedBeforeOrder.join("\u0000") ? 1 : 0,
+		reordered: comparableBeforeOrder.join("\u0000") !== expectedBeforeOrder.join("\u0000") ? 1 : 0,
 		updated: updatedCount,
-		preservedManual: members.length - managed.length,
+		preservedManual: members.length - managed.length + detachedIds.size,
 	} };
 }

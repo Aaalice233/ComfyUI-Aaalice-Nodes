@@ -21,6 +21,7 @@ export function parameterControlSpec(parameter, { label, labels = {}, presentati
 	const kind = PARAMETER_KIND[parameter?.param_type];
 	if (!kind) return null;
 	const segmented = parameterChoicePresentation(parameter);
+	const dynamicChoiceEmpty = kind === "choice" && Boolean(parameter?.config?.source) && !(parameter?.config?.options?.length);
 	return {
 		id: parameter.id,
 		family: "aaalice",
@@ -35,7 +36,7 @@ export function parameterControlSpec(parameter, { label, labels = {}, presentati
 			// both carry a string value. Keep the visual choice explicit.
 			...(segmented == null ? {} : { segmented }),
 		},
-		availability: { state: "ready" },
+		availability: dynamicChoiceEmpty ? { state: "empty", reason: "no-options" } : { state: "ready" },
 	};
 }
 
@@ -45,7 +46,7 @@ function resolvedKind(resolved) {
 	const type = resolved?.control?.param_type;
 	if (type && PARAMETER_KIND[type]) return PARAMETER_KIND[type];
 	const options = resolved?.options || {};
-	if (Array.isArray(options.values) || Array.isArray(options.options)) return "choice";
+	if (options.values != null || options.options != null) return "choice";
 	if (typeof resolved?.value === "boolean") return "boolean";
 	if (typeof resolved?.value === "number") return "numeric";
 	return "text";
