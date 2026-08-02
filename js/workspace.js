@@ -295,7 +295,7 @@ function widgetStructureSignature(widget) {
 
 function graphStructureSignature(nodes = graphNodes()) {
 	return nodes.map((node) => JSON.stringify([
-		node.id, node.type, node.comfyClass, node.properties?.aaaliceHostId,
+		node.id, node.type, node.comfyClass, node.properties?.[HOST_ID_PROPERTY],
 		typeof node.getTitle === "function" ? node.getTitle() : node.title,
 		(node.widgets || []).map(widgetStructureSignature),
 	])).join("|");
@@ -891,12 +891,11 @@ function compatibleCardTargets(sourceBinding, model = dashboard()) {
 	return targets;
 }
 
-function commitDashboardBindingSet(next, itemId, { synchronize = false, resolvedBindings = null } = {}) {
+function commitDashboardBindingSet(next, itemId, { synchronize = false } = {}) {
 	if (dashboardModelError) throw dashboardModelError;
 	const { item } = findDashboardControl(next, itemId);
 	if (!item) throw new Error("Dashboard control is missing");
-	const resolveForCommit = resolvedBindings ? (binding) => resolvedBindings.get(bindingKey(binding)) || resolve(binding) : resolve;
-	const resolvedSet = resolveControlBindingSet(item, resolveForCommit);
+	const resolvedSet = resolveControlBindingSet(item, resolve);
 	if (resolvedSet.status !== "ok") {
 		const issue = resolvedSet.bindingSet?.issues?.[0];
 		const error = new ControlBindingSetError("Linked controls are unavailable", issue?.reason || "unresolved-binding", issue?.binding || null, issue?.error || null);
@@ -2374,11 +2373,14 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 		const target = targets.find((candidate) => candidate.item.id === targetSelect.value);
 		if (!source || !target) return;
 		try {
-			const next = addLinkedBinding(dashboard(), target.item.id, source.control.binding);
-			const resolvedBindings = new Map(target.resolved.bindingSet.entries.map((entry) => [entry.key, entry.resolved]));
-			resolvedBindings.set(bindingKey(source.control.binding), source.resolved.resolved);
-			commitDashboardBindingSet(next, target.item.id, { synchronize: true, resolvedBindings });
-			const count = controlItemBindings(findDashboardControl(next, target.item.id).item).length;
+			const liveControls = controlProviders.list(node);
+			const liveSource = liveControls.find((control) => control.binding.controlId === source.control.binding.controlId && (control.binding.adapterId || null) === (source.control.binding.adapterId || null));
+			if (!liveSource) throw new ControlBindingSetError("The selected node parameter is no longer available", "unresolved-binding", source.control.binding);
+			const liveTarget = compatibleCardTargets(liveSource.binding).find((candidate) => candidate.item.id === target.item.id);
+			if (!liveTarget) throw new ControlBindingSetError("The selected sidebar parameter is no longer compatible", "incompatible-contract", liveSource.binding);
+			const next = addLinkedBinding(dashboard(), liveTarget.item.id, liveSource.binding);
+			commitDashboardBindingSet(next, liveTarget.item.id, { synchronize: true });
+			const count = controlItemBindings(findDashboardControl(next, liveTarget.item.id).item).length;
 			app.extensionManager?.toast?.add?.({ severity: "success", summary: t("aaalice.workspace.binding.linked", "Parameter linked"), detail: message("aaalice.workspace.binding.linkedDetail", "The sidebar control now updates {count} parameters.", { count }), life: 3600 });
 			dialog.close();
 		} catch (error) { notifyControlBindingError(error); }

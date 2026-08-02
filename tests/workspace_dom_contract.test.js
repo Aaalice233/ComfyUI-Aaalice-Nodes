@@ -261,6 +261,7 @@ test("providers cover native and public subgraph widgets by stable host identity
 	assert.doesNotMatch(widgetAdapters, /Boolean\(controlValueType\(widget\.value\)\)/);
 	assert.match(widgetAdapters, /priority/);
 	assert.match(widgetAdapters, /adapterId/);
+	assert.match(providers, /ensureUniqueHostId/);
 	assert.match(providers, /repairDuplicateHostIds/);
 	assert.match(providers, /sourceSnapshot\(source, nodes\)/);
 	assert.match(providers, /Source provider or host is missing/);
@@ -446,7 +447,7 @@ test("control cards move management into an accessible context menu", () => {
 
 test("dashboard cards can link and manage multiple compatible node controls", () => {
 	assert.match(workspace, /function openLinkControls/);
-	assert.match(workspace, /addLinkedBinding\(dashboard\(\), target\.item\.id, source\.control\.binding\)/);
+	assert.match(workspace, /addLinkedBinding\(dashboard\(\), liveTarget\.item\.id, liveSource\.binding\)/);
 	assert.match(workspace, /function openManageLinkedBindings/);
 	assert.match(workspace, /syncButton\.disabled = bindings\.length < 2 \|\| resolvedSet\.status !== "ok"/);
 	assert.match(workspace, /issueBadge = issue \? badge/);
@@ -455,8 +456,9 @@ test("dashboard cards can link and manage multiple compatible node controls", ()
 	assert.match(workspace, /synchronizeFromPrimary/);
 	assert.match(workspace, /entries: \[[\s\S]*binding\.linkMenu[\s\S]*binding\.menu/);
 	assert.match(workspace, /function bindingLabelScore/);
-	assert.match(workspace, /const resolveForCommit = resolvedBindings \? \(binding\) => resolvedBindings\.get\(bindingKey\(binding\)\) \|\| resolve\(binding\)/);
-	assert.match(workspace, /resolvedBindings\.set\(bindingKey\(source\.control\.binding\), source\.resolved\.resolved\)/);
+	assert.match(workspace, /node\.properties\?\.\[HOST_ID_PROPERTY\]/);
+	assert.match(workspace, /const liveControls = controlProviders\.list\(node\)/);
+	assert.match(workspace, /const liveTarget = compatibleCardTargets\(liveSource\.binding\)/);
 	assert.match(workspace, /controlLabel: label/);
 	assert.match(workspace, /preferredBindingTarget\(source\?\.control\.label, targets\)/);
 	assert.match(workspace, /linkableControlSources\(controls\)\.length > 0/);

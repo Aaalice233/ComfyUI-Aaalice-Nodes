@@ -31,6 +31,15 @@ export function ensureHostId(node) {
 	return node.properties[HOST_ID_PROPERTY];
 }
 
+export function ensureUniqueHostId(node) {
+	const hostId = ensureHostId(node);
+	const nodes = node?.graph?._nodes || [];
+	const index = nodes.indexOf(node);
+	if (index < 0 || !nodes.slice(0, index).some((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === hostId)) return hostId;
+	delete node.properties[HOST_ID_PROPERTY];
+	return ensureHostId(node);
+}
+
 export function repairDuplicateHostIds(nodes) {
 	const seen = new Set();
 	const repaired = [];
@@ -120,7 +129,7 @@ controlProviders.register({
 	id: "quick-group-manager",
 	supportsNode: (node) => isQuickGroupManager(node),
 	list(node) {
-		const hostId = ensureHostId(node);
+		const hostId = ensureUniqueHostId(node);
 		return [{
 			label: quickGroupManagerTitle(node),
 			binding: { provider: this.id, hostId, controlId: "manager", valueType: "quick-group-manager" },
@@ -152,7 +161,7 @@ controlProviders.register({
 	id: "comfy-output",
 	supportsNode: (node) => listNativeOutputControls(node).length > 0,
 	list(node) {
-		const hostId = ensureHostId(node);
+		const hostId = ensureUniqueHostId(node);
 		return listNativeOutputControls(node).map((control) => ({
 			label: control.label,
 			availability: control.availability,
@@ -190,7 +199,7 @@ const widgetProvider = (id, promoted) => ({
 			: !subgraph && listAdaptedWidgetControls(node).length > 0;
 	},
 	list(node) {
-		const hostId = ensureHostId(node);
+		const hostId = ensureUniqueHostId(node);
 		return listAdaptedWidgetControls(node, { promoted }).map((adapted) => ({
 			label: adapted.label,
 			availability: adapted.availability,
