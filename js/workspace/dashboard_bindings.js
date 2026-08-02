@@ -3,21 +3,24 @@ import { t } from "../i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "../lib/control_providers.js";
 import { installNodeControlMenu } from "../lib/node_control_menu.js";
 import { bindingKey, bindingTargetKey, controlItemBindings, createPage, linkedBindingCount, normalizeDashboard } from "../lib/dashboard_model.js";
-import { addItems, addLinkedBinding, assignToGroup, moveItems, removeItems, removeLinkedBinding, replacePrimaryBinding, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
+import { addItems, addLinkedBinding, assignToGroup, detachBinding, moveItems, removeItems, replacePrimaryBinding, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
 import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet, synchronizeLinkedBindingSets } from "../lib/control_binding_set.js";
 import { installLinkedSeedQueueHook as installLinkedSeedQueueLifecycle } from "../lib/linked_seed_queue.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS } from "../lib/dashboard_sizing.js";
-import { badge, button, createContextMenu, el, emptyState, field, selectControl, toggleSwitch } from "../lib/ui.js";
+import { badge, button, createContextMenu, el, emptyState, field, icon, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
 import { createListRow } from "../lib/workspace_components.js";
 import { openComponentNoteEditor as showComponentNoteEditor } from "./component_note.js";
 import { createWorkspaceDialog } from "./dialogs.js";
 import { confirmAction } from "./dom_utils.js";
 import { configureNumericRange, isConfigurableNumericControl, openNumericRangeSettings } from "./numeric_range.js";
+import { allGraphNodes } from "../lib/graph_scope.js";
+import { boundNodeControlEntries, configureDashboardUnbinding, openUnbindControls } from "./dashboard_unbinding.js";
 
 let runtime = null;
 export function configureDashboardBindings(dependencies) {
 	runtime = dependencies;
 	configureNumericRange({ updateDashboard: dependencies.updateDashboard });
+	configureDashboardUnbinding({ dashboard: dependencies.dashboard, updateDashboard: dependencies.updateDashboard, bindingDisplay, notifyControlBindingError, remindWorkflowSave: dependencies.remindWorkflowSave });
 }
 const dashboard = () => runtime.dashboard();
 const updateDashboard = (callback) => runtime.updateDashboard(callback);
@@ -30,6 +33,12 @@ const scheduleActiveDashboardPresetAutoSave = () => runtime.scheduleActiveDashbo
 const currentPage = (model) => runtime.currentPage(model);
 const sourceGroupIdentity = (group) => runtime.sourceGroupIdentity(group);
 const remindWorkflowSave = (detail) => runtime.remindWorkflowSave(detail);
+
+function message(key, fallback, values = {}) {
+	let result = t(key, fallback);
+	for (const [name, value] of Object.entries(values)) result = result.replaceAll(`{${name}}`, String(value));
+	return result;
+}
 
 function controlAvailabilityDescription(control) {
 	const availability = control.availability;
@@ -124,6 +133,11 @@ function bindingDisplay(binding) {
 	};
 }
 
+export function controlTitle(item, resolved) {
+	if (item.labelOverride != null) return item.labelOverride;
+	return resolved.label || item.label || item.binding.controlId;
+}
+
 function compatibleCardTargets(sourceBinding, model = dashboard()) {
 	const source = resolvedBindingEntry(sourceBinding); const sourceKey = bindingTargetKey(sourceBinding); const targets = [];
 	for (const page of model.pages) {
@@ -177,7 +191,7 @@ function commitDashboardBindingSet(next, itemId, { synchronize = false, resolved
 
 function synchronizeLinkedSeedsForGraph(graph, { phase = "after-queue" } = {}) {
 	const model = normalizeDashboard(graph?.extra?.[runtime.extraKey] ?? null);
-	const nodes = graph?._nodes || [];
+	const nodes = allGraphNodes(graph);
 	const outcome = synchronizeLinkedBindingSets(model, (binding) => controlProviders.resolve(binding, nodes), { kind: "seed", transaction: false });
 	if (outcome.issues.length) {
 		const issue = outcome.issues[0];
@@ -243,16 +257,19 @@ export function openManageLinkedBindings(itemId, ownerElement = null) {
 			const issueLabel = issue?.status === "missing" ? t("aaalice.workspace.binding.missing", "Missing") : issue?.status === "error" ? t("aaalice.workspace.binding.error", "Control unavailable due to an error") : t("aaalice.workspace.binding.incompatible", "Incompatible");
 			const issueBadge = issue ? badge(issueLabel, { className: "is-warning" }) : null;
 			const availabilityBadge = !issue && availability?.state && availability.state !== "ready" ? badge(controlAvailabilityDescription(display.resolved), { className: "is-warning" }) : null;
-			const unlink = index === 0 ? null : iconButton({
-				iconName: "delete",
+			const unlink = iconButton({
+				iconName: "close",
 				label: t("aaalice.workspace.binding.unlink", "Unlink parameter"),
 				variant: "ghost",
 				onClick: () => {
-					try { updateDashboard((model) => removeLinkedBinding(model, itemId, binding)); rebuild(index - 1); }
-					catch (error) { notifyControlBindingError(error); }
+					try {
+						const next = detachBinding(dashboard(), itemId, binding);
+						if (!findDashboardControl(next, itemId).item) { dialog.close(); return; }
+						updateDashboard(() => next); rebuild(Math.max(0, index - 1));
+					} catch (error) { notifyControlBindingError(error); }
 				},
 			});
-			if (unlink) unlink.dataset.linkedBindingUnlink = "true";
+			unlink.dataset.linkedBindingUnlink = "true";
 			body.append(createListRow({ title: `${display.description} · ${display.title}`, actions: [role, issueBadge, availabilityBadge, unlink].filter(Boolean) }));
 		}
 		if (bindings.length === 1) body.append(emptyState({ description: t("aaalice.workspace.binding.noLinked", "No additional parameters are linked.") }));
@@ -425,7 +442,6 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 }
 
 function openAddControls(node, ownerElement = null) {
-	if (node?.graph !== app.graph) return;
 	const controls = controlProviders.list(node); if (!controls.length) return;
 	let model = dashboard(); let page = currentPage(model); const defaultPageId = page?.id || model.pages[0]?.id || ""; let selected = new Set();
 	const body = el("div", "aa-add-controls-dialog"); const list = el("div", "aa-add-controls-list");
@@ -515,15 +531,47 @@ function openAddControls(node, ownerElement = null) {
 	dialog = createWorkspaceDialog({ title: t("aaalice.workspace.binding.add", "Add controls to sidebar"), body, footer, size: "md", className: "aa-add-controls-dialog-shell" }, ownerElement || app.canvas?.canvas || null);
 }
 
+function listNodeMenuControls(candidate) {
+	if (candidate?.graph === app.graph) repairDuplicateHostIds(graphNodes());
+	return controlProviders.list(candidate);
+}
+
+function nodeMenuItems(node, ownerElement = app.canvas?.canvas || null) {
+	const controls = listNodeMenuControls(node);
+	if (!controls.length) return [];
+	const items = [];
+	if (linkableControlSources(controls).length > 0) {
+		items.push({
+			content: t("aaalice.workspace.binding.linkMenu", "🔗 Link to an existing sidebar parameter…"),
+			callback: () => openLinkControls(node, controls, ownerElement),
+		});
+	}
+	if (node?.graph) {
+		items.push({
+			content: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"),
+			callback: () => openAddControls(node, ownerElement),
+		});
+	}
+	if (boundNodeControlEntries(node, controls).length > 0) {
+		items.push({
+			content: t("aaalice.workspace.binding.unbindMenu", "🔓 Unbind from sidebar…"),
+			callback: () => openUnbindControls(node, controls, ownerElement),
+		});
+	}
+	return items;
+}
+
+export function getNodeMenuItems(node) {
+	return nodeMenuItems(node);
+}
+
 export function patchNodeMenu(node) {
 	installNodeControlMenu(node, {
-		listControls: (candidate) => {
-			if (candidate?.graph === app.graph) repairDuplicateHostIds(graphNodes());
-			return controlProviders.list(candidate);
-		},
+		listControls: listNodeMenuControls,
 		entries: [
-			{ label: t("aaalice.workspace.binding.linkMenu", "🔗 Link to an existing sidebar parameter…"), when: (candidate, controls) => candidate?.graph === app.graph && linkableControlSources(controls).length > 0, open: (candidate, controls, canvas) => openLinkControls(candidate, controls, canvas?.canvas || canvas || null) },
-			{ label: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"), when: (candidate) => candidate?.graph === app.graph, open: (candidate, _controls, canvas) => openAddControls(candidate, canvas?.canvas || canvas || null) },
+			{ label: t("aaalice.workspace.binding.linkMenu", "🔗 Link to an existing sidebar parameter…"), when: (_candidate, controls) => linkableControlSources(controls).length > 0, open: (candidate, controls, canvas) => openLinkControls(candidate, controls, canvas?.canvas || canvas || null) },
+			{ label: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"), when: (candidate) => Boolean(candidate?.graph), open: (candidate, _controls, canvas) => openAddControls(candidate, canvas?.canvas || canvas || null) },
+			{ label: t("aaalice.workspace.binding.unbindMenu", "🔓 Unbind from sidebar…"), when: (candidate, controls) => boundNodeControlEntries(candidate, controls).length > 0, open: (candidate, controls, canvas) => openUnbindControls(candidate, controls, canvas?.canvas || canvas || null) },
 		],
 	});
 }

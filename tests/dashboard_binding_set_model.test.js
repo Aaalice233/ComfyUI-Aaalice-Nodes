@@ -17,6 +17,7 @@ import {
 	addSeparator,
 	compactDashboard,
 	createGroup,
+	detachBinding,
 	duplicateItems,
 	duplicatePage,
 	moveGroup,
@@ -125,6 +126,26 @@ test("removeLinkedBinding removes only additional targets", () => {
 	assert.deepEqual(controlItemBindings(removed.pages[0].items[0]), [primary]);
 	assert.equal("linkedBindings" in removed.pages[0].items[0], false);
 	assert.deepEqual(added.pages[0].items[0].linkedBindings, [linkedCfg]);
+});
+
+test("detachBinding removes a linked target and promotes the next target when primary is detached", () => {
+	const { model, pageId, itemId } = modelWithControl();
+	let linked = addLinkedBinding(model, itemId, linkedCfg);
+	linked = addLinkedBinding(linked, itemId, linkedSeed);
+	linked.pages[0].items[0].groupSource = { provider: "generic-widget", hostId: "host-a" };
+
+	const detachedLinked = detachBinding(linked, itemId, linkedCfg);
+	assert.deepEqual(controlItemBindings(detachedLinked.pages[0].items[0]), [primary, linkedSeed]);
+	assert.deepEqual(controlItemBindings(linked.pages[0].items[0]), [primary, linkedCfg, linkedSeed]);
+
+	const detachedPrimary = detachBinding(linked, itemId, primary);
+	assert.deepEqual(controlItemBindings(detachedPrimary.pages[0].items[0]), [linkedCfg, linkedSeed]);
+	assert.equal(detachedPrimary.pages[0].items[0].groupSource, undefined);
+
+	const detachedOnly = detachBinding(model, itemId, primary);
+	assert.equal(detachedOnly.pages[0].items.length, 0);
+	assert.deepEqual(detachedOnly.pages[0].groups, []);
+	assert.equal(pageId, detachedOnly.pages[0].id);
 });
 
 test("replacePrimaryBinding drops a matching linked target, clears source ownership, and validates remaining types", () => {

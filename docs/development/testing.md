@@ -134,6 +134,28 @@ Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinu
 
 确认命令行、PID 和端口属于本轮实例后，再使用 `Stop-Process -Id $process.Id`。
 
+### 3.2 工作流快照与载入
+
+GUI 验收不是在空白图中默认替代用户场景。调用方提供工作流文件时，使用本轮运行目录中的临时副本：
+
+```powershell
+$ErrorActionPreference = 'Stop'
+
+$workflowPath = (Resolve-Path $WorkflowPath).Path  # 由调用方传入，不写死到 runbook
+if (-not (Test-Path -LiteralPath $workflowPath -PathType Leaf)) {
+    throw "Workflow file not found: $workflowPath"
+}
+
+$workflowBackup = Join-Path $runRoot 'workflow-source-backup.json'
+$workflowUnderTest = Join-Path $runRoot 'workflow-under-test.json'
+Copy-Item -LiteralPath $workflowPath -Destination $workflowBackup -Force
+Copy-Item -LiteralPath $workflowPath -Destination $workflowUnderTest -Force
+```
+
+- 通过 `agent_browser` 的 GUI 打开/上传 `workflow-under-test.json`，等待工作流恢复完成后再定位节点；不得用服务端 API 或 `eval` 直接注入图状态代替真实载入。
+- 所有节点创建、子图创建/进入、公开 widget 显示、右键菜单和侧边栏交互都在副本上完成；原始工作流只读保留，失败时用 `workflow-source-backup.json` 恢复。
+- 若工作流只存在于普通浏览器的未保存状态，无法从文件快照恢复时必须明确交由用户提供导出的 JSON 或进行人工验收。
+
 ## 4. 日志与刷新
 
 | 用途 | 路径或来源 |
@@ -147,19 +169,20 @@ Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinu
 
 - Python、导入、注册和 HotReload 问题先看 server 日志；JS 行为看浏览器 Console。
 - LG_HotReload 只处理 Python。JS 变化后必须硬刷新或重启 ComfyUI。
+- 前端修改后可保留独立实例，但必须硬刷新或重开 `agent_browser` 页面；后端修改、服务端注册或执行链变化后，必须核对并停止本轮 PID，释放端口，再完整重启独立实例后重新载入工作流副本。
 - slot、widget 或序列化结构变化后，删除旧节点实例并重新创建。
 - `/object_info/<Node>` 只证明后端注册，不代表节点 UI、执行或副作用可用。
 
 ## 5. GUI 验收规则
 
-GUI 自动验收只能使用 Codex 内置浏览器：
+GUI 自动验收只能在原生 `agent_browser` 可用且稳定时执行，并使用其无头后台会话：
 
 1. 不自行启动 Chrome / Edge，不连接 CDP，不引入 Playwright / Selenium，也不搭临时 GUI 测试框架。
-2. 在独立实例的空白工作流中测试，不覆盖用户未保存的工作流。
+2. 默认在独立实例中载入调用方提供的工作流副本；只有没有提供工作流或目标本身要求空图时，才使用空白工作流，不覆盖用户未保存的工作流。
 3. 优先使用 role、label 和 `data-*` 定位；Canvas 确实无法语义定位时再使用坐标。
 4. 每个操作后读取针对性状态；视觉结论需要截图，不能用整页文本代替断言。
 5. 分别打开 Classic 和设置中的“现代节点设计（Nodes 2.0）”验证。工具栏的“画布模式”只是选择/平移模式，不是节点渲染模式。
-6. 内置浏览器不可用或连接不稳定时立即停止 GUI 自动化，清理本轮临时资源，并明确交给用户手测。
+6. `agent_browser` 不可用或连接不稳定时立即停止 GUI 自动化，清理本轮临时资源，并明确交给用户手测；不能降级为有窗口浏览器或猜测通过。
 
 自定义 DOM 节点不能以“节点库可搜索到”或“原生空壳已创建”作为前端通过标准。至少必须在隔离实例中真正创建节点并确认：
 

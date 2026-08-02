@@ -201,6 +201,30 @@ export function removeLinkedBinding(model, itemId, binding) {
 	return normalizeDashboard(next);
 }
 
+/** Remove one target while keeping the card alive by promoting its next target when needed. */
+export function detachBinding(model, itemId, binding) {
+	const next = copy(model); const { page, item } = findItem(next, itemId);
+	if (item?.kind !== "control" || !page) throw new Error("Dashboard target control item is missing");
+	const targetKey = bindingTargetKey(normalizeBinding(binding));
+	if (bindingTargetKey(item.binding) === targetKey) {
+		const [nextPrimary, ...remaining] = item.linkedBindings || [];
+		if (!nextPrimary) {
+			page.items = page.items.filter((candidate) => candidate.id !== itemId);
+			removeEmptyGroups(page);
+		} else {
+			item.binding = nextPrimary;
+			if (remaining.length) item.linkedBindings = remaining;
+			else delete item.linkedBindings;
+			delete item.groupSource;
+		}
+	} else {
+		const linkedBindings = (item.linkedBindings || []).filter((candidate) => bindingTargetKey(candidate) !== targetKey);
+		if (linkedBindings.length) item.linkedBindings = linkedBindings;
+		else delete item.linkedBindings;
+	}
+	return normalizeDashboard(next);
+}
+
 export function replacePrimaryBinding(model, itemId, binding) {
 	const next = copy(model); const item = requireControlItem(next, itemId);
 	const primaryBinding = normalizeBinding(binding); const targetKey = bindingTargetKey(primaryBinding);

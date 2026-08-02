@@ -194,7 +194,7 @@ controlProviders.register({
 const widgetProvider = (id, promoted) => ({
 	id,
 	supportsNode(node) {
-		const subgraph = Boolean(node?.isSubgraphNode?.());
+		const subgraph = Boolean(node?.isSubgraphNode?.() || node?.subgraph);
 		return promoted ? subgraph && listAdaptedWidgetControls(node, { promoted: true }).length > 0
 			: !subgraph && listAdaptedWidgetControls(node).length > 0;
 	},

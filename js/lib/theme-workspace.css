@@ -387,6 +387,7 @@
 .aa-control-card.is-header-only.has-linked-bindings.has-component-note .aa-control-card-title { padding-right: 60px; }
 .aa-link-controls-dialog, .aa-linked-bindings-dialog { display: grid; gap: 10px; min-width: 0; }
 .aa-linked-bindings-dialog { max-height: min(420px, 58vh); overflow-y: auto; }
+.aa-unbind-controls-list { display: grid; gap: 6px; min-width: 0; }
 .aa-linked-bindings-dialog .aa-workspace-list-row { min-height: 44px; }
 .aa-linked-binding-role { flex: none; color: var(--aa-ui-accent); }
 .aa-numeric-range-dialog-body { display: grid; min-width: 0; gap: 12px; }

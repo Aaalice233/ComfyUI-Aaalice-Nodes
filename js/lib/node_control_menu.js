@@ -13,14 +13,21 @@ export function installNodeControlMenu(node, { label, entries = null, listContro
 	const previous = node.getExtraMenuOptions;
 	node.getExtraMenuOptions = function (canvas, options = []) {
 		const result = previous?.apply(this, arguments);
-		const target = Array.isArray(result) ? result : options;
+		// LiteGraph extensions may mutate the supplied `options` array and return
+		// an empty array (the Group Node extension does this). Keep those native
+		// entries in place, but return only our additions so LiteGraph can prepend
+		// them without duplicating the already-mutated options array.
+		const target = Array.isArray(result) && result.length ? result : options;
+		const added = [];
 		const controls = listControls(this);
 		if (!controls.length) return result;
 		for (const entry of menuEntries) {
 			if (entry.when && !entry.when(this, controls)) continue;
 			if (target.some((item) => item?.content === entry.label)) continue;
-			target.push({ content: entry.label, callback: () => entry.open(this, controls, canvas) });
+			const item = { content: entry.label, callback: () => entry.open(this, controls, canvas) };
+			target.push(item); added.push(item);
 		}
+		if (Array.isArray(result) && result.length === 0) return added;
 		return result;
 	};
 	return true;

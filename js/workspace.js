@@ -19,6 +19,7 @@ import { hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
 import { invalidateWidgetControlAdapterCache } from "./lib/widget_control_adapters.js";
 import { syncCanvasControlBindings } from "./lib/canvas_control_binding_highlight.js";
+import { allGraphNodes } from "./lib/graph_scope.js";
 import { graphSyncSignature as createGraphSyncSignature } from "./workspace/graph_signature.js";
 import { configureGroupNavigation, handleGroupNavigationShortcut, renderGroupNavigation } from "./workspace/group_navigation.js";
 import { confirmAction } from "./workspace/dom_utils.js";
@@ -28,7 +29,7 @@ import { workspaceLabels } from "./workspace/labels.js";
 import {
 	configureDashboardBindings, installLinkedSeedQueueHook, notifyControlBindingError,
 	notifyWorkspaceImageUpload, openAssignGroup, openCardActions, openComponentNoteEditor,
-	openEditGroup, openManageLinkedBindings, openMoveControl, openRebind, patchNodeMenu,
+	openEditGroup, openManageLinkedBindings, openRebind, openMoveControl, patchNodeMenu, getNodeMenuItems as buildNodeMenuItems, controlTitle,
 } from "./workspace/dashboard_bindings.js";
 import { closeWorkspaceDialogs } from "./workspace/dialogs.js";
 import {
@@ -126,7 +127,7 @@ export async function openPromptLibraryEntryEditor(entryId) {
 	}
 }
 
-function graphNodes() { return app.graph?._nodes || []; }
+function graphNodes() { return allGraphNodes(app.graph); }
 function dashboard() {
 	app.graph.extra ||= {};
 	try {
@@ -284,11 +285,6 @@ function resolvePageControls(page) {
 
 function resolveGroupTitle(group) {
 	return group.nameOverride != null ? group.nameOverride : group.name;
-}
-
-function controlTitle(item, resolved) {
-	if (item.labelOverride != null) return item.labelOverride;
-	return resolved.label || item.label || item.binding.controlId;
 }
 
 const renderedWorkspaceTabs = new WeakSet();
@@ -510,6 +506,7 @@ configureDashboardView({
 
 app.registerExtension({
 	name: "ComfyUI.Aaalice.Workspace",
+	getNodeMenuItems(node) { return buildNodeMenuItems(node); },
 	async init() {
 		await ensureI18nReady();
 		try { await promptLibraryStore.refresh(); }

@@ -4,12 +4,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readStyleEntry } from "./helpers/style_source.js";
-
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = [
 	"workspace.js",
-	"workspace/dashboard_bindings.js",
-	"workspace/dashboard_presets.js",
+	"workspace/dashboard_bindings.js", "workspace/dashboard_unbinding.js", "workspace/dashboard_presets.js",
 	"workspace/dashboard_view.js",
 	"workspace/component_note.js",
 	"workspace/group_navigation.js",
@@ -528,9 +526,10 @@ test("dashboard cards can link and manage multiple compatible node controls", ()
 	assert.match(workspace, /function openLinkControls/);
 	assert.match(workspace, /addLinkedBinding\(dashboard\(\), liveTarget\.item\.id, liveSource\.binding\)/);
 	assert.match(workspace, /function openManageLinkedBindings/);
+	assert.match(workspace, /function openUnbindControls/); assert.match(workspace, /detachBinding\(next, entry\.item\.id, entry\.binding\)/); assert.match(workspace, /unbindMenu/);
 	assert.match(workspace, /syncButton\.disabled = bindings\.length < 2 \|\| resolvedSet\.status !== "ok"/);
 	assert.match(workspace, /issueBadge = issue \? badge/);
-	assert.match(workspace, /removeLinkedBinding\(model, itemId, binding\)/);
+	assert.match(workspace, /detachBinding\(dashboard\(\), itemId, binding\)/);
 	assert.match(workspace, /replacePrimaryBinding\(dashboard\(\), item\.id, selected\.binding\)/);
 	assert.match(workspace, /synchronizeFromPrimary/);
 	assert.match(workspace, /entries: \[[\s\S]*binding\.linkMenu[\s\S]*binding\.menu/);

@@ -57,6 +57,20 @@ test("control menu composes with existing node options and installs only once", 
 	assert.equal(typeof options[1].callback, "function");
 });
 
+test("control menu survives extensions that mutate options and return an empty array", () => {
+	const node = {
+		getExtraMenuOptions(_canvas, options) {
+			options.push({ content: "Native group action" });
+			return [];
+		},
+	};
+	installNodeControlMenu(node, { label: "Add controls", listControls: () => [{}], openControls: () => {} });
+	const options = [];
+	const extra = node.getExtraMenuOptions(null, options);
+	assert.deepEqual(options.map((entry) => entry.content), ["Native group action", "Add controls"]);
+	assert.deepEqual(extra.map((entry) => entry.content), ["Add controls"]);
+});
+
 test("control menu exposes multiple actions from one live control discovery", () => {
 	const node = {};
 	const calls = [];

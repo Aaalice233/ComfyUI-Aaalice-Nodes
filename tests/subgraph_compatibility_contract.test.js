@@ -13,6 +13,22 @@ const payloadInjectors = [
 	"../js/booru_gallery.js",
 ];
 
+const workspace = source("../js/workspace.js");
+const dashboardBindings = source("../js/workspace/dashboard_bindings.js");
+
+test("sidebar binding menus remain available for root and nested graph nodes", () => {
+	assert.match(workspace, /import \{ allGraphNodes \} from "\.\/lib\/graph_scope\.js"/);
+	assert.match(workspace, /function graphNodes\(\) \{ return allGraphNodes\(app\.graph\); \}/);
+	assert.match(dashboardBindings, /function openAddControls\(node, ownerElement = null\)/);
+	assert.doesNotMatch(dashboardBindings, /function openAddControls\(node, ownerElement = null\) \{\s*if \(node\?\.graph !== app\.graph\) return;/);
+	assert.match(dashboardBindings, /export function controlTitle\(item, resolved\)/);
+	assert.match(workspace, /getNodeMenuItems as buildNodeMenuItems, controlTitle/);
+	const menuBody = dashboardBindings.match(/function patchNodeMenu[\s\S]*?\n}/)?.[0] || "";
+	assert.match(menuBody, /linkableControlSources\(controls\)\.length > 0/);
+	assert.match(menuBody, /Boolean\(candidate\?\.graph\)/);
+	assert.doesNotMatch(menuBody, /when: [^\n]*candidate\?\.graph === app\.graph/);
+});
+
 test("all queue-time payload injectors address root and nested execution ids", () => {
 	for (const path of payloadInjectors) {
 		const contents = source(path);
