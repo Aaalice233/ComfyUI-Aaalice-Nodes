@@ -1472,7 +1472,6 @@ function renderDashboard(container, host) {
 	bindDashboardBoundaryPaging(pageStage, {
 		state: boundaryPagingState,
 		scroller: scroll,
-		pageId: page.id,
 		isEnabled: () => activeWorkspace === "dashboard" && isWorkspaceRootInteractive(host) && !viewState.searchOpen && !scroll.querySelector(".aa-dashboard-grid-v2:is(.is-dragging, .is-selecting)"),
 		requestPage: (direction) => {
 			const currentIndex = model.pages.findIndex((entry) => entry.id === activePageId);

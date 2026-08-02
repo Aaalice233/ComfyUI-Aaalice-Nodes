@@ -655,11 +655,10 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /backdrop-filter: blur\(12px\)/);
 	assert.match(workspace, /initialEdge: detail\.source === "boundary" && direction === "backward" \? "bottom" : "top"/);
 	assert.match(workspace, /aa-dashboard-scroll\$\{pageTransitionClass\}/);
-	assert.match(dashboardInteractions, /function classifyWheelInput/);
-	assert.match(dashboardInteractions, /function hasLegacyWheelDetent/);
-	assert.match(dashboardInteractions, /event\.wheelDeltaY \?\? event\.wheelDelta/);
-	assert.match(dashboardInteractions, /pendingSteps/);
-	assert.match(dashboardInteractions, /awaitingPageId/);
+	assert.match(dashboardInteractions, /export const PAGE_WHEEL_PAGE_INTERVAL = 180/);
+	assert.match(dashboardInteractions, /nextPageAt/);
+	assert.match(dashboardInteractions, /pageInterval/);
+	assert.doesNotMatch(dashboardInteractions, /pendingSteps|awaitingPageId|hasLegacyWheelDetent|wheelDeltaY \?\? event\.wheelDelta|gestureConsumed|lastWheelAt/);
 	assert.match(dashboardInteractions, /export function bindDashboardBoundaryPaging/);
 	assert.match(dashboardInteractions, /export function cancelDashboardBoundaryPaging/);
 	assert.match(dashboardInteractions, /export function destroyDashboardBoundaryPaging/);
@@ -671,7 +670,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(dashboardInteractions, /direction > 0 \? scroller\.scrollTop >= maxScrollTop - 1 : scroller\.scrollTop <= 1/);
 	assert.match(workspace, /bindDashboardBoundaryPaging\(pageStage/);
 	assert.match(workspace, /scroller: scroll/);
-	assert.match(workspace, /pageId: page\.id/);
+	assert.doesNotMatch(workspace, /pageId: page\.id/);
 	assert.match(workspace, /dashboardBoundaryPagingStates = new WeakMap/);
 	assert.match(workspace, /state: boundaryPagingState/);
 	assert.match(workspace, /destroyDashboardBoundaryPagingForRoot/);
