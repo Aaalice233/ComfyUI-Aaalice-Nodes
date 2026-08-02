@@ -242,7 +242,7 @@ export function renderNumericControl(spec, port) {
 		if (preview(current + delta)) event.preventDefault();
 		clearTimeout(gestureTimer); gestureTimer = setTimeout(finish, 160);
 	};
-	// 侧边栏等宿主可关闭滚轮调值，避免吞掉页面滚动与边界翻页。
+	// 侧边栏等宿主可关闭滚轮调值，避免吞掉页面 Scroll Surface 的滚动。
 	if (spec.presentation?.wheelAdjust !== false) {
 		root.addEventListener("wheel", adjust, { passive: false }); valueButton.addEventListener("wheel", adjust, { passive: false });
 	}

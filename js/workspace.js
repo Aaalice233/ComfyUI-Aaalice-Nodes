@@ -18,7 +18,7 @@ import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet, synchronizeLinkedBindingSets } from "./lib/control_binding_set.js";
 import { installLinkedSeedQueueHook as installLinkedSeedQueueLifecycle } from "./lib/linked_seed_queue.js";
 import { SOURCE_SYNC_STATUS, buildSourceSnapshot, inspectSourceGroup } from "./lib/dashboard_source_sync.js";
-import { bindDashboardBoundaryPaging, bindDashboardInteractions, cancelDashboardBoundaryPaging, destroyDashboardBoundaryPaging } from "./lib/dashboard_interactions.js";
+import { bindDashboardInteractions } from "./lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_GRID_COLUMNS, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { createSelectableImagePreview } from "./lib/image_preview.js";
@@ -33,7 +33,7 @@ import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import {
 	createCollapsibleSearch, createControlCard, createListRow,
-	createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
+	createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createPageRail, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
@@ -47,9 +47,10 @@ const GROUP_NAVIGATION_EXTRA_KEY = "aaaliceGroupNavigation";
 const TAB_ID = "aaalice-workspace";
 const SIDEBAR_PIN_STORAGE_KEY = "aaalice.workspace.sidebarPinned";
 const SIDEBAR_AUTO_SAVE_STORAGE_KEY = "aaalice.workspace.sidebarPresetAutoSave";
+const DASHBOARD_PAGE_RAIL_WIDTH = 38;
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
-const dashboardBoundaryPagingStates = new WeakMap();
+const dashboardPageRails = new WeakMap();
 const workspaceOwnedTrees = new WeakMap();
 const workspaceOwnershipObservers = new Map();
 const workspaceParentObservers = new Map();
@@ -123,7 +124,7 @@ export function openWorkspace(view = "dashboard") {
 	if (!["dashboard", "groups", "library"].includes(view)) throw new Error(`[Aaalice] Unknown workspace view: ${view}`);
 	const sidebar = app.extensionManager?.sidebarTab;
 	if (!sidebar || !("activeSidebarTabId" in sidebar)) throw new Error("[Aaalice] ComfyUI sidebar state is unavailable");
-	cancelAllDashboardBoundaryPaging(); activeWorkspace = view;
+	activeWorkspace = view;
 	sidebar.activeSidebarTabId = TAB_ID;
 	scheduleRender();
 }
@@ -447,14 +448,14 @@ function currentPage(model = dashboard()) {
 }
 
 function addPage() {
-	askText(t("aaalice.workspace.page.add", "Add page"), t("aaalice.workspace.page.name", "Page name"), "", (name) => { cancelAllDashboardBoundaryPaging(); updateDashboard((model) => {
+	askText(t("aaalice.workspace.page.add", "Add page"), t("aaalice.workspace.page.name", "Page name"), "", (name) => { updateDashboard((model) => {
 		const page = createPage(name); model.pages.push(page); activePageId = page.id; return model;
 	}); });
 }
 
 async function removePage(page) {
 	if (!await confirmAction(t("aaalice.workspace.page.deleteConfirm", "Delete this dashboard page?"))) return;
-	cancelAllDashboardBoundaryPaging(); updateDashboard((model) => { model.pages = model.pages.filter((item) => item.id !== page.id); activePageId = model.pages[0]?.id || null; return model; });
+	updateDashboard((model) => { model.pages = model.pages.filter((item) => item.id !== page.id); activePageId = model.pages[0]?.id || null; return model; });
 }
 
 function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
@@ -665,7 +666,6 @@ async function applyDashboardPreset(presetId, { restore = false } = {}) {
 	}
 	const plan = planDashboardPresetApplication(preset, (binding) => resolve(binding));
 	if (plan.issues.length && !await confirmPartialDashboardPreset(plan, preset)) return;
-	cancelAllDashboardBoundaryPaging();
 	const graph = app.graph; graph?.beforeChange?.();
 	try {
 		graph.extra ||= {};
@@ -1158,22 +1158,8 @@ function syncCurrentPageSourceGroups(pageId) {
 	}
 }
 
-function dashboardBoundaryPagingState(host) {
-	let state = dashboardBoundaryPagingStates.get(host);
-	if (!state) { state = {}; dashboardBoundaryPagingStates.set(host, state); }
-	return state;
-}
-
-function cancelAllDashboardBoundaryPaging() {
-	for (const root of mounted) {
-		const state = dashboardBoundaryPagingStates.get(root);
-		if (state) cancelDashboardBoundaryPaging(state);
-	}
-}
-
 function renderDashboard(container, host) {
 	container.classList.toggle("is-layout-editing", editMode);
-	const boundaryPagingState = dashboardBoundaryPagingState(host);
 	const model = dashboard(); const page = currentPage(model);
 	const resolvedPage = page ? { ...page, groups: page.groups.map((group) => {
 		const sync = group.source ? sourceGroupViewState(page, group) : null;
@@ -1181,10 +1167,7 @@ function renderDashboard(container, host) {
 	}) } : null;
 	const { controls: resolvedControls, sizeProjections } = resolvePageControls(resolvedPage);
 	const viewState = workspaceViewState.dashboard;
-	container.addEventListener("pointerdown", cancelAllDashboardBoundaryPaging, true);
-	container.addEventListener("keydown", cancelAllDashboardBoundaryPaging, true);
 	if (dashboardModelError) {
-		destroyDashboardBoundaryPaging(boundaryPagingState);
 		container.append(emptyState({ iconName: "statusWarning", className: "aa-workspace-empty aa-dashboard-unsupported", title: t("aaalice.workspace.unsupported.title", "Old dashboard layout is unsupported"), description: t("aaalice.workspace.unsupported.description", "This dashboard uses an unsupported layout model. Reset it to continue."), actions: [button({ label: t("aaalice.workspace.unsupported.reset", "Reset dashboard"), iconName: "delete", variant: "danger", onClick: () => {
 			const graph = app.graph; graph?.beforeChange?.(); try { graph.extra ||= {}; graph.extra[EXTRA_KEY] = emptyDashboard(); dashboardModelError = null; activePageId = null; } finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
 		} })] })); return;
@@ -1200,7 +1183,7 @@ function renderDashboard(container, host) {
 	const search = createCollapsibleSearch({
 		open: searchOpen, value: query, disabled: !page || editMode, focus: focusSearch,
 		label: t("aaalice.workspace.search.parameters", "Search parameters"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.search.parametersPlaceholder", "Search the current page"),
-		onToggle: (open) => { if (open) cancelAllDashboardBoundaryPaging(); viewState.searchOpen = open; viewState.focusSearch = open; viewState.focusHost = open ? host : null; scheduleRender(); },
+		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; viewState.focusHost = open ? host : null; scheduleRender(); },
 		onInput: (value) => { viewState.query = value; applyDashboardSearch(value); },
 	});
 	const addSeparatorToPage = () => {
@@ -1217,7 +1200,7 @@ function renderDashboard(container, host) {
 		if (target) target.tone = nextTone;
 		return current;
 	});
-	const duplicateCurrentPage = () => { cancelAllDashboardBoundaryPaging(); updateDashboard((current) => {
+	const duplicateCurrentPage = () => { updateDashboard((current) => {
 		const next = duplicatePage(current, page.id);
 		activePageId = next.pages[next.pages.findIndex((entry) => entry.id === page.id) + 1]?.id || page.id;
 		return next;
@@ -1233,7 +1216,6 @@ function renderDashboard(container, host) {
 	});
 	const openPageMenu = (x, y) => {
 		if (!page) return;
-		cancelAllDashboardBoundaryPaging();
 		const sourceGroupCount = page.groups.filter((group) => group.source).length;
 		createContextMenu({ x, y, ownerElement: host, ariaLabel: t("aaalice.workspace.page.menu", "Page actions"), items: [
 			{ label: t("aaalice.workspace.page.rename", "Rename page"), iconName: "edit", onSelect: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, renamePage) },
@@ -1279,10 +1261,9 @@ function renderDashboard(container, host) {
 		onSelect: (id) => dashboardComponentHandlers[id]?.(),
 	});
 	const activePageIndex = model.pages.findIndex((entry) => entry.id === page?.id);
-	const selectPage = (id, detail = {}) => {
+	const selectPage = (id) => {
 		if (!id || id === activePageId) return false;
-		if (detail.source !== "boundary") cancelAllDashboardBoundaryPaging();
-		const currentModel = detail.model || dashboard(); const previousTransition = viewState.pageTransition;
+		const currentModel = dashboard(); const previousTransition = viewState.pageTransition;
 		const fromPageId = previousTransition?.fromPageId || activePageId;
 		const previousIndex = currentModel.pages.findIndex((entry) => entry.id === fromPageId);
 		const nextIndex = currentModel.pages.findIndex((entry) => entry.id === id);
@@ -1294,8 +1275,7 @@ function renderDashboard(container, host) {
 		}
 		const direction = nextIndex < previousIndex ? "backward" : "forward";
 		viewState.pageTransition = {
-			pageId: id, fromPageId, direction, source: detail.source,
-			initialEdge: detail.source === "boundary" && direction === "backward" ? "bottom" : "top",
+			pageId: id, fromPageId, direction,
 			snapshots: previousTransition?.snapshots || captureDashboardPageSnapshots(),
 			selectedItemIds: previousTransition?.selectedItemIds || new Set(viewState.selectedItemIds),
 			selectedGroupIds: previousTransition?.selectedGroupIds || new Set(viewState.selectedGroupIds),
@@ -1303,10 +1283,16 @@ function renderDashboard(container, host) {
 		activePageId = id; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); scheduleRender();
 		return true;
 	};
-	const reorderPage = (sourceId, targetId) => { cancelAllDashboardBoundaryPaging(); updateDashboard((current) => {
+	const reorderPage = (sourceId, targetId) => { updateDashboard((current) => {
 		const sourceIndex = current.pages.findIndex((item) => item.id === sourceId); const targetIndex = current.pages.findIndex((item) => item.id === targetId);
 		if (sourceIndex >= 0 && targetIndex >= 0) { const [source] = current.pages.splice(sourceIndex, 1); current.pages.splice(targetIndex, 0, source); } return current;
 	}); };
+	let pageRail = dashboardPageRails.get(host);
+	if (!pageRail) { pageRail = createPageRail(); dashboardPageRails.set(host, pageRail); }
+	pageRail.update({
+		pages: model.pages, activeId: page?.id, editMode, labels: workspaceLabels(), onSelect: selectPage,
+		onReorder: reorderPage,
+	});
 	const dashboardActions = [
 		...(page ? [createDashboardPageHeading({
 			page,
@@ -1316,11 +1302,10 @@ function renderDashboard(container, host) {
 			className: pageTransitionClass.trim(),
 			onRename: renamePage,
 			onSelectPage: selectPage,
-			onReorderStart: cancelAllDashboardBoundaryPaging,
 			onReorderPage: reorderPage,
 		})] : []),
 		presetPicker,
-		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; cancelAllDashboardBoundaryPaging(); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
+		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { editMode = !editMode; viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
 		...(editMode ? [
 			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
 			...(page ? [
@@ -1335,7 +1320,7 @@ function renderDashboard(container, host) {
 	];
 	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : dashboardActions, { className: `aa-dashboard-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
 	container.append(toolbar);
-	if (!page) { destroyDashboardBoundaryPaging(boundaryPagingState); container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
+	if (!page) { container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
 	const scroll = el("div", `aa-dashboard-scroll${pageTransitionClass}`);
 	const openGroupMenu = (event, group) => {
 		const rect = event.currentTarget.getBoundingClientRect(); createContextMenu({ x: event.clientX || rect.right, y: event.clientY || rect.bottom, ownerElement: event.currentTarget, ariaLabel: t("aaalice.workspace.group.menu", "Layout group menu"), items: [
@@ -1384,7 +1369,7 @@ function renderDashboard(container, host) {
 		});
 		card.dataset.dashboardItemId = item.id; card.dataset.searchText = String(cardTitle).toLocaleLowerCase(); return card;
 	};
-	const columns = dashboardColumnsForWidth(container.clientWidth);
+	const columns = dashboardColumnsForWidth(container.clientWidth - DASHBOARD_PAGE_RAIL_WIDTH);
 	const grid = createDashboardGrid({ page: resolvedPage, sizeProjections, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu, onSyncGroup: (group) => syncDashboardSourceGroup(page.id, group.id),
 		onRenameGroup: (group, name) => updateDashboard((current) => {
 			const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id);
@@ -1466,20 +1451,8 @@ function renderDashboard(container, host) {
 		setTimeout(() => pageSnapshot.remove(), 260);
 	}
 	const pageStage = el("div", { className: "aa-dashboard-page-stage", children: [...(pageSnapshot ? [pageSnapshot] : []), scroll] });
-	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, selectionBar.root] }); container.append(body);
-	if (pageTransition?.initialEdge === "bottom") setScrollTopImmediately(scroll, scroll.scrollHeight - scroll.clientHeight);
+	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, pageRail, selectionBar.root] }); container.append(body);
 	if (pageSnapshot) setScrollTopImmediately(pageSnapshot, pageSnapshot._aaaliceSnapshotScrollTop);
-	bindDashboardBoundaryPaging(pageStage, {
-		state: boundaryPagingState,
-		scroller: scroll,
-		isEnabled: () => activeWorkspace === "dashboard" && isWorkspaceRootInteractive(host) && !viewState.searchOpen && !scroll.querySelector(".aa-dashboard-grid-v2:is(.is-dragging, .is-selecting)"),
-		requestPage: (direction) => {
-			const currentIndex = model.pages.findIndex((entry) => entry.id === activePageId);
-			if (currentIndex < 0) return null;
-			const target = model.pages[currentIndex + direction];
-			return target && selectPage(target.id, { source: "boundary", model }) ? target.id : null;
-		},
-	});
 	updateSelectionUi = () => {
 		const selectedItems = page.items.filter((item) => viewState.selectedItemIds.has(item.id)); const selectedGroups = page.groups.filter((group) => viewState.selectedGroupIds.has(group.id));
 		viewState.selectedItemIds = new Set(selectedItems.map((item) => item.id)); viewState.selectedGroupIds = new Set(selectedGroups.map((group) => group.id));
@@ -2198,10 +2171,9 @@ function handleGroupNavigationShortcut(event) {
 const renderedWorkspaceTabs = new WeakSet();
 const workspaceWidthObservers = new Map();
 
-function destroyDashboardBoundaryPagingForRoot(element) {
-	const state = dashboardBoundaryPagingStates.get(element);
-	if (state) destroyDashboardBoundaryPaging(state);
-	dashboardBoundaryPagingStates.delete(element);
+function destroyDashboardPageRailForRoot(element) {
+	const rail = dashboardPageRails.get(element);
+	rail?.destroy?.(); dashboardPageRails.delete(element);
 }
 
 function closeWorkspaceTransientSurfaces(element, { closeBindings = true } = {}) {
@@ -2215,8 +2187,7 @@ function suspendWorkspaceRoot(element) {
 	closeWorkspaceTransientSurfaces(element);
 	const ownedTree = workspaceOwnedTrees.get(element);
 	if (ownedTree) { destroyVirtualLists(ownedTree); destroySharedControls(ownedTree); }
-	const state = dashboardBoundaryPagingStates.get(element);
-	if (state) cancelDashboardBoundaryPaging(state);
+	dashboardPageRails.get(element)?.destroy?.();
 }
 
 function destroyWorkspaceRoot(element) {
@@ -2226,7 +2197,7 @@ function destroyWorkspaceRoot(element) {
 	workspaceParentObservers.get(element)?.disconnect(); workspaceParentObservers.delete(element); renderedWorkspaceTabs.delete(element);
 	closeWorkspaceTransientSurfaces(element);
 	if (ownedTree) { closeWorkspaceTransientSurfaces(ownedTree); destroyVirtualLists(ownedTree); destroySharedControls(ownedTree); ownedTree.remove(); }
-	workspacePinTooltips.delete(element); workspaceOwnedTrees.delete(element); destroyDashboardBoundaryPagingForRoot(element); element.classList.remove("aa-workspace-host"); mounted.delete(element);
+	workspacePinTooltips.delete(element); workspaceOwnedTrees.delete(element); destroyDashboardPageRailForRoot(element); element.classList.remove("aa-workspace-host"); mounted.delete(element);
 	for (const viewState of Object.values(workspaceViewState)) if (viewState.focusHost === element) { viewState.focusHost = null; viewState.focusSearch = false; }
 }
 
@@ -2251,7 +2222,7 @@ function renderWorkspace(root) {
 		shell.content.replaceChildren();
 		if (activeWorkspace === "dashboard") renderDashboard(shell.content, root);
 		else {
-			destroyDashboardBoundaryPagingForRoot(root);
+			destroyDashboardPageRailForRoot(root);
 			if (activeWorkspace === "groups") renderGroupNavigation(shell.content, root);
 			else renderLibrary(shell.content, root);
 		}
@@ -2310,7 +2281,7 @@ function renderWorkspace(root) {
 	pinButton.addEventListener("blur", () => workspacePinTooltip.hide());
 	syncAutoSaveControl();
 	syncPinButton();
-	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [autoSaveControl, pinButton], onTabChange: (value) => { cancelAllDashboardBoundaryPaging(); activeWorkspace = value; scheduleRender(); } });
+	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [autoSaveControl, pinButton], onTabChange: (value) => { activeWorkspace = value; scheduleRender(); } });
 	root.append(shell.root); workspaceOwnedTrees.set(root, shell.root); renderActiveWorkspace();
 }
 
@@ -2486,7 +2457,7 @@ app.registerExtension({
 	},
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
-	beforeConfigureGraph() { closeBindingDialogs(); cancelAllDashboardBoundaryPaging(); workspaceViewState.dashboard.pageTransition = null; },
+	beforeConfigureGraph() { closeBindingDialogs(); workspaceViewState.dashboard.pageTransition = null; },
 	afterConfigureGraph() { scheduleGraphSync(true); },
 	setup() {
 		installLinkedSeedQueueHook();

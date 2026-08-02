@@ -365,6 +365,138 @@ export function createCollapsibleSearch({ open = false, value = "", label, close
 	return { toggle, panel, input };
 }
 
+export function createPageRail(initialState = {}) {
+	const root = el("nav", { className: "aa-dashboard-page-rail", attrs: { "aria-orientation": "vertical" } });
+	const list = el("div", "aa-dashboard-page-list");
+	const cursor = el("span", { className: "aa-dashboard-page-cursor", attrs: { "aria-hidden": "true" } });
+	list.append(cursor); root.append(list);
+	const items = new Map();
+	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
+	let cursorFrame = 0;
+	let wheelDistance = 0;
+	let wheelDirection = 0;
+	let wheelResetTimer = 0;
+	let cursorInitialized = false;
+	const resetWheel = () => {
+		clearTimeout(wheelResetTimer);
+		wheelResetTimer = 0; wheelDistance = 0; wheelDirection = 0;
+	};
+	const setExpanded = (expanded) => {
+		const next = Boolean(expanded);
+		if (state.expanded === next) return;
+		state.expanded = next;
+		root.classList.toggle("is-expanded", next);
+	};
+	const positionCursor = ({ animate = true } = {}) => {
+		cancelAnimationFrame(cursorFrame);
+		cursorFrame = requestAnimationFrame(() => {
+			const active = items.get(state.activeId);
+			cursor.hidden = !active;
+			if (!active?.isConnected) return;
+			const shouldAnimate = animate && cursorInitialized;
+			cursor.classList.toggle("is-initializing", !shouldAnimate);
+			const offset = active.offsetTop + (active.offsetHeight - cursor.offsetHeight) / 2;
+			cursor.style.transform = `translate3d(0, ${offset}px, 0)`;
+			cursorInitialized = true;
+			if (!shouldAnimate) requestAnimationFrame(() => cursor.classList.remove("is-initializing"));
+		});
+	};
+	const updateItem = (item, page) => {
+		if (!item) return;
+		const active = page.id === state.activeId;
+		item.dataset.pageId = page.id;
+		item.draggable = Boolean(state.editMode);
+		item.classList.toggle("is-active", active);
+		item.setAttribute("aria-label", page.name);
+		const label = item.querySelector(".aa-ui-button__label");
+		if (label) label.textContent = page.name;
+		if (active) item.setAttribute("aria-current", "page"); else item.removeAttribute("aria-current");
+	};
+	const update = (nextState = {}, { animate = true } = {}) => {
+		state = { ...state, ...nextState, pages: nextState.pages || state.pages, labels: nextState.labels || state.labels };
+		root.classList.toggle("is-empty", state.pages.length === 0);
+		root.classList.toggle("is-expanded", Boolean(state.expanded));
+		root.setAttribute("aria-label", state.labels.pages || "Dashboard pages");
+		const nextIds = new Set(state.pages.map((page) => page.id));
+		for (const [id, item] of items) if (!nextIds.has(id)) { item.remove(); items.delete(id); }
+		for (const page of state.pages) {
+			let item = items.get(page.id);
+			if (!item) {
+				item = button({ label: page.name, ariaLabel: page.name, variant: "ghost", size: "sm", className: "aa-dashboard-page-dot" });
+				item.prepend(el("span", { className: "aa-dashboard-page-dot__marker", attrs: { "aria-hidden": "true" } }));
+				items.set(page.id, item);
+			}
+			updateItem(item, page);
+			list.append(item);
+		}
+		positionCursor({ animate });
+	};
+	const selectIndex = (index, { focus = false } = {}) => {
+		const next = state.pages[Math.max(0, Math.min(state.pages.length - 1, index))];
+		if (!next || next.id === state.activeId) return false;
+		resetWheel();
+		state.activeId = next.id;
+		for (const page of state.pages) updateItem(items.get(page.id), page);
+		positionCursor();
+		if (focus) queueMicrotask(() => items.get(next.id)?.focus({ preventScroll: true }));
+		state.onSelect?.(next.id);
+		return true;
+	};
+	root.addEventListener("click", (event) => {
+		const item = event.target.closest?.(".aa-dashboard-page-dot");
+		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
+		if (index >= 0) selectIndex(index);
+	});
+	root.addEventListener("pointerenter", () => setExpanded(true));
+	root.addEventListener("pointerleave", () => setExpanded(false));
+	root.addEventListener("wheel", (event) => {
+		if (event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+		event.preventDefault();
+		let delta = event.deltaY;
+		if (event.deltaMode === 1) delta *= 16;
+		else if (event.deltaMode === 2) delta *= Math.max(1, root.clientHeight);
+		const direction = Math.sign(delta);
+		if (!direction || state.pages.length < 2) return;
+		if (direction !== wheelDirection) wheelDistance = 0;
+		wheelDirection = direction;
+		wheelDistance += delta;
+		clearTimeout(wheelResetTimer);
+		wheelResetTimer = setTimeout(resetWheel, 180);
+		if (Math.abs(wheelDistance) < 36) return;
+		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
+		selectIndex(activeIndex + direction);
+		resetWheel();
+	}, { passive: false });
+	root.addEventListener("keydown", (event) => {
+		if (!event.target.closest?.(".aa-dashboard-page-dot")) return;
+		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
+		let nextIndex = null;
+		if (event.key === "ArrowUp" || event.key === "PageUp") nextIndex = activeIndex - 1;
+		else if (event.key === "ArrowDown" || event.key === "PageDown") nextIndex = activeIndex + 1;
+		else if (event.key === "Home") nextIndex = 0;
+		else if (event.key === "End") nextIndex = state.pages.length - 1;
+		if (nextIndex == null) return;
+		event.preventDefault();
+		selectIndex(nextIndex, { focus: true });
+	});
+	root.addEventListener("dragstart", (event) => {
+		const item = event.target.closest?.(".aa-dashboard-page-dot");
+		if (state.editMode && item) event.dataTransfer?.setData("application/x-aaalice-page", item.dataset.pageId);
+	});
+	root.addEventListener("dragover", (event) => { if (state.editMode && event.target.closest?.(".aa-dashboard-page-dot")) event.preventDefault(); });
+	root.addEventListener("drop", (event) => {
+		const item = event.target.closest?.(".aa-dashboard-page-dot");
+		if (!state.editMode || !item) return;
+		event.preventDefault();
+		const source = event.dataTransfer?.getData("application/x-aaalice-page");
+		if (source && source !== item.dataset.pageId) state.onReorder?.(source, item.dataset.pageId);
+	});
+	root.update = update;
+	root.destroy = () => { cancelAnimationFrame(cursorFrame); resetWheel(); };
+	update(initialState, { animate: false });
+	return root;
+}
+
 export function createControlCard({ item, title, control, status = "ok", description = "", linkedCount = 0, mixed = false, editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onGroup, onUngroup, onRenameTitle }) {
 	const headerOnly = control?.dataset?.headerOnly === "true";
 	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
