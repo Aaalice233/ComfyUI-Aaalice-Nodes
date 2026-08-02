@@ -733,7 +733,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(workspace, /if \(previousTransition && id === fromPageId\)/);
 	assert.match(workspace, /createPageRail/);
 	assert.match(workspace, /children: \[pageStage, pageRail, selectionBar\.root\]/);
-	assert.match(workspace, /dashboardColumnsForWidth\(container\.clientWidth - DASHBOARD_PAGE_RAIL_WIDTH\)/);
+	assert.match(workspace, /dashboardColumnsForWorkspaceWidth\(container\.clientWidth\)/);
 	assert.match(workspace, /aa-dashboard-page-stage/);
 	assert.match(theme, /\.aa-dashboard-page-stage \{[^}]*overflow: hidden;/);
 	assert.match(theme, /@keyframes aa-dashboard-page-forward-in/);
@@ -1431,9 +1431,10 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 });
 
 test("dashboard column projection re-renders when sidebar width crosses the breakpoint", () => {
-	assert.match(workspace, /dashboardColumnsForWidth\(container\.clientWidth - DASHBOARD_PAGE_RAIL_WIDTH\)/);
+	assert.match(workspace, /function dashboardColumnsForWorkspaceWidth\(width\) \{\s*return dashboardColumnsForWidth\(width - DASHBOARD_PAGE_RAIL_WIDTH\);\s*\}/);
+	assert.match(workspace, /dashboardColumnsForWorkspaceWidth\(container\.clientWidth\)/);
 	assert.match(workspace, /new ResizeObserver\(\(\) => \{/);
-	assert.match(workspace, /dashboardColumnsForWidth\(element\.clientWidth\)/);
+	assert.match(workspace, /dashboardColumnsForWorkspaceWidth\(element\.clientWidth\)/);
 	assert.match(workspace, /if \(next === lastColumnBucket\) return;/);
 	assert.match(workspace, /widthObserver\.observe\(element\)/);
 	assert.match(workspace, /workspaceWidthObservers\.get\(element\)\?\.disconnect\(\)/);

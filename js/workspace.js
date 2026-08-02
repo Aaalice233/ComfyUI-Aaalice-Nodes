@@ -480,6 +480,10 @@ function currentPage(model = dashboard()) {
 	activePageId = page?.id || null; return page;
 }
 
+function dashboardColumnsForWorkspaceWidth(width) {
+	return dashboardColumnsForWidth(width - DASHBOARD_PAGE_RAIL_WIDTH);
+}
+
 function addPage() {
 	askText(t("aaalice.workspace.page.add", "Add page"), t("aaalice.workspace.page.name", "Page name"), "", (name) => { updateDashboard((model) => {
 		const page = createPage(name); model.pages.push(page); activePageId = page.id; return model;
@@ -1402,7 +1406,7 @@ function renderDashboard(container, host) {
 		});
 		card.dataset.dashboardItemId = item.id; card.dataset.searchText = String(cardTitle).toLocaleLowerCase(); return card;
 	};
-	const columns = dashboardColumnsForWidth(container.clientWidth - DASHBOARD_PAGE_RAIL_WIDTH);
+	const columns = dashboardColumnsForWorkspaceWidth(container.clientWidth);
 	const grid = createDashboardGrid({ page: resolvedPage, sizeProjections, columns, editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, labels: workspaceLabels(), renderItem, onGroupMenu: openGroupMenu, onSyncGroup: (group) => syncDashboardSourceGroup(page.id, group.id),
 		onRenameGroup: (group, name) => updateDashboard((current) => {
 			const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id);
@@ -2508,8 +2512,8 @@ app.registerExtension({
 					element.replaceChildren(placeholder); workspaceOwnedTrees.set(element, placeholder);
 				}
 			}
-			// 侧栏宽度在打开动画期间尚未稳定，列数投影可能从错误的宽度计算；宽度跨越断点时必须重排。
-			const columnBucket = () => dashboardColumnsForWidth(element.clientWidth);
+			// 宽度观察器必须和渲染器使用同一有效网格宽度，否则 Page Rail 会让断点判断错位。
+			const columnBucket = () => dashboardColumnsForWorkspaceWidth(element.clientWidth);
 			let lastColumnBucket = columnBucket(); let wasInteractive = isWorkspaceRootInteractive(element);
 			workspaceWidthObservers.get(element)?.disconnect();
 			const widthObserver = new ResizeObserver(() => {
