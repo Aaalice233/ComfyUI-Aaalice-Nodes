@@ -520,7 +520,9 @@ export function createControlCard({ item, title, control, status = "ok", descrip
 		const linkedLabel = String(labels.linkedParameters || "Controls {count} parameters").replace("{count}", String(total));
 		const linkedStatus = mixed ? `${linkedLabel} · ${labels.mixedValues || "Values differ"}` : linkedLabel;
 		const linkedBadge = el("span", { className: `aa-control-card-binding-count${mixed ? " is-mixed" : ""}`, attrs: { "aria-label": linkedStatus }, children: [icon("link"), el("span", null, String(total))] });
-		attachDescriptionTooltip(linkedBadge, linkedStatus);
+		linkedBadge.dataset.linkedLabel = linkedLabel;
+		linkedBadge.dataset.linkedMixedLabel = `${linkedLabel} · ${labels.mixedValues || "Values differ"}`;
+		attachDescriptionTooltip(linkedBadge, () => linkedBadge.getAttribute("aria-label") || linkedLabel);
 		header.append(linkedBadge);
 	}
 	if (control?.headerAccessories?.length) header.append(...control.headerAccessories);

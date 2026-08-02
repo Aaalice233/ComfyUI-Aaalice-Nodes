@@ -2,13 +2,14 @@
 
 import { createSharedControl } from "./controls/registry.js";
 import { resolvedControlSpec } from "./controls/specs.js";
+import { registerControlValueView, updateBoundControlValues } from "./control_value_channel.js";
 
 let activeControlGestures = 0;
 
 /** The sidebar must not rebuild its DOM while a drag/wheel gesture owns an element. */
 export function hasActiveControlGestures() { return activeControlGestures > 0; }
 
-export function createControlElement(resolved, { labels = {}, onInput, onCommit, onError, onSuccess, onWriteError } = {}) {
+export function createControlElement(resolved, { labels = {}, syncKeys = [], onInput, onCommit, onError, onSuccess, onWriteError } = {}) {
 	if (resolved?.status !== "ok") return null;
 	const availabilityLabels = labels.availability || {};
 	const imageLabels = {
@@ -19,7 +20,7 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 		clear: labels.imageClear,
 		...(labels.imageAssets || {}),
 	};
-	const spec = resolvedControlSpec(resolved, {
+	let spec = resolvedControlSpec(resolved, {
 		labels: {
 			numeric: availabilityLabels,
 			seed: { ...availabilityLabels, ...(labels.seedMode || {}) },
@@ -38,19 +39,51 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean", wheelAdjust: false },
 	});
 	let gestureOpen = false;
+	let currentValue = spec.value;
+	const primarySyncKey = syncKeys[0] ? String(syncKeys[0]) : null;
 	const write = (callback, onComplete = null) => {
 		try { const result = callback(); onComplete?.(); return result; }
 		catch (error) { if (onWriteError) onWriteError(error); else throw error; return undefined; }
 	};
-	const view = createSharedControl(spec, {
+	let view;
+	const syncValue = (next, detail = {}) => {
+		const card = view.root.closest?.(".aa-control-card");
+		const linkedBadge = card?.querySelector?.(".aa-control-card-binding-count");
+		if (detail.sourceKey && detail.sourceKey !== primarySyncKey) {
+			const mixed = !Object.is(currentValue, next);
+			card?.classList.toggle("has-mixed-bindings", mixed);
+			linkedBadge?.classList.toggle("is-mixed", mixed);
+			const linkedLabel = mixed ? linkedBadge?.dataset.linkedMixedLabel : linkedBadge?.dataset.linkedLabel;
+			if (linkedLabel) linkedBadge.setAttribute("aria-label", linkedLabel);
+			return;
+		}
+		currentValue = next;
+		spec = {
+			...spec,
+			value: next,
+			...(detail.seedBehavior ? { options: { ...spec.options, control_after_generate: detail.seedBehavior } } : {}),
+		};
+		view.update(spec);
+		card?.classList.remove("has-mixed-bindings");
+		linkedBadge?.classList.remove("is-mixed");
+		if (linkedBadge?.dataset.linkedLabel) linkedBadge.setAttribute("aria-label", linkedBadge.dataset.linkedLabel);
+	};
+	const complete = (next, detail = {}) => {
+		currentValue = next;
+		updateBoundControlValues(syncKeys, next, detail);
+		onCommit?.(next, detail);
+	};
+	view = createSharedControl(spec, {
 		preview(next) {
 			write(() => {
 				if (["numeric", "seed"].includes(spec.kind)) resolved.setValue(next, { transaction: false, transient: true });
+				currentValue = next;
+				updateBoundControlValues(syncKeys, next, { transient: true });
 				onInput?.(next);
 			});
 		},
 		commit(next, detail = {}) {
-			write(() => resolved.setValue(next, { workspaceRedraw: detail.redraw !== false }), () => onCommit?.(next, detail));
+			write(() => resolved.setValue(next, { workspaceRedraw: detail.redraw !== false }), () => complete(next, detail));
 		},
 		beginGesture() {
 			if (gestureOpen) return;
@@ -67,13 +100,16 @@ export function createControlElement(resolved, { labels = {}, onInput, onCommit,
 			finally {
 				resolved.node?.graph?.afterChange?.();
 				resolved.node?.graph?.setDirtyCanvas?.(true, true);
-				onCommit?.(next);
+				complete(next);
 			}
 		},
-		setSeedBehavior: (behavior) => write(() => resolved.setSeedBehavior?.(behavior), () => onCommit?.(resolved.value, { seedBehavior: behavior })),
+		setSeedBehavior: (behavior) => write(() => resolved.setSeedBehavior?.(behavior), () => complete(currentValue, { seedBehavior: behavior })),
 		onError,
 		onSuccess,
 	});
+	const unregisterValueView = registerControlValueView(syncKeys, syncValue);
+	const destroyView = view.root._aaControlDestroy;
+	view.root._aaControlDestroy = () => { unregisterValueView(); destroyView?.(); };
 	let control = view.root;
 	control.classList.add("aa-workspace-control-input");
 	control.dataset.controlKind = view.kind;

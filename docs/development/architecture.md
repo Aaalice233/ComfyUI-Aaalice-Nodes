@@ -108,6 +108,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 4. Booru Gallery 和 PromptSelector 的宿主 widget 保持注册，插件内部富内容由 `dom_widget_visibility` 以有限视口预热范围切换 active；离屏时虚拟列表/瀑布流释放条目 DOM 和图片源，只保留模型与 spacer 布局，返回视口后按同一 controller 恢复。该机制不修改 ComfyUI 核心、其它插件或工作流持久状态。
 5. Workspace 图签名只读取 widget/options 的静态 own data property；accessor-backed 动态选项由 `CONTROL_HOST_INVALIDATED_EVENT` 失效，加载、撤销和重做由 `afterConfigureGraph` 强制恢复，不在签名阶段执行第三方 getter。
 6. KJ Set/Get 的虚拟连线绘制属于 KJNodes 自身：其 Show links、单节点 `drawConnection` 和 Performance 设置可能独立增加每帧图扫描与连线绘制。本包只通过公开 Set/Get API 做事件驱动的结构同步，不改写 KJNodes 的 canvas renderer。
+7. Dashboard 参数值按稳定 Binding Key 进入进程内 value channel，直接调用现有 Control View 的 `update()` 同步同卡片、重复卡片与多根投影；普通值提交不调用 `renderWorkspace()`，也不重新解析 Provider。Subgraph Provider 按稳定 Control Id 缓存“绑定到哪个 promoted widget”的结构索引，值仍逐次实时读取；嵌套定义 owner 只在图结构或 Control Host 明确失效时清空。自定义 Sidebar 的重复 render 回调在仍拥有原 DOM 树时为 no-op，结构重绘在连续手势期间延后到提交后执行一次。
 
 ### FetchFromKrita
 
@@ -210,6 +211,7 @@ Parameter 与 Route 分别使用稳定 id。显示名称、Branch Key 和排序�
 8. 侧边栏预设纯模型保存完整 Dashboard 与按稳定 Binding Key 索引的可序列化参数 payload，并从当前 Working Copy 与基准快照计算“已修改”状态；不存在基准时界面只显示中性占位。运行时协调器负责去重、捕获、预检以及布局与参数的共同应用和失败回滚；工作区入口负责 ComfyUI 图事务、对话框、切换保护和工作流序列化，Provider 继续是唯一写回节点的边界。预设集合与基准身份位于 `app.graph.extra.aaaliceSidebarPresets`，随工作流文件分发（含 Workflow Hub 的打包与安装，该插件原样保留 `extra`），跨插件契约是“不得剥离未知 extra 键”，Hub 侧零耦合。图同步签名同时覆盖看板与预设 extra，结构相同但持久状态不同的工作流切换标签页时必须刷新。预设保存规范化后的 V4 整数跨度；Provider 的运行时投影不进入持久快照。
 9. “组导航”只显示用户手动加入的可视组；版本化导航清单、唯一组合键、每项 X/Y 目标偏移和目标缩放写入 `app.graph.extra` 并随工作流保存，组状态与边界从当前图实时解析。定位时偏移实时边界的目标中心并按条目倍率计算目标画布缩放；搜索和定位只属于会话视图，导航范围不受 QuickGroupManager 的颜色筛选或排序影响。
 10. Dashboard 页面滚动只作用于当前页面，不再把滚动边界解释为页面切换请求。页面切换由页眉左侧页面按钮、右侧独立 Page Rail 的胶囊点击或 Rail 内滚轮/键盘操作触发；Page Rail 常态占用 Dashboard body 右侧固定 38px 独立列显示圆点，圆点列不覆盖 Scroll Surface 或控件，胶囊展开时允许越出该列显示名称并以选中整体强调光晕表达当前页。Page Rail 不属于 Scroll Surface，垂直滚轮在 Rail 内由自身消费并直接按相邻页面切换，不建立延迟队列。每个侧栏根独立持有 Page Rail、光标和过渡状态，根卸载、隐藏或切换工作区时清理定时器与动画帧；页面请求按当前 `activePageId` 解析，多根同帧回到原 Page Id 时折叠为无过渡 no-op。`v-show` 隐藏根休眠且不重建 Provider/控件，首次挂载已隐藏的根只建立空占位与生命周期观察，重新可见时由 ResizeObserver 补一次完整渲染，搜索焦点只由发起操作的可见根消费；每个根生成独立 DOM 控件 id，禁止跨根 `label[for]` 命中。自定义页签宿主被 Vue 或其它 custom renderer 替换时，由根与父级所有权观察器清理旧实例及其挂到 `document.body` 的锚定浮层；销毁、隐藏与重绘只关闭锚定于对应根的 Tooltip、Popover 和 Context Menu，不得关闭其它 Graph View、画布节点或扩展的表面；所有脱离根挂到 `document.body` 的菜单必须保存显式 owner，控件销毁同时移除自身浮动编辑器并闭合尚未提交的图事务。
+11. Dashboard 的完整重建只服务结构域：页面/布局、Binding Set、控件类型、动态选项、可用性和来源结构。参数值、Seed after-generate 行为及连续数值预览属于值域；写入完成后保持卡片、输入元素、焦点、Popover 和动画元素 identity。Provider 的 promoted widget 索引只缓存对象身份映射，不缓存值、可用性或预设 payload；`graphChanged`、工作流恢复及 `CONTROL_HOST_INVALIDATED_EVENT` 负责失效，避免以过期 descriptor 代替实时状态。
 
 #### 第三方节点适配
 

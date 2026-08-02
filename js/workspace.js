@@ -3,7 +3,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
-import { controlProviders, repairDuplicateHostIds } from "./lib/control_providers.js";
+import { controlProviders, HOST_ID_PROPERTY, repairDuplicateHostIds } from "./lib/control_providers.js";
 import { installNodeControlMenu } from "./lib/node_control_menu.js";
 import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
 import {
@@ -36,7 +36,9 @@ import {
 	createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createPageRail, createSelectionActionBar, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceShell, createWorkspaceToolbar, formatFileSize,
 } from "./lib/workspace_components.js";
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
+import { updateBoundControlValues } from "./lib/control_value_channel.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
+import { invalidateWidgetControlAdapterCache } from "./lib/widget_control_adapters.js";
 import { allGraphNodes } from "./lib/graph_scope.js";
 import { applySeedAfterQueue, EVENT_PARAMETER_CHANGED, isParameterPanel } from "./lib/param_model.js";
 
@@ -67,6 +69,7 @@ let dashboardModelError = null;
 let dashboardPresetModelError = null;
 let groupNavigationModelError = null;
 let renderFrame = 0;
+let deferredWorkspaceRender = false;
 let dashboardPresetAutoSaveFrame = 0;
 let dashboardPresetAutoSaveRunning = false;
 const workspaceViewState = {
@@ -247,6 +250,7 @@ function isWorkspaceRootInteractive(root) {
 
 function scheduleRender(view = null) {
 	if (view && view !== activeWorkspace) return;
+	if (hasActiveControlGestures()) { deferredWorkspaceRender = true; return; }
 	if (renderFrame) return;
 	renderFrame = requestAnimationFrame(() => {
 		renderFrame = 0;
@@ -258,6 +262,12 @@ function scheduleRender(view = null) {
 		}
 		if (workspaceViewState.dashboard.pageTransition === pageTransition) workspaceViewState.dashboard.pageTransition = null;
 	});
+}
+
+function flushDeferredWorkspaceRender() {
+	if (!deferredWorkspaceRender || hasActiveControlGestures()) return;
+	deferredWorkspaceRender = false;
+	scheduleRender();
 }
 
 function ownDataPropertyValue(object, name) {
@@ -276,13 +286,36 @@ function widgetOptionSignature(widget) {
 	return values.map((item) => typeof item === "object" && item !== null ? String(item.value ?? item.label ?? "") : String(item));
 }
 
+function widgetStructureSignature(widget) {
+	return [
+		ownDataPropertyValue(widget, "name") ?? ownDataPropertyValue(widget, "sourceWidgetName") ?? null,
+		ownDataPropertyValue(widget, "type") ?? null,
+		ownDataPropertyValue(widget, "sourceNodeId") ?? null,
+		ownDataPropertyValue(widget, "sourceWidgetName") ?? null,
+		ownDataPropertyValue(widget, "disambiguatingSourceNodeId") ?? null,
+		widgetOptionSignature(widget),
+	];
+}
+
 function graphStructureSignature(nodes = graphNodes()) {
 	return nodes.map((node) => JSON.stringify([
 		node.id, node.type, node.comfyClass, node.properties?.aaaliceHostId,
 		typeof node.getTitle === "function" ? node.getTitle() : node.title,
-		(node.widgets || []).map((widget) => [widget.name, widget.type, widgetOptionSignature(widget)]),
+		(node.widgets || []).map(widgetStructureSignature),
 		(node.properties?.parameters || []).map((parameter) => [parameter.id, parameter.type, parameter.name]),
 	])).join("|");
+}
+
+function syncParameterValueViews(detail = {}) {
+	const node = detail.node;
+	const hostId = node?.properties?.[HOST_ID_PROPERTY];
+	const parameters = node?.properties?.parameters;
+	if (!hostId || !Array.isArray(parameters)) return;
+	for (const parameter of parameters) {
+		if (!parameter?.id || (detail.parameterId != null && String(parameter.id) !== String(detail.parameterId))) continue;
+		const key = bindingKey({ provider: "aaalice-parameter", hostId, controlId: String(parameter.id) });
+		updateBoundControlValues([key], parameter.value, { sourceKey: key, seedBehavior: parameter.config?.control_after_generate });
+	}
 }
 
 // 结构相同的工作流（如同一工作流的多个版本）可能携带不同看板与预设；签名必须覆盖，否则切换标签页时选择器显示陈旧状态
@@ -1350,7 +1383,7 @@ function renderDashboard(container, host) {
 		let control;
 		if (resolved.status === "ok") {
 			try {
-				control = createControlElement(resolved, { labels: workspaceLabels(), onCommit: (_value, detail = {}) => { if (detail.redraw !== false) scheduleRender("dashboard"); }, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference), onWriteError: notifyControlBindingError });
+				control = createControlElement(resolved, { labels: workspaceLabels(), syncKeys: controlItemBindings(item).map(bindingKey), onCommit: flushDeferredWorkspaceRender, onError: (error) => notifyWorkspaceImageUpload(error), onSuccess: (reference) => notifyWorkspaceImageUpload(null, reference), onWriteError: notifyControlBindingError });
 			} catch (error) {
 				resolved = { ...resolved, status: "error", error };
 			}
@@ -2458,15 +2491,15 @@ app.registerExtension({
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
 	beforeConfigureGraph() { closeBindingDialogs(); workspaceViewState.dashboard.pageTransition = null; },
-	afterConfigureGraph() { scheduleGraphSync(true); },
+	afterConfigureGraph() { invalidateWidgetControlAdapterCache(); scheduleGraphSync(true); },
 	setup() {
 		installLinkedSeedQueueHook();
 		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.sidebarTitle", "Aaalice"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => {
 			if (renderedWorkspaceTabs.has(element) && !ownsWorkspaceRoot(element)) destroyWorkspaceRoot(element);
 			element.classList.add("aa-workspace-host"); mounted.add(element);
-			// 前端的挂载效果会跟随渲染期读取的响应式状态(如滑条预览写 widget 值)重新触发。
-			// 手势期间重建会销毁被拖拽元素,跳过重挂载;手势结束后的提交渲染统一刷新。
-			if (renderedWorkspaceTabs.has(element)) { if (!hasActiveControlGestures()) scheduleRender(); }
+			// ComfyUI 会在 render 期间读取的响应式 widget 值变化后再次调用此回调。
+			// 已拥有完整树时必须幂等返回；值同步由 binding channel 定向更新，结构失效才显式 scheduleRender。
+			if (renderedWorkspaceTabs.has(element)) return;
 			else {
 				renderedWorkspaceTabs.add(element);
 				if (isWorkspaceRootVisible(element)) renderWorkspace(element);
@@ -2499,7 +2532,7 @@ app.registerExtension({
 		}, destroy: destroyWorkspaceSidebar });
 		installWorkspaceCanvasAutoClose();
 		const nodes = graphNodes(); repairDuplicateHostIds(nodes); for (const node of nodes) patchNodeMenu(node); previousGraphStructure = graphSyncSignature(nodes);
-		api.addEventListener("graphChanged", () => { scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
+		api.addEventListener("graphChanged", () => { invalidateWidgetControlAdapterCache(); scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
 		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。
 		window.addEventListener("keydown", (event) => {
 			if (event.repeat || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || String(event.key).toLowerCase() !== "s") return;
@@ -2508,9 +2541,10 @@ app.registerExtension({
 			flushActiveDashboardPresetOnSave();
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
-		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, () => { scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave(); });
+		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => { invalidateWidgetControlAdapterCache(event.detail?.node || null); scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave(); });
 		window.addEventListener(EVENT_PARAMETER_CHANGED, (event) => {
-			if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard");
+			if (event.detail?.structure === false) syncParameterValueViews(event.detail);
+			else if (event.detail?.workspaceRedraw !== false) scheduleRender("dashboard");
 			scheduleActiveDashboardPresetAutoSave();
 		});
 		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));

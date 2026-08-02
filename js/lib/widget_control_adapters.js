@@ -5,6 +5,9 @@ import { invalidateControlHost } from "./control_host_events.js";
 import { DASHBOARD_MARKDOWN_ROW_SPAN } from "./dashboard_sizing.js";
 
 const adapters = [];
+let adapterRevision = 0;
+let adaptedWidgetIndexes = new WeakMap();
+let definitionOwnerCache = new WeakMap();
 
 const SIMPLE_NATIVE_WIDGETS = Object.freeze({
 	int: { kind: "numeric", valueType: "number", numericDomain: "integer" }, float: { kind: "numeric", valueType: "number", numericDomain: "float" },
@@ -34,8 +37,8 @@ function normalizeAdapter(adapter) {
 export function registerWidgetControlAdapter(adapter) {
 	const normalized = normalizeAdapter(adapter);
 	if (adapters.some((item) => item.id === normalized.id)) throw new Error(`Duplicate widget control adapter: ${normalized.id}`);
-	adapters.push(normalized); adapters.sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id));
-	return () => { const index = adapters.indexOf(normalized); if (index >= 0) adapters.splice(index, 1); };
+	adapters.push(normalized); adapters.sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id)); adapterRevision += 1;
+	return () => { const index = adapters.indexOf(normalized); if (index >= 0) { adapters.splice(index, 1); adapterRevision += 1; adaptedWidgetIndexes = new WeakMap(); } };
 }
 
 export function registeredWidgetControlAdapters() { return adapters.map(({ id, priority }) => ({ id, priority })); }
@@ -223,9 +226,43 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 }
 
 export function listAdaptedWidgetControls(node, { promoted = false, adapterId = null } = {}) {
-	return (node?.widgets || [])
+	const widgets = node?.widgets || [];
+	const controls = widgets
 		.map((widget) => adaptWidgetControl(node, widget, { promoted, adapterId }))
 		.filter((adapted) => adapted && (!promoted || isPromotedWidget(adapted.widget)));
+	cacheAdaptedWidgetIndex(node, widgets, controls, { promoted, adapterId });
+	return controls;
+}
+
+function adaptedIndexKey({ promoted = false, adapterId = null } = {}) { return `${promoted ? "promoted" : "native"}:${adapterId || "*"}`; }
+function sameWidgetSnapshot(left, right) { return left.length === right.length && left.every((widget, index) => widget === right[index]); }
+function cacheAdaptedWidgetIndex(node, widgets, controls, options) {
+	if (!node || (typeof node !== "object" && typeof node !== "function")) return;
+	let indexes = adaptedWidgetIndexes.get(node);
+	if (!indexes) { indexes = new Map(); adaptedWidgetIndexes.set(node, indexes); }
+	const byControlId = new Map();
+	for (const control of controls) if (!byControlId.has(control.controlId)) byControlId.set(control.controlId, control.widget);
+	indexes.set(adaptedIndexKey(options), { adapterRevision, widgets: [...widgets], byControlId });
+}
+
+/** Resolve one bound control without rebuilding descriptors for every sibling widget. */
+export function resolveAdaptedWidgetControl(node, controlId, { promoted = false, adapterId = null } = {}) {
+	if (!node || (typeof node !== "object" && typeof node !== "function")) return null;
+	const widgets = node?.widgets || [];
+	const options = { promoted, adapterId };
+	const cached = adaptedWidgetIndexes.get(node)?.get(adaptedIndexKey(options));
+	if (cached?.adapterRevision === adapterRevision && sameWidgetSnapshot(cached.widgets, widgets)) {
+		const widget = cached.byControlId.get(String(controlId));
+		if (!widget) return null;
+		const adapted = adaptWidgetControl(node, widget, options);
+		if (adapted?.controlId === String(controlId) && (!promoted || isPromotedWidget(adapted.widget))) return adapted;
+	}
+	return listAdaptedWidgetControls(node, options).find((candidate) => candidate.controlId === String(controlId)) || null;
+}
+
+export function invalidateWidgetControlAdapterCache(node = null) {
+	if (node) { adaptedWidgetIndexes.delete(node); definitionOwnerCache.delete(node); }
+	else { adaptedWidgetIndexes = new WeakMap(); definitionOwnerCache = new WeakMap(); }
 }
 
 function isNativeImageCompareNode(node) {
@@ -248,6 +285,11 @@ function bindImageCompareInvalidation(node, widget) {
 // 图像上传 combo 在新前端只把标记留在节点定义的 input spec 里，旧路径则落在 widget.options 上，两处都要认。
 function resolveWidgetDefinitionOwner(node, widget) {
 	if (!isPromotedWidget(widget) || !node?.isSubgraphNode?.()) return { node, widget };
+	let nodeCache = definitionOwnerCache.get(node);
+	if (!nodeCache) { nodeCache = new WeakMap(); definitionOwnerCache.set(node, nodeCache); }
+	const cached = nodeCache.get(widget);
+	const source = [node.subgraph, widget.sourceNodeId, widget.sourceWidgetName, widget.disambiguatingSourceNodeId, widget.node];
+	if (cached && cached.source.every((value, index) => value === source[index])) return cached.owner;
 	let currentHost = node;
 	let currentNodeId = widget.sourceNodeId;
 	let currentWidgetName = widget.sourceWidgetName;
@@ -264,7 +306,11 @@ function resolveWidgetDefinitionOwner(node, widget) {
 			? (interiorNode.widgets || []).find((candidate) => isPromotedWidget(candidate) && (candidate.disambiguatingSourceNodeId ?? candidate.sourceNodeId) === currentSourceNodeId && (candidate.sourceWidgetName === currentWidgetName || candidate.name === currentWidgetName))
 			: (interiorNode.widgets || []).find((candidate) => candidate?.name === currentWidgetName);
 		if (!interiorWidget) break;
-		if (!isPromotedWidget(interiorWidget)) return { node: interiorNode, widget: interiorWidget };
+		if (!isPromotedWidget(interiorWidget)) {
+			const owner = { node: interiorNode, widget: interiorWidget };
+			nodeCache.set(widget, { source, owner });
+			return owner;
+		}
 		const nextHost = interiorWidget.node?.isSubgraphNode?.() ? interiorWidget.node : interiorNode?.isSubgraphNode?.() ? interiorNode : null;
 		if (!nextHost) break;
 		currentHost = nextHost;
@@ -272,7 +318,9 @@ function resolveWidgetDefinitionOwner(node, widget) {
 		currentWidgetName = interiorWidget.sourceWidgetName;
 		currentSourceNodeId = undefined;
 	}
-	return { node, widget };
+	const owner = { node, widget };
+	nodeCache.set(widget, { source, owner });
+	return owner;
 }
 
 function imageUploadComboOptions(node, widget) {

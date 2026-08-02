@@ -5,7 +5,7 @@ import { partitionParameterSections } from "./parameter_sections.js";
 import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardContentRowSpan, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
-import { controlValueType, listAdaptedWidgetControls } from "./widget_control_adapters.js";
+import { adaptWidgetControl, controlValueType, listAdaptedWidgetControls, resolveAdaptedWidgetControl } from "./widget_control_adapters.js";
 import { applyQuickGroupManagerPreset, isQuickGroupManager, quickGroupManagerPresetSnapshot, quickGroupManagerSnapshot, validateQuickGroupManagerPreset } from "./quick_group_manager_runtime.js";
 
 export const HOST_ID_PROPERTY = "aaaliceControlHostId";
@@ -294,11 +294,11 @@ const widgetProvider = (id, promoted) => ({
 	},
 	resolve(node, binding) {
 		const requestedAdapterId = binding.adapterId || null;
-		let adapted = listAdaptedWidgetControls(node, { promoted, adapterId: requestedAdapterId })
-			.find((candidate) => candidate.controlId === binding.controlId);
+		let adapted = resolveAdaptedWidgetControl(node, binding.controlId, { promoted, adapterId: requestedAdapterId });
 		if (binding.adapterId === "comfy-native-widget") {
-			const imageUpgrade = listAdaptedWidgetControls(node, { promoted })
-				.find((candidate) => candidate.controlId === binding.controlId && candidate.adapterId === "comfy-image-combo");
+			const imageUpgrade = adapted?.widget
+				? adaptWidgetControl(node, adapted.widget, { promoted, adapterId: "comfy-image-combo" })
+				: null;
 			if (imageUpgrade && imageUpgrade.valueType === binding.valueType) adapted = imageUpgrade;
 		}
 		if (!adapted) return { status: "missing", node };

@@ -8,9 +8,11 @@ import { parameterControlSpec, resolvedControlSpec } from "../js/lib/controls/sp
 import { normalizeControlSpec } from "../js/lib/controls/contract.js";
 import {
 	adaptWidgetControl,
+	invalidateWidgetControlAdapterCache,
 	listAdaptedWidgetControls,
 	registeredWidgetControlAdapters,
 	registerWidgetControlAdapter,
+	resolveAdaptedWidgetControl,
 } from "../js/lib/widget_control_adapters.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -134,6 +136,41 @@ test("promoted widget discovery only exposes actual public subgraph widgets", ()
 	assert.ok(registeredWidgetControlAdapters().some((adapter) => adapter.id === "comfy-native-widget"));
 });
 
+test("bound widget resolution reuses the structural index while keeping values live", () => {
+	let matches = 0; let describes = 0;
+	const unregister = registerWidgetControlAdapter({
+		id: "test-indexed-promoted", priority: 2000,
+		matches: ({ widget }) => { matches += 1; return widget.type === "TEST_INDEXED"; },
+		describe: ({ widget }) => { describes += 1; return { controlId: widget.name, kind: "numeric", numericDomain: "integer", value: widget.value }; },
+	});
+	try {
+		const widgets = Array.from({ length: 24 }, (_, index) => ({ name: `control-${index}`, type: "TEST_INDEXED", value: index, sourceNodeId: String(index), sourceWidgetName: `control-${index}` }));
+		const node = { widgets };
+		assert.equal(resolveAdaptedWidgetControl(node, "control-17", { promoted: true })?.value, 17);
+		const firstMatches = matches; const firstDescriptions = describes;
+		widgets[17].value = 91;
+		assert.equal(resolveAdaptedWidgetControl(node, "control-17", { promoted: true })?.value, 91);
+		assert.equal(matches, firstMatches + 1);
+		assert.equal(describes, firstDescriptions + 1);
+	} finally { unregister(); }
+});
+
+test("promoted definition-owner traversal is cached until the host is invalidated", () => {
+	let lookups = 0;
+	const promoted = { name: "image", type: "combo", value: "cached.png", sourceNodeId: "7", sourceWidgetName: "image" };
+	const interior = {
+		constructor: { nodeData: { input: { required: { image: ["COMBO", { image_upload: true, image_folder: "output" }] } } } },
+		widgets: [{ name: "image", type: "combo", value: "cached.png", options: { values: ["cached.png"] } }],
+	};
+	const node = { isSubgraphNode: () => true, subgraph: { getNodeById: () => { lookups += 1; return interior; } } };
+	assert.equal(adaptWidgetControl(node, promoted, { promoted: true, adapterId: "comfy-image-combo" })?.kind, "image-choice");
+	assert.equal(adaptWidgetControl(node, promoted, { promoted: true, adapterId: "comfy-image-combo" })?.options.image_folder, "output");
+	assert.equal(lookups, 1);
+	invalidateWidgetControlAdapterCache(node);
+	assert.equal(adaptWidgetControl(node, promoted, { promoted: true, adapterId: "comfy-image-combo" })?.kind, "image-choice");
+	assert.equal(lookups, 2);
+});
+
 test("simple ComfyUI nodes expose only built-in primitive widget families", () => {
 	let committed = null;
 	const node = { widgets: [
@@ -241,8 +278,8 @@ test("nested promoted widgets follow disambiguating source identity across subgr
 
 test("legacy native combo bindings upgrade to the image preview adapter", () => {
 	assert.match(providerSource, /requestedAdapterId = binding\.adapterId \|\| null/);
-	assert.match(providerSource, /candidate\.adapterId === "comfy-image-combo"/);
-	assert.match(providerSource, /listAdaptedWidgetControls\(node, \{ promoted, adapterId: requestedAdapterId \}\)/);
+	assert.match(providerSource, /resolveAdaptedWidgetControl\(node, binding\.controlId, \{ promoted, adapterId: requestedAdapterId \}\)/);
+	assert.match(providerSource, /adaptWidgetControl\(node, adapted\.widget, \{ promoted, adapterId: "comfy-image-combo" \}\)/);
 });
 
 test("native numeric widgets expose real ComfyUI number slider and knob domains", () => {

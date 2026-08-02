@@ -32,9 +32,17 @@
 - 可见性回调只切换富内容 controller，不修改 `node.properties`，不触发 graph-wide redraw，不同步 KJ Set/Get 名称，也不改变节点尺寸真源。
 - Nodes 2.0 的滚轮捕获继续遵守当前 ComfyUI 前端协议：使用 `data-capture-wheel="true"`、`pointerenter` 预先聚焦和外部编辑保护；不得在 wheel 回调中阻止事件或伪造事件。
 
-## 5. 验收门槛
+## 5. Dashboard 与 Subgraph 参数投影
+
+- Dashboard 必须把值域和结构域分开。boolean、numeric、seed、choice、text、taglist 与 image 的预览/提交只通过稳定 Binding Key 通知已挂载 Control View 的 `update()`；不得执行 `renderWorkspace()`、`root.replaceChildren()`、全页 Binding 解析或 Dashboard Preset 全量捕获。
+- ComfyUI 自定义 Sidebar 的 render 回调可能因 widgetValueStore 等响应式依赖重复进入。若根仍拥有原工作区树，重复调用必须是 no-op；完整渲染只能由页面、布局、绑定、控件类型、动态选项、可用性、工作流恢复或显式 Host 失效触发。
+- Subgraph Provider 解析单个 Binding 时只适配目标 promoted widget。允许按 Node、widget 列表身份、Adapter Revision 和 Control Id 缓存结构索引，但值、availability、options 与 preset payload 必须实时读取；注册/卸载 Adapter、`graphChanged`、工作流恢复和 `CONTROL_HOST_INVALIDATED_EVENT` 必须使相关索引失效。
+- 嵌套 promoted widget 的定义 owner 可按宿主与 promoted view identity 缓存，失效边界同上。禁止在每张卡片解析时为同一 view 重复沿最多 100 层 Subgraph 链创建 Set、WeakMap 或扫描兄弟 widgets。
+- 连续手势期间若发生真实结构失效，只记录一次待处理完整渲染；手势结束后补一次。值提交本身不得制造待处理结构渲染。
+
+## 6. 验收门槛
 
 - 静态检查必须确认所有富 DOM 入口使用生命周期挂载器；虚拟 controller 有 inactive 路径；observer 和 controller 在移除时清理；不存在新增轮询或全局 monkey patch。
-- 自动测试覆盖：可见性 entry 判定、active/inactive 往返、inactive 更新不创建条目、图片源释放、controller 销毁幂等，以及 Classic / Nodes 2.0 入口契约。
+- 自动测试覆盖：可见性 entry 判定、active/inactive 往返、inactive 更新不创建条目、图片源释放、controller 销毁幂等，以及 Classic / Nodes 2.0 入口契约。Dashboard 另需锁定值提交不调度完整渲染、重复 Sidebar render 为 no-op、同 Binding 多投影只定向更新一次、单 Binding 解析不重复适配兄弟 widgets、Host 失效后缓存确实重建。
 - 浏览器验收使用同一工作流、缩放、窗口尺寸和节点可见范围，对比离屏节点数、DOM 后代数、长任务和选中响应；静态测试通过不能代替真实 FPS 或响应延迟结论。
 - 若仍然卡顿，关闭 KJNodes 虚拟连线或其它第三方富 DOM 后分别复测；只有确认成本来自本包，才继续在本包内优化。

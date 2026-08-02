@@ -222,12 +222,6 @@ export function renderNumericControl(spec, port) {
 	// 提交成功的一次性脉冲反馈；拖拽/滚轮预览不触发。
 	const flash = () => {
 		valueButton.classList.remove("is-committed"); void valueButton.offsetWidth; valueButton.classList.add("is-committed");
-		// 提交伴随看板重建,旧元素的动画随之销毁;重建后的新元素需要补放脉冲。
-		requestAnimationFrame(() => {
-			if (valueButton.isConnected) return;
-			const next = document.querySelector(`[data-aaalice-value-field="true"][data-parameter-id="${CSS.escape(spec.id)}"]`);
-			if (next) { next.classList.remove("is-committed"); void next.offsetWidth; next.classList.add("is-committed"); }
-		});
 	};
 	if (hasRange) {
 		range.addEventListener("pointerdown", begin);

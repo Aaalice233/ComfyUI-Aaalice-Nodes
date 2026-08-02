@@ -101,18 +101,23 @@ ComfyUI-Aaalice-Nodes/
 - DOM widget 挂载器、虚拟列表和布局模块可能在构造期间同步触发 render、near-end、resize 等回调；回调依赖必须在调用挂载器前完成初始化，禁止闭包读取仍处于 TDZ 或尚未赋值的控制器。挂载失败必须复位 mounted 标记、输出含堆栈的原始错误并允许生命周期重试。
 - 工作流持久状态以 `node.properties` 为真源。内部 payload 不暴露为 Schema widget，执行时由 `graphToPrompt` 注入。
 - 状态变化必须覆盖保存、加载、复制、撤销/重做和执行路径。
-- ComfyUI 前端把自定义侧栏页签的 render 回调包在 Vue effect 中，渲染期读取的响应式状态（widgetValueStore 等）会成为依赖；滑条预览等写值会触发页签整体重挂载。依赖 DOM identity 的持续交互（拖拽、滚轮手势、文本输入）所在的表面不得在交互期间整体重建：手势期间必须跳过重挂载与 `scheduleRender`（见 `js/lib/workspace_controls.js` 的手势计数），由手势结束后的提交渲染统一刷新。页签 render 回调会被重复调用，必须幂等，观察器等资源先断后建。提交时挂在旧元素上的一次性动画会随重建销毁，需要在重建后的新元素上补放。
 - Dashboard 页面内容滚轮只能滚动当前页面，不得把顶部、底部或内容不足一屏解释成页面切换。页面切换只由页眉左侧页面按钮或独立的 Page Rail 触发；Rail 常态在 Dashboard body 右侧占用固定 38px 独立列显示页面圆点，悬停或键盘聚焦时胶囊可越出该列展开页面名称，但圆点列不得覆盖 Scroll Surface 或控件。Rail 在自身区域消费垂直滚轮、点击和键盘导航，选中胶囊整体使用强调色和发光边缘；滚轮请求直接按当前 Page Id 选择相邻页，不建立延迟队列；横向或 Ctrl/Meta 滚轮不接管。每个侧栏根独立拥有 Rail、过渡快照、光标和计时器，重挂、工作区切换、隐藏或销毁时清理自身资源，不得影响其它根；页面回到原 Page Id 时折叠为无过渡 no-op。宿主移除、替换或隐藏自定义页签根时必须立即清理该根的锚定浮层、Tooltip 与 Context Menu，不得关闭其它根的菜单；首次挂载或持续 `v-show` 隐藏的根不得参与完整 Provider/控件重建，重新显示时补一次渲染，焦点请求只能由发起操作的可见根消费；多根生成的 DOM 控件 id 必须按根隔离，脱离根挂载的浮层必须记录显式 owner，控件销毁必须清除自己的浮动编辑器并闭合未完成手势。
 - 局部重绘不得无条件销毁仍有效的焦点、Popover、Dialog 或操作状态；只有锚点失效、节点移除或对应生命周期结束时才清理。
 - 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
 - `graph.onTrigger`、`onNodeAdded`、`onNodeRemoved` 等图级回调是 ComfyUI 前端管理器会安装、链式调用并在重建时恢复的单一插槽，不得由业务节点长期占用或自行覆盖来监听属性变化。优先使用官方图事件、节点生命周期或保留原描述符语义的节点级观察；任何包装都必须幂等、可卸载，且不能截断 Nodes 2.0 的事件链。
+### 4.2 性能优化硬规则
+
+- 性能问题必须先按“本包、ComfyUI 前端、第三方插件、浏览器/环境”分层归因，再在责任边界内修复根因。不得为掩盖本包的全量重建、图遍历或 DOM 抖动而修改 ComfyUI 内核或其它插件，也不得用节流、延迟、轮询、静默降级或限制数量制造表面流畅。
+- ComfyUI 前端把自定义侧栏页签的 render 回调包在 Vue effect 中，渲染期读取的响应式状态（widgetValueStore 等）会成为依赖；参数写值后宿主可能再次调用 render。只要页签仍拥有原工作区树，重复 render 必须立即幂等返回，禁止把响应式重入解释为结构失效。Dashboard 参数预览与提交按稳定 Binding Key 通过已挂载 `controlView().update()` 定向同步所有可见投影，不得调用 `renderWorkspace()`、重新解析 Provider、替换卡片 DOM 或依赖重建后的补动画；只有布局、绑定、控件类型、动态选项或可用性等结构变化才允许 `scheduleRender`。真实结构失效若发生在连续手势中，使用 `js/lib/workspace_controls.js` 的手势计数延后，并在手势结束后补一次完整渲染。
 - `computeSize()`、`getMinHeight()`、`getMaxHeight()`、`_arrangeWidgets()`、`onDrawForeground()` 和 `onDrawBackground()` 都属于画布逐帧热路径：必须保持有界 O(1)，禁止遍历图、规范化状态、重建数组/Map、查询 DOM、读取计算样式或安装监听器。派生布局与主题值按节点及结构输入缓存，在结构提交、加载恢复、主题变化和移除时精确失效；位置和无关高度变化不得打穿缓存。
-- 参数值变化必须通过保留的 `controlView().update()` 定向更新；不得重建 ParameterPanel DOM、重算结构布局、同步 KJ Set/Get 名称或刷新 ParameterReceiver。参数增删、重排、重命名和类型变化才进入结构同步。
+- 参数值变化必须通过保留的 `controlView().update()` 定向更新；不得重建 ParameterPanel 或 Dashboard DOM、重算结构布局、重新枚举 Subgraph promoted widgets、同步 KJ Set/Get 名称或刷新 ParameterReceiver。参数增删、重排、重命名、类型或运行契约变化才进入结构同步。
+- Dashboard 的 Subgraph Provider 必须按宿主、Adapter Revision、widget 对象列表与稳定 Control Id 缓存 `Control Id -> promoted widget` 结构索引；解析已绑定控件时只重新适配目标 widget，禁止每张卡片重复适配全部兄弟 widgets。索引不得缓存参数值、availability、动态 options 或 preset payload，这些状态每次从真实 widget 读取；Adapter 变化、widget 对象结构变化、`graphChanged`、工作流恢复和 `CONTROL_HOST_INVALIDATED_EVENT` 必须失效缓存。回归测试必须同时锁定“缓存命中时只适配目标”和“失效后重新建立索引”。
 - Nodes 2.0 重挂观察器必须先按 `data-node-id` 等稳定身份过滤相关 mutation，再按 animation frame 合并；同一模块每帧最多进行一次 DOM 查询，不得按节点各自全页扫描或用“立即 + rAF + timeout”重复补写。富 DOM widget 默认允许宿主 `hideOnZoom` 低缩放降级，确需低缩放持续可见时必须说明业务理由。
 - KJ Set/Get 的虚拟连线绘制和性能开关属于 KJNodes，不得由本包 monkey patch。性能诊断必须把本包热路径与 KJNodes 的 `Show links`、单节点 `drawConnection` 及 Performance 设置分开验证，避免把第三方逐帧绘制归因给 ParameterPanel。
+- 性能回归必须覆盖普通点击、连续参数手势、节点/子图选中与移动、画布平移缩放、根图和嵌套/共享 Subgraph，并用调用次数、对象 identity、DOM 数量和浏览器长任务证明热路径没有退化。自动测试通过后仍需在真实重型工作流复测；静态检查不能代替实际响应延迟结论。
 
-### 4.2 DOM widget 与缩放
+### 4.3 DOM widget 与缩放
 
 - DOM widget 通过内容下限声明稳定最小尺寸；`computeSize()` 不得把当前 `node.size` 当作最小值，也不得用延迟或重复 `setSize()` 与原生布局争夺尺寸真源。
 - 可手动缩放的 DOM widget 不得把当前 `scrollHeight`、`clientHeight`、wrapper 高度或已拉伸后的几何当作 `getMinHeight()`；这些值会形成只增不减的反馈环。需要容纳可增长列表时使用与当前尺寸无关的稳定下限，并在空间不足时由内容区滚动。
@@ -130,7 +135,7 @@ ComfyUI-Aaalice-Nodes/
 - 排查“元素没随容器撑满”类布局问题时，以外层到目标的实际几何链（`getBoundingClientRect`）为准逐层定位，禁止只看目标元素的 CSS 声明下结论；外层尺寸正确不代表内部排版正确。
 - 连续动画控件必须保留动画元素的 DOM identity，只更新 class、style、data 和 ARIA 状态。
 
-### 4.3 原生槽与双模式
+### 4.4 原生槽与双模式
 
 - Canvas/native 层负责静态表面、布局反馈和真实 slot；DOM overlay 负责交互、焦点、键盘和 aria。
 - Classic 使用 LiteGraph 原生 slot；Nodes 2.0 使用 Vue slot DOM。禁止用 CSS 圆点伪造 socket。
@@ -141,7 +146,7 @@ ComfyUI-Aaalice-Nodes/
 - ComfyUI 的复制、粘贴与克隆路径会先 `createNode()`，再用 `configure()` 覆盖属性和槽；`onNodeCreated` 阶段生成的默认槽对象可能因此与已恢复的 `slotMeta` / 稳定参数身份不一致。动态槽恢复不能只比较持久元数据的新旧差异，还必须核对当前真实槽的稳定 Id、`label` 和 `localized_name`；即使元数据相同，只要槽对象仍是临时默认状态，也要重写槽并发布官方槽标签失效事件。相关回归必须覆盖“复制节点后删除或重排参数”。
 - Nodes 2.0 确需监听 DOM 重挂时使用幂等 `MutationObserver`；不需要重挂的节点不得常驻观察器，所有路径禁止持续轮询。
 
-### 4.4 参数链路与控件适配
+### 4.5 参数链路与控件适配
 
 - 参数名称、顺序和值是三个不同变更域：重命名属于展示同步，必须立即传播到 ParameterPanel 槽、直属 KJ Set、同作用域 KJ Get 和已绑定 ParameterReceiver；增删、重排属于结构事务，必须按稳定 Parameter Id 重建顺序并恢复连线。不能把节点拖动、画布重绘或用户手动同步当作提交步骤。
 - 参数链的关联只能依赖面板身份、图作用域与稳定 Parameter Id；数组下标只表示当前视图顺序，不得作为跨保存、重排、复制或子图边界的长期身份。同步完成后必须逐项核对 Panel 槽、Set 名、Get 所有权、Receiver 槽和真实连接，再报告成功。

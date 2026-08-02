@@ -1069,8 +1069,7 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(workspace, /onResizeGroup: \(groupId, size\) => updateDashboard/);
 	assert.match(theme, /\.aa-control-numeric-value\.is-committed \{ animation: aa-control-commit-flash/);
 	assert.match(numericControl, /classList\.add\("is-committed"\)/);
-	assert.match(numericControl, /requestAnimationFrame\(\(\) => \{/);
-	assert.match(numericControl, /if \(valueButton\.isConnected\) return;/);
+	assert.doesNotMatch(numericControl, /document\.querySelector\(`\[data-aaalice-value-field/);
 });
 
 test("Dashboard V4 layout editing uses transient integer-grid gestures and one command commit", () => {
@@ -1443,12 +1442,23 @@ test("dashboard column projection re-renders when sidebar width crosses the brea
 	assert.match(dashboardSizing, /DASHBOARD_SINGLE_COLUMN_MAX_WIDTH = 330/);
 });
 
-test("sidebar tab remounts triggered by reactive value writes never interrupt an active gesture", () => {
+test("reactive sidebar render re-entry is a no-op and value updates preserve control identity", () => {
 	assert.match(workspaceControls, /activeControlGestures \+= 1/);
 	assert.match(workspaceControls, /activeControlGestures = Math\.max\(0, activeControlGestures - 1\)/);
 	assert.match(workspaceControls, /export function hasActiveControlGestures/);
-	assert.match(workspace, /renderedWorkspaceTabs\.has\(element\)/);
-	assert.match(workspace, /if \(!hasActiveControlGestures\(\)\) scheduleRender\(\);/);
+	assert.match(workspaceControls, /registerControlValueView/);
+	assert.match(workspaceControls, /updateBoundControlValues\(syncKeys, next/);
+	assert.match(workspaceControls, /detail\.sourceKey && detail\.sourceKey !== primarySyncKey/);
+	assert.match(workspaceControls, /linkedBadge\?\.classList\.toggle\("is-mixed", mixed\)/);
+	assert.match(workspaceControls, /card\?\.classList\.remove\("has-mixed-bindings"\)/);
+	assert.match(components, /linkedBadge\.dataset\.linkedLabel = linkedLabel/);
+	assert.match(components, /linkedBadge\.dataset\.linkedMixedLabel/);
+	assert.match(workspace, /syncKeys: controlItemBindings\(item\)\.map\(bindingKey\)/);
+	assert.match(workspace, /if \(event\.detail\?\.structure === false\) syncParameterValueViews\(event\.detail\)/);
+	assert.match(workspace, /else if \(event\.detail\?\.workspaceRedraw !== false\) scheduleRender\("dashboard"\)/);
+	assert.match(workspace, /if \(renderedWorkspaceTabs\.has\(element\)\) return;/);
+	assert.doesNotMatch(workspace, /onCommit:[^\n]*scheduleRender\("dashboard"\)/);
+	assert.match(workspace, /if \(hasActiveControlGestures\(\)\) \{ deferredWorkspaceRender = true; return; \}/);
 	assert.match(workspace, /if \(isWorkspaceRootVisible\(element\)\) renderWorkspace\(element\)/);
 	assert.match(workspace, /aa-workspace-placeholder/);
 });
