@@ -164,6 +164,7 @@ test("workspace is an official left sidebar with reusable component boundaries",
 	assert.match(workspace, /workspacePinTooltip\.show\(pinButton, pinLabel/);
 	assert.match(theme, /\.aa-workspace-pin\.aa-ui-button\.is-active/);
 	assert.match(workspace, /createDashboardGrid/);
+	assert.match(workspace, /const model = dashboard\(\); const page = currentPage\(model\);\s*let activePageId = page\?\.id \|\| null;[\s\S]*?const fromPageId = previousTransition\?\.fromPageId \|\| activePageId;/);
 	assert.match(workspace, /bindDashboardInteractions/);
 	assert.match(workspace, /createControlCard/);
 	assert.match(workspace, /app\.graph\.extra|graph\.extra/);

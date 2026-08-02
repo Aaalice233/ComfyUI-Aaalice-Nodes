@@ -29,10 +29,10 @@ export function renderDashboard(container, host) {
 		setScrollTopImmediately, dashboardScrollTop,
 	} = runtime;
 	let editMode = runtime.getEditMode();
-	let activePageId = runtime.getActivePageId();
 	const viewState = runtime.viewState;
 	container.classList.toggle("is-layout-editing", editMode);
 	const model = dashboard(); const page = currentPage(model);
+	let activePageId = page?.id || null;
 	const resolvedPage = page ? { ...page, groups: page.groups.map((group) => {
 		const sync = group.source ? sourceGroupViewState(page, group) : null;
 		return { ...group, name: resolveGroupTitle(group), syncStatus: sync?.status || null, syncSummary: sync?.summary || null, syncReason: sync?.reason || "" };
