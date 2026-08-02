@@ -371,7 +371,7 @@ test("every dashboard component supports persistent Markdown notes with explicit
 	assert.match(theme, /\.aa-component-note-dialog\.aa-ui-dialog/);
 	assert.match(theme, /\.aa-component-note-editor__toolbar/);
 	assert.match(theme, /\.aa-component-note-editor__preview/);
-	assert.match(theme, /\.aa-control-card-header \.aa-component-note-badge/);
+	assert.match(theme, /\.aa-control-card-header \.aa-component-note-badge/); assert.match(theme, /\.aa-component-note-badge\.aa-ui-button \{[^}]*border-radius: 3px; background: transparent/); assert.match(theme, /\.aa-component-note-badge \.aa-ui-icon \{ width: 16px; height: 16px/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.match(locale, /"componentNote"/);
 		assert.match(locale, /"switchMode"/);
