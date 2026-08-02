@@ -891,14 +891,17 @@ function compatibleCardTargets(sourceBinding, model = dashboard()) {
 	return targets;
 }
 
-function commitDashboardBindingSet(next, itemId, { synchronize = false } = {}) {
+function commitDashboardBindingSet(next, itemId, { synchronize = false, resolvedBindings = null } = {}) {
 	if (dashboardModelError) throw dashboardModelError;
 	const { item } = findDashboardControl(next, itemId);
 	if (!item) throw new Error("Dashboard control is missing");
-	const resolvedSet = resolveControlBindingSet(item, resolve);
+	const resolveForCommit = resolvedBindings ? (binding) => resolvedBindings.get(bindingKey(binding)) || resolve(binding) : resolve;
+	const resolvedSet = resolveControlBindingSet(item, resolveForCommit);
 	if (resolvedSet.status !== "ok") {
 		const issue = resolvedSet.bindingSet?.issues?.[0];
-		throw new ControlBindingSetError("Linked controls are unavailable", issue?.reason || "unresolved-binding", issue?.binding || null, issue?.error || null);
+		const error = new ControlBindingSetError("Linked controls are unavailable", issue?.reason || "unresolved-binding", issue?.binding || null, issue?.error || null);
+		error.issues = resolvedSet.bindingSet?.issues || [];
+		throw error;
 	}
 	const graph = app.graph; if (!graph) throw new Error("Workflow graph is unavailable");
 	const previousDashboard = graph.extra?.[EXTRA_KEY]; const normalized = normalizeDashboard(next); graph.beforeChange?.();
@@ -2372,7 +2375,9 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 		if (!source || !target) return;
 		try {
 			const next = addLinkedBinding(dashboard(), target.item.id, source.control.binding);
-			commitDashboardBindingSet(next, target.item.id, { synchronize: true });
+			const resolvedBindings = new Map(target.resolved.bindingSet.entries.map((entry) => [entry.key, entry.resolved]));
+			resolvedBindings.set(bindingKey(source.control.binding), source.resolved.resolved);
+			commitDashboardBindingSet(next, target.item.id, { synchronize: true, resolvedBindings });
 			const count = controlItemBindings(findDashboardControl(next, target.item.id).item).length;
 			app.extensionManager?.toast?.add?.({ severity: "success", summary: t("aaalice.workspace.binding.linked", "Parameter linked"), detail: message("aaalice.workspace.binding.linkedDetail", "The sidebar control now updates {count} parameters.", { count }), life: 3600 });
 			dialog.close();
