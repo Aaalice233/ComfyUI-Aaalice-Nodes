@@ -23,6 +23,40 @@ function staticModuleSpecifiers(source) {
 	return [...source.matchAll(STATIC_MODULE_SPECIFIER_PATTERN)].map((match) => match[1]);
 }
 
+function localModulePath(file, specifier) {
+	if (!specifier.startsWith(".")) return null;
+	const target = join(dirname(file), specifier);
+	return target.endsWith(".js") ? target : `${target}.js`;
+}
+
+const namedExportCache = new Map();
+function namedExports(file, stack = new Set()) {
+	if (namedExportCache.has(file)) return namedExportCache.get(file);
+	if (stack.has(file)) return new Set();
+	const source = readFileSync(file, "utf8");
+	const names = new Set();
+	for (const match of source.matchAll(/export\s+(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
+	const nextStack = new Set(stack).add(file);
+	for (const match of source.matchAll(/export\s*\{([\s\S]*?)\}\s*(?:from\s*["']([^"']+)["'])?/g)) {
+		const target = match[2] ? localModulePath(file, match[2]) : null;
+		const targetNames = target && existsSync(target) ? namedExports(target, nextStack) : null;
+		for (const raw of match[1].split(",")) {
+			const token = raw.trim();
+			if (!token) continue;
+			const parts = token.split(/\s+as\s+/);
+			const imported = parts[0].trim();
+			const exported = (parts[1] || imported).trim();
+			if (!target || targetNames?.has(imported)) names.add(exported);
+		}
+	}
+	for (const match of source.matchAll(/export\s+\*\s+from\s*["']([^"']+)["']/g)) {
+		const target = localModulePath(file, match[1]);
+		if (target && existsSync(target)) for (const name of namedExports(target, nextStack)) names.add(name);
+	}
+	namedExportCache.set(file, names);
+	return names;
+}
+
 test("static module specifier discovery covers imports and barrel re-exports", () => {
 	const source = `
 		import "./side-effect.js";
@@ -66,5 +100,24 @@ test("relative frontend imports and re-exports resolve inside the package or Com
 		}
 	}
 
+	assert.deepEqual(failures, []);
+});
+
+test("local named imports resolve to exported bindings", () => {
+	const failures = [];
+	for (const file of javascriptFiles(JS_ROOT)) {
+		const source = readFileSync(file, "utf8");
+		for (const match of source.matchAll(/import\s*\{([\s\S]*?)\}\s*from\s*["']([^"']+)["']/g)) {
+			const target = localModulePath(file, match[2]);
+			if (!target || !existsSync(target)) continue;
+			const available = namedExports(target);
+			for (const raw of match[1].split(",")) {
+				const token = raw.trim();
+				if (!token) continue;
+				const imported = token.split(/\s+as\s+/)[0].trim();
+				if (!available.has(imported)) failures.push(`${relative(JS_ROOT, file)}: ${imported} from ${match[2]}`);
+			}
+		}
+	}
 	assert.deepEqual(failures, []);
 });

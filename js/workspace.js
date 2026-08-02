@@ -484,6 +484,7 @@ configureDashboardView({
 	importDashboardPreset,
 	openEditGroup,
 	openComponentNoteEditor,
+	addPage,
 	numericRangeForControl,
 	flushDeferredWorkspaceRender,
 	notifyWorkspaceImageUpload,

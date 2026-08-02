@@ -1,4 +1,6 @@
+import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
+import { DASHBOARD_TONES } from "../lib/dashboard_model.js";
 
 export function workspaceLabels() {
 	return {

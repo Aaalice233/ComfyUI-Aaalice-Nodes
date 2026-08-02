@@ -8,7 +8,7 @@ import { resolveControlBindingSet } from "../lib/control_binding_set.js";
 import { bindDashboardInteractions } from "../lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS } from "../lib/dashboard_sizing.js";
 import { button, createContextMenu, createDialog, el, emptyState, field, iconButton, selectControl } from "../lib/ui.js";
-import { createComponentNoteButton, createCollapsibleSearch, createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createSelectionActionBar, createWorkspaceToolbar } from "../lib/workspace_components.js";
+import { createComponentNoteButton, createCollapsibleSearch, createControlCard, createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createPageRail, createSelectionActionBar, createWorkspaceToolbar } from "../lib/workspace_components.js";
 import { createControlElement } from "../lib/workspace_controls.js";
 import { confirmAction, pickFile } from "./dom_utils.js";
 
@@ -21,7 +21,7 @@ export function renderDashboard(container, host) {
 		isWorkspaceRootInteractive, scheduleRender, askText, updateDashboard, removePage, syncCurrentPageSourceGroups,
 		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetModelError, dashboardPresetLabels,
 		applyDashboardPreset, createCurrentDashboardPreset, updateCurrentDashboardPreset, duplicateCurrentDashboardPreset,
-		renameCurrentDashboardPreset, deleteCurrentDashboardPreset, mounted, captureDashboardPageSnapshots,
+		renameCurrentDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
 		dashboardPageRails, workspaceLabels, openDashboardExport, importDashboardPreset, openEditGroup,
 		openComponentNoteEditor, numericRangeForControl, flushDeferredWorkspaceRender, notifyWorkspaceImageUpload,
 		notifyControlBindingError, openManageLinkedBindings, openRebind, controlTitle, openCardActions, openMoveControl,

@@ -1,11 +1,12 @@
 import { app } from "../../../scripts/app.js";
+import { api } from "../../../scripts/api.js";
 import { t } from "../i18n.js";
 import { promptLibraryStore } from "../lib/library_store.js";
 import { createSelectableImagePreview } from "../lib/image_preview.js";
 import { bindPromptEntryDetails } from "../lib/prompt_entry_details.js";
 import { applyCategoryColor, categorySelectOption, nativeCategoryOption } from "../lib/category_color.js";
 import { collectionDisplayName, isDefaultCollection } from "../lib/collection.js";
-import { badge, button, closeTooltipWithin, createDialog, el, emptyState, field, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl } from "../lib/ui.js";
+import { badge, button, closeTooltipWithin, createDialog, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl } from "../lib/ui.js";
 import { mountVirtualList } from "../lib/virtual_list.js";
 import { createCollapsibleSearch, createListRow, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceToolbar, formatFileSize } from "../lib/workspace_components.js";
 import { confirmAction, downloadUrl, pickFile, setActionBusy, setDialogFooter } from "./dom_utils.js";

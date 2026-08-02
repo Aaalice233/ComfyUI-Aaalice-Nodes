@@ -93,6 +93,7 @@ ComfyUI-Aaalice-Nodes/
 - `WEB_DIRECTORY = "./js"`；业务扩展使用 `app.registerExtension`，共享模块不得自行重复注册。
 - `js/extension.js` 是前端唯一包入口；每个业务扩展模块必须由该入口显式静态导入，不得假设 `WEB_DIRECTORY` 会自动执行目录中的其它 `.js` 文件。新增节点时必须用入口契约测试锁定该导入。
 - 前端相对 import 必须按浏览器中的 `/extensions/ComfyUI-Aaalice-Nodes/` 挂载路径计算，不能按仓库文件系统层级猜测；新增或移动嵌套模块后必须用契约测试确认所有相对 import 只解析到本包公开路径或 ComfyUI `/scripts/`，避免单个 404 阻断整个 `extension.js` 模块图。
+- 模块拆分或新增 barrel re-export 时，本包相对路径的 named import 必须能在目标文件或其 re-export 链中解析到稳定的 named export；提交前运行 `node --test tests/frontend_import_paths.test.js`，该契约不替代 ComfyUI 公共脚本的运行时验证。
 - 所有节点默认都可能位于根图、任意层级 Subgraph 或被多个 wrapper 复用的共享 Subgraph 定义中。查找节点、连线、事件、动态槽、布局和事务必须从 `node.graph` 及真实父子图关系出发；跨图连接只走 ComfyUI 官方 Subgraph / virtual-output 协议，执行注入和事件反查使用完整限定执行 ID。禁止用 `app.graph`、当前可见画布、裸 Node Id、标题或槽位下标猜测所属图和身份。
 - 交互节点覆盖新建、加载、复制和 setup 补挂路径；不得绕过 ComfyUI 生命周期。
 - `onConfigure` 不是工作流恢复完成的可靠终点。依赖持久状态发起查询、同步控件或计算派生视图的节点，必须在 `loadedGraphNode` 再以 `node.properties` 为最终真源执行一次幂等恢复；已挂载不能成为跳过恢复的理由。恢复请求必须取消或代际淘汰初始化请求，禁止默认状态的迟到结果覆盖工作流状态。

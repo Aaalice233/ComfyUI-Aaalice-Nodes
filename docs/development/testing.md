@@ -44,6 +44,10 @@ Assert-NativeSuccess 'source file length check'
 npm test
 Assert-NativeSuccess 'npm test'
 
+# npm test 已包含本包相对路径和 named import/export 的前端契约检查；单独运行时：
+node --test tests/frontend_import_paths.test.js
+Assert-NativeSuccess 'frontend import path contract'
+
 ../../.venv/Scripts/python.exe -m unittest discover -s tests -v
 Assert-NativeSuccess 'Python unittest'
 
@@ -68,6 +72,7 @@ Assert-NativeSuccess 'git diff --check'
 - ADR 状态和索引是否一致。
 - `AGENTS.md` 是否少于 500 行。
 - 第一方 JS / TS / Vue / Python / CSS / SCSS 是否以 600 行为目标且没有超过 800 行硬上限；`npm test` 已串联 `check:file-length`，601–800 行会列出维护性警告，超过 800 行直接失败。测试、脚本和部署代码同样统计，只有 `js/vendor/**` 与常规依赖、缓存和构建产物按精确规则排除。
+- 前端模块拆分或入口调整后，`tests/frontend_import_paths.test.js` 是否通过；该测试覆盖本包相对路径与 named export 链，不能替代浏览器 Console、真实 ComfyUI 入口和 GUI 主路径验收。
 - README 是否只保留用户信息，完整排期是否只存在于 `roadmap.md`。
 
 ## 3. 独立测试实例
