@@ -3,14 +3,23 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readStyleEntry } from "./helpers/style_source.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const source = readFileSync(join(ROOT, "js", "discord_share.js"), "utf8");
+const sourcePaths = [
+	["entry", "discord_share.js"],
+	["picker", "lib/discord_share_picker.js"],
+	["viewer", "lib/discord_share_image_viewer.js"],
+	["targets", "lib/discord_share_target_picker.js"],
+	["promptFile", "lib/discord_share_prompt_file.js"],
+];
+const sources = Object.fromEntries(sourcePaths.map(([name, path]) => [name, readFileSync(join(ROOT, "js", path), "utf8")]));
+const source = Object.values(sources).join("\n");
 const clientSource = readFileSync(join(ROOT, "js", "lib", "discord_share_client.js"), "utf8");
 const entrypoint = readFileSync(join(ROOT, "js", "extension.js"), "utf8");
 const workspaceComponents = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
 const workspaceSource = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
-const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 
 test("Discord share is statically imported by the package frontend entrypoint", () => {
 	assert.match(entrypoint, /import\s+"\.\/discord_share\.js";/);
@@ -120,7 +129,7 @@ test("picker uses a compact scrollable resolution filmstrip and an interactive i
 	assert.match(source, /`\$\{image\.width\}×\$\{image\.height\}`/);
 	assert.match(source, /children:\s*\[\s*el\("img"[\s\S]*meta,\s*\]/);
 	assert.match(source, /filmstrip\.scrollLeft \+= event\.deltaY/);
-	assert.match(source, /createShareImageViewer\(viewport,\s*stageImage\)/);
+	assert.match(source, /createShareImageViewer\(viewport,\s*stageImage,\s*\{\s*label\s*\}\)/);
 	assert.match(source, /const MAX_SCALE = 8/);
 	assert.match(source, /Math\.exp\(-event\.deltaY \* 0\.0015\)/);
 	assert.match(source, /viewport\.addEventListener\("pointerdown"/);
@@ -140,9 +149,28 @@ test("first share click verifies Discord before requiring a latest run", () => {
 	assert.match(flow, /openMembershipRequiredDialog\(error,\s*shareConfig\)/);
 });
 
+test("post-auth continuation loads current targets before opening the picker", () => {
+	const continuations = [...source.matchAll(/const targets = await loadDiscordShareTargets\(shareConfig, session\);\s*await openSharePicker\(shareConfig, session, captureEvents\.latest, targets\);/g)];
+	assert.equal(continuations.length, 2);
+	assert.doesNotMatch(source, /openSharePicker\(shareConfig, session, captureEvents\.latest\);/);
+});
+
 test("OAuth handoff survives a severed popup opener without navigating into local ComfyUI", () => {
 	assert.match(clientSource, /challenge/);
 	assert.match(clientSource, /\/v1\/oauth\/result/);
 	assert.match(clientSource, /event\.source !== popup/);
 	assert.doesNotMatch(clientSource, /auth-complete|AUTH_RESULT_STORAGE_KEY/);
+});
+
+test("Discord share delegates picker, viewer, targets, and long-prompt controls to bounded modules", () => {
+	for (const imported of ["discord_share_picker", "discord_share_image_viewer", "discord_share_target_picker", "discord_share_prompt_file"]) {
+		assert.match(source, new RegExp(`from ["']\\./(?:lib/)?${imported}\\.js["']`));
+	}
+	assert.match(sources.picker, /export function createDiscordSharePicker/);
+	assert.match(sources.viewer, /export function createShareImageViewer/);
+	assert.match(sources.targets, /export function createShareTargetPicker/);
+	assert.match(sources.promptFile, /export function createLongPromptFileControl/);
+	for (const [name, contents] of Object.entries(sources)) {
+		assert.ok(contents.split(/\r?\n/).length <= 800, `${name} module exceeds the source-size contract`);
+	}
 });

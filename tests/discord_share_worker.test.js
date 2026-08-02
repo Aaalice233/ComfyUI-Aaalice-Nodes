@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import worker, {
+	DEFAULT_UPLOAD_LIMIT,
 	buildDiscordWebhookPayloads,
 	callbackResponse,
 	configuredWebhookTargets,
@@ -21,8 +22,7 @@ test("relay accepts loopback origins and explicit production origins only", () =
 });
 
 test("relay defaults to a 20 MiB image limit and reports exact upload bounds", async () => {
-	const workerSource = readFileSync(new URL("../deploy/discord-share-worker/worker.js", import.meta.url), "utf8");
-	assert.match(workerSource, /DEFAULT_UPLOAD_LIMIT\s*=\s*20\s*\*\s*1024\s*\*\s*1024/);
+	assert.equal(DEFAULT_UPLOAD_LIMIT, 20 * 1024 * 1024);
 
 	const originalFetch = globalThis.fetch;
 	globalThis.fetch = async (url) => {

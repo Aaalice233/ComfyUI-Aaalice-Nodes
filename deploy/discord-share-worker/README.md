@@ -3,6 +3,11 @@
 This Worker is the trust boundary for Aaalice Discord sharing. ComfyUI never
 receives the Discord client secret or webhook URL.
 
+The module boundary is intentionally narrow: `worker.js` validates the
+environment and routes requests, `auth.js` owns OAuth and sessions, `share.js`
+owns target selection and transactional Webhook delivery, and `http.js` owns
+JSON, CORS and configuration-error responses.
+
 ## Required resources
 
 - A Discord application with this redirect URI:

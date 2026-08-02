@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { readStyleEntry } from "./helpers/style_source.js";
 import test from "node:test";
 
 const ui = fs.readFileSync(new URL("../js/lib/ui.css", import.meta.url), "utf8");
-const theme = fs.readFileSync(new URL("../js/lib/theme.css", import.meta.url), "utf8");
+const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 
 test("shared UI exposes one edge-shadow surface vocabulary", () => {
 	for (const token of ["edge-shadow", "edge-shadow-soft", "edge-shadow-inset", "edge-shadow-active"]) {

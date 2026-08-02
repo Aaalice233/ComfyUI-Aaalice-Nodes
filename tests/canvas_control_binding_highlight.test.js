@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readStyleEntry } from "./helpers/style_source.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const highlight = readFileSync(join(ROOT, "js", "lib", "canvas_control_binding_highlight.js"), "utf8");
 const rowMapping = readFileSync(join(ROOT, "js", "lib", "canvas_widget_row_mapping.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
-const theme = readFileSync(join(ROOT, "js", "lib", "theme.css"), "utf8");
+const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 
 test("sidebar bindings highlight the exact native or promoted canvas widget", () => {
 	assert.match(providers, /node, widget: adapted\.widget, control: adapted\.control/);

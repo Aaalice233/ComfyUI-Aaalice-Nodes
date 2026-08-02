@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { readStyleEntry } from "./helpers/style_source.js";
 import test from "node:test";
 
 const extension = readFileSync(new URL("../js/extension.js", import.meta.url), "utf8");
 const source = readFileSync(new URL("../js/group_logic_probe.js", import.meta.url), "utf8");
-const styles = readFileSync(new URL("../js/lib/theme.css", import.meta.url), "utf8");
+const styles = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 
 function loadStateHelpers() {
 	const stateStart = source.indexOf('const PROPERTY = "groupLogicProbe"');

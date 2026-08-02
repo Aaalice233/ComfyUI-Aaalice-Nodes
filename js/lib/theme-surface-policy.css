@@ -1,0 +1,145 @@
+/* Shared surface policy: geometry stays stable with transparent borders; depth and state live in edge shadows. */
+:where(
+	.aa-control-seed-inline,
+	.aa-control-boolean,
+	.aa-control-choice-segmented,
+	.aa-taglist-control,
+	.aaalice-qgm-rule-search,
+	.aaalice-qgm-rule-entry select,
+	.aa-prompt-selector-preview,
+	.aa-prompt-selector-footer,
+	.aa-workspace-search,
+	.aa-value-preset-trigger,
+	.aa-value-preset-count,
+	.aa-value-preset-issue,
+	.aa-dashboard-group,
+	.aa-library-entry-preview-picker,
+	.aa-transfer-hero,
+	.aa-gallery-toolbar__page-actions,
+	.aa-gallery-selected-row,
+	.aa-gallery-detail__media,
+	.aa-gallery-tag-editor__categories,
+	.aa-gallery-settings__source-list,
+	.aa-gallery-settings__switches,
+	.aa-gallery-settings__toggle-card,
+	.aa-gallery-settings__blacklist-card
+) {
+	border-color: transparent;
+	box-shadow: var(--aa-ui-edge-shadow-soft);
+}
+
+:where(
+	.aa-taglist-chip,
+	.aaalice-character-swap-summary-item,
+	.aa-prompt-selector-weight,
+	.aa-gallery-selected-row__tags > span,
+	.aa-ui-tag-pill,
+	.aa-gallery-filter-popover__source,
+	.aa-gallery-detail__source,
+	.aa-gallery-tag-editor__identity > span,
+	.aa-gallery-tag-editor__count,
+	.aa-gallery-settings__capabilities span,
+	.aa-gallery-settings__blacklist-count
+) {
+	border-color: transparent;
+	box-shadow: 0 3px 9px color-mix(in srgb, var(--aa-gallery-category-tone, var(--aa-control-item-tone, var(--aa-ui-node-accent))) 12%, rgb(0 0 0 / .14)), 0 1px 3px rgb(0 0 0 / .12);
+}
+
+.aa-gallery-tag-editor__category > .aa-ui-tag-pills {
+	border-color: transparent;
+	box-shadow: 0 8px 22px color-mix(in srgb, var(--aa-gallery-category-tone) 12%, rgb(0 0 0 / .18)), inset 0 2px 5px rgb(0 0 0 / .12);
+}
+.aa-gallery-tag-editor__category-tab.aa-ui-button.is-active {
+	border-color: transparent;
+	box-shadow: 0 4px 12px color-mix(in srgb, var(--aa-gallery-category-tone) 18%, rgb(0 0 0 / .14));
+}
+.aa-ui-tag-pills__add,
+.aa-ui-tag-pills__add-trigger.aa-ui-button {
+	border-color: transparent;
+	box-shadow: 0 2px 7px color-mix(in srgb, var(--aa-gallery-category-tone) 10%, rgb(0 0 0 / .12));
+}
+.aa-ui-tag-pills__add:hover,
+.aa-ui-tag-pills__add:focus,
+.aa-ui-tag-pills__add-trigger.aa-ui-button:hover:not(:disabled),
+.aa-ui-tag-pills__add-trigger.aa-ui-button:focus-visible {
+	border-color: transparent;
+	box-shadow: 0 5px 14px color-mix(in srgb, var(--aa-gallery-category-tone) 20%, rgb(0 0 0 / .16)), 0 1px 4px rgb(0 0 0 / .12);
+}
+.aa-gallery-settings__cache-card {
+	border-color: transparent;
+	box-shadow: 0 4px 12px color-mix(in srgb, var(--aa-ui-danger) 18%, rgb(0 0 0 / .15));
+}
+
+/* Numeric badges use tonal elevation instead of the repeated outlined-pill treatment. */
+:is(
+	.aa-ui-badge,
+	.aaalice-editor-count,
+	.aa-prompt-selector-count,
+	.aa-value-preset-count,
+	.aa-add-controls-selection-count,
+	.aa-taxonomy-count,
+	.aa-transfer-section__count,
+	.aa-gallery-view-switcher__count,
+	.aa-gallery-tag-editor__count,
+	.aa-gallery-settings__blacklist-count
+) {
+	border: 0;
+	box-shadow: 0 3px 8px color-mix(in srgb, var(--aa-ui-count-tone, var(--aa-gallery-category-tone, var(--aa-ui-accent))) 13%, rgb(0 0 0 / .16)), inset 0 1px color-mix(in srgb, var(--aa-ui-text) 7%, transparent);
+}
+
+@keyframes aa-gallery-search-in { from { opacity: 0; transform: scaleX(.84); } to { opacity: 1; transform: scaleX(1); } }
+@keyframes aa-gallery-view-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes aa-gallery-status-in { from { opacity: 0; transform: translate(50%, 5px) scale(.96); } to { opacity: 1; transform: translate(50%, 0) scale(1); } }
+@keyframes aa-gallery-count-update { 0% { opacity: .55; transform: translateY(2px) scale(.82); } 65% { transform: translateY(-1px) scale(1.16); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes aa-gallery-selection-feedback { 0% { opacity: .85; transform: scale(.96); } 100% { opacity: 0; transform: scale(1.045); } }
+@keyframes aa-gallery-favorite-feedback { 0%, 100% { transform: scale(1); } 48% { transform: scale(1.2) rotate(-7deg); } }
+@keyframes aa-gallery-media-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
+@keyframes aa-gallery-detail-viewer-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes aa-gallery-hover-loading { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
+@keyframes aa-gallery-loader-orbit { to { transform: rotate(360deg); } }
+@keyframes aa-gallery-settings-page-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes aa-gallery-prompt-panel-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 680px) { .aa-gallery-detail { min-height: 0; max-height: 76vh; grid-template-columns: 1fr; grid-template-rows: minmax(240px, 44vh) minmax(220px, auto); } .aa-gallery-settings { min-height: 0; grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } .aa-gallery-settings__nav { flex-direction: row; padding: 7px 9px; border-right: 0; border-bottom: 1px solid var(--aa-ui-border-soft); } .aa-gallery-settings__nav-item.aa-ui-button { min-width: 0; flex: 1 1 0; justify-content: center; padding-inline: 6px; } .aa-gallery-settings__nav-summary { display: none; } .aa-gallery-settings__pages { padding: 12px; } .aa-gallery-settings__source-workspace { grid-template-columns: 148px minmax(0, 1fr); gap: 10px; } .aa-gallery-settings__credentials, .aa-gallery-settings__form-grid, .aa-gallery-settings__switches { grid-template-columns: 1fr; } .aa-gallery-settings__stamp-picker { grid-template-columns: repeat(3, minmax(80px, 1fr)); } .aa-gallery-tag-editor { height: min(500px, 70vh); } .aa-gallery-tag-editor__workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } .aa-gallery-tag-editor__categories { flex-direction: row; overflow-x: auto; overflow-y: hidden; } .aa-gallery-tag-editor__category-tab.aa-ui-button { min-width: 112px; } }
+@container (max-width: 700px) { .aa-gallery-toolbar-action.aa-ui-button { width: 28px; min-width: 28px; padding-inline: 0; } .aa-gallery-toolbar-action .aa-ui-button__label { display: none; } .aa-gallery-view-switcher button:has(.aa-ui-icon), .aa-gallery-selection-switcher button:has(.aa-ui-icon) { min-width: 56px; padding-inline: 7px; } }
+@container (max-width: 580px) { .aa-gallery-toolbar { padding-inline: 7px; } .aa-gallery-toolbar__row { gap: 4px; } .aa-gallery-toolbar__primary > .aa-ui-listbox-select { width: 88px; } .aa-gallery-view-switcher button:has(.aa-ui-icon), .aa-gallery-selection-switcher button:has(.aa-ui-icon) { width: 31px; min-width: 31px; padding-inline: 0; } .aa-gallery-view-switcher .aa-ui-button__label, .aa-gallery-selection-switcher .aa-ui-button__label, .aa-gallery-toolbar-text-action .aa-ui-button__label { display: none; } .aa-gallery-collection-select { min-width: 64px; max-width: 104px; } .aa-gallery-page-control.aa-ui-button { min-width: 44px; padding-inline: 5px; } .aa-gallery-toolbar__page-actions { gap: 4px; } .aa-gallery-toolbar__tools { gap: 3px; } .aa-gallery-toolbar__utilities { gap: 2px; } .aa-gallery-toolbar__utilities > .aa-ui-button { width: 27px; min-width: 27px; padding-inline: 0; } .aa-gallery-selected-row { grid-template-columns: 52px minmax(0, 1fr); gap: 6px; padding-right: 42px; } .aa-gallery-selected-row__thumb { width: 50px; height: 68px; } }
+@media (max-width: 520px) { .aa-gallery-settings__nav-item .aa-ui-button__label { display: none; } .aa-gallery-settings__source-workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } .aa-gallery-settings__source-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; } .aa-gallery-settings__source-tab.aa-ui-button { min-width: 132px; } .aa-gallery-settings__stamp-picker { grid-template-columns: repeat(2, minmax(80px, 1fr)); } .aa-gallery-prompt-categories.aa-ui-multiselect { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .aa-gallery *, .aa-gallery-hover *, .aa-gallery-selected-drop-indicator, .aa-gallery-selected-drop-indicator *, .aa-gallery-detail *, .aa-gallery-tag-editor *, .aa-gallery-settings *, .aa-gallery-filter-popover *, .aa-gallery-prompt-popover * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } .aa-gallery-card:hover .aa-gallery-card__surface, .aa-gallery-card:focus-within .aa-gallery-card__surface { transform: none; } .aa-gallery-card__surface::before { display: none; } .aa-gallery-status.is-loading .aa-ui-icon { animation: none; } }
+
+/* Interaction state is expressed by surface and depth, never by repainting a colored border. */
+:is([class^="aa-"], [class*=" aa-"], [class^="aaalice-"], [class*=" aaalice-"]):is(:hover, :focus, :focus-visible, :focus-within),
+:is([class^="aa-"], [class*=" aa-"], [class^="aaalice-"], [class*=" aaalice-"]) :is(button, input, textarea, select, [tabindex]):is(:hover, :focus, :focus-visible, :focus-within) {
+	border-color: transparent !important;
+}
+.aa-ui-segmented__thumb {
+	border-color: transparent !important;
+}
+:is(.aa-ui-button, .aa-ui-input, .aa-ui-listbox-select__trigger, .aa-ui-listbox__option, .aa-ui-multiselect, .aa-ui-multiselect__option, .aa-ui-segmented, .aa-ui-segmented__thumb, .aa-ui-select, .aa-taglist-control, .aa-taglist-chip) {
+	border-color: transparent !important;
+}
+.aa-gallery-settings__nav-item.aa-ui-button.is-active {
+	box-shadow: 0 4px 12px color-mix(in srgb, var(--aa-ui-node-accent) 15%, rgb(0 0 0 / .14));
+}
+.aa-gallery-settings__source-tab.aa-ui-button.is-active {
+	box-shadow: 0 4px 12px color-mix(in srgb, var(--aa-gallery-source-tone, var(--aa-ui-node-accent)) 15%, rgb(0 0 0 / .14));
+}
+/* Static symbols stay typographic and lightweight; clickable icon buttons keep their own hit surface. */
+:is([class$="__icon"], [class*="__icon "]):not(.aa-ui-icon, .aa-ui-button),
+.aa-gallery-settings__source-mark,
+.aa-confirm-danger > .aa-ui-icon,
+.aa-gallery-clear-confirm > .aa-ui-icon {
+	padding: 0 !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	filter: drop-shadow(0 3px 7px color-mix(in srgb, currentColor 22%, transparent));
+}
+:is([class$="__icon"], [class*="__icon "]):not(.aa-ui-icon, .aa-ui-button) > .aa-ui-icon,
+.aa-gallery-settings__source-mark > .aa-ui-icon {
+	width: 15px;
+	height: 15px;
+	stroke-width: 1.85;
+}
+.aaalice-qgm-rule-search:focus {
+	box-shadow: var(--aa-ui-edge-shadow-active), 0 0 0 3px color-mix(in srgb, var(--aa-ui-accent) 12%, transparent);
+}

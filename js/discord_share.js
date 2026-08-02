@@ -1,19 +1,13 @@
 /** Discord sharing entry points, membership flow and latest-run image picker. */
 
 import { app } from "../../scripts/app.js";
-import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import {
 	beginDiscordShareAuthentication,
 	disconnectDiscordShare,
 	loadDiscordShareConfig,
-	loadDiscordSharePromptFilePreference,
 	loadDiscordShareSession,
 	loadDiscordShareTargets,
-	loadDiscordShareTargetSelection,
-	saveDiscordSharePromptFilePreference,
-	saveDiscordShareTargetSelection,
-	sendDiscordShare,
 	verifyDiscordShareSession,
 } from "./lib/discord_share_client.js";
 import {
@@ -27,18 +21,15 @@ import { nativeOutputNodeClass } from "./lib/native_output_model.js";
 import {
 	badge,
 	button,
-	createAnchoredPopover,
 	createContextMenu,
 	createDialog,
-	createTooltip,
 	el,
 	emptyState,
 	icon,
 	iconButton,
-	multiSelectControl,
 	segmentedControl,
-	toggleSwitch,
 } from "./lib/ui.js";
+import { createDiscordSharePicker } from "./lib/discord_share_picker.js";
 
 const EXTENSION_NAME = "ComfyUI.Aaalice.DiscordShare";
 const PLACEMENT_SETTING_ID = "Aaalice.DiscordShare.Placement";
@@ -84,147 +75,6 @@ function shareErrorMessage(error) {
 		? (error?.detail?.failed_targets || []).map((target) => target?.label).filter(Boolean)
 		: [];
 	return failedLabels.length ? `${message} ${failedLabels.join("、")}` : message;
-}
-
-function createShareTargetPicker(targets, initialValues, onChange) {
-	let selected = [...initialValues];
-	let popover = null;
-	let choices = null;
-	const trigger = button({
-		label: "",
-		iconName: "discord",
-		variant: "secondary",
-		className: "aa-discord-share-target-trigger",
-	});
-	trigger.setAttribute("aria-haspopup", "dialog");
-	const syncTrigger = () => {
-		const selectedTargets = targets.filter((target) => selected.includes(target.id));
-		const text = selectedTargets.length === 0
-			? label("targets.choose", "Choose channels")
-			: selectedTargets.length === 1
-				? selectedTargets[0].label
-				: `${label("targets.multiple", "Channels")} · ${selectedTargets.length}`;
-		trigger.querySelector(".aa-ui-button__label").textContent = text;
-		trigger.title = selectedTargets.length
-			? selectedTargets.map((target) => target.label).join("、")
-			: label("targets.none", "Choose at least one channel");
-		trigger.setAttribute("aria-label", `${label("targets.aria", "Discord share channels")}: ${trigger.title}`);
-	};
-	const setValues = (values, { emit = true } = {}) => {
-		const available = new Set(targets.map((target) => target.id));
-		const next = [...new Set((values || []).map(String).filter((id) => available.has(id)))];
-		if (!next.length) {
-			choices?.setValues(selected);
-			return;
-		}
-		selected = next;
-		choices?.setValues(selected);
-		syncTrigger();
-		if (emit) onChange?.([...selected]);
-	};
-	const close = () => popover?.close();
-	const open = () => {
-		if (popover) return;
-		trigger.setAttribute("aria-expanded", "true");
-		popover = createAnchoredPopover({
-			anchor: trigger,
-			ariaLabel: label("targets.aria", "Discord share channels"),
-			className: "aa-discord-share-target-popover",
-			width: 280,
-			onClose: () => {
-				popover = null;
-				choices = null;
-				trigger.setAttribute("aria-expanded", "false");
-			},
-		});
-		choices = multiSelectControl({
-			options: targets.map((target) => ({ value: target.id, label: target.label, iconName: "discord" })),
-			values: selected,
-			ariaLabel: label("targets.aria", "Discord share channels"),
-			className: "aa-discord-share-target-list",
-			onChange: (values) => setValues(values),
-		});
-		popover.root.append(
-			el("strong", "aa-discord-share-target-popover__title", label("targets.title", "Send to")),
-			choices,
-		);
-	};
-	trigger.addEventListener("click", () => { if (popover) close(); else open(); });
-	trigger.addEventListener("keydown", (event) => {
-		if (event.key === "ArrowDown" && !popover) {
-			event.preventDefault();
-			open();
-		}
-	});
-	trigger.setAttribute("aria-expanded", "false");
-	syncTrigger();
-	return {
-		root: trigger,
-		values: () => [...selected],
-		setValues,
-		destroy: () => close(),
-	};
-}
-
-function createLongPromptFileControl(initialValue, onChange) {
-	let enabled = Boolean(initialValue);
-	let recommended = false;
-	const tooltip = createTooltip({ delay: 140 });
-	const notice = el("div", {
-		className: "aa-discord-share-prompt-file-notice",
-		attrs: { role: "status" },
-		children: [
-			el("span", { className: "aa-discord-share-prompt-file-notice__icon", children: [icon("info")] }),
-			el("span", null, label("promptFile.channelRecommendation", "To avoid flooding the chat, long prompts are recommended as files for this channel. Regular prompts are unaffected.")),
-		],
-	});
-	const syncNotice = () => { notice.hidden = !recommended; };
-	const setChecked = (next, { emit = true } = {}) => {
-		enabled = Boolean(next);
-		toggle.setChecked(enabled);
-		if (emit) onChange?.(enabled);
-	};
-	const toggle = toggleSwitch({
-		checked: enabled,
-		label: label("promptFile.label", "Send long prompts as a file"),
-		className: "aa-discord-share-prompt-file-toggle",
-		onChange: (next) => setChecked(next),
-	});
-	const option = el("div", {
-		className: "aa-discord-share-prompt-file-option",
-		children: [
-			el("div", { className: "aa-discord-share-prompt-file-option__copy", children: [
-				el("span", { className: "aa-discord-share-prompt-file-option__icon", children: [icon("fileText")] }),
-				el("strong", null, label("promptFile.label", "Send long prompts as a file")),
-			] }),
-			toggle,
-		],
-	});
-	const tooltipContent = () => el("div", {
-		className: "aa-discord-share-prompt-file-tooltip",
-		children: [
-			el("strong", null, label("promptFile.tooltipTitle", "Why send long prompts as files?")),
-			el("span", null, label("promptFile.limits", "Discord allows up to 4,096 characters in one embed description and 6,000 embed text characters in one message.")),
-				el("span", null, label("promptFile.recommended", "When enabled, prompts longer than 1,500 characters become a TXT attachment. When disabled, long prompts are split into consecutive messages with the image in the final message.")),
-		],
-	});
-	const showTooltip = () => tooltip.show(toggle, tooltipContent, { className: "aa-discord-share-prompt-file-help" });
-	option.addEventListener("mouseenter", showTooltip);
-	option.addEventListener("mouseleave", tooltip.hide);
-	toggle.addEventListener("focus", showTooltip);
-	toggle.addEventListener("blur", tooltip.hide);
-	const root = el("div", { className: "aa-discord-share-prompt-file", children: [notice, option] });
-	syncNotice();
-	return {
-		root,
-		value: () => enabled,
-		setChecked,
-		setRecommended: (next) => {
-			recommended = Boolean(next);
-			syncNotice();
-		},
-		destroy: () => tooltip.destroy(),
-	};
 }
 
 function currentPlacement() {
@@ -463,11 +313,14 @@ function openMembershipRequiredDialog(error, shareConfig) {
 			onClick: async (event) => {
 				event.currentTarget.disabled = true;
 				try {
-					const session = await beginDiscordShareAuthentication(shareConfig);
-					closeActiveDialog();
-					scheduleEntrypointSync();
-					if (captureEvents.latest?.images?.length) await openSharePicker(shareConfig, session, captureEvents.latest);
-					else toast("success", label("toast.connected", "Discord membership verified."));
+						const session = await beginDiscordShareAuthentication(shareConfig);
+						closeActiveDialog();
+						scheduleEntrypointSync();
+						if (captureEvents.latest?.images?.length) {
+							const targets = await loadDiscordShareTargets(shareConfig, session);
+							await openSharePicker(shareConfig, session, captureEvents.latest, targets);
+						}
+						else toast("success", label("toast.connected", "Discord membership verified."));
 				} catch (nextError) {
 					event.currentTarget.disabled = false;
 					if (nextError?.code === "not_member") openMembershipRequiredDialog(nextError, shareConfig);
@@ -510,11 +363,12 @@ function openConnectDialog(shareConfig, { continueToPicker = true } = {}) {
 				action.classList.add("is-loading");
 				try {
 					const session = await beginDiscordShareAuthentication(shareConfig);
-					closeActiveDialog();
-					scheduleEntrypointSync();
-					if (continueToPicker && captureEvents.latest?.images?.length) {
-						await openSharePicker(shareConfig, session, captureEvents.latest);
-					} else {
+						closeActiveDialog();
+						scheduleEntrypointSync();
+						if (continueToPicker && captureEvents.latest?.images?.length) {
+							const targets = await loadDiscordShareTargets(shareConfig, session);
+							await openSharePicker(shareConfig, session, captureEvents.latest, targets);
+						} else {
 						toast("success", label("toast.connected", "Discord membership verified."));
 					}
 				} catch (error) {
@@ -529,433 +383,16 @@ function openConnectDialog(shareConfig, { continueToPicker = true } = {}) {
 	activeDialog = createDialog({ title: label("title", "Discord Share"), body, footer, size: "compact", onClose: () => { activeDialog = null; } });
 }
 
-function imageUrl(reference) {
-	const query = new URLSearchParams({
-		filename: reference.filename,
-		subfolder: reference.subfolder || "",
-		type: reference.type || "output",
-	});
-	return api.apiURL(`/view?${query}${app.getRandParam?.() || ""}`);
-}
-
-function imageMeta(image) {
-	return image.width && image.height
-		? `${image.width} × ${image.height}`
-		: label("picker.readingSize", "Reading size…");
-}
-
-function compactImageMeta(image) {
-	return image.width && image.height
-		? `${image.width}×${image.height}`
-		: "…";
-}
-
-function hydrateImageDimensions(image, onChange) {
-	if (image.width && image.height) return;
-	const probe = new Image();
-	probe.onload = () => {
-		image.width = probe.naturalWidth;
-		image.height = probe.naturalHeight;
-		onChange?.();
-	};
-	probe.src = image.url;
-}
-
-function createShareImageViewer(viewport, image) {
-	const MIN_SCALE = 1;
-	const MAX_SCALE = 8;
-	const BUTTON_STEP = 1.35;
-	let scale = MIN_SCALE;
-	let offsetX = 0;
-	let offsetY = 0;
-	let activePointer = null;
-	let dragX = 0;
-	let dragY = 0;
-	let zoomOut = null;
-	let zoomIn = null;
-
-	const zoomValue = el("output", {
-		className: "aa-discord-share-picker__zoom-value",
-		attrs: { "aria-live": "polite" },
-	}, "100%");
-
-	function clampOffsets() {
-		if (!viewport.clientWidth || !viewport.clientHeight || !image.naturalWidth || !image.naturalHeight || scale <= MIN_SCALE) {
-			offsetX = 0;
-			offsetY = 0;
-			return;
-		}
-		const fittedScale = Math.min(viewport.clientWidth / image.naturalWidth, viewport.clientHeight / image.naturalHeight);
-		const maxX = Math.max(0, (image.naturalWidth * fittedScale * scale - viewport.clientWidth) / 2);
-		const maxY = Math.max(0, (image.naturalHeight * fittedScale * scale - viewport.clientHeight) / 2);
-		offsetX = Math.max(-maxX, Math.min(maxX, offsetX));
-		offsetY = Math.max(-maxY, Math.min(maxY, offsetY));
-	}
-
-	function render() {
-		clampOffsets();
-		image.style.setProperty("--aa-discord-share-zoom", String(scale));
-		image.style.setProperty("--aa-discord-share-pan-x", `${offsetX}px`);
-		image.style.setProperty("--aa-discord-share-pan-y", `${offsetY}px`);
-		viewport.classList.toggle("is-zoomed", scale > MIN_SCALE);
-		zoomValue.value = `${Math.round(scale * 100)}%`;
-		zoomValue.textContent = zoomValue.value;
-		if (zoomOut) zoomOut.disabled = scale <= MIN_SCALE;
-		if (zoomIn) zoomIn.disabled = scale >= MAX_SCALE;
-	}
-
-	function setScale(nextScale, clientX = null, clientY = null) {
-		const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
-		if (next === scale) return;
-		const rect = viewport.getBoundingClientRect();
-		const pointerX = (clientX ?? (rect.left + rect.width / 2)) - rect.left - rect.width / 2;
-		const pointerY = (clientY ?? (rect.top + rect.height / 2)) - rect.top - rect.height / 2;
-		const ratio = next / scale;
-		offsetX = pointerX - (pointerX - offsetX) * ratio;
-		offsetY = pointerY - (pointerY - offsetY) * ratio;
-		scale = next;
-		render();
-	}
-
-	function reset() {
-		scale = MIN_SCALE;
-		offsetX = 0;
-		offsetY = 0;
-		render();
-	}
-
-	zoomOut = iconButton({
-		iconName: "zoomOut",
-		label: label("picker.zoomOut", "Zoom out"),
-		variant: "ghost",
-		onClick: () => setScale(scale / BUTTON_STEP),
-	});
-	const fit = iconButton({
-		iconName: "fit",
-		label: label("picker.resetView", "Fit to screen"),
-		variant: "ghost",
-		onClick: reset,
-	});
-	zoomIn = iconButton({
-		iconName: "zoomIn",
-		label: label("picker.zoomIn", "Zoom in"),
-		variant: "ghost",
-		onClick: () => setScale(scale * BUTTON_STEP),
-	});
-	const controls = el("div", {
-		className: "aa-discord-share-picker__viewer-controls",
-		attrs: { role: "group", "aria-label": label("picker.viewerControls", "Image view controls") },
-		children: [zoomOut, zoomValue, fit, zoomIn],
-	});
-	viewport.append(controls);
-
-	viewport.addEventListener("wheel", (event) => {
-		event.preventDefault();
-		setScale(scale * Math.exp(-event.deltaY * 0.0015), event.clientX, event.clientY);
-	}, { passive: false });
-	viewport.addEventListener("pointerdown", (event) => {
-		viewport.focus({ preventScroll: true });
-		if (event.button !== 0 || scale <= MIN_SCALE || event.target.closest?.(".aa-discord-share-picker__viewer-controls")) return;
-		event.preventDefault();
-		activePointer = event.pointerId;
-		dragX = event.clientX - offsetX;
-		dragY = event.clientY - offsetY;
-		viewport.setPointerCapture(event.pointerId);
-		viewport.classList.add("is-dragging");
-	});
-	viewport.addEventListener("pointermove", (event) => {
-		if (event.pointerId !== activePointer) return;
-		offsetX = event.clientX - dragX;
-		offsetY = event.clientY - dragY;
-		render();
-	});
-	const endDrag = (event) => {
-		if (event.pointerId !== activePointer) return;
-		activePointer = null;
-		viewport.classList.remove("is-dragging");
-		if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
-	};
-	viewport.addEventListener("pointerup", endDrag);
-	viewport.addEventListener("pointercancel", endDrag);
-	viewport.addEventListener("dblclick", reset);
-	viewport.addEventListener("keydown", (event) => {
-		if (event.target !== viewport) return;
-		if (["+", "="].includes(event.key)) {
-			event.preventDefault();
-			setScale(scale * BUTTON_STEP);
-			return;
-		}
-		if (event.key === "-") {
-			event.preventDefault();
-			setScale(scale / BUTTON_STEP);
-			return;
-		}
-		if (event.key === "0") {
-			event.preventDefault();
-			reset();
-			return;
-		}
-		const movement = { ArrowLeft: [36, 0], ArrowRight: [-36, 0], ArrowUp: [0, 36], ArrowDown: [0, -36] }[event.key];
-		if (!movement || scale <= MIN_SCALE) return;
-		event.preventDefault();
-		offsetX += movement[0];
-		offsetY += movement[1];
-		render();
-	});
-	image.addEventListener("load", render);
-	image.draggable = false;
-	const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(render) : null;
-	resizeObserver?.observe(viewport);
-	render();
-
-	return {
-		reset,
-		destroy() {
-			resizeObserver?.disconnect();
-			if (activePointer !== null && viewport.hasPointerCapture(activePointer)) viewport.releasePointerCapture(activePointer);
-			activePointer = null;
-		},
-	};
-}
-
-async function openSharePicker(shareConfig, session, snapshot, targets) {
-	closeActiveDialog();
-	const images = snapshot.images.map((image) => ({ ...image, url: imageUrl(image), width: 0, height: 0 }));
-	let selectedIndex = 0;
-	const body = el("div", "aa-discord-share-picker");
-	const stageImage = el("img", { className: "aa-discord-share-picker__image", attrs: { alt: "" } });
-	const viewport = el("div", {
-		className: "aa-discord-share-picker__viewport",
-		attrs: {
-			tabindex: "0",
-			role: "group",
-			"aria-label": label("picker.viewer", "Image viewer. Scroll to zoom, drag enlarged images to move, and double-click to reset."),
-		},
-		children: [stageImage],
-	});
-	const imageViewer = createShareImageViewer(viewport, stageImage);
-	const filename = el("strong", "aa-discord-share-picker__filename");
-	const dimensions = el("span", "aa-discord-share-picker__dimensions");
-	const counter = badge("", { className: "aa-discord-share-picker__counter" });
-	const stage = el("div", { className: "aa-discord-share-picker__stage", children: [
-		viewport,
-		el("div", { className: "aa-discord-share-picker__stage-meta", children: [counter, filename, dimensions] }),
-	] });
-	const filmstrip = el("div", { className: "aa-discord-share-filmstrip", attrs: { role: "listbox", "aria-label": label("picker.images", "Latest run images"), tabindex: 0 } });
-	const media = el("section", { className: "aa-discord-share-picker__media", attrs: { "aria-label": label("picker.images", "Latest run images") }, children: [stage, filmstrip] });
-	const prompt = el("pre", "aa-discord-share-picker__prompt");
-	const promptState = el("div", "aa-discord-share-picker__prompt-state");
-	const footer = el("div");
-	const hasPrompt = Boolean(snapshot.prompt);
-	let selectedTargetIds = loadDiscordShareTargetSelection(targets);
-	let longPromptPreference = loadDiscordSharePromptFilePreference();
-	let longPromptAsFile = longPromptPreference;
-	let targetPicker;
-	let promptFileControl;
-	const sendFeedbackText = el("span", "aa-discord-share-picker__send-feedback-text");
-		const sendFeedback = el("div", {
-			className: "aa-discord-share-picker__send-feedback",
-			attrs: { role: "alert", "aria-live": "assertive", hidden: true },
-			children: [
-				el("span", { className: "aa-discord-share-picker__send-feedback-icon", children: [icon("statusError")] }),
-				sendFeedbackText,
-		],
-	});
-	const clearSendFeedback = () => {
-		sendFeedback.hidden = true;
-		sendFeedback.classList.remove("is-warning");
-		sendFeedbackText.textContent = "";
-	};
-	const showSendFeedback = (message, { warning = false } = {}) => {
-		sendFeedbackText.textContent = message;
-		sendFeedback.classList.toggle("is-warning", warning);
-		sendFeedback.hidden = false;
-	};
-	const syncSendAvailability = () => {
-		send.disabled = !hasPrompt || selectedTargetIds.length === 0;
-	};
-	const resetSendState = () => {
-		syncSendAvailability();
-		send.classList.remove("is-loading");
-		send.querySelector(".aa-ui-button__label").textContent = label("actions.send", "Send to Discord");
-	};
-	const send = button({
-		label: label("actions.send", "Send to Discord"),
-		iconName: "send",
-		defaultAction: true,
-		onClick: async () => {
-			const selected = images[selectedIndex];
-			if (!selected || !snapshot.prompt) return;
-			clearSendFeedback();
-			send.disabled = true;
-			send.classList.add("is-loading");
-			send.querySelector(".aa-ui-button__label").textContent = label("actions.sending", "Sending…");
-			try {
-				const result = await sendDiscordShare(shareConfig, session, {
-					image: selected,
-					prompt: snapshot.prompt,
-					targetIds: selectedTargetIds,
-					longPromptAsFile,
-				});
-				if (result?.ok) {
-					closeActiveDialog();
-					const deliveredLabels = (result.delivered_targets || []).map((target) => target.label).filter(Boolean);
-					const destination = deliveredLabels.length ? ` (${deliveredLabels.join("、")})` : "";
-					toast("success", `${label("toast.sent", "Image and prompt sent to Discord.")}${destination}`);
-					return;
-				}
-				if (result?.code === "partial_delivery") {
-					const failedIds = (result.failed_targets || []).map((target) => target.id).filter(Boolean);
-				const failedLabels = (result.failed_targets || []).map((target) => target.label).filter(Boolean);
-				targetPicker.setValues(failedIds);
-				resetSendState();
-				const message = `${label("toast.partial", "Sent to some channels. Retry the channels that failed.")} ${failedLabels.join("、")}`;
-				showSendFeedback(message, { warning: true });
-				toast("warn", message);
-				return;
-				}
-				throw new Error(result?.message || label("error.unknown", "Discord sharing failed. Try again."));
-			} catch (error) {
-				resetSendState();
-				if (error?.code === "not_member") {
-					closeActiveDialog();
-					scheduleEntrypointSync();
-					openMembershipRequiredDialog(error, shareConfig);
-				} else if ([401, 403].includes(error?.status)) {
-					closeActiveDialog();
-					scheduleEntrypointSync();
-					openConnectDialog(shareConfig);
-			} else {
-				const message = shareErrorMessage(error);
-				showSendFeedback(message);
-				toast("error", message);
-			}
-			}
-		},
-	});
-
-	const thumbnails = images.map((image, index) => {
-		const meta = el("span", "aa-discord-share-filmstrip__meta", compactImageMeta(image));
-		const item = el("button", {
-			className: "aa-discord-share-filmstrip__item",
-			attrs: {
-				type: "button",
-				role: "option",
-				"aria-selected": "false",
-				"aria-label": `${image.filename} · ${imageMeta(image)}`,
-				title: image.filename,
-			},
-			children: [
-				el("img", { attrs: { src: image.url, alt: "" } }),
-				meta,
-			],
-		});
-		item.addEventListener("click", () => select(index, { focus: false }));
-		hydrateImageDimensions(image, () => {
-			meta.textContent = compactImageMeta(image);
-			item.setAttribute("aria-label", `${image.filename} · ${imageMeta(image)}`);
-			if (selectedIndex === index) dimensions.textContent = imageMeta(image);
-		});
-		filmstrip.append(item);
-		return item;
-	});
-
-	function select(index, { focus = true } = {}) {
-		selectedIndex = (index + images.length) % images.length;
-		const selected = images[selectedIndex];
-		imageViewer.reset();
-		stageImage.src = selected.url;
-		stageImage.alt = selected.filename;
-		filename.textContent = selected.filename;
-		dimensions.textContent = imageMeta(selected);
-		counter.textContent = `${selectedIndex + 1} / ${images.length}`;
-		for (const [itemIndex, item] of thumbnails.entries()) {
-			const active = itemIndex === selectedIndex;
-			item.classList.toggle("is-selected", active);
-			item.setAttribute("aria-selected", String(active));
-		}
-		const activeItem = thumbnails[selectedIndex];
-		activeItem?.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: "smooth" });
-		if (focus) activeItem?.focus({ preventScroll: true });
-	}
-
-	filmstrip.addEventListener("keydown", (event) => {
-		if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-		event.preventDefault();
-		const next = event.key === "Home" ? 0
-			: event.key === "End" ? images.length - 1
-				: selectedIndex + (event.key === "ArrowRight" ? 1 : -1);
-		select(next);
-	});
-	filmstrip.addEventListener("wheel", (event) => {
-		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-		event.preventDefault();
-		filmstrip.scrollLeft += event.deltaY;
-	}, { passive: false });
-	if (hasPrompt) {
-		prompt.textContent = snapshot.prompt;
-		promptState.append(
-			el("span", { className: "aa-discord-share-picker__prompt-ok", children: [icon("statusCheck")] }),
-			el("strong", null, snapshot.promptBinding?.label || label("picker.prompt", "Positive prompt")),
-		);
-	} else {
-		prompt.textContent = label("picker.promptMissing", "Right-click a Preview Any node and set it as the Discord prompt source, then run the workflow again.");
-		prompt.classList.add("is-missing");
-		promptState.append(
-			el("span", { className: "aa-discord-share-picker__prompt-warning", children: [icon("statusWarning")] }),
-			el("strong", null, label("picker.promptUnavailable", "Prompt unavailable")),
-		);
-	}
-	promptFileControl = createLongPromptFileControl(longPromptAsFile, (value) => {
-		longPromptPreference = saveDiscordSharePromptFilePreference(value);
-		longPromptAsFile = longPromptPreference;
-	});
-	const selectedTargetsPreferPromptFile = () => targets.some((target) => (
-		selectedTargetIds.includes(target.id) && target.preferPromptFile
-	));
-	const syncPromptFileTargetPolicy = () => {
-		const recommended = selectedTargetsPreferPromptFile();
-		promptFileControl.setRecommended(recommended);
-		longPromptAsFile = recommended ? true : longPromptPreference;
-		promptFileControl.setChecked(longPromptAsFile, { emit: false });
-	};
-	syncPromptFileTargetPolicy();
-	targetPicker = createShareTargetPicker(targets, selectedTargetIds, (values) => {
-		selectedTargetIds = saveDiscordShareTargetSelection(values, targets);
-		syncPromptFileTargetPolicy();
-		syncSendAvailability();
-	});
-	syncSendAvailability();
-	body.append(
-		media,
-		el("section", {
-			className: "aa-discord-share-picker__prompt-panel",
-			attrs: { "aria-label": label("picker.prompt", "Positive prompt") },
-			children: [promptState, prompt, promptFileControl.root],
-		}),
-	);
-	footer.append(
-		sendFeedback,
-		targetPicker.root,
-		button({ label: label("actions.cancel", "Cancel"), variant: "ghost", onClick: () => closeActiveDialog() }),
-		send,
-	);
-	activeDialog = createDialog({
-		title: label("picker.title", "Share latest run"),
-		body,
-		footer,
-		size: "lg",
-		className: "aa-discord-share-dialog",
-		confirmOnEnter: false,
-		onClose: () => {
-			imageViewer.destroy();
-			targetPicker.destroy();
-			promptFileControl.destroy();
-			activeDialog = null;
-		},
-	});
-	select(0, { focus: false });
-}
+const openSharePicker = createDiscordSharePicker({
+	closeActiveDialog,
+	label,
+	openConnectDialog,
+	openMembershipRequiredDialog,
+	scheduleEntrypointSync,
+	setActiveDialog: (dialog) => { activeDialog = dialog; },
+	shareErrorMessage,
+	toast,
+});
 
 async function verifiedSession(shareConfig) {
 	const stored = loadDiscordShareSession();

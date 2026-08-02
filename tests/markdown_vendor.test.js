@@ -19,6 +19,12 @@ test("vendored Markdown parser supports CommonMark and GFM block syntax", () => 
 		"| A | B |",
 		"| - | - |",
 		"| 1 | 2 |",
+		"",
+		"**Bold** *italic* ~~strike~~ `code` [link](https://example.com) ![image](https://example.com/a.png)",
+		"",
+		"```js",
+		"const value = 1;",
+		"```",
 	].join("\n"), { gfm: true });
 
 	assert.match(html, /<h1>Heading<\/h1>/);
@@ -29,6 +35,13 @@ test("vendored Markdown parser supports CommonMark and GFM block syntax", () => 
 	assert.match(html, /<input[^>]*checked=""[^>]*>/);
 	assert.match(html, /<input[^>]*disabled=""[^>]*>/);
 	assert.match(html, /<table>/);
+	assert.match(html, /<strong>Bold<\/strong>/);
+	assert.match(html, /<em>italic<\/em>/);
+	assert.match(html, /<del>strike<\/del>/);
+	assert.match(html, /<code>code<\/code>/);
+	assert.match(html, /<a href="https:\/\/example\.com">link<\/a>/);
+	assert.match(html, /<img src="https:\/\/example\.com\/a\.png" alt="image">/);
+	assert.match(html, /<pre><code class="language-js">/);
 });
 
 test("vendored Markdown dependency versions stay pinned", () => {

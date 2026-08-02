@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { readStyleEntry } from "./helpers/style_source.js";
 
 import { isDOMWidgetViewportVisible, observeDOMWidgetVisibility } from "../js/lib/dom_widget_visibility.js";
 
@@ -42,7 +43,7 @@ test("rich widget virtualization has an explicit inactive path and lifecycle wir
 	const masonry = readFileSync(new URL("js/lib/virtual_masonry.js", root), "utf8");
 	const booru = readFileSync(new URL("js/booru_gallery.js", root), "utf8");
 	const prompt = readFileSync(new URL("js/prompt_selector.js", root), "utf8");
-	const theme = readFileSync(new URL("js/lib/theme.css", root), "utf8");
+	const theme = readStyleEntry(new URL("js/lib/theme.css", root));
 
 	assert.match(list, /setActive\(nextActive\)/);
 	assert.match(list, /if \(!active\) \{[^}]*clearRendered\(\)/s);

@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from nodes._lib import prompt_library as prompt_library_module
 from nodes._lib.prompt_library import DEFAULT_COLLECTION_ID, DEFAULT_COLLECTION_NAME, PromptLibrary
+from nodes._lib.prompt_library_archive import PromptLibraryArchive
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"test-image"
 
@@ -32,6 +33,12 @@ class PromptLibraryTests(unittest.TestCase):
             "categoryId": category["id"], "collectionIds": [collection["id"]], "tags": ["hair", "red"],
         })
         return category, collection, entry
+
+    def test_archive_codec_is_delegated_behind_the_existing_facade(self):
+        self.assertIsInstance(self.library._archive, PromptLibraryArchive)
+        for method in ("prepare_export", "prepare_import", "preflight_import", "apply_import"):
+            self.assertTrue(callable(getattr(self.library, method)))
+            self.assertTrue(callable(getattr(self.library._archive, method)))
 
     def prepare_bytes(self, data: bytes, filename: str):
         source = Path(self.temp.name) / f"source-{filename}"

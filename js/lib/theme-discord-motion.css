@@ -1,0 +1,11 @@
+
+@media (prefers-reduced-motion: reduce) {
+	.aa-discord-share-entry,
+	.aa-discord-share-entry__icon,
+	.aa-discord-share-filmstrip__item,
+	.aa-discord-share-picker__image { transition: none; }
+	.aa-discord-share-entry[data-flow-state="busy"] .aa-discord-share-entry__icon--loading { animation: none; }
+	.aa-ui-button.aa-discord-share-entry:hover:not(:disabled),
+	.aa-discord-share-entry:hover .aa-discord-share-entry__icon,
+	.aa-discord-share-filmstrip__item:hover { transform: none; }
+}

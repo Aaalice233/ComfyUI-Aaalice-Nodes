@@ -38,6 +38,8 @@
 
 - **Dashboard Control Card（侧边栏控件卡片）**：Control Binding Set 在控制页面中的可调投影；它可以控制一个或多个兼容控件，独立放置或加入一个布局组。避免使用 Section Item、Copied Control。
 
+- **Component Note（组件说明）**：附着在单个侧边栏控件卡片或分隔项上的用户 Markdown 说明；它属于 Dashboard 布局内容，不属于节点参数定义或控件当前值。避免使用 Node Description、Parameter Value。
+
 - **Layout Group（布局组）**：控制页面中对若干控件卡片进行命名、识别和整体移动的可选单层组合；删除布局组只解除成员关系。避免使用 Dashboard Section、Nested Group。
 
 - **Grid Position（网格位置）**：控件卡片或布局组在控制页面细粒度结构化网格中的逻辑锚点，不代表像素坐标或控件身份。避免使用 Canvas Position、DOM Position。

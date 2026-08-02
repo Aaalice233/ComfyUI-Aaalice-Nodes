@@ -15,8 +15,10 @@ import "./fetch_from_krita.js";
 import "./workspace.js";
 import "./discord_share.js";
 
+const STYLE_ENTRIES = ["ui.css", "theme.css"];
+
 function injectStyles() {
-	for (const filename of ["ui.css", "theme.css"]) {
+	for (const filename of STYLE_ENTRIES) {
 		const id = `aaalice-${filename.replace(".css", "")}-css`;
 		if (document.getElementById(id)) continue;
 		const link = document.createElement("link");

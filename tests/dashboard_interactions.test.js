@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { grabSpanOffset, isGroupMembershipDrop, normalizeDragSelection, selectionFootprint } from "../js/lib/dashboard_interactions.js";
+import { grabSpanOffset, isGroupMembershipDrop, normalizeDragSelection, selectionFootprint, shouldStartMarquee } from "../js/lib/dashboard_interactions.js";
 import { applyMarqueeSelection, containedIds, nearestInDirection, nextClickSelection } from "../js/lib/dashboard_selection.js";
 
 test("drag grab offset preserves the pointer anchor across grid spans", () => {
@@ -47,6 +47,14 @@ test("marquee application supports additive and subtractive modes", () => {
 	assert.deepEqual([...applyMarqueeSelection(["a"], ["b", "c"], "add")].sort(), ["a", "b", "c"]);
 	assert.deepEqual([...applyMarqueeSelection(["a", "b", "c"], ["b"], "subtract")].sort(), ["a", "c"]);
 	assert.deepEqual([...applyMarqueeSelection(["a"], ["b"], "subtract")], ["a"]);
+});
+
+test("dense dashboards start marquee from unselected cards while selected cards remain draggable", () => {
+	assert.equal(shouldStartMarquee({ hasEntry: false }), true);
+	assert.equal(shouldStartMarquee({ hasEntry: true, selected: false }), true);
+	assert.equal(shouldStartMarquee({ hasEntry: true, selected: true }), false);
+	assert.equal(shouldStartMarquee({ hasEntry: true, selected: true, additive: true }), true);
+	assert.equal(shouldStartMarquee({ hasEntry: true, selected: true, subtract: true }), true);
 });
 
 test("contained ids only include frames fully covered by the rectangle", () => {

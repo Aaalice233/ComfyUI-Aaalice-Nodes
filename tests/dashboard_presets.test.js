@@ -121,6 +121,14 @@ test("numeric card range overrides round-trip through complete sidebar presets",
 	assert.deepEqual(parsed.dashboard.pages[0].items[0].numericRange, { min: 1, max: 100, step: 2 });
 });
 
+test("component Markdown notes round-trip through complete sidebar presets", () => {
+	const source = snapshot(); source.dashboard.pages[0].items[0].note = "## Steps\n\nKeep this below **40**.";
+	const state = createDashboardPreset(emptyDashboardPresetState(), "Documented slider", source);
+	assert.equal(state.presets[0].dashboard.pages[0].items[0].note, source.dashboard.pages[0].items[0].note);
+	const parsed = parseDashboardPreset(serializeDashboardPreset(state.presets[0]));
+	assert.equal(parsed.dashboard.pages[0].items[0].note, source.dashboard.pages[0].items[0].note);
+});
+
 test("preset state survives workflow JSON serialization unchanged", () => {
 	// 预设随工作流 extra 分发（含 Workflow Hub 打包/安装），JSON 往返后必须逐字节等价
 	const state = createDashboardPreset(emptyDashboardPresetState(), "Portrait", snapshot());

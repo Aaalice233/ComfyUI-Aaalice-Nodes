@@ -38,7 +38,7 @@ test("all static UI icon references exist in the shared icon registry", () => {
 });
 
 test("settings uses a cog glyph instead of a sun glyph", () => {
-	const source = readFileSync(join(JS_ROOT, "lib", "ui.js"), "utf8");
+	const source = readFileSync(join(JS_ROOT, "lib", "ui", "primitives.js"), "utf8");
 	assert.match(source, /settings:\s*"[^"]*v\.18[^"]*M12 15a3 3/);
 	assert.doesNotMatch(source, /settings:\s*"M12 8a4 4[^"]*M3 12h2/);
 });

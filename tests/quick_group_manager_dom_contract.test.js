@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { readStyleEntry } from "./helpers/style_source.js";
 
 const source = readFileSync(new URL("../js/quick_group_manager.js", import.meta.url), "utf8");
 const controlSource = readFileSync(new URL("../js/lib/controls/quick_group_manager.js", import.meta.url), "utf8");
-const styles = readFileSync(new URL("../js/lib/theme.css", import.meta.url), "utf8");
-const ui = readFileSync(new URL("../js/lib/ui.js", import.meta.url), "utf8");
+const popoverSource = readFileSync(new URL("../js/lib/quick_group_manager_popovers.js", import.meta.url), "utf8");
+const styles = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
+const uiControls = readFileSync(new URL("../js/lib/ui/controls.js", import.meta.url), "utf8");
+const uiOverlays = readFileSync(new URL("../js/lib/ui/overlays.js", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../js/lib/quick_group_manager_runtime.js", import.meta.url), "utf8");
 
 function loadMinimumBodyHeightHelpers() {
@@ -67,7 +70,7 @@ test("keeps the compact header single-line without redundant visible labels", ()
 	assert.match(styles, /\.aaalice-qgm-utilities[\s\S]*grid-column:\s*3[\s\S]*justify-self:\s*end/);
 	assert.doesNotMatch(source, /aaalice-qgm-title/);
 	assert.doesNotMatch(source, /关闭方式|颜色过滤/);
-	assert.match(ui, /role:\s*"radiogroup"/);
+	assert.match(uiControls, /role:\s*"radiogroup"/);
 	assert.match(source, /role:\s*"switch"/);
 	assert.match(source, /"aria-checked":\s*status === GROUP_STATE\.MIXED \? "mixed"/);
 });
@@ -115,9 +118,9 @@ test("allows vertical growth while keeping content top-aligned and enforcing its
 });
 
 test("keeps the filter button neutral and lists selected colors in its tooltip", () => {
-	assert.match(source, /createTooltip/);
-	assert.match(source, /aaalice-qgm-filter-tooltip/);
-	assert.match(source, /entry\.color[\s\S]*aaalice-qgm-color[\s\S]*el\("code", null, entry\.color\)/);
+	assert.match(popoverSource, /createTooltip/);
+	assert.match(popoverSource, /aaalice-qgm-filter-tooltip/);
+	assert.match(popoverSource, /entry\.color[\s\S]*aaalice-qgm-color[\s\S]*el\("code", null, entry\.color\)/);
 	assert.match(source, /filter\.removeAttribute\("title"\)/);
 	assert.doesNotMatch(source, /quickGroup\.filter\.selected/);
 	assert.doesNotMatch(source, /--qgm-filter-color/);
@@ -127,20 +130,39 @@ test("keeps the filter button neutral and lists selected colors in its tooltip",
 	assert.doesNotMatch(styles, /\.aaalice-qgm-hover-tooltip/);
 	const rowBody = source.slice(source.indexOf("function groupRow"), source.indexOf("function render(node)"));
 	assert.doesNotMatch(rowBody, /aaalice-qgm-color/);
-	assert.doesNotMatch(source, /stale \? el\("span", "aaalice-qgm-warning", "!"\) : null/);
+	assert.doesNotMatch(popoverSource, /stale \? el\("span", "aaalice-qgm-warning", "!"\) : null/);
 });
 
 test("keeps the toolbar filter popover open across queued body renders", () => {
-	assert.match(source, /popup\.anchor\s*=\s*anchor/);
-	assert.match(source, /if \(popoverAnchor && !toolbar\.contains\(popoverAnchor\)\) closePopover\(node\)/);
+	assert.match(popoverSource, /popup\.anchor\s*=\s*anchor/);
+	assert.match(source, /if \(popoverAnchor && !toolbar\.contains\(popoverAnchor\)\) popovers\.closePopover\(node\)/);
+});
+
+test("clears popover ownership through the shared close lifecycle", () => {
+	const createPopoverBody = popoverSource.slice(
+		popoverSource.indexOf("function createPopover"),
+		popoverSource.indexOf("function filterEntries"),
+	);
+	assert.match(createPopoverBody, /createAnchoredPopover\(\{[\s\S]*onClose:\s*\(\)\s*=>\s*\{[\s\S]*node\._aaaliceQuickPopover\?\.root === popup\?\.root[\s\S]*node\._aaaliceQuickPopover = null/);
+	assert.doesNotMatch(createPopoverBody, /popup\.close\s*=/);
+
+	const sharedCloseBody = uiOverlays.slice(
+		uiOverlays.indexOf("export function createAnchoredPopover"),
+		uiOverlays.indexOf("let activeContextMenu"),
+	);
+	assert.match(sharedCloseBody, /const outside = \(event\) => \{[^}]*close\(\)/);
+	assert.match(sharedCloseBody, /event\.key === "Escape"[^}]*close\(\)/);
+	assert.match(sharedCloseBody, /onClose\?\.\(\)/);
+	assert.match(popoverSource, /function closePopover\(node\)[\s\S]*node\._aaaliceQuickPopover\?\.close\?\.\(\)[\s\S]*node\._aaaliceQuickPopover = null/);
+	assert.match(source, /node\.onRemoved = function \(\)[\s\S]*popovers\.closePopover\(this\)/);
 });
 
 test("previews existing linkage rules only when a group has rules", () => {
-	assert.match(source, /function showRuleTooltip/);
-	assert.match(source, /aaalice-qgm-rule-tooltip/);
+	assert.match(popoverSource, /function showRuleTooltip/);
+	assert.match(popoverSource, /aaalice-qgm-rule-tooltip/);
 	assert.match(source, /if \(count\) \{[\s\S]*mouseenter[\s\S]*showRuleTooltip[\s\S]*focus[\s\S]*showRuleTooltip/);
 	assert.match(source, /link\.removeAttribute\("title"\)/);
-	assert.match(source, /whenEnabled[\s\S]*whenDisabled/);
+	assert.match(popoverSource, /whenEnabled[\s\S]*whenDisabled/);
 	assert.match(styles, /\.aaalice-qgm-rule-tooltip-row[\s\S]*grid-template-columns/);
 	assert.doesNotMatch(styles, /\.aaalice-qgm-rule-tooltip-action\s*\{[^}]*border-radius:/);
 });
@@ -204,9 +226,9 @@ test("provides filtered drag ordering, keyboard ordering and accessible popovers
 	assert.match(source, /dragstart/);
 	assert.match(source, /Alt\+Arrow/);
 	assert.match(source, /event\.altKey/);
-	assert.match(ui, /aria-modal/);
-	assert.match(ui, /event\.key === "Escape"/);
-	assert.match(ui, /previousFocus\?\.focus/);
+	assert.match(uiOverlays, /aria-modal/);
+	assert.match(uiOverlays, /event\.key === "Escape"/);
+	assert.match(uiOverlays, /previousFocus\?\.focus/);
 });
 
 test("shares cascade preflight and graph transaction logic with workspace", () => {

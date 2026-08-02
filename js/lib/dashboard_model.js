@@ -178,15 +178,17 @@ export function normalizeDashboard(raw) {
 			const source = kind === "separator" ? normalizeGroupSource(sourceItem.source) : null;
 			const groupSource = kind === "control" ? normalizeGroupSource(sourceItem.groupSource) : null;
 			const primaryBinding = kind === "control" ? normalizeBinding(sourceItem.binding) : null;
-			const linkedBindings = kind === "control" ? normalizeLinkedBindings(primaryBinding, sourceItem.linkedBindings) : [];
-			const numericRange = kind === "control" ? normalizeNumericRange(sourceItem.numericRange) : null;
-			const layout = normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns });
+				const linkedBindings = kind === "control" ? normalizeLinkedBindings(primaryBinding, sourceItem.linkedBindings) : [];
+				const numericRange = kind === "control" ? normalizeNumericRange(sourceItem.numericRange) : null;
+				const note = typeof sourceItem.note === "string" && sourceItem.note.trim() ? sourceItem.note : null;
+				const layout = normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns });
 			rawItems.push({ id: sourceItem.id, groupId, layout });
 			page.items.push({
 				id: sourceItem.id, kind, binding: primaryBinding,
-				...(linkedBindings.length ? { linkedBindings } : {}),
-				...(numericRange ? { numericRange } : {}),
-				label: String(sourceItem.label || ""), groupId,
+					...(linkedBindings.length ? { linkedBindings } : {}),
+					...(numericRange ? { numericRange } : {}),
+					...(note ? { note } : {}),
+					label: String(sourceItem.label || ""), groupId,
 				...(typeof sourceItem.labelSource === "string" ? { labelSource: sourceItem.labelSource } : {}),
 				...(typeof sourceItem.labelOverride === "string" ? { labelOverride: sourceItem.labelOverride } : {}),
 				...(groupSource ? { groupSource } : {}),

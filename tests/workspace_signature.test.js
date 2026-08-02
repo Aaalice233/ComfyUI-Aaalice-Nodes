@@ -3,16 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { widgetOptionSignature, widgetStructureSignature } from "../js/workspace/graph_signature.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
-const helperStart = workspace.indexOf("function ownDataPropertyValue");
-const helperEnd = workspace.indexOf("\nfunction graphStructureSignature", helperStart);
-assert.notEqual(helperStart, -1, "workspace signature helpers must exist");
-assert.notEqual(helperEnd, -1, "workspace signature helper boundary must exist");
-const helperSource = workspace.slice(helperStart, helperEnd);
-const signatureHelpers = Function(`"use strict"; ${helperSource}; return { widgetOptionSignature, widgetStructureSignature };`)();
-const { widgetOptionSignature, widgetStructureSignature } = signatureHelpers;
 
 test("workspace signatures never evaluate accessor-backed widget options", () => {
 	let widgetOptionsReads = 0;
