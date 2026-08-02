@@ -13,7 +13,7 @@ import {
 	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
 } from "./lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "./lib/dashboard_preset_runtime.js";
-import { addItems, addLinkedBinding, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, removeItems, removeLinkedBinding, replacePrimaryBinding, resizeGroup, resizeItem, resizeItems, syncSourceGroup, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
+import { addItems, addLinkedBinding, addSeparator, assignToGroup, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, moveTopLevelSelection, removeItems, removeLinkedBinding, replacePrimaryBinding, resizeGroup, resizeItem, resizeItems, syncSourceGroup, ungroupItems, updateItem } from "./lib/dashboard_commands.js";
 import { createDashboardGrid } from "./lib/dashboard_components.js";
 import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet, synchronizeLinkedBindingSets } from "./lib/control_binding_set.js";
 import { installLinkedSeedQueueHook as installLinkedSeedQueueLifecycle } from "./lib/linked_seed_queue.js";
@@ -49,7 +49,9 @@ const SIDEBAR_AUTO_SAVE_STORAGE_KEY = "aaalice.workspace.sidebarPresetAutoSave";
 const DASHBOARD_PAGE_RAIL_WIDTH = 38;
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
+const bindingNavigationCanvases = new WeakSet();
 const dashboardPageRails = new WeakMap();
+const dashboardScrollPositions = new WeakMap();
 const workspaceOwnedTrees = new WeakMap();
 const workspaceOwnershipObservers = new Map();
 const workspaceParentObservers = new Map();
@@ -138,6 +140,17 @@ function installWorkspaceCanvasAutoClose() {
 	autoCloseCanvases.add(canvas);
 	canvas.addEventListener("click", () => {
 		if (!sidebarPinned && sidebar.activeSidebarTabId === TAB_ID) sidebar.toggleSidebarTab(TAB_ID);
+	});
+}
+
+function installCanvasBindingNavigationSync() {
+	const canvas = app.canvas?.canvas;
+	if (!(canvas instanceof HTMLCanvasElement)) throw new Error("[Aaalice] ComfyUI canvas is unavailable");
+	if (bindingNavigationCanvases.has(canvas)) return;
+	bindingNavigationCanvases.add(canvas);
+	canvas.addEventListener("litegraph:set-graph", () => {
+		invalidateWidgetControlAdapterCache();
+		scheduleCanvasControlBindingSync();
 	});
 }
 
@@ -395,6 +408,25 @@ function setScrollTopImmediately(element, top) {
 	element.style.scrollBehavior = "auto";
 	element.scrollTop = Math.max(0, Number(top) || 0);
 	element.style.scrollBehavior = previousBehavior;
+}
+
+function dashboardScrollState(root) {
+	let state = dashboardScrollPositions.get(root);
+	if (!state || state.graph !== app.graph) {
+		state = { graph: app.graph, pages: new Map() };
+		dashboardScrollPositions.set(root, state);
+	}
+	return state;
+}
+
+function rememberDashboardScroll(root) {
+	const scroll = workspaceOwnedTrees.get(root)?.querySelector?.(".aa-dashboard-scroll:not(.is-page-leaving)");
+	const pageId = scroll?.dataset.dashboardPageId;
+	if (pageId) dashboardScrollState(root).pages.set(pageId, scroll.scrollTop);
+}
+
+function dashboardScrollTop(root, pageId) {
+	return dashboardScrollState(root).pages.get(pageId) || 0;
 }
 
 function downloadBlob(blob, filename) {
@@ -825,7 +857,12 @@ function controlBindingErrorDetail(error) {
 	else if (groups.async.has(code)) detail = t("aaalice.workspace.binding.asyncDetail", "A third-party control attempted an asynchronous write, so the update was cancelled.");
 	else detail = t("aaalice.workspace.binding.writeFailedDetail", "The parameter update failed and the previous values were restored.");
 	const internalCode = [...Object.values(groups)].some((codes) => codes.has(code)) || /^[a-z]+(?:-[a-z]+)+$/.test(raw);
-	return raw && !internalCode && raw !== detail ? `${detail} (${raw})` : detail;
+	const diagnostics = [];
+	if (raw && !internalCode && raw !== detail) diagnostics.push(raw);
+	const issueMessage = String(error?.issues?.[0]?.error?.message || "");
+	if (issueMessage && issueMessage !== raw && issueMessage !== detail) diagnostics.push(issueMessage);
+	if (!issueMessage && ![...Object.values(groups)].some((codes) => codes.has(code)) && code && code !== raw) diagnostics.push(code);
+	return diagnostics.length ? `${detail} (${[...new Set(diagnostics)].join("; ")})` : detail;
 }
 
 function notifyControlBindingError(error) {
@@ -1342,7 +1379,7 @@ function renderDashboard(container, host) {
 	const toolbar = createWorkspaceToolbar(searchOpen ? [search.panel] : dashboardActions, { className: `aa-dashboard-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
 	container.append(toolbar);
 	if (!page) { container.append(emptyState({ iconName: "layout", className: "aa-workspace-empty aa-dashboard-empty", title: t("aaalice.workspace.empty.title", "Build your control pages"), description: t("aaalice.workspace.empty.description", "Create a page, then add controls from any compatible node's context menu."), actions: [button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", onClick: addPage })] })); return; }
-	const scroll = el("div", `aa-dashboard-scroll${pageTransitionClass}`);
+	const scroll = el("div", { className: `aa-dashboard-scroll${pageTransitionClass}`, attrs: { "data-dashboard-page-id": page.id } });
 	const openGroupMenu = (event, group) => {
 		const rect = event.currentTarget.getBoundingClientRect(); createContextMenu({ x: event.clientX || rect.right, y: event.clientY || rect.bottom, ownerElement: event.currentTarget, ariaLabel: t("aaalice.workspace.group.menu", "Layout group menu"), items: [
 			{ label: t("aaalice.workspace.group.edit", "Edit group"), iconName: "settings", onSelect: () => openEditGroup(page, group) },
@@ -1473,6 +1510,7 @@ function renderDashboard(container, host) {
 	}
 	const pageStage = el("div", { className: "aa-dashboard-page-stage", children: [...(pageSnapshot ? [pageSnapshot] : []), scroll] });
 	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, pageRail, selectionBar.root] }); container.append(body);
+	scroll.addEventListener("scroll", () => dashboardScrollState(host).pages.set(page.id, scroll.scrollTop), { passive: true });
 	if (pageSnapshot) setScrollTopImmediately(pageSnapshot, pageSnapshot._aaaliceSnapshotScrollTop);
 	updateSelectionUi = () => {
 		const selectedItems = page.items.filter((item) => viewState.selectedItemIds.has(item.id)); const selectedGroups = page.groups.filter((group) => viewState.selectedGroupIds.has(group.id));
@@ -1485,10 +1523,11 @@ function renderDashboard(container, host) {
 			group: { disabled: selectedItems.length < 2 || selectedGroups.length > 0 }, ungroup: { disabled: !canUngroup }, width: { disabled: !selectedControls.length || selectedGroups.length > 0 }, remove: { disabled: !selectedItems.length || selectedGroups.length > 0 }, clear: { disabled: count === 0 },
 		} });
 	};
-	dashboardInteraction = bindDashboardInteractions(grid, { editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds,
-		onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; updateSelectionUi(); },
-		onDropItems: (ids, target) => updateDashboard((current) => target.precise === false ? moveItems(current, ids, page.id, { groupId: target.groupId }) : moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row, target.column)),
-		onResizeItem: (itemId, size) => updateDashboard((current) => resizeItem(current, itemId, size)),
+			dashboardInteraction = bindDashboardInteractions(grid, { editMode, selectedItemIds: viewState.selectedItemIds, selectedGroupIds: viewState.selectedGroupIds, groupDropLabel: t("aaalice.workspace.group.addItem", "Add to group"),
+			onSelectionChange: (items, groups) => { viewState.selectedItemIds = items; viewState.selectedGroupIds = groups; updateSelectionUi(); },
+			onDropItems: (ids, target) => updateDashboard((current) => target.precise === false ? moveItems(current, ids, page.id, { groupId: target.groupId }) : moveItems(current, ids, page.id, target)), onDropGroup: (groupId, target) => updateDashboard((current) => moveGroup(current, page.id, groupId, target.row, target.column)),
+			onDropSelection: (itemIds, groupIds, target) => updateDashboard((current) => moveTopLevelSelection(current, page.id, itemIds, groupIds, target.precise === false ? {} : target)),
+			onResizeItem: (itemId, size) => updateDashboard((current) => resizeItem(current, itemId, size)),
 		onResizeGroup: (groupId, size) => updateDashboard((current) => resizeGroup(current, groupId, size)),
 	});
 	updateSelectionUi();
@@ -1500,6 +1539,7 @@ function renderDashboard(container, host) {
 		searchEmpty.hidden = !needle || visibleItems > 0;
 	};
 	applyDashboardSearch(searchOpen ? query : "");
+	setScrollTopImmediately(scroll, dashboardScrollTop(host, page.id));
 }
 
 async function importDashboardPreset(file) {
@@ -2218,7 +2258,7 @@ function destroyWorkspaceRoot(element) {
 	workspaceParentObservers.get(element)?.disconnect(); workspaceParentObservers.delete(element); renderedWorkspaceTabs.delete(element);
 	closeWorkspaceTransientSurfaces(element);
 	if (ownedTree) { closeWorkspaceTransientSurfaces(ownedTree); destroyVirtualLists(ownedTree); destroySharedControls(ownedTree); ownedTree.remove(); }
-	workspacePinTooltips.delete(element); workspaceOwnedTrees.delete(element); destroyDashboardPageRailForRoot(element); element.classList.remove("aa-workspace-host"); mounted.delete(element);
+	workspacePinTooltips.delete(element); workspaceOwnedTrees.delete(element); dashboardScrollPositions.delete(element); destroyDashboardPageRailForRoot(element); element.classList.remove("aa-workspace-host"); mounted.delete(element);
 	for (const viewState of Object.values(workspaceViewState)) if (viewState.focusHost === element) { viewState.focusHost = null; viewState.focusSearch = false; }
 }
 
@@ -2233,6 +2273,7 @@ function destroyWorkspaceSidebar() {
 
 function renderWorkspace(root) {
 	for (const candidate of workspaceOwnershipObservers.keys()) if (candidate !== root && !isWorkspaceRootInteractive(candidate)) closeWorkspaceTransientSurfaces(candidate);
+	rememberDashboardScroll(root);
 	closeWorkspaceTransientSurfaces(root, { closeBindings: false }); destroyVirtualLists(root);
 	destroySharedControls(root);
 	root.replaceChildren();
@@ -2508,7 +2549,7 @@ app.registerExtension({
 	},
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
-	beforeConfigureGraph() { closeBindingDialogs(); workspaceViewState.dashboard.pageTransition = null; },
+	beforeConfigureGraph() { closeBindingDialogs(); workspaceViewState.dashboard.pageTransition = null; for (const root of mounted) dashboardScrollPositions.delete(root); },
 	afterConfigureGraph() { invalidateWidgetControlAdapterCache(); scheduleGraphSync(true); },
 	setup() {
 		installLinkedSeedQueueHook();
@@ -2549,6 +2590,7 @@ app.registerExtension({
 			workspaceParentObservers.set(element, parentObserver); if (element.parentElement) parentObserver.observe(element.parentElement, { childList: true });
 		}, destroy: destroyWorkspaceSidebar });
 		installWorkspaceCanvasAutoClose();
+		installCanvasBindingNavigationSync();
 		const nodes = graphNodes(); repairDuplicateHostIds(nodes); for (const node of nodes) patchNodeMenu(node); previousGraphStructure = graphSyncSignature(nodes); scheduleCanvasControlBindingSync();
 		api.addEventListener("graphChanged", () => { invalidateWidgetControlAdapterCache(); scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
 		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。

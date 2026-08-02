@@ -17,7 +17,9 @@ function gridTargetAt(grid, clientX, clientY) {
 
 function targetAt(root, clientX, clientY) {
 	const hit = document.elementFromPoint(clientX, clientY);
-	const groupGrid = hit?.closest?.(".aa-dashboard-group-grid");
+	const group = hit?.closest?.("[data-dashboard-group-id]");
+	// The composite shell is the membership target; users should not have to find an empty cell inside a dense group.
+	const groupGrid = hit?.closest?.(".aa-dashboard-group-grid") || (group && root.contains(group) ? group.querySelector?.(".aa-dashboard-group-grid") : null);
 	if (groupGrid && root.contains(groupGrid)) return gridTargetAt(groupGrid, clientX, clientY);
 	return gridTargetAt(root, clientX, clientY);
 }
@@ -33,6 +35,43 @@ export function selectionFootprint(layouts) {
 	const row = Math.min(...layouts.map((layout) => layout.row)); const column = Math.min(...layouts.map((layout) => layout.column));
 	const bottom = Math.max(...layouts.map((layout) => layout.row + layout.rowSpan)); const right = Math.max(...layouts.map((layout) => layout.column + layout.columnSpan));
 	return { row, column, rowSpan: bottom - row, columnSpan: right - column };
+}
+
+export function normalizeDragSelection(entries, selectedItemIds, selectedGroupIds) {
+	const selectedItems = new Set(selectedItemIds); const selectedGroups = new Set(selectedGroupIds);
+	const visible = entries.filter((entry) => selectedItems.has(entry.id));
+	for (const entry of visible) if (entry.groupId && selectedGroups.has(entry.groupId)) selectedItems.delete(entry.id);
+	const scopes = new Set(visible.filter((entry) => selectedItems.has(entry.id)).map((entry) => entry.groupId || null));
+	const topLevel = selectedGroups.size > 0 || scopes.size > 1;
+	if (topLevel) for (const entry of visible) if (selectedItems.has(entry.id) && entry.groupId) {
+		selectedItems.delete(entry.id); selectedGroups.add(entry.groupId);
+	}
+	return {
+		itemIds: entries.filter((entry) => selectedItems.has(entry.id)).map((entry) => entry.id),
+		groupIds: [...selectedGroups],
+		topLevel,
+	};
+}
+
+export function isGroupMembershipDrop(targetGroupId, sourceGroupIds) {
+	if (!targetGroupId) return false;
+	const sources = new Set(sourceGroupIds || []);
+	return sources.size !== 1 || !sources.has(targetGroupId);
+}
+
+function clearGroupDropTarget(gesture) {
+	gesture.groupDropElement?.classList.remove("is-drop-target");
+	gesture.groupDropBadge?.remove();
+	gesture.groupDropElement = null; gesture.groupDropBadge = null;
+}
+
+function showGroupDropTarget(gesture, target, label) {
+	const group = target.grid.closest?.("[data-dashboard-group-id]");
+	if (!group || gesture.groupDropElement === group) return;
+	clearGroupDropTarget(gesture);
+	const badge = document.createElement("span"); badge.className = "aa-dashboard-group-drop-label"; badge.textContent = label; badge.setAttribute("aria-hidden", "true");
+	group.classList.add("is-drop-target"); group.append(badge);
+	gesture.groupDropElement = group; gesture.groupDropBadge = badge;
 }
 
 function showPreview(gesture, target) {
@@ -69,7 +108,7 @@ function showResizePreview(gesture, columnSpan, rowSpan) {
 	if (gesture.preview.parentElement !== gesture.grid) gesture.grid.append(gesture.preview);
 }
 
-export function bindDashboardInteractions(root, { editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), onSelectionChange, onDropItems, onDropGroup, onResizeItem, onResizeGroup } = {}) {
+export function bindDashboardInteractions(root, { editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), groupDropLabel = "Add to group", onSelectionChange, onDropItems, onDropGroup, onDropSelection, onResizeItem, onResizeGroup } = {}) {
 	if (!editMode) return () => {};
 	let gesture = null;
 	let currentItems = new Set(selectedItemIds); let currentGroups = new Set(selectedGroupIds);
@@ -79,6 +118,7 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		currentItems = new Set(items); currentGroups = new Set(groups); onSelectionChange?.(currentItems, currentGroups);
 	};
 	const itemElements = () => [...root.querySelectorAll("[data-dashboard-item-id]")].filter((element) => !element.hidden);
+	const groupElements = () => [...root.querySelectorAll("[data-dashboard-group-id]")].filter((element) => !element.hidden);
 	// 点选/框选共用的选择语义；subtract 只负责移除，不会清空其余选择。
 	const clickSelection = (entry, { additive = false, subtract = false } = {}) => {
 		const itemId = entry?.dataset.dashboardItemId || null; const groupId = entry?.dataset.dashboardGroupId || null;
@@ -93,6 +133,7 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		if (!gesture) return;
 		if (restoreSelection && gesture.kind === "marquee") emitSelection(gesture.initialItems, gesture.initialGroups);
 		for (const element of gesture.elements || []) { element.style.removeProperty("transform"); element.classList.remove("is-dragging", "is-resizing"); }
+		clearGroupDropTarget(gesture);
 		gesture.preview?.remove();
 		gesture.marquee?.remove();
 		root.classList.remove("is-dragging", "is-selecting"); gesture = null;
@@ -130,7 +171,9 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			root.setPointerCapture?.(event.pointerId); event.preventDefault(); return;
 		}
 		if (event.target.closest("button, input, select, textarea, [contenteditable='true']")) return;
-		const entry = selectable(event.target);
+			const closestEntry = selectable(event.target);
+			const selectedAncestorGroup = closestEntry?.closest?.("[data-dashboard-group-id]");
+			const entry = selectedAncestorGroup && currentGroups.has(selectedAncestorGroup.dataset.dashboardGroupId) ? selectedAncestorGroup : closestEntry;
 		// Shift/Alt 在卡片上按下也启动框选，排满的页面里不再依赖空白网格起手；
 		// 不拖动则退化为加选切换（Shift）或移除选择（Alt）。
 		if (!entry || event.shiftKey || event.altKey) {
@@ -141,24 +184,31 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			gesture = { kind: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, mode, initialItems, initialGroups, baseItems: additive ? initialItems : new Set(), baseGroups: additive ? initialGroups : new Set(), pendingToggle: entry || null, dragging: false, marquee: null, badge: null };
 			root.setPointerCapture?.(event.pointerId); return;
 		}
-		const selection = clickSelection(entry, { additive: additiveFor(event) }); const itemId = entry.dataset.dashboardItemId; const groupId = entry.dataset.dashboardGroupId;
-		const elements = itemId ? itemElements().filter((element) => selection.items.has(element.dataset.dashboardItemId)) : [entry];
-		const layouts = elements.map((element) => ({ row: Number(element.dataset.projectedRow) || 0, column: Number(element.dataset.projectedColumn) || 0, rowSpan: Number(element.dataset.projectedRowSpan) || 1, columnSpan: Number(element.dataset.projectedColumnSpan) || 1 }));
+			const selection = clickSelection(entry, { additive: additiveFor(event) });
+			const visibleItems = itemElements(); const visibleGroups = groupElements();
+			const itemEntries = visibleItems.map((element) => ({ id: element.dataset.dashboardItemId, groupId: element.dataset.dashboardGroupMember || null, element }));
+			const visibleGroupIds = new Set(visibleGroups.map((element) => element.dataset.dashboardGroupId));
+			const normalizedSelection = normalizeDragSelection(itemEntries, selection.items, [...selection.groups].filter((id) => visibleGroupIds.has(id)));
+			const elements = normalizedSelection.topLevel
+				? [...itemEntries.filter((candidate) => normalizedSelection.itemIds.includes(candidate.id)).map((candidate) => candidate.element), ...visibleGroups.filter((element) => normalizedSelection.groupIds.includes(element.dataset.dashboardGroupId))]
+				: itemEntries.filter((candidate) => normalizedSelection.itemIds.includes(candidate.id)).map((candidate) => candidate.element);
+			const layouts = elements.map((element) => ({ row: Number(element.dataset.projectedRow) || 0, column: Number(element.dataset.projectedColumn) || 0, rowSpan: Number(element.dataset.projectedRowSpan) || 1, columnSpan: Number(element.dataset.projectedColumnSpan) || 1 }));
 		const footprint = selectionFootprint(layouts); const selectionRect = elements.map((element) => element.getBoundingClientRect()).reduce((bounds, rect) => ({ left: Math.min(bounds.left, rect.left), top: Math.min(bounds.top, rect.top), right: Math.max(bounds.right, rect.right), bottom: Math.max(bounds.bottom, rect.bottom) }));
 		const columnSpan = footprint.columnSpan; const rowSpan = footprint.rowSpan;
 		const grabColumnOffset = grabSpanOffset(event.clientX, selectionRect.left, selectionRect.right - selectionRect.left, columnSpan);
 		const grabRowOffset = grabSpanOffset(event.clientY, selectionRect.top, selectionRect.bottom - selectionRect.top, rowSpan);
-		gesture = { kind: "drag", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, itemIds: itemId ? elements.map((element) => element.dataset.dashboardItemId) : [], groupId, elements, columnSpan, rowSpan, grabColumnOffset, grabRowOffset, dragging: false, target: null, preview: null };
+				gesture = { kind: "drag", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, itemIds: normalizedSelection.itemIds, groupIds: normalizedSelection.groupIds, sourceGroupIds: new Set(elements.map((element) => element.dataset.dashboardGroupMember || null)), topLevel: normalizedSelection.topLevel, elements, columnSpan, rowSpan, grabColumnOffset, grabRowOffset, dragging: false, membershipTarget: false, target: null, preview: null };
 		root.setPointerCapture?.(event.pointerId);
 	};
 	const onPointerMove = (event) => {
 		if (!gesture || gesture.pointerId !== event.pointerId) return;
 		const dx = event.clientX - gesture.startX; const dy = event.clientY - gesture.startY;
 		if (!gesture.dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-		if (!gesture.dragging) {
-			gesture.dragging = true;
-			if (gesture.kind === "marquee") root.classList.add("is-selecting");
-		}
+			if (!gesture.dragging) {
+				gesture.dragging = true;
+				if (gesture.kind === "marquee") root.classList.add("is-selecting");
+				else if (gesture.kind === "drag" && gesture.topLevel) emitSelection(gesture.itemIds, gesture.groupIds);
+			}
 		if (gesture.kind === "resize") {
 			const style = getComputedStyle(gesture.grid); const rect = gesture.grid.getBoundingClientRect();
 			const horizontalPadding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
@@ -196,8 +246,11 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 		}
 		root.classList.add("is-dragging");
 		for (const element of gesture.elements) { element.classList.add("is-dragging"); element.style.transform = `translate3d(${dx}px, ${dy}px, 0)`; }
-		const rawTarget = gesture.groupId ? gridTargetAt(root, event.clientX, event.clientY) : targetAt(root, event.clientX, event.clientY);
-		const target = { ...rawTarget, column: Math.max(0, rawTarget.column - gesture.grabColumnOffset), row: Math.max(0, rawTarget.row - gesture.grabRowOffset) }; gesture.target = target; showPreview(gesture, target);
+			const rawTarget = gesture.topLevel ? gridTargetAt(root, event.clientX, event.clientY) : targetAt(root, event.clientX, event.clientY);
+			const target = { ...rawTarget, column: Math.max(0, rawTarget.column - gesture.grabColumnOffset), row: Math.max(0, rawTarget.row - gesture.grabRowOffset) };
+			gesture.target = target; gesture.membershipTarget = isGroupMembershipDrop(target.groupId, gesture.sourceGroupIds);
+			if (gesture.membershipTarget) { gesture.preview?.remove(); showGroupDropTarget(gesture, target, groupDropLabel); }
+			else { clearGroupDropTarget(gesture); showPreview(gesture, target); }
 		autoScroll(event.clientY);
 	};
 	const onPointerUp = (event) => {
@@ -209,12 +262,12 @@ export function bindDashboardInteractions(root, { editMode = false, selectedItem
 			else onResizeItem?.(current.itemId, { columnSpan: current.nextColumnSpan, rowSpan: current.nextRowSpan });
 		}
 		else if (current.kind === "drag" && current.dragging && target) {
-			if (current.groupId) onDropGroup?.(current.groupId, { row: target.row, column: target.column });
-			else {
 				// 同一十二列网格保留精确落点；跨网格或窄栏投影按目标区域空位追加，避免把视图坐标写回规范布局。
-				const precise = Number(target.grid.dataset.dashboardColumns) !== 1 && current.elements.every((element) => element.parentElement === target.grid);
-				onDropItems?.(current.itemIds, { groupId: target.groupId, row: target.row, column: target.column, precise });
-			}
+					const precise = !current.membershipTarget && Number(target.grid.dataset.dashboardColumns) !== 1 && current.elements.every((element) => element.parentElement === target.grid);
+				if (current.topLevel) {
+					if (onDropSelection) onDropSelection(current.itemIds, current.groupIds, { row: target.row, column: target.column, precise });
+					else if (!current.itemIds.length && current.groupIds.length === 1) onDropGroup?.(current.groupIds[0], { row: target.row, column: target.column });
+				} else onDropItems?.(current.itemIds, { groupId: target.groupId, row: target.row, column: target.column, precise });
 		}
 		cleanup();
 	};

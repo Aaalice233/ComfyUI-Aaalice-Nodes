@@ -35,6 +35,7 @@ function numericResolved(id, owner, targetGraph, options = {}) {
 		readPresetValue: () => options.kind === "seed" ? { value: owner.value, control_after_generate: owner.behavior } : owner.value,
 		validatePresetValue(entry) {
 			const value = options.kind === "seed" && typeof entry.payload === "object" ? entry.payload.value : entry.payload;
+			if (options.kind === "boolean") return typeof value === "boolean" ? true : "invalid-boolean";
 			return typeof value === "number" && value >= 0 && value <= 100 ? true : "invalid-number";
 		},
 		applyPresetValue(entry) {
@@ -122,6 +123,19 @@ test("resolved binding sets report mixed values without mutating targets", () =>
 	assert.equal(resolved.bindingSet.linkedCount, 1);
 	assert.equal(resolved.bindingSet.mixed, true);
 	assert.deepEqual(states, { primary: { value: 1 }, linked: { value: 2 } });
+});
+
+test("false boolean values remain valid linked-control payloads", () => {
+	const targetGraph = graph(); const primary = binding("primary", "boolean"); const linked = binding("linked", "boolean");
+	const states = { primary: { value: true }, linked: { value: false } };
+	const resolved = resolveControlBindingSet(item(primary, linked), resolver(new Map([
+		["primary", numericResolved("primary", states.primary, targetGraph, { kind: "boolean" })],
+		["linked", numericResolved("linked", states.linked, targetGraph, { kind: "boolean" })],
+	])));
+	assert.equal(resolved.status, "ok");
+	assert.equal(resolved.bindingSet.mixed, true);
+	resolved.synchronizeFromPrimary();
+	assert.deepEqual(states, { primary: { value: true }, linked: { value: true } });
 });
 
 test("one linked commit writes every target inside one graph transaction", () => {

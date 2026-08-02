@@ -110,9 +110,14 @@ test("built-in PreviewImage and PreviewAny are read-only sidebar execution views
 	assert.match(textOutputControl, /renderSafeMarkdown/);
 	assert.match(textOutputControl, /aa-text-output__plain/);
 	assert.ok(textOutputControl.includes("spec.options?.markdown"));
+	assert.match(textOutputControl, /root\.append\(body\)/);
+	assert.match(textOutputControl, /headerAccessories: \[mode\]/);
+	assert.doesNotMatch(textOutputControl, /aa-text-output__header/);
 	assert.ok(theme.includes(".aa-image-output__viewport"));
 	assert.ok(theme.includes(".aa-image-output-viewer__stage"));
 	assert.ok(theme.includes(".aa-text-output__body"));
+	assert.match(theme, /\.aa-text-output \{[^}]*display: flex;[^}]*flex-direction: column;/);
+	assert.doesNotMatch(theme, /\.aa-text-output__header/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.match(locale, /"imageOutput"/);
 		assert.match(locale, /"textOutput"/);
@@ -463,6 +468,7 @@ test("dashboard cards can link and manage multiple compatible node controls", ()
 	assert.match(workspace, /resolvedBindings\.set\(bindingKey\(liveSource\.binding\), liveTarget\.source\.resolved\)/);
 	assert.match(workspace, /commitDashboardBindingSet\(next, liveTarget\.item\.id, \{ synchronize: true, resolvedBindings \}\)/);
 	assert.match(workspace, /resolvedBindings\.has\(bindingKey\(binding\)\)/);
+	assert.match(workspace, /error\?\.issues\?\.\[0\]\?\.error\?\.message/);
 	assert.match(workspace, /controlLabel: label/);
 	assert.match(workspace, /preferredBindingTarget\(source\?\.control\.label, targets\)/);
 	assert.match(workspace, /linkableControlSources\(controls\)\.length > 0/);
@@ -673,7 +679,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.doesNotMatch(workspace, /boundaryPagingState/);
 	assert.match(workspace, /destroyDashboardPageRailForRoot/);
 	assert.doesNotMatch(workspace, /container\.addEventListener\("pointerdown"/);
-	assert.match(workspace, /beforeConfigureGraph\(\) \{ closeBindingDialogs\(\); workspaceViewState\.dashboard\.pageTransition = null; \}/);
+	assert.match(workspace, /beforeConfigureGraph\(\) \{ closeBindingDialogs\(\); workspaceViewState\.dashboard\.pageTransition = null; for \(const root of mounted\) dashboardScrollPositions\.delete\(root\); \}/);
 	assert.doesNotMatch(workspace, /beforeConfigureGraph\(\)[\s\S]{0,220}queueMicrotask/);
 	assert.doesNotMatch(workspace, /isEnabled: \(\) => activeWorkspace === "dashboard"/);
 	assert.doesNotMatch(workspace, /requestPage: \(direction\) =>/);
@@ -712,6 +718,12 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(workspace, /if \(!interactive\)/);
 	assert.match(ui, /if \(closed\) return;\s*reposition\(\)/);
 	assert.match(workspace, /\.aa-dashboard-scroll:not\(\.is-page-leaving\)/);
+	assert.match(workspace, /dashboardScrollPositions = new WeakMap\(\)/);
+	assert.match(workspace, /rememberDashboardScroll\(root\);[\s\S]*root\.replaceChildren\(\)/);
+	assert.match(workspace, /"data-dashboard-page-id": page\.id/);
+	assert.match(workspace, /scroll\.addEventListener\("scroll", \(\) => dashboardScrollState\(host\)\.pages\.set\(page\.id, scroll\.scrollTop\)/);
+	assert.match(workspace, /setScrollTopImmediately\(scroll, dashboardScrollTop\(host, page\.id\)\)/);
+	assert.match(workspace, /dashboardScrollPositions\.delete\(element\)/);
 	assert.doesNotMatch(workspace, /pageTransition\?\.initialEdge/);
 	assert.doesNotMatch(workspace, /scroll\.scrollHeight - scroll\.clientHeight/);
 	assert.match(workspace, /if \(previousTransition && id === fromPageId\)/);
@@ -728,6 +740,21 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /\.aa-dashboard-scroll\.is-page-leaving-forward \{[^}]*animation:[^;]*\.18s/);
 	assert.match(workspace, /setTimeout\(\(\) => pageSnapshot\.remove\(\), 260\)/);
 	assert.match(theme, /prefers-reduced-motion: reduce[\s\S]*\.aa-dashboard-scroll\.is-page-entering/);
+	assert.match(dashboardLayout, /export function insertEntries/);
+	assert.match(dashboardLayout, /entry\.layout = firstRowWithoutOverlap\(entry\.layout, placed\)/);
+	assert.match(dashboardCommands, /insertEntries\(page, ordered\.map\(\(item\) => item\.id\), \{ groupId \}\)/);
+	assert.match(dashboardCommands, /insertEntry\(page, groupId, \{ row, column \}/);
+	assert.match(dashboardCommands, /removeEmptyGroups\(page\); insertEntry\(page, group\.id, group\.layout\)/);
+	assert.match(dashboardCommands, /if \(groupId\).*insertEntry\(page, groupId, group\.layout\)/);
+	assert.match(dashboardCommands, /export function moveTopLevelSelection/);
+	assert.match(dashboardInteractions, /normalizeDragSelection/);
+	assert.match(dashboardInteractions, /hit\?\.closest\?\.\("\[data-dashboard-group-id\]"\)/);
+	assert.match(dashboardInteractions, /isGroupMembershipDrop\(target\.groupId, gesture\.sourceGroupIds\)/);
+	assert.match(dashboardInteractions, /aa-dashboard-group-drop-label/);
+	assert.match(theme, /\.aa-dashboard-group\.is-drop-target \{[^}]*background:/);
+	assert.match(theme, /\.aa-dashboard-group-drop-label \{[^}]*pointer-events: none;/);
+	assert.match(workspace, /groupDropLabel: t\("aaalice\.workspace\.group\.addItem", "Add to group"\)/);
+	assert.match(workspace, /onDropSelection: \(itemIds, groupIds, target\)/);
 });
 
 test("PromptSelector exposes scannable selected and category states", () => {
@@ -898,7 +925,7 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(workspace, /grid\.dataset\.pageTone = page\.tone/);
 	assert.match(workspace, /DASHBOARD_TONES\.map\(\(value\) => \[value, t\(`aaalice\.workspace\.group\.tones\./);
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-dashboard-group \{ --aa-dashboard-group-tone: var\(--aa-dashboard-page-tone\); \}/);
-	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-control-card \{ --aa-control-kind-tone: var\(--aa-dashboard-page-tone\); \}/);
+	assert.doesNotMatch(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-control-card \{ --aa-control-kind-tone:/);
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone="purple"\] \{ --aa-dashboard-page-tone: var\(--p-purple-400/);
 	assert.match(theme, /\.aa-dashboard-page-tone-menu-item\.is-default::before \{[^}]*dashed/);
 	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
@@ -990,6 +1017,8 @@ test("Dashboard V4 replaces mandatory sections with optional grid groups", () =>
 	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*border:\s*1px solid transparent;[^}]*border-radius:\s*8px;[^}]*background:\s*color-mix/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*var\(--aa-dashboard-control-tone\)/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group \.aa-control-card\.is-group-member:is\(\.is-selected, \.is-drop-target\)/);
+	assert.match(theme, /\.is-layout-editing \[data-dashboard-item-id\]\.is-selected::after \{[^}]*border:\s*2px solid var\(--aa-ui-accent\);[^}]*pointer-events:\s*none;/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-separator\.is-selected::after \{ border-radius:\s*7px; \}/);
 });
 
 test("Dashboard footprints use bounded integer spans rather than a discrete size catalog", () => {
@@ -1026,8 +1055,11 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.match(theme, /\.aa-control-card-header \{[^}]*min-height:\s*14px;[^}]*line-height:\s*14px;/);
 	assert.match(theme, /\.aa-control-card-title \{[^}]*font-size:\s*12px;[^}]*font-weight:\s*650;/);
 	assert.match(theme, /\.aa-control-card-title::before \{[^}]*background: var\(--aa-control-kind-tone, transparent\)/);
-	assert.match(theme, /\.aa-control-card\[data-control-kind="numeric"\] \{ --aa-control-kind-tone/);
-	assert.match(theme, /\.aa-control-card\[data-control-kind="boolean"\] \{ --aa-control-kind-tone/);
+	assert.match(theme, /\.aa-control-card \{[^}]*--aa-control-kind-tone: var\(--aa-ui-accent\)/);
+	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "taglist", "image-choice", "markdown", "image-compare", "image-output", "text-output", "quick-group-manager"]) {
+		assert.match(theme, new RegExp(`data-control-kind="${kind}"[^}]*\\{ --aa-control-kind-tone`));
+	}
+	assert.match(theme, /\.aa-control-card\.is-missing \{ --aa-control-kind-tone: var\(--aa-ui-warning\); \}/);
 	assert.match(theme, /\.aa-workspace-control-input \{[^}]*width: 100%;[^}]*margin-top: 5px;[^}]*\}/);
 	assert.doesNotMatch(theme, /\.aa-workspace-control-input \{[^}]*opacity:/);
 	assert.doesNotMatch(theme, /\.aa-control-card:(?:hover|focus-within) \.aa-workspace-control-input/);
@@ -1084,7 +1116,7 @@ test("Dashboard V4 layout editing uses transient integer-grid gestures and one c
 	assert.match(dashboardInteractions, /mode = event\.altKey \? "subtract" : "add"/);
 	assert.match(dashboardInteractions, /toLowerCase\(\) === "a"/);
 	assert.match(dashboardInteractions, /event\.key === " " && !event\.repeat/);
-	assert.match(dashboardInteractions, /precise = Number\(target\.grid\.dataset\.dashboardColumns\) !== 1 && current\.elements\.every/);
+	assert.match(dashboardInteractions, /precise = !current\.membershipTarget && Number\(target\.grid\.dataset\.dashboardColumns\) !== 1 && current\.elements\.every/);
 	assert.match(dashboardInteractions, /containedIds/);
 	assert.match(dashboardInteractions, /dashboardGroupMember/);
 	assert.match(dashboardSelection, /export function containedIds/);

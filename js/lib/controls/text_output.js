@@ -21,10 +21,11 @@ export function renderTextOutputControl(spec) {
 		else body.replaceChildren(el("pre", "aa-text-output__plain", value));
 	}
 
-	root.append(el("div", { className: "aa-text-output__header", children: [mode] }), body);
+	root.append(body);
 	render();
 	return controlView({
 		root,
+		headerAccessories: [mode],
 		kind: "text-output",
 		update: (nextSpec) => {
 			value = String(nextSpec.value ?? "");

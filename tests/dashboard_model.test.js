@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DashboardModelError, bindingKey, createPage, emptyDashboard, normalizeDashboard } from "../js/lib/dashboard_model.js";
-import { addLinkedBinding, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroup, moveGroups, moveItems, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
+import { addLinkedBinding, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, addItems, moveGroup, moveGroups, moveItems, moveTopLevelSelection, resizeGroup, resizeItem, resizeItems, ungroupItems } from "../js/lib/dashboard_commands.js";
 import { buildSourceSnapshot, planSourceGroupSync } from "../js/lib/dashboard_source_sync.js";
 import { firstAvailableLayout, projectGroupScope, projectScope } from "../js/lib/dashboard_layout.js";
 import { dashboardCardHeight, recommendedControlRowSpan, recommendedGroupRowSpan } from "../js/lib/dashboard_sizing.js";
@@ -373,7 +373,7 @@ test("group projection reserves height from the same collision-free member layou
 	assert.equal(projectGroupScope(members, 12, false).rowSpan, 24);
 });
 
-test("projection keeps independent row geometry beside a taller card", () => {
+test("precise movement keeps the drop target and pushes only the colliding column", () => {
 	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
 		{ label: "Tall", binding, rowSpan: 12 },
 		{ label: "Top", binding: { ...binding, controlId: "top" }, rowSpan: 6 },
@@ -382,12 +382,12 @@ test("projection keeps independent row geometry beside a taller card", () => {
 	const bottom = next.pages[0].items[2]; next = moveItems(next, [bottom.id], page.id, { row: 6, column: 6 });
 	assert.deepEqual(next.pages[0].items.map((item) => item.layout), [
 		{ row: 0, column: 0, columnSpan: 6, rowSpan: 13 },
-		{ row: 0, column: 6, columnSpan: 6, rowSpan: 13 },
-		{ row: 13, column: 6, columnSpan: 6, rowSpan: 13 },
+		{ row: 19, column: 6, columnSpan: 6, rowSpan: 13 },
+		{ row: 6, column: 6, columnSpan: 6, rowSpan: 13 },
 	]);
 });
 
-test("normalization migrates legacy footprints before moving the operated card", () => {
+test("normalization migrates legacy footprints before inserting the operated card", () => {
 	const page = createPage("P"); const makeItem = (id, row, column, controlId = id) => ({
 		id, kind: "control", label: id, binding: { ...binding, controlId }, groupId: null,
 		layout: { row, column, columnSpan: 6, rowSpan: 6 },
@@ -398,11 +398,11 @@ test("normalization migrates legacy footprints before moving the operated card",
 	], groups: [] }] });
 	model = moveItems(model, ["moving"], page.id, { row: 12, column: 0 });
 	const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
-	assert.deepEqual(layouts.moving, { row: 43, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts.moving, { row: 12, column: 0, columnSpan: 6, rowSpan: 13 });
 	assert.deepEqual(layouts["collision-a"], { row: 12, column: 6, columnSpan: 6, rowSpan: 13 });
 	assert.deepEqual(layouts["collision-b"], { row: 25, column: 6, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts.neighbor, { row: 13, column: 0, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts["unrelated-gap"], { row: 30, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts.neighbor, { row: 25, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["unrelated-gap"], { row: 38, column: 0, columnSpan: 6, rowSpan: 13 });
 });
 
 test("normalized multi-card movement preserves the selected footprint", () => {
@@ -416,11 +416,28 @@ test("normalized multi-card movement preserves the selected footprint", () => {
 	], groups: [] }] });
 	model = moveItems(model, ["selected-left", "selected-right"], page.id, { row: 12, column: 0 });
 	const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
-	assert.deepEqual(layouts["selected-left"], { row: 43, column: 0, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts["selected-right"], { row: 43, column: 6, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts["collision-left"], { row: 13, column: 0, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts["collision-right"], { row: 13, column: 6, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts.unrelated, { row: 30, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["selected-left"], { row: 12, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["selected-right"], { row: 12, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["collision-left"], { row: 25, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["collision-right"], { row: 25, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts.unrelated, { row: 38, column: 6, columnSpan: 6, rowSpan: 13 });
+});
+
+test("dragging a tall card ahead of shorter cards keeps the tall card at the requested row", () => {
+	const page = createPage("P"); const makeItem = (id, row, column, rowSpan) => ({
+		id, kind: "control", label: id, binding: { ...binding, controlId: id }, groupId: null,
+		layout: { row, column, columnSpan: 6, rowSpan },
+	});
+	let model = normalizeDashboard({ version: 4, pages: [{ ...page, items: [
+		makeItem("small", 0, 0, 13), makeItem("neighbor", 0, 6, 13),
+		makeItem("following", 13, 0, 13), makeItem("tall", 26, 0, 26),
+	], groups: [] }] });
+	model = moveItems(model, ["tall"], page.id, { row: 0, column: 0 });
+	const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
+	assert.equal(layouts.tall.row, 0);
+	assert.equal(layouts.small.row, 26);
+	assert.equal(layouts.following.row, 39);
+	assert.equal(layouts.neighbor.row, 0);
 });
 
 test("groups own no duplicate member list and delete preserves controls", () => {
@@ -478,6 +495,52 @@ test("moving groups across pages keeps the whole group unit with its members", (
 	assert.ok(model.pages[1].groups[0].layout.rowSpan >= Math.max(...members.map((item) => item.layout.row + item.layout.rowSpan)));
 	model = moveGroups(model, ["missing-group"], second.id);
 	assert.equal(model.pages[1].groups.length, 1);
+});
+
+test("dropping a loose card into a group keeps the group anchored and pushes the external collision chain", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
+		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } },
+		{ label: "Loose", binding: { ...binding, controlId: "loose" } }, { label: "External", binding: { ...binding, controlId: "external" } },
+	]);
+	const [a, b, looseId] = next.pages[0].items.map((item) => item.id);
+	next = createGroup(next, page.id, [a, b], { name: "Target" });
+	const group = next.pages[0].groups[0]; const originalGroupRow = group.layout.row;
+	next = moveItems(next, [looseId], page.id, { groupId: group.id });
+	const movedPage = next.pages[0]; const movedGroup = movedPage.groups.find((entry) => entry.id === group.id);
+	const loose = movedPage.items.find((item) => item.id === looseId); const external = movedPage.items.find((item) => item.binding.controlId === "external");
+	assert.equal(movedGroup.layout.row, originalGroupRow);
+	assert.equal(loose.groupId, group.id); assert.equal(loose.layout.row, 13);
+	assert.equal(movedGroup.layout.rowSpan, 33); assert.equal(external.layout.row, 33);
+});
+
+test("dropping the last member into another group removes the empty source shell", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
+		{ label: "Source", binding }, { label: "Target", binding: { ...binding, controlId: "target" } },
+	]);
+	const [sourceId, targetId] = next.pages[0].items.map((item) => item.id);
+	next = createGroup(next, page.id, [sourceId], { name: "Source group", allowSingle: true });
+	next = createGroup(next, page.id, [targetId], { name: "Target group", allowSingle: true });
+	const targetGroup = next.pages[0].groups.find((group) => group.name === "Target group");
+	next = moveItems(next, [sourceId], page.id, { groupId: targetGroup.id });
+	assert.deepEqual(next.pages[0].groups.map((group) => group.id), [targetGroup.id]);
+	assert.ok(next.pages[0].items.every((item) => item.groupId === targetGroup.id));
+});
+
+test("mixed top-level dragging preserves an existing group and its member coordinates", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [
+		{ label: "A", binding }, { label: "B", binding: { ...binding, controlId: "b" } }, { label: "Loose", binding: { ...binding, controlId: "loose" } },
+	]);
+	const [a, b, looseId] = next.pages[0].items.map((item) => item.id);
+	next = createGroup(next, page.id, [a, b], { name: "Keep", tone: "blue" });
+	const beforePage = next.pages[0]; const beforeGroup = beforePage.groups[0]; const beforeLoose = beforePage.items.find((item) => item.id === looseId);
+	const beforeMemberLayouts = Object.fromEntries(beforePage.items.filter((item) => item.groupId === beforeGroup.id).map((item) => [item.id, structuredClone(item.layout)]));
+	const minimumRow = Math.min(beforeGroup.layout.row, beforeLoose.layout.row); const minimumColumn = Math.min(beforeGroup.layout.column, beforeLoose.layout.column);
+	next = moveTopLevelSelection(next, page.id, [a, looseId], [], { row: 40, column: 0 });
+	const movedPage = next.pages[0]; const movedGroup = movedPage.groups.find((group) => group.id === beforeGroup.id); const movedLoose = movedPage.items.find((item) => item.id === looseId);
+	assert.ok(movedGroup); assert.equal(movedGroup.layout.row, 40 + beforeGroup.layout.row - minimumRow); assert.equal(movedGroup.layout.column, beforeGroup.layout.column - minimumColumn);
+	assert.equal(movedLoose.groupId, null); assert.equal(movedLoose.layout.row, 40 + beforeLoose.layout.row - minimumRow);
+	assert.ok(movedPage.items.filter((item) => [a, b].includes(item.id)).every((item) => item.groupId === movedGroup.id));
+	assert.deepEqual(Object.fromEntries(movedPage.items.filter((item) => item.groupId === movedGroup.id).map((item) => [item.id, item.layout])), beforeMemberLayouts);
 });
 
 test("duplicating controls keeps the stable binding and assigns fresh item identities", () => {
@@ -549,27 +612,48 @@ test("resizing a grouped card refreshes its group without moving external cards"
 	]);
 	next = createGroup(next, page.id, next.pages[0].items.slice(0, 2).map((item) => item.id));
 	const group = next.pages[0].groups[0]; const member = next.pages[0].items.find((item) => item.groupId === group.id);
+	const externalRow = next.pages[0].items.find((item) => item.binding.controlId === "c").layout.row;
 	next = resizeItem(next, member.id, { columnSpan: 12, rowSpan: 20 });
 	const resizedGroup = next.pages[0].groups.find((item) => item.id === group.id);
 	assert.equal(resizedGroup.layout.rowSpan, 40);
-	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "c").layout.row, 13);
+	assert.equal(next.pages[0].items.find((item) => item.binding.controlId === "c").layout.row, externalRow);
 });
 
-test("grouping preserves member geometry and never compacts unrelated cards", () => {
+test("grouping keeps the selected footprint and pushes the colliding page chain downward", () => {
 	const page = createPage("P"); const makeItem = (id, row, column) => ({
 		id, kind: "control", label: id, binding: { ...binding, controlId: id }, groupId: null,
-		layout: { row, column, columnSpan: 6, rowSpan: 6 },
+		layout: { row, column, columnSpan: 6, rowSpan: 13 },
 	});
-	let model = normalizeDashboard({ version: 2, pages: [{ ...page, items: [
-		makeItem("selected-a", 6, 0), makeItem("selected-b", 12, 6), makeItem("fixed", 30, 0),
+	let model = normalizeDashboard({ version: 4, pages: [{ ...page, items: [
+		makeItem("selected-left", 0, 0), makeItem("selected-right", 0, 6),
+		makeItem("next-left", 13, 0), makeItem("next-right", 13, 6),
+		makeItem("last-left", 26, 0), makeItem("last-right", 26, 6),
 	], groups: [] }] });
-	model = createGroup(model, page.id, ["selected-a", "selected-b"], { name: "Selection" });
+	model = createGroup(model, page.id, ["selected-left", "selected-right"], { name: "Selection" });
 	const group = model.pages[0].groups[0]; const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
-	assert.equal(group.layout.row, 43);
-	assert.equal(group.layout.columnSpan, 12);
-	assert.deepEqual(layouts["selected-a"], { row: 0, column: 0, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts["selected-b"], { row: 6, column: 6, columnSpan: 6, rowSpan: 13 });
-	assert.deepEqual(layouts.fixed, { row: 30, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(group.layout, { row: 0, column: 0, columnSpan: 12, rowSpan: 20 });
+	assert.deepEqual(layouts["selected-left"], { row: 0, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["selected-right"], { row: 0, column: 6, columnSpan: 6, rowSpan: 13 });
+	assert.equal(layouts["next-left"].row, 20); assert.equal(layouts["next-right"].row, 20);
+	assert.equal(layouts["last-left"].row, 33); assert.equal(layouts["last-right"].row, 33);
+});
+
+test("grouping a partial-width selection preserves its page column without moving non-overlapping cards", () => {
+	const page = createPage("P"); const makeItem = (id, row, column) => ({
+		id, kind: "control", label: id, binding: { ...binding, controlId: id }, groupId: null,
+		layout: { row, column, columnSpan: 6, rowSpan: 13 },
+	});
+	let model = normalizeDashboard({ version: 4, pages: [{ ...page, items: [
+		makeItem("left-top", 0, 0), makeItem("right-top", 0, 6),
+		makeItem("left-bottom", 13, 0), makeItem("right-bottom", 13, 6),
+	], groups: [] }] });
+	model = createGroup(model, page.id, ["right-top", "right-bottom"], { name: "Right" });
+	const group = model.pages[0].groups[0]; const layouts = Object.fromEntries(model.pages[0].items.map((item) => [item.id, item.layout]));
+	assert.deepEqual(group.layout, { row: 0, column: 6, columnSpan: 6, rowSpan: 33 });
+	assert.deepEqual(layouts["left-top"], { row: 0, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["left-bottom"], { row: 13, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["right-top"], { row: 0, column: 0, columnSpan: 6, rowSpan: 13 });
+	assert.deepEqual(layouts["right-bottom"], { row: 13, column: 0, columnSpan: 6, rowSpan: 13 });
 });
 
 test("groups derive their width from local member geometry and preserve fixed widths", () => {

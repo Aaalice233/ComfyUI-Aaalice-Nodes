@@ -80,6 +80,45 @@ export function placeEntries(page, entryIds, { groupId = null } = {}) {
 	return page;
 }
 
+function firstRowWithoutOverlap(layout, placed) {
+	const blockers = placed
+		.map((candidate) => candidate.layout || candidate)
+		.filter((candidate) => horizontalOverlap(layout, candidate))
+		.sort((left, right) => left.row - right.row || left.column - right.column);
+	let row = layout.row;
+	for (const blocker of blockers) {
+		if (row + layout.rowSpan <= blocker.row) break;
+		if (row < blocker.row + blocker.rowSpan) row = blocker.row + blocker.rowSpan;
+	}
+	return { ...layout, row };
+}
+
+/** Keep the dragged entries at their requested target and push only colliding entries downward. */
+export function insertEntries(page, entryIds, { groupId = null } = {}) {
+	const insertedIds = new Set(entryIds); const entries = scopeEntries(page, groupId);
+	const inserted = orderedItems(entries.filter((entry) => insertedIds.has(entry.id)));
+	const fixed = orderedItems(entries.filter((entry) => !insertedIds.has(entry.id)));
+	const placed = [...inserted];
+	for (const entry of fixed) {
+		entry.layout = firstRowWithoutOverlap(entry.layout, placed);
+		placed.push(entry);
+	}
+	if (groupId) refreshGroupRowSpans(page);
+	return page;
+}
+
+export function insertEntry(page, entryId, target, { groupId = null } = {}) {
+	const entries = scopeEntries(page, groupId); const entry = entries.find((candidate) => candidate.id === entryId);
+	if (!entry) return page;
+	entry.layout = {
+		row: Math.max(0, Math.round(Number(target.row) || 0)),
+		column: Math.max(0, Math.min(page.gridColumns - entry.layout.columnSpan, Math.round(Number(target.column) || 0))),
+		columnSpan: entry.layout.columnSpan,
+		rowSpan: entry.layout.rowSpan,
+	};
+	return insertEntries(page, [entryId], { groupId });
+}
+
 export function placeEntry(page, entryId, target, { groupId = null } = {}) {
 	const entries = scopeEntries(page, groupId); const entry = entries.find((candidate) => candidate.id === entryId);
 	if (!entry) return page;

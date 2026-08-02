@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { grabSpanOffset, selectionFootprint } from "../js/lib/dashboard_interactions.js";
+import { grabSpanOffset, isGroupMembershipDrop, normalizeDragSelection, selectionFootprint } from "../js/lib/dashboard_interactions.js";
 import { applyMarqueeSelection, containedIds, nearestInDirection, nextClickSelection } from "../js/lib/dashboard_selection.js";
 
 test("drag grab offset preserves the pointer anchor across grid spans", () => {
@@ -20,6 +20,27 @@ test("multi-selection drag uses one stable bounding footprint", () => {
 		{ row: 2, column: 3, rowSpan: 6, columnSpan: 3 },
 		{ row: 10, column: 7, rowSpan: 4, columnSpan: 5 },
 	]), { row: 2, column: 3, rowSpan: 12, columnSpan: 9 });
+});
+
+test("mixed root and grouped card selection promotes the group as an intact drag unit", () => {
+	const entries = [
+		{ id: "loose", groupId: null },
+		{ id: "member-a", groupId: "group-a" },
+		{ id: "member-b", groupId: "group-a" },
+	];
+	assert.deepEqual(normalizeDragSelection(entries, new Set(["loose", "member-a"]), new Set()), {
+		itemIds: ["loose"], groupIds: ["group-a"], topLevel: true,
+	});
+	assert.deepEqual(normalizeDragSelection(entries, new Set(["member-a", "member-b"]), new Set()), {
+		itemIds: ["member-a", "member-b"], groupIds: [], topLevel: false,
+	});
+});
+
+test("group membership drop only activates when cards enter another group", () => {
+	assert.equal(isGroupMembershipDrop("group-b", [null]), true);
+	assert.equal(isGroupMembershipDrop("group-b", ["group-a"]), true);
+	assert.equal(isGroupMembershipDrop("group-b", ["group-b"]), false);
+	assert.equal(isGroupMembershipDrop(null, ["group-a"]), false);
 });
 
 test("marquee application supports additive and subtractive modes", () => {

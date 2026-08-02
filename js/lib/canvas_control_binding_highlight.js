@@ -1,5 +1,6 @@
 import { app } from "../../../scripts/app.js";
 import { controlItemBindings } from "./dashboard_model.js";
+import { mapCanvasWidgetRows } from "./canvas_widget_row_mapping.js";
 
 const DOM_BOUND_CLASS = "aaalice-sidebar-bound-widget";
 const widgetMarkers = new WeakMap();
@@ -53,7 +54,12 @@ function drawFallbackOutline(ctx, width, y, height) {
 
 function installWidgetMarker(widget) {
 	if (!widget || (typeof widget !== "object" && typeof widget !== "function")) return false;
-	if (widgetMarkers.has(widget)) return true;
+	const existing = widgetMarkers.get(widget);
+	if (existing) {
+		const intact = existing.properties.length > 0 && existing.properties.every((entry) => widget[entry.name] === entry.value);
+		if (intact) return true;
+		uninstallWidgetMarker(widget);
+	}
 	const state = { properties: [] };
 	let installed = false;
 
@@ -172,12 +178,11 @@ function applyDomRows(state) {
 	const rows = widgetRows(container);
 	const defaultCandidates = visibleWidgetCandidates(state.node, Boolean(state.node.showAdvanced || settingShowsAdvancedWidgets()));
 	const allAdvancedCandidates = visibleWidgetCandidates(state.node, true);
-	const candidates = [defaultCandidates, allAdvancedCandidates].find((list) => list.length === rows.length);
 	clearDomRows(state);
-	if (!candidates) return;
+	const candidates = defaultCandidates.length >= rows.length ? defaultCandidates : allAdvancedCandidates;
+	const rowsByWidget = mapCanvasWidgetRows(rows, candidates);
 	for (const widget of state.widgets) {
-		const index = candidates.indexOf(widget);
-		const row = index >= 0 ? rows[index] : null;
+		const row = rowsByWidget.get(widget);
 		if (row) {
 			row.classList.add(DOM_BOUND_CLASS);
 			state.rows.add(row);
@@ -332,9 +337,11 @@ export function syncCanvasControlBindings(model, resolve) {
 				if (resolved?.status !== "ok") continue;
 				const widget = resolved.widget || (resolved.node?.widgets || []).find((candidate) => candidate === resolved.control);
 				if (!resolved.node || !widget) continue;
-				let widgets = targetsByNode.get(resolved.node);
-				if (!widgets) { widgets = new Set(); targetsByNode.set(resolved.node, widgets); }
-				widgets.add(widget);
+				if (resolved.node.graph === app.canvas?.graph) {
+					let widgets = targetsByNode.get(resolved.node);
+					if (!widgets) { widgets = new Set(); targetsByNode.set(resolved.node, widgets); }
+					widgets.add(widget);
+				}
 				nextWidgets.add(widget);
 			}
 		}

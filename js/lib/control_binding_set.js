@@ -16,8 +16,13 @@ export class ControlBindingSetError extends Error {
 
 function clone(value) { return typeof value === "undefined" ? undefined : structuredClone(value); }
 
-function synchronous(result, operation, binding) {
+function synchronousValue(result, operation, binding) {
 	if (result && typeof result.then === "function") throw new ControlBindingSetError(`Linked control ${operation} must be synchronous`, "async-linked-control", binding);
+	return result;
+}
+
+function successfulResult(result, operation, binding) {
+	synchronousValue(result, operation, binding);
 	if (result === false || result?.ok === false) throw new ControlBindingSetError(result?.message || `Linked control ${operation} failed`, "linked-write-failed", binding);
 	return result;
 }
@@ -93,15 +98,15 @@ export function inspectControlLinkCompatibility(primary, candidate) {
 
 function readEntry(entry) {
 	const payload = entry.resolved.readPresetValue ? entry.resolved.readPresetValue() : entry.resolved.value;
-	synchronous(payload, "read", entry.binding);
+	synchronousValue(payload, "read", entry.binding);
 	return { valueType: entry.binding.valueType, payload: clone(payload) };
 }
 
 function validateEntry(entry, presetEntry, { live = false } = {}) {
 	if (presetEntry.valueType !== entry.binding.valueType) throw new ControlBindingSetError("Linked control value type changed", "incompatible-value", entry.binding);
 	let validation = true;
-	if (live && typeof entry.resolved.validateLinkedValue === "function") validation = synchronous(entry.resolved.validateLinkedValue(clone(presetEntry.payload)), "validation", entry.binding);
-	else if (typeof entry.resolved.validatePresetValue === "function") validation = synchronous(entry.resolved.validatePresetValue(clone(presetEntry)), "validation", entry.binding);
+	if (live && typeof entry.resolved.validateLinkedValue === "function") validation = synchronousValue(entry.resolved.validateLinkedValue(clone(presetEntry.payload)), "validation", entry.binding);
+	else if (typeof entry.resolved.validatePresetValue === "function") validation = synchronousValue(entry.resolved.validatePresetValue(clone(presetEntry)), "validation", entry.binding);
 	if (validation === false || validation?.ok === false || typeof validation === "string") throw new ControlBindingSetError(typeof validation === "string" ? validation : validation?.message || "Linked control rejected the value", "invalid-linked-value", entry.binding);
 }
 
@@ -116,7 +121,7 @@ function rollbackEntries(applied) {
 	for (const entry of [...applied].reverse()) {
 		try {
 			const result = entry.resolved.applyPresetValue(clone(entry.previous), { transaction: false, workspaceRedraw: false });
-			synchronous(result, "rollback", entry.binding);
+			successfulResult(result, "rollback", entry.binding);
 		} catch (error) { errors.push(error); }
 	}
 	return errors;
@@ -130,7 +135,7 @@ function runAtomic(entries, writer, { transaction = true } = {}) {
 	try {
 		for (const entry of prepared) {
 			applied.push(entry);
-			synchronous(writer(entry), "write", entry.binding);
+			successfulResult(writer(entry), "write", entry.binding);
 		}
 	} catch (error) {
 		const rollbackErrors = rollbackEntries(applied);
@@ -203,7 +208,7 @@ export function resolveControlBindingSet(item, resolveBinding) {
 		availability: unavailableEntry?.resolved.availability || primary.resolved.availability,
 		bindingSet,
 		setValue(next, options = {}) { assertAvailable(); return writeValue(entries, next, options); },
-		flushValue() { assertAvailable(); for (const entry of entries) synchronous(entry.resolved.flushValue?.(), "flush", entry.binding); },
+		flushValue() { assertAvailable(); for (const entry of entries) successfulResult(entry.resolved.flushValue?.(), "flush", entry.binding); },
 		setSeedBehavior(behavior, options = {}) { assertAvailable(); return writeSeedBehavior(entries, behavior, options); },
 		synchronizeFromPrimary(options = {}) { assertAvailable(); return synchronizePreset(entries.slice(1), readEntry(primary), options); },
 	};
