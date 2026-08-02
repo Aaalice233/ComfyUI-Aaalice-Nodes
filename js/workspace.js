@@ -38,6 +38,7 @@ import {
 import { createControlElement, hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
 import { invalidateWidgetControlAdapterCache } from "./lib/widget_control_adapters.js";
+import { syncCanvasControlBindings } from "./lib/canvas_control_binding_highlight.js";
 
 const EXTRA_KEY = "aaaliceSidebar";
 const DASHBOARD_PRESETS_EXTRA_KEY = "aaaliceSidebarPresets";
@@ -167,7 +168,7 @@ function updateDashboard(callback) {
 	if (dashboardModelError) throw dashboardModelError;
 	const graph = app.graph; graph?.beforeChange?.();
 	try { graph.extra ||= {}; graph.extra[EXTRA_KEY] = normalizeDashboard(callback(dashboard()) || dashboard()); }
-	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); scheduleActiveDashboardPresetAutoSave(); }
+	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave(); }
 }
 
 function dashboardPresetState() {
@@ -255,6 +256,16 @@ function flushDeferredWorkspaceRender() {
 	scheduleRender();
 }
 
+let canvasBindingSyncFrame = 0;
+function scheduleCanvasControlBindingSync() {
+	if (canvasBindingSyncFrame) return;
+	canvasBindingSyncFrame = requestAnimationFrame(() => {
+		canvasBindingSyncFrame = 0;
+		const nodes = graphNodes();
+		syncCanvasControlBindings(dashboard(), (binding) => controlProviders.resolve(binding, nodes));
+	});
+}
+
 function ownDataPropertyValue(object, name) {
 	if (!object) return undefined;
 	const descriptor = Object.getOwnPropertyDescriptor(object, name);
@@ -312,7 +323,7 @@ function scheduleGraphSync(forceRender = false) {
 		repairDuplicateHostIds(nodes);
 		for (const node of nodes) patchNodeMenu(node);
 		const signature = graphSyncSignature(nodes);
-		if (shouldForceRender || signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleRender("dashboard"); }
+		if (shouldForceRender || signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleCanvasControlBindingSync(); scheduleRender("dashboard"); }
 		scheduleRender("groups");
 	});
 }
@@ -900,7 +911,7 @@ function commitDashboardBindingSet(next, itemId, { synchronize = false } = {}) {
 		throw error;
 	} finally {
 		graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true);
-		scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave();
+		scheduleCanvasControlBindingSync(); scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave();
 	}
 }
 
@@ -2501,7 +2512,7 @@ app.registerExtension({
 			workspaceParentObservers.set(element, parentObserver); if (element.parentElement) parentObserver.observe(element.parentElement, { childList: true });
 		}, destroy: destroyWorkspaceSidebar });
 		installWorkspaceCanvasAutoClose();
-		const nodes = graphNodes(); repairDuplicateHostIds(nodes); for (const node of nodes) patchNodeMenu(node); previousGraphStructure = graphSyncSignature(nodes);
+		const nodes = graphNodes(); repairDuplicateHostIds(nodes); for (const node of nodes) patchNodeMenu(node); previousGraphStructure = graphSyncSignature(nodes); scheduleCanvasControlBindingSync();
 		api.addEventListener("graphChanged", () => { invalidateWidgetControlAdapterCache(); scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
 		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。
 		window.addEventListener("keydown", (event) => {
@@ -2511,7 +2522,7 @@ app.registerExtension({
 			flushActiveDashboardPresetOnSave();
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
-		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => { invalidateWidgetControlAdapterCache(event.detail?.node || null); scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave(); });
+		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => { invalidateWidgetControlAdapterCache(event.detail?.node || null); scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave(); });
 		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
 	},
 });
