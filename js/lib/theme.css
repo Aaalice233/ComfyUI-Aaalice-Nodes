@@ -1346,9 +1346,6 @@
 .aa-add-controls-select-all.aa-ui-button { min-height: 30px; padding-inline: 10px; font-size: 10.5px; }
 .aa-add-controls-target-grid { display: grid; min-width: 0; }
 .aa-add-controls-target-grid .aa-ui-field { gap: 3px; }
-.aa-add-controls-duplicate { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 8px; background: color-mix(in srgb, var(--aa-ui-control) 62%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 4%, transparent); }
-.aa-add-controls-duplicate strong { font-size: 11px; font-weight: 640; }
-.aa-add-controls-duplicate .aa-ui-toggle { flex: none; }
 .aa-add-controls-selection-count { flex: none; padding: 4px 8px; border-radius: 999px; background: var(--aa-ui-accent-soft); color: color-mix(in srgb, var(--aa-ui-accent) 68%, var(--aa-ui-text)); font-size: 10.5px; font-variant-numeric: tabular-nums; }
 .aa-add-controls-list { display: grid; max-height: min(390px, 48vh); grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; padding: 1px 3px 1px 1px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--aa-ui-border-soft) transparent; }
 .aa-add-controls-source-group { display: grid; min-height: 28px; grid-column: 1 / -1; grid-template-columns: minmax(12px, 1fr) auto minmax(12px, 1fr); align-items: center; gap: 8px; padding: 3px 2px 1px; color: var(--aa-ui-muted); }

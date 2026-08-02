@@ -32,13 +32,18 @@ export function normalizeBinding(binding) {
 	return { provider: binding.provider, hostId: binding.hostId, controlId: binding.controlId, valueType: binding.valueType, ...(typeof binding.adapterId === "string" && binding.adapterId ? { adapterId: binding.adapterId } : {}) };
 }
 
+// Adapter revisions may change without changing which node parameter owns the value.
+export function bindingTargetKey(binding) {
+	return JSON.stringify([binding.provider, binding.hostId, binding.controlId]);
+}
+
 function normalizeLinkedBindings(primaryBinding, linkedBindings) {
 	if (linkedBindings === undefined) return [];
 	if (!Array.isArray(linkedBindings)) throw new DashboardModelError("Linked control bindings must be an array", "invalid-binding");
-	const keys = new Set([bindingKey(primaryBinding)]); const normalizedBindings = [];
+	const keys = new Set([bindingTargetKey(primaryBinding)]); const normalizedBindings = [];
 	for (const binding of linkedBindings) {
 		const normalized = normalizeBinding(binding);
-		const key = bindingKey(normalized);
+		const key = bindingTargetKey(normalized);
 		if (keys.has(key)) throw new DashboardModelError(`Duplicate control binding: ${key}`, "duplicate-binding");
 		if (normalized.valueType !== primaryBinding.valueType) throw new DashboardModelError(`Linked control binding has incompatible value type: ${key}`, "incompatible-binding");
 		keys.add(key); normalizedBindings.push(normalized);

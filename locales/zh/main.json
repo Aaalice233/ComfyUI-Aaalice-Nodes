@@ -76,7 +76,7 @@
       "unsupported": { "title": "不支持旧版侧边栏布局", "description": "当前侧边栏使用了不受支持的布局模型，请重置后继续。", "reset": "重置侧边栏" },
       "binding": {
         "menu": "📌 添加参数到侧边栏…", "linkMenu": "🔗 绑定到侧边栏已有参数…", "add": "添加参数到侧边栏", "added": "已添加",
-        "allowDuplicate": "允许重复卡片", "destination": "投放位置", "chooseControls": "选择参数", "selectedControls": "个参数已选", "selectAll": "全选", "clearAll": "全不选", "addSelected": "添加参数 · {count}", "rebind": "重新绑定主参数", "noCompatible": "当前没有兼容参数。",
+        "destination": "投放位置", "chooseControls": "选择参数", "selectedControls": "个参数已选", "selectAll": "全选", "clearAll": "全不选", "addSelected": "添加参数 · {count}", "rebind": "重新绑定主参数", "noCompatible": "当前没有兼容参数。",
 		"linkExisting": "绑定到侧边栏已有参数", "parameter": "节点参数", "sidebarParameter": "侧边栏参数", "link": "绑定参数", "linked": "参数已绑定", "linkedDetail": "这个侧边栏组件现在会同时更新 {count} 个参数。", "manage": "管理绑定参数", "primary": "主参数", "unlink": "解除参数绑定", "noLinked": "当前没有附加绑定参数。", "syncNow": "立即同步", "linkedParameters": "控制 {count} 个参数", "mixedValues": "参数值不一致", "linkError": "联动参数更新失败", "noLinkTargets": "这个节点当前没有可绑定的兼容侧边栏参数。",
 		"missing": "参数绑定已失效", "incompatible": "参数类型不兼容", "selectOption": "请选择", "noOptions": "暂无可用选项", "unset": "当前暂无可用值", "unavailable": "控件暂时不可用", "error": "控件发生错误，暂时不可用", "incompatibleDetail": "这些参数的类型、范围或选项已经不一致，请管理绑定后重试。", "missingDetail": "至少有一个绑定参数已不存在，请管理绑定后重试。", "duplicateDetail": "这个参数已经绑定到该侧边栏组件。", "graphDetail": "只能绑定同一图中的参数。", "unavailableDetail": "至少有一个联动参数暂时不可用，请等待恢复后重试。", "asyncDetail": "第三方控件尝试异步写入，本次更新已取消。", "writeFailedDetail": "参数更新失败，原值已恢复。", "rollbackFailed": "参数更新失败，且至少有一个原值无法恢复。", "saveWorkflowReminder": "请保存工作流以保留这些侧边栏参数，否则修改将会丢失。"
       },

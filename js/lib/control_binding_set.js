@@ -1,6 +1,6 @@
 /** Card-level coordination for one primary control and explicit linked write targets. */
 
-import { controlItemBindings, bindingKey } from "./dashboard_model.js";
+import { controlItemBindings, bindingKey, bindingTargetKey } from "./dashboard_model.js";
 import { resolvedControlSpec } from "./controls/specs.js";
 
 const LINKABLE_KINDS = new Set(["numeric", "seed", "boolean", "choice", "text", "taglist", "image", "image-choice"]);
@@ -72,7 +72,7 @@ function equalSignature(left, right) {
 
 export function inspectControlLinkCompatibility(primary, candidate) {
 	if (!primary?.binding || !candidate?.binding) return { ok: false, reason: "missing-binding" };
-	if (bindingKey(primary.binding) === bindingKey(candidate.binding)) return { ok: false, reason: "duplicate-binding" };
+	if (bindingTargetKey(primary.binding) === bindingTargetKey(candidate.binding)) return { ok: false, reason: "duplicate-binding" };
 	if (primary.resolved?.status !== "ok" || candidate.resolved?.status !== "ok") return { ok: false, reason: "unresolved-binding" };
 	const primarySpec = resolvedControlSpec(primary.resolved); const candidateSpec = resolvedControlSpec(candidate.resolved);
 	if (!LINKABLE_KINDS.has(primarySpec.kind) || !LINKABLE_KINDS.has(candidateSpec.kind) || primary.resolved.linkable !== true || candidate.resolved.linkable !== true) return { ok: false, reason: "unsupported-control" };

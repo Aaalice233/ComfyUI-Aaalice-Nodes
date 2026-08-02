@@ -139,11 +139,11 @@ test("legacy source groups only claim exact current controls and do not delete u
 test("source synchronization is scoped to the requested page", () => {
 	const model = emptyDashboard(); const first = createPage("First"); const second = createPage("Second"); model.pages.push(first, second);
 	let next = addItems(model, first.id, [descriptor("steps", "Steps"), descriptor("cfg", "CFG")]);
-	next = addItems(next, second.id, [descriptor("steps", "Steps"), descriptor("cfg", "CFG")]);
+	next = addItems(next, second.id, [descriptor("other-steps", "Steps"), descriptor("other-cfg", "CFG")]);
 	const firstGroup = next.pages[0].groups[0];
 	const result = planSourceGroupSync(next, first.id, firstGroup.id, snapshot([descriptor("steps", "Iterations"), descriptor("cfg", "Guidance")]));
 	assert.equal(result.next.pages[0].items.find((item) => item.binding.controlId === "steps").label, "Iterations");
-	assert.equal(result.next.pages[1].items.find((item) => item.binding.controlId === "steps").label, "Steps");
+	assert.equal(result.next.pages[1].items.find((item) => item.binding.controlId === "other-steps").label, "Steps");
 });
 
 test("invalid or missing source snapshots never produce a partial plan", () => {

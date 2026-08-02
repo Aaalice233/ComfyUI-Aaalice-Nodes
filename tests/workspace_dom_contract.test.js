@@ -1148,9 +1148,11 @@ test("add-controls dialog uses a compact structured picker", () => {
 	assert.match(workspace, /aa-add-controls-select-all/);
 	assert.match(workspace, /binding\.selectAll/);
 	assert.doesNotMatch(workspace, /aa-add-controls-footer-count/);
+	assert.match(workspace, /const added = existing\.has\(bindingTargetKey\(control\.binding\)\)/);
+	assert.match(workspace, /candidate\?\.graph === app\.graph\) repairDuplicateHostIds\(graphNodes\(\)\)/);
 	assert.match(workspace, /selected = new Set\(controls.*!existing\.has/);
 	assert.match(workspace, /binding\.addSelected/);
-	assert.match(workspace, /\.\.\.\(duplicateKeys\.size \? \[duplicateSetting\] : \[\]\)/);
+	assert.doesNotMatch(workspace, /duplicateKeys|duplicateSetting|allowDuplicate/);
 	assert.match(workspace, /confirmButton\.disabled = selected\.size === 0/);
 	assert.match(workspace, /aa-add-controls-row-status/);
 	assert.doesNotMatch(workspace, /destinationHint|chooseControlsHint|allowDuplicateHint/);

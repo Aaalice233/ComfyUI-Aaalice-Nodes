@@ -1,11 +1,14 @@
 /** Immutable Dashboard V4 commands composed from pure integer-grid helpers. */
 
-import { DashboardModelError, bindingKey, controlItemBindings, createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeBinding, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
+import { DashboardModelError, bindingTargetKey, controlItemBindings, createControlItem, createLayoutGroup, createSeparatorItem, findItem, findPage, normalizeBinding, normalizeDashboard, normalizeGroupSource, stableId } from "./dashboard_model.js";
 import { compactScope, firstAvailableLayout, groupMemberColumnSpan, orderedItems, placeEntries, placeEntry, refreshGroupRowSpans } from "./dashboard_layout.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_CONTROL_COLUMN_SPAN, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, snapDashboardColumnSpan, snapDashboardRowSpan } from "./dashboard_sizing.js";
 import { planSourceGroupSync } from "./dashboard_source_sync.js";
 
 function copy(model) { return structuredClone(normalizeDashboard(model)); }
+function boundTargetKeys(model) {
+	return new Set(model.pages.flatMap((page) => page.items.filter((item) => item.kind === "control").flatMap(controlItemBindings).map(bindingTargetKey)));
+}
 function removeEmptyGroups(page) {
 	const used = new Set(page.items.map((item) => item.groupId).filter(Boolean)); page.groups = page.groups.filter((group) => used.has(group.id)); return page;
 }
@@ -62,8 +65,11 @@ function placeGroupItems(page, controls, groupSource = null) {
 
 export function addItems(model, pageId, controls, { sourceGroup = null } = {}) {
 	let next = copy(model); const page = findPage(next, pageId); if (!page) throw new Error("Dashboard target page is missing");
-	const plans = new Map(); const entries = [];
+	const occupiedTargets = boundTargetKeys(next); const plans = new Map(); const entries = [];
 	for (const control of controls) {
+		const normalizedBinding = normalizeBinding(control.binding); const targetKey = bindingTargetKey(normalizedBinding);
+		if (occupiedTargets.has(targetKey)) throw new DashboardModelError(`Control parameter is already bound: ${targetKey}`, "duplicate-binding");
+		occupiedTargets.add(targetKey);
 		const requestedGroup = normalizeSourceGroup(control.sourceGroup || sourceGroup);
 		if (!requestedGroup) { entries.push({ type: "control", control }); continue; }
 		const key = sourceGroupKey(requestedGroup.source);
@@ -174,12 +180,13 @@ function requireControlItem(model, itemId) {
 }
 
 export function addLinkedBinding(model, itemId, binding) {
-	const next = copy(model); const item = requireControlItem(next, itemId); const normalized = normalizeBinding(binding);
-	const setSignature = (candidate) => JSON.stringify(controlItemBindings(candidate).map(bindingKey).sort());
-	const nextSignature = setSignature({ binding: item.binding, linkedBindings: [...(item.linkedBindings || []), normalized] });
+	const next = copy(model); const item = requireControlItem(next, itemId); const normalized = normalizeBinding(binding); const targetKey = bindingTargetKey(normalized);
 	for (const page of next.pages) for (const candidate of page.items) {
-		if (candidate.kind !== "control" || candidate.id === itemId || !controlItemBindings(candidate).some((entry) => bindingKey(entry) === bindingKey(normalized))) continue;
-		if (setSignature(candidate) !== nextSignature) throw new DashboardModelError("A linked parameter already belongs to another sidebar binding set", "binding-overlap");
+		if (candidate.kind !== "control") continue;
+		const ownsTarget = controlItemBindings(candidate).some((entry) => bindingTargetKey(entry) === targetKey);
+		if (!ownsTarget) continue;
+		if (candidate.id === itemId) throw new DashboardModelError(`Duplicate control binding: ${targetKey}`, "duplicate-binding");
+		throw new DashboardModelError("A linked parameter already belongs to another sidebar binding set", "binding-overlap");
 	}
 	item.linkedBindings = [...(item.linkedBindings || []), normalized];
 	return normalizeDashboard(next);
@@ -187,8 +194,8 @@ export function addLinkedBinding(model, itemId, binding) {
 
 export function removeLinkedBinding(model, itemId, binding) {
 	const next = copy(model); const item = requireControlItem(next, itemId);
-	const key = bindingKey(normalizeBinding(binding));
-	const linkedBindings = (item.linkedBindings || []).filter((candidate) => bindingKey(candidate) !== key);
+	const targetKey = bindingTargetKey(normalizeBinding(binding));
+	const linkedBindings = (item.linkedBindings || []).filter((candidate) => bindingTargetKey(candidate) !== targetKey);
 	if (linkedBindings.length) item.linkedBindings = linkedBindings;
 	else delete item.linkedBindings;
 	return normalizeDashboard(next);
@@ -196,8 +203,12 @@ export function removeLinkedBinding(model, itemId, binding) {
 
 export function replacePrimaryBinding(model, itemId, binding) {
 	const next = copy(model); const item = requireControlItem(next, itemId);
-	const primaryBinding = normalizeBinding(binding); const key = bindingKey(primaryBinding);
-	const linkedBindings = (item.linkedBindings || []).filter((candidate) => bindingKey(candidate) !== key);
+	const primaryBinding = normalizeBinding(binding); const targetKey = bindingTargetKey(primaryBinding);
+	for (const page of next.pages) for (const candidate of page.items) {
+		if (candidate.kind !== "control" || candidate.id === itemId) continue;
+		if (controlItemBindings(candidate).some((entry) => bindingTargetKey(entry) === targetKey)) throw new DashboardModelError("A linked parameter already belongs to another sidebar binding set", "binding-overlap");
+	}
+	const linkedBindings = (item.linkedBindings || []).filter((candidate) => bindingTargetKey(candidate) !== targetKey);
 	item.binding = primaryBinding;
 	if (linkedBindings.length) item.linkedBindings = linkedBindings;
 	else delete item.linkedBindings;

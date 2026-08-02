@@ -76,6 +76,8 @@ test("link compatibility rejects non-presettable, duplicate physical, and mismat
 	assert.equal(inspectControlLinkCompatibility(entry(first, primary), entry(second, nonPresettable)).reason, "unsupported-codec");
 	const duplicatePhysical = { ...numericResolved("second", { value: 2 }, targetGraph), node: primary.node, control: primary.control, controlId: primary.controlId };
 	assert.equal(inspectControlLinkCompatibility(entry(first, primary), entry(second, duplicatePhysical)).reason, "duplicate-binding");
+	const duplicateAdapter = { ...first, adapterId: "alternate-adapter" };
+	assert.equal(inspectControlLinkCompatibility(entry(first, primary), entry(duplicateAdapter, numericResolved("second", { value: 2 }, targetGraph))).reason, "duplicate-binding");
 	const seedFirst = numericResolved("first", { value: 1, behavior: "fixed" }, targetGraph, { kind: "seed" });
 	const seedSecond = numericResolved("second", { value: 2, behavior: "fixed" }, targetGraph, { kind: "seed" });
 	seedSecond.seedBehaviors = ["fixed", "increment"];

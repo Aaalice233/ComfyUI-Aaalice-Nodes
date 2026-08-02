@@ -98,8 +98,7 @@ test("linked binding normalization rejects malformed, duplicate, and incompatibl
 	assert.throws(() => normalizeDashboard(rawDashboard({ linkedBindings: [booleanTarget] })), assertModelError("incompatible-binding"));
 
 	const distinctAdapter = { ...primary, adapterId: "alternate-adapter" };
-	const normalized = normalizeDashboard(rawDashboard({ linkedBindings: [distinctAdapter] }));
-	assert.deepEqual(normalized.pages[0].items[0].linkedBindings, [distinctAdapter]);
+	assert.throws(() => normalizeDashboard(rawDashboard({ linkedBindings: [distinctAdapter] })), assertModelError("duplicate-binding"));
 });
 
 test("addLinkedBinding validates through Dashboard normalization and is immutable", () => {
@@ -108,6 +107,7 @@ test("addLinkedBinding validates through Dashboard normalization and is immutabl
 	assert.equal("linkedBindings" in model.pages[0].items[0], false);
 	assert.deepEqual(added.pages[0].items[0].linkedBindings, [linkedCfg]);
 	assert.throws(() => addLinkedBinding(added, itemId, linkedCfg), assertModelError("duplicate-binding"));
+	assert.throws(() => addLinkedBinding(added, itemId, { ...linkedCfg, adapterId: "alternate-adapter" }), assertModelError("duplicate-binding"));
 	assert.throws(() => addLinkedBinding(added, itemId, booleanTarget), assertModelError("incompatible-binding"));
 
 	const withSeparator = addSeparator(model, pageId, "Section");

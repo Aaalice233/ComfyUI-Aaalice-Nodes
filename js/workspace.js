@@ -7,7 +7,7 @@ import { controlProviders, HOST_ID_PROPERTY, repairDuplicateHostIds } from "./li
 import { installNodeControlMenu } from "./lib/node_control_menu.js";
 import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
 import {
-	bindingKey, controlItemBindings, createPage, DASHBOARD_TONES, emptyDashboard, linkedBindingCount, normalizeDashboard,
+	bindingKey, bindingTargetKey, controlItemBindings, createPage, DASHBOARD_TONES, emptyDashboard, linkedBindingCount, normalizeDashboard,
 } from "./lib/dashboard_model.js";
 import {
 	compareDashboardPreset, createDashboardPreset, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline,
@@ -871,10 +871,10 @@ function bindingDisplay(binding) {
 }
 
 function compatibleCardTargets(sourceBinding, model = dashboard()) {
-	const source = resolvedBindingEntry(sourceBinding); const sourceKey = bindingKey(sourceBinding); const targets = [];
+	const source = resolvedBindingEntry(sourceBinding); const sourceKey = bindingTargetKey(sourceBinding); const targets = [];
 	for (const page of model.pages) {
 		for (const item of page.items) {
-			if (item.kind !== "control" || controlItemBindings(item).some((binding) => bindingKey(binding) === sourceKey)) continue;
+			if (item.kind !== "control" || controlItemBindings(item).some((binding) => bindingTargetKey(binding) === sourceKey)) continue;
 			const resolvedSet = resolveControlBindingSet(item, resolve);
 			if (resolvedSet.status !== "ok") continue;
 			const primary = resolvedSet.bindingSet.entries[0];
@@ -2299,9 +2299,16 @@ function renderWorkspace(root) {
 	root.append(shell.root); workspaceOwnedTrees.set(root, shell.root); renderActiveWorkspace();
 }
 
+function dashboardHasBinding(model, binding) {
+	const targetKey = bindingTargetKey(binding);
+	return model.pages.some((page) => page.items.some((item) => item.kind === "control" && controlItemBindings(item).some((candidate) => bindingTargetKey(candidate) === targetKey)));
+}
+
 function linkableControlSources(controls) {
+	const model = dashboard();
 	return controls.map((control) => ({ control, resolved: resolvedBindingEntry(control.binding) }))
-		.filter(({ resolved }) => resolved.resolved?.status === "ok" && resolved.resolved.linkable === true && compatibleCardTargets(resolved.binding).length);
+		.filter(({ control, resolved }) => resolved.resolved?.status === "ok" && resolved.resolved.linkable === true
+			&& !dashboardHasBinding(model, control.binding) && compatibleCardTargets(resolved.binding).length);
 }
 
 function openLinkControls(node, listedControls = null, ownerElement = null) {
@@ -2358,7 +2365,7 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 function openAddControls(node, ownerElement = null) {
 	if (node?.graph !== app.graph) return;
 	const controls = controlProviders.list(node); if (!controls.length) return;
-	let model = dashboard(); let page = currentPage(model); let selected = new Set(); let allowDuplicate = false;
+	let model = dashboard(); let page = currentPage(model); let selected = new Set();
 	const body = el("div", "aa-add-controls-dialog"); const list = el("div", "aa-add-controls-list");
 	const pageSelect = selectControl({ ariaLabel: t("aaalice.workspace.target.page", "Page"), onChange: () => rebuildTargets() });
 	const targetGrid = el("div", "aa-add-controls-target-grid");
@@ -2375,12 +2382,12 @@ function openAddControls(node, ownerElement = null) {
 		targetGrid.append(field({ label: t("aaalice.workspace.target.newPage", "New page"), control: pageName }));
 		body._createTarget = () => updateDashboard((current) => { const nextPage = createPage(pageName.value.trim() || "Page"); current.pages.push(nextPage); activePageId = nextPage.id; return current; });
 	} else { rebuildTargets(); targetGrid.append(field({ label: t("aaalice.workspace.target.page", "Page"), control: pageSelect })); }
-	const existing = new Set(model.pages.flatMap((candidatePage) => candidatePage.items.filter((item) => item.kind === "control").map((item) => bindingKey(item.binding))));
-	const duplicateKeys = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => existing.has(key)));
-	selected = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => !existing.has(key)));
+	const existing = new Set(model.pages.flatMap((candidatePage) => candidatePage.items.filter((item) => item.kind === "control").flatMap(controlItemBindings).map(bindingTargetKey)));
+	const controlsByKey = new Map(controls.map((control) => [bindingKey(control.binding), control]));
+	selected = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => !existing.has(bindingTargetKey(controlsByKey.get(key).binding))));
 	const selectionCount = el("span", "aa-add-controls-selection-count");
 	let confirmButton = null; let selectAllButton = null;
-	const eligibleKeys = () => controls.map((control) => bindingKey(control.binding)).filter((key) => allowDuplicate || !existing.has(key));
+	const eligibleKeys = () => controls.map((control) => bindingKey(control.binding)).filter((key) => !existing.has(bindingTargetKey(controlsByKey.get(key).binding)));
 	const updateSelectionState = () => {
 		const text = `${selected.size} ${t("aaalice.workspace.binding.selectedControls", "controls selected")}`;
 		selectionCount.textContent = text;
@@ -2396,14 +2403,6 @@ function openAddControls(node, ownerElement = null) {
 		}
 	};
 	let drawList = () => {};
-	const duplicateToggle = toggleSwitch({ checked: false, label: t("aaalice.workspace.binding.allowDuplicate", "Allow duplicate cards"), onChange: (value) => {
-		allowDuplicate = value;
-		for (const key of duplicateKeys) { if (value) selected.add(key); else selected.delete(key); }
-		drawList();
-	} });
-	const duplicateSetting = el("div", { className: "aa-add-controls-duplicate", children: [
-		el("strong", null, t("aaalice.workspace.binding.allowDuplicate", "Allow duplicate cards")), duplicateToggle,
-	] });
 	selectAllButton = button({ label: t("aaalice.workspace.binding.selectAll", "Select all"), variant: "ghost", size: "sm", className: "aa-add-controls-select-all", onClick: () => {
 		const keys = eligibleKeys(); const allSelected = keys.length > 0 && keys.every((key) => selected.has(key));
 		if (allSelected) for (const key of keys) selected.delete(key); else for (const key of keys) selected.add(key);
@@ -2412,7 +2411,7 @@ function openAddControls(node, ownerElement = null) {
 	const pickerActions = el("div", { className: "aa-add-controls-picker-actions", children: [selectionCount, selectAllButton] });
 	const controlPicker = el("section", { className: "aa-add-controls-section aa-add-controls-picker", children: [
 		el("header", { className: "aa-add-controls-section-header", children: [el("h3", null, t("aaalice.workspace.binding.chooseControls", "Choose controls")), pickerActions] }),
-		...(duplicateKeys.size ? [duplicateSetting] : []), list,
+		list,
 	] });
 	drawList = () => {
 		list.replaceChildren();
@@ -2430,10 +2429,10 @@ function openAddControls(node, ownerElement = null) {
 					previousSourceGroup = identity;
 				}
 			}
-			const key = bindingKey(control.binding); const added = existing.has(key);
+			const key = bindingKey(control.binding); const added = existing.has(bindingTargetKey(control.binding));
 			const status = added ? badge(t("aaalice.workspace.binding.added", "Already added"), { className: "aa-add-controls-row-status" }) : control.availability?.state && control.availability.state !== "ready" ? badge(controlAvailabilityDescription(control), { className: "aa-add-controls-row-status is-warning" }) : null;
-			const row = createListRow({ title: control.label, selected: selected.has(key), actions: status ? [status] : [], onSelect: (checked) => { if (checked) selected.add(key); else selected.delete(key); updateSelectionState(); } });
-			row.selectionControl.setDisabled(added && !allowDuplicate); list.append(row);
+			const row = createListRow({ title: control.label, selected: selected.has(key), actions: status ? [status] : [], onSelect: (checked) => { if (checked && !added) selected.add(key); else selected.delete(key); updateSelectionState(); } });
+			row.selectionControl.setDisabled(added); list.append(row);
 		}
 		updateSelectionState();
 	};
@@ -2454,7 +2453,10 @@ function openAddControls(node, ownerElement = null) {
 
 function patchNodeMenu(node) {
 	installNodeControlMenu(node, {
-		listControls: (candidate) => controlProviders.list(candidate),
+		listControls: (candidate) => {
+			if (candidate?.graph === app.graph) repairDuplicateHostIds(graphNodes());
+			return controlProviders.list(candidate);
+		},
 		entries: [
 			{ label: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"), when: (candidate) => candidate?.graph === app.graph, open: (candidate, _controls, canvas) => openAddControls(candidate, canvas?.canvas || canvas || null) },
 			{ label: t("aaalice.workspace.binding.linkMenu", "🔗 Link to an existing sidebar parameter…"), when: (candidate, controls) => candidate?.graph === app.graph && linkableControlSources(controls).length > 0, open: (candidate, controls, canvas) => openLinkControls(candidate, controls, canvas?.canvas || canvas || null) },
