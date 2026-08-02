@@ -113,6 +113,14 @@ test("portable backups use the same normalized snapshot contract", () => {
 	assert.throws(() => parseDashboardPreset({ ...serialized, version: 99 }), /Unsupported sidebar preset backup/);
 });
 
+test("numeric card range overrides round-trip through complete sidebar presets", () => {
+	const source = snapshot(); source.dashboard.pages[0].items[0].numericRange = { min: 1, max: 100, step: 2 };
+	const state = createDashboardPreset(emptyDashboardPresetState(), "Custom slider", source);
+	assert.deepEqual(state.presets[0].dashboard.pages[0].items[0].numericRange, { min: 1, max: 100, step: 2 });
+	const parsed = parseDashboardPreset(serializeDashboardPreset(state.presets[0]));
+	assert.deepEqual(parsed.dashboard.pages[0].items[0].numericRange, { min: 1, max: 100, step: 2 });
+});
+
 test("preset state survives workflow JSON serialization unchanged", () => {
 	// 预设随工作流 extra 分发（含 Workflow Hub 打包/安装），JSON 往返后必须逐字节等价
 	const state = createDashboardPreset(emptyDashboardPresetState(), "Portrait", snapshot());

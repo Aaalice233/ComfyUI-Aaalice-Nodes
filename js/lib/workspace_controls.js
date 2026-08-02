@@ -9,7 +9,7 @@ let activeControlGestures = 0;
 /** The sidebar must not rebuild its DOM while a drag/wheel gesture owns an element. */
 export function hasActiveControlGestures() { return activeControlGestures > 0; }
 
-export function createControlElement(resolved, { labels = {}, syncKeys = [], onInput, onCommit, onError, onSuccess, onWriteError } = {}) {
+export function createControlElement(resolved, { labels = {}, syncKeys = [], numericRange = null, onInput, onCommit, onError, onSuccess, onWriteError } = {}) {
 	if (resolved?.status !== "ok") return null;
 	const availabilityLabels = labels.availability || {};
 	const imageLabels = {
@@ -36,7 +36,7 @@ export function createControlElement(resolved, { labels = {}, syncKeys = [], onI
 				image: imageLabels,
 			"image-compare": { ...availabilityLabels, ...(labels.imageCompare || {}) },
 		},
-		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean", wheelAdjust: false },
+		presentation: { compact: true, headerOnly: typeof resolved.value === "boolean", wheelAdjust: false, ...(numericRange ? { numericRange } : {}) },
 	});
 	let gestureOpen = false;
 	let currentValue = spec.value;

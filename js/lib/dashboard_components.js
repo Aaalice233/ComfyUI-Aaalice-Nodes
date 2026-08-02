@@ -42,7 +42,7 @@ export function createDashboardGroup({ group, members, memberProjection = null, 
 		onClick: (event) => { event.stopPropagation(); onSync?.(group); },
 	}) : null;
 	const header = el("header", { className: `aa-dashboard-group-header${showTitle ? "" : " is-title-hidden"}`, attrs: { tabindex: editMode ? 0 : null }, children: [
-		el("span", "aa-dashboard-group-marker"), title,
+		title, el("span", { className: "aa-dashboard-group-header-spacer", attrs: { "aria-hidden": "true" } }),
 		...(syncButton ? [syncButton] : []),
 		...(editMode ? [icon("drag", { className: "aa-dashboard-group-grip" }), iconButton({ iconName: "settings", label: labels.groupMenu || "Group menu", variant: "ghost", onClick: (event) => onMenu?.(event, group) })] : []),
 	] });

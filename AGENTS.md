@@ -144,6 +144,7 @@ ComfyUI-Aaalice-Nodes/
 ### 4.5 控件适配
 
 - 控件身份、显示名称、值和选项属于不同变更域：名称变化只更新展示，控件、绑定、类型或运行契约变化才进入结构同步。稳定 Binding Identity 必须独立于标题、位置和当前数组下标。
+- Dashboard 数值卡片可保存卡片级 `numericRange`，只覆盖侧边栏 Integer / Float 控件的最小值、最大值和步长；不得回写 Provider Control Spec、原 widget 选项、联动兼容签名或节点当前值。覆盖值必须为有限数值、满足 `min < max`、`0 < step <= max - min`，Integer 域全部使用整数，并且不得越过 Provider 已声明的有限边界；缺失、失效或重置时回退节点默认值。该设置属于 Dashboard 布局状态，必须随工作流、复制和完整侧边栏预设保存。
 - 第三方适配器只能通过公开注册与校验 API 写回真实 widget；跨子图查找、事件和创建操作使用节点所属 graph，不能退回 `app.graph` 猜测。
 - 自动适配必须在创建、加载、复制、重命名和结构变化后幂等收敛；手动刷新只能作为诊断恢复操作，不能掩盖缺失事件、错误真源或竞态。
 - Dashboard V4 一张控件卡片允许一个主 `binding` 与多个有序 `linkedBindings`；主控件唯一拥有展示和读值语义，附加目标只参与写入。兼容性和原子写入只能走 `js/lib/control_binding_set.js`：要求同一 graph、Provider 明确可联动、Control Spec 类型和值域一致（含 Integer / Float 与图像目录），先快照全部目标并在一个图事务中写入，任一失败必须回滚全部已触达目标；Provider 不得吞掉 `false`、失败对象、Promise 或异常。动态选项为空、未赋值或临时不可用只暂停整卡写入，不能判坏持久关系；第三方 Seed 只有同时声明数值和执行后行为 codec 才可联动；每次 `graphToPrompt` 序列化前及 `queuePrompt` 完成后都必须以主 Seed 收敛整组状态。禁止 renderer、业务节点或工作区散落循环写入。预设必须展开并按无分隔符碰撞的稳定 Binding Key 去重全部目标并迁移旧 Key；来源同步只以主 binding 认领卡片，来源删除或类型漂移不得静默删除含附加目标的整张卡片。内部 Subgraph 节点仍不得被直接穿透绑定，只允许宿主公开 widget。

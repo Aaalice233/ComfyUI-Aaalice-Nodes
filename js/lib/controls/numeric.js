@@ -199,22 +199,32 @@ export function createSeedModeControl({ behavior = "randomize", labels = {}, ari
 
 export function renderNumericControl(spec, port) {
 	const options = spec.options || {};
-	const min = finiteOption(options, "min", Number.MIN_SAFE_INTEGER);
-	const max = finiteOption(options, "max", Number.MAX_SAFE_INTEGER);
-	const step = Math.max(Number.EPSILON, finiteOption(options, "step", 1));
+	const sourceMin = finiteOption(options, "min", Number.MIN_SAFE_INTEGER);
+	const sourceMax = finiteOption(options, "max", Number.MAX_SAFE_INTEGER);
+	const sourceStep = Math.max(Number.EPSILON, finiteOption(options, "step", 1));
+	const customRange = spec.kind === "numeric" ? spec.presentation?.numericRange : null;
+	const rangeOptions = customRange || options;
+	const min = finiteOption(rangeOptions, "min", sourceMin);
+	const max = finiteOption(rangeOptions, "max", sourceMax);
+	const step = Math.max(Number.EPSILON, finiteOption(rangeOptions, "step", sourceStep));
 	const precision = precisionForStep(step);
-	const bounded = hasFiniteOption(options, "min") && hasFiniteOption(options, "max") && max > min;
+	const sourcePrecision = precisionForStep(sourceStep);
+	const bounded = hasFiniteOption(rangeOptions, "min") && hasFiniteOption(rangeOptions, "max") && max > min;
 	const hasRange = spec.kind === "numeric" && bounded;
 	const root = el("div", `aa-control aa-control-numeric${hasRange ? "" : " is-unbounded"}`);
 	const range = document.createElement("input");
 	range.type = "range"; range.className = "aa-shared-range aa-control-numeric-range";
 	range.min = String(min); range.max = String(max); range.step = String(step); range.setAttribute("aria-label", spec.label);
-	const valueButton = el("button", { className: "aa-control-numeric-value", attrs: { type: "button", role: "spinbutton", "aria-label": spec.label, "aria-valuemin": String(min), "aria-valuemax": String(max), "data-parameter-id": spec.id, "data-aaalice-value-field": "true" } });
+	const valueButton = el("button", { className: "aa-control-numeric-value", attrs: { type: "button", role: "spinbutton", "aria-label": spec.label, "aria-valuemin": String(sourceMin), "aria-valuemax": String(sourceMax), "data-parameter-id": spec.id, "data-aaalice-value-field": "true" } });
 	let current = 0; let gestureOpen = false; let gestureTimer = 0; let inlineEditor = null;
 	const normalize = (value) => { const clamped = Math.min(max, Math.max(min, Number(value))); return Number.isFinite(clamped) ? Number(clamped.toFixed(precision)) : current; };
+	const normalizeIncoming = customRange
+		? (value) => { const clamped = Math.min(sourceMax, Math.max(sourceMin, Number(value))); return Number.isFinite(clamped) ? Number(clamped.toFixed(sourcePrecision)) : current; }
+		: normalize;
 	const sync = (value) => {
-		current = normalize(value); valueButton.textContent = String(current); valueButton.setAttribute("aria-valuenow", String(current)); range.value = String(current);
-		if (hasRange) range.style.setProperty("--aa-shared-range-progress", `${Math.min(100, Math.max(0, ((current - min) / (max - min)) * 100))}%`);
+		current = normalizeIncoming(value); valueButton.textContent = String(current); valueButton.setAttribute("aria-valuenow", String(current));
+		const rangeValue = Math.min(max, Math.max(min, current)); range.value = String(rangeValue);
+		if (hasRange) range.style.setProperty("--aa-shared-range-progress", `${Math.min(100, Math.max(0, ((rangeValue - min) / (max - min)) * 100))}%`);
 	};
 	const begin = () => { if (!gestureOpen) { gestureOpen = true; port.beginGesture(); } };
 	const finish = () => { clearTimeout(gestureTimer); gestureTimer = 0; if (!gestureOpen) return; gestureOpen = false; port.endGesture(current); flash(); };

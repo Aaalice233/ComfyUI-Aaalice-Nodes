@@ -320,6 +320,32 @@ test("third-party adapter identity survives normalization and preset keys", () =
 	assert.notEqual(bindingKey(adapted), bindingKey(binding));
 });
 
+test("card-specific numeric ranges survive normalization and copies without changing bindings", () => {
+	const { model, page } = modelWithPage(); let next = addItems(model, page.id, [{ label: "Steps", binding }]);
+	const source = next.pages[0].items[0]; source.numericRange = { min: 5, max: 50, step: 5 };
+	next = normalizeDashboard(next);
+	assert.deepEqual(next.pages[0].items[0].numericRange, { min: 5, max: 50, step: 5 });
+	next = duplicateItems(next, page.id, [source.id]);
+	assert.deepEqual(next.pages[0].items[1].numericRange, { min: 5, max: 50, step: 5 });
+	next = duplicatePage(next, page.id);
+	assert.ok(next.pages[1].items.every((item) => item.numericRange?.min === 5 && item.binding.hostId === binding.hostId));
+});
+
+test("invalid card-specific numeric ranges fail visibly", () => {
+	const { model, page } = modelWithPage(); const next = addItems(model, page.id, [{ label: "Steps", binding }]);
+	const item = next.pages[0].items[0];
+	for (const numericRange of [
+		{ min: 10, max: 10, step: 1 },
+		{ min: 10, max: 5, step: 1 },
+		{ min: 0, max: 10, step: 0 },
+		{ min: 0, max: 10, step: 11 },
+		{ min: Number.NaN, max: 10, step: 1 },
+	]) {
+		item.numericRange = numericRange;
+		assert.throws(() => normalizeDashboard(next), (error) => error instanceof DashboardModelError && error.code === "invalid-numeric-range");
+	}
+});
+
 test("grid projection to one column does not mutate canonical layout", () => {
 	const entries = [
 		{ id: "a", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 12 } },

@@ -92,6 +92,17 @@ function normalizeControlLayout(layout) {
 	};
 }
 
+export function normalizeNumericRange(range) {
+	if (range == null) return null;
+	if (typeof range !== "object" || Array.isArray(range)) throw new DashboardModelError("Numeric range must be an object", "invalid-numeric-range");
+	if ([range.min, range.max, range.step].some((value) => value == null || value === "")) throw new DashboardModelError("Numeric range fields are required", "invalid-numeric-range");
+	const min = Number(range.min); const max = Number(range.max); const step = Number(range.step);
+	if (![min, max, step].every(Number.isFinite) || max <= min || step <= 0 || step > max - min) {
+		throw new DashboardModelError("Numeric range is invalid", "invalid-numeric-range");
+	}
+	return { min, max, step };
+}
+
 function assertUnique(id, ids) {
 	if (!id || typeof id !== "string") throw new DashboardModelError("Dashboard identity is missing", "invalid-id");
 	if (ids.has(id)) throw new DashboardModelError(`Duplicate dashboard identity: ${id}`, "duplicate-id");
@@ -168,11 +179,13 @@ export function normalizeDashboard(raw) {
 			const groupSource = kind === "control" ? normalizeGroupSource(sourceItem.groupSource) : null;
 			const primaryBinding = kind === "control" ? normalizeBinding(sourceItem.binding) : null;
 			const linkedBindings = kind === "control" ? normalizeLinkedBindings(primaryBinding, sourceItem.linkedBindings) : [];
+			const numericRange = kind === "control" ? normalizeNumericRange(sourceItem.numericRange) : null;
 			const layout = normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns });
 			rawItems.push({ id: sourceItem.id, groupId, layout });
 			page.items.push({
 				id: sourceItem.id, kind, binding: primaryBinding,
 				...(linkedBindings.length ? { linkedBindings } : {}),
+				...(numericRange ? { numericRange } : {}),
 				label: String(sourceItem.label || ""), groupId,
 				...(typeof sourceItem.labelSource === "string" ? { labelSource: sourceItem.labelSource } : {}),
 				...(typeof sourceItem.labelOverride === "string" ? { labelOverride: sourceItem.labelOverride } : {}),

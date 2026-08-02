@@ -305,6 +305,29 @@ test("numeric control gestures preview live inside one graph history boundary", 
 	assert.match(components, /control\?\.headerAccessories/);
 });
 
+test("numeric sidebar cards persist a validated presentation-only range editor", () => {
+	assert.match(dashboardModel, /export function normalizeNumericRange/);
+	assert.match(dashboardModel, /\.\.\.\(numericRange \? \{ numericRange \} : \{\}\)/);
+	assert.match(workspace, /function openNumericRangeSettings/);
+	assert.match(workspace, /aaalice\.workspace\.numericRange\.menu/);
+	assert.match(workspace, /function isConfigurableNumericControl/);
+	assert.match(workspace, /resolvedControlSpec\(resolved\)\.kind === "numeric"/);
+	assert.match(workspace, /numericRangeForControl\(resolved, item\.numericRange\)/);
+	assert.match(workspace, /target\.numericRange = validation\.range/);
+	assert.match(workspace, /delete target\.numericRange/);
+	assert.match(workspaceControls, /numericRange = null/);
+	assert.match(workspaceControls, /presentation: \{[^}]*numericRange/s);
+	assert.match(numericControl, /const customRange = spec\.kind === "numeric" \? spec\.presentation\?\.numericRange : null/);
+	assert.match(numericControl, /const rangeValue = Math\.min\(max, Math\.max\(min, current\)\)/);
+	assert.match(theme, /\.aa-numeric-range-grid \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.match(locale, /"numericRange"/);
+		assert.match(locale, /"minimum"/);
+		assert.match(locale, /"maximum"/);
+		assert.match(locale, /"step"/);
+	}
+});
+
 test("image inputs share a native-shaped asset browser and separate upload action", () => {
 	assert.match(comfyControls, /"image-choice": \(spec, port\) => renderImageChoiceControl\(spec, port\)/);
 	assert.match(widgetAdapters, /id: "comfy-image-combo"/);
@@ -1075,8 +1098,12 @@ test("dashboard control contents stay within their declared grid footprints", ()
 	assert.doesNotMatch(dashboardComponents, /aa-dashboard-group-count/);
 	assert.match(dashboardComponents, /icon\("drag", \{ className: "aa-dashboard-group-grip" \}\)/);
 	assert.doesNotMatch(theme, /aa-dashboard-group-count/);
-	assert.match(theme, /\.aa-dashboard-group-marker \{[^}]*background:\s*currentColor;/);
-	assert.doesNotMatch(theme, /\.aa-dashboard-group-marker \{[^}]*linear-gradient/);
+	assert.doesNotMatch(dashboardComponents, /aa-dashboard-group-marker/);
+	assert.doesNotMatch(theme, /aa-dashboard-group-marker/);
+	assert.match(dashboardComponents, /aa-dashboard-group-header-spacer/);
+	assert.match(theme, /\.aa-dashboard-group-header h3 \{[^}]*border-radius:\s*999px;/);
+	assert.match(theme, /\.aa-dashboard-group-header h3 \{[^}]*background:\s*color-mix\(in srgb, var\(--aa-dashboard-group-tone\)/);
+	assert.match(theme, /\.aa-dashboard-group-header-spacer \{[^}]*flex:\s*1 1 auto;/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-group:hover \{[^}]*translateY\(-1px\)/);
 	assert.match(theme, /\.aa-dashboard-group-resize-handle/);
 	assert.match(dashboardComponents, /data-dashboard-group-resize-handle/);
