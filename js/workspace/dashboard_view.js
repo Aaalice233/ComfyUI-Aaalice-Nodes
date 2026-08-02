@@ -211,7 +211,7 @@ export function renderDashboard(container, host) {
 					el("span", { className: "aa-section-rule aa-section-rule--start", attrs: { "aria-hidden": "true" } }),
 					el("span", "aa-dashboard-separator-label", item.label),
 					el("span", { className: "aa-section-rule aa-section-rule--end", attrs: { "aria-hidden": "true" } }),
-					...(item.note ? [createComponentNoteButton({ labels: workspaceLabels(), className: "aa-dashboard-separator-note", onOpen: (owner) => openComponentNoteEditor(item, owner, { preview: true }) })] : []),
+					...(item.note ? [createComponentNoteButton({ note: item.note, labels: workspaceLabels(), className: "aa-dashboard-separator-note" })] : []),
 					...(editMode ? [iconButton({ iconName: "delete", label: t("aaalice.workspace.layout.remove", "Remove layout item"), variant: "ghost", className: "aa-dashboard-separator-remove", onClick: () => updateDashboard((current) => removeItems(current, [item.id])) })] : []),
 				],
 			});
@@ -250,7 +250,6 @@ export function renderDashboard(container, host) {
 		const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, description: resolved.status === "ok" ? String(resolved.control?.description || "") : "", linkedCount: resolved.bindingSet?.linkedCount || 0, mixed: Boolean(resolved.bindingSet?.mixed), editMode, labels: workspaceLabels(), onManage: (context) => openCardActions(context, item, resolved), onMove: () => openMoveControl(item),
 			onRemove: () => updateDashboard((current) => removeItems(current, [item.id])), onToggleSpan: () => updateDashboard((current) => resizeItems(current, [item.id], item.layout.columnSpan === DASHBOARD_GRID_COLUMNS ? DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN : DASHBOARD_GRID_COLUMNS)),
 			onRenameTitle: (name) => updateDashboard((current) => updateItem(current, item.id, (target) => { target.labelOverride = name; })),
-			onOpenNote: (owner) => openComponentNoteEditor(item, owner, { preview: true }),
 
 			onGroup: () => openAssignGroup(page, item), onUngroup: () => updateDashboard((current) => ungroupItems(current, page.id, [item.id])),
 		});

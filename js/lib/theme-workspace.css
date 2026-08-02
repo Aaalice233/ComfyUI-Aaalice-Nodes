@@ -371,9 +371,9 @@
 .aa-control-card.is-unavailable { border-color: color-mix(in srgb, var(--aa-ui-warning) 38%, var(--aa-ui-border-soft)); background: color-mix(in srgb, var(--aa-ui-warning) 5%, var(--aa-ui-control)); }
 .aa-control-card-title { min-width: 0; flex: 1; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; color: color-mix(in srgb, var(--aa-ui-text) 96%, var(--aa-ui-muted)); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; transition: color .16s ease; }
 .aa-control-card-title::before { width: 2.5px; height: 11px; flex: none; border-radius: 2px; background: var(--aa-control-kind-tone, transparent); box-shadow: 0 0 4px color-mix(in srgb, var(--aa-control-kind-tone, transparent) 45%, transparent); content: ""; }
-.aa-control-card-header .aa-component-note-badge.aa-ui-button { width: 19px; min-width: 19px; height: 19px; min-height: 19px; flex: none; padding: 0; border-radius: 50%; background: color-mix(in srgb, var(--aa-ui-accent) 8%, transparent); color: color-mix(in srgb, var(--aa-ui-accent) 66%, var(--aa-ui-muted)); opacity: .66; }
-.aa-control-card-header .aa-component-note-badge.aa-ui-button:hover, .aa-control-card-header .aa-component-note-badge.aa-ui-button:focus-visible { background: color-mix(in srgb, var(--aa-ui-accent) 16%, transparent); color: var(--aa-ui-accent); opacity: 1; }
-.aa-control-card-header .aa-component-note-badge .aa-ui-icon { width: 12px; height: 12px; }
+.aa-control-card-header .aa-component-note-badge.aa-ui-button { width: 18px; min-width: 18px; height: 18px; min-height: 18px; flex: none; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--aa-ui-warning) 14%, transparent); color: color-mix(in srgb, var(--aa-ui-warning) 92%, var(--aa-ui-text)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aa-ui-warning) 34%, transparent); }
+.aa-control-card-header .aa-component-note-badge.aa-ui-button:hover, .aa-control-card-header .aa-component-note-badge.aa-ui-button:focus-visible { background: color-mix(in srgb, var(--aa-ui-warning) 25%, var(--aa-ui-control)); color: var(--aa-ui-warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--aa-ui-warning) 16%, transparent); }
+.aa-control-card-header .aa-component-note-badge .aa-ui-icon { width: 12px; height: 12px; stroke-width: 2.5; }
 .aa-control-card-binding-count { display: inline-flex; height: 16px; flex: none; align-items: center; gap: 3px; padding: 0 5px; border-radius: 6px; background: color-mix(in srgb, var(--aa-ui-accent) 11%, var(--aa-ui-control)); color: color-mix(in srgb, var(--aa-ui-accent) 72%, var(--aa-ui-text)); font-size: 10px; font-weight: 720; line-height: 16px; box-shadow: var(--aa-ui-edge-shadow-soft); }
 .aa-control-card-binding-count .aa-ui-icon { width: 10px; height: 10px; }
 .aa-control-card-binding-count.is-mixed { background: color-mix(in srgb, var(--aa-ui-warning) 12%, var(--aa-ui-control)); color: color-mix(in srgb, var(--aa-ui-warning) 74%, var(--aa-ui-text)); }
@@ -559,9 +559,8 @@
 .aa-dashboard-group .aa-control-card.is-group-member:hover { border-color: transparent; background: color-mix(in srgb, var(--aa-ui-surface-raised) 60%, var(--aa-ui-control)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 7%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--aa-ui-canvas) 26%, transparent); }
 .aa-dashboard-group .aa-control-card.is-group-member.is-missing { --aa-dashboard-member-tone: var(--aa-ui-warning); background: color-mix(in srgb, var(--aa-dashboard-member-tone) 11%, var(--aa-ui-control)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--aa-dashboard-member-tone) 72%, transparent), inset 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 5%, transparent); }
 .aa-dashboard-group .aa-control-card.is-group-member:focus-visible { border-color: transparent; background: color-mix(in srgb, var(--aa-dashboard-member-tone) 16%, var(--aa-ui-surface-raised)); box-shadow: inset 3px 0 0 var(--aa-dashboard-member-tone), 0 0 0 2px color-mix(in srgb, var(--aa-dashboard-member-tone) 18%, transparent); }
-.is-layout-editing .aa-dashboard-group .aa-control-card.is-group-member { border-color: transparent; cursor: crosshair; }
-.is-layout-editing :is([data-dashboard-item-id], [data-dashboard-group-id]).is-selected,
-.is-layout-editing .aa-dashboard-group.is-selected [data-dashboard-item-id] { cursor: grab; }
+.is-layout-editing .aa-dashboard-group .aa-control-card.is-group-member { border-color: transparent; cursor: grab; }
+.is-layout-editing :is([data-dashboard-item-id], [data-dashboard-group-id]) { cursor: grab; }
 .is-layout-editing .aa-dashboard-group .aa-control-card.is-group-member:is(.is-selected, .is-drop-target) { border-color: transparent; background: color-mix(in srgb, var(--aa-dashboard-member-tone) 16%, var(--aa-ui-surface-raised)); box-shadow: inset 3px 0 0 var(--aa-dashboard-member-tone), 0 0 0 1px color-mix(in srgb, var(--aa-dashboard-member-tone) 18%, transparent); }
 .aa-dashboard-group .aa-dashboard-separator.is-group-member { padding-inline: 6px; border-radius: 6px; background: color-mix(in srgb, var(--aa-dashboard-group-tone) 6%, transparent); }
 .aa-dashboard-grid-v2.is-dragging, .aa-dashboard-grid-v2.is-dragging * { cursor: grabbing; }
@@ -582,8 +581,9 @@
 	position: relative;
 }
 .aa-dashboard-separator > .aa-ui-button { position: absolute; z-index: 1; top: 50%; right: 0; width: 24px; min-width: 24px; height: 24px; min-height: 24px; background: var(--aa-ui-surface); transform: translateY(-50%); }
-.aa-dashboard-separator > .aa-component-note-badge.aa-ui-button { width: 19px; min-width: 19px; height: 19px; min-height: 19px; border-radius: 50%; background: color-mix(in srgb, var(--aa-ui-accent) 9%, var(--aa-ui-surface)); color: color-mix(in srgb, var(--aa-ui-accent) 68%, var(--aa-ui-muted)); }
-.aa-dashboard-separator > .aa-component-note-badge .aa-ui-icon { width: 12px; height: 12px; }
+.aa-dashboard-separator > .aa-component-note-badge.aa-ui-button { width: 18px; min-width: 18px; height: 18px; min-height: 18px; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--aa-ui-warning) 14%, var(--aa-ui-surface)); color: color-mix(in srgb, var(--aa-ui-warning) 92%, var(--aa-ui-text)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aa-ui-warning) 34%, transparent); }
+.aa-dashboard-separator > .aa-component-note-badge.aa-ui-button:hover, .aa-dashboard-separator > .aa-component-note-badge.aa-ui-button:focus-visible { background: color-mix(in srgb, var(--aa-ui-warning) 25%, var(--aa-ui-surface)); color: var(--aa-ui-warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--aa-ui-warning) 16%, transparent); }
+.aa-dashboard-separator > .aa-component-note-badge .aa-ui-icon { width: 12px; height: 12px; stroke-width: 2.5; }
 .is-layout-editing .aa-dashboard-separator.has-component-note > .aa-dashboard-separator-note { right: 28px; }
 .aa-dashboard-separator > .aa-dashboard-separator-remove { right: 0; }
 

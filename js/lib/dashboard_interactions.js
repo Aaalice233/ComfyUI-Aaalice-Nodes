@@ -60,7 +60,9 @@ export function isGroupMembershipDrop(targetGroupId, sourceGroupIds) {
 }
 
 export function shouldStartMarquee({ hasEntry = false, selected = false, additive = false, subtract = false } = {}) {
-	return !hasEntry || !selected || additive || subtract;
+	// A plain card gesture is always a drag candidate, even when the card is not selected yet.
+	// Blank space (or an explicit modifier gesture) is the unambiguous marquee surface.
+	return !hasEntry || additive || subtract;
 }
 
 function clearGroupDropTarget(gesture) {
@@ -147,6 +149,7 @@ export function bindDashboardInteractions(root, { editMode = false, interactionS
 		const scroller = root.closest(".aa-dashboard-scroll") || root; const rect = scroller.getBoundingClientRect();
 		if (clientY < rect.top + 36) scroller.scrollBy?.({ top: -12 }); else if (clientY > rect.bottom - 36) scroller.scrollBy?.({ top: 12 });
 	};
+	const canStartMarqueeAt = (target) => root.contains(target) || Boolean(target?.closest?.(".aa-dashboard-scroll"));
 	const onPointerDown = (event) => {
 		if (event.button !== 0) return;
 		const resizeHandle = event.target.closest?.("[data-dashboard-resize-handle]");
@@ -181,13 +184,14 @@ export function bindDashboardInteractions(root, { editMode = false, interactionS
 		const entry = selectedAncestorGroup && currentGroups.has(selectedAncestorGroup.dataset.dashboardGroupId) ? selectedAncestorGroup : closestEntry;
 		const entrySelected = Boolean(entry && (entry.dataset.dashboardItemId ? currentItems.has(entry.dataset.dashboardItemId) : currentGroups.has(entry.dataset.dashboardGroupId)));
 		const additive = additiveFor(event); const subtract = event.altKey;
-		// 空白、未选卡片和带修饰键的卡片都能作为框选起点；已选卡片保留直接拖动。
+		// 普通卡片手势优先作为“点选并拖动”；只有空白区域或修饰键才进入框选，避免组件本身变成十字光标触发区。
 		if (shouldStartMarquee({ hasEntry: Boolean(entry), selected: entrySelected, additive, subtract })) {
+			if (!entry && !canStartMarqueeAt(event.target)) return;
 			const mode = event.altKey ? "subtract" : "add";
 			const initialItems = new Set(currentItems); const initialGroups = new Set(currentGroups);
 			if (!additive && !subtract) emitSelection(new Set(), new Set());
 			gesture = { kind: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, mode, initialItems, initialGroups, baseItems: additive || subtract ? initialItems : new Set(), baseGroups: additive || subtract ? initialGroups : new Set(), pendingToggle: entry || null, pendingAdditive: additive, dragging: false, marquee: null, badge: null };
-			surface.setPointerCapture?.(event.pointerId); return;
+			surface.setPointerCapture?.(event.pointerId); event.preventDefault(); return;
 		}
 		const selection = clickSelection(entry, { additive: additiveFor(event) });
 		const visibleItems = itemElements(); const visibleGroups = groupElements();
@@ -211,6 +215,7 @@ export function bindDashboardInteractions(root, { editMode = false, interactionS
 		if (!gesture.dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
 			if (!gesture.dragging) {
 				gesture.dragging = true;
+				event.preventDefault();
 				if (gesture.kind === "marquee") root.classList.add("is-selecting");
 				else if (gesture.kind === "drag" && gesture.topLevel) emitSelection(gesture.itemIds, gesture.groupIds);
 			}

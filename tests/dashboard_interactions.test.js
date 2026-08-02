@@ -49,9 +49,9 @@ test("marquee application supports additive and subtractive modes", () => {
 	assert.deepEqual([...applyMarqueeSelection(["a"], ["b"], "subtract")], ["a"]);
 });
 
-test("dense dashboards start marquee from unselected cards while selected cards remain draggable", () => {
+test("plain card drags stay draggable while blank and modified gestures start marquee", () => {
 	assert.equal(shouldStartMarquee({ hasEntry: false }), true);
-	assert.equal(shouldStartMarquee({ hasEntry: true, selected: false }), true);
+	assert.equal(shouldStartMarquee({ hasEntry: true, selected: false }), false);
 	assert.equal(shouldStartMarquee({ hasEntry: true, selected: true }), false);
 	assert.equal(shouldStartMarquee({ hasEntry: true, selected: true, additive: true }), true);
 	assert.equal(shouldStartMarquee({ hasEntry: true, selected: true, subtract: true }), true);

@@ -1,24 +1,16 @@
 /** Reusable composite components for Aaalice sidebar workspaces. */
 
-import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, createTooltip, el, icon, iconButton, inlineRename, searchToggleButton, segmentedControl } from "./ui.js";
+import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, searchToggleButton, segmentedControl } from "./ui.js";
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
-const componentNoteTooltip = createTooltip({ delay: 260, closeDelay: 60 });
-
-export function createComponentNoteButton({ labels = {}, className = "", onOpen } = {}) {
-	const label = labels.viewNote || "View component note";
-	const hint = labels.noteHint || "Click to view the full note";
+export function createComponentNoteButton({ note = "", labels = {}, className = "" } = {}) {
+	const label = labels.viewNote || "View parameter note";
 	const control = iconButton({
-		iconName: "info", label, title: null, variant: "ghost",
+		iconName: "help", label, title: null, variant: "ghost",
 		className: `aa-component-note-badge${className ? ` ${className}` : ""}`,
-		onClick: () => { componentNoteTooltip.hide(); onOpen?.(control); },
 	});
-	control.setAttribute("aria-haspopup", "dialog");
-	control.addEventListener("mouseenter", () => componentNoteTooltip.show(control, hint, { contentMode: "text" }));
-	control.addEventListener("mouseleave", componentNoteTooltip.hide);
-	control.addEventListener("focus", () => componentNoteTooltip.show(control, hint, { contentMode: "text" }));
-	control.addEventListener("blur", componentNoteTooltip.hide);
+	attachDescriptionTooltip(control, () => note || "");
 	return control;
 }
 
@@ -516,7 +508,7 @@ export function createPageRail(initialState = {}) {
 	return root;
 }
 
-export function createControlCard({ item, title, control, status = "ok", description = "", linkedCount = 0, mixed = false, editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onGroup, onUngroup, onRenameTitle, onOpenNote }) {
+export function createControlCard({ item, title, control, status = "ok", description = "", linkedCount = 0, mixed = false, editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onGroup, onUngroup, onRenameTitle }) {
 	const headerOnly = control?.dataset?.headerOnly === "true";
 	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
 	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}${linkedCount ? " has-linked-bindings" : ""}${mixed ? " has-mixed-bindings" : ""}${item.note ? " has-component-note" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
@@ -534,7 +526,7 @@ export function createControlCard({ item, title, control, status = "ok", descrip
 	}
 	header.append(titleElement);
 	if (description) attachDescriptionTooltip(titleElement, description);
-	if (item.note && onOpenNote) header.append(createComponentNoteButton({ labels, onOpen: onOpenNote }));
+	if (item.note) header.append(createComponentNoteButton({ note: item.note, labels }));
 	if (linkedCount) {
 		const total = linkedCount + 1;
 		const linkedLabel = String(labels.linkedParameters || "Controls {count} parameters").replace("{count}", String(total));

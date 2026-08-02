@@ -109,7 +109,8 @@ test("Dashboard V4 layout editing uses transient integer-grid gestures and one c
 	assert.match(workspace, /className: "aa-dashboard-select-all"/);
 	assert.match(workspace, /const topLevelItems = \[\.\.\.grid\.children\]/);
 	assert.match(theme, /\.aa-workspace-content\.is-layout-editing \{[^}]*cursor: crosshair;[^}]*user-select: none;/);
-	assert.match(theme, /:is\(\[data-dashboard-item-id\], \[data-dashboard-group-id\]\)\.is-selected,[\s\S]*cursor: grab;/);
+	assert.match(theme, /\.is-layout-editing :is\(\[data-dashboard-item-id\], \[data-dashboard-group-id\]\) \{ cursor: grab; \}/);
+	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*cursor: grab;/);
 	assert.match(dashboardInteractions, /event\.key === " " && !event\.repeat/);
 	assert.match(dashboardInteractions, /precise = !current\.membershipTarget && Number\(target\.grid\.dataset\.dashboardColumns\) !== 1 && current\.elements\.every/);
 	assert.match(dashboardInteractions, /containedIds/);

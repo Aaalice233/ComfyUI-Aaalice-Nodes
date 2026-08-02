@@ -361,7 +361,8 @@ test("every dashboard component supports persistent Markdown notes with explicit
 	assert.match(workspace, /item\.note \? t\("aaalice\.workspace\.componentNote\.editMenu"/);
 	assert.match(workspace, /createComponentNoteButton/);
 	assert.match(components, /aa-component-note-badge/);
-	assert.match(components, /Click to view the full note/);
+	assert.match(components, /iconName: "help"/); assert.match(components, /attachDescriptionTooltip\(control, \(\) => note/);
+	assert.doesNotMatch(components, /control\.setAttribute\("aria-haspopup"/); assert.doesNotMatch(components, /onOpen\?\.\(control\)/); assert.match(workspace, /createComponentNoteButton\(\{ note: item\.note/);
 	assert.match(markdownEditor, /unordered-list/);
 	assert.match(markdownEditor, /ordered-list/);
 	assert.match(markdownEditor, /task-list/);

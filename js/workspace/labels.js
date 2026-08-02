@@ -84,6 +84,6 @@ export function workspaceLabels() {
 		},
 		missing: t("aaalice.workspace.binding.missing", "Missing binding"), incompatible: t("aaalice.workspace.binding.incompatible", "Incompatible control"),
 		linkedParameters: t("aaalice.workspace.binding.linkedParameters", "Controls {count} parameters"), mixedValues: t("aaalice.workspace.binding.mixedValues", "Values differ"),
-		viewNote: t("aaalice.workspace.componentNote.view", "View component note"), noteHint: t("aaalice.workspace.componentNote.hint", "Click to view the full note"),
+			viewNote: t("aaalice.workspace.componentNote.view", "View parameter note"),
 	};
 }
