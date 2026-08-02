@@ -367,9 +367,10 @@ export function createCollapsibleSearch({ open = false, value = "", label, close
 
 export function createPageRail(initialState = {}) {
 	const root = el("nav", { className: "aa-dashboard-page-rail", attrs: { "aria-orientation": "vertical" } });
+	const hoverArea = el("span", { className: "aa-dashboard-page-rail__hover-area", attrs: { "aria-hidden": "true" } });
 	const list = el("div", "aa-dashboard-page-list");
 	const cursor = el("span", { className: "aa-dashboard-page-cursor", attrs: { "aria-hidden": "true" } });
-	list.append(cursor); root.append(list);
+	list.append(cursor); root.append(hoverArea, list);
 	const items = new Map();
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
 	let cursorFrame = 0;

@@ -132,8 +132,23 @@ test("third-party widget adapters can serialize and validate domain-specific pre
 test("promoted widget discovery only exposes actual public subgraph widgets", () => {
 	const ordinary = { name: "ordinary", type: "number", value: 1, options: {} };
 	const promoted = { name: "public", type: "number", value: 2, options: {}, serialize: false, sourceNodeId: "4", sourceWidgetName: "cfg" };
-	assert.deepEqual(listAdaptedWidgetControls({ widgets: [ordinary, promoted] }, { promoted: true }).map((item) => item.controlId), ["public"]);
+	assert.deepEqual(listAdaptedWidgetControls({ widgets: [ordinary, promoted] }, { promoted: true }).map((item) => item.controlId), ['promoted:["4","cfg",null]']);
 	assert.ok(registeredWidgetControlAdapters().some((adapter) => adapter.id === "comfy-native-widget"));
+});
+
+test("promoted widgets with the same public name keep distinct source identities", () => {
+	const first = { name: "sampler_name", type: "combo", value: "euler", options: { values: ["euler"] }, serialize: false, sourceNodeId: "4", sourceWidgetName: "sampler_name" };
+	const second = { name: "sampler_name", type: "combo", value: "ddim", options: { values: ["ddim"] }, serialize: false, sourceNodeId: "5", sourceWidgetName: "sampler_name" };
+	const node = { widgets: [first, second] };
+	const controls = listAdaptedWidgetControls(node, { promoted: true });
+	assert.deepEqual(controls.map((control) => control.controlId), [
+		'promoted:["4","sampler_name",null]',
+		'promoted:["5","sampler_name",null]',
+	]);
+	assert.notEqual(controls[0].controlId, controls[1].controlId);
+	assert.equal(resolveAdaptedWidgetControl(node, controls[0].controlId, { promoted: true })?.widget, first);
+	assert.equal(resolveAdaptedWidgetControl(node, controls[1].controlId, { promoted: true })?.widget, second);
+	assert.equal(resolveAdaptedWidgetControl(node, "sampler_name", { promoted: true }), null);
 });
 
 test("bound widget resolution reuses the structural index while keeping values live", () => {
@@ -272,6 +287,7 @@ test("nested promoted widgets follow disambiguating source identity across subgr
 		subgraph: { getNodeById: (id) => id === "10" ? nestedHost : null },
 	};
 	const [control] = listAdaptedWidgetControls(outerHost, { promoted: true });
+	assert.equal(control?.controlId, 'promoted:["10","image","20"]');
 	assert.equal(control?.adapterId, "comfy-image-combo");
 	assert.equal(control?.options.image_folder, "output");
 });

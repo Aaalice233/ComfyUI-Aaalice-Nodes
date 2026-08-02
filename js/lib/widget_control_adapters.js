@@ -158,7 +158,7 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	if (kind != null && (typeof kind !== "string" || !kind)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid kind`);
 	const numericDomain = described.numericDomain ?? null;
 	if (numericDomain != null && !["integer", "float"].includes(numericDomain)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid numericDomain`);
-	const controlId = String(described.controlId || widget.name || "");
+	const controlId = controlIdForWidget(widget, described.controlId);
 	if (!controlId) throw new TypeError(`Widget control adapter ${adapter.id} returned an empty controlId`);
 	const rawOptions = described.options || widget.options || {};
 	const options = kind === "choice" ? normalizedChoiceOptions(rawOptions, context) : rawOptions;
@@ -236,13 +236,36 @@ export function listAdaptedWidgetControls(node, { promoted = false, adapterId = 
 
 function adaptedIndexKey({ promoted = false, adapterId = null } = {}) { return `${promoted ? "promoted" : "native"}:${adapterId || "*"}`; }
 function sameWidgetSnapshot(left, right) { return left.length === right.length && left.every((widget, index) => widget === right[index]); }
+function addLegacyControlAlias(aliases, alias, widget) {
+	if (!alias) return;
+	const key = String(alias);
+	if (!aliases.has(key)) aliases.set(key, widget);
+	else if (aliases.get(key) !== widget) aliases.set(key, null);
+}
+
+function legacyControlAliases(widget) {
+	if (!isPromotedWidget(widget)) return [];
+	return [...new Set([widget.name, widget.sourceWidgetName].filter(Boolean).map(String))];
+}
+
 function cacheAdaptedWidgetIndex(node, widgets, controls, options) {
 	if (!node || (typeof node !== "object" && typeof node !== "function")) return;
 	let indexes = adaptedWidgetIndexes.get(node);
 	if (!indexes) { indexes = new Map(); adaptedWidgetIndexes.set(node, indexes); }
-	const byControlId = new Map();
-	for (const control of controls) if (!byControlId.has(control.controlId)) byControlId.set(control.controlId, control.widget);
-	indexes.set(adaptedIndexKey(options), { adapterRevision, widgets: [...widgets], byControlId });
+	const byControlId = new Map(); const byLegacyControlId = new Map();
+	for (const control of controls) {
+		if (!byControlId.has(control.controlId)) byControlId.set(control.controlId, control.widget);
+		for (const alias of legacyControlAliases(control.widget)) addLegacyControlAlias(byLegacyControlId, alias, control.widget);
+	}
+	indexes.set(adaptedIndexKey(options), { adapterRevision, widgets: [...widgets], byControlId, byLegacyControlId });
+}
+
+function findAdaptedControl(controls, controlId, promoted) {
+	const key = String(controlId);
+	const exact = controls.find((candidate) => candidate.controlId === key);
+	if (exact || !promoted) return exact || null;
+	const legacy = controls.filter((candidate) => legacyControlAliases(candidate.widget).includes(key));
+	return legacy.length === 1 ? legacy[0] : null;
 }
 
 /** Resolve one bound control without rebuilding descriptors for every sibling widget. */
@@ -250,14 +273,15 @@ export function resolveAdaptedWidgetControl(node, controlId, { promoted = false,
 	if (!node || (typeof node !== "object" && typeof node !== "function")) return null;
 	const widgets = node?.widgets || [];
 	const options = { promoted, adapterId };
+	const key = String(controlId);
 	const cached = adaptedWidgetIndexes.get(node)?.get(adaptedIndexKey(options));
 	if (cached?.adapterRevision === adapterRevision && sameWidgetSnapshot(cached.widgets, widgets)) {
-		const widget = cached.byControlId.get(String(controlId));
+		const widget = cached.byControlId.get(key) || (promoted ? cached.byLegacyControlId.get(key) : null);
 		if (!widget) return null;
 		const adapted = adaptWidgetControl(node, widget, options);
-		if (adapted?.controlId === String(controlId) && (!promoted || isPromotedWidget(adapted.widget))) return adapted;
+		if (adapted?.controlId === key || (promoted && adapted?.widget === widget)) return adapted;
 	}
-	return listAdaptedWidgetControls(node, options).find((candidate) => candidate.controlId === String(controlId)) || null;
+	return findAdaptedControl(listAdaptedWidgetControls(node, options), key, promoted);
 }
 
 export function invalidateWidgetControlAdapterCache(node = null) {
@@ -406,6 +430,19 @@ registerWidgetControlAdapter({
 
 function isPromotedWidget(widget) {
 	return widget && typeof widget.sourceNodeId !== "undefined" && typeof widget.sourceWidgetName === "string";
+}
+
+function controlIdForWidget(widget, requestedControlId) {
+	if (!isPromotedWidget(widget)) return String(requestedControlId || widget?.name || "");
+	const requested = requestedControlId == null ? "" : String(requestedControlId);
+	if (!requested || requested === String(widget.name || "") || requested === String(widget.sourceWidgetName)) {
+		return `promoted:${JSON.stringify([
+			String(widget.sourceNodeId),
+			String(widget.sourceWidgetName),
+			widget.disambiguatingSourceNodeId == null ? null : String(widget.disambiguatingSourceNodeId),
+		])}`;
+	}
+	return requested;
 }
 
 registerWidgetControlAdapter({

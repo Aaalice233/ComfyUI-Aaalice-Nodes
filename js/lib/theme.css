@@ -1371,9 +1371,11 @@
 .aa-dashboard-empty { flex: 1; min-height: 220px; }
 .aa-dashboard-body { position: relative; display: grid; min-height: 0; flex: 1; grid-template-columns: minmax(0, 1fr) 38px; }
 .aa-dashboard-page-stage { position: relative; display: grid; min-width: 0; min-height: 0; overflow: hidden; grid-column: 1; grid-row: 1; }
-.aa-dashboard-page-rail { position: relative; z-index: 6; display: flex; width: 38px; min-width: 38px; box-sizing: border-box; align-items: center; justify-content: flex-end; grid-column: 2; grid-row: 1; padding: 12px 7px 12px 0; pointer-events: auto; overscroll-behavior: contain; }
+.aa-dashboard-page-rail { --aa-dashboard-page-rail-expanded-width: min(164px, calc(100vw - 48px)); position: relative; z-index: 6; display: flex; width: 38px; min-width: 38px; box-sizing: border-box; align-items: center; justify-content: flex-end; grid-column: 2; grid-row: 1; padding: 12px 7px 12px 0; pointer-events: auto; overscroll-behavior: contain; }
+.aa-dashboard-page-rail__hover-area { position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; width: 38px; pointer-events: none; }
+.aa-dashboard-page-rail.is-expanded .aa-dashboard-page-rail__hover-area, .aa-dashboard-page-rail:has(.aa-dashboard-page-dot:focus-visible) .aa-dashboard-page-rail__hover-area { right: auto; left: calc(38px - var(--aa-dashboard-page-rail-expanded-width)); width: var(--aa-dashboard-page-rail-expanded-width); pointer-events: auto; }
 .aa-dashboard-page-rail.is-empty { display: none; }
-.aa-dashboard-page-list { position: relative; display: flex; width: 100%; min-height: 0; max-height: 100%; flex-direction: column; align-items: flex-end; justify-content: center; gap: 7px; padding: 7px 0; }
+.aa-dashboard-page-list { position: relative; z-index: 1; display: flex; width: 100%; min-height: 0; max-height: 100%; flex-direction: column; align-items: flex-end; justify-content: center; gap: 7px; padding: 7px 0; }
 .aa-dashboard-page-cursor { position: absolute; z-index: 0; top: 0; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--aa-ui-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--aa-ui-accent) 16%, transparent), 0 2px 8px color-mix(in srgb, var(--aa-ui-accent) 40%, transparent); pointer-events: none; transition: transform .2s cubic-bezier(.2, .78, .22, 1), opacity .16s ease; }
 .aa-dashboard-page-cursor[hidden] { display: none; }
 .aa-dashboard-page-cursor.is-initializing { opacity: 0; transition: none; }
