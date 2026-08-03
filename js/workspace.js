@@ -58,6 +58,7 @@ const DASHBOARD_PAGE_RAIL_WIDTH = 38;
 const mounted = new Set();
 const autoCloseCanvases = new WeakSet();
 const bindingNavigationCanvases = new WeakSet();
+const bindingModeSettings = new WeakSet();
 const dashboardPageRails = new WeakMap();
 const workspaceOwnedTrees = new WeakMap();
 const workspaceOwnershipObservers = new Map();
@@ -113,6 +114,13 @@ function installCanvasBindingNavigationSync() {
 		invalidateWidgetControlAdapterCache();
 		scheduleCanvasControlBindingSync();
 	});
+}
+
+function installCanvasBindingModeSync() {
+	const settings = app.ui?.settings;
+	if (!settings || typeof settings.addEventListener !== "function" || bindingModeSettings.has(settings)) return;
+	bindingModeSettings.add(settings);
+	settings.addEventListener("Comfy.VueNodes.Enabled.change", () => scheduleCanvasControlBindingSync());
 }
 
 export async function openPromptLibraryEntryEditor(entryId) {
@@ -556,6 +564,7 @@ app.registerExtension({
 		}, destroy: destroyWorkspaceSidebar });
 		installWorkspaceCanvasAutoClose();
 		installCanvasBindingNavigationSync();
+		installCanvasBindingModeSync();
 		const nodes = graphNodes(); repairDuplicateHostIds(nodes); for (const node of nodes) patchNodeMenu(node); previousGraphStructure = graphSyncSignature(nodes); scheduleCanvasControlBindingSync();
 		api.addEventListener("graphChanged", () => { invalidateWidgetControlAdapterCache(); scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
 		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。

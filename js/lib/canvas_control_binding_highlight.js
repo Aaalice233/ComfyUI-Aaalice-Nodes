@@ -7,7 +7,6 @@ const widgetMarkers = new WeakMap();
 const activeWidgets = new Set();
 const domStates = new Map();
 const pendingDomStates = new Map();
-let domMode = null;
 let mountObserver = null;
 let mountRefreshFrame = 0;
 const CANVAS_BINDING_COLOR = "#a855f7";
@@ -118,17 +117,12 @@ function sameWidgetSet(left, right) {
 }
 
 function isNodes2Mode() {
-	if (domMode !== null) return domMode;
-	if (globalThis.LiteGraph?.vueNodesMode === true || app.canvas?.vueNodesMode === true) {
-		domMode = true;
-		return domMode;
-	}
-	if (typeof document === "undefined") {
-		domMode = false;
-		return domMode;
-	}
-	domMode = Boolean(document.querySelector('[data-testid="node-widgets"]'));
-	return domMode;
+	const liteGraphMode = globalThis.LiteGraph?.vueNodesMode;
+	if (typeof liteGraphMode === "boolean") return liteGraphMode;
+	const canvasMode = app.canvas?.vueNodesMode;
+	if (typeof canvasMode === "boolean") return canvasMode;
+	if (typeof document === "undefined") return false;
+	return Boolean(document.querySelector('[data-testid="node-widgets"]'));
 }
 
 function cssEscape(value) {
@@ -153,11 +147,19 @@ function settingShowsAdvancedWidgets() {
 	}
 }
 
+function isPromotedCanvasOnlyWidget(widget) {
+	// The Nodes 2.0 safe mapper adds canvasOnly to promoted $$ pseudo widgets;
+	// the raw PromotedWidgetView options do not carry that derived flag.
+	return typeof widget?.sourceNodeId !== "undefined"
+		&& typeof widget?.sourceWidgetName === "string"
+		&& widget.sourceWidgetName.startsWith("$$");
+}
+
 function visibleWidgetCandidates(node, showAdvanced) {
 	const widgets = node?.widgets || [];
 	return widgets.filter((widget) => {
 		const options = widget?.options || {};
-		if (!widget?.type || options.canvasOnly || options.hidden) return false;
+		if (!widget?.type || options.canvasOnly || options.hidden || isPromotedCanvasOnlyWidget(widget)) return false;
 		const advanced = Boolean(options.advanced ?? widget.advanced);
 		return !advanced || showAdvanced || widget?.slotMetadata?.linked || widget?.linked;
 	});
@@ -244,7 +246,7 @@ function attachRoot(state, root) {
 		const next = findContainer(state);
 		if (next !== state.container) attachContainer(state, next);
 	});
-	state.rootObserver.observe(root, { childList: true });
+	state.rootObserver.observe(root, { childList: true, subtree: true });
 	attachContainer(state, findContainer(state));
 }
 

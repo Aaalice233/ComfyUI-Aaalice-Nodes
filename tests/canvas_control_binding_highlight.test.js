@@ -26,7 +26,12 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 	assert.match(highlight, /data-testid=\\?\"node-widgets/);
 	assert.match(highlight, /DOM_BOUND_CLASS/);
 	assert.match(highlight, /mapCanvasWidgetRows\(rows, candidates\)/);
+	assert.match(highlight, /sourceWidgetName\.startsWith\("\$\$"\)/);
+	assert.match(highlight, /isPromotedCanvasOnlyWidget\(widget\)/);
 	assert.match(highlight, /app\.canvas\?\.setDirty\?\.\(true, true\)/);
+	assert.match(highlight, /rootObserver\.observe\(root, \{ childList: true, subtree: true \}\)/);
+	assert.match(highlight, /typeof liteGraphMode === "boolean"/);
+	assert.doesNotMatch(highlight, /let domMode = null/);
 	assert.doesNotMatch(highlight, /list\.length === rows\.length/);
 	assert.match(rowMapping, /host's visibility, deduplication, and canvas-only processing/);
 	assert.match(theme, /--p-purple-500, #a855f7/);
@@ -38,5 +43,8 @@ test("canvas binding highlights reconcile on structure, host invalidation, and g
 	assert.match(workspace, /CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{ invalidateWidgetControlAdapterCache\(event\.detail\?\.node \|\| null\); scheduleRender\("dashboard"\); scheduleCanvasControlBindingSync\(\);/);
 	assert.match(workspace, /canvas\.addEventListener\("litegraph:set-graph", \(\) => \{[\s\S]*invalidateWidgetControlAdapterCache\(\);[\s\S]*scheduleCanvasControlBindingSync\(\);/);
 	assert.match(workspace, /installCanvasBindingNavigationSync\(\)/);
+	assert.match(workspace, /function installCanvasBindingModeSync\(\)/);
+	assert.match(workspace, /Comfy\.VueNodes\.Enabled\.change/);
+	assert.match(workspace, /installCanvasBindingModeSync\(\)/);
 	assert.doesNotMatch(highlight, /setInterval\(/);
 });

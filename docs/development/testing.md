@@ -75,86 +75,24 @@ Assert-NativeSuccess 'git diff --check'
 - 前端模块拆分或入口调整后，`tests/frontend_import_paths.test.js` 是否通过；该测试覆盖本包相对路径与 named export 链，不能替代浏览器 Console、真实 ComfyUI 入口和 GUI 主路径验收。
 - README 是否只保留用户信息，完整排期是否只存在于 `roadmap.md`。
 
-## 3. 独立测试实例
+## 3. 独立测试实例与 ComfyUI 自动化
 
-用户通常已在 `127.0.0.1:8188` 运行日常 ComfyUI。自动验收不得停止、复用或修改该实例。
+ComfyUI 的通用启动、工作流副本、GUI 载入、Nodes 2.0、刷新和后端重启流程已经封装为可跨项目复用的 Pi skill：
 
-### 3.1 端口与隔离
+- Skill：`C:/Users/Administrator/.pi/agent/skills/comfyui-agent-browser-testing/SKILL.md`
+- 一键启动/复制工作流/生成隔离 manifest：`scripts/Invoke-ComfyUiTestRun.ps1 -Action start`
+- 查询或停止：`-Action status`、`-Action stop`
+- 后端修改后的完整重启：`-Action restart -RunRoot <manifest.runRoot>`
 
-- 默认从 `127.0.0.1:8189` 启动测试实例；若占用，依次选择其它空闲端口。
-- 测试实例必须同时隔离 `user-directory`、数据库和日志。只设置 `--user-directory` 不能保证数据库隔离。
-- 临时目录统一放在 `../../../logs/codex-e2e-<timestamp>/`，验收结束后只清理本轮创建的资源。
-- 启动前记录命令和 PID；停止前再次核对 PID、命令行和端口，避免误停用户实例。
+本项目只保留以下不可省略的边界：
 
-示例（端口按实际空闲值替换）：
+1. 不停止、不复用、不写入用户日常 `127.0.0.1:8188`；测试实例使用独立 loopback 端口、`user-directory`、数据库和日志。
+2. 调用方提供工作流时必须复制为 `workflow-source-backup.json` 与 `workflow-under-test.json`，浏览器只操作后者。
+3. 必须通过 ComfyUI GUI 的 `文件 → 打开` 和稳定输入 `#comfy-file-input` 载入副本；上传后同时保留上传结果、截图和只读图摘要。
+4. 前端改动 fresh 打开或硬刷新后重新载入副本；后端、注册、路由或执行链改动必须完整重启后重新载入，不能用 HotReload 代替。
+5. 真实 GUI 流程只使用 native `agent_browser`；不可用时停止自动化并交用户手测，不降级到有窗口浏览器、CDP、Playwright 或 Selenium。
 
-```powershell
-$ErrorActionPreference = 'Stop'
-
-$comfyRoot = (Resolve-Path '../..').Path
-$python = (Resolve-Path '../../.venv/Scripts/python.exe').Path
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$runRoot = Join-Path (Resolve-Path '../../../logs').Path "codex-e2e-$stamp"
-$userDir = Join-Path $runRoot 'user'
-$dbPath = (Join-Path $runRoot 'comfyui.db').Replace('\', '/')
-$stdoutPath = Join-Path $runRoot 'stdout.log'
-$stderrPath = Join-Path $runRoot 'stderr.log'
-$port = 8189
-
-New-Item -ItemType Directory -Force -Path $userDir | Out-Null
-
-$arguments = @(
-    'main.py',
-    '--listen', '127.0.0.1',
-    '--port', "$port",
-    '--user-directory', $userDir,
-    '--database-url', "sqlite:///$dbPath"
-)
-
-$process = Start-Process -FilePath $python `
-    -ArgumentList $arguments `
-    -WorkingDirectory $comfyRoot `
-    -RedirectStandardOutput $stdoutPath `
-    -RedirectStandardError $stderrPath `
-    -WindowStyle Hidden `
-    -PassThru
-
-"PID=$($process.Id) URL=http://127.0.0.1:$port STDOUT=$stdoutPath STDERR=$stderrPath"
-```
-
-以日志中的 `To see the GUI go to:` 和 `web root:` 为准，不凭启动命令猜测服务已就绪。
-
-停止测试实例前核对：
-
-```powershell
-$candidate = Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)"
-$candidate | Select-Object ProcessId, ExecutablePath, CommandLine
-Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-```
-
-确认命令行、PID 和端口属于本轮实例后，再使用 `Stop-Process -Id $process.Id`。
-
-### 3.2 工作流快照与载入
-
-GUI 验收不是在空白图中默认替代用户场景。调用方提供工作流文件时，使用本轮运行目录中的临时副本：
-
-```powershell
-$ErrorActionPreference = 'Stop'
-
-$workflowPath = (Resolve-Path $WorkflowPath).Path  # 由调用方传入，不写死到 runbook
-if (-not (Test-Path -LiteralPath $workflowPath -PathType Leaf)) {
-    throw "Workflow file not found: $workflowPath"
-}
-
-$workflowBackup = Join-Path $runRoot 'workflow-source-backup.json'
-$workflowUnderTest = Join-Path $runRoot 'workflow-under-test.json'
-Copy-Item -LiteralPath $workflowPath -Destination $workflowBackup -Force
-Copy-Item -LiteralPath $workflowPath -Destination $workflowUnderTest -Force
-```
-
-- 通过 `agent_browser` 的 GUI 打开/上传 `workflow-under-test.json`，等待工作流恢复完成后再定位节点；不得用服务端 API 或 `eval` 直接注入图状态代替真实载入。
-- 所有节点创建、子图创建/进入、公开 widget 显示、右键菜单和侧边栏交互都在副本上完成；原始工作流只读保留，失败时用 `workflow-source-backup.json` 恢复。
-- 若工作流只存在于普通浏览器的未保存状态，无法从文件快照恢复时必须明确交由用户提供导出的 JSON 或进行人工验收。
+详细步骤、固定 CSS、模板首屏分支、Nodes 2.0 开关、刷新后重新上传和失败判定只维护在上述 skill，避免本文件与跨项目操作手册分叉。
 
 ## 4. 日志与刷新
 
