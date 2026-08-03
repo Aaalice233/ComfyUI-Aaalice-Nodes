@@ -499,6 +499,8 @@ test("group and card titles support double-click inline rename", () => {
 	assert.match(workspace, /onRenameGroup: \(group, name\) => updateDashboard/);
 	assert.match(workspace, /function controlTitle\(item, resolved\)/);
 	assert.match(workspace, /function resolveGroupTitle\(group\)/);
+	assert.match(workspace, /const resolveGroupTitle = \(group\) => runtime\.resolveGroupTitle\(group\)/);
+	assert.match(workspace, /configureDashboardBindings\(\{[\s\S]*resolveGroupTitle,/);
 	assert.match(workspace, /name\.value = resolveGroupTitle\(group\)/);
 	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT/);
 	assert.match(workspace, /buildSourceSnapshot\(sourceResult\.controls, group\.source/);

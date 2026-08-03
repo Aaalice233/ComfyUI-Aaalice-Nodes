@@ -484,8 +484,9 @@ export function createPageRail(initialState = {}) {
 
 export function createControlCard({ item, title, control, status = "ok", description = "", linkedCount = 0, mixed = false, editMode, labels = {}, onManage, onMove, onRemove, onToggleSpan, onGroup, onUngroup, onRenameTitle }) {
 	const headerOnly = control?.dataset?.headerOnly === "true";
+	const hasMultilineControl = control?.classList?.contains("is-multiline");
 	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
-	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}${linkedCount ? " has-linked-bindings" : ""}${mixed ? " has-mixed-bindings" : ""}${item.note ? " has-component-note" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
+	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}${hasMultilineControl ? " has-multiline-control" : ""}${linkedCount ? " has-linked-bindings" : ""}${mixed ? " has-mixed-bindings" : ""}${item.note ? " has-component-note" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
 	if (control?.dataset?.controlKind) root.dataset.controlKind = control.dataset.controlKind;
 	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
 	root.dataset.dashboardMinRowSpan = String(control?.dataset?.dashboardMinRowSpan || (headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN));

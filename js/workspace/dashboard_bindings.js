@@ -27,6 +27,7 @@ const updateDashboard = (callback) => runtime.updateDashboard(callback);
 const graphNodes = () => runtime.graphNodes();
 const resolve = (binding) => runtime.resolve(binding);
 const workspaceLabels = () => runtime.workspaceLabels();
+const resolveGroupTitle = (group) => runtime.resolveGroupTitle(group);
 const scheduleRender = (view = null) => runtime.scheduleRender(view);
 const scheduleCanvasControlBindingSync = () => runtime.scheduleCanvasControlBindingSync();
 const scheduleActiveDashboardPresetAutoSave = () => runtime.scheduleActiveDashboardPresetAutoSave();

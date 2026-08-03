@@ -1,5 +1,6 @@
 /** Adapters for Aaalice composite widgets and compatible third-party controls. */
 
+import { DASHBOARD_STANDARD_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 import { registerWidgetControlAdapter } from "./widget_control_adapters.js";
 
 const RESOLUTION_NODE = "ResolutionPreset";
@@ -117,8 +118,8 @@ registerWidgetControlAdapter({
 			value,
 			options: { multiline: true, ...(widget.options?.placeholder ? { placeholder: widget.options.placeholder } : {}) },
 			subscribeValueChange: (listener) => subscribeLoraValueChange(widget, listener),
-			rowSpan: 24,
-			minRowSpan: 18,
+			rowSpan: DASHBOARD_STANDARD_CONTROL_ROW_SPAN,
+			minRowSpan: DASHBOARD_STANDARD_CONTROL_ROW_SPAN,
 		};
 	},
 });

@@ -435,6 +435,7 @@ configureDashboardBindings({
 	graphNodes,
 	resolve,
 	workspaceLabels,
+	resolveGroupTitle,
 	scheduleRender,
 	scheduleCanvasControlBindingSync,
 	scheduleActiveDashboardPresetAutoSave,

@@ -22,6 +22,7 @@ const LABEL_POLICIES = new Set(["widget", "node-title"]);
 const GENERIC_NATIVE_WIDGET_LABELS = new Set(["value", "值", "数值", "text", "文本", "string", "字符串"]);
 const AVAILABILITY_STATES = new Set(["ready", "empty", "unset", "unavailable", "error"]);
 const INACTIVE_NATIVE_WIDGET_TYPES = new Set(["converted-widget", "hidden"]);
+const MULTILINE_NATIVE_WIDGET_TYPES = new Set(["customtext", "multiline", "textarea"]);
 const imageCompareCallbacks = new WeakMap();
 
 export function controlValueType(value) {
@@ -80,6 +81,12 @@ function optionValues(options = {}, context = null) {
 
 function normalizedChoiceOptions(options, context) {
 	return { ...options, values: optionValues(options, context) };
+}
+
+function normalizedTextOptions(widget, options) {
+	// The V3 STRING path uses customtext as the widget type and does not copy multiline into options.
+	if (options.multiline || MULTILINE_NATIVE_WIDGET_TYPES.has(widgetType(widget))) return { ...options, multiline: true };
+	return options;
 }
 
 function nativeWidgetCanvas(node) { return node?.graph?.list_of_graphcanvas?.[0] || null; }
@@ -179,7 +186,7 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	const controlId = controlIdForWidget(widget, described.controlId);
 	if (!controlId) throw new TypeError(`Widget control adapter ${adapter.id} returned an empty controlId`);
 	const rawOptions = described.options || widget.options || {};
-	const options = kind === "choice" ? normalizedChoiceOptions(rawOptions, context) : rawOptions;
+	const options = kind === "choice" ? normalizedChoiceOptions(rawOptions, context) : kind === "text" ? normalizedTextOptions(widget, rawOptions) : rawOptions;
 	const availabilitySource = typeof described.getAvailability === "function" ? described.getAvailability(context) : described.availability;
 	const availability = normalizeAvailability(availabilitySource, { kind, currentValue: value, options });
 	const presetHooks = ["readPresetValue", "validatePresetValue", "applyPresetValue"]

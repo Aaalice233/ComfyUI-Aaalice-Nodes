@@ -57,7 +57,7 @@ test("composite and LoRA widgets expose stable sidebar controls", () => {
 	const lora = listAdaptedWidgetControls({ title: "LoRA prompt", getTitle: () => "LoRA prompt", widgets: [loraWidget] })[0];
 	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan, resolution.rowSpan, resolution.minRowSpan], ["aaalice-resolution-preset", "resolution", 12, 13, 13]);
 	assert.deepEqual([prompt.adapterId, prompt.kind, prompt.rowSpan], ["aaalice-prompt-selector", "prompt-selector", 64]);
-	assert.deepEqual([lora.adapterId, lora.kind, lora.options.multiline, lora.label], ["lora-manager-text", "text", true, "LoRA prompt"]);
+	assert.deepEqual([lora.adapterId, lora.kind, lora.options.multiline, lora.rowSpan, lora.minRowSpan, lora.label], ["lora-manager-text", "text", true, 18, 18, "LoRA prompt"]);
 });
 
 test("native generic value labels use the live node title while explicit labels remain", () => {
@@ -72,6 +72,12 @@ test("native generic value labels use the live node title while explicit labels 
 		],
 	};
 	assert.deepEqual(listAdaptedWidgetControls(node).map((control) => control.label), ["Batch size", "Batch size", "Batch size", "Prompt"]);
+});
+
+test("native customtext widgets retain their multiline semantics", () => {
+	const widget = { name: "prompt", type: "customtext", label: "prompt", value: "" };
+	const adapted = adaptWidgetControl({ widgets: [widget] }, widget);
+	assert.equal(adapted.options.multiline, true);
 });
 
 test("third-party renderers can extend a family without mutating built-ins", () => {
