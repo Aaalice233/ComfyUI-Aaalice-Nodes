@@ -9,6 +9,8 @@ const sourceSyncLocks = new Set();
 
 export function configureDashboardSourceGroups(dependencies) { runtime = dependencies; }
 
+const scheduleStructuralRender = (view = null) => runtime.scheduleStructuralRender(view);
+
 function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
 	for (const [name, value] of Object.entries(values)) result = result.replaceAll(`{${name}}`, String(value));
@@ -55,7 +57,7 @@ function notifySourceSyncFailure(reason) {
 export function syncDashboardSourceGroup(pageId, groupId, { notify = true } = {}) {
 	const lockKey = sourceGroupLockKey(pageId, groupId);
 	if (sourceSyncLocks.has(pageId) || sourceSyncLocks.has(lockKey)) return { status: "skipped" };
-	sourceSyncLocks.add(lockKey); runtime.scheduleRender("dashboard");
+	sourceSyncLocks.add(lockKey); scheduleStructuralRender("dashboard");
 	try {
 		const model = runtime.dashboard(); const page = model.pages.find((entry) => entry.id === pageId); const group = page?.groups.find((entry) => entry.id === groupId);
 		if (!page || !group?.source) return { status: "skipped" };
@@ -73,7 +75,7 @@ export function syncDashboardSourceGroup(pageId, groupId, { notify = true } = {}
 		if (notify) notifySourceSyncFailure(error?.message || error);
 		return { status: "failed", reason: error?.message || String(error) };
 	} finally {
-		sourceSyncLocks.delete(lockKey); runtime.scheduleRender("dashboard");
+		sourceSyncLocks.delete(lockKey); scheduleStructuralRender("dashboard");
 	}
 }
 
@@ -85,7 +87,7 @@ export function syncCurrentPageSourceGroups(pageId) {
 		app.extensionManager?.toast?.add?.({ severity: "info", summary: t("aaalice.workspace.group.sync.title", "Source groups"), detail: t("aaalice.workspace.group.sync.none", "This page has no source groups to synchronize."), life: 3200 });
 		return;
 	}
-	sourceSyncLocks.add(pageId); runtime.scheduleRender("dashboard");
+	sourceSyncLocks.add(pageId); scheduleStructuralRender("dashboard");
 	let next = model; let changed = false; let synced = 0; let skipped = 0; let failed = 0; const failureReasons = []; const totals = { added: 0, removed: 0, renamed: 0, reordered: 0, updated: 0, preservedManual: 0 };
 	try {
 		for (const group of groups) {
@@ -103,6 +105,6 @@ export function syncCurrentPageSourceGroups(pageId) {
 		const failureDetail = failureReasons.length ? ` · ${failureReasons[0]}` : "";
 		app.extensionManager?.toast?.add?.({ severity: failed ? "warn" : "success", summary: t("aaalice.workspace.group.sync.pageComplete", "Current page source groups"), detail: message("aaalice.workspace.group.sync.pageSummary", "{synced} synchronized · {skipped} unchanged · {failed} failed", { synced, skipped, failed }) + (changed ? ` · ${sourceSyncSummaryDetail(totals)}` : "") + failureDetail, life: 5200 });
 	} finally {
-		sourceSyncLocks.delete(pageId); runtime.scheduleRender("dashboard");
+		sourceSyncLocks.delete(pageId); scheduleStructuralRender("dashboard");
 	}
 }

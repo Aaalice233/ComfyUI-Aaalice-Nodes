@@ -474,8 +474,9 @@ test("reactive sidebar render re-entry is a no-op and value updates preserve con
 	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT/);
 	assert.match(workspace, /scheduleRender\("dashboard"\)/);
 	assert.match(workspace, /if \(renderedWorkspaceTabs\.has\(element\)\) return;/);
+	assert.match(workspace, /function scheduleStructuralRender\(view = null\)/);
 	assert.doesNotMatch(workspace, /onCommit:[^\n]*scheduleRender\("dashboard"\)/);
-	assert.match(workspace, /if \(hasActiveControlGestures\(\) \|\| isFocusedWorkspaceValueControl\(\)\) \{ deferredWorkspaceRender = true; return; \}/);
+	assert.match(workspace, /if \(hasActiveControlGestures\(\) \|\| \(!forceFocusRender && isFocusedWorkspaceValueControl\(\)\)\) \{ deferredWorkspaceRender = true; return; \}/);
 	assert.match(workspace, /if \(isWorkspaceRootVisible\(element\)\) renderWorkspace\(element\)/);
 	assert.match(workspace, /aa-workspace-placeholder/);
 });

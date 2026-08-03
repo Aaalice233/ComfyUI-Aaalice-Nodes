@@ -18,6 +18,7 @@ const dashboard = () => runtime.dashboard();
 const resolve = (binding) => runtime.resolve(binding);
 const graphNodes = () => runtime.graphNodes();
 const scheduleRender = (view = null) => runtime.scheduleRender(view);
+const scheduleStructuralRender = (view = null) => runtime.scheduleStructuralRender(view);
 const remindWorkflowSave = (detail) => runtime.remindWorkflowSave(detail);
 const workspaceLabels = () => runtime.workspaceLabels();
 
@@ -30,13 +31,16 @@ export function dashboardPresetState() {
 	} catch (error) { dashboardPresetModelError = error; return emptyDashboardPresetState(); }
 }
 
-export function updateDashboardPresetState(callback, detail = null) {
+export function updateDashboardPresetState(callback, detail = null, { structural = false } = {}) {
 	if (dashboardPresetModelError) throw dashboardPresetModelError;
 	const graph = app.graph; graph?.beforeChange?.();
 	try {
 		graph.extra ||= {};
 		graph.extra[runtime.presetsExtraKey] = normalizeDashboardPresetState(callback(dashboardPresetState()) || dashboardPresetState());
-	} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender("dashboard"); }
+	} finally {
+		graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true);
+		(structural ? scheduleStructuralRender : scheduleRender)("dashboard");
+	}
 	if (detail) remindWorkflowSave(detail);
 }
 
@@ -124,7 +128,7 @@ function dashboardPresetFileName(name) {
 }
 
 function commitDashboardPresetChange(callback, detail = t("aaalice.workspace.dashboardPreset.saveWorkflowReminder", "Save the workflow to keep these sidebar presets.")) {
-	try { updateDashboardPresetState(callback, detail); return true; }
+	try { updateDashboardPresetState(callback, detail, { structural: true }); return true; }
 	catch (error) { notifyDashboardPresetError(error); return false; }
 }
 
@@ -228,7 +232,7 @@ export async function applyDashboardPreset(presetId, { restore = false } = {}) {
 		const activePageId = runtime.getActivePageId();
 		runtime.setActivePageId(preset.dashboard.pages.some((page) => page.id === activePageId) ? activePageId : preset.dashboard.pages[0]?.id || null);
 	} catch (error) { notifyDashboardPresetError(error); return; }
-	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender("dashboard"); }
+	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender("dashboard"); }
 	remindWorkflowSave(t("aaalice.workspace.dashboardPreset.appliedReminder", "Sidebar preset applied. Save the workflow to keep the layout and values."));
 }
 
@@ -311,7 +315,7 @@ export async function importDashboardPreset(file) {
 					applyDashboardSnapshotPlan(preflight, { readDashboard: () => dashboard(), writeDashboard: (next) => { graph.extra[runtime.dashboardExtraKey] = normalizeDashboard(next); } });
 					graph.extra[runtime.presetsExtraKey] = nextPresetState;
 					runtime.setActivePageId(preflight.dashboard.pages[0]?.id || null);
-				} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
+				} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender(); }
 				const resultHint = (missing.length ? t("aaalice.workspace.transfer.presetImportPartialHint", "Preset “{name}” is active. Unresolved cards were kept so you can rebind them manually.") : t("aaalice.workspace.transfer.presetImportCompleteHint", "Preset “{name}” is active. Pages, layout groups, bindings and compatible saved values were restored.")).replace("{name}", presetName.value.trim());
 				body.replaceChildren(createTransferResult({ title: t("aaalice.workspace.transfer.presetImportComplete", "Layout imported"), description: resultHint, count: compatible.length, countLabel: t("aaalice.workspace.transfer.controlsMatched", "controls matched") }));
 				setDialogFooter(footer, button({ label: t("aaalice.workspace.done", "Done"), onClick: () => dialog.close() }));

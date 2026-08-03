@@ -39,7 +39,7 @@ function updateGroupNavigation(callback, detail = null) {
 	} finally {
 		graph?.afterChange?.();
 		graph?.setDirtyCanvas?.(true, true);
-		runtime.scheduleRender("groups");
+		runtime.scheduleStructuralRender("groups");
 	}
 	if (detail) runtime.remindWorkflowSave(detail);
 }

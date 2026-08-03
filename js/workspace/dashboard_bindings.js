@@ -29,6 +29,7 @@ const resolve = (binding) => runtime.resolve(binding);
 const workspaceLabels = () => runtime.workspaceLabels();
 const resolveGroupTitle = (group) => runtime.resolveGroupTitle(group);
 const scheduleRender = (view = null) => runtime.scheduleRender(view);
+const scheduleStructuralRender = (view = null) => runtime.scheduleStructuralRender(view);
 const scheduleCanvasControlBindingSync = () => runtime.scheduleCanvasControlBindingSync();
 const scheduleActiveDashboardPresetAutoSave = () => runtime.scheduleActiveDashboardPresetAutoSave();
 const currentPage = (model) => runtime.currentPage(model);
@@ -186,7 +187,7 @@ function commitDashboardBindingSet(next, itemId, { synchronize = false, resolved
 		throw error;
 	} finally {
 		graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true);
-		scheduleCanvasControlBindingSync(); scheduleRender("dashboard"); scheduleActiveDashboardPresetAutoSave();
+		scheduleCanvasControlBindingSync(); scheduleStructuralRender("dashboard"); scheduleActiveDashboardPresetAutoSave();
 	}
 }
 

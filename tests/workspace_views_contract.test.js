@@ -220,7 +220,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /\.aa-workspace-tabs\[data-value="library"\]/);
 	assert.match(theme, /\.aa-workspace-tabs \{[^}]*display: grid;[^}]*overflow: hidden;/);
 	assert.match(theme, /transform \.2s cubic-bezier/);
-	assert.match(workspace, /onTabChange: \(value\) => \{ activeWorkspace = value; scheduleRender\(\); \}/);
+	assert.match(workspace, /onTabChange: \(value\) => \{ activeWorkspace = value; scheduleStructuralRender\(\); \}/);
 	assert.doesNotMatch(components, /aa-control-card-indicator/);
 	assert.match(theme, /\.aa-dashboard-page-menu__row\.is-active/);
 	assert.match(theme, /\.aa-dashboard-page-menu__index/);
@@ -277,7 +277,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.doesNotMatch(workspace, /onReorderStart/);
 	assert.match(components, /onReorderStart/);
 	assert.doesNotMatch(workspace, /detail\.source !== "boundary"/);
-	assert.match(workspace, /activeWorkspace = value; scheduleRender\(\)/);
+	assert.match(workspace, /activeWorkspace = value; scheduleStructuralRender\(\)/);
 	assert.match(workspace, /closeWorkspaceTransientSurfaces\(element\);/);
 	assert.match(workspace, /closeWorkspaceTransientSurfaces\(ownedTree\)/);
 	assert.match(workspace, /function suspendWorkspaceRoot\(element\)/);
@@ -326,6 +326,20 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /\.aa-dashboard-group-drop-label \{[^}]*pointer-events: none;/);
 	assert.match(workspace, /groupDropLabel: t\("aaalice\.workspace\.group\.addItem", "Add to group"\)/);
 	assert.match(workspace, /onDropSelection: \(itemIds, groupIds, target\)/);
+});
+
+test("structural sidebar changes bypass focus deferral without weakening value-control protection", () => {
+	assert.match(workspaceEntry, /let forcedWorkspaceRender = false/);
+	assert.match(workspaceEntry, /function scheduleRender\(view = null, \{ structural = false \} = \{\}\)/);
+	assert.match(workspaceEntry, /const forceFocusRender = structural \|\| forcedWorkspaceRender/);
+	assert.match(workspaceEntry, /function scheduleStructuralRender\(view = null\)/);
+	assert.match(workspaceEntry, /updateDashboard\(callback\)[\s\S]*scheduleStructuralRender\(\)/);
+	assert.match(workspaceEntry, /onTabChange: \(value\) => \{ activeWorkspace = value; scheduleStructuralRender\(\); \}/);
+	assert.match(workspace, /updateDashboardPresetState\(callback, detail = null, \{ structural = false \}/);
+	assert.match(workspace, /applyDashboardPreset[\s\S]*scheduleStructuralRender\("dashboard"\)/);
+	assert.match(workspaceLibrary, /aa-library-filter-select[\s\S]*runtime\.scheduleStructuralRender\(\)/);
+	assert.match(workspaceGroupNavigation, /runtime\.scheduleStructuralRender\("groups"\)/);
+	assert.match(workspaceEntry, /input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\)/);
 });
 
 test("PromptSelector exposes scannable selected and category states", () => {

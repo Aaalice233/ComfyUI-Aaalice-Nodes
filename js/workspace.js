@@ -74,6 +74,7 @@ let editMode = false;
 let dashboardModelError = null;
 let renderFrame = 0;
 let deferredWorkspaceRender = false;
+let forcedWorkspaceRender = false;
 const workspaceViewState = {
 	dashboard: { query: "", searchOpen: false, focusSearch: false, focusHost: null, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
 	library: { query: "", searchOpen: false, focusSearch: false, focusHost: null, categoryId: "", collectionId: "", selected: new Set() },
@@ -90,7 +91,7 @@ export function openWorkspace(view = "dashboard") {
 	if (!sidebar || !("activeSidebarTabId" in sidebar)) throw new Error("[Aaalice] ComfyUI sidebar state is unavailable");
 	activeWorkspace = view;
 	sidebar.activeSidebarTabId = TAB_ID;
-	scheduleRender();
+	scheduleStructuralRender();
 }
 
 function installWorkspaceCanvasAutoClose() {
@@ -150,7 +151,7 @@ function updateDashboard(callback) {
 	if (dashboardModelError) throw dashboardModelError;
 	const graph = app.graph; graph?.beforeChange?.();
 	try { graph.extra ||= {}; graph.extra[EXTRA_KEY] = normalizeDashboard(callback(dashboard()) || dashboard()); }
-	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave(); }
+	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender(); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave(); }
 }
 
 function remindWorkflowSave(detail) {
@@ -186,18 +187,26 @@ function isWorkspaceRootInteractive(root) {
 function isFocusedWorkspaceValueControl() {
 	const active = document.activeElement;
 	return active instanceof Element && Boolean(active.closest?.(
-		'.aa-workspace-host input, .aa-workspace-host select, .aa-workspace-host textarea, .aa-workspace-host [contenteditable="true"], .aa-workspace-host button[aria-haspopup]'
+		'.aa-workspace-host input:not([type="checkbox"]):not([type="radio"]), .aa-workspace-host select, .aa-workspace-host textarea, .aa-workspace-host [contenteditable="true"], .aa-workspace-host button[aria-haspopup]'
 	));
 }
 
-function scheduleRender(view = null) {
+function scheduleRender(view = null, { structural = false } = {}) {
 	if (view && view !== activeWorkspace) return;
-	if (hasActiveControlGestures() || isFocusedWorkspaceValueControl()) { deferredWorkspaceRender = true; return; }
+	if (structural) forcedWorkspaceRender = true;
+	const forceFocusRender = structural || forcedWorkspaceRender;
+	if (hasActiveControlGestures() || (!forceFocusRender && isFocusedWorkspaceValueControl())) { deferredWorkspaceRender = true; return; }
 	deferredWorkspaceRender = false;
 	if (renderFrame) return;
 	renderFrame = requestAnimationFrame(() => {
 		renderFrame = 0;
-		if (hasActiveControlGestures() || isFocusedWorkspaceValueControl()) { deferredWorkspaceRender = true; return; }
+		const renderStructurally = forcedWorkspaceRender;
+		forcedWorkspaceRender = false;
+		if (hasActiveControlGestures() || (!renderStructurally && isFocusedWorkspaceValueControl())) {
+			deferredWorkspaceRender = true;
+			if (renderStructurally) forcedWorkspaceRender = true;
+			return;
+		}
 		const pageTransition = workspaceViewState.dashboard.pageTransition;
 		for (const root of [...mounted]) {
 			if (!ownsWorkspaceRoot(root)) destroyWorkspaceRoot(root);
@@ -208,8 +217,13 @@ function scheduleRender(view = null) {
 	});
 }
 
+// Graph/layout transactions are explicit structure changes; they must not wait for the trigger that initiated them to blur.
+function scheduleStructuralRender(view = null) {
+	scheduleRender(view, { structural: true });
+}
+
 function flushDeferredWorkspaceRender() {
-	if (!deferredWorkspaceRender || hasActiveControlGestures() || isFocusedWorkspaceValueControl()) return;
+	if ((!deferredWorkspaceRender && !forcedWorkspaceRender) || hasActiveControlGestures()) return;
 	deferredWorkspaceRender = false;
 	scheduleRender();
 }
@@ -245,8 +259,9 @@ function scheduleGraphSync(forceRender = false) {
 		repairDuplicateHostIds(nodes);
 		for (const node of nodes) patchNodeMenu(node);
 		const signature = graphSyncSignature(nodes);
-		if (shouldForceRender || signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleCanvasControlBindingSync(); scheduleRender("dashboard"); }
-		scheduleRender("groups");
+		const scheduleGraphViewRender = shouldForceRender ? scheduleStructuralRender : scheduleRender;
+		if (shouldForceRender || signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleCanvasControlBindingSync(); scheduleGraphViewRender("dashboard"); }
+		scheduleGraphViewRender("groups");
 	});
 }
 
@@ -425,7 +440,7 @@ function renderWorkspace(root) {
 	pinButton.addEventListener("blur", () => workspacePinTooltip.hide());
 	syncAutoSaveControl();
 	syncPinButton();
-	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [autoSaveControl, pinButton], onTabChange: (value) => { activeWorkspace = value; scheduleRender(); } });
+	shell = createWorkspaceShell({ title: t("aaalice.workspace.title", "Aaalice Workspace"), activeTab: activeWorkspace, tabs: [{ value: "dashboard", label: t("aaalice.workspace.dashboard", "Controls"), iconName: "settings" }, { value: "groups", label: t("aaalice.workspace.groups", "Groups"), iconName: "fit" }, { value: "library", label: t("aaalice.workspace.library", "Library"), iconName: "note" }], footerActions: [autoSaveControl, pinButton], onTabChange: (value) => { activeWorkspace = value; scheduleStructuralRender(); } });
 	root.append(shell.root); workspaceOwnedTrees.set(root, shell.root); renderActiveWorkspace();
 }
 
@@ -437,6 +452,7 @@ configureDashboardBindings({
 	workspaceLabels,
 	resolveGroupTitle,
 	scheduleRender,
+	scheduleStructuralRender,
 	scheduleCanvasControlBindingSync,
 	scheduleActiveDashboardPresetAutoSave,
 	currentPage,
@@ -454,6 +470,7 @@ configureDashboardPresets({
 	resolve,
 	graphNodes,
 	scheduleRender,
+	scheduleStructuralRender,
 	remindWorkflowSave,
 	workspaceLabels,
 	dashboardExtraKey: EXTRA_KEY,
@@ -465,14 +482,15 @@ configureDashboardPresets({
 
 configureGroupNavigation({
 	scheduleRender,
+	scheduleStructuralRender,
 	remindWorkflowSave,
 	isWorkspaceRootInteractive,
 	isSidebarPinned: () => sidebarPinned,
 	tabId: TAB_ID,
 	viewState: workspaceViewState.groups,
 });
-configureLibraryWorkspace({ scheduleRender, workspaceRootId, isWorkspaceRootInteractive, viewState: workspaceViewState.library });
-configureDashboardSourceGroups({ dashboard, graphNodes, scheduleRender, updateDashboard });
+configureLibraryWorkspace({ scheduleRender, scheduleStructuralRender, workspaceRootId, isWorkspaceRootInteractive, viewState: workspaceViewState.library });
+configureDashboardSourceGroups({ dashboard, graphNodes, scheduleRender, scheduleStructuralRender, updateDashboard });
 configureDashboardScroll({ mounted, ownsWorkspaceRoot, isWorkspaceRootInteractive, workspaceOwnedTrees });
 configureDashboardView({
 	dashboard,
@@ -485,6 +503,7 @@ configureDashboardView({
 	resetDashboardModel: (model) => { app.graph.extra ||= {}; app.graph.extra[EXTRA_KEY] = model; dashboardModelError = null; },
 	isWorkspaceRootInteractive,
 	scheduleRender,
+	scheduleStructuralRender,
 	askText,
 	updateDashboard,
 	removePage,

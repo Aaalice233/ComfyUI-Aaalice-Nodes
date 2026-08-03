@@ -18,7 +18,7 @@ export function configureDashboardView(dependencies) { runtime = dependencies; }
 export function renderDashboard(container, host) {
 	const {
 		dashboard, currentPage, sourceGroupViewState, resolveGroupTitle, resolvePageControls, dashboardModelError,
-		isWorkspaceRootInteractive, scheduleRender, askText, updateDashboard, removePage, syncCurrentPageSourceGroups,
+		isWorkspaceRootInteractive, scheduleRender, scheduleStructuralRender, askText, updateDashboard, removePage, syncCurrentPageSourceGroups,
 		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetModelError, dashboardPresetLabels,
 		applyDashboardPreset, createCurrentDashboardPreset, updateCurrentDashboardPreset, duplicateCurrentDashboardPreset,
 		renameCurrentDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
@@ -40,7 +40,7 @@ export function renderDashboard(container, host) {
 	const { controls: resolvedControls, sizeProjections } = resolvePageControls(resolvedPage);
 	if (dashboardModelError) {
 		container.append(emptyState({ iconName: "statusWarning", className: "aa-workspace-empty aa-dashboard-unsupported", title: t("aaalice.workspace.unsupported.title", "Old dashboard layout is unsupported"), description: t("aaalice.workspace.unsupported.description", "This dashboard uses an unsupported layout model. Reset it to continue."), actions: [button({ label: t("aaalice.workspace.unsupported.reset", "Reset dashboard"), iconName: "delete", variant: "danger", onClick: () => {
-			const graph = app.graph; graph?.beforeChange?.(); try { runtime.resetDashboardModel(emptyDashboard()); runtime.setActivePageId(activePageId = null); } finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleRender(); }
+			const graph = app.graph; graph?.beforeChange?.(); try { runtime.resetDashboardModel(emptyDashboard()); runtime.setActivePageId(activePageId = null); } finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender(); }
 		} })] })); return;
 	}
 	const query = viewState.query;
@@ -141,7 +141,7 @@ export function renderDashboard(container, host) {
 		if (previousIndex < 0 || nextIndex < 0) return false;
 		if (previousTransition && id === fromPageId) {
 			for (const root of mounted) previousTransition.snapshots?.get(root)?.remove?.();
-				runtime.setActivePageId(activePageId = id); viewState.selectedItemIds = new Set(previousTransition.selectedItemIds); viewState.selectedGroupIds = new Set(previousTransition.selectedGroupIds); viewState.pageTransition = null; scheduleRender();
+				runtime.setActivePageId(activePageId = id); viewState.selectedItemIds = new Set(previousTransition.selectedItemIds); viewState.selectedGroupIds = new Set(previousTransition.selectedGroupIds); viewState.pageTransition = null; scheduleStructuralRender();
 			return true;
 		}
 		const direction = nextIndex < previousIndex ? "backward" : "forward";
@@ -151,7 +151,7 @@ export function renderDashboard(container, host) {
 			selectedItemIds: previousTransition?.selectedItemIds || new Set(viewState.selectedItemIds),
 			selectedGroupIds: previousTransition?.selectedGroupIds || new Set(viewState.selectedGroupIds),
 		};
-		runtime.setActivePageId(activePageId = id); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); scheduleRender();
+		runtime.setActivePageId(activePageId = id); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); scheduleStructuralRender();
 		return true;
 	};
 	const reorderPage = (sourceId, targetId) => { updateDashboard((current) => {
@@ -178,7 +178,7 @@ export function renderDashboard(container, host) {
 			onReorderPage: reorderPage,
 		})] : []),
 		presetPicker,
-		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { runtime.setEditMode(editMode = !editMode); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleRender(); } }),
+		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { runtime.setEditMode(editMode = !editMode); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleStructuralRender(); } }),
 		...(editMode ? [
 			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
 			...(page ? [

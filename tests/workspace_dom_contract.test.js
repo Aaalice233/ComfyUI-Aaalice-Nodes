@@ -224,7 +224,7 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(groupNavigationModel, /Numpad1.*Numpad2.*Numpad3.*Numpad4.*Numpad5.*Numpad6/);
 	assert.match(workspace, /moveGroupNavigationEntry/);
 	assert.match(workspace, /aa-group-navigation-drag/);
-	assert.match(workspace, /scheduleRender\("groups"\)/);
+	assert.match(workspace, /scheduleStructuralRender\("groups"\)/);
 	assert.match(groupNavigation, /fitToBounds/);
 	assert.doesNotMatch(groupNavigation, /animateToBounds/);
 	assert.match(groupNavigation, /centerOnNode/);
