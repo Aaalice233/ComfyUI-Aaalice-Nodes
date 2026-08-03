@@ -79,6 +79,21 @@ test("places compact manual inputs inside the drag stage footer", () => {
 	assert.doesNotMatch(source, /aa-resolution-output-fields/);
 });
 
+test("uses a compact sidebar width-by-height control instead of the canvas editor", () => {
+	assert.match(source, /function createSidebarInterface\(node\)/);
+	assert.match(source, /width\.root\.classList\.add\("aa-resolution-sidebar-field"\)/);
+	assert.match(source, /height\.root\.classList\.add\("aa-resolution-sidebar-field"\)/);
+	assert.match(source, /children: \[width\.root, separator, height\.root\]/);
+	assert.match(source, /createSidebarInterface\(controller\)/);
+	assert.match(styles, /\.aa-control-resolution\.aa-resolution-sidebar-control[\s\S]*grid-template-columns: minmax\(0, 1fr\) 20px minmax\(0, 1fr\)/);
+	assert.match(styles, /\.aa-resolution-sidebar-separator[\s\S]*font-size: 13px/);
+});
+
+test("draws the canvas preset frame with a purple theme token", () => {
+	assert.match(styles, /\.aa-resolution-selection[\s\S]*--aa-resolution-selection-tone: var\(--p-purple-400/);
+	assert.match(styles, /border: 1px solid color-mix\(in srgb, var\(--aa-resolution-selection-tone\)/);
+});
+
 test("allows every canvas range and previews automatic fitting", () => {
 	assert.match(source, /fitCanvasLimit\(state, limit, personalPresets\)/);
 	assert.match(source, /`\$\{state\.width\}×\$\{state\.height\} → \$\{fitted\.width\}×\$\{fitted\.height\}`/);

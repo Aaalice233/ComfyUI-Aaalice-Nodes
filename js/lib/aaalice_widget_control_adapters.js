@@ -10,11 +10,6 @@ function nodeType(node) {
 	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].find(Boolean) || "";
 }
 
-function nodeTitle(node, fallback) {
-	const title = typeof node?.getTitle === "function" ? node.getTitle() : node?.title;
-	return String(title || fallback);
-}
-
 function resolutionWidget(node, widget) {
 	return nodeType(node) === RESOLUTION_NODE && widget?.name === "aaalice_resolution_preset" && Boolean(node?._aaaliceResolutionControl);
 }
@@ -55,7 +50,8 @@ registerWidgetControlAdapter({
 		const control = node._aaaliceResolutionControl;
 		return {
 			controlId: widget.name,
-			label: nodeTitle(node, "Resolution"),
+			label: "Resolution",
+			labelPolicy: "node-title",
 			kind: "resolution",
 			valueType: "resolution",
 			getValue: () => control.getValue(),
@@ -66,8 +62,8 @@ registerWidgetControlAdapter({
 				createSidebarControl: control.createSidebarControl,
 			},
 			columnSpan: 12,
-			rowSpan: 40,
-			minRowSpan: 32,
+			rowSpan: 13,
+			minRowSpan: 13,
 			readPresetValue: () => control.getValue(),
 			validatePresetValue: (entry) => control.validatePresetValue(entry),
 			applyPresetValue: (entry) => control.setValue(entry.payload),
@@ -86,7 +82,8 @@ registerWidgetControlAdapter({
 		const control = node._aaalicePromptSelectorControl;
 		return {
 			controlId: widget.name,
-			label: nodeTitle(node, "Prompt Selector"),
+			label: "Prompt Selector",
+			labelPolicy: "node-title",
 			kind: "prompt-selector",
 			valueType: "prompt-selector",
 			getValue: () => control.getValue(),
@@ -108,11 +105,12 @@ registerWidgetControlAdapter({
 	matches({ widget, promoted }) {
 		return !promoted && String(widget?.type || "").trim().toLowerCase() === LORA_TEXT_WIDGET && widget?.name === "text";
 	},
-	describe({ widget }) {
+	describe({ node, widget }) {
 		const value = loraWidgetValue(widget);
 		return {
 			controlId: widget.name,
-			label: widget.label || "LoRA",
+			label: "LoRA",
+			labelPolicy: "node-title",
 			kind: "text",
 			valueType: "string",
 			getValue: () => loraWidgetValue(widget),

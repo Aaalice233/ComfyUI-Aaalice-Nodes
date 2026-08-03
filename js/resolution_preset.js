@@ -334,9 +334,27 @@ function createInterface(node) {
 	return root;
 }
 
+function createSidebarInterface(node) {
+	const width = inputControl(node, "width"); const height = inputControl(node, "height");
+	width.root.classList.add("aa-resolution-sidebar-field");
+	height.root.classList.add("aa-resolution-sidebar-field");
+	const separator = el("span", { className: "aa-resolution-sidebar-separator", attrs: { "aria-hidden": "true" }, text: "×" });
+	const root = isolate(el("div", { className: "aa-resolution-preset aa-control-resolution aa-resolution-sidebar-control", attrs: { role: "group", "aria-label": label("title", "Resolution Preset") }, children: [width.root, separator, height.root] }));
+	Object.assign(node, { _aaResolutionRoot: root, _aaResolutionWidth: width, _aaResolutionHeight: height });
+	return root;
+}
+
+function renderSidebar(node) {
+	if (!node._aaResolutionRoot || !node._aaResolutionWidth || !node._aaResolutionHeight) return;
+	const state = stateFor(node);
+	node._aaResolutionWidth.input.value = String(state.width); node._aaResolutionWidth.input.step = String(state.alignment);
+	node._aaResolutionHeight.input.value = String(state.height); node._aaResolutionHeight.input.step = String(state.alignment);
+}
+
 function render(node, { syncHost = false } = {}) {
 	if (syncHost && node._aaResolutionHost && node._aaResolutionHost !== node) render(node._aaResolutionHost);
 	if (!node._aaResolutionRoot) return;
+	if (!node._aaResolutionPresetTrigger) { renderSidebar(node); return; }
 	const state = stateFor(node); const preset = currentPreset(node); const summary = resolutionSummary(state.width, state.height); const fractions = selectionFractions(state);
 	node._aaResolutionPresetTrigger.querySelector(".aa-ui-button__label").textContent = preset ? `${preset.name}` : label("preset.custom", "Custom");
 	node._aaResolutionPresetTrigger.title = preset ? `${preset.name} · ${state.width}×${state.height}` : `${label("preset.custom", "Custom")} · ${state.width}×${state.height}`;
@@ -359,11 +377,10 @@ export function createResolutionControl(node) {
 		set properties(value) { node.properties = value; },
 		_aaResolutionHost: node,
 	};
-	const root = createInterface(controller);
-	root.classList.add("aa-control-resolution");
-	const update = () => render(controller);
+	const root = createSidebarInterface(controller);
+	const update = () => renderSidebar(controller);
 	controller._aaResolutionUpdate = update;
-	render(controller);
+	update();
 	node._aaaliceResolutionSidebarViews ||= new Set();
 	node._aaaliceResolutionSidebarViews.add(update);
 	return {

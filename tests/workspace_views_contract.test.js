@@ -149,6 +149,14 @@ test("PromptSelector can open the official sidebar directly on library managemen
 	assert.match(theme, /\.aa-prompt-selector-favorite\.is-active \.aa-ui-icon \{ fill: currentColor; \}/);
 });
 
+test("resolution bindings keep the sidebar card compact while preserving canvas editing", () => {
+	assert.match(workspaceEntry, /resolved\.kind === "resolution"/);
+	assert.match(workspaceEntry, /item\.layout\.rowSpan === 40/);
+	assert.match(workspaceEntry, /layoutProjection: \{ \.\.\.\(resolved\.layoutProjection \|\| \{\}\), rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN \}/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="resolution"\]/);
+	assert.match(theme, /\.aa-control-resolution\.aa-resolution-sidebar-control/);
+});
+
 test("workspace visual hierarchy uses a compact shell, dedicated icon and heading page menu", () => {
 	assert.match(workspace, /icon: "aaalice-workspace-sidebar-icon"/);
 	assert.match(workspace, /element\.classList\.add\("aa-workspace-host"\)/);
@@ -167,8 +175,9 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.doesNotMatch(components, /wheelDistance|wheelDirection|wheelResetTimer|resetWheel/);
 	assert.match(components, /root\.addEventListener\("pointerleave"/);
 	assert.match(components, /state\.onSelect\?\.\(next\.id\)/);
-	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;/);
-	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
+	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
+	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*height: 100%;[^}]*min-height: 0;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
+	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 12px;[^}]*right: 7px;[^}]*bottom: 12px;[^}]*left: 0;/);
 	assert.match(theme, /\.aa-dashboard-page-rail__hover-area \{[^}]*pointer-events: none;/);
 	assert.match(theme, /\.aa-dashboard-page-rail\.is-expanded \.aa-dashboard-page-rail__hover-area,[\s\S]*?pointer-events: auto;/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-page-rail \{[^}]*position: absolute/);

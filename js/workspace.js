@@ -294,6 +294,7 @@ function resolvePageControls(page) {
 		let resolved;
 		try { resolved = resolveControlBindingSet(item, resolvePageBinding); }
 		catch (error) { resolved = { status: "error", error, binding: item.binding, bindingSet: { entries: [], linkedCount: linkedBindingCount(item), mixed: false, issues: [] } }; }
+		if (resolved.status === "ok" && resolved.kind === "resolution" && item.layout.rowSpan === 40) resolved = { ...resolved, layoutProjection: { ...(resolved.layoutProjection || {}), rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN } }; // Keep cards created by the old editor compact without rewriting saved layout.
 		controls.set(item.id, resolved);
 		if (resolved.status !== "ok" || !resolved.layoutProjection || typeof resolved.layoutProjection !== "object") continue;
 		const projection = {};

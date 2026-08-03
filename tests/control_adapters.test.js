@@ -51,19 +51,27 @@ test("composite and LoRA widgets expose stable sidebar controls", () => {
 			validatePresetValue: () => true, setValue: () => {},
 		},
 	};
-	const loraWidget = { name: "text", type: "AUTOCOMPLETE_TEXT_LORAS", value: "" };
+	const loraWidget = { name: "text", type: "AUTOCOMPLETE_TEXT_LORAS", label: "text", value: "" };
 	const resolution = listAdaptedWidgetControls(resolutionNode)[0];
 	const prompt = listAdaptedWidgetControls(promptNode)[0];
-	const lora = listAdaptedWidgetControls({ widgets: [loraWidget] })[0];
-	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan], ["aaalice-resolution-preset", "resolution", 12]);
+	const lora = listAdaptedWidgetControls({ title: "LoRA prompt", getTitle: () => "LoRA prompt", widgets: [loraWidget] })[0];
+	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan, resolution.rowSpan, resolution.minRowSpan], ["aaalice-resolution-preset", "resolution", 12, 13, 13]);
 	assert.deepEqual([prompt.adapterId, prompt.kind, prompt.rowSpan], ["aaalice-prompt-selector", "prompt-selector", 64]);
-	assert.deepEqual([lora.adapterId, lora.kind, lora.options.multiline], ["lora-manager-text", "text", true]);
+	assert.deepEqual([lora.adapterId, lora.kind, lora.options.multiline, lora.label], ["lora-manager-text", "text", true, "LoRA prompt"]);
 });
 
-test("multiline native controls use the node title as their sidebar label", () => {
-	const widget = { name: "value", type: "STRING", value: "", options: { multiline: true } };
-	const node = { title: "Negative prompt", widgets: [widget] };
-	assert.equal(listAdaptedWidgetControls(node)[0].label, "Negative prompt");
+test("native generic value labels use the live node title while explicit labels remain", () => {
+	const node = {
+		title: "Old title",
+		getTitle: () => "Batch size",
+		widgets: [
+			{ name: "value", type: "INT", label: "Value", value: 1 },
+			{ name: "text", type: "STRING", label: "数值", value: "", options: { multiline: true } },
+			{ name: "text_input", type: "STRING", label: "text", value: "" },
+			{ name: "prompt", type: "STRING", label: "Prompt", value: "" },
+		],
+	};
+	assert.deepEqual(listAdaptedWidgetControls(node).map((control) => control.label), ["Batch size", "Batch size", "Batch size", "Prompt"]);
 });
 
 test("third-party renderers can extend a family without mutating built-ins", () => {

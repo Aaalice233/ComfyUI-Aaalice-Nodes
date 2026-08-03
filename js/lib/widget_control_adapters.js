@@ -17,6 +17,9 @@ const SIMPLE_NATIVE_WIDGETS = Object.freeze({
 	combo: { kind: "choice", valueType: "string" },
 });
 const KIND_VALUE_TYPES = Object.freeze({ numeric: "number", seed: "number", boolean: "boolean", choice: "string", text: "string" });
+const LABEL_POLICIES = new Set(["widget", "node-title"]);
+// Built-in widget names describe the input slot, not the parameter's identity in a sidebar.
+const GENERIC_NATIVE_WIDGET_LABELS = new Set(["value", "值", "数值", "text", "文本", "string", "字符串"]);
 const AVAILABILITY_STATES = new Set(["ready", "empty", "unset", "unavailable", "error"]);
 const INACTIVE_NATIVE_WIDGET_TYPES = new Set(["converted-widget", "hidden"]);
 const imageCompareCallbacks = new WeakMap();
@@ -129,6 +132,19 @@ function seedBehaviorValues(widget) {
 	return values?.map((value) => String(typeof value === "object" ? value.value ?? value.label : value)) || SEED_AFTER_GENERATE_MODES;
 }
 
+function resolveNodeDisplayTitle(node, fallback = "Control") {
+	const title = typeof node?.getTitle === "function" ? node.getTitle() : node?.title;
+	const value = String(title || "").trim();
+	return value || fallback;
+}
+
+function nativeWidgetLabel(node, widget) {
+	const label = String(widget?.label || widget?.name || "Control").trim();
+	const normalized = label.toLocaleLowerCase().replace(/[:：]\s*$/, "");
+	const title = resolveNodeDisplayTitle(node, "");
+	return title && GENERIC_NATIVE_WIDGET_LABELS.has(normalized) ? title : label;
+}
+
 function nativeNumericDomain(node, widget, definition) {
 	if (definition?.numericDomain) return definition.numericDomain;
 	const owner = resolveWidgetDefinitionOwner(node, widget);
@@ -158,6 +174,8 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	if (kind != null && (typeof kind !== "string" || !kind)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid kind`);
 	const numericDomain = described.numericDomain ?? null;
 	if (numericDomain != null && !["integer", "float"].includes(numericDomain)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid numericDomain`);
+	const labelPolicy = described.labelPolicy || "widget";
+	if (!LABEL_POLICIES.has(labelPolicy)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid labelPolicy`);
 	const controlId = controlIdForWidget(widget, described.controlId);
 	if (!controlId) throw new TypeError(`Widget control adapter ${adapter.id} returned an empty controlId`);
 	const rawOptions = described.options || widget.options || {};
@@ -170,10 +188,11 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	const hasCustomPresetCodec = presetHooks.every(Boolean);
 	const supportsSeedBehavior = kind === "seed" && hasCustomPresetCodec && (typeof described.setSeedBehavior === "function" || typeof adapter.setSeedBehavior === "function");
 	const seedBehaviors = kind === "seed" ? optionValues({ values: described.seedBehaviors || options.behaviors || [] }).map(String) : [];
+	const fallbackLabel = String(described.label || widget.label || widget.name || "Control").trim();
 	return {
 		adapterId: adapter.id,
 		controlId,
-		label: String(described.label || widget.label || widget.name || "Control"),
+		label: labelPolicy === "node-title" ? resolveNodeDisplayTitle(node, fallbackLabel) : fallbackLabel,
 		value,
 		valueType,
 		kind,
@@ -465,10 +484,7 @@ registerWidgetControlAdapter({
 		const kind = seedMode ? "seed" : definition.kind;
 		const options = { ...(widget.options || {}) };
 		if (kind === "numeric" || kind === "seed") options.step = realWidgetStep(widget.options);
-		const nodeLabel = typeof node?.getTitle === "function" ? node.getTitle() : node?.title;
-		const label = definition.kind === "text" && widget.options?.multiline && nodeLabel
-			? String(nodeLabel)
-			: widget.label || widget.name;
+		const label = nativeWidgetLabel(node, widget);
 		return {
 			controlId: widget.name,
 			label,
