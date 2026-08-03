@@ -181,6 +181,7 @@
 9. “组导航”只显示用户手动加入的可视组；版本化导航清单、唯一组合键、每项 X/Y 目标偏移和目标缩放写入 `app.graph.extra` 并随工作流保存，组状态与边界从当前图实时解析。定位时偏移实时边界的目标中心并按条目倍率计算目标画布缩放；搜索和定位只属于会话视图，导航范围不受 QuickGroupManager 的颜色筛选或排序影响。
 10. Dashboard 页面滚动只作用于当前页面，不再把滚动边界解释为页面切换请求。页面切换由页眉左侧页面按钮、右侧独立 Page Rail 的胶囊点击或 Rail 内滚轮/键盘操作触发；Page Rail 常态占用 Dashboard body 右侧固定 38px 独立列显示圆点，圆点列不覆盖 Scroll Surface 或控件，胶囊展开时允许越出该列显示名称，透明悬浮区覆盖胶囊之间的间隙并在离开整体包络后才收回，以选中整体强调光晕表达当前页。Page Rail 不属于 Scroll Surface，垂直滚轮在 Rail 内由自身消费并直接按相邻页面切换，不建立延迟队列。每个侧栏根独立持有 Page Rail、光标和过渡状态，根卸载、隐藏或切换工作区时清理定时器与动画帧；页面请求按当前 `activePageId` 解析，多根同帧回到原 Page Id 时折叠为无过渡 no-op。`v-show` 隐藏根休眠且不重建 Provider/控件，首次挂载已隐藏的根只建立空占位与生命周期观察，重新可见时由 ResizeObserver 补一次完整渲染，搜索焦点只由发起操作的可见根消费；每个根生成独立 DOM 控件 id，禁止跨根 `label[for]` 命中。自定义页签宿主被 Vue 或其它 custom renderer 替换时，由根与父级所有权观察器清理旧实例及其挂到 `document.body` 的锚定浮层；销毁、隐藏与重绘只关闭锚定于对应根的 Tooltip、Popover 和 Context Menu，不得关闭其它 Graph View、画布节点或扩展的表面；所有脱离根挂到 `document.body` 的菜单必须保存显式 owner，控件销毁同时移除自身浮动编辑器并闭合尚未提交的图事务。
 11. Dashboard 的完整重建只服务结构域：页面/布局、Binding Set、控件类型、动态选项、可用性和来源结构。参数值、Seed after-generate 行为及连续数值预览属于值域；写入完成后保持卡片、输入元素、焦点、Popover 和动画元素 identity。Provider 的 promoted widget 索引只缓存对象身份映射，不缓存值、可用性或预设 payload；`graphChanged`、工作流恢复及 `CONTROL_HOST_INVALIDATED_EVENT` 负责失效，避免以过期 descriptor 代替实时状态。
+12. 画布绑定高亮由 `js/lib/canvas_control_binding_highlight.js` 维护；Classic 对 native/promoted widget 安装绘制包装，标记集合新增、替换或移除后必须调用 ComfyUI `LGraphCanvas.setDirty(true, true)`，因为安装包装不会自动重绘已经保留的画布帧。含 `PreviewAny` / `PreviewImage` 的子图首次恢复也遵守该契约，进入/退出子图触发的重绘不能作为修复手段。
 
 #### 第三方节点适配
 

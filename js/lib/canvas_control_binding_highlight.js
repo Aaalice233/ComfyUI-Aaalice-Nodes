@@ -346,12 +346,25 @@ export function syncCanvasControlBindings(model, resolve) {
 			}
 		}
 	}
-	for (const widget of activeWidgets) if (!nextWidgets.has(widget)) uninstallWidgetMarker(widget);
-	for (const widget of nextWidgets) installWidgetMarker(widget);
+	let canvasNeedsRedraw = false;
+	for (const widget of activeWidgets) {
+		if (!nextWidgets.has(widget)) {
+			uninstallWidgetMarker(widget);
+			canvasNeedsRedraw = true;
+		}
+	}
+	for (const widget of nextWidgets) {
+		const previousMarker = widgetMarkers.get(widget);
+		installWidgetMarker(widget);
+		if (widgetMarkers.get(widget) !== previousMarker) canvasNeedsRedraw = true;
+	}
 	syncDomTargets(targetsByNode);
+	if (canvasNeedsRedraw) app.canvas?.setDirty?.(true, true);
 }
 
 export function resetCanvasControlBindingHighlight() {
+	const hadMarkers = activeWidgets.size > 0;
 	for (const widget of [...activeWidgets]) uninstallWidgetMarker(widget);
 	syncDomTargets(new Map());
+	if (hadMarkers) app.canvas?.setDirty?.(true, true);
 }

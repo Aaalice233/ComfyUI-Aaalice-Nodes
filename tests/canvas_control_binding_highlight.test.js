@@ -26,6 +26,7 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 	assert.match(highlight, /data-testid=\\?\"node-widgets/);
 	assert.match(highlight, /DOM_BOUND_CLASS/);
 	assert.match(highlight, /mapCanvasWidgetRows\(rows, candidates\)/);
+	assert.match(highlight, /app\.canvas\?\.setDirty\?\.\(true, true\)/);
 	assert.doesNotMatch(highlight, /list\.length === rows\.length/);
 	assert.match(rowMapping, /host's visibility, deduplication, and canvas-only processing/);
 	assert.match(theme, /--p-purple-500, #a855f7/);
