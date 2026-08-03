@@ -6,6 +6,7 @@ export function renderTextControl(spec, port) {
 	const input = spec.options.multiline ? document.createElement("textarea") : document.createElement("input");
 	if (!spec.options.multiline) input.type = "text";
 	input.className = `aa-control aa-control-text${spec.options.multiline ? " is-multiline" : ""}`;
+	if (spec.options.placeholder) input.placeholder = String(spec.options.placeholder);
 	input.value = String(spec.value ?? ""); input.setAttribute("aria-label", spec.label);
 	// Autocomplete-Plus 的外部输入 opt-in：装了补全扩展即自动接入，未安装时属性完全惰性。
 	input.setAttribute("data-autocomplete-plus", "");

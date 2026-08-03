@@ -40,7 +40,7 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 
 test("canvas binding highlights reconcile on structure, host invalidation, and graph navigation", () => {
 	assert.match(workspace, /if \(shouldForceRender \|\| signature !== previousGraphStructure\) \{ previousGraphStructure = signature; scheduleCanvasControlBindingSync\(\);/);
-	assert.match(workspace, /CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{ invalidateWidgetControlAdapterCache\(event\.detail\?\.node \|\| null\); scheduleRender\("dashboard"\); scheduleCanvasControlBindingSync\(\);/);
+	assert.match(workspace, /CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{[\s\S]*if \(!dashboardUsesHost\(node\)\) return;[\s\S]*scheduleRender\("dashboard"\); scheduleCanvasControlBindingSync\(\);/);
 	assert.match(workspace, /canvas\.addEventListener\("litegraph:set-graph", \(\) => \{[\s\S]*invalidateWidgetControlAdapterCache\(\);[\s\S]*scheduleCanvasControlBindingSync\(\);/);
 	assert.match(workspace, /installCanvasBindingNavigationSync\(\)/);
 	assert.match(workspace, /function installCanvasBindingModeSync\(\)/);

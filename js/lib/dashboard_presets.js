@@ -187,11 +187,14 @@ export function compareDashboardPreset(preset, currentSnapshot) {
 	return { layoutChanges, valueChanges, changed, missing, added, modified: layoutChanges > 0 || valueChanges > 0, attention: missing > 0 || [...statuses.values()].some((status) => ["missing", "incompatible", "error", "invalid"].includes(status)) };
 }
 
-export function serializeDashboardPreset(snapshot) {
-	return { format: DASHBOARD_PRESET_FILE_FORMAT, version: DASHBOARD_PRESET_FILE_VERSION, ...normalizeDashboardSnapshot(snapshot) };
+export function serializeDashboardPreset(snapshot, name = null) {
+	const normalized = normalizeDashboardSnapshot(snapshot);
+	const presetName = name == null ? snapshot?.name : name;
+	return { format: DASHBOARD_PRESET_FILE_FORMAT, version: DASHBOARD_PRESET_FILE_VERSION, ...(presetName == null ? {} : { name: normalizeName(presetName) }), ...normalized };
 }
 
 export function parseDashboardPreset(raw) {
 	if (raw?.format !== DASHBOARD_PRESET_FILE_FORMAT || raw?.version !== DASHBOARD_PRESET_FILE_VERSION) throw new DashboardPresetError("Unsupported sidebar preset backup", "unsupported-preset-file");
-	return normalizeDashboardSnapshot(raw);
+	const snapshot = normalizeDashboardSnapshot(raw);
+	return raw.name == null ? snapshot : { ...snapshot, name: normalizeName(raw.name) };
 }

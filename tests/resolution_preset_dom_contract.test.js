@@ -52,9 +52,9 @@ test("keeps the stage compact theme-driven and motion-reduced", () => {
 	assert.match(styles, /\.aa-resolution-stage \{[^}]*width: auto;[^}]*height: 100%;[^}]*min-height: 116px;[^}]*max-width: 100%;[^}]*max-height: 320px;[^}]*aspect-ratio: 1 \/ 1;[^}]*align-self: start;[^}]*justify-self: center;/);
 	assert.match(source, /canvasDimensions\(stateFor\(node\), x, y, mode\)/);
 	assert.match(source, /aa-resolution-artboard/);
-	assert.match(source, /index < 352/);
-	assert.match(styles, /grid-template-columns: repeat\(22/);
-	assert.match(styles, /grid-template-rows: repeat\(16/);
+	assert.doesNotMatch(source, /index < 352/);
+	assert.match(styles, /radial-gradient\(circle at center/);
+	assert.match(styles, /background-size: 4\.5455% 6\.25%/);
 	assert.match(source, /selectionFractions/);
 	assert.match(styles, /\.aa-resolution-selection[\s\S]*bottom: 0;[\s\S]*left: 0;/);
 	assert.doesNotMatch(styles, /\.aa-resolution-(?:stage|plane|selection)[^}]*gradient/);

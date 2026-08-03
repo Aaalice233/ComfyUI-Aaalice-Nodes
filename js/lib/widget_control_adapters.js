@@ -195,6 +195,12 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 			if (typeof adapter.setValue === "function") return adapter.setValue(next, context);
 			return setNativeWidgetValue(node, widget, next);
 		},
+		subscribeValueChange(listener) {
+			const subscribe = described.subscribeValueChange || adapter.subscribeValueChange;
+			if (typeof subscribe !== "function") return () => {};
+			const unsubscribe = subscribe(listener, context);
+			return typeof unsubscribe === "function" ? unsubscribe : () => {};
+		},
 		readPresetValue() {
 			if (typeof described.readPresetValue === "function") return described.readPresetValue(context);
 			if (typeof adapter.readPresetValue === "function") return adapter.readPresetValue(context);
@@ -459,9 +465,13 @@ registerWidgetControlAdapter({
 		const kind = seedMode ? "seed" : definition.kind;
 		const options = { ...(widget.options || {}) };
 		if (kind === "numeric" || kind === "seed") options.step = realWidgetStep(widget.options);
+		const nodeLabel = typeof node?.getTitle === "function" ? node.getTitle() : node?.title;
+		const label = definition.kind === "text" && widget.options?.multiline && nodeLabel
+			? String(nodeLabel)
+			: widget.label || widget.name;
 		return {
 			controlId: widget.name,
-			label: widget.label || widget.name,
+			label,
 			value: widget.value,
 			valueType: kind === "choice" ? controlValueType(widget.value) || definition.valueType : definition.valueType,
 			kind,

@@ -58,3 +58,7 @@ export function bindPromptEntryDetails(trigger, entry) {
 export function closePromptEntryDetails() {
 	promptDetailsTooltip.hide();
 }
+
+export function closePromptEntryDetailsWithin(container) {
+	if (promptDetailsTooltip.isAnchoredWithin(container)) promptDetailsTooltip.hide();
+}

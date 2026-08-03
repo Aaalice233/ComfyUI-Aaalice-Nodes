@@ -126,6 +126,18 @@ export function bindDashboardInteractions(root, { editMode = false, interactionS
 	};
 	const itemElements = () => [...root.querySelectorAll("[data-dashboard-item-id]")].filter((element) => !element.hidden);
 	const groupElements = () => [...root.querySelectorAll("[data-dashboard-group-id]")].filter((element) => !element.hidden);
+	const marqueeGeometry = (currentGesture, rootRect) => {
+		const scroller = root.closest(".aa-dashboard-scroll") || root;
+		const scrollLeft = scroller.scrollLeft || 0; const scrollTop = scroller.scrollTop || 0;
+		const cached = currentGesture.marqueeGeometry;
+		if (cached && cached.scrollLeft === scrollLeft && cached.scrollTop === scrollTop && cached.rootRect.left === rootRect.left && cached.rootRect.top === rootRect.top && cached.rootRect.width === rootRect.width && cached.rootRect.height === rootRect.height) return cached;
+		const value = {
+			scrollLeft, scrollTop, rootRect,
+			entries: itemElements().map((element) => ({ id: element.dataset.dashboardItemId, groupId: element.dataset.dashboardGroupMember || null, rect: element.getBoundingClientRect() })),
+			groupFrames: [...root.querySelectorAll("[data-dashboard-group-id]")].map((element) => ({ id: element.dataset.dashboardGroupId, rect: element.getBoundingClientRect() })),
+		};
+		currentGesture.marqueeGeometry = value; return value;
+	};
 	// 点选/框选共用的选择语义；subtract 只负责移除，不会清空其余选择。
 	const clickSelection = (entry, { additive = false, subtract = false } = {}) => {
 		const itemId = entry?.dataset.dashboardItemId || null; const groupId = entry?.dataset.dashboardGroupId || null;
@@ -190,7 +202,7 @@ export function bindDashboardInteractions(root, { editMode = false, interactionS
 			const mode = event.altKey ? "subtract" : "add";
 			const initialItems = new Set(currentItems); const initialGroups = new Set(currentGroups);
 			if (!additive && !subtract) emitSelection(new Set(), new Set());
-			gesture = { kind: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, mode, initialItems, initialGroups, baseItems: additive || subtract ? initialItems : new Set(), baseGroups: additive || subtract ? initialGroups : new Set(), pendingToggle: entry || null, pendingAdditive: additive, dragging: false, marquee: null, badge: null };
+			gesture = { kind: "marquee", pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, mode, initialItems, initialGroups, baseItems: additive || subtract ? initialItems : new Set(), baseGroups: additive || subtract ? initialGroups : new Set(), pendingToggle: entry || null, pendingAdditive: additive, dragging: false, marquee: null, badge: null, marqueeGeometry: null };
 			surface.setPointerCapture?.(event.pointerId); event.preventDefault(); return;
 		}
 		const selection = clickSelection(entry, { additive: additiveFor(event) });
@@ -234,7 +246,7 @@ export function bindDashboardInteractions(root, { editMode = false, interactionS
 			showResizePreview(gesture, gesture.nextColumnSpan, gesture.nextRowSpan); autoScroll(event.clientY); return;
 		}
 		if (gesture.kind === "marquee") {
-			const rootRect = root.getBoundingClientRect(); const rectangle = selectionRectangle({ x: gesture.startX, y: gesture.startY }, { x: event.clientX, y: event.clientY }, rootRect);
+			const rootRect = root.getBoundingClientRect(); const geometry = marqueeGeometry(gesture, rootRect); const rectangle = selectionRectangle({ x: gesture.startX, y: gesture.startY }, { x: event.clientX, y: event.clientY }, rootRect);
 			if (!gesture.marquee) {
 				gesture.marquee = document.createElement("div"); gesture.marquee.className = "aa-dashboard-marquee"; gesture.marquee.setAttribute("aria-hidden", "true");
 				gesture.badge = document.createElement("span"); gesture.badge.className = "aa-dashboard-marquee__count";
@@ -242,8 +254,7 @@ export function bindDashboardInteractions(root, { editMode = false, interactionS
 			}
 			gesture.marquee.style.left = `${rectangle.left - rootRect.left}px`; gesture.marquee.style.top = `${rectangle.top - rootRect.top}px`;
 			gesture.marquee.style.width = `${rectangle.width}px`; gesture.marquee.style.height = `${rectangle.height}px`;
-			const entries = itemElements().map((element) => ({ id: element.dataset.dashboardItemId, groupId: element.dataset.dashboardGroupMember || null, rect: element.getBoundingClientRect() }));
-			const groupFrames = [...root.querySelectorAll("[data-dashboard-group-id]")].map((element) => ({ id: element.dataset.dashboardGroupId, rect: element.getBoundingClientRect() }));
+			const { entries, groupFrames } = geometry;
 			const groups = applyMarqueeSelection(gesture.baseGroups, containedIds(groupFrames, rectangle), gesture.mode);
 			const items = applyMarqueeSelection(gesture.baseItems, intersectingSelectionIds(entries, rectangle), gesture.mode);
 			// 整体进选的组，其成员不再作为散项出现，后续拖拽和批量操作都按整组处理。

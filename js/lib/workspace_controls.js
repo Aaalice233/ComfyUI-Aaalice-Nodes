@@ -32,6 +32,8 @@ export function createControlElement(resolved, { labels = {}, syncKeys = [], num
 				"image-output": { ...availabilityLabels, ...(labels.imageOutput || {}) },
 				"text-output": { ...availabilityLabels, ...(labels.textOutput || {}) },
 				"quick-group-manager": { ...availabilityLabels, ...(labels.quickGroupManager || {}) },
+				resolution: { ...availabilityLabels, ...(labels.resolution || {}) },
+				"prompt-selector": { ...availabilityLabels, ...(labels.promptSelector || {}) },
 				taglist: { ...availabilityLabels, ...(labels.taglist || {}) },
 				image: imageLabels,
 			"image-compare": { ...availabilityLabels, ...(labels.imageCompare || {}) },
@@ -108,8 +110,11 @@ export function createControlElement(resolved, { labels = {}, syncKeys = [], num
 		onSuccess,
 	});
 	const unregisterValueView = registerControlValueView(syncKeys, syncValue);
+	let unsubscribeHostValue = () => {};
+	try { unsubscribeHostValue = resolved.subscribeValueChange?.((next, detail = {}) => updateBoundControlValues(syncKeys, next, detail)) || (() => {}); }
+	catch (error) { unregisterValueView(); view.root._aaControlDestroy?.(); throw error; }
 	const destroyView = view.root._aaControlDestroy;
-	view.root._aaControlDestroy = () => { unregisterValueView(); destroyView?.(); };
+	view.root._aaControlDestroy = () => { unsubscribeHostValue(); unregisterValueView(); destroyView?.(); };
 	let control = view.root;
 	control.classList.add("aa-workspace-control-input");
 	control.dataset.controlKind = view.kind;

@@ -55,6 +55,21 @@ export function repairDuplicateHostIds(nodes) {
 	return repaired;
 }
 
+export function createControlHostIndex(nodes = []) {
+	const index = new Map();
+	for (const node of nodes) {
+		const hostId = node?.properties?.[HOST_ID_PROPERTY];
+		if (hostId && !index.has(hostId)) index.set(hostId, node);
+	}
+	return index;
+}
+
+function findControlHost(nodes, hostId) {
+	return nodes instanceof Map
+		? nodes.get(hostId)
+		: (nodes || []).find((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === hostId);
+}
+
 function graphTransaction(node, callback) {
 	const graph = node?.graph;
 	graph?.beforeChange?.();
@@ -97,19 +112,19 @@ class ProviderRegistry {
 	list(node) { return this.providerForNode(node)?.list(node) || []; }
 	resolve(binding, nodes) {
 		const provider = this.provider(binding);
-		const node = (nodes || []).find((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === binding.hostId);
+		const node = findControlHost(nodes, binding.hostId);
 		if (!provider || !node) return { status: "missing" };
 		return provider.resolve(node, binding);
 	}
 	resolveGroup(source, nodes) {
 		const provider = this.provider(source);
-		const node = (nodes || []).find((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === source?.hostId);
+		const node = findControlHost(nodes, source?.hostId);
 		if (!provider?.resolveGroup || !node) return { status: "missing" };
 		return provider.resolveGroup(node, source);
 	}
 	sourceSnapshot(source, nodes) {
 		const provider = this.provider(source);
-		const node = (nodes || []).find((candidate) => candidate?.properties?.[HOST_ID_PROPERTY] === source?.hostId);
+		const node = findControlHost(nodes, source?.hostId);
 		if (!provider || !node) return { status: "missing-source", source, controls: [], reason: "Source provider or host is missing" };
 		try {
 			const group = provider.resolveGroup ? provider.resolveGroup(node, source) : { status: "ok", label: "" };
@@ -224,6 +239,7 @@ const widgetProvider = (id, promoted) => ({
 			status: "ok", family: "comfy", kind: adapted.kind, numericDomain: adapted.numericDomain, controlId: adapted.controlId, node, widget: adapted.widget, control: adapted.control, label: adapted.label, value: adapted.value, options: adapted.options, availability: adapted.availability,
 			presettable: adapted.presettable, minRowSpan: adapted.minRowSpan, linkable: adapted.linkable, supportsSeedBehavior: adapted.supportsSeedBehavior, seedBehaviors: adapted.seedBehaviors, hasCustomPresetCodec: adapted.hasCustomPresetCodec,
 			readPresetValue() { return structuredClone(adapted.readPresetValue ? adapted.readPresetValue() : adapted.value); },
+			subscribeValueChange(listener) { return adapted.subscribeValueChange?.(listener) || (() => {}); },
 			validatePresetValue(entry) {
 				if (!entry || entry.valueType !== binding.valueType) return "type-mismatch";
 				if (adapted.hasCustomPresetCodec) return adapted.validatePresetValue?.(entry) ?? true;

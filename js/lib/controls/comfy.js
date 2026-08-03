@@ -10,6 +10,8 @@ import { renderImageCompareControl } from "./image_compare.js";
 import { renderImageOutputControl } from "./image_output.js";
 import { renderTextOutputControl } from "./text_output.js";
 import { renderQuickGroupManagerControl } from "./quick_group_manager.js";
+import { renderResolutionControl } from "./resolution.js";
+import { renderPromptSelectorControl } from "./prompt_selector.js";
 
 export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	numeric: (spec, port) => renderNumericControl(spec, port),
@@ -23,4 +25,6 @@ export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	"image-output": (spec) => renderImageOutputControl(spec),
 	"text-output": (spec) => renderTextOutputControl(spec),
 	"quick-group-manager": (spec, port) => renderQuickGroupManagerControl(spec, port),
+	resolution: (spec) => renderResolutionControl(spec),
+	"prompt-selector": (spec) => renderPromptSelectorControl(spec),
 });

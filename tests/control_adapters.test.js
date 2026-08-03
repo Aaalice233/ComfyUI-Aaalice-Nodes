@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { resolvedControlSpec } from "../js/lib/controls/specs.js";
 import { normalizeControlSpec } from "../js/lib/controls/contract.js";
+import "../js/lib/aaalice_widget_control_adapters.js";
 import {
 	adaptWidgetControl,
 	invalidateWidgetControlAdapterCache,
@@ -30,8 +31,41 @@ test("ComfyUI control specs normalize kinds and preserve explicit families", () 
 
 test("built-in ComfyUI renderer families expose their supported kinds", () => {
 	assert.match(registrySource, /\["comfy", new Map\(Object\.entries\(COMFY_CONTROL_RENDERERS\)\)\]/);
-	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
+	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare", "resolution", "prompt-selector"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
 });
+test("composite and LoRA widgets expose stable sidebar controls", () => {
+	const resolutionNode = {
+		comfyClass: "ResolutionPreset",
+		widgets: [{ name: "aaalice_resolution_preset", type: "custom", value: "", serialize: false }],
+		_aaaliceResolutionControl: {
+			getValue: () => ({ version: 1, width: 1024, height: 1024, alignment: 8, canvasMax: 2048, presetId: "builtin:square-1024" }),
+			getPresets: () => [], getAlignments: () => [8], getCanvasLimits: () => [2048], createSidebarControl: () => {},
+			validatePresetValue: () => true, setValue: () => {},
+		},
+	};
+	const promptNode = {
+		type: "PromptSelector",
+		widgets: [{ name: "aaalice_prompt_selector", type: "custom", value: "", serialize: false }],
+		_aaalicePromptSelectorControl: {
+			getValue: () => ({ version: 1, selections: [], separator: ", " }), createSidebarControl: () => {},
+			validatePresetValue: () => true, setValue: () => {},
+		},
+	};
+	const loraWidget = { name: "text", type: "AUTOCOMPLETE_TEXT_LORAS", value: "" };
+	const resolution = listAdaptedWidgetControls(resolutionNode)[0];
+	const prompt = listAdaptedWidgetControls(promptNode)[0];
+	const lora = listAdaptedWidgetControls({ widgets: [loraWidget] })[0];
+	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan], ["aaalice-resolution-preset", "resolution", 12]);
+	assert.deepEqual([prompt.adapterId, prompt.kind, prompt.rowSpan], ["aaalice-prompt-selector", "prompt-selector", 64]);
+	assert.deepEqual([lora.adapterId, lora.kind, lora.options.multiline], ["lora-manager-text", "text", true]);
+});
+
+test("multiline native controls use the node title as their sidebar label", () => {
+	const widget = { name: "value", type: "STRING", value: "", options: { multiline: true } };
+	const node = { title: "Negative prompt", widgets: [widget] };
+	assert.equal(listAdaptedWidgetControls(node)[0].label, "Negative prompt");
+});
+
 test("third-party renderers can extend a family without mutating built-ins", () => {
 	assert.match(publicApiSource, /CONTROL_ADAPTER_API_VERSION = 1/);
 	assert.match(publicApiSource, /registerControlRenderer/);
@@ -73,6 +107,24 @@ test("third-party widget adapters normalize custom identity, value access and wr
 		assert.equal(widget.payload.current, 7);
 		assert.equal(adapted.readPresetValue(), 7);
 		assert.equal(listAdaptedWidgetControls(node)[0].value, 7);
+	} finally { unregister(); }
+});
+
+test("widget adapters can subscribe sidebar views to host value changes", () => {
+	let subscribed = false; let stopped = false; let emit = null;
+	const unregister = registerWidgetControlAdapter({
+		id: "test-host-value-events", priority: 100, matches: ({ widget }) => widget.type === "VENDOR_EVENTED",
+		describe: ({ widget }) => ({
+			controlId: widget.name, kind: "text", value: widget.value,
+			subscribeValueChange: (listener) => { subscribed = true; emit = listener; return () => { stopped = true; }; },
+		}),
+	});
+	try {
+		const widget = { name: "prompt", type: "VENDOR_EVENTED", value: "before" };
+		const adapted = adaptWidgetControl({ widgets: [widget] }, widget);
+		const values = []; const unsubscribe = adapted.subscribeValueChange((value, detail) => values.push([value, detail.source]));
+		assert.equal(subscribed, true); emit("after", { source: "host" }); assert.deepEqual(values, [["after", "host"]]);
+		unsubscribe(); assert.equal(stopped, true);
 	} finally { unregister(); }
 });
 

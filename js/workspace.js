@@ -3,10 +3,10 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
-import { controlProviders, HOST_ID_PROPERTY, repairDuplicateHostIds } from "./lib/control_providers.js";
+import { controlProviders, createControlHostIndex, HOST_ID_PROPERTY, repairDuplicateHostIds } from "./lib/control_providers.js";
 import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
 import {
-	createPage, emptyDashboard, linkedBindingCount, normalizeDashboard,
+	controlItemBindings, createPage, emptyDashboard, linkedBindingCount, normalizeDashboard,
 } from "./lib/dashboard_model.js";
 import { resolveControlBindingSet } from "./lib/control_binding_set.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
@@ -183,12 +183,21 @@ function isWorkspaceRootInteractive(root) {
 	return ownsWorkspaceRoot(root) && isWorkspaceRootVisible(root);
 }
 
+function isFocusedWorkspaceValueControl() {
+	const active = document.activeElement;
+	return active instanceof Element && Boolean(active.closest?.(
+		'.aa-workspace-host input, .aa-workspace-host select, .aa-workspace-host textarea, .aa-workspace-host [contenteditable="true"], .aa-workspace-host button[aria-haspopup]'
+	));
+}
+
 function scheduleRender(view = null) {
 	if (view && view !== activeWorkspace) return;
-	if (hasActiveControlGestures()) { deferredWorkspaceRender = true; return; }
+	if (hasActiveControlGestures() || isFocusedWorkspaceValueControl()) { deferredWorkspaceRender = true; return; }
+	deferredWorkspaceRender = false;
 	if (renderFrame) return;
 	renderFrame = requestAnimationFrame(() => {
 		renderFrame = 0;
+		if (hasActiveControlGestures() || isFocusedWorkspaceValueControl()) { deferredWorkspaceRender = true; return; }
 		const pageTransition = workspaceViewState.dashboard.pageTransition;
 		for (const root of [...mounted]) {
 			if (!ownsWorkspaceRoot(root)) destroyWorkspaceRoot(root);
@@ -200,7 +209,7 @@ function scheduleRender(view = null) {
 }
 
 function flushDeferredWorkspaceRender() {
-	if (!deferredWorkspaceRender || hasActiveControlGestures()) return;
+	if (!deferredWorkspaceRender || hasActiveControlGestures() || isFocusedWorkspaceValueControl()) return;
 	deferredWorkspaceRender = false;
 	scheduleRender();
 }
@@ -269,14 +278,21 @@ async function removePage(page) {
 	updateDashboard((model) => { model.pages = model.pages.filter((item) => item.id !== page.id); activePageId = model.pages[0]?.id || null; return model; });
 }
 
-function resolve(binding) { return controlProviders.resolve(binding, graphNodes()); }
+function resolve(binding, nodes = null) { return controlProviders.resolve(binding, nodes || graphNodes()); }
+
+function dashboardUsesHost(node) {
+	const hostId = node?.properties?.[HOST_ID_PROPERTY]; if (!hostId) return false;
+	const model = dashboard(); if (dashboardModelError) return true;
+	return model.pages.some((page) => page.items.some((item) => item.kind === "control" && controlItemBindings(item).some((binding) => binding.hostId === hostId)));
+}
 
 function resolvePageControls(page) {
 	const controls = new Map(); const sizeProjections = new Map();
+	const hostIndex = createControlHostIndex(graphNodes()), resolvePageBinding = (binding) => resolve(binding, hostIndex);
 	for (const item of page?.items || []) {
 		if (item.kind !== "control") continue;
 		let resolved;
-		try { resolved = resolveControlBindingSet(item, resolve); }
+		try { resolved = resolveControlBindingSet(item, resolvePageBinding); }
 		catch (error) { resolved = { status: "error", error, binding: item.binding, bindingSet: { entries: [], linkedCount: linkedBindingCount(item), mixed: false, issues: [] } }; }
 		controls.set(item.id, resolved);
 		if (resolved.status !== "ok" || !resolved.layoutProjection || typeof resolved.layoutProjection !== "object") continue;
@@ -575,7 +591,10 @@ app.registerExtension({
 			flushActiveDashboardPresetOnSave();
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
-		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => { invalidateWidgetControlAdapterCache(event.detail?.node || null); scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave(); });
+		window.addEventListener("focusout", () => queueMicrotask(flushDeferredWorkspaceRender), true);
+		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
+			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
+		});
 		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
 	},
 });

@@ -61,6 +61,18 @@ export function workspaceLabels() {
 			zoomIn: t("aaalice.workspace.imageCompare.zoomIn", "Zoom in"), zoomOut: t("aaalice.workspace.imageCompare.zoomOut", "Zoom out"), fit: t("aaalice.workspace.imageCompare.fit", "Fit to screen"),
 		},
 		enabled: t("aaalice.common.enabled", "Enabled"), disabled: t("aaalice.common.disabled", "Disabled"),
+		resolution: {
+			custom: t("aaalice.resolutionPreset.preset.custom", "Custom"),
+			width: t("aaalice.resolutionPreset.input.width", "Width"),
+			height: t("aaalice.resolutionPreset.input.height", "Height"),
+			alignment: t("aaalice.resolutionPreset.alignment.title", "Pixel alignment"),
+			canvas: t("aaalice.resolutionPreset.range.title", "Maximum canvas range"),
+		},
+		promptSelector: {
+			separator: t("aaalice.promptSelector.separator", "Prompt separator"),
+			selected: t("aaalice.promptSelector.selected", "selected"),
+			search: t("aaalice.promptSelector.search", "Search prompt library"),
+		},
 		quickGroupManager: {
 			title: t("aaalice.quickGroup.title", "Quick Group Manager"), groups: t("aaalice.quickGroup.groups", "groups"),
 			mute: t("aaalice.quickGroup.mode.mute", "Mute"), bypass: t("aaalice.quickGroup.mode.bypass", "Bypass"), modeAria: t("aaalice.quickGroup.mode.aria", "Disabled group mode"),

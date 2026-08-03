@@ -336,7 +336,7 @@ export function createTransferHero({ iconName, eyebrow, title, description, file
 	if (eyebrow) copy.append(el("span", "aa-transfer-eyebrow", eyebrow));
 	copy.append(el("strong", null, title));
 	if (description) copy.append(el("p", null, description));
-	const root = el("section", { className: `aa-transfer-hero is-${tone}`, children: [el("span", { className: "aa-transfer-hero__icon", children: [icon(iconName)] }), copy] });
+	const root = el("section", { className: `aa-transfer-hero is-${tone}${fileName ? " has-file" : ""}`, children: [el("span", { className: "aa-transfer-hero__icon", children: [icon(iconName)] }), copy] });
 	if (fileName) root.append(el("div", { className: "aa-transfer-file", children: [el("strong", null, fileName), el("span", null, fileMeta)] }));
 	return root;
 }
@@ -384,14 +384,7 @@ export function createPageRail(initialState = {}) {
 	const items = new Map();
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
 	let cursorFrame = 0;
-	let wheelDistance = 0;
-	let wheelDirection = 0;
-	let wheelResetTimer = 0;
 	let cursorInitialized = false;
-	const resetWheel = () => {
-		clearTimeout(wheelResetTimer);
-		wheelResetTimer = 0; wheelDistance = 0; wheelDirection = 0;
-	};
 	const setExpanded = (expanded) => {
 		const next = Boolean(expanded);
 		if (state.expanded === next) return;
@@ -445,7 +438,6 @@ export function createPageRail(initialState = {}) {
 	const selectIndex = (index, { focus = false } = {}) => {
 		const next = state.pages[Math.max(0, Math.min(state.pages.length - 1, index))];
 		if (!next || next.id === state.activeId) return false;
-		resetWheel();
 		state.activeId = next.id;
 		for (const page of state.pages) updateItem(items.get(page.id), page);
 		positionCursor();
@@ -460,24 +452,6 @@ export function createPageRail(initialState = {}) {
 	});
 	root.addEventListener("pointerenter", () => setExpanded(true));
 	root.addEventListener("pointerleave", () => setExpanded(false));
-	root.addEventListener("wheel", (event) => {
-		if (event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-		event.preventDefault();
-		let delta = event.deltaY;
-		if (event.deltaMode === 1) delta *= 16;
-		else if (event.deltaMode === 2) delta *= Math.max(1, root.clientHeight);
-		const direction = Math.sign(delta);
-		if (!direction || state.pages.length < 2) return;
-		if (direction !== wheelDirection) wheelDistance = 0;
-		wheelDirection = direction;
-		wheelDistance += delta;
-		clearTimeout(wheelResetTimer);
-		wheelResetTimer = setTimeout(resetWheel, 180);
-		if (Math.abs(wheelDistance) < 36) return;
-		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
-		selectIndex(activeIndex + direction);
-		resetWheel();
-	}, { passive: false });
 	root.addEventListener("keydown", (event) => {
 		if (!event.target.closest?.(".aa-dashboard-page-dot")) return;
 		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
@@ -503,7 +477,7 @@ export function createPageRail(initialState = {}) {
 		if (source && source !== item.dataset.pageId) state.onReorder?.(source, item.dataset.pageId);
 	});
 	root.update = update;
-	root.destroy = () => { cancelAnimationFrame(cursorFrame); resetWheel(); };
+	root.destroy = () => { cancelAnimationFrame(cursorFrame); };
 	update(initialState, { animate: false });
 	return root;
 }

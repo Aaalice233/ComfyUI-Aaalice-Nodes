@@ -141,7 +141,7 @@ test("PromptSelector can open the official sidebar directly on library managemen
 	assert.match(selector, /updateEntry\(entry\.id, \{ collectionIds: \[\] \}\)/);
 	assert.match(selector, /addCollectionId: target\.value/);
 	assert.match(selector, /className: "aa-prompt-selector-row-actions"/);
-	assert.match(selector, /event\.preventDefault\(\); event\.stopPropagation\(\); closePromptEntryDetails\(\)/);
+	assert.match(selector, /event\.preventDefault\(\); event\.stopPropagation\(\); closePromptSurfaces\(node\)/);
 	assert.match(theme, /\.aa-prompt-selector-row:hover \.aa-prompt-selector-row-actions \.aa-ui-button/);
 	assert.match(theme, /\.aa-prompt-selector-edit \{ color: var\(--aa-ui-accent\); \}/);
 	assert.match(theme, /\.aa-prompt-selector-favorite \{[^}]*color: var\(--aa-ui-warning\);/);
@@ -163,9 +163,9 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /aa-dashboard-page-rail__hover-area/);
 	assert.match(components, /root\.append\(hoverArea, list\)/);
 	assert.match(components, /aa-dashboard-page-dot/);
-	assert.match(components, /root\.addEventListener\("wheel"/);
+	assert.doesNotMatch(components, /root\.addEventListener\("wheel"/);
+	assert.doesNotMatch(components, /wheelDistance|wheelDirection|wheelResetTimer|resetWheel/);
 	assert.match(components, /root\.addEventListener\("pointerleave"/);
-	assert.match(components, /event\.preventDefault\(\)/);
 	assert.match(components, /state\.onSelect\?\.\(next\.id\)/);
 	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;/);
 	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
@@ -233,7 +233,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.doesNotMatch(dashboardInteractions, /clearPostScrollCheck/);
 	assert.doesNotMatch(dashboardInteractions, /eventTarget\.isConnected/);
 	assert.doesNotMatch(dashboardInteractions, /event\.defaultPrevented/);
-	assert.doesNotMatch(dashboardInteractions, /scroller\.scrollTop/);
+	assert.doesNotMatch(dashboardInteractions, /addEventListener\(["']scroll/);
 	assert.doesNotMatch(workspace, /bindDashboardBoundaryPaging/);
 	assert.doesNotMatch(workspace, /scroller: scroll/);
 	assert.doesNotMatch(workspace, /pageId: page\.id/);
@@ -332,7 +332,7 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /list\._aaaliceVirtualList\?\.setItems\(filteredEntries\(node, stateFor\(node\)\), \{ preserveScroll: false \}\)/);
 	assert.match(selector, /mountPromptEntries/);
 	assert.match(selector, /mountVirtualList/);
-	assert.match(selector, /root\.append\(toolbar, list, footer\);\s*list\.scrollTop = listScrollTop;\s*virtualList\.refresh\(\);/s);
+	assert.match(selector, /root\.append\(toolbar, list, footer\);\s*node\._aaalicePromptSelectorView = view;\s*list\.scrollTop = listScrollTop;\s*virtualList\.refresh\(\);/s);
 	assert.match(selector, /createImagePreview/);
 	assert.match(imagePreview, /aa-image-preview-selection/);
 	assert.match(imagePreview, /icon\("statusCheck"\)/);
@@ -354,7 +354,7 @@ test("PromptSelector exposes scannable selected and category states", () => {
 	assert.match(selector, /entries\.filter\(\(entry\) => selectedIds\.has\(entry\.id\)\)/);
 	assert.match(selector, /countPromptSelectionsByCategory/);
 	assert.match(selector, /aa-prompt-selector-clear-action/);
-	assert.match(selector, /state\.selections\.length \? button/);
+	assert.match(selector, /clearAction\.hidden = !state\.selections\.length/);
 	assert.match(selector, /mutate\(node, clearPromptSelections\)/);
 	assert.match(selector, /aa-prompt-selector-empty/);
 	assert.match(selector, /isSelected \? " is-selected"/);

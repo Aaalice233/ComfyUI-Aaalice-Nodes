@@ -94,6 +94,8 @@ test("Dashboard V4 layout editing uses transient integer-grid gestures and one c
 	assert.match(dashboardInteractions, /aa-dashboard-marquee/);
 	assert.match(dashboardInteractions, /intersectingSelectionIds/);
 	assert.match(dashboardInteractions, /applyMarqueeSelection/);
+	assert.match(dashboardInteractions, /const marqueeGeometry = \(currentGesture, rootRect\)/);
+	assert.match(dashboardInteractions, /currentGesture\.marqueeGeometry/);
 	assert.match(dashboardInteractions, /nextClickSelection/);
 	assert.match(dashboardInteractions, /nearestInDirection/);
 	assert.match(dashboardInteractions, /pendingToggle/);
@@ -431,7 +433,7 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 	assert.match(workspace, /createTransferSection\(\{ title: t\("aaalice\.workspace\.transfer\.conflictDecisions"/);
 	assert.match(workspace, /disabled: groups\.invalid\.length > 0/);
 	assert.match(workspace, /presetNeedsReview/);
-	assert.match(workspace, /availableDashboardPresetName\(file\.name\)/);
+	assert.match(workspace, /availableDashboardPresetName\(importedName\)/);
 	assert.match(workspace, /createDashboardPreset\(dashboardPresetState\(\), presetName\.value, snapshot\)/);
 	assert.match(workspace, /createTransferResult\(\{ title: t\("aaalice\.workspace\.transfer\.importComplete"/);
 	assert.match(libraryStore, /importPreflight\(file, \{ signal \} = \{\}\)/);
@@ -473,7 +475,7 @@ test("reactive sidebar render re-entry is a no-op and value updates preserve con
 	assert.match(workspace, /scheduleRender\("dashboard"\)/);
 	assert.match(workspace, /if \(renderedWorkspaceTabs\.has\(element\)\) return;/);
 	assert.doesNotMatch(workspace, /onCommit:[^\n]*scheduleRender\("dashboard"\)/);
-	assert.match(workspace, /if \(hasActiveControlGestures\(\)\) \{ deferredWorkspaceRender = true; return; \}/);
+	assert.match(workspace, /if \(hasActiveControlGestures\(\) \|\| isFocusedWorkspaceValueControl\(\)\) \{ deferredWorkspaceRender = true; return; \}/);
 	assert.match(workspace, /if \(isWorkspaceRootVisible\(element\)\) renderWorkspace\(element\)/);
 	assert.match(workspace, /aa-workspace-placeholder/);
 });

@@ -1,6 +1,7 @@
 /** Package frontend entry: imports business registrations and injects shared CSS. */
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady } from "./i18n.js";
+import "./lib/aaalice_widget_control_adapters.js";
 
 import "./group_is_enabled.js";
 import "./group_logic_probe.js";

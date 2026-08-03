@@ -32,6 +32,9 @@ let presetRequest = null;
 function label(key, fallback) { return t(`aaalice.resolutionPreset.${key}`, fallback); }
 function isResolutionNode(node) { return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].includes(NODE); }
 function stateFor(node) { node.properties ||= {}; node.properties[PROPERTY] = normalizeResolutionState(node.properties[PROPERTY], personalPresets); return node.properties[PROPERTY]; }
+function notifySidebarViews(node, except = null) {
+	for (const update of node?._aaaliceResolutionSidebarViews || []) if (update !== except) update();
+}
 function notify(severity, detail) { app.extensionManager?.toast?.add?.({ severity, summary: label("title", "Resolution Preset"), detail }); }
 
 async function jsonRequest(path, options = {}) {
@@ -43,7 +46,7 @@ async function jsonRequest(path, options = {}) {
 	return data;
 }
 
-function renderAll() { for (const node of allGraphNodes(app.graph)) if (isResolutionNode(node)) render(node); }
+function renderAll() { for (const node of allGraphNodes(app.graph)) if (isResolutionNode(node)) { render(node); notifySidebarViews(node); } }
 
 async function loadPersonalPresets({ force = false } = {}) {
 	if (!force && presetRequest) return presetRequest;
@@ -62,10 +65,12 @@ async function loadPersonalPresets({ force = false } = {}) {
 }
 
 function commit(node, mutate) {
+	const host = node._aaResolutionHost || node;
 	node.graph?.beforeChange?.();
 	try { mutate(); }
 	finally { node.graph?.afterChange?.(); node.graph?.change?.(); node.graph?.setDirtyCanvas?.(true, true); }
-	render(node);
+	render(node, { syncHost: true });
+	notifySidebarViews(host, node._aaResolutionUpdate);
 }
 
 function applyDimensions(node, changes, options) {
@@ -230,7 +235,7 @@ function beginDrag(node, mode, event) {
 	const move = (nextEvent) => {
 		if (nextEvent.pointerId !== drag.pointerId) return;
 		const x = (nextEvent.clientX - rect.left) / rect.width; const y = 1 - ((nextEvent.clientY - rect.top) / rect.height);
-		const next = canvasDimensions(stateFor(node), x, y, mode); const state = stateFor(node); state.width = next.width; state.height = next.height; state.presetId = null; render(node);
+		const next = canvasDimensions(stateFor(node), x, y, mode); const state = stateFor(node); state.width = next.width; state.height = next.height; state.presetId = null; render(node, { syncHost: true }); notifySidebarViews(node._aaResolutionHost || node, node._aaResolutionUpdate);
 	};
 	const finish = (cancel = false) => {
 		if (node._aaResolutionDrag !== drag) return;
@@ -238,7 +243,7 @@ function beginDrag(node, mode, event) {
 		else node.properties[PROPERTY] = updateDimensions(stateFor(node), {}, personalPresets, { expandCanvas: false });
 		drag.target.releasePointerCapture?.(drag.pointerId); node._aaResolutionDrag = null; node._aaResolutionRoot?.classList.remove("is-dragging");
 		window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", cancelEvent); window.removeEventListener("blur", blur); window.removeEventListener("keydown", key, true);
-		node.graph?.afterChange?.(); node.graph?.change?.(); node.graph?.setDirtyCanvas?.(true, true); render(node);
+		node.graph?.afterChange?.(); node.graph?.change?.(); node.graph?.setDirtyCanvas?.(true, true); render(node, { syncHost: true }); notifySidebarViews(node._aaResolutionHost || node, node._aaResolutionUpdate);
 	};
 	drag.cancel = () => finish(true);
 	const up = (nextEvent) => { if (nextEvent.pointerId === drag.pointerId) finish(false); };
@@ -258,7 +263,8 @@ function keyboardAdjust(node, mode, event) {
 	}
 	clearTimeout(node._aaResolutionKeyboardGesture.timer);
 	node.properties[PROPERTY] = updateDimensions(stateFor(node), changes, personalPresets);
-	render(node);
+	render(node, { syncHost: true });
+	notifySidebarViews(node._aaResolutionHost || node, node._aaResolutionUpdate);
 	node._aaResolutionKeyboardGesture.timer = setTimeout(() => finishKeyboardGesture(node), 180);
 }
 
@@ -267,6 +273,7 @@ function finishKeyboardGesture(node) {
 	if (!gesture) return;
 	clearTimeout(gesture.timer); node._aaResolutionKeyboardGesture = null;
 	node.graph?.afterChange?.(); node.graph?.change?.(); node.graph?.setDirtyCanvas?.(true, true);
+	notifySidebarViews(node._aaResolutionHost || node, node._aaResolutionUpdate);
 }
 
 function inputControl(node, dimension) {
@@ -315,7 +322,6 @@ function createInterface(node) {
 	selection.append(widthHandle, heightHandle, bothHandle);
 	const ratio = el("span", "aa-resolution-canvas-summary");
 	const dotGrid = el("div", { className: "aa-resolution-dot-grid", attrs: { "aria-hidden": "true" } });
-	for (let index = 0; index < 352; index += 1) dotGrid.append(el("span", "aa-resolution-dot"));
 	const artboard = el("div", { className: "aa-resolution-artboard", children: [dotGrid, selection] });
 	const width = inputControl(node, "width"); const height = inputControl(node, "height");
 	width.root.classList.add("aa-resolution-stage-field", "aa-resolution-stage-field--width"); height.root.classList.add("aa-resolution-stage-field", "aa-resolution-stage-field--height");
@@ -328,7 +334,8 @@ function createInterface(node) {
 	return root;
 }
 
-function render(node) {
+function render(node, { syncHost = false } = {}) {
+	if (syncHost && node._aaResolutionHost && node._aaResolutionHost !== node) render(node._aaResolutionHost);
 	if (!node._aaResolutionRoot) return;
 	const state = stateFor(node); const preset = currentPreset(node); const summary = resolutionSummary(state.width, state.height); const fractions = selectionFractions(state);
 	node._aaResolutionPresetTrigger.querySelector(".aa-ui-button__label").textContent = preset ? `${preset.name}` : label("preset.custom", "Custom");
@@ -344,18 +351,62 @@ function render(node) {
 	node._aaResolutionAccent?.sync?.();
 }
 
+export function createResolutionControl(node) {
+	node.properties ||= {};
+	const controller = {
+		get graph() { return node.graph; },
+		get properties() { node.properties ||= {}; return node.properties; },
+		set properties(value) { node.properties = value; },
+		_aaResolutionHost: node,
+	};
+	const root = createInterface(controller);
+	root.classList.add("aa-control-resolution");
+	const update = () => render(controller);
+	controller._aaResolutionUpdate = update;
+	render(controller);
+	node._aaaliceResolutionSidebarViews ||= new Set();
+	node._aaaliceResolutionSidebarViews.add(update);
+	return {
+		root,
+		update: () => render(controller),
+		destroy: () => {
+			cancelDrag(controller); finishKeyboardGesture(controller); closeTransient(controller);
+			node._aaaliceResolutionSidebarViews?.delete(update);
+			controller._aaResolutionRoot?.remove?.();
+		},
+	};
+}
+
 function cancelDrag(node) { node._aaResolutionDrag?.cancel?.(); }
 
 function setupNode(node, { initializeSize = false } = {}) {
 	if (!isResolutionNode(node) || node._aaResolutionMounted) return;
 	node._aaResolutionMounted = true; stateFor(node);
+	node._aaaliceResolutionSidebarViews ||= new Set();
+	node._aaaliceResolutionControl = {
+		getValue: () => structuredClone(stateFor(node)),
+		getPresets: () => allPresets(personalPresets),
+		getAlignments: () => ALIGNMENTS,
+		getCanvasLimits: () => CANVAS_LIMITS,
+		setValue: (next) => { node.properties[PROPERTY] = normalizeResolutionState(next, personalPresets); render(node); notifySidebarViews(node); },
+		validatePresetValue: (entry) => {
+			const value = entry?.payload;
+			if (entry?.valueType !== "resolution" || !value || value.version !== 1) return "type-mismatch";
+			if (![value.width, value.height, value.alignment, value.canvasMax].every(Number.isInteger)) return "invalid-resolution";
+			if (!ALIGNMENTS.includes(value.alignment) || !CANVAS_LIMITS.includes(value.canvasMax)) return "invalid-resolution";
+			if (value.width < MIN_RESOLUTION || value.height < MIN_RESOLUTION || value.width > MAX_RESOLUTION || value.height > MAX_RESOLUTION) return "invalid-resolution";
+			if (value.width % value.alignment || value.height % value.alignment || Math.max(value.width, value.height) > value.canvasMax) return "invalid-resolution";
+			return true;
+		},
+		createSidebarControl: () => createResolutionControl(node),
+	};
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] ResolutionPreset requires addDOMWidget");
 	const root = createInterface(node); node._aaResolutionAccent = bindNodeAccent(node, root);
 	addLifecycleDOMWidget(node, WIDGET, "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_WIDGET_HEIGHT, getValue: () => "", setValue: () => {} });
 	installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || [MIN_WIDGET_WIDTH, MIN_WIDGET_HEIGHT]; return [Math.max(MIN_WIDGET_WIDTH, Number(size[0]) || 0), Math.max(MIN_WIDGET_HEIGHT, Number(size[1]) || 0)]; };
-	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); this.properties[PROPERTY] = normalizeResolutionState(this.properties?.[PROPERTY], personalPresets); render(this); return result; };
-	const previousRemoved = node.onRemoved; node.onRemoved = function () { cancelDrag(this); finishKeyboardGesture(this); closeTransient(this); cleanupDomWidgetResizePassthrough(this); this._aaResolutionAccent?.dispose?.(); this._aaResolutionRoot?.remove?.(); return previousRemoved?.apply(this, arguments); };
+	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); this.properties[PROPERTY] = normalizeResolutionState(this.properties?.[PROPERTY], personalPresets); render(this); notifySidebarViews(this); return result; };
+	const previousRemoved = node.onRemoved; node.onRemoved = function () { cancelDrag(this); finishKeyboardGesture(this); closeTransient(this); this._aaaliceResolutionSidebarViews?.clear?.(); this._aaaliceResolutionControl = null; this._aaResolutionAccent?.dispose?.(); this._aaResolutionRoot?.remove?.(); return previousRemoved?.apply(this, arguments); };
 	render(node); void loadPersonalPresets(); if (initializeSize) node.setSize?.([DEFAULT_WIDTH, DEFAULT_HEIGHT]);
 }
 

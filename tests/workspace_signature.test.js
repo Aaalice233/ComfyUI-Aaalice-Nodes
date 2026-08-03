@@ -49,7 +49,7 @@ test("workspace signatures keep stable own data-property option arrays", () => {
 });
 
 test("dynamic options refresh by invalidation while graph restores force a sync", () => {
-	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{ invalidateWidgetControlAdapterCache\(event\.detail\?\.node \|\| null\); scheduleRender\("dashboard"\)/);
+	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{[\s\S]*invalidateWidgetControlAdapterCache\(node\);[\s\S]*if \(!dashboardUsesHost\(node\)\) return;[\s\S]*scheduleRender\("dashboard"\)/);
 	assert.match(workspace, /function scheduleGraphSync\(forceRender = false\)/);
 	assert.match(workspace, /graphSyncForceRender \|\|= forceRender/);
 	assert.match(workspace, /if \(shouldForceRender \|\| signature !== previousGraphStructure\)/);
