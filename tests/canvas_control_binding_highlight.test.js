@@ -27,7 +27,7 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 	assert.match(highlight, /DOM_BOUND_CLASS/);
 	assert.match(highlight, /mapCanvasWidgetRows\(rows, candidates\)/);
 	assert.match(highlight, /sourceWidgetName\.startsWith\("\$\$"\)/);
-	assert.match(highlight, /isPromotedCanvasOnlyWidget\(widget\)/);
+	assert.match(highlight, /if \(!widget\?\.type \|\| options\.canvasOnly \|\| options\.hidden \|\| isPromotedCanvasOnlyWidget\(widget\)\) return false;/);
 	assert.match(highlight, /app\.canvas\?\.setDirty\?\.\(true, true\)/);
 	assert.match(highlight, /rootObserver\.observe\(root, \{ childList: true, subtree: true \}\)/);
 	assert.match(highlight, /typeof liteGraphMode === "boolean"/);

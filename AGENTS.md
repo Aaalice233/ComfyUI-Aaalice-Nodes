@@ -7,6 +7,7 @@
 本项目选择性重写 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)，只实现已确认的节点和前端能力。
 
 - ComfyUI 官方文档入口为 [https://docs.comfy.org/](https://docs.comfy.org/)；API、生命周期、Schema、list、缓存或前端行为不确定时，先查官方文档和当前安装版本源码，再决定实现。
+- 排查前端显示、渲染、widget、画布或交互问题时，必须同时核对当前 ComfyUI 源码，以及本地存在的对应版本 ComfyUI 前端源码（当前参考 `E:/git/ComfyUI_frontend`）；以源码确认生命周期、DOM、LiteGraph、Classic / Nodes 2.0 和样式行为，不得只凭截图、打包 bundle 或经验猜测。
 - 现象与预期冲突时，先用同版本的官方内置节点交叉验证。若官方节点也复现，按上游或环境问题处理，不给本包堆私有兼容补丁。
 - 方案开始依赖多层时序补丁、轮询或重复状态时，暂停实现并重新核对职责和根因。
 - 当前已进入正式发布前稳定期；现有节点身份、工作流序列化、公开前端 API、用户交互和已验证行为均按稳定契约对待。修复优先采用边界清晰的最小改动，禁止因为局部问题顺带改写无关模块、替换成熟实现或进行大范围“顺手重构”。
@@ -109,6 +110,7 @@ ComfyUI-Aaalice-Nodes/
 - 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
 - `graph.onTrigger`、`onNodeAdded`、`onNodeRemoved` 等图级回调是 ComfyUI 前端管理器会安装、链式调用并在重建时恢复的单一插槽，不得由业务节点长期占用或自行覆盖来监听属性变化。优先使用官方图事件、节点生命周期或保留原描述符语义的节点级观察；任何包装都必须幂等、可卸载，且不能截断 Nodes 2.0 的事件链。
+- 侧边栏绑定画布高亮由 `js/lib/canvas_control_binding_highlight.js` 统一维护：Classic 的标记变化必须调用 `LGraphCanvas.setDirty(true, true)`；Nodes 2.0 的候选 widget 必须遵循 ComfyUI `useProcessedWidgets` / `shouldRenderAsVue` 的可见性、去重和 `canvasOnly` 规则，`sourceWidgetName` 以 `$$` 开头的 promoted canvas-only pseudo widget 不参与 DOM 行映射。含 `preview_text` 与 canvas image preview 的根图首次加载必须直接高亮，不得依赖进入/退出子图触发补同步。
 ### 4.2 性能优化硬规则
 
 - 性能问题必须先按“本包、ComfyUI 前端、第三方插件、浏览器/环境”分层归因，再在责任边界内修复根因。不得为掩盖本包的全量重建、图遍历或 DOM 抖动而修改 ComfyUI 内核或其它插件，也不得用节流、延迟、轮询、静默降级或限制数量制造表面流畅。
