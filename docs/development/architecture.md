@@ -37,7 +37,7 @@
 |---|---|---|
 | 包入口 | `js/extension.js`、`js/i18n.js` | 加载共享样式、业务扩展和双语资源 |
 | 分辨率预设 | `js/resolution_preset.js`、`js/lib/resolution_preset_model.js` | 状态规范化、预设匹配、二维映射、DOM 交互、个人预设请求和 width / height payload 注入 |
-| 组管理与导航 | `js/quick_group_manager.js`、`js/lib/{quick_group_manager_runtime,quick_group_manager_popovers,group_navigation,group_navigation_model}.js` | 节点生命周期与紧凑 DOM、独立颜色/联动浮层、原子模式事务、共享组边界导航，以及手工导航清单与组合键模型 |
+| 组管理与导航 | `js/quick_group_manager.js`、`js/lib/{quick_group_manager_runtime,quick_group_manager_popovers,group_navigation,group_navigation_model}.js` | 节点生命周期与紧凑 DOM、独立颜色/联动浮层、原子模式事务、共享组边界导航，以及手工导航清单与单键模型 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |

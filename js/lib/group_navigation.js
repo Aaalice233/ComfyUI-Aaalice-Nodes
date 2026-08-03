@@ -21,12 +21,12 @@ export function groupNavigationBounds(group) {
 	return [group.pos[0], group.pos[1], group.size[0], group.size[1]];
 }
 
-export function navigateToVisualGroup(canvas, group, { duration = 280, zoom = 0.82, offset = null } = {}) {
+export function navigateToVisualGroup(canvas, group, { zoom = 0.82, offset = null } = {}) {
 	if (!canvas || !group) return false;
 	const bounds = groupNavigationBounds(group);
 	const offsetX = Number.isFinite(offset?.x) ? offset.x : 0;
 	const offsetY = Number.isFinite(offset?.y) ? offset.y : 0;
-	if (bounds && typeof canvas.animateToBounds === "function") canvas.animateToBounds([bounds[0] + offsetX, bounds[1] + offsetY, bounds[2], bounds[3]], { duration, zoom });
+	if (bounds && typeof canvas.ds?.fitToBounds === "function") canvas.ds.fitToBounds([bounds[0] + offsetX, bounds[1] + offsetY, bounds[2], bounds[3]], { zoom });
 	else if (typeof canvas.centerOnNode === "function" && finitePair(group.pos) && finitePair(group.size)) canvas.centerOnNode(offsetX || offsetY ? { pos: [group.pos[0] + offsetX, group.pos[1] + offsetY], size: group.size } : group);
 	else return false;
 	canvas.setDirty?.(true, true);

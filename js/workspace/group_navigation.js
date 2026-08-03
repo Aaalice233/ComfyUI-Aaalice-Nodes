@@ -2,7 +2,7 @@ import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { navigateToVisualGroup, visualGroups } from "../lib/group_navigation.js";
 import { GROUP_STATE, classifyGroupNodes, normalizeColor } from "../lib/quick_group_manager_model.js";
-import { addGroupNavigationEntry, emptyGroupNavigation, isEditableShortcutTarget, normalizeGroupNavigation, removeGroupNavigationEntry, setGroupNavigationOffset, setGroupNavigationShortcut, setGroupNavigationZoom, shortcutFromKeyboardEvent, shortcutLabel } from "../lib/group_navigation_model.js";
+import { addGroupNavigationEntry, emptyGroupNavigation, isEditableShortcutTarget, moveGroupNavigationEntry, normalizeGroupNavigation, removeGroupNavigationEntry, setGroupNavigationOffset, setGroupNavigationShortcut, setGroupNavigationZoom, shortcutFromKeyboardEvent, shortcutLabel } from "../lib/group_navigation_model.js";
 import { badge, button, createDialog, el, emptyState, field, icon, iconButton } from "../lib/ui.js";
 import { createCollapsibleSearch, createListRow, createWorkspaceToolbar } from "../lib/workspace_components.js";
 
@@ -90,7 +90,7 @@ function openAddGroupNavigation() {
 function openGroupNavigationSettings(entry, groupName) {
 	let candidate = entry.shortcut;
 	const input = el("input", { className: "aa-group-navigation-shortcut-input", attrs: { type: "text", readonly: "", placeholder: t("aaalice.workspace.groupNavigation.shortcutPlaceholder", "Press a shortcut") } });
-	const hint = el("small", "aa-group-navigation-shortcut-hint", t("aaalice.workspace.groupNavigation.shortcutHint", "Use Ctrl, Alt, or Command with another key. Backspace clears it."));
+	const hint = el("small", "aa-group-navigation-shortcut-hint", t("aaalice.workspace.groupNavigation.shortcutHint", "Press 1-6 or Numpad 1-6. Backspace clears it."));
 	const error = el("small", "aa-group-navigation-shortcut-error");
 	const sync = () => {
 		input.value = shortcutLabel(candidate);
@@ -140,6 +140,7 @@ export function renderGroupNavigation(container, host) {
 	const focusSearch = viewState.focusSearch && viewState.focusHost === host && runtime.isWorkspaceRootInteractive(host);
 	if (focusSearch) { viewState.focusSearch = false; viewState.focusHost = null; }
 	let applySearch = () => {};
+	let draggingGroupId = null;
 	const search = createCollapsibleSearch({
 		open: viewState.searchOpen, value: viewState.query, focus: focusSearch, disabled: entries.length === 0,
 		label: t("aaalice.workspace.groupNavigation.search", "Search groups"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.groupNavigation.searchPlaceholder", "Search workflow groups"),
@@ -168,7 +169,44 @@ export function renderGroupNavigation(container, host) {
 			target.addEventListener("click", () => navigateFromWorkspace(group, entry.offset, entry.zoom));
 			const shortcut = button({ label: entry.shortcut ? shortcutLabel(entry.shortcut) : t("aaalice.workspace.groupNavigation.settingsShort", "Set"), variant: "ghost", size: "sm", className: `aa-group-navigation-shortcut${entry.shortcut || offsetActive || entry.zoom !== 0.82 ? " is-set" : ""}`, onClick: () => openGroupNavigationSettings(entry, name) });
 			const remove = iconButton({ iconName: "close", label: message("aaalice.workspace.groupNavigation.remove", "Remove {group} from navigation", { group: name }), variant: "ghost", className: "aa-group-navigation-remove", onClick: () => updateGroupNavigation((model) => removeGroupNavigationEntry(model, entry.groupId), t("aaalice.workspace.groupNavigation.saveWorkflowReminder", "Save the workflow to keep group navigation settings.")) });
-			list.append(el("div", { className: `aa-group-navigation-row is-${state.status}`, children: [target, el("div", { className: "aa-group-navigation-actions", children: [shortcut, remove] })] }));
+			const row = el("div", { className: `aa-group-navigation-row is-${state.status}`, attrs: { "data-group-id": entry.groupId }, children: [] });
+			const drag = el("button", { className: "aa-group-navigation-drag", attrs: { type: "button", draggable: "true", title: t("aaalice.workspace.groupNavigation.reorder", "Drag to reorder groups"), "aria-label": message("aaalice.workspace.groupNavigation.reorderGroup", "Reorder {group}", { group: name }) }, children: [icon("drag")] });
+			const clearDropState = () => row.classList.remove("is-dragging", "is-drop-before", "is-drop-after");
+			drag.addEventListener("dragstart", (event) => { draggingGroupId = entry.groupId; event.dataTransfer?.setData("text/plain", entry.groupId); event.dataTransfer.effectAllowed = "move"; row.classList.add("is-dragging"); });
+			drag.addEventListener("dragend", () => { draggingGroupId = null; clearDropState(); });
+			drag.addEventListener("keydown", (event) => {
+				if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+				const currentIndex = navigation.entries.findIndex((candidate) => candidate.groupId === entry.groupId);
+				const destination = currentIndex + (event.key === "ArrowUp" ? -1 : 1);
+				if (currentIndex < 0 || destination < 0 || destination >= navigation.entries.length) return;
+				event.preventDefault();
+				updateGroupNavigation((model) => moveGroupNavigationEntry(model, entry.groupId, destination), t("aaalice.workspace.groupNavigation.saveWorkflowReminder", "Save the workflow to keep group navigation settings."));
+			});
+			row.addEventListener("dragover", (event) => {
+				const sourceId = draggingGroupId || (event.dataTransfer?.types.includes("text/plain") ? event.dataTransfer.getData("text/plain") : null);
+				if (!sourceId || sourceId === entry.groupId) return;
+				event.preventDefault();
+				event.dataTransfer.dropEffect = "move";
+				const bounds = row.getBoundingClientRect();
+				const before = event.clientY < bounds.top + bounds.height / 2;
+				row.classList.toggle("is-drop-before", before);
+				row.classList.toggle("is-drop-after", !before);
+			});
+			row.addEventListener("dragleave", (event) => { if (!row.contains(event.relatedTarget)) row.classList.remove("is-drop-before", "is-drop-after"); });
+			row.addEventListener("drop", (event) => {
+				event.preventDefault();
+				const sourceId = draggingGroupId || event.dataTransfer?.getData("text/plain");
+				const before = row.classList.contains("is-drop-before");
+				clearDropState();
+				const sourceIndex = navigation.entries.findIndex((candidate) => candidate.groupId === sourceId);
+				const targetIndex = navigation.entries.findIndex((candidate) => candidate.groupId === entry.groupId);
+				if (!sourceId || sourceId === entry.groupId || sourceIndex < 0 || targetIndex < 0) return;
+				let destination = before ? targetIndex : targetIndex + 1;
+				if (sourceIndex < destination) destination -= 1;
+				updateGroupNavigation((model) => moveGroupNavigationEntry(model, sourceId, destination), t("aaalice.workspace.groupNavigation.saveWorkflowReminder", "Save the workflow to keep group navigation settings."));
+			});
+			row.append(drag, target, el("div", { className: "aa-group-navigation-actions", children: [shortcut, remove] }));
+			list.append(row);
 		}
 		if (!visible.length) list.append(emptyState({ iconName: "fit", className: "aa-workspace-empty aa-group-navigation-empty", title: entries.length ? t("aaalice.workspace.groupNavigation.noMatchesTitle", "No matching groups") : t("aaalice.workspace.groupNavigation.emptyTitle", "No navigation groups yet"), description: entries.length ? t("aaalice.workspace.groupNavigation.noMatches", "Try another group name.") : t("aaalice.workspace.groupNavigation.empty", "Add only the workflow groups you want to navigate to.") }));
 	};

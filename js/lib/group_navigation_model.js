@@ -1,7 +1,8 @@
-const VERSION = 1;
+const VERSION = 2;
+const LEGACY_VERSION = 1;
 const OFFSET_LIMIT = 100000;
 const DEFAULT_ZOOM = 0.82;
-const MODIFIER_CODES = new Set(["ControlLeft", "ControlRight", "AltLeft", "AltRight", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"]);
+const NAVIGATION_KEY_CODES = new Set(["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Numpad1", "Numpad2", "Numpad3", "Numpad4", "Numpad5", "Numpad6"]);
 
 export function emptyGroupNavigation() {
 	return { version: VERSION, entries: [] };
@@ -9,17 +10,24 @@ export function emptyGroupNavigation() {
 
 export function normalizeGroupNavigation(value) {
 	if (value == null) return emptyGroupNavigation();
-	if (value?.version !== VERSION || !Array.isArray(value.entries)) throw new Error("Unsupported group navigation data");
+	const sourceVersion = Number(value?.version);
+	if (![LEGACY_VERSION, VERSION].includes(sourceVersion) || !Array.isArray(value.entries)) throw new Error("Unsupported group navigation data");
 	const seen = new Set();
 	const entries = [];
 	for (const candidate of value.entries) {
 		const groupId = String(candidate?.groupId ?? "").trim();
 		if (!groupId || seen.has(groupId)) continue;
 		seen.add(groupId);
+		let shortcut = null;
+		try {
+			shortcut = normalizeShortcut(candidate?.shortcut);
+		} catch (error) {
+			if (sourceVersion !== LEGACY_VERSION) throw error;
+		}
 		entries.push({
 			groupId,
 			label: String(candidate?.label || "").trim(),
-			shortcut: normalizeShortcut(candidate?.shortcut),
+			shortcut,
 			offset: normalizeNavigationOffset(candidate?.offset),
 			zoom: normalizeNavigationZoom(candidate?.zoom),
 		});
@@ -38,6 +46,17 @@ export function addGroupNavigationEntry(model, group) {
 export function removeGroupNavigationEntry(model, groupId) {
 	const next = normalizeGroupNavigation(model);
 	next.entries = next.entries.filter((entry) => entry.groupId !== String(groupId));
+	return next;
+}
+
+export function moveGroupNavigationEntry(model, groupId, targetIndex) {
+	const next = normalizeGroupNavigation(model);
+	const sourceIndex = next.entries.findIndex((entry) => entry.groupId === String(groupId));
+	if (sourceIndex < 0) throw new Error(`Missing group navigation entry: ${groupId}`);
+	const [entry] = next.entries.splice(sourceIndex, 1);
+	const numericIndex = Number(targetIndex);
+	const destination = Number.isFinite(numericIndex) ? Math.max(0, Math.min(next.entries.length, Math.round(numericIndex))) : sourceIndex;
+	next.entries.splice(destination, 0, entry);
 	return next;
 }
 
@@ -85,28 +104,20 @@ export function normalizeNavigationZoom(value) {
 
 export function normalizeShortcut(value) {
 	if (value == null || value === "") return null;
-	const parts = String(value).split("+").filter(Boolean);
-	const code = parts.at(-1);
-	if (!code || MODIFIER_CODES.has(code)) throw new Error("A shortcut needs a non-modifier key");
-	const modifiers = new Set(parts.slice(0, -1));
-	if (![...modifiers].every((part) => ["Ctrl", "Alt", "Shift", "Meta"].includes(part))) throw new Error("Unsupported shortcut modifier");
-	if (!modifiers.has("Ctrl") && !modifiers.has("Alt") && !modifiers.has("Meta")) throw new Error("A shortcut needs Ctrl, Alt, or Meta");
-	return ["Ctrl", "Alt", "Shift", "Meta"].filter((part) => modifiers.has(part)).concat(code).join("+");
+	const code = String(value).trim();
+	if (!NAVIGATION_KEY_CODES.has(code)) throw new Error("Group navigation accepts only number keys 1-6 or Numpad 1-6");
+	return code;
 }
 
 export function shortcutFromKeyboardEvent(event) {
-	if (!event?.code || MODIFIER_CODES.has(event.code)) return null;
-	const modifiers = [event.ctrlKey && "Ctrl", event.altKey && "Alt", event.shiftKey && "Shift", event.metaKey && "Meta"].filter(Boolean);
-	if (!modifiers.includes("Ctrl") && !modifiers.includes("Alt") && !modifiers.includes("Meta")) return null;
-	return normalizeShortcut([...modifiers, event.code].join("+"));
+	if (!event?.code || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return null;
+	return NAVIGATION_KEY_CODES.has(event.code) ? event.code : null;
 }
 
 export function shortcutLabel(shortcut) {
 	if (!shortcut) return "";
-	const parts = normalizeShortcut(shortcut).split("+");
-	const code = parts.pop();
-	const key = code.replace(/^Key/, "").replace(/^Digit/, "").replace(/^Numpad/, "Num ").replace(/^Arrow/, "");
-	return [...parts.map((part) => part === "Meta" ? "⌘" : part), key].join("+");
+	const code = normalizeShortcut(shortcut);
+	return code.startsWith("Numpad") ? `Num ${code.slice("Numpad".length)}` : code.slice("Digit".length);
 }
 
 export function isEditableShortcutTarget(target) {

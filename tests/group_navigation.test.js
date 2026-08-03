@@ -14,25 +14,25 @@ test("discovers groups in canvas reading order and refreshes their members", () 
 	assert.deepEqual(refreshed, [3, 1, 2]);
 });
 
-test("animates to the full group bounds when the canvas supports it", () => {
+test("jumps directly to the full group bounds when the canvas supports it", () => {
 	const calls = [];
 	const group = { boundingRect: [10, 20, 300, 180] };
 	const canvas = {
-		animateToBounds: (...args) => calls.push(["animate", ...args]),
+		ds: { fitToBounds: (...args) => calls.push(["fit", ...args]) },
 		setDirty: (...args) => calls.push(["dirty", ...args]),
 	};
 	assert.equal(navigateToVisualGroup(canvas, group), true);
 	assert.deepEqual(calls, [
-		["animate", group.boundingRect, { duration: 280, zoom: 0.82 }],
+		["fit", group.boundingRect, { zoom: 0.82 }],
 		["dirty", true, true],
 	]);
 });
 
-test("applies a per-entry canvas offset to the navigation target", () => {
+test("applies a per-entry canvas offset to the direct navigation target", () => {
 	let received = null;
-	const canvas = { animateToBounds: (bounds, options) => { received = { bounds, options }; } };
+	const canvas = { ds: { fitToBounds: (bounds, options) => { received = { bounds, options }; } } };
 	assert.equal(navigateToVisualGroup(canvas, { boundingRect: [10, 20, 300, 200] }, { offset: { x: 120, y: -80 }, zoom: 1.35 }), true);
-	assert.deepEqual(received, { bounds: [130, -60, 300, 200], options: { duration: 280, zoom: 1.35 } });
+	assert.deepEqual(received, { bounds: [130, -60, 300, 200], options: { zoom: 1.35 } });
 });
 
 test("falls back to centering group-shaped objects and rejects invalid targets", () => {

@@ -209,6 +209,7 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(workspace, /value: "groups"/);
 	assert.match(workspace, /function renderGroupNavigation/);
 	assert.match(workspace, /const GROUP_NAVIGATION_EXTRA_KEY = "aaaliceGroupNavigation"/);
+	assert.match(workspace, /graph\.extra\[GROUP_NAVIGATION_EXTRA_KEY\] = normalizeGroupNavigation/);
 	assert.match(workspace, /addGroupNavigationEntry/);
 	assert.match(workspace, /openAddGroupNavigation/);
 	assert.match(workspace, /navigateToVisualGroup\(app\.canvas, group, \{ offset, zoom \}\)/);
@@ -219,9 +220,13 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(workspace, /navigateFromWorkspace\(group, entry\.offset, entry\.zoom\)/);
 	assert.match(workspace, /window\.addEventListener\("keydown", handleGroupNavigationShortcut, true\)/);
 	assert.match(groupNavigationModel, /shortcutFromKeyboardEvent/);
-	assert.match(groupNavigationModel, /Ctrl.*Alt.*Shift.*Meta/);
+	assert.match(groupNavigationModel, /Digit1.*Digit2.*Digit3.*Digit4.*Digit5.*Digit6/);
+	assert.match(groupNavigationModel, /Numpad1.*Numpad2.*Numpad3.*Numpad4.*Numpad5.*Numpad6/);
+	assert.match(workspace, /moveGroupNavigationEntry/);
+	assert.match(workspace, /aa-group-navigation-drag/);
 	assert.match(workspace, /scheduleRender\("groups"\)/);
-	assert.match(groupNavigation, /animateToBounds/);
+	assert.match(groupNavigation, /fitToBounds/);
+	assert.doesNotMatch(groupNavigation, /animateToBounds/);
 	assert.match(groupNavigation, /centerOnNode/);
 	assert.match(theme, /\.aa-group-navigation-marker/);
 	assert.match(enLocale, /"groupNavigation"/);
