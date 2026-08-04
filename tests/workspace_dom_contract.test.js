@@ -224,6 +224,13 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(workspace, /openGroupNavigationWheel/);
 	assert.match(workspace, /aa-group-navigation-wheel-open/);
 	assert.match(workspace, /aa-group-navigation-wheel-settings/);
+	assert.match(workspace, /isGroupNavigationCanvasPointerEvent/);
+	assert.match(workspace, /canvasElement: app\.canvas\?\.canvas/);
+	assert.match(workspace, /elementFromPoint/);
+	assert.match(workspace, /trigger === "keyboard"/);
+	assert.match(theme, /aa-group-navigation-wheel-surface/);
+	assert.match(theme, /--wheel-tilt-x/);
+	assert.match(theme, /translateZ\(16px\)/);
 	assert.match(groupNavigationModel, /wheelShortcut/);
 	assert.match(groupNavigationModel, /wheelShortcutFromKeyboardEvent/);
 	assert.doesNotMatch(groupNavigation, /shortcutFromKeyboardEvent/);

@@ -98,6 +98,7 @@ function openNavigationWheel(owner, trigger = "keyboard", activation = null) {
 	openGroupNavigationWheel({
 		owner,
 		graph: app.graph,
+		canvasElement: app.canvas?.canvas || null,
 		entries,
 		center: groupNavigationWheelCenter(app.graph, trigger),
 		shortcutCode: activation?.code || navigation.wheelShortcut,

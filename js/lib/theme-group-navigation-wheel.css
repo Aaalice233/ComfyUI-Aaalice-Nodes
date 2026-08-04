@@ -10,6 +10,7 @@
 	outline: none;
 	pointer-events: auto;
 	user-select: none;
+	perspective: 1100px;
 	animation: aa-group-navigation-wheel-in .16s cubic-bezier(.2, .78, .22, 1) both;
 }
 .aa-group-navigation-wheel {
@@ -18,12 +19,22 @@
 	left: var(--wheel-x);
 	width: min(436px, calc(100vw - 28px), calc(100vh - 28px));
 	aspect-ratio: 1;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) rotateX(var(--wheel-tilt-x, 0deg)) rotateY(var(--wheel-tilt-y, 0deg));
+	transform-origin: center;
+	transform-style: preserve-3d;
+	transition: transform .19s cubic-bezier(.2, .78, .22, 1);
+	will-change: transform;
+}
+.aa-group-navigation-wheel-surface {
+	position: absolute;
+	inset: 0;
+	transform-style: preserve-3d;
 	animation: aa-group-navigation-wheel-pop .18s cubic-bezier(.2, .78, .22, 1) both;
 }
 .aa-group-navigation-wheel-sectors {
 	position: absolute;
 	inset: 0;
+	transform-style: preserve-3d;
 }
 .aa-group-navigation-wheel-sector.aa-ui-button {
 	--wheel-distance: -176px;
@@ -31,6 +42,7 @@
 	top: 50%;
 	left: 50%;
 	display: grid;
+	transform-style: preserve-3d;
 	width: min(158px, 36%);
 	min-width: 0;
 	height: 56px;
@@ -46,10 +58,10 @@
 	color: var(--aa-ui-text);
 	text-align: left;
 	transform: translate(-50%, -50%) rotate(var(--wheel-angle, 0deg)) translateY(var(--wheel-distance)) rotate(var(--wheel-angle-reverse, 0deg));
-	transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease, color .14s ease, opacity .14s ease, transform .14s ease;
+	transition: border-color .14s ease, background-color .14s ease, box-shadow .18s ease, color .14s ease, opacity .14s ease, transform .18s cubic-bezier(.2, .78, .22, 1), filter .18s ease;
 	animation: aa-group-navigation-wheel-sector-in .18s cubic-bezier(.2, .78, .22, 1) both;
 	animation-delay: calc(var(--wheel-index, 0) * 18ms);
-	will-change: transform, opacity;
+	will-change: transform, opacity, filter;
 }
 .aa-group-navigation-wheel-sector.aa-ui-button:hover,
 .aa-group-navigation-wheel-sector.aa-ui-button:focus-visible,
@@ -59,7 +71,15 @@
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--group-color, var(--aa-ui-accent)) 17%, transparent), 0 8px 20px color-mix(in srgb, var(--group-color, var(--aa-ui-accent)) 19%, rgb(0 0 0 / .2));
 	color: var(--aa-ui-text);
 	outline: none;
+}
+.aa-group-navigation-wheel-sector.aa-ui-button:hover,
+.aa-group-navigation-wheel-sector.aa-ui-button:focus-visible {
 	transform: translate(-50%, -50%) rotate(var(--wheel-angle, 0deg)) translateY(var(--wheel-distance)) rotate(var(--wheel-angle-reverse, 0deg)) scale(1.035);
+}
+.aa-group-navigation-wheel-sector.aa-ui-button.is-selected {
+	z-index: 3;
+	transform: translate(-50%, -50%) rotate(var(--wheel-angle, 0deg)) translateY(var(--wheel-distance)) rotate(var(--wheel-angle-reverse, 0deg)) translateZ(16px) scale(1.11);
+	filter: brightness(1.07) saturate(1.08);
 }
 .aa-group-navigation-wheel-sector.is-missing {
 	border-style: dashed;
@@ -113,7 +133,8 @@
 	box-shadow: 0 0 0 4px color-mix(in srgb, var(--aa-ui-accent) 6%, transparent), 0 14px 30px rgb(0 0 0 / .2), inset 0 1px color-mix(in srgb, var(--aa-ui-text) 10%, transparent);
 	backdrop-filter: blur(14px);
 	text-align: center;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) translateZ(20px);
+	transform-style: preserve-3d;
 	pointer-events: auto;
 }
 .aa-group-navigation-wheel-center::before {
@@ -149,9 +170,9 @@
 	.aa-group-navigation-wheel-center { width: 116px; height: 94px; padding-inline: 8px; }
 }
 @keyframes aa-group-navigation-wheel-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes aa-group-navigation-wheel-pop { from { opacity: 0; transform: translate(-50%, -50%) scale(.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes aa-group-navigation-wheel-pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
 @keyframes aa-group-navigation-wheel-sector-in {
-	from { opacity: 0; transform: translate(-50%, -50%) rotate(var(--wheel-angle, 0deg)) translateY(var(--wheel-distance)) rotate(var(--wheel-angle-reverse, 0deg)) scale(.88); }
-	to { opacity: 1; transform: translate(-50%, -50%) rotate(var(--wheel-angle, 0deg)) translateY(var(--wheel-distance)) rotate(var(--wheel-angle-reverse, 0deg)) scale(1); }
+	from { opacity: 0; }
+	to { opacity: 1; }
 }
-@media (prefers-reduced-motion: reduce) { .aa-group-navigation-wheel-root, .aa-group-navigation-wheel, .aa-group-navigation-wheel-sector.aa-ui-button { animation: none; transition: none; } }
+@media (prefers-reduced-motion: reduce) { .aa-group-navigation-wheel-root, .aa-group-navigation-wheel, .aa-group-navigation-wheel-surface, .aa-group-navigation-wheel-sector.aa-ui-button { animation: none; transition: none; } }

@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { button, el, iconButton } from "../lib/ui.js";
-import { cycleWheelIndex, pageStep, wheelPage, wheelSectorIndex, clampWheelCenter, GROUP_NAVIGATION_WHEEL_DEAD_ZONE, GROUP_NAVIGATION_WHEEL_PAGE_SIZE } from "../lib/group_navigation_wheel_model.js";
+import { cycleWheelIndex, pageStep, wheelPage, wheelSectorAngle, wheelSectorIndex, clampWheelCenter, GROUP_NAVIGATION_WHEEL_DEAD_ZONE, GROUP_NAVIGATION_WHEEL_PAGE_SIZE } from "../lib/group_navigation_wheel_model.js";
 
 let activeSession = null;
 let lastCanvasPointer = null;
@@ -14,6 +14,18 @@ export function clearGroupNavigationCanvasPointer() {
 	lastCanvasPointer = null;
 }
 
+export function isGroupNavigationCanvasPointerEvent(event, canvas) {
+	if (!event || !canvas) return false;
+	if (event.target === canvas) return true;
+	const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+	if (path.includes(canvas)) return true;
+	return path.some((target) => isGroupNavigationCanvasPointerTarget(target, canvas));
+}
+
+function isGroupNavigationCanvasPointerTarget(target, canvas) {
+	return target === canvas || (target?.nodeType === 1 && target.matches?.("[data-testid='transform-pane'], [data-node-id], .dom-widget"));
+}
+
 export function groupNavigationWheelCenter(graph, trigger = "keyboard") {
 	const viewport = { width: globalThis.innerWidth || 0, height: globalThis.innerHeight || 0 };
 	const point = trigger === "keyboard" && lastCanvasPointer?.graph === graph ? lastCanvasPointer : null;
@@ -21,9 +33,9 @@ export function groupNavigationWheelCenter(graph, trigger = "keyboard") {
 	return clampWheelCenter(point, viewport, radius);
 }
 
-export function openGroupNavigationWheel({ owner, graph = null, entries, center, shortcutCode = null, shortcutLabel = "", activationPointer = null, trigger = "keyboard", onNavigate }) {
+export function openGroupNavigationWheel({ owner, graph = null, canvasElement = null, entries, center, shortcutCode = null, shortcutLabel = "", activationPointer = null, trigger = "keyboard", onNavigate }) {
 	if (activeSession) closeGroupNavigationWheel();
-	const session = createSession({ owner, graph, entries, center, shortcutCode, shortcutLabel, activationPointer, trigger, onNavigate });
+	const session = createSession({ owner, graph, canvasElement, entries, center, shortcutCode, shortcutLabel, activationPointer, trigger, onNavigate });
 	activeSession = session;
 	session.open();
 	return session;
@@ -55,7 +67,7 @@ function message(key, fallback, values = {}) {
 	return result;
 }
 
-function createSession({ owner, graph, entries, center, shortcutCode, shortcutLabel, activationPointer, trigger, onNavigate }) {
+function createSession({ owner, graph, canvasElement, entries, center, shortcutCode, shortcutLabel, activationPointer, trigger, onNavigate }) {
 	const source = Array.isArray(entries) ? entries.slice() : [];
 	const viewport = { width: globalThis.innerWidth || 0, height: globalThis.innerHeight || 0 };
 	const safeCenter = clampWheelCenter(center, viewport, Math.min(218, Math.max(150, Math.min(viewport.width, viewport.height) * 0.27)));
@@ -78,6 +90,7 @@ function createSession({ owner, graph, entries, center, shortcutCode, shortcutLa
 	const wheel = el("div", { className: "aa-group-navigation-wheel", attrs: { style: `--wheel-x:${safeCenter.x}px;--wheel-y:${safeCenter.y}px;` } });
 	const sectors = el("div", { className: "aa-group-navigation-wheel-sectors" });
 	const centerPanel = el("div", { className: "aa-group-navigation-wheel-center" });
+	const wheelSurface = el("div", { className: "aa-group-navigation-wheel-surface" });
 	const centerStatus = el("strong", { className: "aa-group-navigation-wheel-center-status", attrs: { "aria-live": "polite" } }, t("aaalice.workspace.groupNavigation.wheel.cancelHint", "Release to cancel"));
 	const centerHint = el("small", { className: "aa-group-navigation-wheel-center-hint", text: trigger === "keyboard"
 		? message("aaalice.workspace.groupNavigation.wheel.releaseHint", "Release {key} to jump · scroll to change page", { key: shortcutLabel })
@@ -88,7 +101,8 @@ function createSession({ owner, graph, entries, center, shortcutCode, shortcutLa
 	const nextPage = iconButton({ iconName: "arrowRight", label: t("aaalice.workspace.groupNavigation.wheel.nextPage", "Next page"), variant: "ghost", className: "aa-group-navigation-wheel-page is-next" });
 	pageControls.append(previousPage, pageLabel, nextPage);
 	centerPanel.append(centerStatus, pageControls, centerHint);
-	wheel.append(sectors, centerPanel);
+	wheelSurface.append(sectors, centerPanel);
+	wheel.append(wheelSurface);
 	root.append(wheel);
 
 	const page = () => wheelPage(source, pageIndex, GROUP_NAVIGATION_WHEEL_PAGE_SIZE);
@@ -101,6 +115,15 @@ function createSession({ owner, graph, entries, center, shortcutCode, shortcutLa
 	const setSelection = (index) => {
 		if (index !== null && (!Number.isInteger(index) || !sectorButtons[index])) index = null;
 		selectedIndex = index;
+		if (index === null) {
+			wheel.style.setProperty("--wheel-tilt-x", "0deg");
+			wheel.style.setProperty("--wheel-tilt-y", "0deg");
+		} else {
+			const angle = wheelSectorAngle(index, page().items.length);
+			const tilt = 4.5;
+			wheel.style.setProperty("--wheel-tilt-x", `${(-Math.sin(angle) * tilt).toFixed(2)}deg`);
+			wheel.style.setProperty("--wheel-tilt-y", `${(Math.cos(angle) * tilt).toFixed(2)}deg`);
+		}
 		for (const [buttonElement, buttonIndex] of sectorButtons) {
 			buttonElement.classList.toggle("is-selected", buttonIndex === selectedIndex);
 			buttonElement.setAttribute("aria-pressed", buttonIndex === selectedIndex ? "true" : "false");
@@ -123,14 +146,15 @@ function createSession({ owner, graph, entries, center, shortcutCode, shortcutLa
 	};
 
 	const rememberCurrentPointer = () => {
-		if (graph && lastPointerPosition && Number.isFinite(lastPointerPosition.clientX) && Number.isFinite(lastPointerPosition.clientY)) {
+		if (!graph || !lastPointerPosition || !Number.isFinite(lastPointerPosition.clientX) || !Number.isFinite(lastPointerPosition.clientY)) return;
+		const target = typeof document.elementFromPoint === "function" ? document.elementFromPoint(lastPointerPosition.clientX, lastPointerPosition.clientY) : null;
+		if (trigger === "keyboard" || isGroupNavigationCanvasPointerTarget(target, canvasElement)) {
 			lastCanvasPointer = { x: lastPointerPosition.clientX, y: lastPointerPosition.clientY, graph };
 		}
 	};
 
 	const commit = () => {
 		if (closed) return;
-		rememberCurrentPointer();
 		const selected = selectedIndex === null ? null : page().items[selectedIndex];
 		if (!selected?.selectable) {
 			closeGroupNavigationWheel(owner, "cancel");
@@ -290,7 +314,6 @@ function createSession({ owner, graph, entries, center, shortcutCode, shortcutLa
 		},
 		close() {
 			if (closed) return;
-			rememberCurrentPointer();
 			closed = true;
 			if (activePointerId !== null) root.releasePointerCapture?.(activePointerId);
 			activePointerId = null;
@@ -305,6 +328,7 @@ function createSession({ owner, graph, entries, center, shortcutCode, shortcutLa
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 			window.removeEventListener("resize", onResize);
 			root.remove();
+			rememberCurrentPointer();
 			if (previousFocus?.isConnected && !previousFocus.closest?.("[data-aa-group-navigation-wheel]")) previousFocus.focus({ preventScroll: true });
 		},
 	};

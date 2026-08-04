@@ -22,7 +22,7 @@ import { syncCanvasControlBindings } from "./lib/canvas_control_binding_highligh
 import { allGraphNodes } from "./lib/graph_scope.js";
 import { graphSyncSignature as createGraphSyncSignature } from "./workspace/graph_signature.js";
 import { configureGroupNavigation, handleGroupNavigationShortcut, handleGroupNavigationShortcutUp, renderGroupNavigation } from "./workspace/group_navigation.js";
-import { clearGroupNavigationCanvasPointer, closeGroupNavigationWheel, rememberGroupNavigationCanvasPointer } from "./workspace/group_navigation_wheel.js";
+import { clearGroupNavigationCanvasPointer, closeGroupNavigationWheel, isGroupNavigationCanvasPointerEvent, rememberGroupNavigationCanvasPointer } from "./workspace/group_navigation_wheel.js";
 import { confirmAction } from "./workspace/dom_utils.js";
 import { configureLibraryWorkspace, openLibraryEntryEditor, renderLibrary } from "./workspace/library.js";
 import { configureDashboardView, renderDashboard } from "./workspace/dashboard_view.js";
@@ -622,7 +622,7 @@ app.registerExtension({
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
 		window.addEventListener("keyup", handleGroupNavigationShortcutUp, true);
-		window.addEventListener("pointermove", (event) => { if (event.target === app.canvas?.canvas) rememberGroupNavigationCanvasPointer(event, app.graph); }, true);
+		window.addEventListener("pointermove", (event) => { if (isGroupNavigationCanvasPointerEvent(event, app.canvas?.canvas)) rememberGroupNavigationCanvasPointer(event, app.graph); }, true);
 		window.addEventListener("focusout", () => queueMicrotask(flushDeferredWorkspaceRender), true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
 			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
