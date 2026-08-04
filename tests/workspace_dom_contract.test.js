@@ -10,7 +10,7 @@ const workspace = [
 	"workspace/dashboard_bindings.js", "workspace/dashboard_unbinding.js", "workspace/dashboard_presets.js",
 	"workspace/dashboard_view.js",
 	"workspace/component_note.js",
-	"workspace/group_navigation.js",
+	"workspace/group_navigation.js", "workspace/group_navigation_wheel.js",
 	"workspace/library.js",
 	"workspace/dom_utils.js",
 	"workspace/graph_signature.js",
@@ -55,6 +55,7 @@ const dashboardPresetRuntime = readFileSync(join(ROOT, "js", "lib", "dashboard_p
 const markdownEditor = readFileSync(join(ROOT, "js", "lib", "markdown_editor.js"), "utf8");
 const groupNavigation = readFileSync(join(ROOT, "js", "lib", "group_navigation.js"), "utf8");
 const groupNavigationModel = readFileSync(join(ROOT, "js", "lib", "group_navigation_model.js"), "utf8");
+const groupNavigationWheelModel = readFileSync(join(ROOT, "js", "lib", "group_navigation_wheel_model.js"), "utf8");
 const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "utf8");
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 const imageAssetControl = readFileSync(join(ROOT, "js", "lib", "image_asset_control.js"), "utf8");
@@ -209,7 +210,7 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(workspace, /value: "groups"/);
 	assert.match(workspace, /function renderGroupNavigation/);
 	assert.match(workspace, /const GROUP_NAVIGATION_EXTRA_KEY = "aaaliceGroupNavigation"/);
-	assert.match(workspace, /graph\.extra\[GROUP_NAVIGATION_EXTRA_KEY\] = normalizeGroupNavigation/);
+	assert.match(workspace, /graph\.extra\[GROUP_NAVIGATION_EXTRA_KEY\] = next/);
 	assert.match(workspace, /addGroupNavigationEntry/);
 	assert.match(workspace, /openAddGroupNavigation/);
 	assert.match(workspace, /navigateToVisualGroup\(app\.canvas, group, \{ offset, zoom \}\)/);
@@ -219,9 +220,14 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.match(workspace, /setGroupNavigationZoom/);
 	assert.match(workspace, /navigateFromWorkspace\(group, entry\.offset, entry\.zoom\)/);
 	assert.match(workspace, /window\.addEventListener\("keydown", handleGroupNavigationShortcut, true\)/);
-	assert.match(groupNavigationModel, /shortcutFromKeyboardEvent/);
-	assert.match(groupNavigationModel, /Digit1.*Digit2.*Digit3.*Digit4.*Digit5.*Digit6/);
-	assert.match(groupNavigationModel, /Numpad1.*Numpad2.*Numpad3.*Numpad4.*Numpad5.*Numpad6/);
+	assert.match(workspace, /window\.addEventListener\("keyup", handleGroupNavigationShortcutUp, true\)/);
+	assert.match(workspace, /openGroupNavigationWheel/);
+	assert.match(workspace, /aa-group-navigation-wheel-open/);
+	assert.match(workspace, /aa-group-navigation-wheel-settings/);
+	assert.match(groupNavigationModel, /wheelShortcut/);
+	assert.match(groupNavigationModel, /wheelShortcutFromKeyboardEvent/);
+	assert.doesNotMatch(groupNavigation, /shortcutFromKeyboardEvent/);
+	assert.doesNotMatch(groupNavigationModel, /setGroupNavigationShortcut/);
 	assert.match(workspace, /moveGroupNavigationEntry/);
 	assert.match(workspace, /aa-group-navigation-drag/);
 	assert.match(workspace, /scheduleStructuralRender\("groups"\)/);
@@ -229,6 +235,9 @@ test("integrates visual-group navigation into the existing workspace sidebar", (
 	assert.doesNotMatch(groupNavigation, /animateToBounds/);
 	assert.match(groupNavigation, /centerOnNode/);
 	assert.match(theme, /\.aa-group-navigation-marker/);
+	assert.match(theme, /\.aa-group-navigation-wheel-root/);
+	assert.match(uiStyles, /\.aa-group-navigation-wheel-root/);
+	assert.match(groupNavigationWheelModel, /GROUP_NAVIGATION_WHEEL_PAGE_SIZE/);
 	assert.match(enLocale, /"groupNavigation"/);
 	assert.match(zhLocale, /"groupNavigation"/);
 });

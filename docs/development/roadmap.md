@@ -51,7 +51,7 @@
 | 前端扩展 | 职责 |
 |---|---|
 | Sidebar Workspace Presets | 以版本化快照保存全部侧边栏页面、布局、稳定绑定和控件值，并提供已修改状态、保存修改、放弃修改、另存为及事务化导入；预设随工作流 extra 分发。 |
-| Quick Group Navigation | 在 QuickGroupManager 行中直接定位，并在 Aaalice Workspace 维护手动添加、可配置组合键的组导航清单，不再占用画布悬浮入口。 |
+| Quick Group Navigation | 在 QuickGroupManager 行中直接定位，并在 Aaalice Workspace 维护手动添加的组导航清单；支持版本 3 工作流持久化、反引号键（`Backquote`，Tab 上方）为默认按住式组跳转轮盘激活键，可在工作流中改为其它单个按键、鼠标/键盘即时选择、分页和缺失组提示，不再占用画布悬浮入口。 |
 
 ## 更新规则
 

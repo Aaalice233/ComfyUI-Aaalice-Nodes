@@ -96,18 +96,27 @@
 .aa-group-navigation-row:hover .aa-group-navigation-fit, .aa-group-navigation-row:focus-within .aa-group-navigation-fit { background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); opacity: 1; }
 .aa-group-navigation-actions { display: flex; align-items: center; gap: 1px; padding-right: 4px; }
 .aa-group-navigation-actions .aa-ui-button { min-width: 25px; height: 25px; min-height: 25px; padding: 0 6px; border-color: transparent; font-size: 10px; }
-.aa-group-navigation-shortcut.aa-ui-button { min-width: 45px; max-width: 92px; color: var(--aa-ui-muted); font-family: ui-monospace, "Cascadia Code", monospace; }
-.aa-group-navigation-shortcut.aa-ui-button.is-set { background: var(--aa-ui-accent-soft); color: color-mix(in srgb, var(--aa-ui-accent) 72%, var(--aa-ui-text)); }
+.aa-group-navigation-settings-button.aa-ui-button { width: 25px; min-width: 25px; padding: 0; color: var(--aa-ui-muted); }
+.aa-group-navigation-settings-button.aa-ui-button:hover:not(:disabled), .aa-group-navigation-settings-button.aa-ui-button:focus-visible { background: var(--aa-ui-accent-soft); color: var(--aa-ui-text); }
 .aa-group-navigation-remove.aa-ui-button { width: 25px; padding: 0; opacity: 0; }
 .aa-group-navigation-row:hover .aa-group-navigation-remove, .aa-group-navigation-row:focus-within .aa-group-navigation-remove { opacity: 1; }
 .aa-group-navigation-add.aa-ui-button { flex: none; }
+.aa-group-navigation-wheel-open.aa-ui-button, .aa-group-navigation-wheel-settings-button.aa-ui-button, .aa-group-navigation-settings-button.aa-ui-button { width: 29px; min-width: 29px; height: 29px; min-height: 29px; padding: 0; }
+.aa-group-navigation-wheel-open.aa-ui-button:not(:disabled) { color: color-mix(in srgb, var(--aa-ui-accent) 68%, var(--aa-ui-text)); }
+.aa-group-navigation-wheel-settings-button.aa-ui-button, .aa-group-navigation-settings-button.aa-ui-button { color: var(--aa-ui-muted); }
+.aa-group-navigation-settings-button.aa-ui-button:hover:not(:disabled), .aa-group-navigation-settings-button.aa-ui-button:focus-visible { color: var(--aa-ui-text); background: var(--aa-ui-accent-soft); }
+.aa-group-navigation-wheel-settings { display: grid; gap: 12px; }
+.aa-group-navigation-wheel-settings .aa-group-navigation-shortcut-input { min-height: 42px; }
+.aa-group-navigation-wheel-dialog .aa-ui-dialog__body { min-height: 0; }
+.aa-group-navigation-wheel-current { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 9px; border: 1px solid color-mix(in srgb, var(--aa-ui-accent) 16%, var(--aa-ui-border-soft)); border-radius: 8px; background: color-mix(in srgb, var(--aa-ui-accent) 5%, var(--aa-ui-control)); color: var(--aa-ui-muted); font-size: 10.5px; }
+.aa-group-navigation-wheel-key-badge { display: inline-grid; min-width: 30px; height: 25px; place-items: center; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--aa-ui-accent) 34%, var(--aa-ui-border)); border-radius: 7px; background: var(--aa-ui-accent-soft); color: color-mix(in srgb, var(--aa-ui-accent) 68%, var(--aa-ui-text)); font-family: ui-monospace, "Cascadia Code", monospace; font-size: 11px; font-weight: 750; }
 .aa-group-navigation-row.is-mixed .aa-group-navigation-copy small { color: color-mix(in srgb, var(--aa-ui-warning) 70%, var(--aa-ui-muted)); }
 .aa-group-navigation-row.is-empty { opacity: .72; }
 .aa-group-navigation-row.is-missing .aa-group-navigation-copy small { color: var(--aa-ui-danger); }
 .aa-group-navigation-empty { min-height: 220px; flex: 1; }
-.aa-group-navigation-dialog .aa-ui-dialog__body { min-height: 220px; }
+.aa-group-navigation-dialog:not(.aa-group-navigation-wheel-dialog) .aa-ui-dialog__body { min-height: 220px; }
 .aa-group-navigation-picker { display: grid; max-height: min(480px, 58vh); gap: 5px; overflow-y: auto; padding: 2px; }
-.aa-group-navigation-shortcut-editor { display: grid; gap: 7px; }
+.aa-group-navigation-settings { display: grid; gap: 7px; }
 .aa-group-navigation-shortcut-input { min-height: 38px; text-align: center; font-family: ui-monospace, "Cascadia Code", monospace; font-weight: 700; letter-spacing: .02em; }
 .aa-group-navigation-shortcut-hint, .aa-group-navigation-shortcut-error { line-height: 1.45; }
 .aa-group-navigation-shortcut-hint { color: var(--aa-ui-muted); }

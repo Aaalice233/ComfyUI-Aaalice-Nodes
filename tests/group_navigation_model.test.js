@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-	addGroupNavigationEntry, moveGroupNavigationEntry, normalizeGroupNavigation, normalizeShortcut, removeGroupNavigationEntry,
-	setGroupNavigationOffset, setGroupNavigationShortcut, setGroupNavigationZoom, shortcutFromKeyboardEvent, shortcutLabel,
+	addGroupNavigationEntry, DEFAULT_WHEEL_SHORTCUT, moveGroupNavigationEntry, normalizeGroupNavigation, normalizeWheelShortcut, removeGroupNavigationEntry,
+	setGroupNavigationOffset, setGroupNavigationWheelShortcut, setGroupNavigationZoom, wheelShortcutFromKeyboardEvent, wheelShortcutLabel,
 } from "../js/lib/group_navigation_model.js";
 
 test("group navigation contains only groups added explicitly and preserves their order", () => {
@@ -30,38 +30,52 @@ test("each navigation group stores a bounded two-decimal zoom ratio", () => {
 	assert.equal(setGroupNavigationZoom(model, 1, 99).entries[0].zoom, 3);
 });
 
-test("shortcuts accept only unmodified number keys on the main row or numpad", () => {
-	assert.equal(normalizeShortcut("Digit1"), "Digit1");
-	assert.equal(normalizeShortcut("Numpad6"), "Numpad6");
-	assert.equal(shortcutFromKeyboardEvent({ code: "Digit2", ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }), "Digit2");
-	assert.equal(shortcutFromKeyboardEvent({ code: "Numpad3", ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }), "Numpad3");
-	assert.equal(shortcutFromKeyboardEvent({ code: "Digit2", ctrlKey: true, altKey: false, shiftKey: false, metaKey: false }), null);
-	assert.equal(shortcutFromKeyboardEvent({ code: "Digit2", ctrlKey: false, altKey: false, shiftKey: true, metaKey: false }), null);
-	assert.equal(shortcutLabel("Digit4"), "4");
-	assert.equal(shortcutLabel("Numpad5"), "Num 5");
-	assert.throws(() => normalizeShortcut("Digit7"), /only number keys 1-6/);
-	assert.throws(() => normalizeShortcut("Ctrl+Digit1"), /only number keys 1-6/);
-});
-
 test("legacy modifier shortcuts are cleared when the navigation model is migrated", () => {
 	const model = normalizeGroupNavigation({ version: 1, entries: [{ groupId: "legacy", label: "Legacy", shortcut: "Ctrl+Alt+Digit1" }] });
-	assert.equal(model.version, 2);
-	assert.equal(model.entries[0].shortcut, null);
+	assert.equal(model.version, 3);
+	assert.equal(model.wheelShortcut, DEFAULT_WHEEL_SHORTCUT);
+	assert.equal(Object.hasOwn(model.entries[0], "shortcut"), false);
+});
+
+test("the wheel shortcut migrates, can be disabled, and preserves navigation entries", () => {
+	let model = addGroupNavigationEntry(null, { id: 1, title: "One" });
+	const beforeEntries = structuredClone(model.entries);
+	model = setGroupNavigationWheelShortcut(model, "KeyH");
+	assert.equal(model.wheelShortcut, "KeyH");
+	assert.deepEqual(model.entries, beforeEntries);
+	assert.equal(setGroupNavigationWheelShortcut(model, null).wheelShortcut, null);
+	assert.equal(normalizeGroupNavigation({ version: 2, entries: [] }).wheelShortcut, DEFAULT_WHEEL_SHORTCUT);
+	assert.equal(normalizeGroupNavigation({ version: 3, wheelShortcut: null, entries: [] }).wheelShortcut, null);
+	assert.throws(() => normalizeGroupNavigation({ version: 3, entries: [] }), /Missing wheel shortcut/);
+});
+
+test("wheel shortcuts accept any single key except reserved control keys", () => {
+	assert.equal(normalizeWheelShortcut("Backquote"), "Backquote");
+	assert.equal(normalizeWheelShortcut("KeyG"), "KeyG");
+	assert.equal(normalizeWheelShortcut("Digit9"), "Digit9");
+	assert.equal(normalizeWheelShortcut("Numpad7"), "Numpad7");
+	assert.equal(normalizeWheelShortcut("Minus"), "Minus");
+	assert.equal(normalizeWheelShortcut("Space"), "Space");
+	assert.equal(normalizeWheelShortcut("ArrowLeft"), "ArrowLeft");
+	assert.equal(normalizeWheelShortcut("F12"), "F12");
+	assert.equal(wheelShortcutFromKeyboardEvent({ code: "KeyH", ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }), "KeyH");
+	assert.equal(wheelShortcutFromKeyboardEvent({ code: "ArrowLeft", ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }), "ArrowLeft");
+	assert.equal(wheelShortcutFromKeyboardEvent({ code: "KeyH", ctrlKey: true, altKey: false, shiftKey: false, metaKey: false }), null);
+	assert.equal(wheelShortcutFromKeyboardEvent({ code: "ControlLeft", ctrlKey: true, altKey: false, shiftKey: false, metaKey: false }), null);
+	assert.equal(wheelShortcutLabel("KeyG"), "G");
+	assert.equal(wheelShortcutLabel("Backquote"), "`");
+	assert.equal(wheelShortcutLabel("Numpad7"), "Num 7");
+	assert.equal(wheelShortcutLabel("Space"), "Space");
+	assert.equal(wheelShortcutLabel("ArrowLeft"), "ArrowLeft");
+	assert.equal(wheelShortcutLabel(null), "");
+	assert.throws(() => normalizeWheelShortcut("ControlLeft"), /one key/);
+	assert.throws(() => normalizeWheelShortcut("Backspace"), /one key/);
 });
 
 test("navigation entries can be reordered without changing their settings", () => {
 	let model = addGroupNavigationEntry(null, { id: 1, title: "One" });
 	model = addGroupNavigationEntry(model, { id: 2, title: "Two" });
 	model = addGroupNavigationEntry(model, { id: 3, title: "Three" });
-	model = setGroupNavigationShortcut(model, 2, "Digit2");
 	model = moveGroupNavigationEntry(model, 1, 2);
 	assert.deepEqual(model.entries.map((entry) => entry.groupId), ["2", "3", "1"]);
-	assert.equal(model.entries[0].shortcut, "Digit2");
-});
-
-test("a shortcut cannot be assigned to more than one navigation group", () => {
-	let model = addGroupNavigationEntry(null, { id: 1, title: "One" });
-	model = addGroupNavigationEntry(model, { id: 2, title: "Two" });
-	model = setGroupNavigationShortcut(model, 1, "Digit1");
-	assert.throws(() => setGroupNavigationShortcut(model, 2, "Digit1"), /already assigned/);
 });

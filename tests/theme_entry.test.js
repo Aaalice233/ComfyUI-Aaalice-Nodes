@@ -9,6 +9,7 @@ const EXPECTED_IMPORTS = [
 	"theme-quick-group-manager.css",
 	"theme-prompt-selector.css",
 	"theme-workspace.css",
+	"theme-group-navigation-wheel.css",
 	"theme-library.css",
 	"theme-booru-gallery.css",
 	"theme-booru-gallery-detail.css",

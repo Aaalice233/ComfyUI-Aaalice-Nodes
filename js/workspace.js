@@ -21,7 +21,8 @@ import { invalidateWidgetControlAdapterCache } from "./lib/widget_control_adapte
 import { syncCanvasControlBindings } from "./lib/canvas_control_binding_highlight.js";
 import { allGraphNodes } from "./lib/graph_scope.js";
 import { graphSyncSignature as createGraphSyncSignature } from "./workspace/graph_signature.js";
-import { configureGroupNavigation, handleGroupNavigationShortcut, renderGroupNavigation } from "./workspace/group_navigation.js";
+import { configureGroupNavigation, handleGroupNavigationShortcut, handleGroupNavigationShortcutUp, renderGroupNavigation } from "./workspace/group_navigation.js";
+import { clearGroupNavigationCanvasPointer, closeGroupNavigationWheel, rememberGroupNavigationCanvasPointer } from "./workspace/group_navigation_wheel.js";
 import { confirmAction } from "./workspace/dom_utils.js";
 import { configureLibraryWorkspace, openLibraryEntryEditor, renderLibrary } from "./workspace/library.js";
 import { configureDashboardView, renderDashboard } from "./workspace/dashboard_view.js";
@@ -342,6 +343,7 @@ function destroyDashboardPageRailForRoot(element) {
 }
 
 function closeWorkspaceTransientSurfaces(element, { closeDialogs = true } = {}) {
+	closeGroupNavigationWheel(element);
 	closeAnchoredPopoversWithin(element);
 	closeContextMenuWithin(element);
 	closeTooltipWithin(element);
@@ -492,6 +494,7 @@ configureGroupNavigation({
 	remindWorkflowSave,
 	isWorkspaceRootInteractive,
 	isSidebarPinned: () => sidebarPinned,
+	getActiveWorkspaceRoot: () => [...workspaceOwnershipObservers.keys()].find((root) => isWorkspaceRootInteractive(root)) || null,
 	tabId: TAB_ID,
 	viewState: workspaceViewState.groups,
 });
@@ -565,7 +568,7 @@ app.registerExtension({
 	},
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
-	beforeConfigureGraph() { closeWorkspaceDialogs(); workspaceViewState.dashboard.pageTransition = null; resetDashboardScrollStates(); },
+	beforeConfigureGraph() { clearGroupNavigationCanvasPointer(); closeGroupNavigationWheel(); closeWorkspaceDialogs(); workspaceViewState.dashboard.pageTransition = null; resetDashboardScrollStates(); },
 	afterConfigureGraph() { invalidateWidgetControlAdapterCache(); scheduleGraphSync(true); },
 	setup() {
 		installLinkedSeedQueueHook();
@@ -618,6 +621,8 @@ app.registerExtension({
 			flushActiveDashboardPresetOnSave();
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
+		window.addEventListener("keyup", handleGroupNavigationShortcutUp, true);
+		window.addEventListener("pointermove", (event) => { if (event.target === app.canvas?.canvas) rememberGroupNavigationCanvasPointer(event, app.graph); }, true);
 		window.addEventListener("focusout", () => queueMicrotask(flushDeferredWorkspaceRender), true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
 			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
