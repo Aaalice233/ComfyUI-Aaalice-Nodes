@@ -83,6 +83,83 @@ export function mergeCapturedPresetValues(snapshot, previousValues = {}) {
 	return values;
 }
 
+export function mergeDashboardPresetValues(sourceSnapshot, targetPreset, acceptedKeys = []) {
+	const source = normalizeDashboardSnapshot(sourceSnapshot);
+	const target = normalizeDashboardSnapshot(targetPreset);
+	const { bindings } = uniqueBindings(target.dashboard);
+	const accepted = new Set(acceptedKeys);
+	const values = structuredClone(target.values);
+	for (const key of accepted) {
+		const sourceValue = source.values[key];
+		if (!bindings.has(key) || !sourceValue || sourceValue.valueType !== bindings.get(key).valueType) continue;
+		values[key] = structuredClone(sourceValue);
+	}
+	return { dashboard: target.dashboard, values };
+}
+
+export function planDashboardPresetValueOverwrite(sourceSnapshot, targetPreset, resolveBinding) {
+	const source = normalizeDashboardSnapshot(sourceSnapshot);
+	const target = normalizeDashboardSnapshot(targetPreset);
+	const { bindings: targetBindings, conflicts } = uniqueBindings(target.dashboard);
+	const entries = [];
+	for (const [key, binding] of targetBindings) {
+		const imported = source.values[key];
+		if (!imported) {
+			entries.push({ key, binding, target: target.values[key], status: "preserved", reason: "source-missing" });
+			continue;
+		}
+		if (conflicts.has(key)) {
+			entries.push({ key, binding, imported, target: target.values[key], status: "invalid", reason: "conflicting-value-type", conflicts: conflicts.get(key) });
+			continue;
+		}
+		if (imported.valueType !== binding.valueType) {
+			entries.push({ key, binding, imported, target: target.values[key], status: "incompatible", reason: "value-type-mismatch" });
+			continue;
+		}
+		let resolved;
+		try { resolved = resolveBinding(binding); }
+		catch (error) { entries.push({ key, binding, imported, target: target.values[key], status: "invalid", reason: error.message, error }); continue; }
+		if (resolved?.status !== "ok") {
+			entries.push({ key, binding, imported, target: target.values[key], resolved, status: resolved?.status || "missing" });
+			continue;
+		}
+		if (resolved.presettable === false) {
+			entries.push({ key, binding, imported, target: target.values[key], resolved, status: "layout-only" });
+			continue;
+		}
+		const availability = runtimeAvailability(resolved);
+		if (availability) {
+			entries.push({ key, binding, imported, target: target.values[key], resolved, status: availability });
+			continue;
+		}
+		let validation;
+		try { validation = synchronous(resolved.validatePresetValue?.(imported), "validation", key); }
+		catch (error) { entries.push({ key, binding, imported, target: target.values[key], resolved, status: "invalid", reason: error.message, error }); continue; }
+		if (validation === false || validation?.ok === false || typeof validation === "string") {
+			entries.push({ key, binding, imported, target: target.values[key], resolved, status: "invalid", reason: typeof validation === "string" ? validation : "invalid-value" });
+			continue;
+		}
+		entries.push({ key, binding, imported, target: target.values[key], resolved, status: "ready" });
+	}
+	for (const [key, imported] of Object.entries(source.values)) if (!targetBindings.has(key)) entries.push({ key, imported, status: "unused" });
+	const ready = entries.filter((entry) => entry.status === "ready");
+	const issues = entries.filter((entry) => !["ready", "preserved"].includes(entry.status));
+	return {
+		source,
+		target,
+		merged: mergeDashboardPresetValues(source, target, ready.map((entry) => entry.key)),
+		entries,
+		ready,
+		issues,
+		summary: {
+			overwritten: ready.length,
+			preserved: entries.filter((entry) => entry.status === "preserved").length,
+			unmatched: entries.filter((entry) => entry.status === "unused").length,
+			needsReview: entries.filter((entry) => !["ready", "preserved", "unused"].includes(entry.status)).length,
+		},
+	};
+}
+
 export function planDashboardPresetApplication(snapshot, resolveBinding) {
 	const normalized = normalizeDashboardSnapshot(snapshot); const { bindings: dashboardBindings, conflicts } = uniqueBindings(normalized.dashboard); const entries = [];
 	for (const [key, binding] of dashboardBindings) {

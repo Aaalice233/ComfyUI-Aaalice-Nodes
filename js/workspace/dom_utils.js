@@ -23,7 +23,16 @@ export function pickFile(accept, onFile) {
 	const input = document.createElement("input");
 	input.type = "file";
 	input.accept = accept;
-	input.addEventListener("change", () => { if (input.files?.[0]) onFile(input.files[0]); });
+	input.tabIndex = -1;
+	input.style.cssText = "position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none;";
+	const cleanup = () => input.remove();
+	input.addEventListener("change", () => {
+		const file = input.files?.[0];
+		cleanup();
+		if (file) onFile(file);
+	}, { once: true });
+	input.addEventListener("cancel", cleanup, { once: true });
+	document.body.append(input);
 	input.click();
 }
 

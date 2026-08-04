@@ -432,10 +432,16 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 	assert.match(workspace, /function openDashboardExport/);
 	assert.match(workspace, /createTransferSection\(\{ title: t\("aaalice\.workspace\.transfer\.conflictDecisions"/);
 	assert.match(workspace, /disabled: groups\.invalid\.length > 0/);
-	assert.match(workspace, /presetNeedsReview/);
-	assert.match(workspace, /availableDashboardPresetName\(importedName\)/);
-	assert.match(workspace, /createDashboardPreset\(dashboardPresetState\(\), presetName\.value, snapshot\)/);
-	assert.match(workspace, /createTransferResult\(\{ title: t\("aaalice\.workspace\.transfer\.importComplete"/);
+	assert.match(workspace, /importAsNew/);
+	assert.match(workspace, /overwriteValues/);
+	assert.match(workspace, /planDashboardPresetValueOverwrite/);
+	assert.match(workspace, /targetSelect/);
+	assert.match(workspace, /input\.addEventListener\("cancel", cleanup/);
+	assert.match(workspace, /document\.body\.append\(input\)/);
+	assert.match(workspace, /dashboardPresetNameFromFile\(file\.name, fallbackName\)/);
+	assert.match(workspace, /availableDashboardPresetName\(presetName\.value, currentState\)/);
+	assert.match(workspace, /createDashboardPreset\(currentState, importedPresetName, snapshot\)/);
+	assert.match(workspace, /createTransferResult\(\{ title: t\("aaalice\.workspace\.transfer\.presetImportComplete"/);
 	assert.match(libraryStore, /importPreflight\(file, \{ signal \} = \{\}\)/);
 	assert.match(libraryStore, /importApply\(token, resolutions = \{\}, \{ signal \} = \{\}\)/);
 	assert.match(libraryStore, /discardImport\(token\)/);
@@ -444,6 +450,16 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 	assert.match(theme, /\.aa-transfer-scope\.is-selected/);
 	assert.match(theme, /\.aa-transfer-section\[open\] > summary > \.aa-ui-icon/);
 	assert.match(theme, /@keyframes aa-transfer-loading/);
+	const transferStart = theme.indexOf(".aa-transfer-dialog {");
+	const transferEnd = theme.indexOf("@media (max-width: 720px)", transferStart);
+	const transferTheme = theme.slice(transferStart, transferEnd > transferStart ? transferEnd : theme.length);
+	assert.doesNotMatch(transferTheme, /(?:linear|radial)-gradient/);
+	assert.match(transferTheme, /\.aa-dashboard-import-mode\[data-value="values"\]/);
+	assert.match(transferTheme, /button\[data-value="new"\] \.aa-ui-icon/);
+	assert.match(transferTheme, /button\[data-value="values"\] \.aa-ui-icon/);
+	assert.match(transferTheme, /\.aa-transfer-hero \{[^}]*border: 1px solid transparent[^}]*box-shadow:/);
+	assert.match(transferTheme, /\.aa-transfer-stat \{[^}]*border: 1px solid transparent[^}]*box-shadow:/);
+	assert.match(transferTheme, /\.aa-transfer-section \{[^}]*border: 1px solid transparent[^}]*box-shadow:/);
 });
 
 test("dashboard column projection re-renders when sidebar width crosses the breakpoint", () => {

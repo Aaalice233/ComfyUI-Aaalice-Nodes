@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
-import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
+import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, mergeDashboardPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../js/lib/dashboard_preset_runtime.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "../js/lib/seed_preset.js";
 
 const binding = (controlId, valueType = "number") => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType });
@@ -111,6 +111,65 @@ test("application planning separates ready, absent, incompatible and invalid val
 	});
 	assert.deepEqual(plan.ready.map(({ key }) => key), [bindingKey(steps)]);
 	assert.deepEqual(plan.issues.map(({ status }) => status), ["invalid", "incompatible", "unused"]);
+});
+
+test("value overwrite uses the target dashboard and preserves its layout and unmatched values", () => {
+	const steps = binding("steps"); const linked = binding("linked"); const added = binding("added"); const old = binding("old");
+	const targetDashboard = dashboard(steps, added);
+	targetDashboard.pages[0].items[0].linkedBindings = [linked];
+	targetDashboard.pages[0].items[1].linkedBindings = [linked];
+	const target = snapshot(targetDashboard, {
+		[bindingKey(steps)]: { valueType: "number", payload: 11 },
+		[bindingKey(linked)]: { valueType: "number", payload: 12 },
+		[bindingKey(added)]: { valueType: "number", payload: 99 },
+		[bindingKey(old)]: { valueType: "number", payload: 7 },
+	});
+	const source = snapshot(dashboard(steps), {
+		[bindingKey(steps)]: { valueType: "number", payload: 41 },
+		[bindingKey(linked)]: { valueType: "number", payload: 42 },
+		[bindingKey(old)]: { valueType: "number", payload: 8 },
+	});
+	const resolves = [];
+	const plan = planDashboardPresetValueOverwrite(source, target, (candidate) => {
+		resolves.push(candidate.controlId);
+		return { status: "ok", validatePresetValue: () => true };
+	});
+	assert.deepEqual(resolves, ["steps", "linked"]);
+	assert.deepEqual(plan.merged.dashboard, targetDashboard);
+	assert.deepEqual(plan.merged.values, {
+		[bindingKey(steps)]: { valueType: "number", payload: 41 },
+		[bindingKey(linked)]: { valueType: "number", payload: 42 },
+		[bindingKey(added)]: { valueType: "number", payload: 99 },
+		[bindingKey(old)]: { valueType: "number", payload: 7 },
+	});
+	assert.deepEqual(plan.summary, { overwritten: 2, preserved: 1, unmatched: 1, needsReview: 0 });
+	assert.deepEqual(mergeDashboardPresetValues(source, target, [bindingKey(steps)]).dashboard, targetDashboard);
+});
+
+test("value overwrite reports incompatible, unavailable and invalid source values without changing target values", () => {
+	const incompatible = binding("incompatible"); const missing = binding("missing"); const invalid = binding("invalid");
+	const target = snapshot(dashboard(incompatible, missing, invalid), {
+		[bindingKey(incompatible)]: { valueType: "number", payload: 1 },
+		[bindingKey(missing)]: { valueType: "number", payload: 2 },
+		[bindingKey(invalid)]: { valueType: "number", payload: 3 },
+	});
+	const source = snapshot(dashboard(incompatible, missing, invalid), {
+		[bindingKey(incompatible)]: { valueType: "string", payload: "wrong" },
+		[bindingKey(missing)]: { valueType: "number", payload: 20 },
+		[bindingKey(invalid)]: { valueType: "number", payload: 30 },
+	});
+	const plan = planDashboardPresetValueOverwrite(source, target, (candidate) => {
+		if (candidate.controlId === "missing") return { status: "missing" };
+		return { status: "ok", availability: candidate.controlId === "invalid" ? { state: "unavailable" } : null, validatePresetValue: () => "codec-rejected" };
+	});
+	assert.equal(plan.ready.length, 0);
+	assert.deepEqual(plan.issues.map(({ key, status }) => [key, status]), [
+		[bindingKey(incompatible), "incompatible"],
+		[bindingKey(missing), "missing"],
+		[bindingKey(invalid), "unavailable"],
+	]);
+	assert.deepEqual(plan.merged.values, target.values);
+	assert.equal(plan.summary.needsReview, 3);
 });
 
 test("linked targets surface missing and invalid values in application issues", () => {

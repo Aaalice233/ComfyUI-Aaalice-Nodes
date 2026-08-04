@@ -5,6 +5,7 @@ import { bindingKey, controlItemBindings, legacyBindingKey, normalizeDashboard }
 export const DASHBOARD_PRESETS_VERSION = 1;
 export const DASHBOARD_PRESET_FILE_FORMAT = "aaalice-sidebar-preset";
 export const DASHBOARD_PRESET_FILE_VERSION = 1;
+const DASHBOARD_PRESET_NAME_LIMIT = 80;
 const UNSAFE_VALUE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 export class DashboardPresetError extends Error {
@@ -59,6 +60,32 @@ function normalizeName(value) {
 }
 
 function nameKey(value) { return normalizeName(value).toLocaleLowerCase(); }
+
+export function availableDashboardPresetName(sourceName, state) {
+	const source = normalizeName(sourceName);
+	const names = new Set((state?.presets || []).map((preset) => nameKey(preset.name)));
+	for (let count = 1; ; count++) {
+		const suffix = count === 1 ? "" : ` ${count}`;
+		const candidate = `${source.slice(0, Math.max(1, DASHBOARD_PRESET_NAME_LIMIT - suffix.length)).trim()}${suffix}`;
+		if (!names.has(nameKey(candidate))) return candidate;
+	}
+}
+
+export function dashboardPresetNameFromFile(fileName, fallbackName = "") {
+	const baseName = String(fileName || "").trim().split(/[\\/]/).pop() || "";
+	const stem = baseName.replace(/\.json$/i, "").trim().slice(0, DASHBOARD_PRESET_NAME_LIMIT).trim();
+	return stem || String(fallbackName || "").trim().slice(0, DASHBOARD_PRESET_NAME_LIMIT).trim();
+}
+
+export function dashboardPresetFileName(name) {
+	const safeName = String(name || "").trim()
+		.replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")
+		.replace(/\s+/g, " ")
+		.replace(/[. ]+$/g, "")
+		.slice(0, DASHBOARD_PRESET_NAME_LIMIT)
+		.trim();
+	return `${safeName || "aaalice-dashboard-layout"}.json`;
+}
 
 export function normalizeDashboardSnapshot(source) {
 	if (!source || typeof source !== "object") throw new DashboardPresetError("Sidebar preset snapshot is missing", "invalid-preset-snapshot");

@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 
 import {
 	DashboardPresetError,
+	availableDashboardPresetName,
 	compareDashboardPreset,
 	createDashboardPreset,
+	dashboardPresetFileName,
+	dashboardPresetNameFromFile,
 	duplicateDashboardPreset,
 	emptyDashboardPresetState,
 	normalizeDashboardPresetState,
@@ -111,6 +114,17 @@ test("portable backups use the same normalized snapshot contract", () => {
 	assert.equal(serialized.format, "aaalice-sidebar-preset");
 	assert.deepEqual(parseDashboardPreset(serialized), snapshot());
 	assert.throws(() => parseDashboardPreset({ ...serialized, version: 99 }), /Unsupported sidebar preset backup/);
+});
+
+test("preset file stems and conflict names share one portable naming contract", () => {
+	assert.equal(dashboardPresetFileName("Updated layout"), "Updated layout.json");
+	assert.equal(dashboardPresetNameFromFile("legacy-values.json", "Embedded name"), "legacy-values");
+	assert.equal(dashboardPresetNameFromFile("legacy-values.JSON", "Embedded name"), "legacy-values");
+	assert.equal(dashboardPresetNameFromFile("", "Embedded name"), "Embedded name");
+	let state = createDashboardPreset(emptyDashboardPresetState(), "Legacy values", snapshot());
+	state = createDashboardPreset(state, "Legacy values 2", snapshot());
+	assert.equal(availableDashboardPresetName("legacy values", state), "legacy values 3");
+	assert.equal(availableDashboardPresetName("Fresh values", state), "Fresh values");
 });
 
 test("numeric card range overrides round-trip through complete sidebar presets", () => {

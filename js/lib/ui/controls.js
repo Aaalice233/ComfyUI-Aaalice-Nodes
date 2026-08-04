@@ -43,8 +43,10 @@ export function segmentedControl({ value, options = [], ariaLabel, onChange = nu
 	root.style.setProperty("--aa-ui-segment-count", String(Math.max(1, options.length)));
 	root.append(el("span", { className: `aa-ui-segmented__thumb${thumbClassName ? ` ${thumbClassName}` : ""}`, attrs: { "aria-hidden": "true" } }));
 	const choices = [];
+	let disabled = false;
+	const syncDisabled = () => choices.forEach((choice, index) => { choice.disabled = disabled || Boolean(options[index].disabled); choice.setAttribute("aria-disabled", String(choice.disabled)); });
 	const setValue = (next, emit = false) => {
-		value = options.some((option) => option.value === next) ? next : options[0]?.value;
+		value = options.some((option, index) => !choices[index]?.disabled && option.value === next) ? next : options.find((option, index) => !choices[index]?.disabled)?.value;
 		const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
 		root.dataset.value = value || "";
 		root.dataset.index = String(activeIndex);
@@ -61,13 +63,18 @@ export function segmentedControl({ value, options = [], ariaLabel, onChange = nu
 		if (option.iconName) choice.append(icon(option.iconName), el("span", "aa-ui-segmented__label", option.label));
 		else choice.textContent = option.label;
 		choice.dataset[dataAttribute] = option.value;
-		choice.addEventListener("click", () => setValue(option.value, true));
+		choice.addEventListener("click", () => { if (!choice.disabled) setValue(option.value, true); });
 		choice.addEventListener("keydown", (event) => {
 			if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
 			event.preventDefault();
 			const index = options.findIndex((item) => item.value === value);
 			const offset = event.key === "ArrowRight" ? 1 : -1;
-			const nextIndex = (index + offset + options.length) % options.length;
+			let nextIndex = index;
+			for (let step = 0; step < options.length; step++) {
+				nextIndex = (nextIndex + offset + options.length) % options.length;
+				if (!choices[nextIndex]?.disabled) break;
+			}
+			if (choices[nextIndex]?.disabled) return;
 			setValue(options[nextIndex].value, true);
 			choices[nextIndex]?.focus();
 		});
@@ -75,7 +82,10 @@ export function segmentedControl({ value, options = [], ariaLabel, onChange = nu
 		root.append(choice);
 	}
 	root.setValue = (next) => setValue(next, false);
+	root.setDisabled = (next) => { disabled = Boolean(next); syncDisabled(); };
+	root.setOptionDisabled = (optionValue, next) => { const option = options.find((item) => item.value === optionValue); if (!option) return; option.disabled = Boolean(next); syncDisabled(); if (option.disabled && value === optionValue) setValue(null, false); };
 	root.setLabel = (label) => root.setAttribute("aria-label", label);
+	syncDisabled();
 	setValue(value, false);
 	return root;
 }
