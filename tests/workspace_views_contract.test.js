@@ -601,7 +601,7 @@ test("layout editing exposes an extensible component picker", () => {
 	assert.match(workspace, /showLabel: false/);
 	assert.match(theme, /\.aa-dashboard-toolbar__action-group--utility, \.aa-dashboard-toolbar__action-group--layout \{ justify-self: end; \}/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar__action-group--layout \.aa-dashboard-add-component, \.is-layout-editing \.aa-dashboard-toolbar__action-group--layout \.aa-dashboard-select-all, \.is-layout-editing \.aa-dashboard-toolbar__action-group--layout \.aa-dashboard-tidy-layout/);
-	assert.match(theme, /\.aa-dashboard-group-header h3 \{[^}]*width: 220px;[^}]*max-width: 100%;/);
+	assert.match(theme, /\.aa-dashboard-group-header h3 \{[^}]*width: fit-content;[^}]*max-width: min\(220px, 100%\);[^}]*flex: 0 1 auto;/);
 	assert.match(theme, /\.aa-dashboard-component-option\.aa-ui-button:hover:not\(:disabled\)/);
 });
 
