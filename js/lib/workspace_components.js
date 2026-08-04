@@ -391,18 +391,35 @@ export function createPageRail(initialState = {}) {
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
 	let cursorFrame = 0;
 	let cursorInitialized = false;
+	let expansionAnchorId = null;
+	const activeIndex = () => state.pages.findIndex((page) => page.id === state.activeId);
+	const anchorIndex = () => {
+		const index = state.pages.findIndex((page) => page.id === expansionAnchorId);
+		return index >= 0 ? index : Math.max(0, activeIndex());
+	};
 	const updateHoverHeight = () => {
 		const count = state.pages.length;
 		const gap = state.expanded ? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP;
 		const clusterHeight = count * PAGE_RAIL_DOT_HEIGHT + Math.max(0, count - 1) * gap + PAGE_RAIL_HIT_PADDING;
 		hoverArea.style.height = `${Math.max(56, clusterHeight)}px`;
 	};
-	const setExpanded = (expanded) => {
+	const updateExpansionOffset = () => {
+		const count = state.pages.length;
+		const index = anchorIndex();
+		const gapDelta = PAGE_RAIL_EXPANDED_GAP - PAGE_RAIL_COLLAPSED_GAP;
+		const offset = state.expanded && count > 1 && index >= 0 ? ((count - 1) / 2 - index) * gapDelta : 0;
+		root.style.setProperty("--aa-dashboard-page-rail-anchor-shift", `${offset}px`);
+	};
+	const setExpanded = (expanded, requestedAnchorId = null) => {
 		const next = Boolean(expanded);
-		if (state.expanded === next) return;
+		const nextAnchorId = next ? (requestedAnchorId || state.activeId) : expansionAnchorId;
+		const anchorChanged = next && expansionAnchorId !== nextAnchorId;
+		if (state.expanded === next && !anchorChanged) return;
 		state.expanded = next;
+		if (next) expansionAnchorId = nextAnchorId;
 		root.classList.toggle("is-expanded", next);
 		updateHoverHeight();
+		updateExpansionOffset();
 		positionCursor();
 	};
 	const positionCursor = ({ animate = true } = {}) => {
@@ -434,10 +451,14 @@ export function createPageRail(initialState = {}) {
 		if (active) item.setAttribute("aria-current", "page"); else item.removeAttribute("aria-current");
 	};
 	const update = (nextState = {}, { animate = true } = {}) => {
+		const previousActiveId = state.activeId;
 		state = { ...state, ...nextState, pages: nextState.pages || state.pages, labels: nextState.labels || state.labels };
+		if (state.expanded && previousActiveId !== state.activeId) expansionAnchorId = state.activeId;
+		if (!state.pages.some((page) => page.id === expansionAnchorId)) expansionAnchorId = state.activeId;
 		root.classList.toggle("is-empty", state.pages.length === 0);
 		root.classList.toggle("is-expanded", Boolean(state.expanded));
 		updateHoverHeight();
+		updateExpansionOffset();
 		root.setAttribute("aria-label", state.labels.pages || "Dashboard pages");
 		const nextIds = new Set(state.pages.map((page) => page.id));
 		for (const [id, item] of items) if (!nextIds.has(id)) { item.remove(); items.delete(id); }
@@ -457,7 +478,9 @@ export function createPageRail(initialState = {}) {
 		const next = state.pages[Math.max(0, Math.min(state.pages.length - 1, index))];
 		if (!next || next.id === state.activeId) return false;
 		state.activeId = next.id;
+		expansionAnchorId = next.id;
 		for (const page of state.pages) updateItem(items.get(page.id), page);
+		updateExpansionOffset();
 		positionCursor();
 		if (focus) queueMicrotask(() => items.get(next.id)?.focus({ preventScroll: true }));
 		state.onSelect?.(next.id);
@@ -468,11 +491,17 @@ export function createPageRail(initialState = {}) {
 		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
 		if (index >= 0) selectIndex(index);
 	});
-	hoverArea.addEventListener("pointerenter", () => setExpanded(true));
+	hoverArea.addEventListener("pointerenter", () => setExpanded(true, state.activeId));
 	hoverArea.addEventListener("pointerleave", (event) => { if (event.relatedTarget?.closest?.(".aa-dashboard-page-dot")) return; setExpanded(false); });
-	root.addEventListener("pointerover", (event) => { if (event.target.closest?.(".aa-dashboard-page-dot")) setExpanded(true); });
+	root.addEventListener("pointerover", (event) => {
+		const item = event.target.closest?.(".aa-dashboard-page-dot");
+		if (item) setExpanded(true, item.dataset.pageId);
+	});
 	root.addEventListener("pointerleave", () => setExpanded(false));
-	root.addEventListener("focusin", (event) => { if (event.target.closest?.(".aa-dashboard-page-dot")) setExpanded(true); });
+	root.addEventListener("focusin", (event) => {
+		const item = event.target.closest?.(".aa-dashboard-page-dot");
+		if (item) setExpanded(true, item.dataset.pageId);
+	});
 	root.addEventListener("focusout", () => queueMicrotask(() => {
 		if (root.matches(":hover") || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
 		setExpanded(false);
