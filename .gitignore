@@ -24,6 +24,7 @@ node_modules/
 htmlcov/
 .claude/tmp/
 .omc/
+tmp/
 
 # OS / IDE
 .DS_Store
@@ -44,3 +45,4 @@ deploy/**/.wrangler/
 # Playwright MCP local captures
 .playwright-mcp/
 
+/.comfyui-chrome-devtools-testing/

@@ -6,6 +6,7 @@
 .omc/
 .cursor/
 .agents/
+tmp/
 AGENTS.md
 Agents.md
 CLAUDE.md
@@ -57,3 +58,4 @@ dist/
 build/
 *.egg-info/
 .eggs/
+/.comfyui-chrome-devtools-testing/
