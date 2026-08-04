@@ -344,6 +344,7 @@ test("structural sidebar changes bypass focus deferral without weakening value-c
 	const frameGuard = workspaceEntry.indexOf("\n\tif (renderFrame) return;", schedulerStart);
 	const focusGuard = workspaceEntry.indexOf("\n\tif (hasActiveControlGestures()", schedulerStart);
 	assert.ok(frameGuard >= 0 && focusGuard > frameGuard, "a queued structural render must not leave a stale focus-deferred render behind");
+	assert.match(workspaceEntry, /focusout[\s\S]*aa-ui-popover[\s\S]*flushDeferredWorkspaceRender/);
 });
 
 test("PromptSelector exposes scannable selected and category states", () => {

@@ -613,7 +613,10 @@ app.registerExtension({
 			flushActiveDashboardPresetOnSave();
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
-		window.addEventListener("focusout", () => queueMicrotask(flushDeferredWorkspaceRender), true);
+		window.addEventListener("focusout", () => queueMicrotask(() => {
+			if (document.activeElement instanceof Element && document.activeElement.closest?.(".aa-ui-popover")) return;
+			flushDeferredWorkspaceRender();
+		}), true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
 			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
 		});
