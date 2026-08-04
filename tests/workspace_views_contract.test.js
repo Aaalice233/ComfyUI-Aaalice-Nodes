@@ -171,11 +171,14 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /aa-dashboard-page-rail__hover-area/);
 	assert.match(components, /root\.append\(hoverArea, list\)/);
 	assert.doesNotMatch(components, /aa-dashboard-page-cursor|positionCursor|cursorFrame|ResizeObserver/);
+	assert.match(components, /let collapseFrame = 0/);
+	assert.match(components, /collapseFrame = requestAnimationFrame/);
 	assert.match(components, /aa-dashboard-page-dot/);
 	assert.doesNotMatch(components, /root\.addEventListener\("wheel"/);
 	assert.doesNotMatch(components, /wheelDistance|wheelDirection|wheelResetTimer|resetWheel/);
-	assert.match(components, /Collapse only at the stable rail boundary/);
-	assert.match(components, /root\.addEventListener\("pointerleave"/);
+	assert.match(components, /Collapse after layout settles/);
+	assert.match(components, /root\.addEventListener\("pointerleave", scheduleCollapse\)/);
+	assert.match(components, /root\.destroy = cancelCollapse/);
 	assert.match(components, /root\.addEventListener\("focusin"/);
 	assert.match(components, /root\.addEventListener\("focusout"/);
 	assert.match(components, /PAGE_RAIL_COLLAPSED_GAP = 4/);

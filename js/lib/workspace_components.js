@@ -388,6 +388,7 @@ export function createPageRail(initialState = {}) {
 	root.append(hoverArea, list);
 	const items = new Map();
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
+	let collapseFrame = 0;
 	const updateHoverHeight = () => {
 		const count = state.pages.length;
 		const gap = state.expanded ? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP;
@@ -400,6 +401,21 @@ export function createPageRail(initialState = {}) {
 		state.expanded = next;
 		root.classList.toggle("is-expanded", next);
 		updateHoverHeight();
+	};
+	const cancelCollapse = () => {
+		if (!collapseFrame) return;
+		cancelAnimationFrame(collapseFrame);
+		collapseFrame = 0;
+	};
+	const keepExpanded = () => { cancelCollapse(); setExpanded(true); };
+	const scheduleCollapse = () => {
+		cancelCollapse();
+		// Reparenting the persistent rail during a page render can emit a transient pointerleave.
+		collapseFrame = requestAnimationFrame(() => {
+			collapseFrame = 0;
+			if (root.matches(":hover") || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
+			setExpanded(false);
+		});
 	};
 	const updateItem = (item, page) => {
 		if (!item) return;
@@ -441,25 +457,24 @@ export function createPageRail(initialState = {}) {
 		return true;
 	};
 	root.addEventListener("click", (event) => {
+		keepExpanded();
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
 		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
 		if (index >= 0) selectIndex(index);
 	});
-	hoverArea.addEventListener("pointerenter", () => setExpanded(true));
+	hoverArea.addEventListener("pointerenter", keepExpanded);
+	root.addEventListener("pointerenter", keepExpanded);
 	root.addEventListener("pointerover", (event) => {
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
-		if (item && !state.expanded) setExpanded(true);
+		if (item) keepExpanded();
 	});
-	// Collapse only at the stable rail boundary; the animated hit surface must not own this transition.
-	root.addEventListener("pointerleave", () => setExpanded(false));
+	// Collapse after layout settles so moving the persistent rail between page render shells cannot flicker it closed.
+	root.addEventListener("pointerleave", scheduleCollapse);
 	root.addEventListener("focusin", (event) => {
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
-		if (item) setExpanded(true);
+		if (item) keepExpanded();
 	});
-	root.addEventListener("focusout", () => queueMicrotask(() => {
-		if (root.matches(":hover") || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
-		setExpanded(false);
-	}));
+	root.addEventListener("focusout", scheduleCollapse);
 	root.addEventListener("keydown", (event) => {
 		if (!event.target.closest?.(".aa-dashboard-page-dot")) return;
 		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
@@ -485,6 +500,7 @@ export function createPageRail(initialState = {}) {
 		if (source && source !== item.dataset.pageId) state.onReorder?.(source, item.dataset.pageId);
 	});
 	root.update = update;
+	root.destroy = cancelCollapse;
 	update(initialState);
 	return root;
 }
