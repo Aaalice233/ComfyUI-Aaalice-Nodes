@@ -6,6 +6,10 @@ import { registerWidgetControlAdapter } from "./widget_control_adapters.js";
 const RESOLUTION_NODE = "ResolutionPreset";
 const PROMPT_SELECTOR_NODE = "PromptSelector";
 const LORA_TEXT_WIDGET = "autocomplete_text_loras";
+const LORA_LIST_WIDGET = "loras";
+const LORA_LIST_WIDGET_TYPE = "loras";
+const LORA_LIST_ROW_SPAN = 36;
+const LORA_LIST_MIN_ROW_SPAN = 28;
 
 function nodeType(node) {
 	return [node?.comfyClass, node?.type, node?.constructor?.comfyClass, node?.constructor?.nodeData?.name].find(Boolean) || "";
@@ -31,14 +35,115 @@ function loraWidgetValue(widget) {
 	return typeof current === "string" && current ? current : String(widget?.value || current || "");
 }
 
-function subscribeLoraValueChange(widget, listener) {
+function loraWidgetMethod(widget, name) {
+	if (typeof widget?.[name] === "function") return { owner: widget, method: widget[name], key: name };
+	if (typeof widget?.options?.[name] === "function") return { owner: widget.options, method: widget.options[name], key: name };
+	return null;
+}
+
+function loraListWidget(widget) {
+	if (widget?.name !== LORA_LIST_WIDGET) return false;
+	const type = String(widget?.type || "").trim().toLowerCase();
+	if (type === LORA_LIST_WIDGET_TYPE) return true;
+	return Boolean(loraWidgetMethod(widget, "getValue") && loraWidgetMethod(widget, "setValue"));
+}
+
+function readLoraList(widget) {
+	const getter = loraWidgetMethod(widget, "getValue");
+	const value = getter ? getter.method.call(widget) : widget?.value;
+	return Array.isArray(value) ? value : [];
+}
+
+function copyLoraList(value, { includeSelection = false } = {}) {
+	if (!Array.isArray(value)) return [];
+	return value.map((entry) => {
+		if (!entry || typeof entry !== "object") return entry;
+		const copy = { ...entry };
+		if (!includeSelection) delete copy.selected;
+		return copy;
+	});
+}
+
+function loraListValue(widget) {
+	return copyLoraList(readLoraList(widget));
+}
+
+function validateLoraListPayload(payload) {
+	if (!Array.isArray(payload)) return "invalid-lora-list";
+	const names = new Set();
+	for (const entry of payload) {
+		if (!entry || typeof entry !== "object" || typeof entry.name !== "string" || !entry.name.trim()) return "invalid-lora-entry";
+		if (names.has(entry.name)) return "duplicate-lora-name";
+		names.add(entry.name);
+	}
+	return true;
+}
+
+const loraListSubscriptions = new WeakMap();
+
+function enqueueLoraListChange(state, widget) {
+	if (state.scheduled) return;
+	state.scheduled = true;
+	const enqueue = typeof queueMicrotask === "function" ? queueMicrotask : (callback) => Promise.resolve().then(callback);
+	enqueue(() => {
+		state.scheduled = false;
+		const value = loraListValue(widget);
+		for (const listener of state.listeners) listener(value, { source: "host" });
+	});
+}
+
+function subscribeLoraListValueChange(widget, listener) {
 	if (typeof listener !== "function") return () => {};
-	const target = typeof widget?.element?.addEventListener === "function" ? widget.element : loraInputElement(widget);
-	if (!target) return () => {};
-	const emit = () => listener(loraWidgetValue(widget), { source: "host" });
-	target.addEventListener("input", emit);
-	target.addEventListener("change", emit);
-	return () => { target.removeEventListener("input", emit); target.removeEventListener("change", emit); };
+	let state = loraListSubscriptions.get(widget);
+	if (!state) {
+		const setter = loraWidgetMethod(widget, "setValue");
+		state = { listeners: new Set(), scheduled: false, setter, wrappedSetter: null, observer: null };
+		if (setter) {
+			state.wrappedSetter = function (...args) {
+				const result = state.setter.method.apply(this, args);
+				enqueueLoraListChange(state, widget);
+				return result;
+			};
+			setter.owner[setter.key] = state.wrappedSetter;
+		}
+		const element = widget?.element;
+		if (typeof MutationObserver === "function" && element?.nodeType) {
+			state.observer = new MutationObserver(() => enqueueLoraListChange(state, widget));
+			state.observer.observe(element, { childList: true, subtree: true });
+		}
+		loraListSubscriptions.set(widget, state);
+	}
+	state.listeners.add(listener);
+	return () => {
+		state.listeners.delete(listener);
+		if (state.listeners.size > 0) return;
+		state.observer?.disconnect();
+		if (state.setter && state.setter.owner[state.setter.key] === state.wrappedSetter) state.setter.owner[state.setter.key] = state.setter.method;
+		loraListSubscriptions.delete(widget);
+	};
+}
+
+function loraListCanvas(node) {
+	return node?.graph?.list_of_graphcanvas?.[0] || null;
+}
+
+function setLoraListValue(node, widget, next) {
+	const canvas = loraListCanvas(node);
+	const value = Array.isArray(next) ? copyLoraList(next, { includeSelection: true }) : [];
+	const result = typeof widget?.setValue === "function"
+		? widget.setValue(value, { node, canvas })
+		: (widget.value = value, undefined);
+	if (result === false) return result;
+	if (typeof widget?.callback !== "function") return result;
+	const notify = () => {
+		const callbackResult = widget.callback(widget.value, canvas, node, canvas?.graph_mouse, undefined);
+		return callbackResult === undefined ? result : callbackResult;
+	};
+	return result && typeof result.then === "function" ? result.then(notify) : notify();
+}
+
+function hasLoraListWidget(node) {
+	return (node?.widgets || []).some((widget) => loraListWidget(widget));
 }
 
 registerWidgetControlAdapter({
@@ -101,10 +206,39 @@ registerWidgetControlAdapter({
 });
 
 registerWidgetControlAdapter({
+	id: "lora-manager-list",
+	priority: 900,
+	matches({ widget, promoted }) {
+		return !promoted && loraListWidget(widget);
+	},
+	describe({ node, widget }) {
+		return {
+			controlId: widget.name,
+			label: "LoRA List",
+			labelPolicy: "node-title",
+			kind: "lora-list",
+			valueType: "lora-list",
+			getValue: () => loraListValue(widget),
+			value: loraListValue(widget),
+			options: { itemFields: ["name", "strength", "clipStrength", "active"] },
+			columnSpan: 12,
+			rowSpan: LORA_LIST_ROW_SPAN,
+			minRowSpan: LORA_LIST_MIN_ROW_SPAN,
+			readPresetValue: () => loraListValue(widget),
+			validatePresetValue: (entry) => validateLoraListPayload(entry?.payload),
+			applyPresetValue: (entry) => setLoraListValue(node, widget, entry?.payload),
+			setValue: (next) => setLoraListValue(node, widget, next),
+			subscribeValueChange: (listener) => subscribeLoraListValueChange(widget, listener),
+		};
+	},
+});
+
+registerWidgetControlAdapter({
 	id: "lora-manager-text",
 	priority: 850,
-	matches({ widget, promoted }) {
-		return !promoted && String(widget?.type || "").trim().toLowerCase() === LORA_TEXT_WIDGET && widget?.name === "text";
+	matches({ node, widget, promoted }) {
+		return !promoted && !hasLoraListWidget(node)
+			&& String(widget?.type || "").trim().toLowerCase() === LORA_TEXT_WIDGET && widget?.name === "text";
 	},
 	describe({ node, widget }) {
 		const value = loraWidgetValue(widget);

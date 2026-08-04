@@ -109,7 +109,14 @@ class ProviderRegistry {
 	register(provider) { this.providers.push(provider); return () => { this.providers = this.providers.filter((item) => item !== provider); }; }
 	providerForNode(node) { return this.providers.find((provider) => provider.supportsNode(node)) || null; }
 	provider(binding) { return this.providers.find((provider) => provider.id === binding?.provider) || null; }
-	list(node) { return this.providerForNode(node)?.list(node) || []; }
+	list(node) {
+		if (!node || (typeof node !== "object" && typeof node !== "function")) return [];
+		for (const provider of this.providers) {
+			const controls = provider.list?.(node);
+			if (Array.isArray(controls) && controls.length) return controls;
+		}
+		return [];
+	}
 	resolve(binding, nodes) {
 		const provider = this.provider(binding);
 		const node = findControlHost(nodes, binding.hostId);
@@ -144,6 +151,7 @@ controlProviders.register({
 	id: "quick-group-manager",
 	supportsNode: (node) => isQuickGroupManager(node),
 	list(node) {
+		if (!isQuickGroupManager(node)) return [];
 		const hostId = ensureUniqueHostId(node);
 		return [{
 			label: quickGroupManagerTitle(node),
@@ -214,6 +222,8 @@ const widgetProvider = (id, promoted) => ({
 			: !subgraph && listAdaptedWidgetControls(node).length > 0;
 	},
 	list(node) {
+		const subgraph = Boolean(node?.isSubgraphNode?.() || node?.subgraph);
+		if (promoted !== subgraph) return [];
 		const hostId = ensureUniqueHostId(node);
 		return listAdaptedWidgetControls(node, { promoted }).map((adapted) => ({
 			label: adapted.label,

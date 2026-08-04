@@ -5,6 +5,11 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
+    "loraList": {
+      "title": "LoRA 列表", "activeSummary": "{active}/{total} 已启用", "enabled": "已启用", "disabled": "已禁用",
+      "enableAll": "全部启用", "disableAll": "全部停用", "toggle": "切换 {name}", "model": "模型", "clip": "CLIP",
+      "empty": "列表中没有 LoRA。"
+    },
     "krita": {
       "status": { "checking": "正在检查 Krita…", "connected": "已连接", "notInstalled": "尚未安装 Krita Bridge", "notEnabled": "Krita Bridge 尚未启用", "offline": "Krita Bridge 未连接", "incompatible": "Krita Bridge 协议不兼容", "noDocument": "Krita 没有活动文档", "fetching": "正在读取 Krita 文档…", "fetchSucceeded": "快照已就绪", "fetchFailed": "获取失败" },
       "document": { "untitled": "未命名", "meta": "{width} × {height} · {color}", "selectionSize": "选区 {width} × {height}", "noSelection": "没有选区 · 输出空蒙版", "selectionAtExecution": "执行时读取选区", "none": "当前没有活动文档", "unavailable": "Krita 当前不可用", "openHint": "请在 Krita 中打开或新建文档", "setupHint": "请检查 Krita 与 Bridge 配置" },
@@ -170,7 +175,10 @@
       "mode": { "aria": "关闭组的处理方式", "mute": "静音", "bypass": "绕过" },
       "filter": {
         "aria": "选择组颜色", "all": "全部组",
-        "empty": "未选择颜色", "uncolored": "无颜色", "missing": "当前没有组使用该颜色"
+        "empty": "未选择颜色", "uncolored": "无颜色", "missing": "当前没有组使用该颜色",
+        "paletteTitle": "颜色预设", "currentTitle": "当前组颜色", "savedTitle": "已保存的自定义颜色", "noColorTitle": "无颜色的组",
+        "colorChoice": "按 {color} 筛选组", "customTitle": "添加自定义颜色", "customPicker": "预览并选择自定义颜色", "customInput": "自定义颜色十六进制值", "addCustom": "添加颜色",
+        "removeCustom": "移除自定义颜色 {color}", "invalidCustom": "请输入有效的颜色值，例如 #3B82F6。", "customHint": "添加到已保存的颜色列表，并同时选中用于筛选。"
       },
       "rules": {
         "aria": "编辑 {group} 的联动", "edit": "编辑 {group} 的联动", "search": "搜索组",

@@ -171,7 +171,7 @@
 
 1. 官方 Sidebar Tab 挂载控件与词库工作区；页面布局及页面顺序随工作流序列化，控件值仍由节点拥有。页码菜单通过专用拖拽手柄和键盘移动页面，不把排序状态藏在 DOM 或会话状态中。
 2. Control Provider Registry 分别解析简单 ComfyUI 原生 widget、内置只读执行预览和子图整体公开 widget；绑定只按稳定 Host ID、Control ID 与可选 Adapter ID 精确解析。原生 fallback 仅接受由 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 及其 LiteGraph 运行时别名（包括 `number`、`slider`、`knob`）组成的简单节点，并统一映射为 `numeric`、`boolean`、`text`、`choice`；`PreviewImage` 与 `PreviewAny` 由独立 `comfy-output` Provider 显式读取官方执行消息、恢复后的 `node.images` / `preview_text` 与显示模式，不把临时媒体或文本写入 Dashboard 或预设。出现未知自定义面板时不做部分猜测。结构支持、运行可用性和绑定健康度是三个独立维度：空选项或未赋值控件仍可建立绑定，并以 `ready`、`empty`、`unset`、`unavailable`、`error` 表示瞬时可用性，不得伪装成 `missing` 或 `incompatible`。数值卡片可另外持久化侧边栏专用的 `numericRange`（最小值、最大值、步长）；它只覆盖当前卡片的交互投影，不改写 Provider Control Spec、原 widget 定义、多目标兼容签名或节点当前值。设置必须满足 Integer / Float 域并位于 Provider 已声明的有限边界内；未设置、失效或重置时使用节点原始范围。
-3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。Provider 可为每个控件声明通用来源组提示；Dashboard 命令层只消费该通用描述，不读取节点私有结构。后续新增卡片按完整来源身份加入原组，且不覆盖用户改名或重排既有布局。节点右键添加控件始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。Dashboard V4 持久化 12 列整数网格：控件 `columnSpan` 可取 3–12 的任意整数，`rowSpan` 可取不小于 13 的任意整数；Provider 未声明宽度的新建绑定统一以 6 列进入默认左、右双列布局，显式 Provider 尺寸和既有卡片跨度不被覆盖。拖拽、键盘和命令继续按整数单位自由调整宽高，窄侧栏的一列投影只改变显示，不反写规范布局。V2/V3 在读取时自动迁移为 V4；V2 旧双列的列位置与列跨度等比映射到 12 列，V3 十二列布局原样保留，原有有效整数行跨度保持不变。“整理布局”按完整矩形占位和稳定视觉顺序执行确定性紧凑排列，重复整理结果不变。
+3. 节点菜单装饰不依赖创建时的 widget 完备性；每个节点只安装一次菜单入口，在右键菜单实际打开时通过 Provider Registry 重新发现当前能力，以覆盖连接后才生成 widget 的 Primitive 节点和挂载后才生成公开投影的子图节点。枚举路径要求 Provider 在不支持当前节点时返回空列表，避免先调用 `supportsNode()` 再重复列举；绑定解析仍只重新适配命中的目标控件。Provider 可为每个控件声明通用来源组提示；Dashboard 命令层只消费该通用描述，不读取节点私有结构。后续新增卡片按完整来源身份加入原组，且不覆盖用户改名或重排既有布局。节点右键添加控件始终可用；编辑模式只开放页面、十二列细分网格、布局组和卡片布局操作。Dashboard V4 持久化 12 列整数网格：控件 `columnSpan` 可取 3–12 的任意整数，`rowSpan` 可取不小于 13 的任意整数；Provider 未声明宽度的新建绑定统一以 6 列进入默认左、右双列布局，显式 Provider 尺寸和既有卡片跨度不被覆盖。拖拽、键盘和命令继续按整数单位自由调整宽高，窄侧栏的一列投影只改变显示，不反写规范布局。V2/V3 在读取时自动迁移为 V4；V2 旧双列的列位置与列跨度等比映射到 12 列，V3 十二列布局原样保留，原有有效整数行跨度保持不变。“整理布局”按完整矩形占位和稳定视觉顺序执行确定性紧凑排列，重复整理结果不变。
 4. Dashboard V4 的控件卡片以 `binding` 保存唯一主参数，并以有序 `linkedBindings` 保存附加目标；主参数唯一拥有标题、描述、控件形态和读值语义。`control_binding_set.js` 是联动兼容性、运行时解析和原子写入的唯一边界：只接受同一图中均显式可写、可进入预设且 Control Spec 类型与值域一致的目标；数值必须区分 Integer / Float，图像选择还要匹配目录语义，Seed 必须同时支持数值与执行后行为 codec。一次侧边栏写入先快照全部目标，在一个 graph history 边界内逐项写入；任何返回失败、抛错或部分写入都会逆序回滚全部已触达目标，禁止在 renderer、Dashboard 模型或 Provider 外层散落循环写入。绑定到已有卡片时，确认操作先重新枚举源节点、以最新 Host Id 重建 source binding，并重新匹配目标卡片；兼容性预检、Dashboard 提交和首次主值同步必须复用这同一次实时解析快照，不得在同一个同步事件中再次解析 promoted widget。这样复制子图后的身份修复与 Subgraph 公开视图的瞬时对象身份都由同一事务计划覆盖，不会把刚通过预检的有效目标误判为不可用。Workspace 在每次 `graphToPrompt` 序列化前及整次 `queuePrompt` 完成后，以主 Seed 的数值和执行后行为收敛附加 Seed；这样 `before` 与 `after` 更新策略、多批队列、工作流切换及 `randomize` 都不会让同一卡片的目标在实际 prompt 或下一次值中漂移。运行时 `availability` 与绑定健康分离：动态选项为空、未赋值或临时不可用只暂停整卡写入并显示可恢复状态，不能把持久联动判坏。节点右键菜单仅在存在兼容目标时提供绑定入口；卡片右键在有附加目标时管理联动，并保留主参数重绑。预设捕获和应用按字段元组编码的稳定 Binding Key 展开并全局去重所有目标，读取时迁移旧冒号 Key；来源同步只把主 binding 当作来源身份，来源删除或类型漂移不得删除含附加目标的整张卡片。
 5. Dashboard 卡片和来源组把源名称快照与用户显式改名分开保存：`labelSource` / `nameSource` 只记录最近一次来源同步，`labelOverride` / `nameOverride` 一旦存在就拥有展示优先级。自动来源组和其纳管卡片分别保存 `group.source` 与 `item.groupSource`（Provider、Host Id、Scope Id）；手动移出、入普通组、删除组和复制页面/卡片会清除或隔离纳管身份。Provider 通过 `sourceSnapshot()` 返回有序、稳定 Binding、当前类型和来源标题，`dashboard_source_sync.js` 只消费该通用描述，不读取节点私有结构。
    卡片和分隔项可另存可选 `note` 作为用户 Component Note；它随 Dashboard 规范化、复制、预设和便携备份保留，但不参与 Binding 身份、Provider 解析、联动兼容或控件值比较。编辑与预览统一走 vendored `marked` 和 DOMPurify 的安全 CommonMark/GFM 路径，非 HTTP(S) 链接和图片不进入渲染结果；说明徽章只负责显式打开完整内容，不把长 Markdown 注册为整张卡片的悬浮层。
@@ -188,11 +188,11 @@
 - 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。子图公开控件使用 ComfyUI 的非序列化 `PromotedWidgetView` 作为视图，真实状态仍由内部 widget 持有，因此只在子图 Provider 路径允许该视图进入适配。Promoted widget 的 Control ID 由 `sourceNodeId`、`sourceWidgetName` 和可选 `disambiguatingSourceNodeId` 的源身份生成，不使用公开名称或显示标签；同名的采样器、调度器等公开控件仍保持独立绑定。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
 - ComfyUI 内置 `PreviewImage`、`PreviewAny` 与 `ImageCompare` 使用显式只读适配，不进入普通 widget fallback。执行结果与纯文本/Markdown 显示模式变化通过宿主回调触发一次控制面板失效；图像 URL 在同一批结果内保持稳定，禁止轮询或把输出快照持久化进侧边栏预设。
 - 只要普通节点包含未知 widget、DOM 面板、图片上传、预览或自定义操作控件，内置 fallback 就不接管该节点的原生控件，避免把自定义状态拆成不完整的侧边栏副本。此类节点必须由节点作者或本包使用显式适配器逐项接入。
-- ComfyUI 原生 fallback 在适配边界统一处理通用控件名称：`Value`、`值`、`数值`、`text`、`文本`、`string`、`字符串`（含尾随冒号）使用节点实时 `getTitle()`，明确的 widget 显示名保持不变；领域适配器可在 descriptor 中声明 `labelPolicy: "node-title"`，内置 `LoraManager` 的 LoRA 文本 widget 使用该策略统一显示节点实时标题。
-- 第三方扩展从 `/extensions/ComfyUI-Aaalice-Nodes/api.js` 导入 `registerWidgetControlAdapter()`；适配器只负责识别 widget，并描述稳定 `controlId`、显示名（必要时用 `labelPolicy: "node-title"` 指向节点标题）、控件 `kind`、稳定 `valueType`、当前值、选项、可用性和写回函数；`numeric` 控件若要参与联动还必须用 `numericDomain: "integer" | "float"` 声明数值域。自定义 DOM 控件可在 descriptor 中提供 `subscribeValueChange(listener)`，把节点侧的真实值变化定向广播给已挂载的侧边栏控件；动态选项变化后可调用 `invalidateControlHost(node)` 请求事件驱动刷新，不得轮询。普通标量自动进入侧边栏预设；领域值需要自定义序列化时可选实现同步 `readPresetValue()`、`validatePresetValue(entry)` 和 `applyPresetValue(entry)`，三者组成同一 codec，payload 必须可写入工作流 JSON。可安全加入 Dashboard 多目标卡片的控件还必须提供可回滚的同步写入，并显式声明 `linkable: true`；同步写入的 `false`、`{ ok: false }`、Promise 与抛错都必须原样越过 Provider 边界供协调器判定，未知、自定义 DOM、只读输出或缺少完整 preset codec 的控件默认不得参与联动。
+- ComfyUI 原生 fallback 在适配边界统一处理通用控件名称：`Value`、`值`、`数值`、`text`、`文本`、`string`、`字符串`（含尾随冒号）使用节点实时 `getTitle()`，明确的 widget 显示名保持不变；领域适配器可在 descriptor 中声明 `labelPolicy: "node-title"`，内置 `LoraManager` 的 LoRA 列表 widget 使用该策略统一显示节点实时标题。
+- 第三方扩展从 `/extensions/ComfyUI-Aaalice-Nodes/api.js` 导入 `registerWidgetControlAdapter()`；适配器只负责识别 widget，并描述宿主内唯一的稳定 `controlId`、显示名（必要时用 `labelPolicy: "node-title"` 指向节点标题）、控件 `kind`、稳定 `valueType`、当前值、选项、可用性和写回函数。重复 `controlId` 会显式失败；可变宿主状态应通过 `getValue()` 实时读取，不能把一次性 `value` 快照当作长期真源；`matches()` 与 `describe()` 必须同步，`describe()` 返回 `null` 表示不公开该 widget，异步返回会显式报错。固定 `widget.type` 的适配器可直接声明 `widgetTypes: "VENDOR_TYPE"` 或字符串数组，框架会先做大小写归一化的类型过滤，再执行可选的 `matches(context)`，需要根据节点、Subgraph 或 widget 属性判断时再使用 `matches`。混合自定义面板与普通原生控件的节点可在已完整适配自定义 widget 的适配器上声明 `allowNativeFallback: true`，只为该适配器实际覆盖的 widget 放开其它简单原生控件；未知 widget 仍会阻断 fallback。`numeric` 控件若要参与联动还必须用 `numericDomain: "integer" | "float"` 声明数值域。自定义 DOM 控件可在 descriptor 中提供 `subscribeValueChange(listener)`，把节点侧的真实值变化定向广播给已挂载的侧边栏控件；动态选项变化后可调用 `invalidateControlHost(node)` 请求事件驱动刷新，不得轮询。适配器注册或卸载会触发注册表变更事件，工作区会清理适配缓存并重新发现当前节点能力，因此第三方扩展无需要求用户重载工作流。普通标量自动进入侧边栏预设；领域值需要自定义序列化时可选实现同步 `readPresetValue()`、`validatePresetValue(entry)` 和 `applyPresetValue(entry)`，三者组成同一 codec，payload 必须可写入工作流 JSON。可安全加入 Dashboard 多目标卡片的控件还必须提供可回滚的同步写入，并显式声明 `linkable: true`；同步写入的 `false`、`{ ok: false }`、Promise 与抛错都必须原样越过 Provider 边界供协调器判定，未知、自定义 DOM、只读输出或缺少完整 preset codec 的控件默认不得参与联动。
 - 适配器使用稳定英文 `id` 和显式 `priority`。Dashboard Binding 保存 Adapter ID，重载后不会因新增适配器或优先级变化而漂移到另一实现。
-- 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并返回 `controlView()`，不得持有工作流状态。
-- `ResolutionPreset` 与 `PromptSelector` 的侧边栏卡片复用节点自身的状态控制器和完整交互表面；`LoraManager` 仅显式适配其 LoRA 文本 widget，列表管理面板不被拆成侧边栏副本。复合控件通过独立 renderer 工厂挂载，预设 codec 仍由节点属性与 Provider 负责。
+- 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并必须通过 `controlView()` 返回完整的 `root`、`headerAccessories`、匹配 spec 的 `kind`、`update` 和 `destroy`，不得持有工作流状态。渲染器注册或卸载会触发工作区结构刷新，使热加载和第三方扩展卸载不会留下旧控件视图。
+- `ResolutionPreset` 与 `PromptSelector` 的侧边栏卡片复用节点自身的状态控制器和完整交互表面；`LoraManager` 优先显式适配其 LoRA 列表 widget，侧边栏以列表项和真实 `active` 状态为控制值，不再把同一节点的文本 widget 作为绑定面。没有列表 widget 的兼容节点仍可保留 LoRA 文本适配。复合控件通过独立 renderer 工厂挂载，预设 codec 仍由节点属性与 Provider 负责。
 - Provider 负责图事务、节点 dirty 和绑定解析；适配器不得直接操作侧边栏 DOM，渲染器不得发现节点。适配器卸载函数应在第三方扩展销毁时调用。
 ```js
 import { registerWidgetControlAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/api.js";
@@ -200,19 +200,22 @@ import { registerWidgetControlAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/
 const unregister = registerWidgetControlAdapter({
   id: "vendor-strength",
   priority: 100,
-  matches: ({ widget }) => widget.type === "VENDOR_STRENGTH",
+  widgetTypes: "VENDOR_STRENGTH",
   describe: ({ widget }) => ({
     controlId: `strength:${widget.name}`,
     label: widget.label || widget.name,
     kind: "numeric",
     valueType: "number",
     getValue: () => widget.model.value,
-    getAvailability: () => ({ state: widget.model.ready ? "ready" : "unavailable", reason: "vendor-loading" }),
+    getAvailability: () => ({
+      state: widget.model.ready ? "ready" : "unavailable",
+      reason: "vendor-loading",
+    }),
     options: { min: 0, max: 10, step: 0.1 },
     setValue: (value) => { widget.model.value = value; },
-	readPresetValue: () => ({ strength: widget.model.value }),
-	validatePresetValue: (entry) => Number.isFinite(entry.payload?.strength) || "invalid-strength",
-	applyPresetValue: (entry) => { widget.model.value = entry.payload.strength; },
+    readPresetValue: () => ({ strength: widget.model.value }),
+    validatePresetValue: (entry) => Number.isFinite(entry.payload?.strength) || "invalid-strength",
+    applyPresetValue: (entry) => { widget.model.value = entry.payload.strength; },
   }),
 });
 ```

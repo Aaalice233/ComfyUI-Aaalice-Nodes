@@ -143,6 +143,7 @@ GUI 自动验收只能在原生 `agent_browser` 可用且稳定时执行，并�
 - Dashboard 控件值预览与提交必须保持工作区根、卡片和未涉及控件的 identity，只调用目标 `controlView().update()`；不得触发全量 DOM 重建或全节点重绘。
 - Dashboard/Subgraph 参数提交必须保持工作区根、卡片和控件 identity；同 Binding 在重复卡片或多侧栏根中的投影通过 value channel 各更新一次。断言普通值提交不调用 `scheduleRender("dashboard")` / `renderWorkspace()`，宿主因响应式 widget 写值重复调用 Sidebar render 时直接返回；动态选项、控件类型、Binding 或 Host 显式失效仍会完整重建。
 - Subgraph Provider 的回归使用多个公开 widgets：首次建立 Control Id 到 promoted widget 的结构索引，后续解析同一 Binding 只重新适配目标 widget 并读取实时值；Adapter 注册变化、`graphChanged`、工作流恢复和 `CONTROL_HOST_INVALIDATED_EVENT` 后必须重建索引。嵌套图像 Combo 还要断言同一失效周期内 definition owner 只遍历一次。
+- 第三方 widget adapter 回归覆盖 `widgetTypes` 的大小写归一化、可选同步 `matches()` / `describe()`、重复 `controlId` 拒绝、`getValue()` 的实时值读取、混合自定义面板的 `allowNativeFallback`、注册/卸载后的重新发现，以及未知 widget 仍阻断原生 fallback；renderer 回归覆盖 `controlView()` 的完整字段和 `kind` 一致性。
 - Nodes 2.0 重挂回归需注入相关与无关 DOM mutation：无关 mutation 不扫描节点；同一帧多个相关 mutation 只进行一次 `[data-node-id]` 查询；低质量缩放隐藏富 DOM，恢复后内容、值、槽位和交互必须完整。
 - 浏览器性能记录至少观察主线程长任务、每帧 `computeSize` / `getMinHeight` / draw 回调次数、DOM 查询、样式重算和合成成本。报告相同场景优化前后数据；无法稳定采样时如实交由用户使用真实工作流验证，不以源码检查宣称 FPS 改善。
 - KJ Set/Get 单独做归因矩阵：`KJNodes.showSetGetLinks` 的 `never` / `selected` / `always`、单节点 `drawConnection`、`KJNodes.perf.singleCanvasPan` 及阴影/连线边框选项分别验证。本包测试不得修改或 monkey patch KJNodes；即使本包缓存命中，KJ 的虚拟连线和 canvas 性能设置仍可能主导平移成本。

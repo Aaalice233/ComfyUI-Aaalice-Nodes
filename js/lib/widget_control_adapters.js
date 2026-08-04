@@ -1,13 +1,14 @@
 /** Pluggable adapters that normalize third-party widgets for sidebar providers. */
 
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
-import { invalidateControlHost } from "./control_host_events.js";
+import { invalidateControlHost, notifyControlAdapterRegistryChanged } from "./control_host_events.js";
 import { DASHBOARD_MARKDOWN_ROW_SPAN } from "./dashboard_sizing.js";
 
 const adapters = [];
 let adapterRevision = 0;
 let adaptedWidgetIndexes = new WeakMap();
 let definitionOwnerCache = new WeakMap();
+let nativeFallbackCache = new WeakMap();
 
 const SIMPLE_NATIVE_WIDGETS = Object.freeze({
 	int: { kind: "numeric", valueType: "number", numericDomain: "integer" }, float: { kind: "numeric", valueType: "number", numericDomain: "float" },
@@ -34,15 +35,27 @@ export function controlValueType(value) {
 
 function normalizeAdapter(adapter) {
 	if (!adapter || typeof adapter.id !== "string" || !adapter.id) throw new TypeError("Widget control adapter requires a stable id");
-	if (typeof adapter.matches !== "function" || typeof adapter.describe !== "function") throw new TypeError(`Widget control adapter ${adapter.id} requires matches() and describe()`);
-	return { ...adapter, priority: Number.isFinite(Number(adapter.priority)) ? Number(adapter.priority) : 0 };
+	if (typeof adapter.describe !== "function") throw new TypeError(`Widget control adapter ${adapter.id} requires describe()`);
+	const declaredTypes = adapter.widgetTypes == null ? null : (Array.isArray(adapter.widgetTypes) ? adapter.widgetTypes : [adapter.widgetTypes]);
+	if (declaredTypes && (!declaredTypes.length || declaredTypes.some((type) => typeof type !== "string" || !type.trim()))) throw new TypeError(`Widget control adapter ${adapter.id} has invalid widgetTypes`);
+	const typeSet = declaredTypes ? new Set(declaredTypes.map((type) => type.trim().toLowerCase())) : null;
+	if (typeof adapter.matches !== "function" && !typeSet) throw new TypeError(`Widget control adapter ${adapter.id} requires matches() or widgetTypes`);
+	const explicitMatches = adapter.matches;
+	const matches = (context) => {
+		if (typeSet && !typeSet.has(widgetType(context?.widget))) return false;
+		return explicitMatches ? explicitMatches(context) : true;
+	};
+	const { matches: _matches, widgetTypes: _widgetTypes, ...definition } = adapter;
+	return { ...definition, allowNativeFallback: adapter.allowNativeFallback === true, matches, priority: Number.isFinite(Number(adapter.priority)) ? Number(adapter.priority) : 0 };
 }
 
 export function registerWidgetControlAdapter(adapter) {
 	const normalized = normalizeAdapter(adapter);
 	if (adapters.some((item) => item.id === normalized.id)) throw new Error(`Duplicate widget control adapter: ${normalized.id}`);
 	adapters.push(normalized); adapters.sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id)); adapterRevision += 1;
-	return () => { const index = adapters.indexOf(normalized); if (index >= 0) { adapters.splice(index, 1); adapterRevision += 1; adaptedWidgetIndexes = new WeakMap(); } };
+	nativeFallbackCache = new WeakMap();
+	notifyControlAdapterRegistryChanged(adapterRevision);
+	return () => { const index = adapters.indexOf(normalized); if (index >= 0) { adapters.splice(index, 1); adapterRevision += 1; adaptedWidgetIndexes = new WeakMap(); nativeFallbackCache = new WeakMap(); notifyControlAdapterRegistryChanged(adapterRevision); } };
 }
 
 export function registeredWidgetControlAdapters() { return adapters.map(({ id, priority }) => ({ id, priority })); }
@@ -65,11 +78,30 @@ function simpleNativeWidgetDefinition(widget, { promoted = false } = {}) {
 	return SIMPLE_NATIVE_WIDGETS[widgetType(widget)] || null;
 }
 
+function hasExplicitNativeFallbackAdapter(node, widget) {
+	const context = { node, widget, promoted: false };
+	for (const adapter of adapters) {
+		if (adapter.id === "comfy-native-widget" || !adapter.allowNativeFallback || !adapterMatches(adapter, context)) continue;
+		const described = adapter.describe(context);
+		if (described && typeof described.then === "function") throw new TypeError(`Widget control adapter ${adapter.id} must return a synchronous descriptor`);
+		if (described) return true;
+	}
+	return false;
+}
+
 function supportsNativeFallback(node, promoted) {
 	if (promoted) return true;
 	// A mixed node may rely on a custom panel as its real state owner. In that
 	// case only an explicit higher-priority adapter may opt individual widgets in.
-	return (node?.widgets || []).every((widget) => isInactiveNativeWidget(node, widget) || Boolean(simpleNativeWidgetDefinition(widget)));
+	const widgets = node?.widgets || [];
+	const cacheable = node && (typeof node === "object" || typeof node === "function");
+	const cached = cacheable ? nativeFallbackCache.get(node) : null;
+	if (cached && sameWidgetSnapshot(cached.widgets, widgets)) return cached.value;
+	const value = widgets.every((widget) => isInactiveNativeWidget(node, widget)
+		|| Boolean(simpleNativeWidgetDefinition(widget))
+		|| hasExplicitNativeFallbackAdapter(node, widget));
+	if (cacheable) nativeFallbackCache.set(node, { widgets: [...widgets], value });
+	return value;
 }
 
 function optionValues(options = {}, context = null) {
@@ -165,9 +197,20 @@ function nativeNumericDomain(node, widget, definition) {
 	return null;
 }
 
+function adapterMatches(adapter, context) {
+	const matched = adapter.matches(context);
+	if (matched && typeof matched.then === "function") throw new TypeError(`Widget control adapter ${adapter.id} matches() must be synchronous`);
+	return Boolean(matched);
+}
+
+function findWidgetAdapter(node, widget, { promoted = false, adapterId = null } = {}) {
+	const context = { node, widget, promoted };
+	return adapters.find((candidate) => (!adapterId || candidate.id === adapterId) && adapterMatches(candidate, context)) || null;
+}
+
 export function adaptWidgetControl(node, widget, { promoted = false, adapterId = null } = {}) {
 	const context = { node, widget, promoted };
-	const adapter = adapters.find((candidate) => (!adapterId || candidate.id === adapterId) && candidate.matches(context));
+	const adapter = findWidgetAdapter(node, widget, { promoted, adapterId });
 	if (!adapter) return null;
 	const described = adapter.describe(context);
 	if (!described) return null;
@@ -257,11 +300,21 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	};
 }
 
+function assertUniqueControlIds(controls) {
+	const owners = new Map();
+	for (const control of controls) {
+		const previous = owners.get(control.controlId);
+		if (previous) throw new TypeError(`Duplicate widget controlId ${control.controlId} from adapters ${previous.adapterId} and ${control.adapterId}`);
+		owners.set(control.controlId, control);
+	}
+}
+
 export function listAdaptedWidgetControls(node, { promoted = false, adapterId = null } = {}) {
 	const widgets = node?.widgets || [];
 	const controls = widgets
 		.map((widget) => adaptWidgetControl(node, widget, { promoted, adapterId }))
 		.filter((adapted) => adapted && (!promoted || isPromotedWidget(adapted.widget)));
+	assertUniqueControlIds(controls);
 	cacheAdaptedWidgetIndex(node, widgets, controls, { promoted, adapterId });
 	return controls;
 }
@@ -317,8 +370,8 @@ export function resolveAdaptedWidgetControl(node, controlId, { promoted = false,
 }
 
 export function invalidateWidgetControlAdapterCache(node = null) {
-	if (node) { adaptedWidgetIndexes.delete(node); definitionOwnerCache.delete(node); }
-	else { adaptedWidgetIndexes = new WeakMap(); definitionOwnerCache = new WeakMap(); }
+	if (node) { adaptedWidgetIndexes.delete(node); definitionOwnerCache.delete(node); nativeFallbackCache.delete(node); }
+	else { adaptedWidgetIndexes = new WeakMap(); definitionOwnerCache = new WeakMap(); nativeFallbackCache = new WeakMap(); }
 }
 
 function isNativeImageCompareNode(node) {
@@ -405,6 +458,7 @@ registerWidgetControlAdapter({
 			label: widget.label || node?.title || widget.name || "Note",
 			kind: "markdown",
 			valueType: "string",
+			getValue: () => String(widget.value ?? ""),
 			value: String(widget.value ?? ""),
 			presettable: false,
 			rowSpan: DASHBOARD_MARKDOWN_ROW_SPAN,
@@ -427,6 +481,7 @@ registerWidgetControlAdapter({
 			label: widget.label || widget.name,
 			kind: "image-choice",
 			valueType: "string",
+			getValue: () => widget.value,
 			value: widget.value,
 				options: {
 					values,
@@ -451,6 +506,7 @@ registerWidgetControlAdapter({
 			label: node?.title || node?.constructor?.title || widget.label || "Compare Images",
 			kind: "image-compare",
 			valueType: "image-compare-view",
+			getValue: () => widget.value || { beforeImages: [], afterImages: [] },
 			value: widget.value || { beforeImages: [], afterImages: [] },
 			presettable: false,
 			columnSpan: 12,
@@ -495,6 +551,7 @@ registerWidgetControlAdapter({
 		return {
 			controlId: widget.name,
 			label,
+			getValue: () => widget.value,
 			value: widget.value,
 			valueType: kind === "choice" ? controlValueType(widget.value) || definition.valueType : definition.valueType,
 			kind,

@@ -8,6 +8,8 @@ import {
 import {
 	groupMatchesFilter,
 	normalizeColor,
+	normalizeHexColor,
+	QUICK_GROUP_COLOR_PALETTE,
 	ruleCount,
 	validateLinkageRules,
 } from "./quick_group_manager_model.js";
@@ -47,7 +49,7 @@ export function createQuickGroupManagerPopoverController({ commit, render, toast
 
 	function createPopover(node, anchor, className, ariaLabel) {
 		closePopover(node);
-		const width = className.includes("rules") ? 440 : 280;
+		const width = className.includes("rules") ? 440 : className.includes("filter") ? 360 : 280;
 		let popup = null;
 		popup = createAnchoredPopover({
 			anchor,
@@ -105,35 +107,113 @@ export function createQuickGroupManagerPopoverController({ commit, render, toast
 		const popup = createPopover(node, anchor, "aaalice-qgm-filter-popover", t("aaalice.quickGroup.filter.aria", "Choose group colors"));
 		const groups = quickGroupManagerGroups(node);
 		const state = quickGroupManagerState(node);
-		const draft = { mode: state.filter.mode, colors: [...state.filter.colors], includeUncolored: state.filter.includeUncolored };
+		const draft = {
+			mode: state.filter.mode,
+			colors: [...state.filter.colors],
+			customColors: [...(state.filter.customColors || [])],
+			includeUncolored: state.filter.includeUncolored,
+		};
 		const liveColors = [...new Set(groups.map((group) => normalizeColor(group.color)).filter(Boolean))].sort();
-		const colors = [...new Set([...liveColors, ...draft.colors])];
+		const palette = [...QUICK_GROUP_COLOR_PALETTE];
+		const paletteSet = new Set(palette);
 		const choices = el("div", "aaalice-qgm-filter-choices");
+		const isSelected = (color) => draft.mode === "selected" && draft.colors.includes(color);
+		const toggleColor = (color) => {
+			draft.mode = "selected";
+			draft.colors = draft.colors.includes(color) ? draft.colors.filter((value) => value !== color) : [...draft.colors, color];
+		};
+		const removeCustomColor = (color) => {
+			draft.customColors = draft.customColors.filter((value) => value !== color);
+			draft.colors = draft.colors.filter((value) => value !== color);
+		};
+		const colorChoice = (color, { custom = false, stale = false } = {}) => {
+			const selected = isSelected(color);
+			const choice = el("button", { className: `aaalice-qgm-color-choice${selected ? " is-active" : ""}${stale ? " is-stale" : ""}`, attrs: {
+				type: "button", "aria-pressed": selected,
+				"aria-label": message("aaalice.quickGroup.filter.colorChoice", "Filter groups by {color}", { color }),
+				title: stale ? t("aaalice.quickGroup.filter.missing", "No current group uses this color") : color,
+			} });
+			choice.append(
+				el("span", { className: "aaalice-qgm-color-preview", attrs: { style: `--group-color:${color}`, "aria-hidden": "true" } }),
+				el("code", "aaalice-qgm-color-code", color),
+				selected ? el("span", { className: "aaalice-qgm-color-check", text: "✓", attrs: { "aria-hidden": "true" } }) : null,
+			);
+			choice.addEventListener("click", () => { toggleColor(color); redraw(); });
+			if (!custom) return choice;
+			const wrapper = el("div", "aaalice-qgm-custom-choice");
+			wrapper.append(choice, iconButton({ iconName: "delete", label: message("aaalice.quickGroup.filter.removeCustom", "Remove custom color {color}", { color }), variant: "ghost", className: "aaalice-qgm-custom-remove", onClick: () => { removeCustomColor(color); redraw(); } }));
+			return wrapper;
+		};
+		const colorSection = (label, entries, { custom = false } = {}) => {
+			if (!entries.length) return null;
+			const section = el("section", "aaalice-qgm-filter-section");
+			section.append(el("h3", "aaalice-qgm-filter-section-title", label));
+			const grid = el("div", `aaalice-qgm-filter-grid${custom ? " is-custom" : ""}`);
+			for (const entry of entries) grid.append(colorChoice(entry.color, entry));
+			section.append(grid);
+			return section;
+		};
+		const customEditor = () => {
+			const section = el("section", "aaalice-qgm-custom-editor");
+			section.append(el("h3", "aaalice-qgm-filter-section-title", t("aaalice.quickGroup.filter.customTitle", "Custom color")));
+			const initial = draft.customColors.at(-1) || "#3b82f6";
+			const preview = el("span", { className: "aaalice-qgm-custom-preview", attrs: { style: `--group-color:${initial}`, "aria-hidden": "true" } });
+			const picker = el("input", { className: "aaalice-qgm-custom-picker", attrs: { type: "color", value: initial.length === 7 ? initial : "#3b82f6", "aria-label": t("aaalice.quickGroup.filter.customPicker", "Preview and choose a custom color") } });
+			const input = el("input", { className: "aaalice-qgm-custom-input", attrs: { type: "text", value: initial, placeholder: "#RRGGBB", spellcheck: "false", autocomplete: "off", "aria-label": t("aaalice.quickGroup.filter.customInput", "Custom color hex code") } });
+			const add = button({ label: t("aaalice.quickGroup.filter.addCustom", "Add color"), variant: "ghost", className: "aaalice-qgm-custom-add" });
+			const validation = el("span", { className: "aaalice-qgm-custom-validation", attrs: { role: "status", "aria-live": "polite" } });
+			const sync = () => {
+				const value = normalizeHexColor(input.value);
+				const hasValue = Boolean(input.value.trim());
+				preview.style.setProperty("--group-color", value || "transparent");
+				preview.classList.toggle("is-invalid", hasValue && !value);
+				add.disabled = !value;
+				validation.textContent = hasValue && !value ? t("aaalice.quickGroup.filter.invalidCustom", "Use a valid hex color such as #3B82F6.") : "";
+				if (value?.length === 7) picker.value = value;
+			};
+			const addCustom = () => {
+				const value = normalizeHexColor(input.value);
+				if (!value) { sync(); input.focus(); return; }
+				draft.customColors = [...new Set([...draft.customColors, value])];
+				draft.mode = "selected";
+				if (!draft.colors.includes(value)) draft.colors.push(value);
+				redraw();
+			};
+			picker.addEventListener("input", () => { input.value = picker.value; sync(); });
+			input.addEventListener("input", sync);
+			input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); addCustom(); } });
+			add.addEventListener("click", addCustom);
+			const row = el("div", "aaalice-qgm-custom-editor-row");
+			row.append(preview, picker, input, add);
+			section.append(row, validation, el("p", "aaalice-qgm-custom-hint", t("aaalice.quickGroup.filter.customHint", "Add a color to the saved palette and select it for filtering.")));
+			sync();
+			return section;
+		};
 		const redraw = () => {
 			const all = el("button", { className: `aaalice-qgm-filter-all${draft.mode === "all" ? " is-active" : ""}`, attrs: { type: "button", "aria-pressed": draft.mode === "all" }, text: t("aaalice.quickGroup.filter.all", "All groups") });
 			all.addEventListener("click", () => { draft.mode = "all"; redraw(); });
-			const grid = el("div", "aaalice-qgm-filter-grid");
-			for (const color of colors) {
-				const selected = draft.mode === "selected" && draft.colors.includes(color);
-				const stale = !liveColors.includes(color);
-				const choice = el("button", { className: `aaalice-qgm-color-choice${selected ? " is-active" : ""}${stale ? " is-stale" : ""}`, attrs: { type: "button", "aria-pressed": selected, title: stale ? t("aaalice.quickGroup.filter.missing", "No current group uses this color") : color } });
-				choice.append(el("span", { className: "aaalice-qgm-color", attrs: { style: `--group-color:${color}` } }), el("span", null, color));
-				if (stale) choice.append(el("span", "aaalice-qgm-warning", "!"));
-				choice.addEventListener("click", () => { draft.mode = "selected"; draft.colors = draft.colors.includes(color) ? draft.colors.filter((value) => value !== color) : [...draft.colors, color]; redraw(); });
-				grid.append(choice);
-			}
+			const customSet = new Set(draft.customColors);
+			const paletteEntries = palette.filter((color) => !customSet.has(color)).map((color) => ({ color }));
+			const currentColors = [...new Set([...liveColors, ...draft.colors])].filter((color) => !paletteSet.has(color) && !customSet.has(color));
+			const currentEntries = currentColors.map((color) => ({ color, stale: !liveColors.includes(color) }));
+			const customEntries = draft.customColors.map((color) => ({ color, custom: true, stale: !liveColors.includes(color) }));
 			const selected = draft.mode === "selected" && draft.includeUncolored;
-			const uncolored = el("button", { className: `aaalice-qgm-color-choice${selected ? " is-active" : ""}`, attrs: { type: "button", "aria-pressed": selected } });
-			uncolored.append(el("span", "aaalice-qgm-color is-uncolored"), el("span", null, t("aaalice.quickGroup.filter.uncolored", "No color")));
+			const uncolored = el("button", { className: `aaalice-qgm-color-choice aaalice-qgm-uncolored-choice${selected ? " is-active" : ""}`, attrs: { type: "button", "aria-pressed": selected, "aria-label": t("aaalice.quickGroup.filter.uncolored", "No color") } });
+			uncolored.append(el("span", "aaalice-qgm-color-preview is-uncolored"), el("span", "aaalice-qgm-color-code", t("aaalice.quickGroup.filter.uncolored", "No color")), selected ? el("span", { className: "aaalice-qgm-color-check", text: "✓", attrs: { "aria-hidden": "true" } }) : null);
 			uncolored.addEventListener("click", () => { draft.mode = "selected"; draft.includeUncolored = !draft.includeUncolored; redraw(); });
-			grid.append(uncolored);
-			choices.replaceChildren(all, grid);
+			const paletteSection = colorSection(t("aaalice.quickGroup.filter.paletteTitle", "Color palette"), paletteEntries);
+			const currentSection = colorSection(t("aaalice.quickGroup.filter.currentTitle", "Current group colors"), currentEntries);
+			const customSection = customEntries.length ? colorSection(t("aaalice.quickGroup.filter.savedTitle", "Saved custom colors"), customEntries, { custom: true }) : null;
+			const noColorSection = el("section", "aaalice-qgm-filter-section");
+			noColorSection.append(el("h3", "aaalice-qgm-filter-section-title", t("aaalice.quickGroup.filter.noColorTitle", "Uncolored groups")));
+			const noColorGrid = el("div", "aaalice-qgm-filter-grid"); noColorGrid.append(uncolored); noColorSection.append(noColorGrid);
+			choices.replaceChildren(...[all, paletteSection, currentSection, customSection, noColorSection, customEditor()].filter(Boolean));
 		};
 		const footer = el("footer", "aaalice-qgm-popover-footer");
 		footer.append(
 			button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: popup.close }),
 			button({ label: t("aaalice.common.save", "Save"), onClick: () => {
-				commit(node, () => { quickGroupManagerState(node).filter = draft; });
+				commit(node, () => { quickGroupManagerState(node).filter = { ...draft, colors: [...new Set(draft.colors)], customColors: [...new Set(draft.customColors)] }; });
 				popup.close();
 				render(node);
 			} }),

@@ -34,6 +34,8 @@ export function controlPort(callbacks = {}) {
 
 export function controlView({ root, headerAccessories = [], kind, headerOnly = false, update = null, destroy = null }) {
 	if (!root) throw new TypeError("Shared control renderer must return a root element");
+	if (typeof kind !== "string" || !kind) throw new TypeError("Shared control renderer must provide a non-empty kind");
+	if (!Array.isArray(headerAccessories)) throw new TypeError("Shared control renderer headerAccessories must be an array");
 	root.dataset.controlKind = kind;
 	return {
 		root,

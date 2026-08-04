@@ -19,6 +19,8 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const registrySource = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const comfySource = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js"), "utf8");
+const loraRendererSource = readFileSync(join(ROOT, "js", "lib", "controls", "lora_list.js"), "utf8");
+const themeControlsSource = readFileSync(join(ROOT, "js", "lib", "theme-controls.css"), "utf8");
 const publicApiSource = readFileSync(join(ROOT, "js", "api.js"), "utf8");
 const providerSource = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 
@@ -31,8 +33,17 @@ test("ComfyUI control specs normalize kinds and preserve explicit families", () 
 
 test("built-in ComfyUI renderer families expose their supported kinds", () => {
 	assert.match(registrySource, /\["comfy", new Map\(Object\.entries\(COMFY_CONTROL_RENDERERS\)\)\]/);
-	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare", "resolution", "prompt-selector"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
+	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare", "resolution", "prompt-selector", "lora-list"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
 });
+test("LoRA list renderer keeps state visible and wheel ownership with the host", () => {
+	assert.match(loraRendererSource, /data-capture-wheel/);
+	assert.match(loraRendererSource, /active/);
+	assert.match(loraRendererSource, /setChecked\(active\)/);
+	assert.doesNotMatch(loraRendererSource, /addEventListener\("wheel"/);
+	assert.match(themeControlsSource, /\.aa-control-lora-list__row\.is-inactive/);
+	assert.match(themeControlsSource, /\.aa-control-lora-list__status\[data-state="enabled"\]/);
+});
+
 test("composite and LoRA widgets expose stable sidebar controls", () => {
 	const resolutionNode = {
 		comfyClass: "ResolutionPreset",
@@ -51,13 +62,35 @@ test("composite and LoRA widgets expose stable sidebar controls", () => {
 			validatePresetValue: () => true, setValue: () => {},
 		},
 	};
-	const loraWidget = { name: "text", type: "AUTOCOMPLETE_TEXT_LORAS", label: "text", value: "" };
+	const loraListWidget = { name: "loras", type: "custom", value: [{ name: "style.safetensors", strength: 0.8, clipStrength: 0.7, active: false, selected: true }], getValue() { return this.value; }, setValue(next) { this.value = next; } };
+	const loraTextWidget = { name: "text", type: "AUTOCOMPLETE_TEXT_LORAS", label: "text", value: "<lora:style.safetensors:0.8>" };
 	const resolution = listAdaptedWidgetControls(resolutionNode)[0];
 	const prompt = listAdaptedWidgetControls(promptNode)[0];
-	const lora = listAdaptedWidgetControls({ title: "LoRA prompt", getTitle: () => "LoRA prompt", widgets: [loraWidget] })[0];
+	const loraControls = listAdaptedWidgetControls({ title: "LoRA prompt", getTitle: () => "LoRA prompt", widgets: [loraListWidget, loraTextWidget] });
+	const lora = loraControls[0];
 	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan, resolution.rowSpan, resolution.minRowSpan], ["aaalice-resolution-preset", "resolution", 12, 13, 13]);
 	assert.deepEqual([prompt.adapterId, prompt.kind, prompt.rowSpan], ["aaalice-prompt-selector", "prompt-selector", 64]);
-	assert.deepEqual([lora.adapterId, lora.kind, lora.options.multiline, lora.rowSpan, lora.minRowSpan, lora.label], ["lora-manager-text", "text", true, 18, 18, "LoRA prompt"]);
+	assert.deepEqual([lora.adapterId, lora.kind, lora.valueType, lora.rowSpan, lora.minRowSpan, lora.label], ["lora-manager-list", "lora-list", "lora-list", 36, 28, "LoRA prompt"]);
+	assert.deepEqual(lora.value, [{ name: "style.safetensors", strength: 0.8, clipStrength: 0.7, active: false }]);
+	assert.equal(loraControls.length, 1);
+	const legacyLora = listAdaptedWidgetControls({ getTitle: () => "Legacy LoRA", widgets: [loraTextWidget] })[0];
+	assert.deepEqual([legacyLora.adapterId, legacyLora.kind], ["lora-manager-text", "text"]);
+});
+
+test("LoraManager list writes preserve active state and notify mounted views", async () => {
+	let value = [{ name: "detail.safetensors", strength: 1, clipStrength: 1, active: true }];
+	const widget = {
+		name: "loras", type: "LORAS", getValue: () => value,
+		setValue(next) { value = next; this.value = next; },
+	};
+	const control = adaptWidgetControl({ widgets: [widget] }, widget);
+	const received = [];
+	const unsubscribe = control.subscribeValueChange((next) => received.push(next));
+	control.setValue([{ name: "detail.safetensors", strength: 1, clipStrength: 1, active: false }]);
+	await Promise.resolve();
+	assert.equal(value[0].active, false);
+	assert.equal(received.at(-1)[0].active, false);
+	unsubscribe();
 });
 
 test("native generic value labels use the live node title while explicit labels remain", () => {

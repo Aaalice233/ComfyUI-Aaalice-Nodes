@@ -121,6 +121,11 @@ test("keeps the filter button neutral and lists selected colors in its tooltip",
 	assert.match(popoverSource, /createTooltip/);
 	assert.match(popoverSource, /aaalice-qgm-filter-tooltip/);
 	assert.match(popoverSource, /entry\.color[\s\S]*aaalice-qgm-color[\s\S]*el\("code", null, entry\.color\)/);
+	assert.match(popoverSource, /QUICK_GROUP_COLOR_PALETTE/);
+	assert.match(popoverSource, /normalizeHexColor/);
+	assert.match(popoverSource, /type: "color"/);
+	assert.match(popoverSource, /customColors/);
+	assert.match(popoverSource, /aaalice-qgm-custom-preview/);
 	assert.match(source, /filter\.removeAttribute\("title"\)/);
 	assert.doesNotMatch(source, /quickGroup\.filter\.selected/);
 	assert.doesNotMatch(source, /--qgm-filter-color/);
@@ -128,6 +133,9 @@ test("keeps the filter button neutral and lists selected colors in its tooltip",
 	assert.match(styles, /\.aaalice-qgm-filter-tooltip-row\s*\{[^}]*padding:\s*2px 1px/);
 	assert.doesNotMatch(styles, /\.aaalice-qgm-filter-tooltip-row\s*\{[^}]*background:/);
 	assert.doesNotMatch(styles, /\.aaalice-qgm-hover-tooltip/);
+	assert.match(styles, /\.aaalice-qgm-filter-grid\s*\{[^}]*grid-template-columns:\s*repeat\(4/);
+	assert.match(styles, /\.aaalice-qgm-color-preview\s*\{[^}]*width:\s*24px/);
+	assert.match(styles, /\.aaalice-qgm-custom-editor-row\s*\{[^}]*grid-template-columns/);
 	const rowBody = source.slice(source.indexOf("function groupRow"), source.indexOf("function render(node)"));
 	assert.doesNotMatch(rowBody, /aaalice-qgm-color/);
 	assert.doesNotMatch(popoverSource, /stale \? el\("span", "aaalice-qgm-warning", "!"\) : null/);

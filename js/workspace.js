@@ -4,7 +4,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { controlProviders, createControlHostIndex, HOST_ID_PROPERTY, repairDuplicateHostIds } from "./lib/control_providers.js";
-import { CONTROL_HOST_INVALIDATED_EVENT } from "./lib/control_host_events.js";
+import { CONTROL_ADAPTER_REGISTRY_CHANGED_EVENT, CONTROL_HOST_INVALIDATED_EVENT, CONTROL_RENDERER_REGISTRY_CHANGED_EVENT } from "./lib/control_host_events.js";
 import {
 	controlItemBindings, createPage, emptyDashboard, linkedBindingCount, normalizeDashboard,
 } from "./lib/dashboard_model.js";
@@ -627,6 +627,10 @@ app.registerExtension({
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
 			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
 		});
+		window.addEventListener(CONTROL_ADAPTER_REGISTRY_CHANGED_EVENT, () => {
+			invalidateWidgetControlAdapterCache(); scheduleGraphSync(true); scheduleActiveDashboardPresetAutoSave();
+		});
+		window.addEventListener(CONTROL_RENDERER_REGISTRY_CHANGED_EVENT, () => scheduleStructuralRender("dashboard"));
 		promptLibraryStore.addEventListener("change", () => scheduleRender("library"));
 	},
 });

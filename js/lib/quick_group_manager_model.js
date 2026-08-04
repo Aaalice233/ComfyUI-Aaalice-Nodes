@@ -4,17 +4,34 @@ export const QUICK_GROUP_STATE_VERSION = 1;
 export const GROUP_MODE = Object.freeze({ ALWAYS: 0, NEVER: 2, BYPASS: 4 });
 export const GROUP_STATE = Object.freeze({ ENABLED: "enabled", DISABLED: "disabled", MIXED: "mixed", EMPTY: "empty" });
 
+// Keep the native group colors first so the filter matches ComfyUI's built-in palette,
+// then offer a denser set for workflows that use custom group colors.
+export const QUICK_GROUP_COLOR_PALETTE = Object.freeze([
+	"#a88", "#b06634", "#8a8", "#88a", "#3f789e", "#8aa", "#a1309b", "#b58b2a", "#444",
+	"#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e", "#10b981",
+	"#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7",
+	"#d946ef", "#ec4899", "#f43f5e", "#795548", "#607d8b",
+]);
+
 const ACTIONS = new Set(["enable", "disable"]);
+const HEX_COLOR = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 
 export function normalizeColor(value) {
 	return typeof value === "string" && value.trim() ? value.trim().toLowerCase() : null;
 }
 
+export function normalizeHexColor(value) {
+	const color = normalizeColor(value);
+	return color && HEX_COLOR.test(color) ? color : null;
+}
+
 function normalizeFilter(raw) {
 	const colors = [...new Set((Array.isArray(raw?.colors) ? raw.colors : []).map(normalizeColor).filter(Boolean))];
+	const customColors = [...new Set((Array.isArray(raw?.customColors) ? raw.customColors : []).map(normalizeHexColor).filter(Boolean))];
 	return {
 		mode: raw?.mode === "selected" ? "selected" : "all",
 		colors,
+		customColors,
 		includeUncolored: Boolean(raw?.includeUncolored),
 	};
 }

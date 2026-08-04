@@ -12,6 +12,7 @@ import { renderTextOutputControl } from "./text_output.js";
 import { renderQuickGroupManagerControl } from "./quick_group_manager.js";
 import { renderResolutionControl } from "./resolution.js";
 import { renderPromptSelectorControl } from "./prompt_selector.js";
+import { renderLoraListControl } from "./lora_list.js";
 
 export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	numeric: (spec, port) => renderNumericControl(spec, port),
@@ -27,4 +28,5 @@ export const COMFY_CONTROL_RENDERERS = Object.freeze({
 	"quick-group-manager": (spec, port) => renderQuickGroupManagerControl(spec, port),
 	resolution: (spec) => renderResolutionControl(spec),
 	"prompt-selector": (spec) => renderPromptSelectorControl(spec),
+	"lora-list": (spec, port) => renderLoraListControl(spec, port),
 });

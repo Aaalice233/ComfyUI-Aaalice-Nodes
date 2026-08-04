@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
 	GROUP_MODE,
 	GROUP_STATE,
+	QUICK_GROUP_COLOR_PALETTE,
 	classifyGroupNodes,
 	groupMatchesFilter,
 	normalizeQuickGroupState,
@@ -16,13 +17,20 @@ import {
 } from "../js/lib/quick_group_manager_model.js";
 
 test("normalizes corrupt state to stable defaults", () => {
-	assert.deepEqual(normalizeQuickGroupState({ offMode: "invalid", groupOrder: [1, "1", 2], filter: { mode: "selected", colors: [" #ABC ", "#abc"] } }), {
+	assert.deepEqual(normalizeQuickGroupState({ offMode: "invalid", groupOrder: [1, "1", 2], filter: { mode: "selected", colors: [" #ABC ", "#abc"], customColors: ["#ABCDEF", "not-a-color", "#abcdef"] } }), {
 		version: 1,
 		offMode: "mute",
-		filter: { mode: "selected", colors: ["#abc"], includeUncolored: false },
+		filter: { mode: "selected", colors: ["#abc"], customColors: ["#abcdef"], includeUncolored: false },
 		groupOrder: ["1", "2"],
 		rules: {},
 	});
+});
+
+test("keeps a broad native and custom-friendly color palette", () => {
+	assert.ok(QUICK_GROUP_COLOR_PALETTE.length >= 24);
+	assert.equal(new Set(QUICK_GROUP_COLOR_PALETTE).size, QUICK_GROUP_COLOR_PALETTE.length);
+	assert.ok(QUICK_GROUP_COLOR_PALETTE.includes("#a88"));
+	assert.ok(QUICK_GROUP_COLOR_PALETTE.includes("#3b82f6"));
 });
 
 test("filters multiple colors and uncolored groups", () => {

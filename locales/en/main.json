@@ -5,6 +5,11 @@
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
       "error": "Error", "notice": "Notice", "save": "Save"
     },
+    "loraList": {
+      "title": "LoRA list", "activeSummary": "{active}/{total} enabled", "enabled": "Enabled", "disabled": "Disabled",
+      "enableAll": "Enable all", "disableAll": "Disable all", "toggle": "Toggle {name}", "model": "Model", "clip": "CLIP",
+      "empty": "No LoRAs in this list."
+    },
     "krita": {
       "status": { "checking": "Checking Krita…", "connected": "Connected", "notInstalled": "Krita Bridge is not installed", "notEnabled": "Krita Bridge is not enabled", "offline": "Krita Bridge is offline", "incompatible": "Krita Bridge protocol is incompatible", "noDocument": "No active Krita document", "fetching": "Reading Krita document…", "fetchSucceeded": "Snapshot ready", "fetchFailed": "Fetch failed" },
       "document": { "untitled": "Untitled", "meta": "{width} × {height} · {color}", "selectionSize": "Selection {width} × {height}", "noSelection": "No selection · empty mask output", "selectionAtExecution": "Selection read on execution", "none": "No active document", "unavailable": "Krita is unavailable", "openHint": "Open or create a document in Krita", "setupHint": "Check Krita and Bridge setup" },
@@ -170,7 +175,10 @@
       "mode": { "aria": "Disabled group mode", "mute": "Mute", "bypass": "Bypass" },
       "filter": {
         "aria": "Choose group colors", "all": "All groups",
-        "empty": "No colors", "uncolored": "No color", "missing": "No current group uses this color"
+        "empty": "No colors", "uncolored": "No color", "missing": "No current group uses this color",
+        "paletteTitle": "Color palette", "currentTitle": "Current group colors", "savedTitle": "Saved custom colors", "noColorTitle": "Uncolored groups",
+        "colorChoice": "Filter groups by {color}", "customTitle": "Add a custom color", "customPicker": "Preview and choose a custom color", "customInput": "Custom color hex code", "addCustom": "Add color",
+        "removeCustom": "Remove custom color {color}", "invalidCustom": "Use a valid hex color such as #3B82F6.", "customHint": "Add a color to the saved palette and select it for filtering."
       },
       "rules": {
         "aria": "Edit linkage for {group}", "edit": "Edit linkage for {group}", "search": "Search groups",

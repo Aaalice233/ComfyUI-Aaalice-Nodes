@@ -17,6 +17,7 @@
 	.aa-discord-share-entry,
 	.aa-discord-share-settings,
 	.aa-ui-dialog,
+	.aa-control-lora-list,
 .aa-ui-popover,
 .aa-ui-context-menu,
 .aa-ui-tooltip {
@@ -52,7 +53,7 @@
 	font: 13px/1.45 var(--comfy-font, Inter, system-ui, sans-serif);
 }
 
-.aaalice-pcp *, .aaalice-qgm *, .aaalice-qgm-popover *, .aaalice-character-swap *, .aa-resolution-preset *, .aa-krita *, .aa-krita-settings *, .aa-gallery *, .aa-gallery-settings *, .aa-gallery-detail *, .aa-gallery-tag-editor *, .aa-prompt-selector *, .aa-workspace *, .aa-group-navigation-wheel-root *, .aa-discord-share-entry *, .aa-discord-share-settings *, .aa-ui-dialog *, .aa-ui-dialog-backdrop *, .aa-ui-popover *, .aa-ui-context-menu *, .aa-ui-tooltip * { box-sizing: border-box; }
+.aaalice-pcp *, .aaalice-qgm *, .aaalice-qgm-popover *, .aaalice-character-swap *, .aa-resolution-preset *, .aa-krita *, .aa-krita-settings *, .aa-gallery *, .aa-gallery-settings *, .aa-gallery-detail *, .aa-gallery-tag-editor *, .aa-prompt-selector *, .aa-workspace *, .aa-group-navigation-wheel-root *, .aa-discord-share-entry *, .aa-discord-share-settings *, .aa-control-lora-list *, .aa-ui-dialog *, .aa-ui-dialog-backdrop *, .aa-ui-popover *, .aa-ui-context-menu *, .aa-ui-tooltip * { box-sizing: border-box; }
 
 .aa-ui-tooltip {
 	--aa-ui-tooltip-surface: color-mix(in srgb, var(--aa-ui-surface) 96%, var(--aa-ui-text));
