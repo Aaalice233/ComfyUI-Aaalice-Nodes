@@ -340,6 +340,10 @@ test("structural sidebar changes bypass focus deferral without weakening value-c
 	assert.match(workspaceLibrary, /aa-library-filter-select[\s\S]*runtime\.scheduleStructuralRender\(\)/);
 	assert.match(workspaceGroupNavigation, /runtime\.scheduleStructuralRender\("groups"\)/);
 	assert.match(workspaceEntry, /input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\)/);
+	const schedulerStart = workspaceEntry.indexOf("function scheduleRender");
+	const frameGuard = workspaceEntry.indexOf("\n\tif (renderFrame) return;", schedulerStart);
+	const focusGuard = workspaceEntry.indexOf("\n\tif (hasActiveControlGestures()", schedulerStart);
+	assert.ok(frameGuard >= 0 && focusGuard > frameGuard, "a queued structural render must not leave a stale focus-deferred render behind");
 });
 
 test("PromptSelector exposes scannable selected and category states", () => {

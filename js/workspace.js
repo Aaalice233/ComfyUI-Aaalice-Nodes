@@ -194,10 +194,11 @@ function isFocusedWorkspaceValueControl() {
 function scheduleRender(view = null, { structural = false } = {}) {
 	if (view && view !== activeWorkspace) return;
 	if (structural) forcedWorkspaceRender = true;
+	// Coalesce before recording focus deferral; a queued structural frame must not inherit a stale deferred render.
+	if (renderFrame) return;
 	const forceFocusRender = structural || forcedWorkspaceRender;
 	if (hasActiveControlGestures() || (!forceFocusRender && isFocusedWorkspaceValueControl())) { deferredWorkspaceRender = true; return; }
 	deferredWorkspaceRender = false;
-	if (renderFrame) return;
 	renderFrame = requestAnimationFrame(() => {
 		renderFrame = 0;
 		const renderStructurally = forcedWorkspaceRender;
