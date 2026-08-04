@@ -1,6 +1,7 @@
 /** Pure Dashboard V3 grid/group DOM composition. */
 
 import { groupMemberColumnSpan, orderedItems, projectGroupScope, projectScope } from "./dashboard_layout.js";
+import { groupToneClass, groupToneCssValue, isCustomGroupTone, normalizeGroupTone } from "./dashboard_group_tones.js";
 import { el, icon, iconButton, inlineRename } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
@@ -53,8 +54,9 @@ export function createDashboardGroup({ group, members, memberProjection = null, 
 		const card = renderItem(item); card.classList.add("is-group-member"); card.dataset.dashboardGroupMember = group.id;
 		const projected = projection.get(item.id); applyGridPosition(card, projected, item.layout); markProjectedAxes(card, sizeProjections?.get?.(item.id)); grid.append(card);
 	}
-	const root = el("section", { className: `aa-dashboard-group aa-dashboard-composite-card is-${group.tone}${selected ? " is-selected" : ""}`, attrs: {
-		"data-dashboard-group-id": group.id, "data-drop-row": String(group.layout.row), "data-drop-column": String(group.layout.column),
+	const normalizedTone = normalizeGroupTone(group.tone);
+	const root = el("section", { className: `aa-dashboard-group aa-dashboard-composite-card is-${groupToneClass(normalizedTone)}${selected ? " is-selected" : ""}`, attrs: {
+		"data-dashboard-group-id": group.id, "data-dashboard-group-tone": normalizedTone, "data-drop-row": String(group.layout.row), "data-drop-column": String(group.layout.column),
 		"data-dashboard-min-column-span": String(groupMemberColumnSpan(members)), "data-dashboard-group-sync-status": syncStatus || null, "aria-label": group.name,
 	}, children: [
 		...(showHeader ? [header] : []), grid,
@@ -62,6 +64,7 @@ export function createDashboardGroup({ group, members, memberProjection = null, 
 			type: "button", "data-dashboard-resize-handle": "true", "data-dashboard-group-resize-handle": "true", "aria-label": labels.resizeGroup || "Resize layout group",
 		} })] : []),
 	] });
+	if (isCustomGroupTone(normalizedTone)) root.style.setProperty("--aa-dashboard-group-tone", groupToneCssValue(normalizedTone));
 	root.addEventListener("contextmenu", (event) => { if (!editMode || event.target.closest("[data-dashboard-item-id]")) return; event.preventDefault(); onMenu?.(event, group); });
 	header.addEventListener("keydown", (event) => { if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return; event.preventDefault(); onMenu?.(event, group); });
 	const projectedLayout = group.projectedLayout || group.layout;

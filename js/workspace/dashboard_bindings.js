@@ -15,6 +15,7 @@ import { confirmAction } from "./dom_utils.js";
 import { configureNumericRange, isConfigurableNumericControl, openNumericRangeSettings } from "./numeric_range.js";
 import { allGraphNodes } from "../lib/graph_scope.js";
 import { boundNodeControlEntries, configureDashboardUnbinding, openUnbindControls } from "./dashboard_unbinding.js";
+import { createGroupToneControl } from "./group_tone_control.js";
 
 let runtime = null;
 export function configureDashboardBindings(dependencies) {
@@ -344,12 +345,12 @@ export function openAssignGroup(page, item) {
 
 export function openEditGroup(page, group) {
 	const name = document.createElement("input"); name.value = resolveGroupTitle(group);
-	const tone = selectControl({ ariaLabel: t("aaalice.workspace.group.tone", "Group color"), value: group.tone, options: ["neutral", "blue", "green", "amber", "purple", "red"].map((value) => ({ value, label: t(`aaalice.workspace.group.tones.${value}`, value) })) });
+	const tone = createGroupToneControl(group.tone);
 	let showTitle = group.showTitle !== false;
 	const showTitleControl = toggleSwitch({ checked: showTitle, label: t("aaalice.workspace.group.showTitle", "Show group title"), onChange: (next) => { showTitle = next; } });
-	const body = el("div", { children: [field({ label: t("aaalice.workspace.group.name", "Group name"), control: name }), field({ label: t("aaalice.workspace.group.tone", "Group color"), control: tone }), field({ label: t("aaalice.workspace.group.showTitle", "Show group title"), control: showTitleControl })] }); const footer = el("div");
+	const body = el("div", { children: [field({ label: t("aaalice.workspace.group.name", "Group name"), control: name }), field({ label: t("aaalice.workspace.group.tone", "Group color"), control: tone.root }), field({ label: t("aaalice.workspace.group.showTitle", "Show group title"), control: showTitleControl })] }); const footer = el("div");
 	const dialog = createWorkspaceDialog({ title: t("aaalice.workspace.group.edit", "Edit group"), body, footer });
-	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { if (!name.value.trim()) return; updateDashboard((current) => { const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id); if (target) { target.nameOverride = name.value.trim(); target.tone = tone.value; target.showTitle = showTitle; } return current; }); dialog.close(); } }));
+	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { if (!name.value.trim()) return; updateDashboard((current) => { const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id); if (target) { target.nameOverride = name.value.trim(); target.tone = tone.value(); target.showTitle = showTitle; } return current; }); dialog.close(); } }));
 }
 
 

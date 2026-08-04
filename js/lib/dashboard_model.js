@@ -10,6 +10,7 @@ import {
 	normalizeDashboardRowSpan,
 	recommendedGroupRowSpan,
 } from "./dashboard_sizing.js";
+import { normalizeGroupTone } from "./dashboard_group_tones.js";
 
 export const DASHBOARD_VERSION = 4;
 export const DASHBOARD_TONES = Object.freeze(["neutral", "blue", "green", "amber", "purple", "red"]);
@@ -160,7 +161,7 @@ export function normalizeDashboard(raw) {
 			const source = normalizeGroupSource(sourceGroup.source);
 			const widthMode = sourceGroup.widthMode === "fixed" ? "fixed" : "auto";
 			page.groups.push({
-				id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: DASHBOARD_TONES.includes(sourceGroup.tone) ? sourceGroup.tone : "neutral",
+				id: sourceGroup.id, name: String(sourceGroup.name || "Group"), tone: normalizeGroupTone(sourceGroup.tone),
 				showTitle: sourceGroup.showTitle !== false,
 				...(typeof sourceGroup.nameSource === "string" ? { nameSource: sourceGroup.nameSource } : {}),
 				...(typeof sourceGroup.nameOverride === "string" ? { nameOverride: sourceGroup.nameOverride } : {}),
@@ -240,7 +241,7 @@ export function createLayoutGroup(name = "Group", tone = "neutral", row = 0, sou
 	const normalizedSource = normalizeGroupSource(source);
 	const sourceName = String(name || "Group");
 	return {
-		id: stableId("group"), name: sourceName, tone: DASHBOARD_TONES.includes(tone) ? tone : "neutral", showTitle: true, widthMode: "auto",
+		id: stableId("group"), name: sourceName, tone: normalizeGroupTone(tone), showTitle: true, widthMode: "auto",
 		...(normalizedSource ? { source: normalizedSource, nameSource: sourceName } : {}), nameOverride: null,
 		layout: { row, column: 0, columnSpan: normalizeDashboardColumnSpan(columnSpan, { minimum: 1 }), rowSpan: 1 },
 	};

@@ -22,6 +22,17 @@ test("page tone survives normalization and falls back to null when unknown", () 
 	assert.equal(model.pages[0].tone, null);
 });
 
+test("group colors preserve preset ids and normalize custom hex values", () => {
+	const { model, page } = modelWithPage();
+	page.groups.push(
+		{ id: "custom", name: "Custom", tone: "#ABC", layout: { row: 0, column: 0, columnSpan: 12, rowSpan: 1 } },
+		{ id: "invalid", name: "Invalid", tone: "url(javascript:bad)", layout: { row: 1, column: 0, columnSpan: 12, rowSpan: 1 } },
+	);
+	const next = normalizeDashboard(model);
+	assert.equal(next.pages[0].groups[0].tone, "#aabbcc");
+	assert.equal(next.pages[0].groups[1].tone, "neutral");
+});
+
 test("group titles default to visible and preserve an explicit hidden setting", () => {
 	const { model, page } = modelWithPage();
 	page.groups.push({ id: "group-a", name: "Controls", tone: "neutral", widthMode: "auto", layout: { row: 0, column: 0, columnSpan: 12, rowSpan: 1 } });

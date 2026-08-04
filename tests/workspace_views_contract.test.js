@@ -178,8 +178,8 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
 	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*height: 100%;[^}]*min-height: 0;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
 	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 12px;[^}]*right: 7px;[^}]*bottom: 12px;[^}]*left: 0;/);
-	assert.match(theme, /\.aa-dashboard-page-rail__hover-area \{[^}]*pointer-events: none;/);
-	assert.match(theme, /\.aa-dashboard-page-rail\.is-expanded \.aa-dashboard-page-rail__hover-area,[\s\S]*?pointer-events: auto;/);
+	assert.match(theme, /\.aa-dashboard-page-rail__hover-area \{[^}]*top: 50%;[^}]*max-height: calc\(100% - 24px\);[^}]*pointer-events: auto;/);
+	assert.match(components, /hoverArea\.style\.height = `\$\{Math\.max\(56, clusterHeight\)\}px`/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-page-rail \{[^}]*position: absolute/);
 	assert.match(theme, /\.aa-dashboard-page-cursor \{[^}]*right: 7px;/);
 	assert.match(theme, /\.aa-dashboard-page-dot/);

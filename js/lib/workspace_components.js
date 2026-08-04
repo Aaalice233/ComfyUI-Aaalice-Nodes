@@ -4,6 +4,10 @@ import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopo
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 
+const PAGE_RAIL_DOT_HEIGHT = 20;
+const PAGE_RAIL_GAP = 7;
+const PAGE_RAIL_HIT_PADDING = 14;
+
 export function createComponentNoteButton({ note = "", labels = {}, className = "" } = {}) {
 	const label = labels.viewNote || "View parameter note";
 	const control = iconButton({
@@ -391,6 +395,11 @@ export function createPageRail(initialState = {}) {
 		state.expanded = next;
 		root.classList.toggle("is-expanded", next);
 	};
+	const updateHoverHeight = () => {
+		const count = state.pages.length;
+		const clusterHeight = count * PAGE_RAIL_DOT_HEIGHT + Math.max(0, count - 1) * PAGE_RAIL_GAP + PAGE_RAIL_HIT_PADDING;
+		hoverArea.style.height = `${Math.max(56, clusterHeight)}px`;
+	};
 	const positionCursor = ({ animate = true } = {}) => {
 		cancelAnimationFrame(cursorFrame);
 		cursorFrame = requestAnimationFrame(() => {
@@ -420,6 +429,7 @@ export function createPageRail(initialState = {}) {
 		state = { ...state, ...nextState, pages: nextState.pages || state.pages, labels: nextState.labels || state.labels };
 		root.classList.toggle("is-empty", state.pages.length === 0);
 		root.classList.toggle("is-expanded", Boolean(state.expanded));
+		updateHoverHeight();
 		root.setAttribute("aria-label", state.labels.pages || "Dashboard pages");
 		const nextIds = new Set(state.pages.map((page) => page.id));
 		for (const [id, item] of items) if (!nextIds.has(id)) { item.remove(); items.delete(id); }
@@ -450,7 +460,9 @@ export function createPageRail(initialState = {}) {
 		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
 		if (index >= 0) selectIndex(index);
 	});
-	root.addEventListener("pointerenter", () => setExpanded(true));
+	hoverArea.addEventListener("pointerenter", () => setExpanded(true));
+	hoverArea.addEventListener("pointerleave", (event) => { if (event.relatedTarget?.closest?.(".aa-dashboard-page-dot")) return; setExpanded(false); });
+	root.addEventListener("pointerover", (event) => { if (event.target.closest?.(".aa-dashboard-page-dot")) setExpanded(true); });
 	root.addEventListener("pointerleave", () => setExpanded(false));
 	root.addEventListener("keydown", (event) => {
 		if (!event.target.closest?.(".aa-dashboard-page-dot")) return;
