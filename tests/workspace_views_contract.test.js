@@ -174,10 +174,16 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.doesNotMatch(components, /root\.addEventListener\("wheel"/);
 	assert.doesNotMatch(components, /wheelDistance|wheelDirection|wheelResetTimer|resetWheel/);
 	assert.match(components, /root\.addEventListener\("pointerleave"/);
+	assert.match(components, /root\.addEventListener\("focusin"/);
+	assert.match(components, /root\.addEventListener\("focusout"/);
+	assert.match(components, /PAGE_RAIL_COLLAPSED_GAP = 4/);
+	assert.match(components, /PAGE_RAIL_EXPANDED_GAP = 10/);
+	assert.match(components, /state\.expanded \? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP/);
 	assert.match(components, /state\.onSelect\?\.\(next\.id\)/);
 	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
 	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*height: 100%;[^}]*min-height: 0;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
-	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 12px;[^}]*right: 7px;[^}]*bottom: 12px;[^}]*left: 0;/);
+	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 12px;[^}]*right: 7px;[^}]*bottom: 12px;[^}]*left: 0;[^}]*gap: 4px;[^}]*transition: gap/);
+	assert.match(theme, /\.aa-dashboard-page-rail\.is-expanded \.aa-dashboard-page-list[\s\S]*?gap: 10px;/);
 	assert.match(theme, /\.aa-dashboard-page-rail__hover-area \{[^}]*top: 50%;[^}]*max-height: calc\(100% - 24px\);[^}]*pointer-events: auto;/);
 	assert.match(components, /hoverArea\.style\.height = `\$\{Math\.max\(56, clusterHeight\)\}px`/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-page-rail \{[^}]*position: absolute/);

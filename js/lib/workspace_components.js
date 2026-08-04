@@ -6,7 +6,8 @@ import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SP
 import { dashboardToneCssValue, normalizeDashboardTone } from "./dashboard_color_system.js";
 
 const PAGE_RAIL_DOT_HEIGHT = 20;
-const PAGE_RAIL_GAP = 7;
+const PAGE_RAIL_COLLAPSED_GAP = 4;
+const PAGE_RAIL_EXPANDED_GAP = 10;
 const PAGE_RAIL_HIT_PADDING = 14;
 
 export function createComponentNoteButton({ note = "", labels = {}, className = "" } = {}) {
@@ -390,16 +391,18 @@ export function createPageRail(initialState = {}) {
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
 	let cursorFrame = 0;
 	let cursorInitialized = false;
+	const updateHoverHeight = () => {
+		const count = state.pages.length;
+		const gap = state.expanded ? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP;
+		const clusterHeight = count * PAGE_RAIL_DOT_HEIGHT + Math.max(0, count - 1) * gap + PAGE_RAIL_HIT_PADDING;
+		hoverArea.style.height = `${Math.max(56, clusterHeight)}px`;
+	};
 	const setExpanded = (expanded) => {
 		const next = Boolean(expanded);
 		if (state.expanded === next) return;
 		state.expanded = next;
 		root.classList.toggle("is-expanded", next);
-	};
-	const updateHoverHeight = () => {
-		const count = state.pages.length;
-		const clusterHeight = count * PAGE_RAIL_DOT_HEIGHT + Math.max(0, count - 1) * PAGE_RAIL_GAP + PAGE_RAIL_HIT_PADDING;
-		hoverArea.style.height = `${Math.max(56, clusterHeight)}px`;
+		updateHoverHeight();
 	};
 	const positionCursor = ({ animate = true } = {}) => {
 		cancelAnimationFrame(cursorFrame);
@@ -465,6 +468,11 @@ export function createPageRail(initialState = {}) {
 	hoverArea.addEventListener("pointerleave", (event) => { if (event.relatedTarget?.closest?.(".aa-dashboard-page-dot")) return; setExpanded(false); });
 	root.addEventListener("pointerover", (event) => { if (event.target.closest?.(".aa-dashboard-page-dot")) setExpanded(true); });
 	root.addEventListener("pointerleave", () => setExpanded(false));
+	root.addEventListener("focusin", (event) => { if (event.target.closest?.(".aa-dashboard-page-dot")) setExpanded(true); });
+	root.addEventListener("focusout", () => queueMicrotask(() => {
+		if (root.matches(":hover") || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
+		setExpanded(false);
+	}));
 	root.addEventListener("keydown", (event) => {
 		if (!event.target.closest?.(".aa-dashboard-page-dot")) return;
 		const activeIndex = state.pages.findIndex((page) => page.id === state.activeId);
