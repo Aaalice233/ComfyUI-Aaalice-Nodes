@@ -386,7 +386,7 @@ export function createPageRail(initialState = {}) {
 	const hoverArea = el("span", { className: "aa-dashboard-page-rail__hover-area", attrs: { "aria-hidden": "true" } });
 	const list = el("div", "aa-dashboard-page-list");
 	const cursor = el("span", { className: "aa-dashboard-page-cursor", attrs: { "aria-hidden": "true" } });
-	list.append(cursor); root.append(hoverArea, list);
+	root.append(hoverArea, list, cursor);
 	const items = new Map();
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
 	let cursorFrame = 0;
@@ -410,13 +410,15 @@ export function createPageRail(initialState = {}) {
 		const offset = state.expanded && count > 1 && index >= 0 ? ((count - 1) / 2 - index) * gapDelta : 0;
 		root.style.setProperty("--aa-dashboard-page-rail-anchor-shift", `${offset}px`);
 	};
-	const setExpanded = (expanded, requestedAnchorId = null) => {
+	const setExpanded = (expanded, requestedAnchorId = null, { reanchor = false } = {}) => {
 		const next = Boolean(expanded);
-		const nextAnchorId = next ? (requestedAnchorId || state.activeId) : expansionAnchorId;
-		const anchorChanged = next && expansionAnchorId !== nextAnchorId;
+		const opening = next && !state.expanded;
+		const shouldAnchor = next && (opening || reanchor);
+		const nextAnchorId = shouldAnchor ? (requestedAnchorId || state.activeId) : expansionAnchorId;
+		const anchorChanged = shouldAnchor && expansionAnchorId !== nextAnchorId;
 		if (state.expanded === next && !anchorChanged) return;
 		state.expanded = next;
-		if (next) expansionAnchorId = nextAnchorId;
+		if (shouldAnchor) expansionAnchorId = nextAnchorId;
 		root.classList.toggle("is-expanded", next);
 		updateHoverHeight();
 		updateExpansionOffset();
@@ -430,14 +432,16 @@ export function createPageRail(initialState = {}) {
 			if (!active?.isConnected) return;
 			const shouldAnimate = animate && cursorInitialized;
 			cursor.classList.toggle("is-initializing", !shouldAnimate);
-			const offset = active.offsetTop + (active.offsetHeight - cursor.offsetHeight) / 2;
+			const railRect = root.getBoundingClientRect();
+			const activeRect = active.getBoundingClientRect();
+			const offset = activeRect.top - railRect.top + (activeRect.height - cursor.offsetHeight) / 2;
 			cursor.style.transform = `translate3d(0, ${offset}px, 0)`;
 			cursorInitialized = true;
 			if (!shouldAnimate) requestAnimationFrame(() => cursor.classList.remove("is-initializing"));
 		});
 	};
 	list.addEventListener("transitionend", (event) => {
-		if (event.target === list && event.propertyName === "gap") positionCursor();
+		if (event.target === list && (event.propertyName === "gap" || event.propertyName === "transform")) positionCursor();
 	});
 	const updateItem = (item, page) => {
 		if (!item) return;
@@ -492,15 +496,15 @@ export function createPageRail(initialState = {}) {
 		if (index >= 0) selectIndex(index);
 	});
 	hoverArea.addEventListener("pointerenter", () => setExpanded(true, state.activeId));
-	hoverArea.addEventListener("pointerleave", (event) => { if (event.relatedTarget?.closest?.(".aa-dashboard-page-dot")) return; setExpanded(false); });
 	root.addEventListener("pointerover", (event) => {
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
-		if (item) setExpanded(true, item.dataset.pageId);
+		if (item && !state.expanded) setExpanded(true, item.dataset.pageId);
 	});
+	// Collapse only at the stable rail boundary; the animated hit surface must not own this transition.
 	root.addEventListener("pointerleave", () => setExpanded(false));
 	root.addEventListener("focusin", (event) => {
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
-		if (item) setExpanded(true, item.dataset.pageId);
+		if (item) setExpanded(true, item.dataset.pageId, { reanchor: true });
 	});
 	root.addEventListener("focusout", () => queueMicrotask(() => {
 		if (root.matches(":hover") || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
@@ -530,8 +534,10 @@ export function createPageRail(initialState = {}) {
 		const source = event.dataTransfer?.getData("application/x-aaalice-page");
 		if (source && source !== item.dataset.pageId) state.onReorder?.(source, item.dataset.pageId);
 	});
+	const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(() => positionCursor({ animate: false })) : null;
+	resizeObserver?.observe(root);
 	root.update = update;
-	root.destroy = () => { cancelAnimationFrame(cursorFrame); };
+	root.destroy = () => { cancelAnimationFrame(cursorFrame); resizeObserver?.disconnect(); };
 	update(initialState, { animate: false });
 	return root;
 }

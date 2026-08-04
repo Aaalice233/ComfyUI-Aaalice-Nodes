@@ -169,10 +169,11 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /export function createPageRail/);
 	assert.match(components, /aa-dashboard-page-cursor/);
 	assert.match(components, /aa-dashboard-page-rail__hover-area/);
-	assert.match(components, /root\.append\(hoverArea, list\)/);
+	assert.match(components, /root\.append\(hoverArea, list, cursor\)/);
 	assert.match(components, /aa-dashboard-page-dot/);
 	assert.doesNotMatch(components, /root\.addEventListener\("wheel"/);
 	assert.doesNotMatch(components, /wheelDistance|wheelDirection|wheelResetTimer|resetWheel/);
+	assert.match(components, /Collapse only at the stable rail boundary/);
 	assert.match(components, /root\.addEventListener\("pointerleave"/);
 	assert.match(components, /root\.addEventListener\("focusin"/);
 	assert.match(components, /root\.addEventListener\("focusout"/);
@@ -181,8 +182,13 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /state\.expanded \? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP/);
 	assert.match(components, /let expansionAnchorId = null/);
 	assert.match(components, /--aa-dashboard-page-rail-anchor-shift/);
-	assert.match(components, /setExpanded\(true, item\.dataset\.pageId\)/);
-	assert.match(components, /event\.propertyName === "gap"\) positionCursor\(\)/);
+	assert.match(components, /item && !state\.expanded\) setExpanded\(true, item\.dataset\.pageId\)/);
+	assert.match(components, /const opening = next && !state\.expanded/);
+	assert.match(components, /const shouldAnchor = next && \(opening \|\| reanchor\)/);
+	assert.match(components, /setExpanded\(true, item\.dataset\.pageId, \{ reanchor: true \}\)/);
+	assert.match(components, /active\.getBoundingClientRect\(\)/);
+	assert.match(components, /event\.propertyName === "gap" \|\| event\.propertyName === "transform"/);
+	assert.match(components, /resizeObserver\?\.observe\(root\)/);
 	assert.match(components, /updateHoverHeight\(\);\s*updateExpansionOffset\(\);\s*positionCursor\(\);/);
 	assert.match(components, /state\.onSelect\?\.\(next\.id\)/);
 	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
