@@ -173,6 +173,10 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /root\.append\(hoverArea, list\)/);
 	assert.doesNotMatch(components, /aa-dashboard-page-cursor|positionCursor|cursorFrame|ResizeObserver/);
 	assert.match(components, /let collapseFrame = 0/);
+	assert.match(components, /const isInteractiveSurfaceHovered = \(\) => hoverArea\.matches\(":hover"\) \|\| list\.matches\(":hover"\)/);
+	assert.match(components, /hoverArea\.addEventListener\("pointerenter", keepExpanded\)/);
+	assert.match(components, /list\.addEventListener\("pointerenter", keepExpanded\)/);
+	assert.doesNotMatch(components, /root\.addEventListener\("pointerenter", keepExpanded\)/);
 	assert.match(components, /collapseFrame = requestAnimationFrame/);
 	assert.match(components, /aa-dashboard-page-dot/);
 	assert.doesNotMatch(components, /root\.addEventListener\("wheel"/);
@@ -194,7 +198,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /state\.onSelect\?\.\(next\.id\)/);
 	assert.match(theme, /\.aa-dashboard-body \{[^}]*height: 0;[^}]*flex: 1 1 0;[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
 	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*height: auto;[^}]*min-height: 0;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
-	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 50%;[^}]*right: 7px;[^}]*bottom: auto;[^}]*left: 0;[^}]*box-sizing: border-box;[^}]*gap: 4px;[^}]*transform: translateY\(-50%\);[^}]*transition: gap/);
+	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 50%;[^}]*right: 7px;[^}]*bottom: auto;[^}]*left: 0;[^}]*box-sizing: border-box;[^}]*gap: 2px;[^}]*transform: translateY\(-50%\);[^}]*transition: gap/);
 	assert.match(theme, /\.aa-dashboard-page-rail\.is-expanded \.aa-dashboard-page-list[\s\S]*?gap: 10px;/);
 	assert.match(theme, /\.aa-dashboard-page-rail__hover-area \{[^}]*top: 50%;[^}]*max-height: calc\(100% - 24px\);[^}]*pointer-events: auto;[^}]*transform: translateY\(-50%\);/);
 	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*transition: gap \.18s/);

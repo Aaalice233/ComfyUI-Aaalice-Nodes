@@ -410,13 +410,14 @@ export function createPageRail(initialState = {}) {
 		cancelAnimationFrame(collapseFrame);
 		collapseFrame = 0;
 	};
+	const isInteractiveSurfaceHovered = () => hoverArea.matches(":hover") || list.matches(":hover") || Boolean(root.querySelector(".aa-dashboard-page-dot:hover"));
 	const keepExpanded = () => { cancelCollapse(); setExpanded(true); };
 	const scheduleCollapse = () => {
 		cancelCollapse();
 		// Reparenting the persistent rail during a page render can emit a transient pointerleave.
 		collapseFrame = requestAnimationFrame(() => {
 			collapseFrame = 0;
-			if (root.matches(":hover") || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
+			if (isInteractiveSurfaceHovered() || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
 			setExpanded(false);
 		});
 	};
@@ -460,13 +461,16 @@ export function createPageRail(initialState = {}) {
 		return true;
 	};
 	root.addEventListener("click", (event) => {
-		keepExpanded();
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
-		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
+		if (!item) return;
+		keepExpanded();
+		const index = state.pages.findIndex((page) => page.id === item.dataset.pageId);
 		if (index >= 0) selectIndex(index);
 	});
 	hoverArea.addEventListener("pointerenter", keepExpanded);
-	root.addEventListener("pointerenter", keepExpanded);
+	hoverArea.addEventListener("pointerleave", scheduleCollapse);
+	list.addEventListener("pointerenter", keepExpanded);
+	list.addEventListener("pointerleave", scheduleCollapse);
 	root.addEventListener("pointerover", (event) => {
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
 		if (item) keepExpanded();
