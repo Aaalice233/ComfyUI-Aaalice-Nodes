@@ -403,6 +403,7 @@ export function createPageRail(initialState = {}) {
 		state.expanded = next;
 		root.classList.toggle("is-expanded", next);
 		updateHoverHeight();
+		positionCursor();
 	};
 	const positionCursor = ({ animate = true } = {}) => {
 		cancelAnimationFrame(cursorFrame);
@@ -418,6 +419,9 @@ export function createPageRail(initialState = {}) {
 			if (!shouldAnimate) requestAnimationFrame(() => cursor.classList.remove("is-initializing"));
 		});
 	};
+	list.addEventListener("transitionend", (event) => {
+		if (event.target === list && event.propertyName === "gap") positionCursor();
+	});
 	const updateItem = (item, page) => {
 		if (!item) return;
 		const active = page.id === state.activeId;

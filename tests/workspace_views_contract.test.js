@@ -179,6 +179,8 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /PAGE_RAIL_COLLAPSED_GAP = 4/);
 	assert.match(components, /PAGE_RAIL_EXPANDED_GAP = 10/);
 	assert.match(components, /state\.expanded \? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP/);
+	assert.match(components, /event\.propertyName === "gap"\) positionCursor\(\)/);
+	assert.match(components, /updateHoverHeight\(\);\s*positionCursor\(\);/);
 	assert.match(components, /state\.onSelect\?\.\(next\.id\)/);
 	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
 	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*height: 100%;[^}]*min-height: 0;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
@@ -627,8 +629,9 @@ test("Dashboard V4 replaces mandatory sections with optional grid groups", () =>
 	assert.doesNotMatch(workspace, /createSection|findSection|lastSectionId|\.sections/);
 	assert.doesNotMatch(components, /createSectionCard/);
 	assert.doesNotMatch(theme, /aa-dashboard-section/);
-	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*border:\s*1px solid transparent;[^}]*border-radius:\s*8px;[^}]*background:\s*color-mix/);
-	assert.doesNotMatch(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*var\(--aa-dashboard-control-tone\)/);
+	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member:not\(\.has-dashboard-tone\) \{[^}]*border:\s*1px solid transparent;[^}]*background:\s*color-mix/);
+	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member:not\(\.has-dashboard-tone\):hover/);
+	assert.match(theme, /\.aa-control-card\.has-dashboard-tone \{[^}]*--aa-dashboard-control-tone/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group \.aa-control-card\.is-group-member:is\(\.is-selected, \.is-drop-target\)/);
 	assert.match(theme, /\.is-layout-editing \[data-dashboard-item-id\]\.is-selected::after \{[^}]*border:\s*2px solid var\(--aa-ui-accent\);[^}]*pointer-events:\s*none;/);
 	assert.match(theme, /\.is-layout-editing \.aa-dashboard-separator\.is-selected::after \{ border-radius:\s*7px; \}/);
