@@ -11,7 +11,7 @@ import {
 import { resolveControlBindingSet } from "./lib/control_binding_set.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
-import { button, closeAnchoredPopoversWithin, closeContextMenuWithin, closeTooltipWithin, createDialog, createTooltip, el, field, icon, iconButton, toggleSwitch } from "./lib/ui.js";
+import { button, closeAnchoredPopoversWithin, closeContextMenuWithin, closeTooltipWithin, createDialog, createTooltip, el, field, hasAnchoredPopoverWithin, icon, iconButton, toggleSwitch } from "./lib/ui.js";
 import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import { destroyVirtualLists } from "./lib/virtual_list.js";
 import { createWorkspaceShell } from "./lib/workspace_components.js";
@@ -191,19 +191,24 @@ function isFocusedWorkspaceValueControl() {
 	));
 }
 
+function hasWorkspacePopover() {
+	for (const root of mounted) if (hasAnchoredPopoverWithin(root)) return true;
+	return false;
+}
+
 function scheduleRender(view = null, { structural = false } = {}) {
 	if (view && view !== activeWorkspace) return;
 	if (structural) forcedWorkspaceRender = true;
 	// Coalesce before recording focus deferral; a queued structural frame must not inherit a stale deferred render.
 	if (renderFrame) return;
 	const forceFocusRender = structural || forcedWorkspaceRender;
-	if (hasActiveControlGestures() || (!forceFocusRender && isFocusedWorkspaceValueControl())) { deferredWorkspaceRender = true; return; }
+	if (hasActiveControlGestures() || hasWorkspacePopover() || (!forceFocusRender && isFocusedWorkspaceValueControl())) { deferredWorkspaceRender = true; return; }
 	deferredWorkspaceRender = false;
 	renderFrame = requestAnimationFrame(() => {
 		renderFrame = 0;
 		const renderStructurally = forcedWorkspaceRender;
 		forcedWorkspaceRender = false;
-		if (hasActiveControlGestures() || (!renderStructurally && isFocusedWorkspaceValueControl())) {
+		if (hasActiveControlGestures() || hasWorkspacePopover() || (!renderStructurally && isFocusedWorkspaceValueControl())) {
 			deferredWorkspaceRender = true;
 			if (renderStructurally) forcedWorkspaceRender = true;
 			return;
@@ -218,13 +223,13 @@ function scheduleRender(view = null, { structural = false } = {}) {
 	});
 }
 
-// Graph/layout transactions are explicit structure changes; they must not wait for the trigger that initiated them to blur.
+// Structural changes bypass value-control focus, but a queued frame must not destroy an owned popover before its action finishes.
 function scheduleStructuralRender(view = null) {
 	scheduleRender(view, { structural: true });
 }
 
 function flushDeferredWorkspaceRender() {
-	if ((!deferredWorkspaceRender && !forcedWorkspaceRender) || hasActiveControlGestures()) return;
+	if ((!deferredWorkspaceRender && !forcedWorkspaceRender) || hasActiveControlGestures() || hasWorkspacePopover()) return;
 	deferredWorkspaceRender = false;
 	scheduleRender();
 }
@@ -613,10 +618,7 @@ app.registerExtension({
 			flushActiveDashboardPresetOnSave();
 		}, true);
 		window.addEventListener("keydown", handleGroupNavigationShortcut, true);
-		window.addEventListener("focusout", () => queueMicrotask(() => {
-			if (document.activeElement instanceof Element && document.activeElement.closest?.(".aa-ui-popover")) return;
-			flushDeferredWorkspaceRender();
-		}), true);
+		window.addEventListener("focusout", () => queueMicrotask(flushDeferredWorkspaceRender), true);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
 			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
 		});

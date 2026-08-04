@@ -12,6 +12,11 @@ export function closeAnchoredPopoversWithin(container) {
 	}
 }
 
+export function hasAnchoredPopoverWithin(container) {
+	for (const surface of anchoredPopovers) if (container?.contains?.(surface.anchor)) return true;
+	return false;
+}
+
 function focusableElements(root) {
 	return [...root.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
 		.filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");

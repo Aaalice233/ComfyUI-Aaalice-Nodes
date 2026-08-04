@@ -283,6 +283,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(workspace, /function suspendWorkspaceRoot\(element\)/);
 	assert.match(workspace, /destroySharedControls\(ownedTree\)/);
 	assert.match(ui, /export function closeAnchoredPopoversWithin/);
+	assert.match(ui, /export function hasAnchoredPopoverWithin/);
 	assert.match(ui, /export function closeContextMenuWithin/);
 	assert.match(ui, /export function closeTooltipWithin/);
 	assert.match(ui, /isOwnedBy: \(container\)/);
@@ -344,7 +345,8 @@ test("structural sidebar changes bypass focus deferral without weakening value-c
 	const frameGuard = workspaceEntry.indexOf("\n\tif (renderFrame) return;", schedulerStart);
 	const focusGuard = workspaceEntry.indexOf("\n\tif (hasActiveControlGestures()", schedulerStart);
 	assert.ok(frameGuard >= 0 && focusGuard > frameGuard, "a queued structural render must not leave a stale focus-deferred render behind");
-	assert.match(workspaceEntry, /focusout[\s\S]*aa-ui-popover[\s\S]*flushDeferredWorkspaceRender/);
+	assert.match(workspaceEntry, /function hasWorkspacePopover\(\)[\s\S]*hasAnchoredPopoverWithin/);
+	assert.match(workspaceEntry, /focusout[\s\S]*flushDeferredWorkspaceRender/);
 });
 
 test("PromptSelector exposes scannable selected and category states", () => {
