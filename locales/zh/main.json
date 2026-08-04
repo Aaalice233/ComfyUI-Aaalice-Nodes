@@ -58,7 +58,7 @@
 "imageCompare": { "empty": "运行工作流后显示对比图", "before": "图像 A", "after": "图像 B", "previousBefore": "上一张图像 A", "nextBefore": "下一张图像 A", "previousAfter": "上一张图像 B", "nextAfter": "下一张图像 B", "slider": "对比位置", "open": "全屏查看图像对比", "title": "图像对比", "viewer": "全屏图像对比。移动指针对比，滚轮缩放，放大后拖动查看，双击还原。", "close": "关闭全屏图像对比", "zoomIn": "放大", "zoomOut": "缩小", "fit": "适应屏幕" },
       "pin": { "pinned": "已固定：点击外侧不会收起。点击开启自动收起。", "unpinned": "已开启自动收起：点击外侧将关闭侧边栏。点击固定。" },
       "autoSave": { "label": "自动保存", "toggle": "自动保存当前侧边栏预设", "on": "开", "off": "关", "enabledHint": "自动保存默认开启。当前侧边栏预设的参数和布局变化会自动保存。", "disabledHint": "自动保存已关闭。需要手动更新当前侧边栏预设才能保留修改。" },
-      "search": { "parameters": "搜索参数", "parametersPlaceholder": "搜索当前页面", "library": "搜索词库", "close": "收起搜索", "noParameters": "没有匹配的参数。" },
+      "search": { "parameters": "搜索组件", "parametersPlaceholder": "搜索全部组件", "library": "搜索词库", "close": "收起搜索", "results": "组件搜索结果", "open": "打开组件", "noParameters": "没有匹配的组件。" },
       "groupNavigation": {
         "title": "组导航", "actions": "组导航操作", "groups": "工作流组", "count": "{count} 个组",
         "search": "搜索组", "searchPlaceholder": "搜索工作流组", "navigate": "跳转到 {group}", "unavailable": "无法在当前画布中定位这个组。",

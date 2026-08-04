@@ -2,7 +2,7 @@
 
 import { groupMemberColumnSpan, orderedItems, projectGroupScope, projectScope } from "./dashboard_layout.js";
 import { dashboardToneCssValue, normalizeDashboardTone, groupToneClass, groupToneCssValue, isCustomGroupTone, normalizeGroupTone } from "./dashboard_color_system.js";
-import { el, icon, iconButton, inlineRename } from "./ui.js";
+import { button, el, icon, iconButton, inlineRename } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
 	element.style.setProperty("--aa-dashboard-row", String(projected.row + 1));
@@ -100,6 +100,24 @@ export function createDashboardGrid({ page, sizeProjections = null, columns = 12
 				const card = renderItem(item); card.classList.toggle("is-selected", selectedItemIds.has(item.id)); return card;
 			}, showHeader: group.showHeader, showTitle: group.showTitle !== false, onMenu: onGroupMenu, onRename: onRenameGroup, onSync: onSyncGroup,
 		}));
+	}
+	return root;
+}
+
+export function createDashboardSearchResults({ pages, labels = {}, onSelect }) {
+	const root = el("div", { className: "aa-dashboard-search-results", attrs: { role: "region", "aria-label": labels.ariaLabel || "Component search results" } });
+	for (const page of pages) {
+		const section = el("section", { className: "aa-dashboard-search-section", attrs: { "data-dashboard-search-page-id": page.id } });
+		section.append(el("h2", "aa-dashboard-search-section__title", page.title));
+		const list = el("div", { className: "aa-dashboard-search-section__items" });
+		for (const entry of page.entries) {
+			const result = button({ label: entry.title, variant: "ghost", size: "sm", className: "aa-dashboard-search-result", ariaLabel: entry.title, onClick: () => onSelect?.(entry) });
+			result.append(el("span", "aa-dashboard-search-result__hint", labels.open || "Open component"));
+			result.dataset.dashboardSearchItemId = entry.itemId;
+			result.dataset.searchText = entry.searchText;
+			list.append(result);
+		}
+		section.append(list); root.append(section);
 	}
 	return root;
 }

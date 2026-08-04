@@ -111,6 +111,17 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.match(theme, /@keyframes aa-workspace-search-open/);
 });
 
+test("dashboard search indexes every page's component titles and excludes group context", () => {
+	assert.match(dashboardComponents, /export function createDashboardSearchResults/);
+	assert.match(workspace, /const searchResultPages = searchOpen \? model\.pages\.map/);
+	assert.match(workspace, /targetPage\.items\.filter\(\(item\) => item\.kind === "control"\)/);
+	assert.match(workspace, /searchText: title\.toLocaleLowerCase\(\)/);
+	assert.doesNotMatch(workspace, /groupName\.toLocaleLowerCase\(\)\.includes\(needle\)/);
+	assert.match(workspace, /searchResults\.hidden = !searching/);
+	assert.match(workspace, /viewState\.searchTarget = \{ pageId: entry\.pageId, itemId: entry\.itemId \}/);
+	assert.match(workspace, /target\.scrollIntoView\(\{ block: "center", behavior: "smooth" \}\)/);
+});
+
 test("workspace composition root owns one view-state source for every sidebar view", () => {
 	assert.match(workspaceEntry, /library: \{ query: "", searchOpen: false, focusSearch: false, focusHost: null/);
 	assert.match(workspaceEntry, /groups: \{ query: "", searchOpen: false, focusSearch: false, focusHost: null \}/);

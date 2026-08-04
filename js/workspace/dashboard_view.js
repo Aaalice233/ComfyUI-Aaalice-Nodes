@@ -4,7 +4,7 @@ import { bindingKey, controlItemBindings, DASHBOARD_TONES, emptyDashboard, linke
 import { normalizeDashboardTone } from "../lib/dashboard_color_system.js";
 import { compareDashboardPreset } from "../lib/dashboard_presets.js";
 import { addSeparator, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, moveTopLevelSelection, removeItems, resizeGroup, resizeItem, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
-import { createDashboardGrid } from "../lib/dashboard_components.js";
+import { createDashboardGrid, createDashboardSearchResults } from "../lib/dashboard_components.js";
 import { resolveControlBindingSet } from "../lib/control_binding_set.js";
 import { bindDashboardInteractions } from "../lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS } from "../lib/dashboard_sizing.js";
@@ -55,7 +55,7 @@ export function renderDashboard(container, host) {
 	let applyDashboardSearch = () => {};
 	const search = createCollapsibleSearch({
 		open: searchOpen, value: query, disabled: !page || editMode, focus: focusSearch,
-		label: t("aaalice.workspace.search.parameters", "Search parameters"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.search.parametersPlaceholder", "Search the current page"),
+		label: t("aaalice.workspace.search.parameters", "Search components"), closeLabel: t("aaalice.workspace.search.close", "Close search"), placeholder: t("aaalice.workspace.search.parametersPlaceholder", "Search all components"),
 		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; viewState.focusHost = open ? host : null; scheduleRender(); },
 		onInput: (value) => { viewState.query = value; applyDashboardSearch(value); },
 	});
@@ -177,6 +177,28 @@ export function renderDashboard(container, host) {
 		const sourceIndex = current.pages.findIndex((item) => item.id === sourceId); const targetIndex = current.pages.findIndex((item) => item.id === targetId);
 		if (sourceIndex >= 0 && targetIndex >= 0) { const [source] = current.pages.splice(sourceIndex, 1); current.pages.splice(targetIndex, 0, source); } return current;
 	}); };
+	const searchResultPages = searchOpen ? model.pages.map((targetPage) => {
+		const targetControls = targetPage.id === page.id ? resolvedControls : resolvePageControls(targetPage).controls;
+		return {
+			id: targetPage.id,
+			title: targetPage.name,
+			entries: targetPage.items.filter((item) => item.kind === "control").map((item) => {
+				const title = String(controlTitle(item, targetControls.get(item.id)) || item.label || item.binding?.controlId || "");
+				return { pageId: targetPage.id, itemId: item.id, title, searchText: title.toLocaleLowerCase() };
+			}),
+		};
+	}).filter((entry) => entry.entries.length) : [];
+	const openSearchResult = (entry) => {
+		viewState.searchTarget = { pageId: entry.pageId, itemId: entry.itemId };
+		viewState.searchOpen = false; viewState.focusSearch = false; viewState.focusHost = null;
+		if (entry.pageId === activePageId) scheduleStructuralRender();
+		else if (!selectPage(entry.pageId)) { viewState.searchTarget = null; scheduleStructuralRender(); }
+	};
+	const searchResults = createDashboardSearchResults({
+		pages: searchResultPages,
+		labels: { ariaLabel: t("aaalice.workspace.search.results", "Component search results"), open: t("aaalice.workspace.search.open", "Open component") },
+		onSelect: openSearchResult,
+	});
 	let pageRail = dashboardPageRails.get(host);
 	if (!pageRail) { pageRail = createPageRail(); dashboardPageRails.set(host, pageRail); }
 	pageRail.update({
@@ -196,7 +218,7 @@ export function renderDashboard(container, host) {
 		onReorderPage: reorderPage,
 	}) : null;
 	const primaryActions = [
-		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { runtime.setEditMode(editMode = !editMode); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleStructuralRender(); } }),
+		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { runtime.setEditMode(editMode = !editMode); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; viewState.searchTarget = null; } scheduleStructuralRender(); } }),
 		...(editMode ? [
 			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
 		] : []),
@@ -369,8 +391,9 @@ export function renderDashboard(container, host) {
 	};
 	if (selectAllLayoutButton) selectAllLayoutButton.disabled = ![...grid.children].some((element) => !element.hidden && element.matches?.("[data-dashboard-item-id], [data-dashboard-group-id]"));
 	if (!page.items.length) grid.append(emptyState({ className: "aa-dashboard-page-empty", description: t("aaalice.workspace.empty.page", "Add controls from a compatible node's context menu.") }));
-	scroll.append(grid);
-	const searchEmpty = emptyState({ iconName: "search", className: "aa-workspace-empty aa-dashboard-search-empty", description: t("aaalice.workspace.search.noParameters", "No matching parameters.") }); searchEmpty.hidden = true; scroll.append(searchEmpty);
+	searchResults.hidden = true;
+	scroll.append(grid, searchResults);
+	const searchEmpty = emptyState({ iconName: "search", className: "aa-workspace-empty aa-dashboard-search-empty", description: t("aaalice.workspace.search.noParameters", "No matching components.") }); searchEmpty.hidden = true; scroll.append(searchEmpty);
 	if (pageSnapshot) {
 		pageSnapshot.classList.add("is-page-leaving", `is-page-leaving-${pageTransition.direction}`);
 		pageSnapshot.addEventListener("animationend", () => pageSnapshot.remove(), { once: true });
@@ -401,11 +424,29 @@ export function renderDashboard(container, host) {
 	updateSelectionUi();
 	applyDashboardSearch = (value) => {
 		const needle = String(value || "").trim().toLocaleLowerCase(); let visibleItems = 0;
-		body.classList.toggle("is-searching", Boolean(needle));
-		for (const item of grid.querySelectorAll("[data-dashboard-item-id]")) { const groupName = item.closest("[data-dashboard-group-id]")?.querySelector("h3")?.textContent || ""; const visible = !needle || String(item.dataset.searchText || "").includes(needle) || groupName.toLocaleLowerCase().includes(needle); item.hidden = !visible; if (visible) visibleItems++; }
-		for (const group of grid.querySelectorAll("[data-dashboard-group-id]")) group.hidden = Boolean(needle) && !group.querySelector("[data-dashboard-item-id]:not([hidden])");
-		searchEmpty.hidden = !needle || visibleItems > 0;
+		const searching = Boolean(needle);
+		body.classList.toggle("is-searching", searching);
+		grid.hidden = searching;
+		searchResults.hidden = !searching;
+		for (const item of searchResults.querySelectorAll("[data-dashboard-search-item-id]")) {
+			const visible = searching && String(item.dataset.searchText || "").includes(needle);
+			item.hidden = !visible;
+			if (visible) visibleItems++;
+		}
+		for (const section of searchResults.querySelectorAll("[data-dashboard-search-page-id]")) section.hidden = !searching || !section.querySelector("[data-dashboard-search-item-id]:not([hidden])");
+		searchEmpty.hidden = !searching || visibleItems > 0;
 	};
 	applyDashboardSearch(searchOpen ? query : "");
 	setScrollTopImmediately(scroll, dashboardScrollTop(host, page.id));
+	const searchTarget = viewState.searchTarget;
+	if (searchTarget?.pageId === page.id) {
+		viewState.searchTarget = null;
+		queueMicrotask(() => {
+			const target = [...grid.querySelectorAll("[data-dashboard-item-id]")].find((element) => element.dataset.dashboardItemId === searchTarget.itemId);
+			if (!target) return;
+			target.scrollIntoView({ block: "center", behavior: "smooth" });
+			target.classList.add("is-search-target");
+			target.addEventListener("animationend", () => target.classList.remove("is-search-target"), { once: true });
+		});
+	}
 }
