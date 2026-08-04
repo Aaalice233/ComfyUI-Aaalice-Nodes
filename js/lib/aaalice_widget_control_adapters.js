@@ -1,6 +1,7 @@
 /** Adapters for Aaalice composite widgets and compatible third-party controls. */
 
 import { DASHBOARD_STANDARD_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
+import { resolveLoraPreview } from "./lora_preview.js";
 import { registerWidgetControlAdapter } from "./widget_control_adapters.js";
 
 const RESOLUTION_NODE = "ResolutionPreset";
@@ -167,7 +168,7 @@ registerWidgetControlAdapter({
 				canvasLimits: control.getCanvasLimits(),
 				createSidebarControl: control.createSidebarControl,
 			},
-			columnSpan: 12,
+			columnSpan: 6,
 			rowSpan: 13,
 			minRowSpan: 13,
 			readPresetValue: () => control.getValue(),
@@ -220,7 +221,7 @@ registerWidgetControlAdapter({
 			valueType: "lora-list",
 			getValue: () => loraListValue(widget),
 			value: loraListValue(widget),
-			options: { itemFields: ["name", "strength", "clipStrength", "active"] },
+			options: { itemFields: ["name", "strength", "clipStrength", "active"], previewResolver: resolveLoraPreview },
 			columnSpan: 12,
 			rowSpan: LORA_LIST_ROW_SPAN,
 			minRowSpan: LORA_LIST_MIN_ROW_SPAN,

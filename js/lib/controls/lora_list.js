@@ -1,5 +1,6 @@
 /** Dashboard renderer for the stateful LoRA list exposed by LoraManager. */
 
+import { bindAsyncImagePreview } from "../image_preview.js";
 import { el, icon, toggleSwitch } from "../ui.js";
 import { ensureI18nReady, t } from "../../i18n.js";
 import { controlView } from "./contract.js";
@@ -72,6 +73,8 @@ export function renderLoraListControl(spec, port) {
 		labels.model = localized("model", "Model");
 		labels.clip = localized("clip", "CLIP");
 		labels.empty = localized("empty", "No LoRAs in this list.");
+		labels.previewLoading = localized("previewLoading", "Loading preview…");
+		labels.previewUnavailable = localized("previewUnavailable", "Preview unavailable");
 		title.textContent = labels.title;
 		root.setAttribute("aria-label", labels.title);
 		list.setAttribute("aria-label", labels.title);
@@ -102,7 +105,15 @@ export function renderLoraListControl(spec, port) {
 	function createRow(entry, index) {
 		const name = entryName(entry, index);
 		const row = el("div", { className: "aa-control-lora-list__row", attrs: { role: "listitem", "data-lora-name": name } });
-		const copy = el("div", "aa-control-lora-list__copy");
+		const previewResolver = spec.options?.previewResolver;
+		let previewName = name;
+		const copy = el("div", { className: "aa-control-lora-list__copy", attrs: { tabIndex: 0, role: "img" } });
+		const disposePreview = typeof previewResolver === "function" ? bindAsyncImagePreview(copy, () => previewResolver(previewName), {
+			title: () => previewName,
+			loadingHint: () => labels.previewLoading || "Loading preview…",
+			unavailableHint: () => labels.previewUnavailable || "Preview unavailable",
+			className: "aa-lora-preview-tooltip",
+		}) : () => {};
 		const nameElement = el("strong", "aa-control-lora-list__name");
 		const meta = el("div", "aa-control-lora-list__meta");
 		const status = el("span", "aa-control-lora-list__status");
@@ -114,8 +125,11 @@ export function renderLoraListControl(spec, port) {
 			const nextName = entryName(next, nextIndex);
 			const strength = formatStrength(next?.strength);
 			const clip = hasDifferentClipStrength(next) ? ` · ${labels.clip || "CLIP"} ${formatStrength(next?.clipStrength)}` : "";
+			previewName = nextName;
+			copy.setAttribute("aria-label", nextName);
+			copy.classList.toggle("has-preview", typeof previewResolver === "function");
 			nameElement.textContent = nextName;
-			nameElement.title = nextName;
+			nameElement.title = typeof previewResolver === "function" ? "" : nextName;
 			meta.textContent = `${labels.model || "Model"} ${strength}${clip}`;
 			status.textContent = active ? (labels.enabled || "Enabled") : (labels.disabled || "Disabled");
 			status.dataset.state = active ? "enabled" : "disabled";
@@ -125,6 +139,7 @@ export function renderLoraListControl(spec, port) {
 			row.classList.toggle("is-inactive", !active);
 			row.dataset.active = String(active);
 		};
+		row._dispose = disposePreview;
 		row._sync(entry, index);
 		return row;
 	}
@@ -136,6 +151,7 @@ export function renderLoraListControl(spec, port) {
 		if (sameShape && rows.size === current.length) {
 			for (let index = 0; index < current.length; index += 1) rows.get(nextKeys[index])?._sync(current[index], index);
 		} else {
+			for (const row of rows.values()) row._dispose?.();
 			rowKeys = nextKeys;
 			rows = new Map();
 			list.replaceChildren();
@@ -158,6 +174,10 @@ export function renderLoraListControl(spec, port) {
 		root,
 		kind: "lora-list",
 		update: (next) => renderList(next?.value),
-		destroy: () => { rows.clear(); list.replaceChildren(); },
+		destroy: () => {
+			for (const row of rows.values()) row._dispose?.();
+			rows.clear();
+			list.replaceChildren();
+		},
 	});
 }

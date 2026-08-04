@@ -8,7 +8,7 @@
     "loraList": {
       "title": "LoRA list", "activeSummary": "{active}/{total} enabled", "enabled": "Enabled", "disabled": "Disabled",
       "enableAll": "Enable all", "disableAll": "Disable all", "toggle": "Toggle {name}", "model": "Model", "clip": "CLIP",
-      "empty": "No LoRAs in this list."
+      "empty": "No LoRAs in this list.", "previewLoading": "Loading preview…", "previewUnavailable": "Preview unavailable"
     },
     "krita": {
       "status": { "checking": "Checking Krita…", "connected": "Connected", "notInstalled": "Krita Bridge is not installed", "notEnabled": "Krita Bridge is not enabled", "offline": "Krita Bridge is offline", "incompatible": "Krita Bridge protocol is incompatible", "noDocument": "No active Krita document", "fetching": "Reading Krita document…", "fetchSucceeded": "Snapshot ready", "fetchFailed": "Fetch failed" },

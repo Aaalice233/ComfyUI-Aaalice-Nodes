@@ -379,6 +379,17 @@
 .aa-control-lora-list__status[data-state="enabled"] { color: color-mix(in srgb, var(--aa-control-accent) 78%, var(--aa-control-text)); }
 .aa-control-lora-list__empty { display: grid; min-height: 54px; place-items: center; padding: 10px; border-radius: 8px; background: color-mix(in srgb, var(--aa-control-field) 72%, transparent); color: var(--aa-control-muted); font-size: 11px; text-align: center; }
 .aa-control-lora-list:focus-visible { outline: 2px solid var(--aa-ui-focus); outline-offset: 2px; }
+.aa-control-lora-list__copy.has-preview { cursor: help; }
+.aa-control-lora-list__copy.has-preview:focus-visible { border-radius: 6px; outline: 2px solid var(--aa-ui-focus); outline-offset: 3px; }
+.aa-lora-preview-tooltip { width: min(330px, calc(100vw - 32px)); max-width: min(330px, calc(100vw - 32px)); padding: 5px; border-color: color-mix(in srgb, var(--aa-ui-accent) 32%, var(--aa-ui-border)); border-radius: 13px; background: color-mix(in srgb, var(--aa-ui-surface) 94%, transparent); box-shadow: 0 18px 46px rgb(0 0 0 / .38), 0 4px 12px rgb(0 0 0 / .2), inset 0 1px 0 color-mix(in srgb, var(--aa-ui-accent) 16%, transparent); backdrop-filter: blur(14px) saturate(1.08); }
+.aa-lora-preview-tooltip .aa-image-preview-large { width: min(320px, calc(100vw - 42px)); height: min(360px, calc(100vh - 108px)); min-height: 180px; max-width: none; border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-control) 88%, var(--aa-ui-canvas)); }
+.aa-lora-preview-tooltip .aa-image-preview-large > img, .aa-lora-preview-tooltip .aa-image-preview-large > video { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; }
+.aa-lora-preview-tooltip .aa-image-preview-quick-hint { display: flex; min-height: 34px; align-items: center; justify-content: center; gap: 7px; padding: 11px 13px; color: var(--aa-ui-text); }
+.aa-lora-preview-tooltip .aa-image-preview-quick-hint > .aa-ui-icon { width: 15px; height: 15px; flex: none; color: var(--aa-ui-accent); }
+.aa-lora-preview-tooltip .aa-image-preview-quick-hint > .aa-ui-icon.is-loading { animation: aa-lora-preview-spin .8s linear infinite; }
+.aa-lora-preview-tooltip .aa-image-preview-caption { padding: 8px 10px 9px; }
+@keyframes aa-lora-preview-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .aa-lora-preview-tooltip .aa-image-preview-quick-hint > .aa-ui-icon { animation: none; } }
 @media (max-width: 430px) {
 	.aa-control-lora-list__summary { display: none; }
 	.aa-control-lora-list__all-copy { max-width: 90px; }

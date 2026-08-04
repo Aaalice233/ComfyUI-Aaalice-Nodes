@@ -8,7 +8,7 @@
     "loraList": {
       "title": "LoRA 列表", "activeSummary": "{active}/{total} 已启用", "enabled": "已启用", "disabled": "已禁用",
       "enableAll": "全部启用", "disableAll": "全部停用", "toggle": "切换 {name}", "model": "模型", "clip": "CLIP",
-      "empty": "列表中没有 LoRA。"
+      "empty": "列表中没有 LoRA。", "previewLoading": "正在加载预览…", "previewUnavailable": "暂无预览"
     },
     "krita": {
       "status": { "checking": "正在检查 Krita…", "connected": "已连接", "notInstalled": "尚未安装 Krita Bridge", "notEnabled": "Krita Bridge 尚未启用", "offline": "Krita Bridge 未连接", "incompatible": "Krita Bridge 协议不兼容", "noDocument": "Krita 没有活动文档", "fetching": "正在读取 Krita 文档…", "fetchSucceeded": "快照已就绪", "fetchFailed": "获取失败" },

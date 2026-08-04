@@ -20,6 +20,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const registrySource = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const comfySource = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js"), "utf8");
 const loraRendererSource = readFileSync(join(ROOT, "js", "lib", "controls", "lora_list.js"), "utf8");
+const loraPreviewSource = readFileSync(join(ROOT, "js", "lib", "lora_preview.js"), "utf8");
+const imagePreviewSource = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 const themeControlsSource = readFileSync(join(ROOT, "js", "lib", "theme-controls.css"), "utf8");
 const publicApiSource = readFileSync(join(ROOT, "js", "api.js"), "utf8");
 const providerSource = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
@@ -42,6 +44,9 @@ test("LoRA list renderer keeps state visible and wheel ownership with the host",
 	assert.doesNotMatch(loraRendererSource, /addEventListener\("wheel"/);
 	assert.match(themeControlsSource, /\.aa-control-lora-list__row\.is-inactive/);
 	assert.match(themeControlsSource, /\.aa-control-lora-list__status\[data-state="enabled"\]/);
+	assert.match(loraRendererSource, /previewResolver/);
+	assert.match(imagePreviewSource, /bindAsyncImagePreview/);
+	assert.match(loraPreviewSource, /lm\/loras\/preview-url/);
 });
 
 test("composite and LoRA widgets expose stable sidebar controls", () => {
@@ -68,7 +73,7 @@ test("composite and LoRA widgets expose stable sidebar controls", () => {
 	const prompt = listAdaptedWidgetControls(promptNode)[0];
 	const loraControls = listAdaptedWidgetControls({ title: "LoRA prompt", getTitle: () => "LoRA prompt", widgets: [loraListWidget, loraTextWidget] });
 	const lora = loraControls[0];
-	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan, resolution.rowSpan, resolution.minRowSpan], ["aaalice-resolution-preset", "resolution", 12, 13, 13]);
+	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan, resolution.rowSpan, resolution.minRowSpan], ["aaalice-resolution-preset", "resolution", 6, 13, 13]);
 	assert.deepEqual([prompt.adapterId, prompt.kind, prompt.rowSpan], ["aaalice-prompt-selector", "prompt-selector", 64]);
 	assert.deepEqual([lora.adapterId, lora.kind, lora.valueType, lora.rowSpan, lora.minRowSpan, lora.label], ["lora-manager-list", "lora-list", "lora-list", 36, 28, "LoRA prompt"]);
 	assert.deepEqual(lora.value, [{ name: "style.safetensors", strength: 0.8, clipStrength: 0.7, active: false }]);
