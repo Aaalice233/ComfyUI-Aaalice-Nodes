@@ -72,7 +72,7 @@
         "noMatchesTitle": "没有匹配的组", "noMatches": "请尝试其他组名称。"
       },
       "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。", "page": "请从兼容节点的右键菜单添加参数。" },
-      "page": { "pages": "侧边栏页面", "reorder": "拖拽调整页面顺序", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "switch": "切换页面", "tone": "页面颜色", "toneMenu": "设置页面颜色", "customTone": "自定义颜色…", "toneDefault": "默认", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
+      "page": { "pages": "侧边栏页面", "reorder": "拖拽调整页面顺序", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "settings": "页面设置", "switch": "切换页面", "tone": "页面颜色", "toneMenu": "设置页面颜色", "customTone": "自定义颜色…", "toneDefault": "默认", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
       "target": { "page": "页面", "newPage": "新页面" },
       "color": { "palette": "预设颜色", "custom": "自定义颜色", "customPicker": "选择自定义颜色", "customHex": "自定义颜色 Hex 值", "useCustom": "使用自定义颜色", "customInvalid": "请输入 3 位或 6 位 Hex 颜色，例如 #3b82f6。" },
       "renameHint": "双击重命名",

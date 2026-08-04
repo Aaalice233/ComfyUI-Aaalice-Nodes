@@ -348,8 +348,9 @@
 }
 
 @media (max-width: 520px) {
-	.aa-dashboard-page-heading { min-width: 0; flex-basis: 100%; }
-	.aa-dashboard-toolbar:not(.is-searching) > .aa-value-preset-picker { margin-right: auto; }
+	.aa-dashboard-toolbar__row--context { gap: 4px; }
+	.aa-dashboard-toolbar__row--context .aa-dashboard-page-heading { flex-basis: auto; }
+	.aa-dashboard-toolbar__preset-slot, .aa-dashboard-toolbar__preset-slot .aa-value-preset-picker { width: 132px; min-width: 132px; }
 }
 
 @media (max-width: 360px) {

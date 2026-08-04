@@ -70,6 +70,7 @@ const categoryColor = readFileSync(join(ROOT, "js", "lib", "category_color.js"),
 const ui = uiSource;
 const uiStyles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
 const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
+const themeLibrary = readFileSync(join(ROOT, "js", "lib", "theme-library.css"), "utf8");
 const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace.svg"), "utf8");
 const enLocale = readFileSync(join(ROOT, "locales", "en", "main.json"), "utf8");
 const zhLocale = readFileSync(join(ROOT, "locales", "zh", "main.json"), "utf8");
@@ -104,7 +105,7 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.match(workspace, /library: \{ query: "", searchOpen: false, focusSearch: false/);
 	assert.match(workspace, /onInput: \(value\) => \{ query = value; viewState\.query = value; drawEntries\(\)/);
 	assert.match(theme, /\.aa-workspace-search \{/);
-	assert.match(workspace, /createWorkspaceToolbar\(searchOpen \? \[search\.panel\]/);
+	assert.match(workspace, /createWorkspaceToolbar\(\[\], \{ className: `aa-dashboard-toolbar/);
 	assert.doesNotMatch(workspace, /container\.append\(toolbar, \.\.\.\(search\.panel/);
 	assert.match(theme, /\.aa-dashboard-toolbar\.is-searching, \.aa-library-toolbar\.is-searching/);
 	assert.match(theme, /@keyframes aa-workspace-search-open/);
@@ -186,19 +187,20 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(components, /state\.expanded \? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP/);
 	assert.doesNotMatch(components, /const activeIndex = \(\)|updateExpansionOffset|aa-dashboard-page-rail-active-shift/);
 	assert.match(components, /const setExpanded = \(expanded\) =>/);
-	assert.match(components, /item && !state\.expanded\) setExpanded\(true\)/);
+	assert.match(components, /const keepExpanded = \(\) =>/);
 	assert.doesNotMatch(components, /expansionAnchorId|reanchor|requestedAnchorId/);
 	assert.match(components, /updateHoverHeight\(\);/);
 	assert.doesNotMatch(components, /event\.propertyName === "gap"|event\.propertyName === "transform"/);
 	assert.match(components, /state\.onSelect\?\.\(next\.id\)/);
-	assert.match(theme, /\.aa-dashboard-body \{[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
-	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*height: 100%;[^}]*min-height: 0;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
-	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 12px;[^}]*right: 7px;[^}]*bottom: 12px;[^}]*left: 0;[^}]*gap: 4px;[^}]*transition: gap/);
+	assert.match(theme, /\.aa-dashboard-body \{[^}]*height: 0;[^}]*flex: 1 1 0;[^}]*grid-template-columns: minmax\(0, 1fr\) 38px;[^}]*grid-template-rows: minmax\(0, 1fr\);/);
+	assert.match(theme, /\.aa-dashboard-page-rail \{[^}]*position: relative;[^}]*height: auto;[^}]*min-height: 0;[^}]*grid-column: 2;[^}]*grid-row: 1;/);
+	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*position: absolute;[^}]*top: 50%;[^}]*right: 7px;[^}]*bottom: auto;[^}]*left: 0;[^}]*box-sizing: border-box;[^}]*gap: 4px;[^}]*transform: translateY\(-50%\);[^}]*transition: gap/);
 	assert.match(theme, /\.aa-dashboard-page-rail\.is-expanded \.aa-dashboard-page-list[\s\S]*?gap: 10px;/);
 	assert.match(theme, /\.aa-dashboard-page-rail__hover-area \{[^}]*top: 50%;[^}]*max-height: calc\(100% - 24px\);[^}]*pointer-events: auto;[^}]*transform: translateY\(-50%\);/);
 	assert.match(theme, /\.aa-dashboard-page-list \{[^}]*transition: gap \.18s/);
-	assert.doesNotMatch(theme, /aa-dashboard-page-rail-active-shift|\.aa-dashboard-page-list \{[^}]*transform:/);
-	assert.match(components, /hoverArea\.style\.height = `\$\{Math\.max\(56, clusterHeight\)\}px`/);
+	assert.doesNotMatch(theme, /aa-dashboard-page-rail-active-shift|\.aa-dashboard-page-list \{[^}]*translate3d/);
+	assert.match(components, /const hitHeight = Math\.max\(56, clusterHeight\)/);
+	assert.match(components, /list\.style\.height = `\$\{hitHeight\}px`/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-page-rail \{[^}]*position: absolute/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-page-cursor/);
 	assert.match(theme, /\.aa-dashboard-page-dot/);
@@ -322,12 +324,13 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(workspace, /children: \[pageStage, pageRail, selectionBar\.root\]/);
 	assert.match(workspace, /dashboardColumnsForWorkspaceWidth\(container\.clientWidth\)/);
 	assert.match(workspace, /aa-dashboard-page-stage/);
-	assert.match(theme, /\.aa-dashboard-page-stage \{[^}]*overflow: hidden;/);
+	assert.match(theme, /\.aa-dashboard-page-stage \{[^}]*height: 100%;[^}]*overflow: hidden;[^}]*grid-template: minmax\(0, 1fr\) \/ minmax\(0, 1fr\);/);
 	assert.match(theme, /@keyframes aa-dashboard-page-forward-in/);
 	assert.match(theme, /@keyframes aa-dashboard-page-forward-out/);
 	assert.match(theme, /@keyframes aa-dashboard-page-backward-in/);
 	assert.match(theme, /@keyframes aa-dashboard-page-backward-out/);
 	assert.match(theme, /\.aa-dashboard-scroll\.is-page-entering-forward \{[^}]*animation:[^;]*\.18s/);
+	assert.match(theme, /\.aa-dashboard-scroll\.is-page-leaving \{[^}]*position: absolute;[^}]*inset: 0;[^}]*width: 100%;[^}]*height: 100%;[^}]*box-sizing: border-box;/);
 	assert.match(theme, /\.aa-dashboard-scroll\.is-page-leaving-forward \{[^}]*animation:[^;]*\.18s/);
 	assert.match(workspace, /setTimeout\(\(\) => pageSnapshot\.remove\(\), 260\)/);
 	assert.match(theme, /prefers-reduced-motion: reduce[\s\S]*\.aa-dashboard-scroll\.is-page-entering/);
@@ -520,11 +523,13 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.doesNotMatch(theme, /\.aa-dashboard-page-heading__folio \{[^}]*surface-raised/);
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-index \{[^}]*font-size: 13px;/);
 	assert.match(theme, /\.aa-dashboard-page-heading__folio-total \{[^}]*font-size: 10px;/);
-	assert.match(theme, /\.aa-dashboard-toolbar:not\(\.is-searching\) \{[^}]*justify-content: flex-end/);
+	assert.match(theme, /\.aa-dashboard-toolbar__row--actions \{[^}]*min-height: 38px;[^}]*grid-template-columns: minmax\(max-content, 1fr\) auto minmax\(max-content, 1fr\);/);
 	assert.match(workspace, /grid\.addEventListener\("contextmenu", openBlankPageMenu\)/);
 	assert.match(workspace, /event\.target\.closest\?\.\("\[data-dashboard-item-id\], \[data-dashboard-group-id\]/);
 	assert.match(workspace, /event\.key !== "ContextMenu" && !\(event\.shiftKey && event\.key === "F10"\)/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.rename"/);
+	assert.match(workspace, /className: "aa-dashboard-page-settings"/);
+	assert.match(workspace, /className: "aa-dashboard-toolbar__preset-slot"/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.duplicate"/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.tone"/);
 	assert.match(workspace, /\[null, \.\.\.DASHBOARD_TONES\.filter\(\(tone\) => tone !== "neutral"\)\]\.map/);
@@ -533,13 +538,13 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.delete"/);
 	assert.match(uiSource, /role", checkable \? "menuitemradio" : "menuitem"/);
 	assert.match(uiSource, /action\.setAttribute\("aria-checked", String\(item\.checked\)\)/);
-	assert.match(workspace, /grid\.dataset\.pageTone = page\.tone/);
+	assert.match(dashboardComponents, /root\.dataset\.pageTone = pageTone/);
 	assert.match(workspace, /DASHBOARD_TONES\.map\(\(value\) => \[value, t\(`aaalice\.workspace\.group\.tones\./);
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-dashboard-group \{ --aa-dashboard-group-tone: var\(--aa-dashboard-page-tone\); \}/);
 	assert.doesNotMatch(theme, /\.aa-dashboard-grid-v2\[data-page-tone\] \.aa-control-card \{ --aa-control-kind-tone:/);
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone="purple"\] \{ --aa-dashboard-page-tone: var\(--p-purple-400/);
 	assert.match(theme, /\.aa-dashboard-page-tone-menu-item\.is-default::before \{[^}]*dashed/);
-	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
+	assert.match(themeLibrary, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-toolbar__row--context \.aa-dashboard-page-heading \{[^}]*flex-basis: auto;/);
 });
 
 test("parameter cards expose shared dashboard tone editing and persist their color", () => {
@@ -583,8 +588,11 @@ test("layout editing exposes an extensible component picker", () => {
 	assert.doesNotMatch(components, /aa-dashboard-page-add|onAdd/);
 	assert.doesNotMatch(theme, /aa-dashboard-page-add/);
 	assert.doesNotMatch(theme, /aa-dashboard-add-separator/);
-	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar > \.aa-ui-button \{[^}]*height: 29px;[^}]*min-height: 29px;[^}]*border-radius: 7px;/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-toolbar__action-group--primary > \.aa-ui-button \{[^}]*height: 29px;[^}]*min-height: 29px;[^}]*border-radius: 7px;/);
 	assert.match(theme, /\.aa-dashboard-add-component\.aa-ui-button \{[^}]*width: 29px;[^}]*min-width: 29px;[^}]*height: 29px;/);
+	assert.match(workspace, /showLabel: true/);
+	assert.match(theme, /\.aa-dashboard-add-component--labeled\.aa-ui-button \{[^}]*width: auto;/);
+	assert.match(theme, /\.aa-dashboard-group-header h3 \{[^}]*width: 220px;[^}]*max-width: 100%;/);
 	assert.match(theme, /\.aa-dashboard-component-option\.aa-ui-button:hover:not\(:disabled\)/);
 });
 

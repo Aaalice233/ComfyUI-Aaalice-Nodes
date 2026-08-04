@@ -50,14 +50,15 @@ export function createWorkspaceToolbar(actions = [], { className = "", label = n
 	return el("div", { className: `aa-workspace-toolbar${className ? ` ${className}` : ""}`, attrs: { role: "toolbar", "aria-label": label }, children: actions });
 }
 
-export function createDashboardComponentPicker({ options = [], labels = {}, onSelect } = {}) {
+export function createDashboardComponentPicker({ options = [], labels = {}, onSelect, showLabel = false } = {}) {
 	let popover = null;
 	const root = el("div", "aa-dashboard-component-picker");
-	const trigger = iconButton({
+	const trigger = (showLabel ? button : iconButton)({
 		iconName: "add",
 		label: labels.open || "Add component",
 		variant: "ghost",
-		className: "aa-dashboard-add-component",
+		size: showLabel ? "sm" : "icon",
+		className: `aa-dashboard-add-component${showLabel ? " aa-dashboard-add-component--labeled" : ""}`,
 		onClick: () => {
 			if (popover) popover.close();
 			else openPicker();
@@ -393,7 +394,9 @@ export function createPageRail(initialState = {}) {
 		const count = state.pages.length;
 		const gap = state.expanded ? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP;
 		const clusterHeight = count * PAGE_RAIL_DOT_HEIGHT + Math.max(0, count - 1) * gap + PAGE_RAIL_HIT_PADDING;
-		hoverArea.style.height = `${Math.max(56, clusterHeight)}px`;
+		const hitHeight = Math.max(56, clusterHeight);
+		hoverArea.style.height = `${hitHeight}px`;
+		list.style.height = `${hitHeight}px`;
 	};
 	const setExpanded = (expanded) => {
 		const next = Boolean(expanded);
