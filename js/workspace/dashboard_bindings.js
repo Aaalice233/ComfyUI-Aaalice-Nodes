@@ -15,7 +15,8 @@ import { confirmAction } from "./dom_utils.js";
 import { configureNumericRange, isConfigurableNumericControl, openNumericRangeSettings } from "./numeric_range.js";
 import { allGraphNodes } from "../lib/graph_scope.js";
 import { boundNodeControlEntries, configureDashboardUnbinding, openUnbindControls } from "./dashboard_unbinding.js";
-import { createGroupToneControl } from "./group_tone_control.js";
+import { createDashboardToneControl } from "./dashboard_tone_control.js";
+import { normalizeDashboardTone } from "../lib/dashboard_color_system.js";
 
 let runtime = null;
 export function configureDashboardBindings(dependencies) {
@@ -315,7 +316,10 @@ export function openCardActions({ x, y, ownerElement, editMode: layoutEditing, o
 		...(item.groupId ? [{ label: t("aaalice.workspace.group.removeItem", "Remove from group"), iconName: "close", onSelect: onUngroup }] : [{ label: t("aaalice.workspace.group.addItem", "Add to group"), iconName: "add", onSelect: onGroup }]),
 		{ separator: true },
 		);
-	items.push({ label: item.note ? t("aaalice.workspace.componentNote.editMenu", "Edit note…") : t("aaalice.workspace.componentNote.addMenu", "Add note…"), iconName: "note", onSelect: () => openComponentNoteEditor(item, ownerElement) });
+	items.push(
+		{ label: t("aaalice.workspace.card.colorMenu", "Set card color…"), iconName: "settings", onSelect: () => openCardToneEditor(item, ownerElement) },
+		{ label: item.note ? t("aaalice.workspace.componentNote.editMenu", "Edit note…") : t("aaalice.workspace.componentNote.addMenu", "Add note…"), iconName: "note", onSelect: () => openComponentNoteEditor(item, ownerElement) },
+	);
 	if (isConfigurableNumericControl(resolved)) {
 		items.push({ label: t("aaalice.workspace.numericRange.menu", "Set numeric range…"), iconName: "settings", onSelect: () => openNumericRangeSettings(item, resolved, ownerElement) });
 	}
@@ -343,9 +347,23 @@ export function openAssignGroup(page, item) {
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => { updateDashboard((current) => assignToGroup(current, page.id, [item.id], groupSelect.value)); dialog.close(); } }));
 }
 
+export function openCardToneEditor(item, ownerElement = null) {
+	const tone = createDashboardToneControl(item.tone);
+	const body = el("div", { children: [field({ label: t("aaalice.workspace.card.color", "Card color"), control: tone.root })] }); const footer = el("div");
+	const dialog = createWorkspaceDialog({ title: t("aaalice.workspace.card.colorMenu", "Set card color"), body, footer }, ownerElement);
+	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), variant: "primary", onClick: () => {
+		const selectedTone = normalizeDashboardTone(tone.value());
+		updateDashboard((current) => updateItem(current, item.id, (target) => {
+			if (selectedTone === "neutral") delete target.tone;
+			else target.tone = selectedTone;
+		}));
+		dialog.close();
+	} }));
+}
+
 export function openEditGroup(page, group) {
 	const name = document.createElement("input"); name.value = resolveGroupTitle(group);
-	const tone = createGroupToneControl(group.tone);
+	const tone = createDashboardToneControl(group.tone);
 	let showTitle = group.showTitle !== false;
 	const showTitleControl = toggleSwitch({ checked: showTitle, label: t("aaalice.workspace.group.showTitle", "Show group title"), onChange: (next) => { showTitle = next; } });
 	const body = el("div", { children: [field({ label: t("aaalice.workspace.group.name", "Group name"), control: name }), field({ label: t("aaalice.workspace.group.tone", "Group color"), control: tone.root }), field({ label: t("aaalice.workspace.group.showTitle", "Show group title"), control: showTitleControl })] }); const footer = el("div");

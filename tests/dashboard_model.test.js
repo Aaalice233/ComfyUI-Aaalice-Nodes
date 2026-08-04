@@ -33,6 +33,28 @@ test("group colors preserve preset ids and normalize custom hex values", () => {
 	assert.equal(next.pages[0].groups[1].tone, "neutral");
 });
 
+test("page and control card colors share the dashboard tone codec", () => {
+	const { model, page } = modelWithPage();
+	page.tone = "#ABC";
+	page.items.push({ id: "page-tone-card", kind: "control", binding, label: "Steps", groupId: null, tone: "slate", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 13 } });
+	const next = normalizeDashboard(model);
+	assert.equal(next.pages[0].tone, "#aabbcc");
+	assert.equal(next.pages[0].items[0].tone, "slate");
+});
+
+test("control card colors normalize custom hex values and drop invalid/default tones", () => {
+	const { model, page } = modelWithPage();
+	page.items.push(
+		{ id: "custom-card", kind: "control", binding, label: "Steps", groupId: null, tone: "#ABC", layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 13 } },
+		{ id: "invalid-card", kind: "control", binding: { ...binding, controlId: "cfg" }, label: "CFG", groupId: null, tone: "url(javascript:bad)", layout: { row: 13, column: 0, columnSpan: 6, rowSpan: 13 } },
+	);
+	const next = normalizeDashboard(model);
+	assert.equal(next.pages[0].items[0].tone, "#aabbcc");
+	assert.equal(next.pages[0].items[1].tone, undefined);
+	const reset = normalizeDashboard({ ...next, pages: [{ ...next.pages[0], items: [{ ...next.pages[0].items[0], tone: "neutral" }] }] });
+	assert.equal(reset.pages[0].items[0].tone, undefined);
+});
+
 test("group titles default to visible and preserve an explicit hidden setting", () => {
 	const { model, page } = modelWithPage();
 	page.groups.push({ id: "group-a", name: "Controls", tone: "neutral", widthMode: "auto", layout: { row: 0, column: 0, columnSpan: 12, rowSpan: 1 } });

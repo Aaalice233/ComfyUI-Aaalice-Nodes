@@ -1,6 +1,7 @@
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { bindingKey, controlItemBindings, DASHBOARD_TONES, emptyDashboard, linkedBindingCount } from "../lib/dashboard_model.js";
+import { normalizeDashboardTone } from "../lib/dashboard_color_system.js";
 import { compareDashboardPreset } from "../lib/dashboard_presets.js";
 import { addSeparator, compactDashboard, createGroup, deleteGroup, duplicateItems, duplicatePage, moveGroup, moveGroups, moveItems, moveTopLevelSelection, removeItems, resizeGroup, resizeItem, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
 import { createDashboardGrid } from "../lib/dashboard_components.js";
@@ -11,6 +12,7 @@ import { button, createContextMenu, createDialog, el, emptyState, field, iconBut
 import { createComponentNoteButton, createCollapsibleSearch, createControlCard, createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createPageRail, createSelectionActionBar, createWorkspaceToolbar } from "../lib/workspace_components.js";
 import { createControlElement } from "../lib/workspace_controls.js";
 import { confirmAction, pickFile } from "./dom_utils.js";
+import { createDashboardToneControl } from "./dashboard_tone_control.js";
 
 let runtime = null;
 export function configureDashboardView(dependencies) { runtime = dependencies; }
@@ -68,7 +70,10 @@ export function renderDashboard(container, host) {
 	});
 	const setPageTone = (nextTone) => updateDashboard((current) => {
 		const target = current.pages.find((entry) => entry.id === page?.id);
-		if (target) target.tone = nextTone;
+		if (target) {
+			const normalizedTone = normalizeDashboardTone(nextTone);
+			target.tone = normalizedTone === "neutral" ? null : normalizedTone;
+		}
 		return current;
 	});
 	const duplicateCurrentPage = () => { updateDashboard((current) => {
@@ -76,14 +81,27 @@ export function renderDashboard(container, host) {
 				runtime.setActivePageId(activePageId = next.pages[next.pages.findIndex((entry) => entry.id === page.id) + 1]?.id || page.id);
 		return next;
 	}); };
+	const openPageToneEditor = () => {
+		const tone = createDashboardToneControl(page.tone);
+		const body = el("div", { children: [field({ label: t("aaalice.workspace.page.tone", "Page color"), control: tone.root })] });
+		const footer = el("div");
+		const dialog = createDialog({ title: t("aaalice.workspace.page.toneMenu", "Set page color"), body, footer });
+		footer.append(
+			button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }),
+			button({ label: t("aaalice.common.save", "Save"), variant: "primary", onClick: () => { setPageTone(tone.value()); dialog.close(); } }),
+		);
+	};
 	const openPageToneMenu = (x, y) => createContextMenu({
 		x, y, ownerElement: host, ariaLabel: t("aaalice.workspace.page.tone", "Page color"),
-		items: [null, ...DASHBOARD_TONES].map((tone) => ({
+		items: [null, ...DASHBOARD_TONES.filter((tone) => tone !== "neutral")].map((tone) => ({
 			label: tone ? t(`aaalice.workspace.group.tones.${tone}`, tone) : t("aaalice.workspace.page.toneDefault", "Default"),
 			className: `aa-dashboard-page-tone-menu-item is-${tone || "default"}`,
 			checked: (page.tone || null) === tone,
 			onSelect: () => { if ((page.tone || null) !== tone) setPageTone(tone); },
-		})),
+		})).concat([
+			{ separator: true },
+			{ label: t("aaalice.workspace.page.customTone", "Custom color…"), iconName: "settings", onSelect: openPageToneEditor },
+		]),
 	});
 	const openPageMenu = (x, y) => {
 		if (!page) return;
@@ -263,7 +281,6 @@ export function renderDashboard(container, host) {
 			return current;
 		}),
 	});
-	if (page.tone) grid.dataset.pageTone = page.tone;
 	const openBlankPageMenu = (event) => {
 		if (event.target.closest?.("[data-dashboard-item-id], [data-dashboard-group-id], input, textarea, select, button, [contenteditable='true']")) return;
 		event.preventDefault();

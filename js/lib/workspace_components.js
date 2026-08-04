@@ -3,6 +3,7 @@
 import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopover, el, icon, iconButton, inlineRename, searchToggleButton, segmentedControl } from "./ui.js";
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
+import { dashboardToneCssValue, normalizeDashboardTone } from "./dashboard_color_system.js";
 
 const PAGE_RAIL_DOT_HEIGHT = 20;
 const PAGE_RAIL_GAP = 7;
@@ -498,7 +499,10 @@ export function createControlCard({ item, title, control, status = "ok", descrip
 	const headerOnly = control?.dataset?.headerOnly === "true";
 	const hasMultilineControl = control?.classList?.contains("is-multiline");
 	const unavailable = control?.dataset?.controlAvailability && control.dataset.controlAvailability !== "ready";
-	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}${hasMultilineControl ? " has-multiline-control" : ""}${linkedCount ? " has-linked-bindings" : ""}${mixed ? " has-mixed-bindings" : ""}${item.note ? " has-component-note" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
+	const cardTone = normalizeDashboardTone(item.tone);
+	const hasCardTone = cardTone !== "neutral";
+	const root = el("article", { className: `aa-control-card${status !== "ok" ? " is-missing" : ""}${unavailable ? " is-unavailable" : ""}${headerOnly ? " is-header-only" : ""}${hasMultilineControl ? " has-multiline-control" : ""}${linkedCount ? " has-linked-bindings" : ""}${mixed ? " has-mixed-bindings" : ""}${item.note ? " has-component-note" : ""}${hasCardTone ? " has-dashboard-tone" : ""}`, attrs: { "data-item-id": item.id, "data-dashboard-item-id": item.id, "data-dashboard-item-tone": hasCardTone ? cardTone : null, "data-provider": item.binding?.provider || "layout", tabindex: onManage ? 0 : null, "aria-label": title } });
+	if (hasCardTone) root.style.setProperty("--aa-dashboard-control-tone", dashboardToneCssValue(cardTone));
 	if (control?.dataset?.controlKind) root.dataset.controlKind = control.dataset.controlKind;
 	if (control?.dataset?.controlFamily) root.dataset.controlFamily = control.dataset.controlFamily;
 	root.dataset.dashboardMinRowSpan = String(control?.dataset?.dashboardMinRowSpan || (headerOnly ? DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN : DASHBOARD_DEFAULT_CONTROL_ROW_SPAN));

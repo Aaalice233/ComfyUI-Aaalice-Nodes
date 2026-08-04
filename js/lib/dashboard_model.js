@@ -10,10 +10,10 @@ import {
 	normalizeDashboardRowSpan,
 	recommendedGroupRowSpan,
 } from "./dashboard_sizing.js";
-import { normalizeGroupTone } from "./dashboard_group_tones.js";
+import { DASHBOARD_TONES, normalizeDashboardTone, normalizeGroupTone } from "./dashboard_color_system.js";
 
+export { DASHBOARD_TONES };
 export const DASHBOARD_VERSION = 4;
-export const DASHBOARD_TONES = Object.freeze(["neutral", "blue", "green", "amber", "purple", "red"]);
 
 export class DashboardModelError extends Error {
 	constructor(message, code = "invalid-dashboard") { super(message); this.name = "DashboardModelError"; this.code = code; }
@@ -154,7 +154,8 @@ export function normalizeDashboard(raw) {
 		assertUnique(sourcePage?.id, ids);
 		const legacyColumns = sourceVersion === 2 && sourcePage?.gridColumns == null;
 		if (!legacyColumns && sourcePage?.gridColumns !== DASHBOARD_GRID_COLUMNS) throw new DashboardModelError(`Unsupported dashboard grid: ${sourcePage?.gridColumns ?? "missing"}`, "unsupported-grid");
-		const page = { id: sourcePage.id, name: String(sourcePage.name || "Page"), gridColumns: DASHBOARD_GRID_COLUMNS, tone: DASHBOARD_TONES.includes(sourcePage.tone) ? sourcePage.tone : null, items: [], groups: [] };
+		const pageTone = sourcePage.tone == null ? null : normalizeDashboardTone(sourcePage.tone);
+		const page = { id: sourcePage.id, name: String(sourcePage.name || "Page"), gridColumns: DASHBOARD_GRID_COLUMNS, tone: pageTone === "neutral" ? null : pageTone, items: [], groups: [] };
 		if (!Array.isArray(sourcePage.groups) || !Array.isArray(sourcePage.items)) throw new DashboardModelError("Dashboard page collections are invalid");
 		for (const sourceGroup of sourcePage.groups) {
 			assertUnique(sourceGroup?.id, ids);
@@ -179,17 +180,19 @@ export function normalizeDashboard(raw) {
 			const source = kind === "separator" ? normalizeGroupSource(sourceItem.source) : null;
 			const groupSource = kind === "control" ? normalizeGroupSource(sourceItem.groupSource) : null;
 			const primaryBinding = kind === "control" ? normalizeBinding(sourceItem.binding) : null;
-				const linkedBindings = kind === "control" ? normalizeLinkedBindings(primaryBinding, sourceItem.linkedBindings) : [];
-				const numericRange = kind === "control" ? normalizeNumericRange(sourceItem.numericRange) : null;
-				const note = typeof sourceItem.note === "string" && sourceItem.note.trim() ? sourceItem.note : null;
-				const layout = normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns });
+			const linkedBindings = kind === "control" ? normalizeLinkedBindings(primaryBinding, sourceItem.linkedBindings) : [];
+			const numericRange = kind === "control" ? normalizeNumericRange(sourceItem.numericRange) : null;
+			const itemTone = kind === "control" ? normalizeDashboardTone(sourceItem.tone) : null;
+			const note = typeof sourceItem.note === "string" && sourceItem.note.trim() ? sourceItem.note : null;
+			const layout = normalizeLayout(sourceItem.layout, { fullWidth: kind === "separator", rowSpan: kind === "separator" ? DASHBOARD_SEPARATOR_ROW_SPAN : null, legacyColumns });
 			rawItems.push({ id: sourceItem.id, groupId, layout });
 			page.items.push({
 				id: sourceItem.id, kind, binding: primaryBinding,
-					...(linkedBindings.length ? { linkedBindings } : {}),
-					...(numericRange ? { numericRange } : {}),
-					...(note ? { note } : {}),
-					label: String(sourceItem.label || ""), groupId,
+				...(linkedBindings.length ? { linkedBindings } : {}),
+				...(numericRange ? { numericRange } : {}),
+				...(note ? { note } : {}),
+				label: String(sourceItem.label || ""), groupId,
+				...(itemTone && itemTone !== "neutral" ? { tone: itemTone } : {}),
 				...(typeof sourceItem.labelSource === "string" ? { labelSource: sourceItem.labelSource } : {}),
 				...(typeof sourceItem.labelOverride === "string" ? { labelOverride: sourceItem.labelOverride } : {}),
 				...(groupSource ? { groupSource } : {}),

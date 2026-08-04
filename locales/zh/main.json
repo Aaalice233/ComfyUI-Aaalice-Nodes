@@ -72,10 +72,11 @@
         "noMatchesTitle": "没有匹配的组", "noMatches": "请尝试其他组名称。"
       },
       "empty": { "title": "创建你的控制页面", "description": "先创建页面，再从任意兼容节点的右键菜单添加参数。", "page": "请从兼容节点的右键菜单添加参数。" },
-      "page": { "pages": "侧边栏页面", "reorder": "拖拽调整页面顺序", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "switch": "切换页面", "tone": "页面颜色", "toneDefault": "默认", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
+      "page": { "pages": "侧边栏页面", "reorder": "拖拽调整页面顺序", "add": "新建页面", "name": "页面名称", "default": "生成参数", "menu": "页面操作", "switch": "切换页面", "tone": "页面颜色", "toneMenu": "设置页面颜色", "customTone": "自定义颜色…", "toneDefault": "默认", "rename": "重命名页面", "delete": "删除页面", "duplicate": "复制页面", "deleteConfirm": "确定删除这个侧边栏页面吗？" },
       "target": { "page": "页面", "newPage": "新页面" },
+      "color": { "palette": "预设颜色", "custom": "自定义颜色", "customPicker": "选择自定义颜色", "customHex": "自定义颜色 Hex 值", "useCustom": "使用自定义颜色", "customInvalid": "请输入 3 位或 6 位 Hex 颜色，例如 #3b82f6。" },
       "renameHint": "双击重命名",
-		"card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "resize": "调整卡片大小；方向键按网格单位调整" },
+		"card": { "menu": "参数卡片菜单", "move": "移动参数", "remove": "移除参数", "width": "切换卡片宽度", "resize": "调整卡片大小；方向键按网格单位调整", "color": "卡片颜色", "colorMenu": "设置卡片颜色…" },
 			"componentNote": { "addMenu": "添加注释…", "editMenu": "编辑注释…", "addTitle": "添加组件说明", "editTitle": "编辑组件说明", "view": "查看参数说明", "input": "组件说明 Markdown", "placeholder": "说明这个组件控制什么；支持 Markdown。", "markdown": "Markdown", "edit": "编辑", "preview": "预览", "switchMode": "在 Markdown 编辑和预览之间切换", "toolbar": "Markdown 格式", "empty": "暂时没有可预览的内容。", "remove": "删除注释", "removeConfirm": "确定删除这个组件的注释吗？", "formats": { "bold": "粗体", "italic": "斜体", "strike": "删除线", "heading": "标题", "quote": "引用", "unordered-list": "无序列表", "ordered-list": "有序列表", "task-list": "任务列表", "inline-code": "行内代码", "code-block": "代码块", "link": "链接", "image": "图片", "table": "表格", "horizontal-rule": "分隔线" } },
       "numericRange": { "menu": "设置数值范围…", "title": "数值范围", "minimum": "最小值", "maximum": "最大值", "step": "步长", "reset": "恢复节点默认值", "hint": "只调整这个侧边栏控件，不修改节点参数定义，也不会自动改变当前值。", "nodeDefaults": "节点默认值：{min} 到 {max}，步长 {step}", "notSet": "未设置", "invalidError": "请输入有限数值；最大值必须大于最小值，步长必须为正数且不能超过整个范围。", "integerError": "这个整数参数的最小值、最大值和步长都必须是整数。", "sourceError": "侧边栏滑条范围必须位于节点参数允许的范围内。" },
 		"layout": { "addComponent": "添加组件", "components": "侧边栏组件", "noComponents": "暂无可添加组件", "separator": "添加分隔线", "separatorItem": "分隔线", "separatorLabel": "分隔线", "separatorMenu": "分隔线菜单", "remove": "移除布局项", "compact": "整理布局" },

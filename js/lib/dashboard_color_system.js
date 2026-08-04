@@ -1,13 +1,16 @@
-/** Shared palette and persistence codec for Dashboard layout-group colors. */
+/** Shared Dashboard tone palette, validation, persistence codec, and CSS value resolver. */
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
-export const DASHBOARD_GROUP_TONES = Object.freeze([
+export const DASHBOARD_TONES = Object.freeze([
 	"neutral", "slate", "blue", "sky", "cyan", "teal", "green", "lime", "yellow",
 	"amber", "orange", "red", "rose", "pink", "purple", "violet", "indigo",
 ]);
 
-const GROUP_TONE_CSS_VALUES = Object.freeze({
+// Kept as a domain alias for group APIs while all Dashboard surfaces share one palette.
+export const DASHBOARD_GROUP_TONES = DASHBOARD_TONES;
+
+const DASHBOARD_TONE_CSS_VALUES = Object.freeze({
 	neutral: "var(--aa-ui-muted)",
 	slate: "var(--p-slate-400, var(--aa-ui-muted))",
 	blue: "var(--p-blue-400, var(--aa-ui-accent))",
@@ -35,19 +38,25 @@ export function normalizeHexColor(value) {
 	return candidate;
 }
 
-export function isCustomGroupTone(value) { return Boolean(normalizeHexColor(value)); }
+export function isCustomDashboardTone(value) { return Boolean(normalizeHexColor(value)); }
 
-export function normalizeGroupTone(value) {
-	if (DASHBOARD_GROUP_TONES.includes(value)) return value;
+export function normalizeDashboardTone(value) {
+	if (DASHBOARD_TONES.includes(value)) return value;
 	return normalizeHexColor(value) || "neutral";
 }
 
-export function groupToneClass(value) {
-	const tone = normalizeGroupTone(value);
-	return isCustomGroupTone(tone) ? "custom" : tone;
+export function dashboardToneClass(value) {
+	const tone = normalizeDashboardTone(value);
+	return isCustomDashboardTone(tone) ? "custom" : tone;
 }
 
-export function groupToneCssValue(value) {
-	const tone = normalizeGroupTone(value);
-	return isCustomGroupTone(tone) ? tone : GROUP_TONE_CSS_VALUES[tone] || GROUP_TONE_CSS_VALUES.neutral;
+export function dashboardToneCssValue(value) {
+	const tone = normalizeDashboardTone(value);
+	return isCustomDashboardTone(tone) ? tone : DASHBOARD_TONE_CSS_VALUES[tone] || DASHBOARD_TONE_CSS_VALUES.neutral;
 }
+
+// Domain aliases keep the existing group model readable without duplicating the codec.
+export const isCustomGroupTone = isCustomDashboardTone;
+export const normalizeGroupTone = normalizeDashboardTone;
+export const groupToneClass = dashboardToneClass;
+export const groupToneCssValue = dashboardToneCssValue;

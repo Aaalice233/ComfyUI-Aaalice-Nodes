@@ -1,7 +1,7 @@
-/** Pure Dashboard V3 grid/group DOM composition. */
+/** Pure Dashboard V4 grid/group/card DOM composition. */
 
 import { groupMemberColumnSpan, orderedItems, projectGroupScope, projectScope } from "./dashboard_layout.js";
-import { groupToneClass, groupToneCssValue, isCustomGroupTone, normalizeGroupTone } from "./dashboard_group_tones.js";
+import { dashboardToneCssValue, normalizeDashboardTone, groupToneClass, groupToneCssValue, isCustomGroupTone, normalizeGroupTone } from "./dashboard_color_system.js";
 import { el, icon, iconButton, inlineRename } from "./ui.js";
 
 function applyGridPosition(element, projected, source = projected) {
@@ -74,6 +74,9 @@ export function createDashboardGroup({ group, members, memberProjection = null, 
 export function createDashboardGrid({ page, sizeProjections = null, columns = 12, editMode = false, selectedItemIds = new Set(), selectedGroupIds = new Set(), labels = {}, renderItem, onGroupMenu, onRenameGroup, onSyncGroup }) {
 	const root = el("div", { className: `aa-dashboard-grid-v2${editMode ? " is-editing" : ""}`, attrs: { "data-dashboard-page-id": page.id, "data-dashboard-columns": String(columns), "data-dashboard-source-columns": String(page.gridColumns), tabindex: "0", "aria-label": `${page.name}. ${labels.pageMenu || "Page actions"}` } });
 	root.style.setProperty("--aa-dashboard-columns", String(columns));
+	const pageTone = page.tone == null ? null : normalizeDashboardTone(page.tone);
+	if (pageTone && pageTone !== "neutral") root.style.setProperty("--aa-dashboard-page-tone", dashboardToneCssValue(pageTone));
+	if (pageTone && pageTone !== "neutral") root.dataset.pageTone = pageTone;
 	const ungrouped = orderedItems(page.items.filter((item) => !item.groupId));
 	const projectedGroups = page.groups.map((group) => {
 		const showHeader = editMode || group.showTitle !== false || Boolean(group.source && group.syncStatus);

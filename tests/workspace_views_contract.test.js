@@ -508,7 +508,7 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.rename"/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.duplicate"/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.tone"/);
-	assert.match(workspace, /\[null, \.\.\.DASHBOARD_TONES\]\.map/);
+	assert.match(workspace, /\[null, \.\.\.DASHBOARD_TONES\.filter\(\(tone\) => tone !== "neutral"\)\]\.map/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.layout\.separator"/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.layout\.compact"/);
 	assert.match(workspace, /label: t\("aaalice\.workspace\.page\.delete"/);
@@ -521,6 +521,21 @@ test("dashboard page heading is prominent, responsive, and directly renameable",
 	assert.match(theme, /\.aa-dashboard-grid-v2\[data-page-tone="purple"\] \{ --aa-dashboard-page-tone: var\(--p-purple-400/);
 	assert.match(theme, /\.aa-dashboard-page-tone-menu-item\.is-default::before \{[^}]*dashed/);
 	assert.match(theme, /@media \(max-width: 520px\) \{[\s\S]*?\.aa-dashboard-page-heading \{[^}]*flex-basis: 100%;/);
+});
+
+test("parameter cards expose shared dashboard tone editing and persist their color", () => {
+	assert.match(workspace, /label: t\("aaalice\.workspace\.card\.colorMenu", "Set card color…"\)/);
+	assert.match(workspace, /createDashboardToneControl\(item\.tone\)/);
+	assert.match(workspace, /openPageToneEditor/);
+	assert.match(workspace, /customTone/);
+	assert.match(workspace, /delete target\.tone/);
+	assert.match(dashboardModel, /const itemTone = kind === "control" \? normalizeDashboardTone\(sourceItem\.tone\) : null/);
+	assert.match(components, /const cardTone = normalizeDashboardTone\(item\.tone\)/);
+	assert.match(components, /"data-dashboard-item-tone": hasCardTone \? cardTone : null/);
+	assert.match(theme, /\.aa-control-card\.has-dashboard-tone \{/);
+	assert.match(theme, /--aa-dashboard-control-tone/);
+	assert.match(enLocale, /"color": "Card color", "colorMenu": "Set card color…"/);
+	assert.match(zhLocale, /"color": "卡片颜色", "colorMenu": "设置卡片颜色…"/);
 });
 
 test("detached context menus retain theme tokens and visible hover feedback", () => {
