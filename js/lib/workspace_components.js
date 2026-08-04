@@ -385,64 +385,22 @@ export function createPageRail(initialState = {}) {
 	const root = el("nav", { className: "aa-dashboard-page-rail", attrs: { "aria-orientation": "vertical" } });
 	const hoverArea = el("span", { className: "aa-dashboard-page-rail__hover-area", attrs: { "aria-hidden": "true" } });
 	const list = el("div", "aa-dashboard-page-list");
-	const cursor = el("span", { className: "aa-dashboard-page-cursor", attrs: { "aria-hidden": "true" } });
-	root.append(hoverArea, list, cursor);
+	root.append(hoverArea, list);
 	const items = new Map();
 	let state = { pages: [], activeId: null, expanded: false, editMode: false, labels: {}, onSelect: null, onReorder: null };
-	let cursorFrame = 0;
-	let cursorInitialized = false;
-	let expansionAnchorId = null;
-	const activeIndex = () => state.pages.findIndex((page) => page.id === state.activeId);
-	const anchorIndex = () => {
-		const index = state.pages.findIndex((page) => page.id === expansionAnchorId);
-		return index >= 0 ? index : Math.max(0, activeIndex());
-	};
 	const updateHoverHeight = () => {
 		const count = state.pages.length;
 		const gap = state.expanded ? PAGE_RAIL_EXPANDED_GAP : PAGE_RAIL_COLLAPSED_GAP;
 		const clusterHeight = count * PAGE_RAIL_DOT_HEIGHT + Math.max(0, count - 1) * gap + PAGE_RAIL_HIT_PADDING;
 		hoverArea.style.height = `${Math.max(56, clusterHeight)}px`;
 	};
-	const updateExpansionOffset = () => {
-		const count = state.pages.length;
-		const index = anchorIndex();
-		const gapDelta = PAGE_RAIL_EXPANDED_GAP - PAGE_RAIL_COLLAPSED_GAP;
-		const offset = state.expanded && count > 1 && index >= 0 ? ((count - 1) / 2 - index) * gapDelta : 0;
-		root.style.setProperty("--aa-dashboard-page-rail-anchor-shift", `${offset}px`);
-	};
-	const setExpanded = (expanded, requestedAnchorId = null, { reanchor = false } = {}) => {
+	const setExpanded = (expanded) => {
 		const next = Boolean(expanded);
-		const opening = next && !state.expanded;
-		const shouldAnchor = next && (opening || reanchor);
-		const nextAnchorId = shouldAnchor ? (requestedAnchorId || state.activeId) : expansionAnchorId;
-		const anchorChanged = shouldAnchor && expansionAnchorId !== nextAnchorId;
-		if (state.expanded === next && !anchorChanged) return;
+		if (state.expanded === next) return;
 		state.expanded = next;
-		if (shouldAnchor) expansionAnchorId = nextAnchorId;
 		root.classList.toggle("is-expanded", next);
 		updateHoverHeight();
-		updateExpansionOffset();
-		positionCursor();
 	};
-	const positionCursor = ({ animate = true } = {}) => {
-		cancelAnimationFrame(cursorFrame);
-		cursorFrame = requestAnimationFrame(() => {
-			const active = items.get(state.activeId);
-			cursor.hidden = !active;
-			if (!active?.isConnected) return;
-			const shouldAnimate = animate && cursorInitialized;
-			cursor.classList.toggle("is-initializing", !shouldAnimate);
-			const railRect = root.getBoundingClientRect();
-			const activeRect = active.getBoundingClientRect();
-			const offset = activeRect.top - railRect.top + (activeRect.height - cursor.offsetHeight) / 2;
-			cursor.style.transform = `translate3d(0, ${offset}px, 0)`;
-			cursorInitialized = true;
-			if (!shouldAnimate) requestAnimationFrame(() => cursor.classList.remove("is-initializing"));
-		});
-	};
-	list.addEventListener("transitionend", (event) => {
-		if (event.target === list && (event.propertyName === "gap" || event.propertyName === "transform")) positionCursor();
-	});
 	const updateItem = (item, page) => {
 		if (!item) return;
 		const active = page.id === state.activeId;
@@ -454,15 +412,11 @@ export function createPageRail(initialState = {}) {
 		if (label) label.textContent = page.name;
 		if (active) item.setAttribute("aria-current", "page"); else item.removeAttribute("aria-current");
 	};
-	const update = (nextState = {}, { animate = true } = {}) => {
-		const previousActiveId = state.activeId;
+	const update = (nextState = {}) => {
 		state = { ...state, ...nextState, pages: nextState.pages || state.pages, labels: nextState.labels || state.labels };
-		if (state.expanded && previousActiveId !== state.activeId) expansionAnchorId = state.activeId;
-		if (!state.pages.some((page) => page.id === expansionAnchorId)) expansionAnchorId = state.activeId;
 		root.classList.toggle("is-empty", state.pages.length === 0);
 		root.classList.toggle("is-expanded", Boolean(state.expanded));
 		updateHoverHeight();
-		updateExpansionOffset();
 		root.setAttribute("aria-label", state.labels.pages || "Dashboard pages");
 		const nextIds = new Set(state.pages.map((page) => page.id));
 		for (const [id, item] of items) if (!nextIds.has(id)) { item.remove(); items.delete(id); }
@@ -476,16 +430,12 @@ export function createPageRail(initialState = {}) {
 			updateItem(item, page);
 			list.append(item);
 		}
-		positionCursor({ animate });
 	};
 	const selectIndex = (index, { focus = false } = {}) => {
 		const next = state.pages[Math.max(0, Math.min(state.pages.length - 1, index))];
 		if (!next || next.id === state.activeId) return false;
 		state.activeId = next.id;
-		expansionAnchorId = next.id;
 		for (const page of state.pages) updateItem(items.get(page.id), page);
-		updateExpansionOffset();
-		positionCursor();
 		if (focus) queueMicrotask(() => items.get(next.id)?.focus({ preventScroll: true }));
 		state.onSelect?.(next.id);
 		return true;
@@ -495,16 +445,16 @@ export function createPageRail(initialState = {}) {
 		const index = state.pages.findIndex((page) => page.id === item?.dataset.pageId);
 		if (index >= 0) selectIndex(index);
 	});
-	hoverArea.addEventListener("pointerenter", () => setExpanded(true, state.activeId));
+	hoverArea.addEventListener("pointerenter", () => setExpanded(true));
 	root.addEventListener("pointerover", (event) => {
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
-		if (item && !state.expanded) setExpanded(true, item.dataset.pageId);
+		if (item && !state.expanded) setExpanded(true);
 	});
 	// Collapse only at the stable rail boundary; the animated hit surface must not own this transition.
 	root.addEventListener("pointerleave", () => setExpanded(false));
 	root.addEventListener("focusin", (event) => {
 		const item = event.target.closest?.(".aa-dashboard-page-dot");
-		if (item) setExpanded(true, item.dataset.pageId, { reanchor: true });
+		if (item) setExpanded(true);
 	});
 	root.addEventListener("focusout", () => queueMicrotask(() => {
 		if (root.matches(":hover") || root.querySelector(".aa-dashboard-page-dot:focus-visible")) return;
@@ -534,11 +484,8 @@ export function createPageRail(initialState = {}) {
 		const source = event.dataTransfer?.getData("application/x-aaalice-page");
 		if (source && source !== item.dataset.pageId) state.onReorder?.(source, item.dataset.pageId);
 	});
-	const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(() => positionCursor({ animate: false })) : null;
-	resizeObserver?.observe(root);
 	root.update = update;
-	root.destroy = () => { cancelAnimationFrame(cursorFrame); resizeObserver?.disconnect(); };
-	update(initialState, { animate: false });
+	update(initialState);
 	return root;
 }
 
