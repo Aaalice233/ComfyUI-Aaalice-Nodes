@@ -147,7 +147,7 @@ Aaalice 工作区的页面内容滚轮和触控板惯性滚动只服务当前 Da
 | `createDashboardComponentPicker()` | 布局模式的可扩展添加组件入口；只消费选项描述和选择回调，不持有工作流状态 |
 | `createCollapsibleSearch()` | 侧栏内同排展开的搜索入口、输入和关闭 |
 | `createPageRail()` / `createDashboardGrid()` / `createDashboardGroup()` / `createControlCard()` | Dashboard 页面导航、细粒度二维网格、可选布局组和参数投影的纯视图 |
-| `createDashboardPresetPicker()` | Dashboard 顶栏第二行中央的完整预设选择、已修改状态、首次使用引导和管理入口；不持有工作流状态或直接写节点 |
+| `createDashboardPresetPicker()` | Dashboard 顶栏第一行、页面设置按钮左侧的完整预设选择、已修改状态、首次使用引导和管理入口；不持有工作流状态或直接写节点 |
 | `createTransferHero()` / `createTransferStats()` / `createTransferSection()` / `createTransferResult()` | 导入导出的文件摘要、预检统计、冲突区和结果反馈 |
 
 Dashboard 顶栏固定为两行：第一行只承载当前页面身份和页面设置齿轮，页面名称是这一行的视觉焦点；第二行以左侧布局操作、居中预设选择、右侧导入导出/搜索组成稳定操作台。操作行禁止因窄宽度换成第三行，空间不足时在自身横向滚动。页面标题和 Layout Group 标题均使用单行省略，组标题最大宽度为 220px，避免标题内在宽度改变 Dashboard body 或 Page Rail 的几何基准。业务模块可以增加布局 class 和语义色映射，但不得复制基础组件或让共享层持有工作流状态。依赖连续动画的 thumb 必须保留 DOM identity，只更新 class、data、ARIA 和 transform。

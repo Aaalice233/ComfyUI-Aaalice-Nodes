@@ -147,7 +147,7 @@ export function renderDashboard(container, host) {
 			title: t("aaalice.workspace.layout.components", "Dashboard components"),
 			empty: t("aaalice.workspace.layout.noComponents", "No components available"),
 		},
-		showLabel: true,
+		showLabel: false,
 		onSelect: (id) => dashboardComponentHandlers[id]?.(),
 	});
 	const activePageIndex = model.pages.findIndex((entry) => entry.id === page?.id);
@@ -184,7 +184,7 @@ export function renderDashboard(container, host) {
 		onReorder: reorderPage,
 	});
 	let selectAllLayoutItems = () => {};
-	const selectAllLayoutButton = page && editMode ? button({ iconName: "selectionMultiple", label: t("aaalice.workspace.selection.selectAll", "Select all layout items"), variant: "ghost", size: "sm", className: "aa-dashboard-select-all", onClick: () => selectAllLayoutItems() }) : null;
+	const selectAllLayoutButton = page && editMode ? iconButton({ iconName: "selectionMultiple", label: t("aaalice.workspace.selection.selectAll", "Select all layout items"), variant: "ghost", className: "aa-dashboard-select-all", onClick: () => selectAllLayoutItems() }) : null;
 	const pageHeading = page ? createDashboardPageHeading({
 		page,
 		pages: model.pages,
@@ -199,9 +199,13 @@ export function renderDashboard(container, host) {
 		button({ label: editMode ? t("aaalice.workspace.done", "Done") : t("aaalice.workspace.edit", "Layout"), iconName: editMode ? "statusCheck" : "layout", variant: "ghost", size: "sm", active: editMode, className: "aa-dashboard-edit-toggle", onClick: () => { runtime.setEditMode(editMode = !editMode); viewState.selectedItemIds = new Set(); viewState.selectedGroupIds = new Set(); if (editMode) { viewState.searchOpen = false; viewState.query = ""; } scheduleStructuralRender(); } }),
 		...(editMode ? [
 			button({ label: t("aaalice.workspace.page.add", "Add page"), iconName: "add", variant: "primary", size: "sm", className: "aa-dashboard-add-page", onClick: addPage }),
-			...(page ? [dashboardComponentPicker.root, selectAllLayoutButton, button({ iconName: "layout", label: t("aaalice.workspace.layout.compact", "Tidy layout"), variant: "ghost", size: "sm", className: "aa-dashboard-tidy-layout", onClick: () => updateDashboard((current) => compactDashboard(current, page.id)) })] : []),
 		] : []),
 	];
+	const layoutActions = editMode && page ? [
+		dashboardComponentPicker.root,
+		selectAllLayoutButton,
+		iconButton({ iconName: "layout", label: t("aaalice.workspace.layout.compact", "Tidy layout"), variant: "ghost", className: "aa-dashboard-tidy-layout", onClick: () => updateDashboard((current) => compactDashboard(current, page.id)) }),
+	].filter(Boolean) : [];
 	const utilityActions = editMode ? [] : [
 		button({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export layout"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => openDashboardExport(model) }),
 		button({ iconName: "download", label: t("aaalice.workspace.preset.import", "Import layout"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
@@ -211,13 +215,13 @@ export function renderDashboard(container, host) {
 		iconName: "settings", label: t("aaalice.workspace.page.settings", "Page settings"), variant: "ghost", className: "aa-dashboard-page-settings",
 		onClick: (event) => { const rect = event.currentTarget.getBoundingClientRect(); openPageMenu(rect.right, rect.bottom); },
 	}) : null;
-	const toolbarContext = el("div", { className: "aa-dashboard-toolbar__row aa-dashboard-toolbar__row--context", children: [pageHeading, pageSettingsButton].filter(Boolean) });
+	const presetSlot = el("div", { className: "aa-dashboard-toolbar__preset-slot", children: [presetPicker] });
+	const toolbarContext = el("div", { className: "aa-dashboard-toolbar__row aa-dashboard-toolbar__row--context", children: [pageHeading, presetSlot, pageSettingsButton].filter(Boolean) });
 	const toolbarActions = el("div", {
 		className: "aa-dashboard-toolbar__row aa-dashboard-toolbar__row--actions",
 		children: searchOpen ? [search.panel] : [
 			el("div", { className: "aa-dashboard-toolbar__action-group aa-dashboard-toolbar__action-group--primary", children: primaryActions }),
-			el("div", { className: "aa-dashboard-toolbar__preset-slot", children: [presetPicker] }),
-			el("div", { className: "aa-dashboard-toolbar__action-group aa-dashboard-toolbar__action-group--utility", children: utilityActions }),
+			...(editMode ? [el("div", { className: "aa-dashboard-toolbar__action-group aa-dashboard-toolbar__action-group--layout", children: layoutActions })] : [el("div", { className: "aa-dashboard-toolbar__action-group aa-dashboard-toolbar__action-group--utility", children: utilityActions })]),
 		],
 	});
 	const toolbar = createWorkspaceToolbar([], { className: `aa-dashboard-toolbar${searchOpen ? " is-searching" : ""}`, label: t("aaalice.workspace.dashboardActions", "Dashboard actions") });
