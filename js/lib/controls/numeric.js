@@ -26,6 +26,13 @@ function precisionForStep(step) {
 	return Math.min(12, Math.max(Number(text.split("e-")[1] || 0), text.split(".")[1]?.split("e")[0]?.length || 0));
 }
 
+export function normalizeNumericValue(value, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, precision = null, fallback = 0 } = {}) {
+	const numeric = Number(value);
+	if (!Number.isFinite(numeric)) return fallback;
+	const clamped = Math.min(max, Math.max(min, numeric));
+	return precision == null ? clamped : Number(clamped.toFixed(precision));
+}
+
 export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_SAFE_INTEGER, step = 1, onCommit }) {
 	if (!anchor || anchor.ownerDocument?.querySelector(".aa-control-inline-editor")) return null;
 	const rect = anchor.getBoundingClientRect();
@@ -208,7 +215,6 @@ export function renderNumericControl(spec, port) {
 	const max = finiteOption(rangeOptions, "max", sourceMax);
 	const step = Math.max(Number.EPSILON, finiteOption(rangeOptions, "step", sourceStep));
 	const precision = precisionForStep(step);
-	const sourcePrecision = precisionForStep(sourceStep);
 	const bounded = hasFiniteOption(rangeOptions, "min") && hasFiniteOption(rangeOptions, "max") && max > min;
 	const hasRange = spec.kind === "numeric" && bounded;
 	const root = el("div", `aa-control aa-control-numeric${hasRange ? "" : " is-unbounded"}`);
@@ -217,9 +223,11 @@ export function renderNumericControl(spec, port) {
 	range.min = String(min); range.max = String(max); range.step = String(step); range.setAttribute("aria-label", spec.label);
 	const valueButton = el("button", { className: "aa-control-numeric-value", attrs: { type: "button", role: "spinbutton", "aria-label": spec.label, "aria-valuemin": String(sourceMin), "aria-valuemax": String(sourceMax), "data-parameter-id": spec.id, "data-aaalice-value-field": "true" } });
 	let current = 0; let gestureOpen = false; let gestureTimer = 0; let inlineEditor = null;
-	const normalize = (value) => { const clamped = Math.min(max, Math.max(min, Number(value))); return Number.isFinite(clamped) ? Number(clamped.toFixed(precision)) : current; };
+	const normalize = (value) => normalizeNumericValue(value, { min, max, precision, fallback: current });
+	// A Float widget may expose a legacy step of 1 while still accepting fractional values.
+	// Custom-range sync must preserve the host value instead of rounding it to that source step.
 	const normalizeIncoming = customRange
-		? (value) => { const clamped = Math.min(sourceMax, Math.max(sourceMin, Number(value))); return Number.isFinite(clamped) ? Number(clamped.toFixed(sourcePrecision)) : current; }
+		? (value) => normalizeNumericValue(value, { min: sourceMin, max: sourceMax, fallback: current })
 		: normalize;
 	const sync = (value) => {
 		current = normalizeIncoming(value); valueButton.textContent = String(current); valueButton.setAttribute("aria-valuenow", String(current));
