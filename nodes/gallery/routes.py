@@ -135,7 +135,8 @@ def register_gallery_routes() -> None:
     if _registered:
         return
     from server import PromptServer
-    routes = PromptServer.instance.routes
+    prompt_server = PromptServer.instance
+    routes = prompt_server.routes
     routes.get(f"{API}/sources")(sources)
     routes.get(f"{API}/search")(search)
     routes.get(f"{API}/ranking")(ranking)
@@ -149,4 +150,9 @@ def register_gallery_routes() -> None:
     routes.get(f"{API}/favorites")(favorites)
     routes.post(f"{API}/favorite")(favorite_set)
     routes.post(f"{API}/cache/clear")(clear_cache)
+
+    async def _shutdown(_app):
+        await get_gallery_service().close()
+
+    prompt_server.app.on_cleanup.append(_shutdown)
     _registered = True

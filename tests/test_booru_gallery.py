@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -14,8 +16,36 @@ from nodes._lib.booru_gallery import compose_prompt, parse_gallery_payload
 from nodes.gallery import NODE_CLASSES
 from nodes.gallery.adapters import AITagAdapter, DanbooruAdapter, GalleryPage, GalleryUpstreamTimeoutError, GelbooruAdapter, SafebooruAdapter, adapter_for
 from nodes.gallery.booru_gallery import BooruGalleryNode
+from nodes.gallery.media import MediaProxy
 from nodes.gallery.service import GalleryService
 from nodes.gallery.settings import GallerySettingsStore, default_settings
+
+
+class FakeMediaResponse:
+    def __init__(self, body, status=200, content_type="image/jpeg"):
+        self.status = status
+        self.headers = {"Content-Type": content_type, "Content-Length": str(len(body))}
+        self.content = self
+        self.body = body
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    async def iter_chunked(self, _size):
+        yield self.body
+
+
+class FakeMediaSession:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.gets: list[str] = []
+
+    def get(self, url, **_kwargs):
+        self.gets.append(url)
+        return self.responses[min(len(self.gets), len(self.responses)) - 1]
 
 
 def selection(post_id="1", source="danbooru"):
@@ -250,6 +280,96 @@ class GalleryAdapterTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 adapter.validate_media_url(url)
 
+    def test_safebooru_tag_index_parses_xml_despite_json_param(self):
+        async def run():
+            adapter = SafebooruAdapter()
+            class FakeXmlResponse:
+                def __init__(self, body):
+                    self.status = 200
+                    self.text = AsyncMock(return_value=body)
+                    self.url = "https://safebooru.org/index.php"
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, *_args):
+                    return False
+            def get_side_effect(_url, **kwargs):
+                name = kwargs["params"]["name"]
+                tag_type = {"artist_a": 1, "hero_(series)": 4, "blue_hair": 0}.get(name)
+                body = f'<?xml version="1.0"?><tags><tag type="{tag_type}" name="{name}"/></tags>' if tag_type is not None else '<?xml version="1.0"?><tags/>'
+                return FakeXmlResponse(body)
+            session = MagicMock()
+            session.get.side_effect = get_side_effect
+            classified = await adapter.classify_tags(session, ["artist_a", "hero_(series)", "blue_hair", "unknown_tag"], {})
+            self.assertEqual(classified["artist"], ("artist_a",))
+            self.assertEqual(classified["character"], ("hero_(series)",))
+            self.assertEqual(classified["general"], ("blue_hair", "unknown_tag"))
+            params = session.get.call_args.kwargs["params"]
+            self.assertIn("name", params)
+            self.assertNotIn("json", params)
+            known = await adapter.known_tags(session, ["artist_a", "missing"], {})
+            self.assertEqual(known, frozenset({"artist_a"}))
+        import asyncio
+        asyncio.run(run())
+
+    def test_rate_limited_json_retries_with_backoff_then_succeeds(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            def make_response(status, body, payload=None):
+                response = MagicMock()
+                response.status = status
+                response.headers = {"Retry-After": "0"}
+                response.text = AsyncMock(return_value=body)
+                response.json = AsyncMock(return_value=payload)
+                response.url = "https://danbooru.donmai.us/posts.json"
+                return response
+            limited = make_response(404, "not found")
+            ok = make_response(200, '[{"id": 7}]', [{"id": 7}])
+            session = MagicMock()
+            session.get.return_value.__aenter__ = AsyncMock(side_effect=[limited, ok])
+            session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+            raw = await adapter._get_json(session, "https://danbooru.donmai.us/posts.json")
+            self.assertEqual(raw, [{"id": 7}])
+            self.assertEqual(session.get.return_value.__aenter__.await_count, 2)
+        import asyncio
+        asyncio.run(run())
+
+    def test_abuse_limited_xml_retries_instead_of_invalid_json(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            def make_response(body, payload=None):
+                response = MagicMock()
+                response.status = 200
+                response.headers = {"Retry-After": "0"}
+                response.text = AsyncMock(return_value=body)
+                response.json = AsyncMock(return_value=payload)
+                response.url = "https://danbooru.donmai.us/posts.json"
+                return response
+            limited = make_response('<response success="false" reason="API limited due to abuse."/>')
+            ok = make_response('[{"id": 7}]', [{"id": 7}])
+            session = MagicMock()
+            session.get.return_value.__aenter__ = AsyncMock(side_effect=[limited, ok])
+            session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+            raw = await adapter._get_json(session, "https://danbooru.donmai.us/posts.json")
+            self.assertEqual(raw, [{"id": 7}])
+        import asyncio
+        asyncio.run(run())
+
+    def test_persistent_rate_limit_fails_with_readable_error(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            response = MagicMock()
+            response.status = 404
+            response.headers = {"Retry-After": "0"}
+            response.text = AsyncMock(return_value="not found")
+            response.url = "https://danbooru.donmai.us/posts.json"
+            session = MagicMock()
+            session.get.return_value.__aenter__ = AsyncMock(return_value=response)
+            session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+            with self.assertRaisesRegex(RuntimeError, "rate-limiting requests"):
+                await adapter._get_json(session, "https://danbooru.donmai.us/posts.json")
+        import asyncio
+        asyncio.run(run())
+
     def test_unsupported_favorite_write_fails_explicitly(self):
         async def run():
             with self.assertRaisesRegex(ValueError, "does not support favorite writing"):
@@ -358,7 +478,8 @@ class GallerySettingsTests(unittest.TestCase):
 
 
 class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
-    async def test_ranking_applies_ratings_and_separates_cache_entries(self):
+    @patch("nodes.gallery.service.MediaProxy")
+    async def test_ranking_applies_ratings_and_separates_cache_entries(self, _media_cls):
         with tempfile.TemporaryDirectory() as directory:
             service = GalleryService(Path(directory))
             adapter = DanbooruAdapter()
@@ -376,7 +497,8 @@ class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual([post["postId"] for post in explicit["posts"]], ["2"])
                 self.assertEqual(adapter.ranking.await_count, 2)
 
-    async def test_service_injects_blacklist_into_adapter_and_cache_identity(self):
+    @patch("nodes.gallery.service.MediaProxy")
+    async def test_service_injects_blacklist_into_adapter_and_cache_identity(self, _media_cls):
         with tempfile.TemporaryDirectory() as directory:
             service = GalleryService(Path(directory))
             adapter = DanbooruAdapter()
@@ -392,7 +514,8 @@ class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(adapter.search.await_count, 2)
                 self.assertEqual(adapter.search.await_args.args[-1], ("text",))
 
-    async def test_service_normalizes_query_before_adapter_and_shares_cache(self):
+    @patch("nodes.gallery.service.MediaProxy")
+    async def test_service_normalizes_query_before_adapter_and_shares_cache(self, _media_cls):
         with tempfile.TemporaryDirectory() as directory:
             service = GalleryService(Path(directory))
             adapter = DanbooruAdapter()
@@ -405,6 +528,112 @@ class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(adapter.search.await_args.args[1], "red_hair")
                 await service.search("danbooru", " red  hair , ", [], "latest", None, 60)
                 self.assertEqual(adapter.search.await_count, 1)
+
+
+class GalleryMediaProxyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cache_round_trip_and_content_type_header(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"image-bytes", content_type="image/webp")])
+            with patch.object(proxy, "session", return_value=session):
+                data, content_type, final = await proxy.fetch_media("safebooru", "https://cdn.test/a.jpg", lambda _url: None)
+            self.assertEqual((data, content_type, final), (b"image-bytes", "image/webp", "https://cdn.test/a.jpg"))
+            files = list((Path(directory) / "media").glob("*.bin"))
+            self.assertEqual(len(files), 1)
+            with patch.object(proxy, "session") as mocked:
+                data, content_type, _final = await proxy.fetch_media("safebooru", "https://cdn.test/a.jpg", lambda _url: None)
+            mocked.assert_not_called()
+            self.assertEqual((data, content_type), (b"image-bytes", "image/webp"))
+
+    async def test_concurrent_same_url_downloads_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"x")])
+            with patch.object(proxy, "session", return_value=session):
+                results = await asyncio.gather(
+                    proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None),
+                    proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None),
+                    proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None),
+                )
+            self.assertEqual(len(session.gets), 1)
+            self.assertEqual([item[0] for item in results], [b"x", b"x", b"x"])
+
+    async def test_failed_download_does_not_write_cache_and_can_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"", status=503), FakeMediaResponse(b"ok")])
+            with patch.object(proxy, "session", return_value=session):
+                with self.assertRaisesRegex(RuntimeError, "HTTP 503"):
+                    await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
+                self.assertFalse((Path(directory) / "media").exists())
+                data, _content_type, _final = await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
+            self.assertEqual(data, b"ok")
+            self.assertEqual(len(session.gets), 2)
+
+    async def test_redirects_follow_until_final_media(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            moved = FakeMediaResponse(b"", status=302)
+            moved.headers["Location"] = "https://cdn.test/final.jpg"
+            session = FakeMediaSession([moved, FakeMediaResponse(b"final")])
+            with patch.object(proxy, "session", return_value=session):
+                data, _content_type, final = await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
+            self.assertEqual((data, final), (b"final", "https://cdn.test/final.jpg"))
+            self.assertEqual(len(session.gets), 2)
+
+    async def test_prune_trims_oldest_media_and_originals_under_shared_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            store = MagicMock()
+            store.load.return_value = {"timeout": 30, "cacheBudgetMiB": 1}
+            with patch("nodes.gallery.media.get_gallery_settings_store", return_value=store):
+                for name in ("1.jpg", "2.jpg", "3.jpg"):
+                    await proxy._write_cache(f"https://cdn.test/{name}", "image/jpeg", b"x" * (384 * 1024))
+                originals = Path(directory) / "originals" / "danbooru"
+                originals.mkdir(parents=True)
+                (originals / "old.bin").write_bytes(b"y" * (384 * 1024))
+                os.utime(proxy._cache_path("https://cdn.test/1.jpg"), (100, 100))
+                os.utime(proxy._cache_path("https://cdn.test/2.jpg"), (200, 200))
+                os.utime(proxy._cache_path("https://cdn.test/3.jpg"), (300, 300))
+                os.utime(originals / "old.bin", (400, 400))
+                proxy.prune()
+            self.assertFalse(proxy._cache_path("https://cdn.test/1.jpg").exists())
+            self.assertFalse(proxy._cache_path("https://cdn.test/2.jpg").exists())
+            self.assertTrue(proxy._cache_path("https://cdn.test/3.jpg").exists())
+            self.assertTrue((originals / "old.bin").exists())
+
+    async def test_large_media_passes_through_without_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"x" * 64)])
+            with patch("nodes.gallery.media.MAX_CACHED_BYTES", 16), patch.object(proxy, "session", return_value=session):
+                data, _content_type, _final = await proxy.fetch_media("danbooru", "https://cdn.test/big.jpg", lambda _url: None)
+            self.assertEqual(len(data), 64)
+            self.assertFalse((Path(directory) / "media").exists())
+
+    async def test_session_is_shared_until_timeout_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            store = MagicMock()
+            store.load.return_value = {"timeout": 30}
+            with patch("nodes.gallery.media.get_gallery_settings_store", return_value=store), patch("nodes.gallery.media.SESSION_RETIRE_SECONDS", 0):
+                first = proxy.session()
+                self.assertIs(proxy.session(), first)
+                store.load.return_value = {"timeout": 60}
+                second = proxy.session()
+                self.assertIsNot(second, first)
+                await asyncio.sleep(0.05)
+            await proxy.close()
+            self.assertIsNone(proxy._session)
+
+    async def test_clear_removes_media_cache_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"x")])
+            with patch.object(proxy, "session", return_value=session):
+                await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
+            proxy.clear()
+            self.assertEqual(list((Path(directory) / "media").glob("*.bin")), [])
 
 
 class GalleryNodeTests(unittest.IsolatedAsyncioTestCase):

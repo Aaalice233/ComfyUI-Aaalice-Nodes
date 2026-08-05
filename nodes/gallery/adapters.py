@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
 from typing import Any
 from urllib.parse import urlparse
@@ -27,6 +28,12 @@ def _is_upstream_query_timeout(status: int, body: str) -> bool:
     # Danbooru cancels oversized result sets (e.g. order:score over millions of
     # posts) with ActiveRecord::QueryCanceled; retrying cannot help.
     return status >= 400 and ("QueryCanceled" in body or "timed out running your query" in body)
+
+
+def _is_rate_limited(status: int, body: str) -> bool:
+    # booru sites answer intermittent 404s and XML "API limited due to abuse"
+    # bodies while throttling; both are worth a bounded retry.
+    return status == 404 or "API limited due to abuse" in body
 
 
 @dataclass(frozen=True)
@@ -137,6 +144,11 @@ class BooruAdapter:
                         text = await response.text()
                         if _is_upstream_query_timeout(response.status, text):
                             raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
+                        if _is_rate_limited(response.status, text):
+                            if attempt < 2:
+                                await asyncio.sleep(min(3.0, float(response.headers.get("Retry-After", 1.0))))
+                                continue
+                            raise RuntimeError(f"{self.source} is rate-limiting requests; try again shortly")
                         if response.status == 429 or response.status >= 500:
                             if attempt < 2:
                                 delay = min(5.0, float(response.headers.get("Retry-After", attempt + 1)))
@@ -475,8 +487,75 @@ class SafebooruAdapter(GelbooruAdapter):
     media_hosts = frozenset({"safebooru.org", "images.safebooru.org"})
     base = "https://safebooru.org/index.php"
 
+    def __init__(self) -> None:
+        super().__init__()
+        # safebooru's tag dapi only matches one exact name per request and rate-limits
+        # concurrent lookups with fake 404s; concurrency 3 measured all-green at 59 tags.
+        self._tag_semaphore = asyncio.Semaphore(3)
+
     def auth_params(self, credentials):
         return {}
+
+    async def _get_tag_type(self, session, name):
+        # safebooru answers XML here; json=1 and the plural names= parameter
+        # are both ignored for the tag endpoint.
+        async with self._tag_semaphore:
+            for attempt in range(3):
+                try:
+                    async with session.get(self.base, params={"page": "dapi", "s": "tag", "q": "index",
+                                                              "name": name, "limit": 1},
+                                           headers={"Accept": "application/xml"}, allow_redirects=True) as response:
+                        if _is_upstream_query_timeout(response.status, await response.text()):
+                            raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
+                        if response.status == 404 and attempt < 2:
+                            # safebooru answers 404 while rate-limiting the tag endpoint;
+                            # a short pause usually clears it.
+                            await asyncio.sleep(0.4 * (attempt + 1))
+                            continue
+                        if response.status >= 400:
+                            raise RuntimeError(f"{self.source} GET {response.url} HTTP {response.status}")
+                        text = await response.text()
+                        try:
+                            root = ET.fromstring(text)
+                        except ET.ParseError as exc:
+                            raise RuntimeError(f"{self.source} GET {response.url} returned invalid tag XML") from exc
+                        for tag in root:
+                            if str(tag.get("name", "")) == name:
+                                return {"name": name, "type": _int(tag.get("type"))}
+                        return None
+                except (aiohttp.ClientError, TimeoutError) as exc:
+                    if attempt >= 2:
+                        raise RuntimeError(f"{self.source} GET {self.base} failed after {attempt + 1} attempts: {exc}") from exc
+                    await asyncio.sleep(attempt + 1)
+        raise AssertionError("unreachable")
+
+    async def classify_tags(self, session, tags, credentials):
+        result = {category: [] for category in TAG_CATEGORIES}
+        category_map = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
+        found = await asyncio.gather(*(self._get_tag_type(session, tag) for tag in tags), return_exceptions=True)
+        known = {}
+        for tag, item in zip(tags, found):
+            if isinstance(item, Exception):
+                # Failed lookups degrade to General; the detail stays usable and the
+                # original error stays visible in the server log for diagnosis.
+                print(f"[Aaalice] safebooru tag classification failed for {tag!r}: {item}", flush=True)
+                continue
+            if item:
+                known[item["name"]] = category_map.get(item["type"], "general")
+        for tag in tags:
+            result[known.get(tag, "general")].append(tag)
+        return {key: tuple(value) for key, value in result.items()}
+
+    async def known_tags(self, session, names, credentials):
+        found = await asyncio.gather(*(self._get_tag_type(session, name) for name in names), return_exceptions=True)
+        known = set()
+        for name, item in zip(names, found):
+            if isinstance(item, Exception):
+                print(f"[Aaalice] safebooru tag lookup failed for {name!r}: {item}", flush=True)
+                continue
+            if item:
+                known.add(item["name"].casefold())
+        return frozenset(known)
 
     def _summary(self, post):
         post_id = str(post.get("id", ""))

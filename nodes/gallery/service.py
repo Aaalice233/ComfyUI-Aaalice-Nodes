@@ -12,19 +12,16 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Generic, TypeVar
-from urllib.parse import urljoin
 
-import aiohttp
 import numpy as np
 import torch
 from PIL import Image, ImageOps
 
 from .adapters import ADAPTERS, GalleryPage, GalleryPostDetail, adapter_for, rating_matches
+from .media import MediaProxy
 from .settings import get_gallery_settings_store
 
 T = TypeVar("T")
-STATIC_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-MAX_MEDIA_BYTES = 256 * 1024 * 1024
 
 
 class TTLCache(Generic[T]):
@@ -105,7 +102,7 @@ class GalleryService:
         self.search_cache: TTLCache[Any] = TTLCache(64, 300)
         self.detail_cache: TTLCache[GalleryPostDetail] = TTLCache(512, 86400)
         self.tag_cache = TagCategoryCache(cache_dir / "tag_categories.sqlite3")
-        self._proxy_semaphores: dict[str, asyncio.Semaphore] = {}
+        self._media = MediaProxy(cache_dir)
         self._execution_semaphore = asyncio.Semaphore(3)
 
     def sources(self) -> list[dict[str, Any]]:
@@ -116,10 +113,6 @@ class GalleryService:
 
     def _blacklist(self) -> tuple[str, ...]:
         return tuple(get_gallery_settings_store().load()["blacklist"])
-
-    def _session(self) -> aiohttp.ClientSession:
-        timeout = aiohttp.ClientTimeout(total=get_gallery_settings_store().load()["timeout"])
-        return aiohttp.ClientSession(timeout=timeout, trust_env=True)
 
     async def search(self, source: str, query: str, ratings: list[str], sort: str,
                      cursor: str | None, limit: int, page: int | None = None) -> dict[str, Any]:
@@ -134,13 +127,13 @@ class GalleryService:
         limit = min(max(1, int(limit)), adapter.capabilities.max_page_size)
         blacklist = self._blacklist()
         credentials = self._credentials(source)
-        async with self._session() as session:
-            normalized = await adapter.normalize_tag_query(session, query, credentials)
-            key = repr((source, normalized, tuple(ratings), sort, cursor, limit, blacklist))
-            cached = self.search_cache.get(key)
-            if cached is not None:
-                return cached.json()
-            page = await adapter.search(session, normalized, ratings, sort, cursor, limit, credentials, blacklist)
+        session = self._media.session()
+        normalized = await adapter.normalize_tag_query(session, query, credentials)
+        key = repr((source, normalized, tuple(ratings), sort, cursor, limit, blacklist))
+        cached = self.search_cache.get(key)
+        if cached is not None:
+            return cached.json()
+        page = await adapter.search(session, normalized, ratings, sort, cursor, limit, credentials, blacklist)
         self.search_cache.put(key, page)
         return page.json()
 
@@ -162,8 +155,8 @@ class GalleryService:
         cached = self.search_cache.get(key)
         if cached is not None:
             return cached.json()
-        async with self._session() as session:
-            result = await adapter.ranking(session, period, cursor, limit, self._credentials(source), blacklist)
+        session = self._media.session()
+        result = await adapter.ranking(session, period, cursor, limit, self._credentials(source), blacklist)
         if ratings:
             result = GalleryPage(tuple(post for post in result.posts if rating_matches(source, post.rating, ratings)),
                                  result.next_cursor, result.ended, result.warnings, result.page)
@@ -176,28 +169,28 @@ class GalleryService:
         if cached is not None:
             return cached.json()
         adapter = adapter_for(source)
-        async with self._session() as session:
-            detail = await adapter.get_post(session, post_id, self._credentials(source))
-            if not detail.complete:
-                raw_tags = [tag for values in detail.tags.values() for tag in values]
-                cached = await asyncio.to_thread(self.tag_cache.get_many, source, raw_tags)
-                missing = [tag for tag in raw_tags if tag not in cached]
-                classified = await adapter.classify_tags(session, missing, self._credentials(source)) if missing else {}
-                if classified:
-                    await asyncio.to_thread(self.tag_cache.put_many, source, classified)
-                for category, tags in classified.items():
-                    for tag in tags:
-                        cached[tag] = category
-                grouped = {category: [] for category in ("artist", "copyright", "character", "general", "meta")}
-                for tag in raw_tags:
-                    grouped[cached.get(tag, "general")].append(tag)
-                detail = GalleryPostDetail(
-                    source=detail.source, post_id=detail.post_id, post_url=detail.post_url, preview_url=detail.preview_url,
-                    width=detail.width, height=detail.height, rating=detail.rating, created_at=detail.created_at,
-                    favorite=detail.favorite, media_url=detail.media_url, sample_url=detail.sample_url,
-                    file_ext=detail.file_ext, file_size=detail.file_size,
-                    tags={key: tuple(value) for key, value in grouped.items()}, complete=bool(detail.media_url),
-                )
+        session = self._media.session()
+        detail = await adapter.get_post(session, post_id, self._credentials(source))
+        if not detail.complete:
+            raw_tags = [tag for values in detail.tags.values() for tag in values]
+            cached = await asyncio.to_thread(self.tag_cache.get_many, source, raw_tags)
+            missing = [tag for tag in raw_tags if tag not in cached]
+            classified = await adapter.classify_tags(session, missing, self._credentials(source)) if missing else {}
+            if classified:
+                await asyncio.to_thread(self.tag_cache.put_many, source, classified)
+            for category, tags in classified.items():
+                for tag in tags:
+                    cached[tag] = category
+            grouped = {category: [] for category in ("artist", "copyright", "character", "general", "meta")}
+            for tag in raw_tags:
+                grouped[cached.get(tag, "general")].append(tag)
+            detail = GalleryPostDetail(
+                source=detail.source, post_id=detail.post_id, post_url=detail.post_url, preview_url=detail.preview_url,
+                width=detail.width, height=detail.height, rating=detail.rating, created_at=detail.created_at,
+                favorite=detail.favorite, media_url=detail.media_url, sample_url=detail.sample_url,
+                file_ext=detail.file_ext, file_size=detail.file_size,
+                tags={key: tuple(value) for key, value in grouped.items()}, complete=bool(detail.media_url),
+            )
         if detail.media_url:
             adapter.validate_media_url(detail.media_url)
         if detail.sample_url:
@@ -211,8 +204,8 @@ class GalleryService:
         for key, value in (temporary or {}).items():
             if value:
                 credentials[key] = value
-        async with self._session() as session:
-            return await adapter.test_credentials(session, credentials)
+        session = self._media.session()
+        return await adapter.test_credentials(session, credentials)
 
     async def favorites(self, source: str, cursor: str | None, limit: int, page: int | None = None) -> dict[str, Any]:
         adapter = adapter_for(source)
@@ -226,15 +219,15 @@ class GalleryService:
         cached = self.search_cache.get(key)
         if cached is not None:
             return cached.json()
-        async with self._session() as session:
-            result = await adapter.list_favorites(session, cursor, limit, self._credentials(source), blacklist)
+        session = self._media.session()
+        result = await adapter.list_favorites(session, cursor, limit, self._credentials(source), blacklist)
         self.search_cache.put(key, result)
         return result.json()
 
     async def set_favorite(self, source: str, post_id: str, favorite: bool) -> dict[str, Any]:
         adapter = adapter_for(source)
-        async with self._session() as session:
-            state = await adapter.set_favorite(session, post_id, favorite, self._credentials(source))
+        session = self._media.session()
+        state = await adapter.set_favorite(session, post_id, favorite, self._credentials(source))
         cached = self.detail_cache.get(f"{source}:{post_id}")
         if cached is not None:
             self.detail_cache._items.pop(f"{source}:{post_id}", None)
@@ -242,39 +235,7 @@ class GalleryService:
 
     async def fetch_media(self, source: str, url: str) -> tuple[bytes, str, str]:
         adapter = adapter_for(source)
-        adapter.validate_media_url(url)
-        current = url
-        host = ""
-        for _redirect in range(6):
-            adapter.validate_media_url(current)
-            host = aiohttp.client_reqrep.URL(current).host or ""
-            semaphore = self._proxy_semaphores.setdefault(host, asyncio.Semaphore(6))
-            async with semaphore, self._session() as session, session.get(current, allow_redirects=False, headers={"Accept": "image/*"}) as response:
-                if response.status in {301, 302, 303, 307, 308}:
-                    location = response.headers.get("Location")
-                    if not location:
-                        raise RuntimeError(f"{source} media redirect has no Location header")
-                    current = urljoin(current, location)
-                    continue
-                if response.status >= 400:
-                    raise RuntimeError(f"{source} media GET {current} HTTP {response.status}")
-                content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
-                if content_type not in STATIC_CONTENT_TYPES:
-                    raise ValueError(f"{source} media returned unsupported Content-Type: {content_type or 'missing'}")
-                declared = int(response.headers.get("Content-Length", "0") or 0)
-                if declared > MAX_MEDIA_BYTES:
-                    raise ValueError(f"{source} media exceeds {MAX_MEDIA_BYTES} bytes")
-                chunks: list[bytes] = []
-                size = 0
-                async for chunk in response.content.iter_chunked(1024 * 1024):
-                    size += len(chunk)
-                    if size > MAX_MEDIA_BYTES:
-                        raise ValueError(f"{source} media exceeds {MAX_MEDIA_BYTES} bytes")
-                    chunks.append(chunk)
-                return b"".join(chunks), content_type, current
-        raise ValueError(f"{source} media redirected too many times")
-
-    def _cache_path(self, source: str, post_id: str, url: str) -> Path:
+        return await self._media.fetch_media(source, url, adapter.validate_media_url)
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
         safe_id = "".join(character for character in post_id if character.isalnum() or character in "-_") or "post"
         return self.cache_dir / "originals" / source / f"{safe_id}-{digest}.bin"
@@ -290,31 +251,21 @@ class GalleryService:
             temporary = path.with_suffix(path.suffix + f".{os.getpid()}.tmp")
             await asyncio.to_thread(temporary.write_bytes, data)
             os.replace(temporary, path)
-            await asyncio.to_thread(self.prune_originals)
+            await asyncio.to_thread(self._media.prune)
             return data
-
-    def prune_originals(self) -> None:
-        root = self.cache_dir / "originals"
-        if not root.exists():
-            return
-        budget = get_gallery_settings_store().load()["cacheBudgetMiB"] * 1024 * 1024
-        files = sorted((item for item in root.rglob("*.bin") if item.is_file()), key=lambda item: item.stat().st_atime)
-        total = sum(item.stat().st_size for item in files)
-        for item in files:
-            if total <= budget:
-                break
-            size = item.stat().st_size
-            item.unlink(missing_ok=True)
-            total -= size
 
     def clear_caches(self) -> None:
         self.search_cache.clear()
         self.detail_cache.clear()
         self.tag_cache.clear()
+        self._media.clear()
         root = self.cache_dir / "originals"
         if root.exists():
             for item in root.rglob("*.bin"):
                 item.unlink(missing_ok=True)
+
+    async def close(self) -> None:
+        await self._media.close()
 
     @staticmethod
     def decode_image(data: bytes) -> torch.Tensor:
