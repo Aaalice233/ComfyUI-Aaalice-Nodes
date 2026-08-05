@@ -247,24 +247,22 @@ return function buildController(node, elements) {
 			const task = previewPrefetchQueue.shift();
 			if (task.generation !== previewGeneration) { previewPrefetchPending.delete(task.key); continue; }
 			previewPrefetchActive += 1;
-			void getDetail(task.post).then((detail) => {
-				if (destroyed || task.generation !== previewGeneration) return;
-				const sampleUrl = detail.sampleUrl || detail.previewUrl;
-				if (!sampleUrl) return;
-				const sampleSrc = proxyUrl(detail.source, sampleUrl); prefetchedPreviewSources.set(task.key, sampleSrc);
-				return cacheImage(sampleSrc)?.promise;
-			}).catch(() => {
-				if (task.generation === previewGeneration) prefetchedPreviewSources.delete(task.key);
-			}).finally(() => {
-				previewPrefetchActive -= 1; previewPrefetchPending.delete(task.key); drainPreviewPrefetch();
-			});
+			// Sample 地址已随搜索结果返回：直接下载大图，不再先等 Detail。
+			cacheImage(task.sampleSrc)?.promise
+				.catch(() => { if (task.generation === previewGeneration) prefetchedPreviewSources.delete(task.key); })
+				.finally(() => { previewPrefetchActive -= 1; previewPrefetchPending.delete(task.key); drainPreviewPrefetch(); });
 		}
 	};
 	const prefetchVisible = (visiblePosts) => {
 		for (const post of visiblePosts.slice(0, 12)) {
-			const key = `${post.source}:${post.postId}`; const prefetchedSrc = prefetchedPreviewSources.get(key);
-			if (previewPrefetchPending.has(key) || (prefetchedSrc && previewCache.has(prefetchedSrc))) continue;
-			previewPrefetchPending.add(key); previewPrefetchQueue.push({ key, post, generation: previewGeneration });
+			const key = `${post.source}:${post.postId}`;
+			// 只预取真正的 Sample / Large Preview；AI TAG 的预览即原图，不批量下载。
+			const sampleUrl = post.sampleUrl && post.sampleUrl !== post.previewUrl ? post.sampleUrl : null;
+			if (!sampleUrl?.startsWith("https://")) continue;
+			const sampleSrc = proxyUrl(post.source, sampleUrl);
+			if (previewPrefetchPending.has(key) || prefetchedPreviewSources.get(key) === sampleSrc || previewCache.has(sampleSrc)) continue;
+			previewPrefetchPending.add(key); prefetchedPreviewSources.set(key, sampleSrc);
+			previewPrefetchQueue.push({ key, sampleSrc, generation: previewGeneration });
 		}
 		drainPreviewPrefetch();
 	};
@@ -363,6 +361,18 @@ return function buildController(node, elements) {
 		image.addEventListener("load", () => { if (!usingPreview) waitingForLargerPreview = false; loading.hidden = !waitingForLargerPreview; tooltip.reposition(); });
 		image.addEventListener("error", () => { waitingForLargerPreview = false; loading.hidden = true; if (!usingPreview) { usingPreview = true; image.src = previewSrc; } });
 		tooltip.show(anchor, content, { className: "aa-gallery-hover-tooltip", immediate: true, interactive: false, placement: "side" });
+		let sampleRequested = null;
+		const upgradeSample = (sampleSrc) => {
+			if (sampleRequested === sampleSrc) return;
+			sampleRequested = sampleSrc;
+			const cachedImage = cacheImage(sampleSrc);
+			const apply = () => { if (!content.isConnected || !tooltip.isOpenFor(anchor) || sampleRequested !== sampleSrc) return; usingPreview = false; waitingForLargerPreview = false; loading.hidden = true; image.src = sampleSrc; tooltip.reposition(); };
+			if (cachedImage?.ready) apply();
+			else { loading.hidden = false; void cachedImage?.promise.then(apply).catch(() => { if (sampleRequested === sampleSrc) { waitingForLargerPreview = false; loading.hidden = true; } }); }
+		};
+		// Sample 地址随搜索结果返回：不等 Detail 直接升级大图。
+		const searchSample = post.sampleUrl && post.sampleUrl !== post.previewUrl ? post.sampleUrl : null;
+		if (searchSample) upgradeSample(proxyUrl(post.source, searchSample));
 		void getDetail(post).then((detail) => {
 			if (!content.isConnected || !tooltip.isOpenFor(anchor)) return;
 			resolution.textContent = dimensions(detail); format.textContent = detail.fileExt?.toUpperCase() || "—";
@@ -374,14 +384,9 @@ return function buildController(node, elements) {
 				row.hidden = !values.length;
 				row.querySelector("p").textContent = values.slice(0, 2).join(" · ");
 			}
-			const sampleUrl = detail.sampleUrl || detail.previewUrl;
-			if (sampleUrl && sampleUrl !== post.previewUrl) {
-				const sampleSrc = proxyUrl(detail.source, sampleUrl); const cachedImage = cacheImage(sampleSrc);
-				const showSample = () => { if (!content.isConnected || !tooltip.isOpenFor(anchor)) return; usingPreview = false; waitingForLargerPreview = false; loading.hidden = true; image.src = sampleSrc; tooltip.reposition(); };
-				if (cachedImage?.ready) showSample();
-				else { loading.hidden = false; void cachedImage?.promise.then(showSample).catch(() => { waitingForLargerPreview = false; loading.hidden = true; }); }
-			}
-			else { waitingForLargerPreview = false; loading.hidden = true; }
+			const detailSample = detail.sampleUrl && detail.sampleUrl !== post.previewUrl ? detail.sampleUrl : null;
+			if (detailSample && detailSample !== post.sampleUrl) upgradeSample(proxyUrl(detail.source, detailSample));
+			if (!detailSample && !searchSample) { waitingForLargerPreview = false; loading.hidden = true; }
 			tooltip.reposition();
 		}).catch(() => { waitingForLargerPreview = false; loading.hidden = true; });
 	};
