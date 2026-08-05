@@ -198,7 +198,7 @@ test("shared dialogs mount immediately without obsolete open calls", () => {
 test("node context-menu add is independent from layout edit mode", () => {
 	assert.match(workspace, /function patchNodeMenu/);
 	assert.match(workspace, /📌 Add controls to sidebar/);
-	assert.match(workspace, /const defaultPageId = page\?\.id \|\| model\.pages\[0\]\?\.id \|\| ""/);
+	assert.match(workspace, /const fallbackPageId = page\?\.id \|\| model\.pages\[0\]\?\.id \|\| ""[\s\S]*preferredDashboardPage\(model\.pages, dashboardPageMatchLabels\(node\), fallbackPageId\)/);
 	const menuBody = workspace.match(/function patchNodeMenu[\s\S]*?\n}/)?.[0] || "";
 	assert.doesNotMatch(menuBody, /editMode/);
 	assert.match(menuBody, /installNodeControlMenu/);

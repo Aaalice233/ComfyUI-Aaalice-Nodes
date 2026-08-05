@@ -4,6 +4,7 @@ import { controlProviders, repairDuplicateHostIds } from "../lib/control_provide
 import { installNodeControlMenu } from "../lib/node_control_menu.js";
 import { bindingKey, controlItemBindings, createPage, linkedBindingCount, normalizeDashboard } from "../lib/dashboard_model.js";
 import { createControlBindingMatcher, sameBindingTarget } from "../lib/dashboard_binding_identity.js";
+import { dashboardPageMatchLabels, preferredDashboardPage } from "../lib/dashboard_page_matching.js";
 import { addItems, addLinkedBinding, assignToGroup, detachBinding, moveItems, removeItems, replacePrimaryBinding, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
 import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet, synchronizeLinkedBindingSets } from "../lib/control_binding_set.js";
 import { installLinkedSeedQueueHook as installLinkedSeedQueueLifecycle } from "../lib/linked_seed_queue.js";
@@ -18,7 +19,6 @@ import { allGraphNodes } from "../lib/graph_scope.js";
 import { boundNodeControlEntries, configureDashboardUnbinding, openUnbindControls } from "./dashboard_unbinding.js";
 import { createDashboardToneControl } from "./dashboard_tone_control.js";
 import { normalizeDashboardTone } from "../lib/dashboard_color_system.js";
-
 let runtime = null;
 export function configureDashboardBindings(dependencies) {
 	runtime = dependencies;
@@ -464,7 +464,7 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 
 function openAddControls(node, ownerElement = null) {
 	const controls = controlProviders.list(node); if (!controls.length) return;
-	let model = dashboard(); let page = currentPage(model); const defaultPageId = page?.id || model.pages[0]?.id || ""; let selected = new Set();
+	let model = dashboard(); let page = currentPage(model); const fallbackPageId = page?.id || model.pages[0]?.id || ""; const defaultPageId = preferredDashboardPage(model.pages, dashboardPageMatchLabels(node), fallbackPageId)?.id || fallbackPageId; let selected = new Set();
 	const body = el("div", "aa-add-controls-dialog"); const list = el("div", "aa-add-controls-list");
 	const pageSelect = selectControl({ value: defaultPageId, ariaLabel: t("aaalice.workspace.target.page", "Page"), onChange: () => rebuildTargets() });
 	const targetGrid = el("div", "aa-add-controls-target-grid");
