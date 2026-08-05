@@ -1,6 +1,6 @@
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
-import { normalizeDashboard } from "../lib/dashboard_model.js";
+import { emptyDashboard, normalizeDashboard } from "../lib/dashboard_model.js";
 import { availableDashboardPresetName, compareDashboardPreset, createDashboardPreset, dashboardPresetFileName, dashboardPresetNameFromFile, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../lib/dashboard_preset_runtime.js";
 import { badge, button, createDialog, el, field, icon, segmentedControl, selectControl } from "../lib/ui.js";
@@ -150,10 +150,56 @@ export async function renameCurrentDashboardPreset(presetId) {
 }
 
 export async function deleteCurrentDashboardPreset(presetId) {
-	const preset = dashboardPresetState().presets.find((item) => item.id === presetId); if (!preset) return;
-	const message = t("aaalice.workspace.dashboardPreset.deleteConfirm", "Delete sidebar preset “{name}”? The current sidebar will not change.").replace("{name}", preset.name);
+	const state = dashboardPresetState();
+	const preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
+	const nextState = removeDashboardPreset(state, presetId);
+	const nextPreset = nextState.presets.find((item) => item.id === nextState.baselinePresetId) || null;
+	const messageKey = state.baselinePresetId === presetId
+		? nextPreset
+			? "aaalice.workspace.dashboardPreset.deleteSwitchConfirm"
+			: "aaalice.workspace.dashboardPreset.deleteLastConfirm"
+		: "aaalice.workspace.dashboardPreset.deleteConfirm";
+	const fallback = nextPreset ? `“${nextPreset.name}”` : "";
+	const message = t(messageKey, nextPreset
+		? "Delete sidebar preset “{name}”? The sidebar will switch to “{fallback}”."
+		: "Delete sidebar preset “{name}”? The sidebar will be cleared because no presets remain.")
+		.replace("{name}", preset.name)
+		.replace("{fallback}", fallback);
 	if (!await confirmAction(message, { title: dashboardPresetLabels().delete, confirmLabel: dashboardPresetLabels().delete, danger: true })) return;
-	commitDashboardPresetChange((current) => removeDashboardPreset(current, presetId));
+	if (state.baselinePresetId !== presetId) {
+		commitDashboardPresetChange((current) => removeDashboardPreset(current, presetId));
+		return;
+	}
+	await commitDeletedActiveDashboardPreset(nextState, nextPreset);
+}
+
+async function commitDeletedActiveDashboardPreset(nextState, nextPreset) {
+	let plan = null;
+	if (nextPreset) {
+		plan = planDashboardPresetApplication(nextPreset, (binding) => resolve(binding));
+		if (plan.issues.length && !await confirmPartialDashboardPreset(plan, nextPreset)) return;
+	}
+	const graph = app.graph;
+	graph?.beforeChange?.();
+	try {
+		graph.extra ||= {};
+		if (plan) {
+			applyDashboardSnapshotPlan(plan, { readDashboard: () => dashboard(), writeDashboard: (next) => { graph.extra[runtime.dashboardExtraKey] = normalizeDashboard(next); } });
+			runtime.setActivePageId(nextPreset.dashboard.pages.some((page) => page.id === runtime.getActivePageId()) ? runtime.getActivePageId() : nextPreset.dashboard.pages[0]?.id || null);
+		} else {
+			graph.extra[runtime.dashboardExtraKey] = normalizeDashboard(emptyDashboard());
+			runtime.setActivePageId(null);
+		}
+		graph.extra[runtime.presetsExtraKey] = nextState;
+	} catch (error) {
+		notifyDashboardPresetError(error);
+		return;
+	} finally {
+		graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender("dashboard");
+	}
+	remindWorkflowSave(nextPreset
+		? t("aaalice.workspace.dashboardPreset.deletedAndSwitched", "Sidebar preset deleted and switched to another preset. Save the workflow to keep the change.")
+		: t("aaalice.workspace.dashboardPreset.deletedAndCleared", "The last sidebar preset was deleted and the sidebar was cleared. Save the workflow to keep the change."));
 }
 
 function confirmDashboardPresetSwitch(activePreset = null) {

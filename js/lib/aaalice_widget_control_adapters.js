@@ -221,7 +221,7 @@ registerWidgetControlAdapter({
 			valueType: "lora-list",
 			getValue: () => loraListValue(widget),
 			value: loraListValue(widget),
-			options: { itemFields: ["name", "strength", "clipStrength", "active"], previewResolver: resolveLoraPreview },
+			options: { itemFields: ["name", "strength", "clipStrength", "active", "expanded"], previewResolver: resolveLoraPreview },
 			columnSpan: 12,
 			rowSpan: LORA_LIST_ROW_SPAN,
 			minRowSpan: LORA_LIST_MIN_ROW_SPAN,

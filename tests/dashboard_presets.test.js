@@ -51,8 +51,25 @@ test("preset management preserves identity and does not apply duplicates", () =>
 	state.presets[0].values[KEY].payload = 99;
 	assert.equal(state.presets[1].values[KEY].payload, 32);
 	state = removeDashboardPreset(state, originalId);
-	assert.equal(state.baselinePresetId, null);
+	assert.equal(state.baselinePresetId, state.presets[0].id);
 	assert.deepEqual(state.presets.map((preset) => preset.name), ["Portrait XL copy"]);
+});
+
+test("deleting the active preset selects the next preset, then the previous one at the end", () => {
+	let state = emptyDashboardPresetState();
+	state = createDashboardPreset(state, "One", snapshot());
+	const firstId = state.presets[0].id;
+	state = createDashboardPreset(state, "Two", snapshot(21));
+	const secondId = state.presets[1].id;
+	state = createDashboardPreset(state, "Three", snapshot(22));
+	const thirdId = state.presets[2].id;
+	state = setDashboardPresetBaseline(state, secondId);
+	state = removeDashboardPreset(state, secondId);
+	assert.equal(state.baselinePresetId, thirdId);
+	state = removeDashboardPreset(state, thirdId);
+	assert.equal(state.baselinePresetId, firstId);
+	state = removeDashboardPreset(state, firstId);
+	assert.equal(state.baselinePresetId, null);
 });
 
 test("preset state migrates embedded Dashboard V2 snapshots to V4", () => {

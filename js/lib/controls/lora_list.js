@@ -1,7 +1,9 @@
 /** Dashboard renderer for the stateful LoRA list exposed by LoraManager. */
 
 import { bindAsyncImagePreview } from "../image_preview.js";
-import { el, icon, toggleSwitch } from "../ui.js";
+import { copyLoraNotes, copyLoraTriggerWords, openLoraCivitai, openLoraManager, saveLoraRecipe } from "../lora_actions.js";
+import { createContextMenu } from "../ui.js";
+import { el, icon, iconButton, toggleSwitch } from "../ui.js";
 import { ensureI18nReady, t } from "../../i18n.js";
 import { controlView } from "./contract.js";
 
@@ -29,6 +31,16 @@ function hasDifferentClipStrength(entry) {
 	return Number.isFinite(strength) && Number.isFinite(clipStrength) && Math.abs(strength - clipStrength) > 0.001;
 }
 
+function isEntryExpanded(entry) {
+	return Object.prototype.hasOwnProperty.call(entry || {}, "expanded") ? Boolean(entry.expanded) : hasDifferentClipStrength(entry);
+}
+
+function normalizedStrength(value, fallback = 1) {
+	const numeric = Number(value);
+	if (!Number.isFinite(numeric)) return fallback;
+	return Math.max(-10, Math.min(10, Math.round(numeric * 100) / 100));
+}
+
 function localized(key, fallback) {
 	return t(`aaalice.loraList.${key}`, fallback);
 }
@@ -41,6 +53,7 @@ export function renderLoraListControl(spec, port) {
 	let current = cloneList(spec.value);
 	let rowKeys = [];
 	let rows = new Map();
+	let draggedName = "";
 	const labels = {};
 	const root = el("div", {
 		className: "aa-control aa-control-lora-list",
@@ -51,11 +64,7 @@ export function renderLoraListControl(spec, port) {
 	const title = el("strong", "aa-control-lora-list__title");
 	const summary = el("span", "aa-control-lora-list__summary");
 	const allCopy = el("span", "aa-control-lora-list__all-copy");
-	const allToggle = toggleSwitch({ checked: false, label: "", disabled: true, className: "aa-control-lora-list__all-toggle", onChange: (next) => {
-			const nextValue = current.map((entry) => ({ ...cloneEntry(entry), active: next }));
-			renderList(nextValue);
-			port.commit(nextValue);
-		} });
+	const allToggle = toggleSwitch({ checked: false, label: "", disabled: true, className: "aa-control-lora-list__all-toggle", onChange: (next) => setAllActive(next) });
 	const allControl = el("div", { className: "aa-control-lora-list__all", children: [allCopy, allToggle] });
 	const list = el("div", { className: "aa-control-lora-list__items", attrs: { role: "list" } });
 	heading.append(title, summary);
@@ -75,6 +84,25 @@ export function renderLoraListControl(spec, port) {
 		labels.empty = localized("empty", "No LoRAs in this list.");
 		labels.previewLoading = localized("previewLoading", "Loading preview…");
 		labels.previewUnavailable = localized("previewUnavailable", "Preview unavailable");
+		labels.menu = localized("menu", "LoRA actions");
+		labels.add = localized("add", "Add LoRA");
+		labels.viewOnCivitai = localized("viewOnCivitai", "View on Civitai");
+		labels.delete = localized("delete", "Delete");
+		labels.moveUp = localized("moveUp", "Move up");
+		labels.moveDown = localized("moveDown", "Move down");
+		labels.moveTop = localized("moveTop", "Move to top");
+		labels.moveBottom = localized("moveBottom", "Move to bottom");
+		labels.copyNotes = localized("copyNotes", "Copy notes");
+		labels.copyTriggerWords = localized("copyTriggerWords", "Copy trigger words");
+		labels.saveRecipe = localized("saveRecipe", "Save recipe");
+		labels.reorder = localized("reorder", "Reorder {name}");
+		labels.openActions = localized("openActions", "Open actions for {name}");
+		labels.expand = localized("expand", "Show separate CLIP strength for {name}");
+		labels.collapse = localized("collapse", "Use model strength for CLIP in {name}");
+		labels.decrease = localized("decrease", "Decrease {kind} strength for {name}");
+		labels.increase = localized("increase", "Increase {kind} strength for {name}");
+		labels.modelStrength = localized("modelStrength", "Model strength for {name}");
+		labels.clipStrength = localized("clipStrength", "CLIP strength for {name}");
 		title.textContent = labels.title;
 		root.setAttribute("aria-label", labels.title);
 		list.setAttribute("aria-label", labels.title);
@@ -94,20 +122,125 @@ export function renderLoraListControl(spec, port) {
 		allToggle.setLabel(allCopy.textContent);
 	}
 
+	function commitList(nextValue) {
+		renderList(nextValue);
+		port.commit(nextValue);
+	}
+
+	function setAllActive(active) {
+		const nextValue = current.map((entry) => ({ ...cloneEntry(entry), active }));
+		commitList(nextValue);
+	}
+
 	function commitEntry(name, active) {
 		const nextValue = current.map((entry, index) => entryName(entry, index) === name
 			? { ...cloneEntry(entry), active }
 			: cloneEntry(entry));
-		renderList(nextValue);
-		port.commit(nextValue);
+		commitList(nextValue);
 	}
+
+	function deleteEntry(name) {
+		commitList(current.filter((entry, index) => entryName(entry, index) !== name));
+	}
+
+	function updateEntry(name, updater) {
+		const index = current.findIndex((entry, entryIndex) => entryName(entry, entryIndex) === name);
+		if (index < 0) return;
+		const nextValue = current.map(cloneEntry);
+		updater(nextValue[index]);
+		commitList(nextValue);
+	}
+
+	function setEntryExpanded(name, expanded) {
+		updateEntry(name, (entry) => {
+			entry.expanded = Boolean(expanded);
+			if (!expanded) entry.clipStrength = normalizedStrength(entry.strength);
+		});
+	}
+
+	function commitStrength(name, key, rawValue) {
+		const numeric = Number(rawValue);
+		if (!Number.isFinite(numeric)) return;
+		updateEntry(name, (entry) => {
+			entry[key] = normalizedStrength(numeric);
+			if (key === "strength" && !isEntryExpanded(entry)) entry.clipStrength = entry.strength;
+		});
+	}
+
+	function nudgeStrength(name, key, delta) {
+		const entry = current.find((item, index) => entryName(item, index) === name);
+		if (!entry) return;
+		const base = normalizedStrength(entry[key], normalizedStrength(entry.strength));
+		commitStrength(name, key, base + delta);
+	}
+
+	function reorderEntry(name, targetIndex) {
+		const sourceIndex = current.findIndex((entry, index) => entryName(entry, index) === name);
+		if (sourceIndex < 0) return;
+		const boundedTarget = Math.max(0, Math.min(current.length - 1, targetIndex));
+		if (sourceIndex === boundedTarget) return;
+		const nextValue = current.map(cloneEntry);
+		const [entry] = nextValue.splice(sourceIndex, 1);
+		nextValue.splice(boundedTarget, 0, entry);
+		commitList(nextValue);
+	}
+
+	function clearDragState() {
+		draggedName = "";
+		list.querySelectorAll(".is-drag-over").forEach((row) => row.classList.remove("is-drag-over"));
+	}
+
+	function openActions(name, x, y, ownerElement) {
+		const index = current.findIndex((entry, entryIndex) => entryName(entry, entryIndex) === name);
+		if (index < 0) return;
+		createContextMenu({
+			x, y, ownerElement, ariaLabel: `${name} · ${labels.menu || "LoRA actions"}`,
+			items: [
+				{ label: labels.add, iconName: "add", onSelect: openLoraManager },
+				{ separator: true },
+				{ label: labels.viewOnCivitai, iconName: "globe", onSelect: () => openLoraCivitai(name) },
+				{ label: labels.delete, iconName: "delete", danger: true, onSelect: () => deleteEntry(name) },
+				{ separator: true },
+				{ label: labels.moveUp, iconName: "moveUp", disabled: index === 0, onSelect: () => reorderEntry(name, index - 1) },
+				{ label: labels.moveDown, iconName: "moveDown", disabled: index === current.length - 1, onSelect: () => reorderEntry(name, index + 1) },
+				{ label: labels.moveTop, iconName: "moveToTop", disabled: index === 0, onSelect: () => reorderEntry(name, 0) },
+				{ label: labels.moveBottom, iconName: "moveToBottom", disabled: index === current.length - 1, onSelect: () => reorderEntry(name, current.length - 1) },
+				{ separator: true },
+				{ label: labels.copyNotes, iconName: "fileText", onSelect: () => copyLoraNotes(name) },
+				{ label: labels.copyTriggerWords, iconName: "tag", onSelect: () => copyLoraTriggerWords(name) },
+				{ separator: true },
+				{ label: labels.saveRecipe, iconName: "save", onSelect: saveLoraRecipe },
+			],
+		});
+	}
+
+	function openListActions(x, y) {
+		const allActive = current.length > 0 && current.every((entry) => Boolean(entry?.active));
+		createContextMenu({
+			x, y, ownerElement: root, ariaLabel: labels.menu || "LoRA actions",
+			items: [
+				{ label: labels.add, iconName: "add", onSelect: openLoraManager },
+				{ separator: true },
+				{ label: allActive ? labels.disableAll : labels.enableAll, iconName: "statusCheck", disabled: current.length === 0, onSelect: () => setAllActive(!allActive) },
+			],
+		});
+	}
+
+	root.addEventListener("contextmenu", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		const row = event.target.closest?.(".aa-control-lora-list__row");
+		if (row?.dataset.loraName) openActions(row.dataset.loraName, event.clientX, event.clientY, row);
+		else openListActions(event.clientX, event.clientY);
+	});
 
 	function createRow(entry, index) {
 		const name = entryName(entry, index);
 		const row = el("div", { className: "aa-control-lora-list__row", attrs: { role: "listitem", "data-lora-name": name } });
 		const previewResolver = spec.options?.previewResolver;
 		let previewName = name;
-		const copy = el("div", { className: "aa-control-lora-list__copy", attrs: { tabIndex: 0, role: "img" } });
+		const grip = iconButton({ iconName: "drag", label: "", variant: "ghost", className: "aa-control-lora-list__grip" });
+		const copy = el("div", { className: "aa-control-lora-list__copy", attrs: { tabIndex: 0, role: "button" } });
 		const disposePreview = typeof previewResolver === "function" ? bindAsyncImagePreview(copy, () => previewResolver(previewName), {
 			title: () => previewName,
 			loadingHint: () => labels.previewLoading || "Loading preview…",
@@ -116,23 +249,127 @@ export function renderLoraListControl(spec, port) {
 		}) : () => {};
 		const nameElement = el("strong", "aa-control-lora-list__name");
 		const meta = el("div", "aa-control-lora-list__meta");
+		const modelInput = el("input", { className: "aa-control-lora-list__strength-input", attrs: { type: "text", inputMode: "decimal", spellcheck: false } });
+		const modelDecrease = iconButton({ iconName: "subtract", label: "", variant: "ghost", className: "aa-control-lora-list__strength-step" });
+		const modelIncrease = iconButton({ iconName: "add", label: "", variant: "ghost", className: "aa-control-lora-list__strength-step" });
+		const modelStrength = el("div", { className: "aa-control-lora-list__strength", children: [modelDecrease, modelInput, modelIncrease] });
+		const clipName = el("strong", { className: "aa-control-lora-list__clip-name" });
+		const clipInput = el("input", { className: "aa-control-lora-list__strength-input", attrs: { type: "text", inputMode: "decimal", spellcheck: false } });
+		const clipDecrease = iconButton({ iconName: "subtract", label: "", variant: "ghost", className: "aa-control-lora-list__strength-step" });
+		const clipIncrease = iconButton({ iconName: "add", label: "", variant: "ghost", className: "aa-control-lora-list__strength-step" });
+		const clipStrength = el("div", { className: "aa-control-lora-list__strength", children: [clipDecrease, clipInput, clipIncrease] });
+		const clipRow = el("div", { className: "aa-control-lora-list__clip-row", children: [clipName, clipStrength] });
 		const status = el("span", "aa-control-lora-list__status");
+		const expandButton = iconButton({ iconName: "chevronDown", label: "", variant: "ghost", className: "aa-control-lora-list__expand" });
+		const menuButton = iconButton({ iconName: "more", label: "", variant: "ghost", className: "aa-control-lora-list__menu" });
 		const toggle = toggleSwitch({ checked: false, label: "", className: "aa-control-lora-list__toggle", onChange: (next) => commitEntry(name, next) });
+		const actions = el("div", { className: "aa-control-lora-list__actions", children: [expandButton, menuButton, status, toggle] });
 		copy.append(nameElement, meta);
-		row.append(copy, el("div", { className: "aa-control-lora-list__actions", children: [status, toggle] }));
+		row.append(grip, copy, modelStrength, actions, clipRow);
+
+		grip.draggable = true;
+		grip.addEventListener("dragstart", (event) => {
+			draggedName = name;
+			row.classList.add("is-dragging");
+			if (event.dataTransfer) {
+				event.dataTransfer.effectAllowed = "move";
+				event.dataTransfer.setData("text/plain", name);
+			}
+		});
+		grip.addEventListener("dragend", () => { row.classList.remove("is-dragging"); clearDragState(); });
+		grip.addEventListener("keydown", (event) => {
+			const currentIndex = current.findIndex((item, itemIndex) => entryName(item, itemIndex) === name);
+			if (currentIndex < 0 || !["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+			event.preventDefault();
+			const target = event.key === "Home" ? 0 : event.key === "End" ? current.length - 1 : currentIndex + (event.key === "ArrowUp" ? -1 : 1);
+			reorderEntry(name, target);
+			requestAnimationFrame(() => rows.get(name)?.querySelector(".aa-control-lora-list__grip")?.focus());
+		});
+
+		menuButton.addEventListener("click", (event) => {
+			const rect = menuButton.getBoundingClientRect();
+			openActions(name, rect.right, rect.bottom, row);
+			event.stopPropagation();
+		});
+		expandButton.addEventListener("click", (event) => {
+			setEntryExpanded(name, !isEntryExpanded(current.find((item, itemIndex) => entryName(item, itemIndex) === name)));
+			event.stopPropagation();
+		});
+		const bindStrengthInput = (input, key) => {
+			input.addEventListener("change", () => commitStrength(name, key, input.value));
+			input.addEventListener("keydown", (event) => {
+				if (event.key === "Enter") { event.preventDefault(); input.blur(); return; }
+				if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
+				event.preventDefault();
+				nudgeStrength(name, key, event.key === "ArrowUp" ? 0.01 : -0.01);
+			});
+		};
+		bindStrengthInput(modelInput, "strength");
+		bindStrengthInput(clipInput, "clipStrength");
+		modelDecrease.addEventListener("click", (event) => { nudgeStrength(name, "strength", -0.01); event.stopPropagation(); });
+		modelIncrease.addEventListener("click", (event) => { nudgeStrength(name, "strength", 0.01); event.stopPropagation(); });
+		clipDecrease.addEventListener("click", (event) => { nudgeStrength(name, "clipStrength", -0.01); event.stopPropagation(); });
+		clipIncrease.addEventListener("click", (event) => { nudgeStrength(name, "clipStrength", 0.01); event.stopPropagation(); });
+		copy.addEventListener("keydown", (event) => {
+			if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+			event.preventDefault();
+			const rect = copy.getBoundingClientRect();
+			openActions(name, rect.right, rect.bottom, row);
+		});
+
+		row.addEventListener("dragover", (event) => {
+			if (!draggedName || draggedName === name) return;
+			event.preventDefault();
+			if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+			row.classList.add("is-drag-over");
+		});
+		row.addEventListener("dragleave", (event) => {
+			if (!row.contains(event.relatedTarget)) row.classList.remove("is-drag-over");
+		});
+		row.addEventListener("drop", (event) => {
+			if (!draggedName || draggedName === name) return;
+			event.preventDefault();
+			const targetIndex = current.findIndex((item, itemIndex) => entryName(item, itemIndex) === name);
+			const sourceIndex = current.findIndex((item, itemIndex) => entryName(item, itemIndex) === draggedName);
+			const insertAfter = event.clientY > row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2;
+			const adjustedTarget = targetIndex + (insertAfter ? 1 : 0) - (sourceIndex < targetIndex ? 1 : 0);
+			const sourceName = draggedName;
+			clearDragState();
+			reorderEntry(sourceName, adjustedTarget);
+		});
+
 		row._sync = (next, nextIndex) => {
 			const active = Boolean(next?.active);
 			const nextName = entryName(next, nextIndex);
 			const strength = formatStrength(next?.strength);
-			const clip = hasDifferentClipStrength(next) ? ` · ${labels.clip || "CLIP"} ${formatStrength(next?.clipStrength)}` : "";
+			const clipStrengthValue = formatStrength(next?.clipStrength ?? next?.strength);
+			const expanded = isEntryExpanded(next);
+			const clip = expanded ? ` · ${labels.clip || "CLIP"} ${clipStrengthValue}` : "";
 			previewName = nextName;
+			row.dataset.loraName = nextName;
+			row.dataset.position = String(nextIndex + 1);
 			copy.setAttribute("aria-label", nextName);
 			copy.classList.toggle("has-preview", typeof previewResolver === "function");
 			nameElement.textContent = nextName;
-			nameElement.title = typeof previewResolver === "function" ? "" : nextName;
+			nameElement.title = nextName;
 			meta.textContent = `${labels.model || "Model"} ${strength}${clip}`;
+			modelInput.value = strength;
+			clipInput.value = clipStrengthValue;
+			clipName.textContent = `[${labels.clip || "CLIP"}] ${nextName}`;
+			clipRow.hidden = !expanded;
+			expandButton.classList.toggle("is-expanded", expanded);
+			expandButton.setAttribute("aria-expanded", String(expanded));
+			expandButton.setAttribute("aria-label", (expanded ? labels.collapse : labels.expand || "Show separate CLIP strength for {name}").replace("{name}", nextName));
+			modelInput.setAttribute("aria-label", (labels.modelStrength || "Model strength for {name}").replace("{name}", nextName));
+			clipInput.setAttribute("aria-label", (labels.clipStrength || "CLIP strength for {name}").replace("{name}", nextName));
+			modelDecrease.setAttribute("aria-label", (labels.decrease || "Decrease {kind} strength for {name}").replace("{kind}", labels.model || "Model").replace("{name}", nextName));
+			modelIncrease.setAttribute("aria-label", (labels.increase || "Increase {kind} strength for {name}").replace("{kind}", labels.model || "Model").replace("{name}", nextName));
+			clipDecrease.setAttribute("aria-label", (labels.decrease || "Decrease {kind} strength for {name}").replace("{kind}", labels.clip || "CLIP").replace("{name}", nextName));
+			clipIncrease.setAttribute("aria-label", (labels.increase || "Increase {kind} strength for {name}").replace("{kind}", labels.clip || "CLIP").replace("{name}", nextName));
 			status.textContent = active ? (labels.enabled || "Enabled") : (labels.disabled || "Disabled");
 			status.dataset.state = active ? "enabled" : "disabled";
+			grip.setAttribute("aria-label", (labels.reorder || "Reorder {name}").replace("{name}", nextName));
+			menuButton.setAttribute("aria-label", (labels.openActions || "Open actions for {name}").replace("{name}", nextName));
 			toggle.setChecked(active);
 			toggle.setLabel((labels.toggle || "Toggle {name}").replace("{name}", nextName));
 			row.classList.toggle("is-active", active);
@@ -168,6 +405,7 @@ export function renderLoraListControl(spec, port) {
 		syncHeader();
 	}
 
+	syncLabels();
 	renderList(current);
 	ensureI18nReady().then(syncLabels);
 	return controlView({

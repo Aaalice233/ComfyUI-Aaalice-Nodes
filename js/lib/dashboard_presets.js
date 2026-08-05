@@ -160,9 +160,11 @@ export function duplicateDashboardPreset(state, presetId, name) {
 
 export function removeDashboardPreset(state, presetId) {
 	const next = copy(state);
-	if (!next.presets.some((item) => item.id === presetId)) return next;
-	next.presets = next.presets.filter((item) => item.id !== presetId);
-	if (next.baselinePresetId === presetId) next.baselinePresetId = null;
+	const removedIndex = next.presets.findIndex((item) => item.id === presetId);
+	if (removedIndex < 0) return next;
+	const wasBaseline = next.baselinePresetId === presetId;
+	next.presets.splice(removedIndex, 1);
+	if (wasBaseline) next.baselinePresetId = next.presets[removedIndex]?.id || next.presets[removedIndex - 1]?.id || null;
 	return next;
 }
 

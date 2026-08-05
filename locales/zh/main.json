@@ -14,7 +14,22 @@
     "loraList": {
       "title": "LoRA 列表", "activeSummary": "{active}/{total} 已启用", "enabled": "已启用", "disabled": "已禁用",
       "enableAll": "全部启用", "disableAll": "全部停用", "toggle": "切换 {name}", "model": "模型", "clip": "CLIP",
-      "empty": "列表中没有 LoRA。", "previewLoading": "正在加载预览…", "previewUnavailable": "暂无预览"
+      "empty": "列表中没有 LoRA。", "previewLoading": "正在加载预览…", "previewUnavailable": "暂无预览",
+      "menu": "LoRA 操作", "add": "添加 LoRA", "viewOnCivitai": "在 Civitai 查看", "delete": "删除",
+      "moveUp": "上移", "moveDown": "下移", "moveTop": "移到顶部", "moveBottom": "移到底部",
+      "copyNotes": "复制备注", "copyTriggerWords": "复制触发词", "saveRecipe": "保存配方",
+      "reorder": "调整 {name} 顺序", "openActions": "打开 {name} 的操作菜单", "expand": "显示 {name} 的独立 CLIP 强度", "collapse": "让 {name} 的 CLIP 使用模型强度",
+      "decrease": "降低 {name} 的 {kind} 强度", "increase": "提高 {name} 的 {kind} 强度", "modelStrength": "{name} 的模型强度", "clipStrength": "{name} 的 CLIP 强度",
+      "toast": {
+        "success": "已复制", "copySuccessDetail": "所选 LoRA 文本已复制到剪贴板。",
+        "copyFailedDetail": "剪贴板拒绝了复制操作。", "warning": "LoRA 链接不可用",
+        "civitaiUnavailable": "这个 LoRA 没有关联的 Civitai 页面。", "civitaiFailed": "无法找到 Civitai 链接。",
+        "notesFailed": "无法读取 LoRA 备注。", "notesUnavailable": "这个 LoRA 没有备注。",
+        "notesCopiedDetail": "LoRA 备注已复制到剪贴板。", "triggerWordsFailed": "无法读取 LoRA 触发词。",
+        "triggerWordsUnavailable": "这个 LoRA 没有触发词。", "triggerWordsCopiedDetail": "LoRA 触发词已复制到剪贴板。",
+        "recipeFailed": "无法保存配方。", "recipeSaved": "当前工作流配方已保存。",
+        "error": "LoRA 操作失败", "actionFailedDetail": "操作未能完成。", "info": "没有可复制的内容"
+      }
     },
     "krita": {
       "status": { "checking": "正在检查 Krita…", "connected": "已连接", "notInstalled": "尚未安装 Krita Bridge", "notEnabled": "Krita Bridge 尚未启用", "offline": "Krita Bridge 未连接", "incompatible": "Krita Bridge 协议不兼容", "noDocument": "Krita 没有活动文档", "fetching": "正在读取 Krita 文档…", "fetchSucceeded": "快照已就绪", "fetchFailed": "获取失败" },
@@ -99,12 +114,12 @@
       "dashboardPreset": {
           "title": "侧边栏预设", "open": "打开侧边栏预设", "placeholder": "选择预设", "attention": "需要处理",
           "empty": "还没有预设", "emptyHint": "保存当前所有页面、布局和参数值，之后可一键切换；预设随工作流一起保存和分享。", "emptyAction": "创建第一个预设", "name": "预设名称", "defaultName": "预设 {count}", "copyName": "{name} 副本",
-		  "presetCount": "{count} 个预设", "presetSummary": "{pages} 个页面 · {values} 个参数", "add": "新增", "create": "新增预设", "manage": "管理预设", "modified": "当前有修改", "update": "保存修改", "saveCurrent": "保存为预设", "restore": "放弃修改", "duplicate": "复制", "rename": "重命名", "delete": "删除", "deleteConfirm": "确定删除侧边栏预设“{name}”吗？当前侧边栏不会改变。",
+		  "presetCount": "{count} 个预设", "presetSummary": "{pages} 个页面 · {values} 个参数", "add": "新增", "create": "新增预设", "manage": "管理预设", "modified": "当前有修改", "update": "保存修改", "saveCurrent": "保存为预设", "restore": "放弃修改", "duplicate": "复制", "rename": "重命名", "delete": "删除", "deleteConfirm": "确定删除侧边栏预设“{name}”吗？当前侧边栏不会改变。", "deleteSwitchConfirm": "确定删除侧边栏预设“{name}”吗？侧边栏将自动切换到“{fallback}”。", "deleteLastConfirm": "确定删除侧边栏预设“{name}”吗？删除后将清空侧边栏，因为已经没有其它预设。",
 		  "changeSummary": "布局 {layout} 处 · 参数 {values} 处", "dataError": "预设数据异常", "dataErrorHint": "无法读取工作流中保存的侧边栏预设数据。",
         "error": "侧边栏预设错误", "noContent": "当前没有可以保存的侧边栏布局。", "invalid": "值无效", "unused": "侧边栏中不存在", "layoutOnly": "仅布局组件",
         "unsavedTitle": "当前修改尚未保存", "unsavedHint": "切换前可以保存当前布局和参数，也可以放弃修改。", "discardSwitch": "放弃并切换", "saveSwitch": "保存并切换", "saveAsSwitch": "另存并切换",
         "partialHint": "部分参数无法安全恢复，请确认后再应用其余兼容布局和参数。", "applyCompatible": "应用兼容内容",
-        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "savedReminder": "侧边栏预设已更新，请保存工作流。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。"
+        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "savedReminder": "侧边栏预设已更新，请保存工作流。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "deletedAndSwitched": "侧边栏预设已删除，并自动切换到其它预设；请保存工作流以保留修改。", "deletedAndCleared": "最后一个侧边栏预设已删除，侧边栏已清空；请保存工作流以保留修改。"
       },
       "transfer": {
 		"backup": "便携备份", "layoutPreset": "布局备份", "preflight": "安全检查", "review": "导入预览",

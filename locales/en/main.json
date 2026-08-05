@@ -14,7 +14,22 @@
     "loraList": {
       "title": "LoRA list", "activeSummary": "{active}/{total} enabled", "enabled": "Enabled", "disabled": "Disabled",
       "enableAll": "Enable all", "disableAll": "Disable all", "toggle": "Toggle {name}", "model": "Model", "clip": "CLIP",
-      "empty": "No LoRAs in this list.", "previewLoading": "Loading preview…", "previewUnavailable": "Preview unavailable"
+      "empty": "No LoRAs in this list.", "previewLoading": "Loading preview…", "previewUnavailable": "Preview unavailable",
+      "menu": "LoRA actions", "add": "Add LoRA", "viewOnCivitai": "View on Civitai", "delete": "Delete",
+      "moveUp": "Move up", "moveDown": "Move down", "moveTop": "Move to top", "moveBottom": "Move to bottom",
+      "copyNotes": "Copy notes", "copyTriggerWords": "Copy trigger words", "saveRecipe": "Save recipe",
+      "reorder": "Reorder {name}", "openActions": "Open actions for {name}", "expand": "Show separate CLIP strength for {name}", "collapse": "Use model strength for CLIP in {name}",
+      "decrease": "Decrease {kind} strength for {name}", "increase": "Increase {kind} strength for {name}", "modelStrength": "Model strength for {name}", "clipStrength": "CLIP strength for {name}",
+      "toast": {
+        "success": "Copied", "copySuccessDetail": "The selected LoRA text was copied to the clipboard.",
+        "copyFailedDetail": "The clipboard rejected the copy operation.", "warning": "LoRA link unavailable",
+        "civitaiUnavailable": "This LoRA has no associated Civitai page.", "civitaiFailed": "Could not find the Civitai link.",
+        "notesFailed": "Could not read LoRA notes.", "notesUnavailable": "This LoRA has no notes.",
+        "notesCopiedDetail": "LoRA notes copied to the clipboard.", "triggerWordsFailed": "Could not read LoRA trigger words.",
+        "triggerWordsUnavailable": "This LoRA has no trigger words.", "triggerWordsCopiedDetail": "LoRA trigger words copied to the clipboard.",
+        "recipeFailed": "Could not save the recipe.", "recipeSaved": "The current workflow recipe was saved.",
+        "error": "LoRA action failed", "actionFailedDetail": "The action could not be completed.", "info": "Nothing to copy"
+      }
     },
     "krita": {
       "status": { "checking": "Checking Krita…", "connected": "Connected", "notInstalled": "Krita Bridge is not installed", "notEnabled": "Krita Bridge is not enabled", "offline": "Krita Bridge is offline", "incompatible": "Krita Bridge protocol is incompatible", "noDocument": "No active Krita document", "fetching": "Reading Krita document…", "fetchSucceeded": "Snapshot ready", "fetchFailed": "Fetch failed" },
@@ -99,12 +114,12 @@
       "dashboardPreset": {
           "title": "Sidebar presets", "open": "Open sidebar presets", "placeholder": "Select preset", "attention": "Needs attention",
           "empty": "No presets yet", "emptyHint": "Save every page, layout and value so you can switch back in one click. Presets are stored in the workflow and shared with it.", "emptyAction": "Create first preset", "name": "Preset name", "defaultName": "Preset {count}", "copyName": "{name} copy",
-		  "presetCount": "{count} presets", "presetSummary": "{pages} pages · {values} values", "add": "New", "create": "New preset", "manage": "Manage preset", "modified": "Unsaved changes", "update": "Save changes", "saveCurrent": "Save as preset", "restore": "Discard changes", "duplicate": "Duplicate", "rename": "Rename", "delete": "Delete", "deleteConfirm": "Delete sidebar preset “{name}”? The current sidebar will not change.",
+		  "presetCount": "{count} presets", "presetSummary": "{pages} pages · {values} values", "add": "New", "create": "New preset", "manage": "Manage preset", "modified": "Unsaved changes", "update": "Save changes", "saveCurrent": "Save as preset", "restore": "Discard changes", "duplicate": "Duplicate", "rename": "Rename", "delete": "Delete", "deleteConfirm": "Delete sidebar preset “{name}”? The current sidebar will not change.", "deleteSwitchConfirm": "Delete sidebar preset “{name}”? The sidebar will switch to “{fallback}”.", "deleteLastConfirm": "Delete sidebar preset “{name}”? The sidebar will be cleared because no presets remain.",
 		  "changeSummary": "{layout} layout · {values} values", "dataError": "Preset data error", "dataErrorHint": "The sidebar preset data saved in this workflow could not be read.",
         "error": "Sidebar preset error", "noContent": "There is no sidebar layout to save.", "invalid": "Invalid value", "unused": "Not on sidebar", "layoutOnly": "Layout only",
         "unsavedTitle": "Current changes are unsaved", "unsavedHint": "Save the current layout and values before switching, or discard them.", "discardSwitch": "Discard and switch", "saveSwitch": "Save and switch", "saveAsSwitch": "Save as and switch",
         "partialHint": "Some controls cannot be restored safely. Review them before applying the compatible layout and values.", "applyCompatible": "Apply compatible preset",
-        "saveWorkflowReminder": "Save the workflow to keep these sidebar presets.", "savedReminder": "Sidebar preset updated. Save the workflow to keep it.", "appliedReminder": "Sidebar preset applied. Save the workflow to keep the layout and values."
+        "saveWorkflowReminder": "Save the workflow to keep these sidebar presets.", "savedReminder": "Sidebar preset updated. Save the workflow to keep it.", "appliedReminder": "Sidebar preset applied. Save the workflow to keep the layout and values.", "deletedAndSwitched": "Sidebar preset deleted and switched to another preset. Save the workflow to keep the change.", "deletedAndCleared": "The last sidebar preset was deleted and the sidebar was cleared. Save the workflow to keep the change."
       },
       "transfer": {
 		"backup": "Portable backup", "layoutPreset": "Layout backup", "preflight": "Safety check", "review": "Import preview",

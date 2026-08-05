@@ -236,6 +236,12 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(workspace, /applyDashboardSnapshotPlan/);
 	assert.match(workspace, /dashboardPreset\.saveWorkflowReminder/);
 	assert.match(workspace, /deleteCurrentDashboardPreset[\s\S]*confirmAction\(message, \{ title: dashboardPresetLabels\(\)\.delete, confirmLabel: dashboardPresetLabels\(\)\.delete, danger: true \}\)[\s\S]*removeDashboardPreset/);
+	assert.match(workspace, /commitDeletedActiveDashboardPreset[\s\S]*planDashboardPresetApplication/);
+	assert.match(workspace, /normalizeDashboard\(emptyDashboard\(\)\)/);
+	assert.match(enLocale, /deleteSwitchConfirm/);
+	assert.match(enLocale, /deleteLastConfirm/);
+	assert.match(zhLocale, /deleteSwitchConfirm/);
+	assert.match(zhLocale, /deleteLastConfirm/);
 	assert.match(components, /export function createDashboardPresetPicker/);
 	assert.match(components, /error = null/);
 	assert.match(components, /aa-value-preset-empty is-error/);

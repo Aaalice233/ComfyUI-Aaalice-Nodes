@@ -196,6 +196,8 @@
 - 适配器使用稳定英文 `id` 和显式 `priority`。Dashboard Binding 保存 Adapter ID，重载后不会因新增适配器或优先级变化而漂移到另一实现。
 - 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并必须通过 `controlView()` 返回完整的 `root`、`headerAccessories`、匹配 spec 的 `kind`、`update` 和 `destroy`，不得持有工作流状态。渲染器注册或卸载会触发工作区结构刷新，使热加载和第三方扩展卸载不会留下旧控件视图。
 - `ResolutionPreset` 与 `PromptSelector` 的侧边栏卡片复用节点自身的状态控制器和完整交互表面；`LoraManager` 优先显式适配其 LoRA 列表 widget，侧边栏以列表项和真实 `active` 状态为控制值，不再把同一节点的文本 widget 作为绑定面。没有列表 widget 的兼容节点仍可保留 LoRA 文本适配。LoRA 列表可由 descriptor 的运行时 `previewResolver` 提供异步预览地址；当前 LoraManager 解析本机 `/lm/loras/preview-url`，侧边栏通过共享 `bindAsyncImagePreview()` 延迟加载、有限 LRU 缓存、悬浮/焦点生命周期和迟到请求淘汰显示状态。预览地址、加载状态和失败状态都不进入节点值或 Dashboard 预设，列表重建/控件销毁会释放预览监听器；没有预览服务时只显示明确的不可用状态，不阻断 LoRA 值绑定。复合控件通过独立 renderer 工厂挂载，预设 codec 仍由节点属性与 Provider 负责。
+- LoraManager 的 `lora-list` renderer 是节点列表的侧边栏投影：每项保留 `active`、顺序、模型/CLIP 强度与 `expanded` 状态，支持拖拽/键盘排序、展开独立 CLIP 强度、预览和共享右键菜单。菜单中的 Civitai、备注、触发词、配方操作只通过 LoraManager 已有的本机 `/lm` / `/api/lm` 路由执行；“添加 LoRA”是显式用户操作，只打开 LoraManager 页面，不把外部 URL、预览或临时菜单状态写入节点值或 Dashboard 预设。
+- 删除当前侧边栏预设时，纯预设模型优先选择删除位置的后继预设，末尾才选择前一个预设；工作区入口在同一个图事务中应用该快照并删除旧基准。删除最后一个预设则同时写入 `emptyDashboard()` 并清空活动页面，只有确实没有预设时才显示无预设/空画布；删除非当前预设不改变当前工作副本。
 - Provider 负责图事务、节点 dirty 和绑定解析；适配器不得直接操作侧边栏 DOM，渲染器不得发现节点。适配器卸载函数应在第三方扩展销毁时调用。
 ```js
 import { registerWidgetControlAdapter } from "/extensions/ComfyUI-Aaalice-Nodes/api.js";
