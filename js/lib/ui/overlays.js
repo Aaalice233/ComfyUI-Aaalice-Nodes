@@ -101,6 +101,21 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 }
 
 let activeContextMenu = null;
+const contextMenuCloseListeners = new Set();
+
+export function hasContextMenuWithin(container) {
+	return Boolean(activeContextMenu?.isOwnedBy?.(container));
+}
+
+export function onContextMenuClose(listener) {
+	if (typeof listener !== "function") return () => {};
+	contextMenuCloseListeners.add(listener);
+	return () => contextMenuCloseListeners.delete(listener);
+}
+
+function notifyContextMenuClosed() {
+	for (const listener of [...contextMenuCloseListeners]) listener();
+}
 
 export function closeContextMenuWithin(container) {
 	if (activeContextMenu?.isOwnedBy?.(container)) activeContextMenu.close({ restoreFocus: false });
@@ -125,6 +140,7 @@ export function createContextMenu({ x, y, ariaLabel = "Menu", items = [], onClos
 		if (activeContextMenu?.root === root) activeContextMenu = null;
 		if (restoreFocus) previousFocus?.focus?.({ preventScroll: true });
 		onClose?.();
+		notifyContextMenuClosed();
 	};
 	const outside = (event) => { if (!root.contains(event.target)) close({ restoreFocus: false }); };
 	const focusAt = (index) => menuItems[(index + menuItems.length) % menuItems.length]?.focus();

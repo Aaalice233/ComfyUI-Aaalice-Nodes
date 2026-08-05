@@ -48,7 +48,7 @@ test("LoRA list renderer keeps active state and delegates row actions to context
 	assert.doesNotMatch(themeControlsSource, /\.aa-control-lora-list__status|\.aa-control-lora-list__menu|\.aa-control-lora-list__expand|\.aa-control-lora-list__clip-row/);
 	assert.match(themeControlsSource, /\.aa-control-lora-list \.aa-control-lora-list__toggle \{[^}]*width: 18px[^}]*border-radius: 4px/);
 	assert.match(themeControlsSource, /\.aa-control-lora-list__strength \{[^}]*min-width: max-content/);
-	assert.match(themeControlsSource, /\.aa-control-lora-list__strength-input \{[^}]*min-width: 42px[^}]*flex: 0 0 42px/);
+	assert.match(themeControlsSource, /\.aa-control-lora-list__strength-input \{[^}]*min-width: 52px[^}]*flex: 0 0 52px/);
 	assert.match(loraRendererSource, /previewResolver/);
 	assert.match(loraRendererSource, /createContextMenu/);
 	assert.match(loraRendererSource, /input, textarea, select/);

@@ -387,7 +387,7 @@
 .aa-control-lora-list__strength { display: inline-flex; min-width: max-content; align-items: center; gap: 2px; padding: 2px; border-radius: 7px; background: color-mix(in srgb, var(--aa-control-field) 72%, var(--aa-ui-surface)); }
 .aa-control-lora-list__strength-step { width: 20px; height: 22px; padding: 0; border-radius: 5px; color: var(--aa-control-muted); }
 .aa-control-lora-list__strength-step > .aa-ui-icon { width: 12px; height: 12px; }
-.aa-control-lora-list__strength-input { width: 42px; min-width: 42px; flex: 0 0 42px; height: 22px; padding: 2px 3px; border: 0; border-radius: 4px; outline: 0; background: transparent; color: var(--aa-control-text); font: inherit; font-size: 11px; font-variant-numeric: tabular-nums; text-align: center; }
+.aa-control-lora-list__strength-input { width: 52px; min-width: 52px; flex: 0 0 52px; height: 22px; padding: 2px 2px; border: 0; border-radius: 4px; outline: 0; background: transparent; color: var(--aa-control-text); font: inherit; font-size: 11px; font-variant-numeric: tabular-nums; text-align: center; }
 .aa-control-lora-list__strength-input:focus-visible { background: color-mix(in srgb, var(--aa-control-accent) 12%, var(--aa-control-field)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-control-accent) 50%, transparent); }
 .aa-control-lora-list__copy { display: grid; min-width: 0; align-content: center; }
 .aa-control-lora-list__name { min-width: 0; overflow: hidden; color: var(--aa-control-text); font-size: 12px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }

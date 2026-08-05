@@ -11,7 +11,7 @@ import {
 import { resolveControlBindingSet } from "./lib/control_binding_set.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
-import { button, closeAnchoredPopoversWithin, closeContextMenuWithin, closeTooltipWithin, createDialog, createTooltip, el, field, hasAnchoredPopoverWithin, icon, iconButton, toggleSwitch } from "./lib/ui.js";
+import { button, closeAnchoredPopoversWithin, closeContextMenuWithin, closeTooltipWithin, createDialog, createTooltip, el, field, hasAnchoredPopoverWithin, hasContextMenuWithin, icon, iconButton, onContextMenuClose, toggleSwitch } from "./lib/ui.js";
 import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import { destroyVirtualLists } from "./lib/virtual_list.js";
 import { createWorkspaceShell } from "./lib/workspace_components.js";
@@ -193,7 +193,7 @@ function isFocusedWorkspaceValueControl() {
 }
 
 function hasWorkspacePopover() {
-	for (const root of mounted) if (hasAnchoredPopoverWithin(root)) return true;
+	for (const root of mounted) if (hasAnchoredPopoverWithin(root) || hasContextMenuWithin(root)) return true;
 	return false;
 }
 
@@ -624,6 +624,7 @@ app.registerExtension({
 		window.addEventListener("keyup", handleGroupNavigationShortcutUp, true);
 		window.addEventListener("pointermove", (event) => { if (isGroupNavigationCanvasPointerEvent(event, app.canvas?.canvas)) rememberGroupNavigationCanvasPointer(event, app.graph); }, true);
 		window.addEventListener("focusout", () => queueMicrotask(flushDeferredWorkspaceRender), true);
+		onContextMenuClose(flushDeferredWorkspaceRender);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
 			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
 		});

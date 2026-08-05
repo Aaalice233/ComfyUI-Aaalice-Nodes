@@ -324,9 +324,13 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(ui, /export function closeAnchoredPopoversWithin/);
 	assert.match(ui, /export function hasAnchoredPopoverWithin/);
 	assert.match(ui, /export function closeContextMenuWithin/);
+	assert.match(ui, /export function hasContextMenuWithin/);
+	assert.match(ui, /export function onContextMenuClose/);
 	assert.match(ui, /export function closeTooltipWithin/);
 	assert.match(ui, /isOwnedBy: \(container\)/);
 	assert.match(workspace, /if \(!interactive\)/);
+	assert.match(workspace, /hasAnchoredPopoverWithin\(root\) \|\| hasContextMenuWithin\(root\)/);
+	assert.match(workspace, /onContextMenuClose\(flushDeferredWorkspaceRender\)/);
 	assert.match(ui, /if \(closed\) return;\s*reposition\(\)/);
 	assert.match(workspace, /\.aa-dashboard-scroll:not\(\.is-page-leaving\)/);
 	assert.match(workspace, /dashboardScrollPositions = new WeakMap\(\)/);
