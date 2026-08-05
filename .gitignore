@@ -45,5 +45,6 @@ deploy/**/.wrangler/
 # Playwright MCP local captures
 .playwright-mcp/
 .playwright/
+.playwright-cli/
 
 /.comfyui-chrome-devtools-testing/
