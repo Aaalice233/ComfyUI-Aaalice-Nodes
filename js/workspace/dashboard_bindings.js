@@ -485,7 +485,8 @@ function openAddControls(node, ownerElement = null) {
 	} else { rebuildTargets(); targetGrid.append(field({ label: t("aaalice.workspace.target.page", "Page"), control: pageSelect })); }
 	const existingBindings = model.pages.flatMap((candidatePage) => candidatePage.items.filter((item) => item.kind === "control").flatMap(controlItemBindings));
 	const relevantBindings = existingBindings.filter((binding) => controls.some((control) => binding.provider === control.binding.provider && binding.hostId === control.binding.hostId));
-	const isExisting = createBindingTargetMatcher(relevantBindings, resolve);
+	const matchesExistingBinding = createBindingTargetMatcher(relevantBindings, resolve);
+	const isExisting = (control) => matchesExistingBinding(control?.binding);
 	const controlsByKey = new Map(controls.map((control) => [bindingKey(control.binding), control]));
 	selected = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => !isExisting(controlsByKey.get(key))));
 	const selectionCount = el("span", "aa-add-controls-selection-count");
