@@ -6,9 +6,10 @@
       "error": "错误", "notice": "提示", "save": "保存"
     },
     "focusOnOpen": {
-      "menu": { "set": "👁️ 打开时聚焦", "clear": "🚫 取消打开时聚焦" },
+      "menu": { "set": "👁️ 打开时聚焦", "settings": "⚙️ 打开时聚焦设置", "clear": "🚫 取消打开时聚焦" },
       "aria": { "cancel": "取消打开时聚焦" },
-      "tooltip": { "cancel": "取消打开时聚焦" }
+      "tooltip": { "cancel": "取消打开时聚焦" },
+      "settings": { "title": "聚焦视图", "aria": "打开时聚焦视图设置", "offsetX": "X 偏移", "offsetY": "Y 偏移", "zoom": "缩放 (%)", "invalid": "请输入有效的数字。" }
     },
     "loraList": {
       "title": "LoRA 列表", "activeSummary": "{active}/{total} 已启用", "enabled": "已启用", "disabled": "已禁用",

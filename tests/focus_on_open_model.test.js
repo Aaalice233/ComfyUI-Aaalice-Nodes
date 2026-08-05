@@ -8,8 +8,10 @@ import {
 	createFocusOnOpenScheduler,
 	focusOnOpenMarkedNodes,
 	focusOnOpenMenuAction,
+	focusOnOpenSettings,
 	focusOnOpenTarget,
 	normalizeFocusOnOpenMarkers,
+	setFocusOnOpenSettings,
 	setFocusOnOpenTarget,
 } from "../js/lib/focus_on_open_model.js";
 
@@ -54,6 +56,23 @@ test("the shared definition is traversed once and retains one deterministic targ
 	assert.equal(normalized.changed, true);
 	assert.deepEqual(focusOnOpenMarkedNodes(root), [rootNode]);
 	assert.equal(focusOnOpenTarget(root), rootNode);
+});
+
+test("focus settings use the group-navigation view defaults and persist normalized values", () => {
+	const { root, leafNode } = nestedFixture();
+	setFocusOnOpenTarget(root, leafNode);
+	assert.deepEqual(focusOnOpenSettings(leafNode), { offset: { x: 0, y: 0 }, zoom: 0.82 });
+	assert.deepEqual(setFocusOnOpenSettings(root, leafNode, { offset: { x: "125", y: "-75" }, zoom: 1.17 }), { target: leafNode, changed: true });
+	assert.deepEqual(focusOnOpenSettings(leafNode), { offset: { x: 125, y: -75 }, zoom: 1.17 });
+	assert.deepEqual(leafNode.properties[FOCUS_ON_OPEN_PROPERTY], { version: FOCUS_ON_OPEN_VERSION, offset: { x: 125, y: -75 }, zoom: 1.17 });
+});
+
+test("legacy markers keep the default view until settings are saved", () => {
+	const { root, leafNode } = nestedFixture();
+	leafNode.properties[FOCUS_ON_OPEN_PROPERTY] = true;
+	assert.deepEqual(focusOnOpenSettings(leafNode), { offset: { x: 0, y: 0 }, zoom: 0.82 });
+	assert.deepEqual(setFocusOnOpenSettings(root, leafNode, { offset: { x: 100001, y: -100001 }, zoom: 9 }), { target: leafNode, changed: true });
+	assert.deepEqual(focusOnOpenSettings(leafNode), { offset: { x: 100000, y: -100000 }, zoom: 3 });
 });
 
 test("clearing the target removes the persisted marker without creating alternate state", () => {

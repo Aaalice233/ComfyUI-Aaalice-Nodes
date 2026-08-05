@@ -3,18 +3,21 @@
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
-import { allGraphNodes, graphPath, rootGraph } from "./lib/graph_scope.js";
+import { graphPath, rootGraph } from "./lib/graph_scope.js";
 import {
 	clearFocusOnOpenTarget,
 	createFocusOnOpenScheduler,
 	focusOnOpenMarkedNodes,
 	focusOnOpenMenuAction,
+	focusOnOpenSettings,
 	focusOnOpenTarget,
 	isFocusOnOpenMarked,
 	normalizeFocusOnOpenMarkers,
+	normalizeFocusOnOpenSettings,
+	setFocusOnOpenSettings,
 	setFocusOnOpenTarget,
 } from "./lib/focus_on_open_model.js";
-import { createTooltip, el, icon, isolate } from "./lib/ui.js";
+import { button, createAnchoredPopover, createTooltip, el, field, icon, isolate } from "./lib/ui.js";
 
 const CLASSIC_WIDGET_NAME = "aaalice_focus_on_open";
 const CLASSIC_WIDGETS = new Map();
@@ -24,6 +27,9 @@ let activeRoot = null;
 let vueMount = null;
 let vueObserver = null;
 let vueFrame = 0;
+let focusSettingsPopover = null;
+let focusSettingsNode = null;
+let focusSettingsFrame = 0;
 const focusScheduler = createFocusOnOpenScheduler({
 	schedule: (callback) => requestAnimationFrame(callback),
 	cancel: (handle) => cancelAnimationFrame(handle),
@@ -240,6 +246,7 @@ function commitRoot(root, mutate) {
 }
 
 function updateFocusTarget(node, action) {
+	closeFocusSettingsPopover();
 	const root = rootGraph(node?.graph);
 	if (!root) return;
 	const result = commitRoot(root, () => action === "clear"
@@ -249,9 +256,107 @@ function updateFocusTarget(node, action) {
 	return result;
 }
 
+function updateFocusOnOpenSettings(node, settings) {
+	const root = rootGraph(node?.graph);
+	if (!root) return;
+	const normalized = normalizeFocusOnOpenSettings(settings);
+	const result = commitRoot(root, () => setFocusOnOpenSettings(root, node, normalized));
+	syncVisuals(root);
+	return result;
+}
+
+function focusSettingsAnchor(node) {
+	const classicButton = CLASSIC_WIDGETS.get(node)?.button;
+	if (classicButton?.isConnected) return classicButton;
+	if (vueMount?.node === node && vueMount.buttonView.button.isConnected) return vueMount.buttonView.button;
+	return nodeElement(node);
+}
+
+function closeFocusSettingsPopover() {
+	if (focusSettingsFrame) {
+		cancelAnimationFrame(focusSettingsFrame);
+		focusSettingsFrame = 0;
+	}
+	focusSettingsPopover?.close();
+	focusSettingsPopover = null;
+	focusSettingsNode = null;
+}
+
+function openFocusOnOpenSettings(node) {
+	if (!isFocusOnOpenMarked(node)) return;
+	const anchor = focusSettingsAnchor(node);
+	if (!anchor) return;
+	closeFocusSettingsPopover();
+	const settings = focusOnOpenSettings(node);
+	const offsetX = el("input", { attrs: { type: "number", min: "-100000", max: "100000", step: "50", value: settings.offset.x, "aria-label": t("aaalice.focusOnOpen.settings.offsetX", "X offset") } });
+	const offsetY = el("input", { attrs: { type: "number", min: "-100000", max: "100000", step: "50", value: settings.offset.y, "aria-label": t("aaalice.focusOnOpen.settings.offsetY", "Y offset") } });
+	const zoom = el("input", { attrs: { type: "number", min: "10", max: "300", step: "5", value: Math.round(settings.zoom * 100), "aria-label": t("aaalice.focusOnOpen.settings.zoom", "Zoom (%)") } });
+	const error = el("div", { className: "aa-focus-on-open-settings__error", attrs: { role: "alert", hidden: true } });
+	const setError = (message = "") => {
+		error.textContent = message;
+		error.hidden = !message;
+	};
+	let popup = null;
+	const save = button({ label: t("aaalice.common.save", "Save"), onClick: () => {
+		try {
+			updateFocusOnOpenSettings(node, { offset: { x: offsetX.value, y: offsetY.value }, zoom: zoom.value === "" ? null : Number(zoom.value) / 100 });
+			popup.close();
+		} catch {
+			setError(t("aaalice.focusOnOpen.settings.invalid", "Enter valid numeric values."));
+		}
+	} });
+	const cancel = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => popup.close() });
+	popup = createAnchoredPopover({
+		anchor,
+		ariaLabel: t("aaalice.focusOnOpen.settings.aria", "Focus-on-open view settings"),
+		className: "aa-focus-on-open-settings-popover",
+		width: 310,
+		onClose: () => {
+			if (focusSettingsPopover !== popup) return;
+			focusSettingsPopover = null;
+			focusSettingsNode = null;
+		},
+	});
+	focusSettingsPopover = popup;
+	focusSettingsNode = node;
+	const fields = el("div", { className: "aa-focus-on-open-settings__fields", children: [
+		field({ label: t("aaalice.focusOnOpen.settings.offsetX", "X offset"), control: offsetX }),
+		field({ label: t("aaalice.focusOnOpen.settings.offsetY", "Y offset"), control: offsetY }),
+		field({ label: t("aaalice.focusOnOpen.settings.zoom", "Zoom (%)"), control: zoom }),
+	] });
+	const header = el("header", { className: "aa-focus-on-open-settings__header", children: [icon("fit"), el("strong", null, t("aaalice.focusOnOpen.settings.title", "Focus view"))] });
+	const footer = el("footer", { className: "aa-focus-on-open-settings__footer", children: [cancel, save] });
+	popup.root.append(header, fields, error, footer);
+	popup.reposition();
+}
+
+function scheduleFocusOnOpenSettings(node, attempt = 0) {
+	closeFocusSettingsPopover();
+	const open = () => {
+		focusSettingsFrame = 0;
+		if (!isFocusOnOpenMarked(node)) return;
+		if (focusSettingsAnchor(node)) {
+			openFocusOnOpenSettings(node);
+			return;
+		}
+		if (attempt < 3) scheduleFocusOnOpenSettings(node, attempt + 1);
+	};
+	if (typeof requestAnimationFrame === "function") focusSettingsFrame = requestAnimationFrame(open);
+	else open();
+}
+
 function normalizeLoadedMarkers(root) {
 	if (focusOnOpenMarkedNodes(root).length <= 1) return { target: focusOnOpenTarget(root), changed: false };
 	return commitRoot(root, () => normalizeFocusOnOpenMarkers(root));
+}
+
+function focusBounds(node, settings) {
+	const pos = node?.pos;
+	const size = node?.size;
+	if (!pos || !size || pos.length < 2 || size.length < 2) return null;
+	const values = [Number(pos[0]), Number(pos[1]), Number(size[0]), Number(size[1])];
+	if (!values.every(Number.isFinite) || values[2] <= 0 || values[3] <= 0) return null;
+	return [values[0] + settings.offset.x, values[1] + settings.offset.y, values[2], values[3]];
 }
 
 function focusTarget(target, root, generation) {
@@ -266,7 +371,14 @@ function focusTarget(target, root, generation) {
 		canvas.openSubgraph?.(wrapper.subgraph, wrapper);
 	}
 	if (canvas.graph === target.graph) {
-		canvas.centerOnNode?.(target);
+		const settings = focusOnOpenSettings(target);
+		const bounds = focusBounds(target, settings);
+		if (bounds && typeof canvas.ds?.fitToBounds === "function") {
+			canvas.ds.fitToBounds(bounds, { zoom: settings.zoom });
+			canvas.setDirty?.(true, true);
+		} else if (typeof canvas.centerOnNode === "function") {
+			canvas.centerOnNode(bounds ? { pos: [bounds[0], bounds[1]], size: [bounds[2], bounds[3]] } : target);
+		}
 		scheduleVueSync();
 	}
 }
@@ -298,11 +410,19 @@ app.registerExtension({
 	getNodeMenuItems(node) {
 		const action = focusOnOpenMenuAction(node);
 		if (!action) return [];
-		const label = t(
-			action === "set" ? "aaalice.focusOnOpen.menu.set" : "aaalice.focusOnOpen.menu.clear",
-			action === "set" ? "👁️ Focus on open" : "🚫 Cancel focus on open",
-		);
-		return [{ content: label, callback: () => updateFocusTarget(node, focusOnOpenMenuAction(node)) }];
+		if (action === "set") {
+			return [{
+				content: t("aaalice.focusOnOpen.menu.set", "👁️ Focus on open"),
+				callback: () => {
+					const result = updateFocusTarget(node, focusOnOpenMenuAction(node));
+					if (result?.target) scheduleFocusOnOpenSettings(result.target);
+				},
+			}];
+		}
+		return [
+			{ content: t("aaalice.focusOnOpen.menu.settings", "⚙️ Focus view settings"), callback: () => scheduleFocusOnOpenSettings(node) },
+			{ content: t("aaalice.focusOnOpen.menu.clear", "🚫 Cancel focus on open"), callback: () => updateFocusTarget(node, focusOnOpenMenuAction(node)) },
+		];
 	},
 	nodeCreated(node) {
 		syncNodeLifecycle(node);
@@ -312,12 +432,14 @@ app.registerExtension({
 	},
 	nodeRemoved(node) {
 		focusScheduler.cancelPending();
+		if (focusSettingsNode === node) closeFocusSettingsPopover();
 		unmountClassicMarker(node);
 		if (vueMount?.node === node) disposeVueMount();
 		scheduleVueSync();
 	},
 	beforeConfigureGraph() {
 		focusScheduler.beforeConfigure();
+		closeFocusSettingsPopover();
 		activeRoot = null;
 		disposeVueMount();
 	},

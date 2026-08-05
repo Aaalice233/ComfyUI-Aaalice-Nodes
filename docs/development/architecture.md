@@ -48,7 +48,7 @@
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,comfy,quick_group_manager,numeric,boolean,choice,text,taglist,tag_pills,image_choice,image_compare,image_output,markdown,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、ComfyUI 控件策略、QuickGroupManager 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 节点缩放 | `js/node_resize.js`、`js/lib/{native_widget_resize,dom_widget_resize}.js` | 精确 node type 的原生 widget 角区让渡、全尺寸 DOM 缩放期失效和生命周期清理 |
-| 打开时聚焦 | `js/focus_on_open.js`、`js/lib/focus_on_open_model.js`、`js/lib/theme-focus-on-open.css` | 通用节点右键菜单、唯一工作流标记、加载代际、静默子图导航和 Classic / Nodes 2.0 标记图标 |
+| 打开时聚焦 | `js/focus_on_open.js`、`js/lib/focus_on_open_model.js`、`js/lib/theme-focus-on-open.css` | 通用节点右键菜单、唯一工作流标记、目标视图设置、加载代际、静默子图导航和 Classic / Nodes 2.0 标记图标 |
 | DOM 与媒体辅助 | `js/lib/{node_accent,image_reference,image_upload,safe_markdown,markdown_editor,simple_notify_runtime,dom_widget_visibility}.js`、`js/vendor/` | 节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM 渲染与编辑变换、富 DOM 视口降载、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui/{primitives,transient_surfaces,overlays,controls}.js`、`js/lib/ui.css`、`js/lib/theme.css`、`js/lib/theme-*.css` | `ui.js` 保持稳定公开入口；内部按基础 DOM/图标、Tooltip/滚动手势、Popover/Dialog、表单控件的单向依赖拆分。`theme.css` 是唯一功能样式入口并按稳定级联顺序导入控件、工作区和各领域样式分片 |
 
@@ -79,6 +79,7 @@
 | Discord 成员会话 | 浏览器当前 Origin 的可撤销会话 | 中继逐次成员/角色校验 | Webhook、OAuth Secret 或工作流 |
 | Discord 频道选择 | 浏览器 `localStorage` | 中继公开的 Target Id 子集 | Webhook URL、工作流 JSON 或节点属性 |
 | Discord 长 Prompt 文件偏好 | 浏览器 `localStorage` | 是否把超过单 Embed 限制的 Prompt 改为 TXT 附件 | Prompt 正文、工作流 JSON 或频道密钥 |
+| 打开时聚焦 | 根图及嵌套 Subgraph 节点的 `node.properties.aaaliceFocusOnOpen` | 目标节点、X/Y 画布偏移、目标视图缩放 | 节点标题、裸 Node Id、浏览器已读状态或 DOM 按钮 |
 | DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 页面、组、卡片布局、稳定 Binding、来源组身份、`groupSource` 纳管关系、源标题快照、用户覆盖、卡片 tone 和卡片/分隔项 Component Note；控件值、目标解析和 Missing Binding 状态为实时派生 | 侧边栏 DOM、节点标题或位置、同步状态本身 |
 | DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、控件值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
 | Prompt Library | 用户目录 SQLite | 当前筛选、PromptSelector 引用解析 | 单个工作流、单个节点或浏览器缓存 |
@@ -86,7 +87,7 @@
 
 ## 生命周期与数据流
 
-交互节点覆盖 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描，并幂等挂载。DOM widget 同步创建；异步 i18n 就绪后只更新文案和重绘。本包新增的节点右键菜单项必须以语义明确的 emoji 开头，并在 `locales/en/main.json` 与 `locales/zh/main.json` 中同步维护；同一动作的启用与取消项都遵循此规则。
+交互节点覆盖 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描，并幂等挂载。DOM widget 同步创建；异步 i18n 就绪后只更新文案和重绘。本包新增的节点右键菜单项必须以语义明确的 emoji 开头，并在 `locales/en/main.json` 与 `locales/zh/main.json` 中同步维护；同一动作的启用、设置与取消项都遵循此规则。
 
 现有节点扫描必须覆盖根图和全部嵌套 Subgraph 定义。`graphToPrompt` 注入不得用裸 `node.id` 查找执行节点，必须按每条 Subgraph wrapper 路径生成 ComfyUI 的限定执行 ID，并覆盖共享 Subgraph 定义的每个实例；前端执行事件也必须用同一限定 ID 反向定位节点。
 

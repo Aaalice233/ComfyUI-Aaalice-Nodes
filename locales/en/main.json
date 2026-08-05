@@ -6,9 +6,10 @@
       "error": "Error", "notice": "Notice", "save": "Save"
     },
     "focusOnOpen": {
-      "menu": { "set": "👁️ Focus on open", "clear": "🚫 Cancel focus on open" },
+      "menu": { "set": "👁️ Focus on open", "settings": "⚙️ Focus view settings", "clear": "🚫 Cancel focus on open" },
       "aria": { "cancel": "Cancel focus on open" },
-      "tooltip": { "cancel": "Cancel focus on open" }
+      "tooltip": { "cancel": "Cancel focus on open" },
+      "settings": { "title": "Focus view", "aria": "Focus-on-open view settings", "offsetX": "X offset", "offsetY": "Y offset", "zoom": "Zoom (%)", "invalid": "Enter valid numeric values." }
     },
     "loraList": {
       "title": "LoRA list", "activeSummary": "{active}/{total} enabled", "enabled": "Enabled", "disabled": "Disabled",
