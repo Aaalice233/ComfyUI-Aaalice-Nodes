@@ -126,7 +126,7 @@ test("third-party renderers can extend a family without mutating built-ins", () 
 	assert.match(publicApiSource, /invalidateControlHost/);
 	assert.match(registrySource, /export function registerControlRenderer/);
 	assert.match(registrySource, /Duplicate \$\{family\} control renderer/);
-	assert.match(registrySource, /return \(\) => \{ if \(renderers\.get\(kind\) === renderer\) renderers\.delete\(kind\); \}/);
+	assert.match(registrySource, /return \(\) => \{\s*if \(renderers\.get\(kind\) !== renderer\) return;\s*renderers\.delete\(kind\);\s*notifyControlRendererRegistryChanged\(/);
 });
 
 test("third-party widget adapters normalize custom identity, value access and writes", () => {

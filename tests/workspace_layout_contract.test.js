@@ -114,7 +114,7 @@ test("Dashboard V4 layout editing uses transient integer-grid gestures and one c
 	assert.match(workspace, /const topLevelItems = \[\.\.\.grid\.children\]/);
 	assert.match(theme, /\.aa-workspace-content\.is-layout-editing \{[^}]*cursor: crosshair;[^}]*user-select: none;/);
 	assert.match(theme, /\.is-layout-editing :is\(\[data-dashboard-item-id\], \[data-dashboard-group-id\]\) \{ cursor: grab; \}/);
-	assert.match(theme, /\.aa-dashboard-group \.aa-control-card\.is-group-member \{[^}]*cursor: grab;/);
+	assert.match(theme, /\.is-layout-editing \.aa-dashboard-group \.aa-control-card\.is-group-member:not\(\.has-dashboard-tone\) \{[^}]*cursor: grab;/);
 	assert.match(dashboardInteractions, /event\.key === " " && !event\.repeat/);
 	assert.match(dashboardInteractions, /precise = !current\.membershipTarget && Number\(target\.grid\.dataset\.dashboardColumns\) !== 1 && current\.elements\.every/);
 	assert.match(dashboardInteractions, /containedIds/);
@@ -333,11 +333,11 @@ test("library rows keep a stable thumbnail column and distinguish entry actions"
 	assert.match(theme, /\.aa-library-entry-edit:hover/);
 	assert.match(theme, /\.aa-library-entry-delete:hover/);
 	assert.match(theme, /\.aa-image-preview-large/);
-	assert.match(theme, /\.aa-image-preview-large > img\s*\{[^}]*width:\s*auto[^}]*max-height:/s);
+	assert.match(theme, /\.aa-image-preview-large > img, \.aa-image-preview-large > video\s*\{[^}]*width:\s*auto[^}]*max-height:/s);
 	assert.match(theme, /\.aa-image-preview-caption\s*\{[^}]*position:\s*absolute[^}]*background:\s*color-mix\([^}]*transparent\)/s);
 	assert.match(theme, /\.aa-image-preview-caption > small/);
 	assert.match(imagePreview, /IMAGE_PREVIEW_HOVER_DELAY = 600/);
-	assert.match(imagePreview, /addEventListener\("load", previewTooltip\.reposition/);
+	assert.match(imagePreview, /media\.addEventListener\(video \? "loadeddata" : "load", reposition/);
 });
 
 test("library selection actions operate on model data instead of rendered rows", () => {
