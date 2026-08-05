@@ -278,6 +278,7 @@ return function buildController(node, elements) {
 			post.width = detail.width;
 			post.height = detail.height;
 			image.dataset.previewRecovery = "done";
+			image.parentElement?.classList.add("is-loading");
 			image.src = proxyUrl(detail.source, detail.previewUrl);
 		} catch (error) {
 			image.dataset.previewRecovery = "failed";

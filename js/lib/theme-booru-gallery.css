@@ -104,7 +104,12 @@
 .aa-gallery-card.is-selected .aa-gallery-card__surface { border-color: transparent; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--p-blue-400, var(--aa-ui-node-accent)) 82%, rgb(255 255 255 / .3)), 0 0 0 3px color-mix(in srgb, var(--p-blue-400, var(--aa-ui-node-accent)) 22%, transparent), 0 9px 24px color-mix(in srgb, var(--p-blue-500, var(--aa-ui-node-accent)) 22%, rgb(0 0 0 / .16)); }
 .aa-gallery-card.is-selected .aa-gallery-card__image { filter: brightness(1.08) saturate(1.06); }
 .aa-gallery-card:focus-visible .aa-gallery-card__surface { outline: 2px solid var(--aa-ui-focus); outline-offset: -2px; }
-.aa-gallery-card__surface > img { display: block; width: 100%; height: 100%; object-fit: cover; background: color-mix(in srgb, var(--aa-ui-control) 85%, var(--aa-ui-muted)); }
+.aa-gallery-card__surface > img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .2s ease; }
+.aa-gallery-card__surface:not(.is-loading) > img { opacity: 1; }
+.aa-gallery-card__loading { position: absolute; inset: 0; display: none; background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--aa-ui-muted) 16%, transparent) 50%, transparent 70%); pointer-events: none; transform: translateX(-100%); }
+.aa-gallery-card__surface.is-loading .aa-gallery-card__loading { display: block; animation: aa-gallery-card-shimmer 1.3s linear infinite; }
+@keyframes aa-gallery-card-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .aa-gallery-card__surface.is-loading .aa-gallery-card__loading { animation: none; } .aa-gallery-card__surface > img { transition: none; } }
 .aa-gallery-card__selected-layer { position: absolute; inset: 0; z-index: 1; opacity: 0; background: color-mix(in srgb, var(--p-blue-500, var(--aa-ui-node-accent)) 30%, rgb(255 255 255 / .12)); mix-blend-mode: screen; pointer-events: none; transition: opacity .18s ease; }
 .aa-gallery-card.is-selected .aa-gallery-card__selected-layer { opacity: 1; }
 .aa-gallery-card__shade { position: absolute; inset: 0; z-index: 2; background: linear-gradient(180deg, rgb(0 0 0 / .1), transparent 32%, transparent 56%, rgb(0 0 0 / .72)); opacity: 0; pointer-events: none; transition: opacity .18s ease; }

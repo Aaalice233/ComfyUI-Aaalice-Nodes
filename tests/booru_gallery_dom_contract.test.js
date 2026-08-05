@@ -279,7 +279,7 @@ test("gallery cards omit visible post identity and keep only useful hover metada
 });
 
 test("AI TAG cards recover an exact preview lazily and never render an empty rating pill", () => {
-	assert.match(source, /image\.addEventListener\("error", \(\) => \{ void controller\.recoverPreview\(post, image\); \}\)/);
+	assert.match(source, /image\.addEventListener\("error", \(\) => \{ surface\.classList\.remove\("is-loading"\); void controller\.recoverPreview\(post, image\); \}\)/);
 	assert.match(source, /if \(post\.source !== "aitag" \|\| image\.dataset\.previewRecovery\) return/);
 	assert.match(source, /post\.previewUrl = detail\.previewUrl/);
 	assert.match(source, /detail\.rating && cap\?\.ratings\?\.length/);

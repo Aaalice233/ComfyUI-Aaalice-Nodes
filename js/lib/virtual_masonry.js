@@ -62,15 +62,16 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 	const spacer = document.createElement("div"); spacer.className = "aa-virtual-masonry__spacer"; container.replaceChildren(spacer);
 	const layout = new VirtualMasonryLayout({ width: container.clientWidth || 1, ...layoutOptions });
 	const mounted = new Map(); let frame = 0; let destroyed = false; let active = true; let nearEndArmed = true; let sizesDirty = false; let visibleIndex = -1;
+	const releaseImage = (element) => { const image = element.querySelector("img"); if (image && !image._aaGalleryKeepSrc) image.removeAttribute("src"); };
 	const clearMounted = () => {
-		for (const element of mounted.values()) { element._aaVirtualMasonryDispose?.(); element.querySelector("img")?.removeAttribute("src"); element.remove(); }
+		for (const element of mounted.values()) { element._aaVirtualMasonryDispose?.(); releaseImage(element); element.remove(); }
 		mounted.clear();
 	};
 	const draw = (force = false) => {
 		if (destroyed) return; spacer.style.height = `${Math.ceil(layout.totalHeight)}px`;
 		if (!active) { clearMounted(); return; }
 		const visible = layout.visible(container.scrollTop, container.clientHeight || 1, overscanRatio); const wanted = new Set(visible.map((placement) => placement.key));
-		for (const [key, element] of mounted) if (!wanted.has(key)) { element._aaVirtualMasonryDispose?.(); element.querySelector("img")?.removeAttribute("src"); element.remove(); mounted.delete(key); }
+		for (const [key, element] of mounted) if (!wanted.has(key)) { element._aaVirtualMasonryDispose?.(); releaseImage(element); element.remove(); mounted.delete(key); }
 		for (const placement of visible) {
 			let element = mounted.get(placement.key);
 			if (!element) { element = renderItem(placement.item, placement.index); element.classList.add("aa-virtual-masonry__item"); element.dataset.galleryKey = placement.key; mounted.set(placement.key, element); spacer.append(element); }

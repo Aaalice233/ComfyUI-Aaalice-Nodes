@@ -56,14 +56,64 @@ function galleryCardActionLayout(width, height, count) {
 	return "hybrid";
 }
 
+// Session-level decoded-preview pool: virtual masonry destroys cards while
+// scrolling, so re-mounting a known image reuses the <img> element (kept off
+// the DOM with its source intact so the decoded bitmap survives) and paints
+// immediately instead of flashing a placeholder or re-decoding from cache.
+// Bounded by both entry count and decoded pixels so AI TAG's full-size
+// previews (megabytes each) cannot balloon the pool.
+const previewImagePool = new Map();
+const MAX_PREVIEW_IMAGE_POOL = 96;
+const MAX_PREVIEW_POOL_PIXELS = 32 * 1024 * 1024; // ~128MB of decoded RGBA
+let previewPoolPixels = 0;
+function rememberPreviewImage(src, image, width, height) {
+	const pixels = Math.max(1, Number(width) || 1) * Math.max(1, Number(height) || 1);
+	if (pixels > MAX_PREVIEW_POOL_PIXELS) return;
+	image._aaGalleryKeepSrc = true;
+	const previous = previewImagePool.get(src);
+	if (previous) previewPoolPixels -= previous.pixels;
+	previewImagePool.delete(src);
+	previewImagePool.set(src, { image, width, height, pixels });
+	previewPoolPixels += pixels;
+	while (previewImagePool.size > MAX_PREVIEW_IMAGE_POOL || previewPoolPixels > MAX_PREVIEW_POOL_PIXELS) {
+		const stale = previewImagePool.keys().next().value;
+		const entry = previewImagePool.get(stale);
+		entry.image._aaGalleryKeepSrc = false;
+		entry.image.removeAttribute("src");
+		previewImagePool.delete(stale);
+		previewPoolPixels -= entry.pixels;
+	}
+}
+function takePreviewImage(src) {
+	const entry = previewImagePool.get(src);
+	if (!entry) return null;
+	previewImagePool.delete(src);
+	previewPoolPixels -= entry.pixels;
+	return entry;
+}
+
 function createGalleryCard(node, controller, post, index) {
 	const card = el("article", { className: "aa-gallery-card", attrs: { tabindex: 0, "aria-label": `${post.source} #${post.postId}` } });
 	const surface = el("div", "aa-gallery-card__surface");
-	const image = document.createElement("img"); image.alt = ""; image.loading = "lazy"; image.decoding = "async"; image.fetchPriority = "low";
-	image.width = Math.max(1, Number(post.width) || 1); image.height = Math.max(1, Number(post.height) || 1);
-	image.addEventListener("load", () => { if (image.naturalWidth > 0 && image.naturalHeight > 0) controller.updateSize(post, image.naturalWidth, image.naturalHeight); });
-	image.addEventListener("error", () => { void controller.recoverPreview(post, image); });
-	image.src = proxyUrl(post.source, post.previewUrl);
+	const src = proxyUrl(post.source, post.previewUrl);
+	const pooled = takePreviewImage(src);
+	let image;
+	if (pooled) {
+		// 已解码的位图仍挂在元素上：直接复用，不重新请求也不等 load 事件。
+		image = pooled.image;
+		image._aaGalleryKeepSrc = false;
+		controller.updateSize(post, pooled.width, pooled.height);
+	} else {
+		image = document.createElement("img"); image.alt = ""; image.loading = "lazy"; image.decoding = "async"; image.fetchPriority = "low";
+		image.width = Math.max(1, Number(post.width) || 1); image.height = Math.max(1, Number(post.height) || 1);
+		image.addEventListener("load", () => {
+			surface.classList.remove("is-loading");
+			if (image.naturalWidth > 0 && image.naturalHeight > 0) { controller.updateSize(post, image.naturalWidth, image.naturalHeight); rememberPreviewImage(image.currentSrc || src, image, image.naturalWidth, image.naturalHeight); }
+		});
+		image.addEventListener("error", () => { surface.classList.remove("is-loading"); void controller.recoverPreview(post, image); });
+		surface.classList.add("is-loading");
+		image.src = src;
+	}
 	const selectionStamp = createSelectionStamp(getSettings()?.selectionStamp);
 	const selectedLayer = el("div", "aa-gallery-card__selected-layer");
 	const hasRating = Boolean(post.rating) && Boolean(capability(post.source)?.ratings?.length);
@@ -105,7 +155,7 @@ function createGalleryCard(node, controller, post, index) {
 	const actionControls = [editAction, ...(favoriteAction ? [favoriteAction] : []), copyPromptAction, ...(interrogateAction ? [interrogateAction] : []), detailAction];
 	actions.append(...actionControls);
 	card._aaVirtualMasonryLayout = (width, height) => { card.dataset.actionsLayout = galleryCardActionLayout(width, height, actionControls.length); };
-	surface.append(image, selectedLayer, el("div", { className: "aa-gallery-card__shade" }), el("div", { className: "aa-gallery-card__scan", attrs: { "aria-hidden": "true" } }), ...(rating ? [rating] : []), selectionStamp.root, actions);
+	surface.append(el("div", { className: "aa-gallery-card__loading", attrs: { "aria-hidden": "true" } }), image, selectedLayer, el("div", { className: "aa-gallery-card__shade" }), el("div", { className: "aa-gallery-card__scan", attrs: { "aria-hidden": "true" } }), ...(rating ? [rating] : []), selectionStamp.root, actions);
 	card.append(surface);
 	const update = () => {
 		const selected = stateFor(node).selections.some((item) => selectionKey(item) === `${post.source}:${post.postId}`);
