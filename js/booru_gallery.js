@@ -255,7 +255,7 @@ const {
 	moveSelectionIndex, resolveSelectedDropTarget,
 } = createGalleryCards({
 	GALLERY_CATEGORIES, canWriteFavorite, capability, createSelectionStamp, createTagPillList,
-	dimensions, effectivePrompt, el, finalPrompt, getSettings: () => settings, iconButton,
+	dimensions, effectivePrompt, el, finalPrompt, getSettings: () => settings, icon, iconButton,
 	isPromptAssistantAvailable: () => promptAssistantAvailable, label, notifyFavorite, proxyUrl,
 	ratingLabel, ratingTone, selectionKey, stateFor, tagCount, transact,
 });

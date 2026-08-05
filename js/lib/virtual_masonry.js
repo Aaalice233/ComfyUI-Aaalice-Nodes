@@ -62,7 +62,12 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 	const spacer = document.createElement("div"); spacer.className = "aa-virtual-masonry__spacer"; container.replaceChildren(spacer);
 	const layout = new VirtualMasonryLayout({ width: container.clientWidth || 1, ...layoutOptions });
 	const mounted = new Map(); let frame = 0; let destroyed = false; let active = true; let nearEndArmed = true; let sizesDirty = false; let visibleIndex = -1;
-	const releaseImage = (element) => { const image = element.querySelector("img"); if (image && !image._aaGalleryKeepSrc) image.removeAttribute("src"); };
+	const releaseImage = (element) => {
+		const image = element.querySelector("img");
+		if (!image) return;
+		const preserved = image._aaVirtualMasonryRelease?.() === true;
+		if (!preserved) image.removeAttribute("src");
+	};
 	const clearMounted = () => {
 		for (const element of mounted.values()) { element._aaVirtualMasonryDispose?.(); releaseImage(element); element.remove(); }
 		mounted.clear();

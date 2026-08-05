@@ -105,10 +105,15 @@
 .aa-gallery-card.is-selected .aa-gallery-card__image { filter: brightness(1.08) saturate(1.06); }
 .aa-gallery-card:focus-visible .aa-gallery-card__surface { outline: 2px solid var(--aa-ui-focus); outline-offset: -2px; }
 .aa-gallery-card__surface > img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .2s ease; }
-.aa-gallery-card__surface:not(.is-loading) > img { opacity: 1; }
+.aa-gallery-card__surface:not(.is-loading):not(.is-error) > img { opacity: 1; }
 .aa-gallery-card__loading { position: absolute; inset: 0; display: none; background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--aa-ui-muted) 16%, transparent) 50%, transparent 70%); pointer-events: none; transform: translateX(-100%); }
 .aa-gallery-card__surface.is-loading .aa-gallery-card__loading { display: block; animation: aa-gallery-card-shimmer 1.3s linear infinite; }
 @keyframes aa-gallery-card-shimmer { to { transform: translateX(100%); } }
+.aa-gallery-card__error { position: absolute; inset: 0; z-index: 3; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 0; background: color-mix(in srgb, var(--aa-ui-control) 94%, var(--aa-ui-muted)); color: var(--aa-ui-muted); font: inherit; font-size: 11px; cursor: pointer; transition: color .15s ease; }
+.aa-gallery-card__error .aa-ui-icon { width: 20px; height: 20px; }
+.aa-gallery-card__surface.is-error .aa-gallery-card__error { display: flex; }
+.aa-gallery-card__error:hover, .aa-gallery-card__error:focus-visible { color: var(--aa-ui-text); }
+.aa-gallery-card__error:focus-visible { outline: 2px solid var(--aa-ui-focus); outline-offset: -2px; }
 @media (prefers-reduced-motion: reduce) { .aa-gallery-card__surface.is-loading .aa-gallery-card__loading { animation: none; } .aa-gallery-card__surface > img { transition: none; } }
 .aa-gallery-card__selected-layer { position: absolute; inset: 0; z-index: 1; opacity: 0; background: color-mix(in srgb, var(--p-blue-500, var(--aa-ui-node-accent)) 30%, rgb(255 255 255 / .12)); mix-blend-mode: screen; pointer-events: none; transition: opacity .18s ease; }
 .aa-gallery-card.is-selected .aa-gallery-card__selected-layer { opacity: 1; }

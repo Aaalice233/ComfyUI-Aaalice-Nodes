@@ -22,11 +22,12 @@ from nodes.gallery.settings import GallerySettingsStore, default_settings
 
 
 class FakeMediaResponse:
-    def __init__(self, body, status=200, content_type="image/jpeg"):
+    def __init__(self, body, status=200, content_type="image/jpeg", delay=0):
         self.status = status
         self.headers = {"Content-Type": content_type, "Content-Length": str(len(body))}
         self.content = self
         self.body = body
+        self.delay = delay
 
     async def __aenter__(self):
         return self
@@ -35,6 +36,8 @@ class FakeMediaResponse:
         return False
 
     async def iter_chunked(self, _size):
+        if self.delay:
+            await asyncio.sleep(self.delay)
         yield self.body
 
 
@@ -575,12 +578,49 @@ class GalleryMediaProxyTests(unittest.IsolatedAsyncioTestCase):
             proxy = MediaProxy(Path(directory))
             session = FakeMediaSession([FakeMediaResponse(b"", status=503), FakeMediaResponse(b"ok")])
             with patch.object(proxy, "session", return_value=session):
-                with self.assertRaisesRegex(RuntimeError, "HTTP 503"):
-                    await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
-                self.assertFalse((Path(directory) / "media").exists())
                 data, _content_type, _final = await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
             self.assertEqual(data, b"ok")
             self.assertEqual(len(session.gets), 2)
+            self.assertEqual(len(list((Path(directory) / "media").glob("*.bin"))), 1)
+
+    async def test_persistent_upstream_failure_reports_and_skips_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"", status=503) for _ in range(3)])
+            with patch.object(proxy, "session", return_value=session):
+                with self.assertRaisesRegex(RuntimeError, "failed after 3 attempts"):
+                    await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
+            self.assertFalse((Path(directory) / "media").exists())
+
+    async def test_rate_limited_media_retries_but_404_stays_hard(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"", status=429), FakeMediaResponse(b"ok")])
+            with patch.object(proxy, "session", return_value=session):
+                data, _content_type, _final = await proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None)
+            self.assertEqual(data, b"ok")
+            self.assertEqual(len(session.gets), 2)
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"", status=404)])
+            with patch.object(proxy, "session", return_value=session):
+                with self.assertRaisesRegex(RuntimeError, "HTTP 404"):
+                    await proxy.fetch_media("danbooru", "https://cdn.test/missing.jpg", lambda _url: None)
+            self.assertEqual(len(session.gets), 1)
+
+    async def test_cancelled_waiter_does_not_cancel_shared_download(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"x", delay=0.05)])
+            with patch.object(proxy, "session", return_value=session):
+                task = asyncio.create_task(proxy.fetch_media("danbooru", "https://cdn.test/a.jpg", lambda _url: None))
+                await asyncio.sleep(0.01)
+                task.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+                await asyncio.sleep(0.1)
+                self.assertEqual(len(list((Path(directory) / "media").glob("*.bin"))), 1)
+                self.assertEqual(len(session.gets), 1)
 
     async def test_redirects_follow_until_final_media(self):
         with tempfile.TemporaryDirectory() as directory:

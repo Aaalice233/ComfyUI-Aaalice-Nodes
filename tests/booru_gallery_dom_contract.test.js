@@ -266,6 +266,18 @@ test("project UI rules require visible features to be designed, not merely funct
 	assert.match(agents, /默认只允许页面内容区承担主要纵向滚动/);
 });
 
+test("gallery cards receive icon plus iconButton from the entry", () => {
+	assert.match(source, /effectivePrompt, el, finalPrompt, getSettings, icon, iconButton,/);
+});
+
+test("decoded preview pool only takes ownership when a mounted card is released", () => {
+	assert.match(source, /image\._aaVirtualMasonryRelease = \(\) =>/);
+	assert.match(source, /image\.getAttribute\("src"\)/);
+	assert.match(source, /rememberPreviewImage\(loadedSrc, image, image\.naturalWidth, image\.naturalHeight\)/);
+	assert.doesNotMatch(source, /image\.currentSrc \|\| src/);
+	assert.doesNotMatch(source, /_aaGalleryKeepSrc/);
+});
+
 test("gallery cards omit visible post identity and keep only useful hover metadata", () => {
 	assert.match(source, /const hasRating = Boolean\(post\.rating\) && Boolean\(capability\(post\.source\)\?\.ratings\?\.length\)/);
 	assert.match(source, /\.\.\.\(rating \? \[rating\] : \[\]\)/);
@@ -279,7 +291,11 @@ test("gallery cards omit visible post identity and keep only useful hover metada
 });
 
 test("AI TAG cards recover an exact preview lazily and never render an empty rating pill", () => {
-	assert.match(source, /image\.addEventListener\("error", \(\) => \{ surface\.classList\.remove\("is-loading"\); void controller\.recoverPreview\(post, image\); \}\)/);
+	assert.match(source, /image\.addEventListener\("error", \(\) => \{/);
+	assert.match(source, /surface\.classList\.add\("is-error"\)/);
+	assert.match(source, /markFailedPreview\(src\)/);
+	assert.match(source, /void controller\.recoverPreview\(post, image\)/);
+	assert.match(source, /failedAt && failedAt > Date\.now\(\)/);
 	assert.match(source, /if \(post\.source !== "aitag" \|\| image\.dataset\.previewRecovery\) return/);
 	assert.match(source, /post\.previewUrl = detail\.previewUrl/);
 	assert.match(source, /detail\.rating && cap\?\.ratings\?\.length/);

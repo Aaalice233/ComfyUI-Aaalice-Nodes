@@ -32,6 +32,10 @@ MAX_REDIRECTS = 6
 SESSION_RETIRE_SECONDS = 60
 
 
+class _MediaUpstreamError(RuntimeError):
+    """Transient upstream failure (5xx) that may succeed on retry."""
+
+
 class MediaProxy:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir
@@ -70,12 +74,30 @@ class MediaProxy:
         if inflight is None:
             inflight = asyncio.create_task(self._download(source, url, validate_url))
             self._inflight[url] = inflight
-        try:
-            return await inflight
-        finally:
-            self._inflight.pop(url, None)
+
+            def _finish(finished):
+                self._inflight.pop(url, None)
+                # 所有等待者都取消时任务异常无人检索，这里消费掉避免 asyncio 警告。
+                if not finished.cancelled():
+                    finished.exception()
+
+            inflight.add_done_callback(_finish)
+        # 客户端断开只取消本次等待；共享下载继续完成并写入缓存，避免快速滚动时
+        # 同一 URL 反复全量重下。
+        return await asyncio.shield(inflight)
 
     async def _download(self, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
+        # Transient upstream failures (5xx, timeouts, connection drops) retry with
+        # backoff; 4xx stays a hard error because it usually means a real miss.
+        for attempt in range(3):
+            try:
+                return await self._fetch_once(source, url, validate_url)
+            except (aiohttp.ClientError, TimeoutError, _MediaUpstreamError) as exc:
+                if attempt >= 2:
+                    raise RuntimeError(f"{source} media GET {url} failed after {attempt + 1} attempts: {exc}") from exc
+                await asyncio.sleep(0.5 * (attempt + 1))
+
+    async def _fetch_once(self, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
         current = url
         for _redirect in range(MAX_REDIRECTS):
             validate_url(current)
@@ -89,6 +111,8 @@ class MediaProxy:
                     current = urljoin(current, location)
                     continue
                 if response.status >= 400:
+                    if response.status >= 500 or response.status == 429:
+                        raise _MediaUpstreamError(f"{source} media GET {current} HTTP {response.status}")
                     raise RuntimeError(f"{source} media GET {current} HTTP {response.status}")
                 content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
                 if content_type not in STATIC_CONTENT_TYPES:

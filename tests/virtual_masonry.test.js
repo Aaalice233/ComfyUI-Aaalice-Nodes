@@ -58,5 +58,6 @@ test("masonry can release mounted cards while its host widget is offscreen", () 
 	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
 	assert.match(source, /setActive\(nextActive\)/);
 	assert.match(source, /releaseImage\(element\)/);
-	assert.match(source, /!image\._aaGalleryKeepSrc/);
+	assert.match(source, /image\._aaVirtualMasonryRelease\?\.\(\) === true/);
+	assert.match(source, /if \(!preserved\) image\.removeAttribute\("src"\)/);
 });
