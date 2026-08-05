@@ -89,6 +89,7 @@ class GalleryPostSummary:
     rating: str
     created_at: str = ""
     favorite: bool | None = None
+    sample_url: str = ""
 
     def json(self) -> dict[str, Any]:
         data = asdict(self)
@@ -96,13 +97,13 @@ class GalleryPostSummary:
         data["postUrl"] = data.pop("post_url")
         data["previewUrl"] = data.pop("preview_url")
         data["createdAt"] = data.pop("created_at")
+        data["sampleUrl"] = data.pop("sample_url")
         return data
 
 
 @dataclass(frozen=True)
 class GalleryPostDetail(GalleryPostSummary):
     media_url: str = ""
-    sample_url: str = ""
     file_ext: str = ""
     file_size: int = 0
     tags: dict[str, tuple[str, ...]] = field(default_factory=dict)
@@ -110,7 +111,7 @@ class GalleryPostDetail(GalleryPostSummary):
 
     def json(self) -> dict[str, Any]:
         data = super().json()
-        data.update({"mediaUrl": self.media_url, "sampleUrl": self.sample_url, "fileExt": self.file_ext, "fileSize": self.file_size,
+        data.update({"mediaUrl": self.media_url, "fileExt": self.file_ext, "fileSize": self.file_size,
                      "tags": {key: list(value) for key, value in self.tags.items()}, "complete": self.complete})
         return data
 
@@ -301,7 +302,7 @@ class DanbooruAdapter(BooruAdapter):
                                   str(post.get("preview_file_url") or post.get("large_file_url") or ""),
                                   _int(post.get("image_width")), _int(post.get("image_height")),
                                   str(post.get("rating", "")), str(post.get("created_at", "")),
-                                  post.get("is_favorited"))
+                                  post.get("is_favorited"), str(post.get("large_file_url") or ""))
 
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         page = max(1, _int(cursor) or 1)
@@ -337,7 +338,8 @@ class DanbooruAdapter(BooruAdapter):
             raise RuntimeError(f"danbooru post {post_id} response must be an object")
         summary = self._summary(raw)
         tags = {category: _split(raw.get(f"tag_string_{category}")) for category in TAG_CATEGORIES}
-        return GalleryPostDetail(**asdict(summary), media_url=str(raw.get("file_url") or ""),
+        fields = asdict(summary); fields.pop("sample_url", None)
+        return GalleryPostDetail(**fields, media_url=str(raw.get("file_url") or ""),
                                  sample_url=str(raw.get("large_file_url") or raw.get("preview_file_url") or ""),
                                  file_ext=str(raw.get("file_ext") or ""), file_size=_int(raw.get("file_size")), tags=tags)
 
@@ -410,7 +412,8 @@ class GelbooruAdapter(BooruAdapter):
         post_id = str(post.get("id", ""))
         return GalleryPostSummary(self.source, post_id, f"https://gelbooru.com/index.php?page=post&s=view&id={post_id}",
                                   str(post.get("preview_url") or post.get("sample_url") or ""), _int(post.get("width")),
-                                  _int(post.get("height")), str(post.get("rating", "")), str(post.get("created_at", "")), None)
+                                  _int(post.get("height")), str(post.get("rating", "")), str(post.get("created_at", "")), None,
+                                  str(post.get("sample_url") or ""))
 
     async def _posts(self, session, params, credentials):
         self.require_credentials(credentials)
@@ -443,7 +446,8 @@ class GelbooruAdapter(BooruAdapter):
         flat = list(_split(post.get("tags")))
         tags = {"artist": (), "copyright": (), "character": (), "general": tuple(flat), "meta": ()}
         media = str(post.get("file_url") or post.get("source") or "")
-        return GalleryPostDetail(**asdict(summary), media_url=media,
+        fields = asdict(summary); fields.pop("sample_url", None)
+        return GalleryPostDetail(**fields, media_url=media,
                                  sample_url=str(post.get("sample_url") or post.get("preview_url") or ""),
                                  file_ext=media.rsplit(".", 1)[-1].lower(),
                                  file_size=_int(post.get("file_size")), tags=tags, complete=False)
@@ -561,7 +565,8 @@ class SafebooruAdapter(GelbooruAdapter):
         post_id = str(post.get("id", ""))
         return GalleryPostSummary(self.source, post_id, f"https://safebooru.org/index.php?page=post&s=view&id={post_id}",
                                   str(post.get("preview_url") or post.get("sample_url") or ""), _int(post.get("width")),
-                                  _int(post.get("height")), str(post.get("rating", "safe")), str(post.get("created_at", "")), None)
+                                  _int(post.get("height")), str(post.get("rating", "safe")), str(post.get("created_at", "")), None,
+                                  str(post.get("sample_url") or ""))
 
     async def list_favorites(self, session, cursor, limit, credentials, blacklist=()):
         raise ValueError("safebooru does not support account favorites")

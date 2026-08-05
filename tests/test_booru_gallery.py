@@ -370,6 +370,18 @@ class GalleryAdapterTests(unittest.TestCase):
         import asyncio
         asyncio.run(run())
 
+    def test_summaries_carry_sample_url_for_direct_prefetch(self):
+        danbooru = DanbooruAdapter()._summary({"id": 7, "preview_file_url": "https://cdn.donmai.us/preview.jpg", "large_file_url": "https://cdn.donmai.us/sample.jpg", "image_width": 1, "image_height": 1})
+        gelbooru = GelbooruAdapter()._summary({"id": 7, "preview_url": "https://gelbooru.com/preview.jpg", "sample_url": "https://img3.gelbooru.com/sample.jpg", "width": 1, "height": 1})
+        safe = SafebooruAdapter()._summary({"id": 7, "preview_url": "https://safebooru.org/preview.jpg", "sample_url": "https://safebooru.org/sample.jpg", "width": 1, "height": 1})
+        aitag = AITagAdapter()._summary({"id": 7})
+        self.assertEqual(danbooru.json()["sampleUrl"], "https://cdn.donmai.us/sample.jpg")
+        self.assertEqual(gelbooru.json()["sampleUrl"], "https://img3.gelbooru.com/sample.jpg")
+        self.assertEqual(safe.json()["sampleUrl"], "https://safebooru.org/sample.jpg")
+        self.assertEqual(aitag.json()["sampleUrl"], "")
+        page = GalleryPage((danbooru,), None, True)
+        self.assertEqual(page.json()["posts"][0]["sampleUrl"], "https://cdn.donmai.us/sample.jpg")
+
     def test_unsupported_favorite_write_fails_explicitly(self):
         async def run():
             with self.assertRaisesRegex(ValueError, "does not support favorite writing"):
