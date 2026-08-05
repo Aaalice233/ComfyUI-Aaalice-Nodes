@@ -38,18 +38,20 @@ test("built-in ComfyUI renderer families expose their supported kinds", () => {
 	assert.match(registrySource, /\["comfy", new Map\(Object\.entries\(COMFY_CONTROL_RENDERERS\)\)\]/);
 	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare", "resolution", "prompt-selector", "lora-list"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
 });
-test("LoRA list renderer keeps state visible and wheel ownership with the host", () => {
+test("LoRA list renderer keeps active state and delegates row actions to context menus", () => {
 	assert.match(loraRendererSource, /data-capture-wheel/);
 	assert.match(loraRendererSource, /active/);
 	assert.match(loraRendererSource, /setChecked\(active\)/);
 	assert.doesNotMatch(loraRendererSource, /addEventListener\("wheel"/);
 	assert.match(themeControlsSource, /\.aa-control-lora-list__row\.is-inactive/);
-	assert.match(themeControlsSource, /\.aa-control-lora-list__status\[data-state="enabled"\]/);
+	assert.doesNotMatch(loraRendererSource, /__status|menuButton|setEntryExpanded|expandButton|aa-control-lora-list__meta|chevronDown/);
+	assert.doesNotMatch(themeControlsSource, /\.aa-control-lora-list__status|\.aa-control-lora-list__menu|\.aa-control-lora-list__expand|\.aa-control-lora-list__clip-row/);
+	assert.match(themeControlsSource, /\.aa-control-lora-list \.aa-control-lora-list__toggle \{[^}]*width: 18px[^}]*border-radius: 4px/);
 	assert.match(loraRendererSource, /previewResolver/);
 	assert.match(loraRendererSource, /createContextMenu/);
+	assert.match(loraRendererSource, /input, textarea, select/);
 	for (const action of ["openLoraCivitai", "copyLoraNotes", "copyLoraTriggerWords", "saveLoraRecipe", "openLoraManager"]) assert.match(loraRendererSource, new RegExp(action));
 	for (const menuAction of ["moveUp", "moveDown", "moveTop", "moveBottom", "copyNotes", "copyTriggerWords", "saveRecipe"]) assert.match(loraRendererSource, new RegExp(`labels\\.${menuAction}`));
-	assert.match(loraRendererSource, /setEntryExpanded/);
 	assert.match(loraRendererSource, /aa-control-lora-list__strength-input/);
 	assert.match(loraActionsSource, /lm\/loras\/civitai-url/);
 	assert.match(loraActionsSource, /lm\/loras\/get-notes/);

@@ -12,14 +12,14 @@
       "settings": { "title": "聚焦视图", "aria": "打开时聚焦视图设置", "offsetX": "X 偏移", "offsetY": "Y 偏移", "zoom": "缩放 (%)", "invalid": "请输入有效的数字。" }
     },
     "loraList": {
-      "title": "LoRA 列表", "activeSummary": "{active}/{total} 已启用", "enabled": "已启用", "disabled": "已禁用",
-      "enableAll": "全部启用", "disableAll": "全部停用", "toggle": "切换 {name}", "model": "模型", "clip": "CLIP",
+      "title": "LoRA 列表", "activeSummary": "{active}/{total} 已启用",
+      "enableAll": "全部启用", "disableAll": "全部停用", "toggle": "切换 {name}", "model": "模型",
       "empty": "列表中没有 LoRA。", "previewLoading": "正在加载预览…", "previewUnavailable": "暂无预览",
       "menu": "LoRA 操作", "add": "添加 LoRA", "viewOnCivitai": "在 Civitai 查看", "delete": "删除",
       "moveUp": "上移", "moveDown": "下移", "moveTop": "移到顶部", "moveBottom": "移到底部",
       "copyNotes": "复制备注", "copyTriggerWords": "复制触发词", "saveRecipe": "保存配方",
-      "reorder": "调整 {name} 顺序", "openActions": "打开 {name} 的操作菜单", "expand": "显示 {name} 的独立 CLIP 强度", "collapse": "让 {name} 的 CLIP 使用模型强度",
-      "decrease": "降低 {name} 的 {kind} 强度", "increase": "提高 {name} 的 {kind} 强度", "modelStrength": "{name} 的模型强度", "clipStrength": "{name} 的 CLIP 强度",
+      "reorder": "调整 {name} 顺序",
+      "decrease": "降低 {name} 的 {kind} 强度", "increase": "提高 {name} 的 {kind} 强度", "modelStrength": "{name} 的模型强度",
       "toast": {
         "success": "已复制", "copySuccessDetail": "所选 LoRA 文本已复制到剪贴板。",
         "copyFailedDetail": "剪贴板拒绝了复制操作。", "warning": "LoRA 链接不可用",

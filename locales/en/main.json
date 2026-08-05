@@ -12,14 +12,14 @@
       "settings": { "title": "Focus view", "aria": "Focus-on-open view settings", "offsetX": "X offset", "offsetY": "Y offset", "zoom": "Zoom (%)", "invalid": "Enter valid numeric values." }
     },
     "loraList": {
-      "title": "LoRA list", "activeSummary": "{active}/{total} enabled", "enabled": "Enabled", "disabled": "Disabled",
-      "enableAll": "Enable all", "disableAll": "Disable all", "toggle": "Toggle {name}", "model": "Model", "clip": "CLIP",
+      "title": "LoRA list", "activeSummary": "{active}/{total} enabled",
+      "enableAll": "Enable all", "disableAll": "Disable all", "toggle": "Toggle {name}", "model": "Model",
       "empty": "No LoRAs in this list.", "previewLoading": "Loading preview…", "previewUnavailable": "Preview unavailable",
       "menu": "LoRA actions", "add": "Add LoRA", "viewOnCivitai": "View on Civitai", "delete": "Delete",
       "moveUp": "Move up", "moveDown": "Move down", "moveTop": "Move to top", "moveBottom": "Move to bottom",
       "copyNotes": "Copy notes", "copyTriggerWords": "Copy trigger words", "saveRecipe": "Save recipe",
-      "reorder": "Reorder {name}", "openActions": "Open actions for {name}", "expand": "Show separate CLIP strength for {name}", "collapse": "Use model strength for CLIP in {name}",
-      "decrease": "Decrease {kind} strength for {name}", "increase": "Increase {kind} strength for {name}", "modelStrength": "Model strength for {name}", "clipStrength": "CLIP strength for {name}",
+      "reorder": "Reorder {name}",
+      "decrease": "Decrease {kind} strength for {name}", "increase": "Increase {kind} strength for {name}", "modelStrength": "Model strength for {name}",
       "toast": {
         "success": "Copied", "copySuccessDetail": "The selected LoRA text was copied to the clipboard.",
         "copyFailedDetail": "The clipboard rejected the copy operation.", "warning": "LoRA link unavailable",
