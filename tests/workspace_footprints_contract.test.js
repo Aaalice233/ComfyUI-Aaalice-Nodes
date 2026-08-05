@@ -51,7 +51,7 @@ test("dashboard cards expose equal visual gutters without changing fine row geom
 });
 
 test("dashboard control contents stay within their declared grid footprints", () => {
-	assert.match(theme, /\.aa-control-card-header \{[^}]*min-height:\s*14px;[^}]*line-height:\s*14px;/);
+	assert.match(theme, /\.aa-control-card-header \{[^}]*min-height:\s*16px;[^}]*line-height:\s*16px;/);
 	assert.match(theme, /\.aa-control-card-title \{[^}]*font-size:\s*12px;[^}]*font-weight:\s*650;/);
 	assert.match(theme, /\.aa-control-card-title::before \{[^}]*background: var\(--aa-control-kind-tone, transparent\)/);
 	assert.match(theme, /\.aa-control-card \{[^}]*--aa-control-kind-tone: var\(--aa-ui-accent\)/);

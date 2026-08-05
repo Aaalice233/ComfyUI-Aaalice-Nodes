@@ -590,7 +590,7 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.match(workspace, /enabled: t\("aaalice\.common\.enabled", "Enabled"\)/);
 	assert.match(workspace, /disabled: t\("aaalice\.common\.disabled", "Disabled"\)/);
 	assert.match(theme, /\.aa-dashboard-grid-v2, \.aa-dashboard-group-grid \{[^}]*grid-auto-rows: 4px;[^}]*align-items: stretch;/);
-	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\);[^}]*grid-template-rows: 14px 32px;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\);[^}]*grid-template-rows: 16px 32px;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-title \{[^}]*grid-column: 1;[^}]*grid-row: 1;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*grid-column: 1;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-boolean \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
@@ -598,7 +598,7 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.doesNotMatch(theme, /\.aa-control-card-header \.aa-control-boolean-status \{\s*display: none;/);
 	assert.doesNotMatch(theme, /aaalice-pcp-node-root/);
 	assert.match(components, /root\.append\(header, control/);
-	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) 28px;[^}]*grid-template-rows: 14px 30px;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-card-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) 28px;[^}]*grid-template-rows: 16px 30px;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only\[data-control-kind="seed"\] \.aa-control-seed-mode\.aa-ui-button \{[^}]*grid-column: 2;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-numeric-value \{[^}]*text-align: center;/);
 });
