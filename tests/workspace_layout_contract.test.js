@@ -28,6 +28,8 @@ const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), 
 const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
 const nodeControlMenu = readFileSync(join(ROOT, "js", "lib", "node_control_menu.js"), "utf8");
 const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
+const bindingIdentity = readFileSync(join(ROOT, "js", "lib", "dashboard_binding_identity.js"), "utf8");
+const dashboardUnbinding = readFileSync(join(ROOT, "js", "workspace", "dashboard_unbinding.js"), "utf8");
 const imageCompareControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_compare.js"), "utf8");
 const numericControl = readFileSync(join(ROOT, "js", "lib", "controls", "numeric.js"), "utf8");
 const choiceControl = readFileSync(join(ROOT, "js", "lib", "controls", "choice.js"), "utf8");
@@ -192,9 +194,13 @@ test("add-controls dialog uses a compact structured picker", () => {
 	assert.match(workspace, /aa-add-controls-select-all/);
 	assert.match(workspace, /binding\.selectAll/);
 	assert.doesNotMatch(workspace, /aa-add-controls-footer-count/);
-	assert.match(workspace, /const added = existing\.has\(bindingTargetKey\(control\.binding\)\)/);
+	assert.match(workspace, /const existingBindings = model\.pages\.flatMap/);
+	assert.match(workspace, /const isExisting = createBindingTargetMatcher\(relevantBindings, resolve\)/);
+	assert.match(bindingIdentity, /export function sameBindingTarget/);
+	assert.match(dashboardUnbinding, /sameBindingTarget\(binding, candidate\.binding, resolve\)/);
+	assert.match(workspace, /sameBindingTarget\(candidate\.binding, item\.binding, resolve\)/);
 	assert.match(workspace, /candidate\?\.graph === app\.graph\) repairDuplicateHostIds\(graphNodes\(\)\)/);
-	assert.match(workspace, /selected = new Set\(controls.*!existing\.has/);
+	assert.match(workspace, /selected = new Set\(controls.*!isExisting/);
 	assert.match(workspace, /binding\.addSelected/);
 	assert.doesNotMatch(workspace, /duplicateKeys|duplicateSetting|allowDuplicate/);
 	assert.match(workspace, /confirmButton\.disabled = selected\.size === 0/);

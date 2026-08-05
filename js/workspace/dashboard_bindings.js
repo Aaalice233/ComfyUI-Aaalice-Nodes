@@ -2,7 +2,8 @@ import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "../lib/control_providers.js";
 import { installNodeControlMenu } from "../lib/node_control_menu.js";
-import { bindingKey, bindingTargetKey, controlItemBindings, createPage, linkedBindingCount, normalizeDashboard } from "../lib/dashboard_model.js";
+import { bindingKey, controlItemBindings, createPage, linkedBindingCount, normalizeDashboard } from "../lib/dashboard_model.js";
+import { createBindingTargetMatcher, sameBindingTarget } from "../lib/dashboard_binding_identity.js";
 import { addItems, addLinkedBinding, assignToGroup, detachBinding, moveItems, removeItems, replacePrimaryBinding, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
 import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet, synchronizeLinkedBindingSets } from "../lib/control_binding_set.js";
 import { installLinkedSeedQueueHook as installLinkedSeedQueueLifecycle } from "../lib/linked_seed_queue.js";
@@ -22,7 +23,7 @@ let runtime = null;
 export function configureDashboardBindings(dependencies) {
 	runtime = dependencies;
 	configureNumericRange({ updateDashboard: dependencies.updateDashboard });
-	configureDashboardUnbinding({ dashboard: dependencies.dashboard, updateDashboard: dependencies.updateDashboard, bindingDisplay, notifyControlBindingError, remindWorkflowSave: dependencies.remindWorkflowSave });
+	configureDashboardUnbinding({ dashboard: dependencies.dashboard, updateDashboard: dependencies.updateDashboard, resolve: dependencies.resolve, bindingDisplay, notifyControlBindingError, remindWorkflowSave: dependencies.remindWorkflowSave });
 }
 const dashboard = () => runtime.dashboard();
 const updateDashboard = (callback) => runtime.updateDashboard(callback);
@@ -143,10 +144,10 @@ export function controlTitle(item, resolved) {
 }
 
 function compatibleCardTargets(sourceBinding, model = dashboard()) {
-	const source = resolvedBindingEntry(sourceBinding); const sourceKey = bindingTargetKey(sourceBinding); const targets = [];
+	const source = resolvedBindingEntry(sourceBinding); const targets = [];
 	for (const page of model.pages) {
 		for (const item of page.items) {
-			if (item.kind !== "control" || controlItemBindings(item).some((binding) => bindingTargetKey(binding) === sourceKey)) continue;
+			if (item.kind !== "control" || controlItemBindings(item).some((binding) => sameBindingTarget(binding, sourceBinding, resolve))) continue;
 			const resolvedSet = resolveControlBindingSet(item, resolve);
 			if (resolvedSet.status !== "ok") continue;
 			const primary = resolvedSet.bindingSet.entries[0];
@@ -215,9 +216,9 @@ export function installLinkedSeedQueueHook() {
 }
 
 export function openRebind(item, ownerElement = null) {
-	const model = dashboard(); const candidates = []; const currentKey = bindingKey(item.binding);
+	const model = dashboard(); const candidates = [];
 	for (const candidate of graphNodes().flatMap((node) => controlProviders.list(node))) {
-		if (bindingKey(candidate.binding) === currentKey || candidate.binding.valueType !== item.binding.valueType) continue;
+		if (sameBindingTarget(candidate.binding, item.binding, resolve) || candidate.binding.valueType !== item.binding.valueType) continue;
 		try {
 			const next = replacePrimaryBinding(model, item.id, candidate.binding); const { item: nextItem } = findDashboardControl(next, item.id);
 			if (resolveControlBindingSet(nextItem, resolve).status === "ok") candidates.push(candidate);
@@ -373,8 +374,7 @@ export function openEditGroup(page, group) {
 
 
 function dashboardHasBinding(model, binding) {
-	const targetKey = bindingTargetKey(binding);
-	return model.pages.some((page) => page.items.some((item) => item.kind === "control" && controlItemBindings(item).some((candidate) => bindingTargetKey(candidate) === targetKey)));
+	return model.pages.some((page) => page.items.some((item) => item.kind === "control" && controlItemBindings(item).some((candidate) => sameBindingTarget(candidate, binding, resolve))));
 }
 
 function bindingLabelScore(sourceLabel, targetLabel) {
@@ -444,7 +444,7 @@ function openLinkControls(node, listedControls = null, ownerElement = null) {
 		if (!source || !target) return;
 		try {
 			const liveControls = controlProviders.list(node);
-			const liveSource = liveControls.find((control) => control.binding.controlId === source.control.binding.controlId && (control.binding.adapterId || null) === (source.control.binding.adapterId || null));
+			const liveSource = liveControls.find((control) => sameBindingTarget(control.binding, source.control.binding, resolve));
 			if (!liveSource) throw new ControlBindingSetError("The selected node parameter is no longer available", "unresolved-binding", source.control.binding);
 			const liveTarget = compatibleCardTargets(liveSource.binding).find((candidate) => candidate.item.id === target.item.id);
 			if (!liveTarget) throw new ControlBindingSetError("The selected sidebar parameter is no longer compatible", "incompatible-contract", liveSource.binding);
@@ -483,12 +483,14 @@ function openAddControls(node, ownerElement = null) {
 		targetGrid.append(field({ label: t("aaalice.workspace.target.newPage", "New page"), control: pageName }));
 		body._createTarget = () => updateDashboard((current) => { const nextPage = createPage(pageName.value.trim() || "Page"); current.pages.push(nextPage); runtime.setActivePageId(nextPage.id); return current; });
 	} else { rebuildTargets(); targetGrid.append(field({ label: t("aaalice.workspace.target.page", "Page"), control: pageSelect })); }
-	const existing = new Set(model.pages.flatMap((candidatePage) => candidatePage.items.filter((item) => item.kind === "control").flatMap(controlItemBindings).map(bindingTargetKey)));
+	const existingBindings = model.pages.flatMap((candidatePage) => candidatePage.items.filter((item) => item.kind === "control").flatMap(controlItemBindings));
+	const relevantBindings = existingBindings.filter((binding) => controls.some((control) => binding.provider === control.binding.provider && binding.hostId === control.binding.hostId));
+	const isExisting = createBindingTargetMatcher(relevantBindings, resolve);
 	const controlsByKey = new Map(controls.map((control) => [bindingKey(control.binding), control]));
-	selected = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => !existing.has(bindingTargetKey(controlsByKey.get(key).binding))));
+	selected = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => !isExisting(controlsByKey.get(key))));
 	const selectionCount = el("span", "aa-add-controls-selection-count");
 	let confirmButton = null; let selectAllButton = null;
-	const eligibleKeys = () => controls.map((control) => bindingKey(control.binding)).filter((key) => !existing.has(bindingTargetKey(controlsByKey.get(key).binding)));
+	const eligibleKeys = () => controls.map((control) => bindingKey(control.binding)).filter((key) => !isExisting(controlsByKey.get(key)));
 	const updateSelectionState = () => {
 		const text = `${selected.size} ${t("aaalice.workspace.binding.selectedControls", "controls selected")}`;
 		selectionCount.textContent = text;
@@ -530,7 +532,7 @@ function openAddControls(node, ownerElement = null) {
 					previousSourceGroup = identity;
 				}
 			}
-			const key = bindingKey(control.binding); const added = existing.has(bindingTargetKey(control.binding));
+			const key = bindingKey(control.binding); const added = isExisting(control);
 			const status = added ? badge(t("aaalice.workspace.binding.added", "Already added"), { className: "aa-add-controls-row-status" }) : control.availability?.state && control.availability.state !== "ready" ? badge(controlAvailabilityDescription(control), { className: "aa-add-controls-row-status is-warning" }) : null;
 			const row = createListRow({ title: control.label, selected: selected.has(key), actions: status ? [status] : [], onSelect: (checked) => { if (checked && !added) selected.add(key); else selected.delete(key); updateSelectionState(); } });
 			row.selectionControl.setDisabled(added); list.append(row);

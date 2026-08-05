@@ -2,6 +2,7 @@ import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { controlProviders } from "../lib/control_providers.js";
 import { bindingKey, bindingTargetKey, controlItemBindings } from "../lib/dashboard_model.js";
+import { sameBindingTarget } from "../lib/dashboard_binding_identity.js";
 import { detachBinding } from "../lib/dashboard_commands.js";
 import { badge, button, el, emptyState } from "../lib/ui.js";
 import { createListRow } from "../lib/workspace_components.js";
@@ -13,6 +14,7 @@ export function configureDashboardUnbinding(dependencies) {
 }
 
 const dashboard = () => runtime.dashboard();
+const resolve = (binding) => runtime?.resolve?.(binding);
 const updateDashboard = (callback) => runtime.updateDashboard(callback);
 const bindingDisplay = (binding) => runtime.bindingDisplay(binding);
 const notifyControlBindingError = (error) => runtime.notifyControlBindingError(error);
@@ -42,7 +44,7 @@ export function boundNodeControlEntries(node, controls, model = dashboard()) {
 	for (const page of model.pages) for (const item of page.items) {
 		if (item.kind !== "control") continue;
 		for (const binding of controlItemBindings(item)) {
-			const control = listed.get(bindingTargetKey(binding));
+			const control = listed.get(bindingTargetKey(binding)) || controls.find((candidate) => sameBindingTarget(binding, candidate.binding, resolve));
 			if (!control) continue;
 			entries.push({ page, item, binding, control, primary: bindingTargetKey(item.binding) === bindingTargetKey(binding) });
 		}
