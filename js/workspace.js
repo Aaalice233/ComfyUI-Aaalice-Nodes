@@ -187,9 +187,10 @@ function isWorkspaceRootInteractive(root) {
 
 function isFocusedWorkspaceValueControl() {
 	const active = document.activeElement;
-	return active instanceof Element && Boolean(active.closest?.(
-		'.aa-workspace-host input:not([type="checkbox"]):not([type="radio"]), .aa-workspace-host select, .aa-workspace-host textarea, .aa-workspace-host [contenteditable="true"], .aa-workspace-host button[aria-haspopup]'
-	));
+	if (active instanceof Element && active.closest?.(
+		'.aa-workspace-host input:not([type="checkbox"]):not([type="radio"]), .aa-workspace-host select, .aa-workspace-host textarea, .aa-workspace-host [contenteditable="true"], .aa-workspace-host button[aria-haspopup], .aa-workspace-host [data-aaalice-value-field="true"]'
+	)) return true;
+	return Boolean(document.querySelector('.aa-control-inline-editor'));
 }
 
 function hasWorkspacePopover() {
