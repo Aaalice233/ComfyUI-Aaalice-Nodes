@@ -75,7 +75,7 @@
 | Krita Bridge | Krita 插件目录与本机专用临时目录 | 连接心跳、请求关联的 JSON/PNG 和最近执行摘要 | `node.properties`、工作流 JSON、浏览器存储或旧快照复用 |
 | Discord 分享入口 | ComfyUI 应用设置 `Aaalice.DiscordShare.Placement` | 侧栏/顶栏 DOM 和验证状态点 | 多个布尔开关、工作流 JSON 或入口 DOM |
 | Discord 提示词来源 | `app.graph.extra.aaaliceDiscordShare.promptSource` | Preview Any 的限定执行 Id 与本次输出文本 | 提示词正文副本、节点标题或裸 Node Id |
-| Discord 最新运行 | 页面内存中的最后一次成功执行快照 | `/history/{prompt_id}` outputs、图片尺寸和当前选择 | 工作流 JSON、节点属性、浏览器持久缓存 |
+| Discord 最新运行 | 页面内存中的最后一次成功执行快照 | `/history/{prompt_id}` outputs、图片尺寸、当前选择和 Dialog 内本次分享的临时提示词草稿 | 工作流 JSON、节点属性、浏览器持久缓存 |
 | Discord 成员会话 | 浏览器当前 Origin 的可撤销会话 | 中继逐次成员/角色校验 | Webhook、OAuth Secret 或工作流 |
 | Discord 频道选择 | 浏览器 `localStorage` | 中继公开的 Target Id 子集 | Webhook URL、工作流 JSON 或节点属性 |
 | Discord 长 Prompt 文件偏好 | 浏览器 `localStorage` | 是否把超过单 Embed 限制的 Prompt 改为 TXT 附件 | Prompt 正文、工作流 JSON 或频道密钥 |
@@ -116,7 +116,7 @@
 1. Aaalice 工作区底栏提供 GitHub、Discord 社区链接和分享入口，固定按钮位于底栏右侧；用户也可将分享入口迁移到画布顶栏。入口位置只使用一个应用级三态设置，宿主重挂时由单一 MutationObserver 幂等恢复，不轮询 DOM。
 2. Preview Any 右键菜单把 Graph Id、Node Id 和显示标签写入根图 `extra`。执行成功后按 `prompt_id` 读取历史 outputs，限定执行 Id 反查节点并生成页面会话快照；历史读取失败才使用本次 `executed` 事件缓存。
 3. 首次点击且没有有效会话时直接在独立 OAuth 窗口完成 Discord 登录和目标 Guild 成员检测，不以是否已有运行图像为前置条件；中继签名状态绑定原 ComfyUI Origin、一次性 Nonce 和 challenge，回调结果通过精确 Origin 的 `postMessage` 与短时 verifier handoff 交回随机会话 Token。
-4. 相册只展示最后一次成功执行的去重图像；尺寸由浏览器按需解码，当前缩略图和 Dialog 状态不持久化。提示词缺失时禁用发送并要求重新绑定、执行。
+4. 相册只展示最后一次成功执行的去重图像；尺寸由浏览器按需解码，当前缩略图、Dialog 状态和提示词编辑草稿不持久化。提示词缺失时禁用发送并要求重新绑定、执行；有提示词时可在发送前进入多行编辑态，保存或放弃修改，且编辑只影响本次分享。
 5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、Target Id、图片类型/大小与提示词校验。一般 Prompt 以连续 fenced Embed 排在图像之前；关闭文件化时超过单个 Embed 的内容按顺序拆成最多十条消息，图像只附在最后一条；启用文件化且超过 1,500 字符时，改为 UTF-8 TXT 与图像同消息附件。首个 Embed 使用会话用户或当前 Guild Member 的昵称与 Discord CDN 头像表达作者身份，但不覆盖 Webhook 自身头像和名称；后续分段不重复作者。任一分段失败时中继尽力删除该频道已发出的分段，任何步骤失败都保持明确错误，部分频道失败会返回独立目标结果。
 
 ### ResolutionPreset
@@ -184,7 +184,7 @@
 10. Dashboard 页面滚动只作用于当前页面，不再把滚动边界解释为页面切换请求。页面切换由页眉左侧页面按钮、右侧独立 Page Rail 的胶囊点击或键盘操作触发；Page Rail 常态占用 Dashboard body 右侧固定 38px 独立列显示圆点，圆点列不覆盖 Scroll Surface 或控件；收起态圆点使用紧凑间距，只在圆点簇中央的动态命中区响应指针，圆点上下两侧的空白不触发展开；指针进入后圆点间距平滑增大，并始终以 Rail 的垂直中心作为唯一几何基准，扩展 gap 从中心向两侧对称分配；悬停、焦点和指针移动不改变中心，当前 `activePageId` 的 marker 只随所属条目渲染，不创建独立游标；胶囊展开时允许越出该列显示名称，透明悬浮区覆盖胶囊之间的间隙，收起由稳定的 Rail 外边界统一负责，并在布局帧确认已离开整体包络后收回；持久 Rail 被重新挂入页面渲染壳时不得把瞬时 pointerleave 当作真实离开；Dashboard body 必须以固定 flex/grid 轨道提供稳定高度，离场页面快照脱离轨道尺寸计算，避免切页过渡改变 Rail 中心；以选中整体强调光晕表达当前页。Page Rail 不消费滚轮，滚轮不会切换页面。每个侧栏根独立持有 Page Rail、当前页 marker 和过渡状态，根卸载、隐藏或切换工作区时只清理自身展开状态；页面请求按当前 `activePageId` 解析，多根同帧回到原 Page Id 时折叠为无过渡 no-op。`v-show` 隐藏根休眠且不重建 Provider/控件，首次挂载已隐藏的根只建立空占位与生命周期观察，重新可见时由 ResizeObserver 补一次完整渲染，搜索焦点只由发起操作的可见根消费；每个根生成独立 DOM 控件 id，禁止跨根 `label[for]` 命中。自定义页签宿主被 Vue 或其它 custom renderer 替换时，由根与父级所有权观察器清理旧实例及其挂到 `document.body` 的锚定浮层；销毁、隐藏与重绘只关闭锚定于对应根的 Tooltip、Popover 和 Context Menu，不得关闭其它 Graph View、画布节点或扩展的表面；所有脱离根挂到 `document.body` 的菜单必须保存显式 owner，控件销毁同时移除自身浮动编辑器并闭合尚未提交的图事务。
 11. Dashboard 的完整重建只服务结构域：页面/布局、Binding Set、控件类型、动态选项、可用性和来源结构。参数值、Seed after-generate 行为及连续数值预览属于值域；写入完成后保持卡片、输入元素、焦点、Popover 和动画元素 identity。Provider 的 promoted widget 索引只缓存对象身份映射，不缓存值、可用性或预设 payload；`graphChanged`、工作流恢复及 `CONTROL_HOST_INVALIDATED_EVENT` 负责失效，避免以过期 descriptor 代替实时状态。
 12. 画布绑定高亮由 `js/lib/canvas_control_binding_highlight.js` 维护；Classic 对 native/promoted widget 安装绘制包装，标记集合新增、替换或移除后必须调用 ComfyUI `LGraphCanvas.setDirty(true, true)`，因为安装包装不会自动重绘已经保留的画布帧。含 `PreviewAny` / `PreviewImage` 的子图首次恢复也遵守该契约，进入/退出子图触发的重绘不能作为修复手段。
-13. Dashboard 搜索只匹配参数组件的实时显示标题，搜索索引覆盖全部页面，不把页面名、布局组名或其它上下文元数据加入匹配；结果以页面分组显示，点击结果跳转到所属页面并定位组件，搜索会话状态不进入工作流持久化。
+13. Dashboard 搜索只匹配参数组件的实时显示标题，搜索索引覆盖全部页面，不把页面名、布局组名或其它上下文元数据加入匹配；打开搜索后结果按页面分组挂载真实 Control View，查询输入只切换已有结果的可见性，不销毁搜索输入或控件 DOM；搜索结果与正常页面通过现有 value channel、Provider 写回和 controlView().update() 共享真实值，允许连续批量修改，并保留卡片菜单、联动、数值范围、图像上传、Seed 行为和可用性错误态。搜索会话不进入工作流持久化，搜索滚动独立于各页面 Scroll Surface，关闭后恢复当前页面原位置。
 
 #### 第三方节点适配
 

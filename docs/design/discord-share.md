@@ -24,7 +24,7 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
 |---|---|---|
 | 入口位置 | ComfyUI 应用设置 `Aaalice.DiscordShare.Placement` | 当前 ComfyUI 用户 |
 | 提示词来源 | `app.graph.extra.aaaliceDiscordShare.promptSource` | 随工作流保存 |
-| 最新运行图像与提示词 | 浏览器内存中的最后一次成功执行快照 | 页面会话 |
+| 最新运行图像与提示词 | 浏览器内存中的最后一次成功执行快照；分享 Dialog 内的临时编辑草稿 | 页面会话；编辑草稿仅存活于当前 Dialog |
 | Discord 会话 | 浏览器当前 Origin 的本地会话 | 可撤销、自动过期 |
 | 频道选择 | 浏览器 `localStorage` 中的公开 Target Id 列表 | 当前 Origin |
 | 长 Prompt 文件偏好 | 浏览器 `localStorage` 中的布尔值，默认开启 | 当前 Origin |
@@ -33,7 +33,7 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
 提示词来源只保存 Preview Any 的稳定 Graph Id、Node Id 和显示标签，不复制提示词。
 每次执行完成后从 `/history/{prompt_id}` 读取完整 outputs；失败时只回退到本次
 `executed` 事件已经收到的输出。图像按执行输出顺序去重，提示词按限定执行 Id
-反查绑定节点。最新运行数据、选中缩略图、图片尺寸和 Dialog 状态不得写入工作流。
+反查绑定节点。最新运行数据、选中缩略图、图片尺寸、Dialog 状态和发送前编辑的提示词草稿不得写入工作流；编辑只影响本次分享。
 
 ## 分享流程
 
@@ -52,7 +52,7 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
    组成，文件名保留在可访问名称和提示中。队列支持滚轮横向滚动及键盘方向键切换；右侧使用
    固定提示词栏，长提示词只在该栏内部滚动。窄窗口改为媒体区在上、提示词栏在下，不压缩
    缩略图到不可读。
-5. 提示词缺失时保留相册和右侧提示词栏，但禁用发送，并指导用户右键 Preview Any 后重新运行。
+5. 提示词缺失时保留相册和右侧提示词栏，但禁用发送，并指导用户右键 Preview Any 后重新运行。存在提示词时，提示词栏提供“编辑提示词”按钮；进入编辑态后保留多行内容、字符计数和焦点，用户可以保存本次分享的修改、用 Escape 或“放弃修改”恢复原文，且不会改写工作流或执行快照。未保存编辑期间发送按钮保持禁用。
 6. Footer 在发送按钮旁提供频道多选，至少保留一个频道；客户端只取得稳定 Target Id、
    显示名称、默认状态和“推荐长 Prompt 文件化”能力，不接触 Webhook URL。只有选中声明
    该能力的频道时才自动开启文件选项；仅选 SFW / NSFW 收集频道不得覆盖用户当前偏好。

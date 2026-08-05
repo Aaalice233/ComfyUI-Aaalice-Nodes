@@ -104,20 +104,34 @@ export function createDashboardGrid({ page, sizeProjections = null, columns = 12
 	return root;
 }
 
-export function createDashboardSearchResults({ pages, labels = {}, onSelect }) {
+export function createDashboardSearchResults({ pages, labels = {}, renderItem }) {
 	const root = el("div", { className: "aa-dashboard-search-results", attrs: { role: "region", "aria-label": labels.ariaLabel || "Component search results" } });
+	const summary = el("div", { className: "aa-dashboard-search-summary", attrs: { "aria-live": "polite" } });
+	root.append(summary);
 	for (const page of pages) {
+		const count = el("span", { className: "aa-dashboard-search-section__count", text: String(page.entries.length), attrs: { "data-dashboard-search-page-count": page.id } });
+		const heading = el("h2", { className: "aa-dashboard-search-section__title", children: [el("span", null, page.title), count] });
 		const section = el("section", { className: "aa-dashboard-search-section", attrs: { "data-dashboard-search-page-id": page.id } });
-		section.append(el("h2", "aa-dashboard-search-section__title", page.title));
+		section.append(heading);
 		const list = el("div", { className: "aa-dashboard-search-section__items" });
 		for (const entry of page.entries) {
-			const result = button({ label: entry.title, variant: "ghost", size: "sm", className: "aa-dashboard-search-result", ariaLabel: entry.title, onClick: () => onSelect?.(entry) });
-			result.append(el("span", "aa-dashboard-search-result__hint", labels.open || "Open component"));
+			const result = renderItem?.(entry);
+			if (!result) continue;
+			result.classList.add("aa-dashboard-search-result-card");
 			result.dataset.dashboardSearchItemId = entry.itemId;
 			result.dataset.searchText = entry.searchText;
 			list.append(result);
 		}
 		section.append(list); root.append(section);
 	}
+	root.updateSummary = ({ count = 0, query = "" } = {}) => {
+		const template = query ? labels.summary || "{count} matching components" : labels.all || "All {count} components";
+		summary.textContent = template.replace("{count}", String(count));
+		for (const section of root.querySelectorAll("[data-dashboard-search-page-id]")) {
+			const visibleCount = section.querySelectorAll("[data-dashboard-search-item-id]:not([hidden])").length;
+			const pageCount = section.querySelector("[data-dashboard-search-page-count]");
+			if (pageCount) pageCount.textContent = String(visibleCount);
+		}
+	};
 	return root;
 }

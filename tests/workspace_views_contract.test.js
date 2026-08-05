@@ -111,15 +111,18 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.match(theme, /@keyframes aa-workspace-search-open/);
 });
 
-test("dashboard search indexes every page's component titles and excludes group context", () => {
+test("dashboard search mounts live controls for every page and excludes group context", () => {
 	assert.match(dashboardComponents, /export function createDashboardSearchResults/);
+	assert.match(dashboardComponents, /renderItem\?\.\(entry\)/);
 	assert.match(workspace, /const searchResultPages = searchOpen \? model\.pages\.map/);
 	assert.match(workspace, /targetPage\.items\.filter\(\(item\) => item\.kind === "control"\)/);
-	assert.match(workspace, /searchText: title\.toLocaleLowerCase\(\)/);
+	assert.match(workspace, /searchText: normalizeDashboardSearchText\(title\)/);
+	assert.match(workspace, /renderItem: \(entry\) => renderControlCard\(entry\.item, entry\.page, entry\.controls, \{ search: true \}\)/);
 	assert.doesNotMatch(workspace, /groupName\.toLocaleLowerCase\(\)\.includes\(needle\)/);
-	assert.match(workspace, /searchResults\.hidden = !searching/);
-	assert.match(workspace, /viewState\.searchTarget = \{ pageId: entry\.pageId, itemId: entry\.itemId \}/);
-	assert.match(workspace, /target\.scrollIntoView\(\{ block: "center", behavior: "smooth" \}\)/);
+	assert.match(workspace, /matchesDashboardSearch\(item\.dataset\.searchText \|\| "", needle\)/);
+	assert.match(workspace, /searchResults\.updateSummary\?\.\(\{ count: visibleItems, query: needle \}\)/);
+	assert.doesNotMatch(workspace, /viewState\.searchTarget/);
+	assert.doesNotMatch(workspace, /target\.scrollIntoView\(\{ block: "center", behavior: "smooth" \}\)/);
 });
 
 test("workspace composition root owns one view-state source for every sidebar view", () => {
@@ -329,8 +332,9 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(workspace, /dashboardScrollPositions = new WeakMap\(\)/);
 	assert.match(workspace, /rememberDashboardScroll\(root\);[\s\S]*root\.replaceChildren\(\)/);
 	assert.match(workspace, /"data-dashboard-page-id": page\.id/);
-	assert.match(workspace, /scroll\.addEventListener\("scroll", \(\) => dashboardScrollState\(host\)\.pages\.set\(page\.id, scroll\.scrollTop\)/);
-	assert.match(workspace, /setScrollTopImmediately\(scroll, dashboardScrollTop\(host, page\.id\)\)/);
+	assert.match(workspace, /if \(searchOpen\) scrollState\.searchTop = scroll\.scrollTop/);
+	assert.match(workspace, /else scrollState\.pages\.set\(page\.id, scroll\.scrollTop\)/);
+	assert.match(workspace, /setScrollTopImmediately\(scroll, searchOpen \? scrollState\.searchTop : dashboardScrollTop\(host, page\.id\)\)/);
 	assert.match(workspace, /deleteDashboardScrollState\(element\)/);
 	assert.doesNotMatch(workspace, /pageTransition\?\.initialEdge/);
 	assert.doesNotMatch(workspace, /scroll\.scrollHeight - scroll\.clientHeight/);

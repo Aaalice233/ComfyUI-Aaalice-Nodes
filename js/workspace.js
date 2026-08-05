@@ -77,7 +77,7 @@ let renderFrame = 0;
 let deferredWorkspaceRender = false;
 let forcedWorkspaceRender = false;
 const workspaceViewState = {
-	dashboard: { query: "", searchOpen: false, focusSearch: false, focusHost: null, selectedItemIds: new Set(), selectedGroupIds: new Set(), searchTarget: null, pageTransition: null },
+	dashboard: { query: "", searchOpen: false, focusSearch: false, focusHost: null, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
 	library: { query: "", searchOpen: false, focusSearch: false, focusHost: null, categoryId: "", collectionId: "", selected: new Set() },
 	groups: { query: "", searchOpen: false, focusSearch: false, focusHost: null },
 };

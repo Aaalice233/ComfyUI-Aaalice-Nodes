@@ -49,6 +49,10 @@ test("the marker has both Classic and Nodes 2.0 mount contracts without a layout
 	assert.match(classicAndVueTheme, /aa-focus-on-open__classic-root/);
 	assert.doesNotMatch(classicAndVueTheme, /aa-focus-on-open__vue-root/);
 	assert.match(classicAndVueTheme, /pointer-events: none/);
+	assert.match(implementation, /text: "🎯"/);
+	assert.match(implementation, /text: "🚫"/);
+	assert.doesNotMatch(implementation, /icon\("eye(?:Off)?"/);
+	assert.match(classicAndVueTheme, /font-size: 18px/);
 });
 
 test("focus-on-open localization keeps the English and Simplified Chinese menu labels aligned", () => {

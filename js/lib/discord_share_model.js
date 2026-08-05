@@ -16,6 +16,10 @@ export function normalizePromptBinding(value) {
 	};
 }
 
+export function normalizeSharePrompt(value) {
+	return String(value ?? "").replace(/\r\n?/g, "\n").trim();
+}
+
 export function normalizeDiscordShareWorkflowState(value) {
 	return {
 		version: DISCORD_SHARE_WORKFLOW_VERSION,

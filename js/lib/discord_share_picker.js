@@ -12,6 +12,7 @@ import { badge, button, createDialog, el, icon } from "./ui.js";
 import { createShareImageViewer } from "./discord_share_image_viewer.js";
 import { createLongPromptFileControl } from "./discord_share_prompt_file.js";
 import { createShareTargetPicker } from "./discord_share_target_picker.js";
+import { normalizeSharePrompt } from "./discord_share_model.js";
 
 function imageUrl(reference) {
 	const query = new URLSearchParams({
@@ -79,9 +80,38 @@ export function createDiscordSharePicker({
 		const filmstrip = el("div", { className: "aa-discord-share-filmstrip", attrs: { role: "listbox", "aria-label": label("picker.images", "Latest run images"), tabindex: 0 } });
 		const media = el("section", { className: "aa-discord-share-picker__media", attrs: { "aria-label": label("picker.images", "Latest run images") }, children: [stage, filmstrip] });
 		const prompt = el("pre", "aa-discord-share-picker__prompt");
+		const promptEditor = el("textarea", {
+			className: "aa-discord-share-picker__prompt-editor",
+			attrs: {
+				hidden: true,
+				spellcheck: "false",
+				"aria-label": label("picker.promptEditor", "Edit positive prompt"),
+			},
+		});
+		const promptEditError = el("div", {
+			className: "aa-discord-share-picker__prompt-edit-error",
+			attrs: { role: "alert", hidden: true },
+		});
+		const promptEditCount = el("span", "aa-discord-share-picker__prompt-edit-count");
+		const promptEditHint = el("span", "aa-discord-share-picker__prompt-edit-hint", label("picker.promptLocalOnly", "Changes apply to this share only; the workflow stays unchanged."));
+		const promptEditMeta = el("div", {
+			className: "aa-discord-share-picker__prompt-edit-meta",
+			attrs: { hidden: true, "aria-live": "polite" },
+			children: [promptEditHint, promptEditCount],
+		});
 		const promptState = el("div", "aa-discord-share-picker__prompt-state");
+		const promptActions = el("div", { className: "aa-discord-share-picker__prompt-actions" });
+		const promptHeader = el("div", { className: "aa-discord-share-picker__prompt-header", children: [promptState, promptActions] });
+		const promptContent = el("div", {
+			className: "aa-discord-share-picker__prompt-content",
+			children: [prompt, promptEditor, promptEditError, promptEditMeta],
+		});
 		const footer = el("div");
-		const hasPrompt = Boolean(snapshot.prompt);
+		const initialPrompt = normalizeSharePrompt(snapshot.prompt);
+		let promptValue = initialPrompt;
+		let promptEditing = false;
+		let promptWasEdited = false;
+		const hasPrompt = Boolean(initialPrompt);
 		let selectedTargetIds = loadDiscordShareTargetSelection(targets);
 		let longPromptPreference = loadDiscordSharePromptFilePreference();
 		let longPromptAsFile = longPromptPreference;
@@ -106,21 +136,119 @@ export function createDiscordSharePicker({
 			sendFeedback.classList.toggle("is-warning", warning);
 			sendFeedback.hidden = false;
 		};
+		const renderPromptState = () => {
+			const missing = !promptValue;
+			const stateIcon = missing ? "statusWarning" : promptEditing ? "edit" : "statusCheck";
+			const stateClass = missing ? "aa-discord-share-picker__prompt-warning" : promptEditing ? "aa-discord-share-picker__prompt-editing" : "aa-discord-share-picker__prompt-ok";
+			const stateLabel = missing
+				? label("picker.promptUnavailable", "Prompt unavailable")
+				: promptEditing
+					? label("picker.promptEditing", "Editing prompt")
+					: promptWasEdited
+						? label("picker.promptEdited", "Edited prompt")
+						: snapshot.promptBinding?.label || label("picker.prompt", "Positive prompt");
+			promptState.replaceChildren(
+				el("span", { className: stateClass, children: [icon(stateIcon)] }),
+				el("strong", null, stateLabel),
+			);
+		};
+		const syncPromptEditor = () => {
+			prompt.textContent = promptValue || label("picker.promptMissing", "Right-click a Preview Any node and set it as the Discord prompt source, then run the workflow again.");
+			prompt.classList.toggle("is-missing", !promptValue);
+			promptEditor.value = promptEditing ? promptEditor.value : promptValue;
+			prompt.hidden = promptEditing;
+			promptEditor.hidden = !promptEditing;
+			promptEditMeta.hidden = !promptEditing;
+			promptEditCount.textContent = label("picker.promptCharacters", "{count} characters").replace("{count}", String(promptEditor.value.length));
+			promptEditError.hidden = true;
+			promptEditError.textContent = "";
+			editPromptButton.hidden = !hasPrompt || promptEditing;
+			savePromptButton.hidden = !promptEditing;
+			discardPromptButton.hidden = !promptEditing;
+			renderPromptState();
+		};
 		const syncSendAvailability = () => {
-			send.disabled = !hasPrompt || selectedTargetIds.length === 0;
+			send.disabled = promptEditing || !normalizeSharePrompt(promptValue) || selectedTargetIds.length === 0;
 		};
 		const resetSendState = () => {
 			syncSendAvailability();
 			send.classList.remove("is-loading");
 			send.querySelector(".aa-ui-button__label").textContent = label("actions.send", "Send to Discord");
 		};
+		const beginPromptEdit = () => {
+			if (!hasPrompt || promptEditing) return;
+			promptEditing = true;
+			promptEditor.value = promptValue;
+			syncPromptEditor();
+			syncSendAvailability();
+			promptEditor.focus();
+			promptEditor.setSelectionRange(promptEditor.value.length, promptEditor.value.length);
+		};
+		const savePromptEdit = () => {
+			const nextPrompt = normalizeSharePrompt(promptEditor.value);
+			if (!nextPrompt) {
+				promptEditError.textContent = label("picker.promptEmpty", "Enter a prompt before sending.");
+				promptEditError.hidden = false;
+				promptEditor.focus();
+				return false;
+			}
+			promptValue = nextPrompt;
+			promptWasEdited = promptValue !== initialPrompt;
+			promptEditing = false;
+			syncPromptEditor();
+			syncSendAvailability();
+			return true;
+		};
+		const discardPromptEdit = () => {
+			if (!promptEditing) return;
+			promptEditing = false;
+			syncPromptEditor();
+			syncSendAvailability();
+		};
+		const editPromptButton = button({
+			label: label("picker.editPrompt", "Edit prompt"),
+			iconName: "edit",
+			variant: "ghost",
+			className: "aa-discord-share-picker__prompt-edit-button",
+			onClick: beginPromptEdit,
+		});
+		const savePromptButton = button({
+			label: label("picker.savePrompt", "Use edited prompt"),
+			iconName: "statusCheck",
+			variant: "secondary",
+			className: "aa-discord-share-picker__prompt-save-button",
+			onClick: savePromptEdit,
+		});
+		const discardPromptButton = button({
+			label: label("picker.discardPrompt", "Discard edits"),
+			variant: "ghost",
+			className: "aa-discord-share-picker__prompt-discard-button",
+			onClick: discardPromptEdit,
+		});
+		promptActions.append(editPromptButton, savePromptButton, discardPromptButton);
+		promptEditor.addEventListener("input", () => {
+			promptEditCount.textContent = label("picker.promptCharacters", "{count} characters").replace("{count}", String(promptEditor.value.length));
+			promptEditError.hidden = true;
+			promptEditError.textContent = "";
+			clearSendFeedback();
+		});
+		promptEditor.addEventListener("keydown", (event) => {
+			if (event.key === "Escape") {
+				event.preventDefault();
+				discardPromptEdit();
+			} else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+				event.preventDefault();
+				savePromptEdit();
+			}
+		});
 		const send = button({
 			label: label("actions.send", "Send to Discord"),
 			iconName: "send",
 			defaultAction: true,
 			onClick: async () => {
 				const selected = images[selectedIndex];
-				if (!selected || !snapshot.prompt) return;
+				const sharePrompt = normalizeSharePrompt(promptValue);
+				if (!selected || !sharePrompt || promptEditing) return;
 				clearSendFeedback();
 				send.disabled = true;
 				send.classList.add("is-loading");
@@ -128,7 +256,7 @@ export function createDiscordSharePicker({
 				try {
 					const result = await sendDiscordShare(shareConfig, session, {
 						image: selected,
-						prompt: snapshot.prompt,
+						prompt: sharePrompt,
 						targetIds: selectedTargetIds,
 						longPromptAsFile,
 					});
@@ -227,20 +355,7 @@ export function createDiscordSharePicker({
 			event.preventDefault();
 			filmstrip.scrollLeft += event.deltaY;
 		}, { passive: false });
-		if (hasPrompt) {
-			prompt.textContent = snapshot.prompt;
-			promptState.append(
-				el("span", { className: "aa-discord-share-picker__prompt-ok", children: [icon("statusCheck")] }),
-				el("strong", null, snapshot.promptBinding?.label || label("picker.prompt", "Positive prompt")),
-			);
-		} else {
-			prompt.textContent = label("picker.promptMissing", "Right-click a Preview Any node and set it as the Discord prompt source, then run the workflow again.");
-			prompt.classList.add("is-missing");
-			promptState.append(
-				el("span", { className: "aa-discord-share-picker__prompt-warning", children: [icon("statusWarning")] }),
-				el("strong", null, label("picker.promptUnavailable", "Prompt unavailable")),
-			);
-		}
+		syncPromptEditor();
 		promptFileControl = createLongPromptFileControl(longPromptAsFile, (value) => {
 			longPromptPreference = saveDiscordSharePromptFilePreference(value);
 			longPromptAsFile = longPromptPreference;
@@ -266,7 +381,7 @@ export function createDiscordSharePicker({
 			el("section", {
 				className: "aa-discord-share-picker__prompt-panel",
 				attrs: { "aria-label": label("picker.prompt", "Positive prompt") },
-				children: [promptState, prompt, promptFileControl.root],
+				children: [promptHeader, promptContent, promptFileControl.root],
 			}),
 		);
 		footer.append(

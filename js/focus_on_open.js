@@ -67,8 +67,8 @@ function makeMarkerButton(node) {
 		className: "aa-focus-on-open__button",
 		attrs: { type: "button", "aria-label": markerAriaLabel(), title: markerTooltip() },
 		children: [
-			icon("eye", { className: "aa-focus-on-open__eye", label: null }),
-			icon("eyeOff", { className: "aa-focus-on-open__eye-off", label: null }),
+			el("span", { className: "aa-focus-on-open__emoji", attrs: { "aria-hidden": "true" }, text: "🎯" }),
+			el("span", { className: "aa-focus-on-open__cancel-emoji", attrs: { "aria-hidden": "true" }, text: "🚫" }),
 		],
 	});
 	button.addEventListener("click", (event) => {

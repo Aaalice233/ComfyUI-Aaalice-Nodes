@@ -72,11 +72,18 @@ test("placement lookup uses the registered setting default without the deprecate
 
 test("picker is latest-run only and requires a prompt before sending", () => {
 	assert.match(source, /captureEvents\.latest/);
-	assert.match(source, /send\.disabled\s*=\s*!hasPrompt/);
+	assert.match(source, /send\.disabled\s*=\s*promptEditing\s*\|\|/);
 	assert.match(source, /aa-discord-share-picker__send-feedback/);
 	assert.match(source, /role:\s*"alert"/);
 	assert.match(source, /role:\s*"alert",\s*"aria-live":\s*"assertive",\s*hidden:\s*true/);
 	assert.match(source, /showSendFeedback\(message\)/);
+	assert.match(source, /normalizeSharePrompt\(promptValue\)/);
+	assert.match(source, /promptEditor/);
+	assert.match(source, /savePromptEdit/);
+	assert.match(source, /discardPromptEdit/);
+	assert.match(source, /prompt:\s*sharePrompt/);
+	assert.match(theme, /\.aa-discord-share-picker__prompt-editor/);
+	assert.match(theme, /\.aa-discord-share-picker__prompt-actions/);
 	assert.match(theme, /\.aa-discord-share-picker__send-feedback/);
 	assert.doesNotMatch(source, /navigator\.clipboard/);
 });

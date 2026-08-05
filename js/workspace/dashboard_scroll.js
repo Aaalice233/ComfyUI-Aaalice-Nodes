@@ -43,7 +43,7 @@ export function setScrollTopImmediately(element, top) {
 export function dashboardScrollState(root) {
 	let state = dashboardScrollPositions.get(root);
 	if (!state || state.graph !== app.graph) {
-		state = { graph: app.graph, pages: new Map() };
+		state = { graph: app.graph, pages: new Map(), searchTop: 0 };
 		dashboardScrollPositions.set(root, state);
 	}
 	return state;
@@ -51,8 +51,10 @@ export function dashboardScrollState(root) {
 
 export function rememberDashboardScroll(root) {
 	const scroll = runtime.workspaceOwnedTrees.get(root)?.querySelector?.(".aa-dashboard-scroll:not(.is-page-leaving)");
-	const pageId = scroll?.dataset.dashboardPageId;
-	if (pageId) dashboardScrollState(root).pages.set(pageId, scroll.scrollTop);
+	if (!scroll) return;
+	const state = dashboardScrollState(root);
+	if (scroll.dataset.dashboardSearchOpen === "true") state.searchTop = scroll.scrollTop;
+	else if (scroll.dataset.dashboardPageId) state.pages.set(scroll.dataset.dashboardPageId, scroll.scrollTop);
 }
 
 export function dashboardScrollTop(root, pageId) { return dashboardScrollState(root).pages.get(pageId) || 0; }

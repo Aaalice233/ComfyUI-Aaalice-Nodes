@@ -43,7 +43,7 @@
       "membership": { "title": "仅限服务器成员", "body": "请先加入 Aaalice Discord 服务器，加入后回到这里再次验证。" },
       "unavailable": { "title": "分享服务尚未配置", "body": "当前安装尚未配置 Aaalice Discord 中继地址。" },
       "account": { "title": "Discord 连接", "connected": "已连接的 Discord 账号", "verified": "已验证服务器成员身份", "ready": "可用" },
-      "picker": { "title": "分享上次运行结果", "images": "上次运行生成的图像", "readingSize": "正在读取分辨率…", "prompt": "正面提示词", "promptUnavailable": "提示词不可用", "promptMissing": "请右键一个“预览任何”节点，将它设为 Discord 提示词来源，然后重新运行工作流。", "viewer": "图片查看器。滚轮缩放，放大后拖动查看，双击还原。", "viewerControls": "图片查看控制", "zoomIn": "放大", "zoomOut": "缩小", "resetView": "适应窗口" },
+      "picker": { "title": "分享上次运行结果", "images": "上次运行生成的图像", "readingSize": "正在读取分辨率…", "prompt": "正面提示词", "promptEditor": "编辑正面提示词", "editPrompt": "编辑提示词", "savePrompt": "使用修改后的提示词", "discardPrompt": "放弃修改", "promptEditing": "正在编辑提示词", "promptEdited": "已修改提示词", "promptEmpty": "请输入提示词后再发送。", "promptCharacters": "{count} 个字符", "promptLocalOnly": "修改仅应用于本次分享，不会改变工作流。", "promptUnavailable": "提示词不可用", "promptMissing": "请右键一个“预览任何”节点，将它设为 Discord 提示词来源，然后重新运行工作流。", "viewer": "图片查看器。滚轮缩放，放大后拖动查看，双击还原。", "viewerControls": "图片查看控制", "zoomIn": "放大", "zoomOut": "缩小", "resetView": "适应窗口" },
       "targets": { "title": "发送到", "aria": "Discord 分享频道", "choose": "选择频道", "multiple": "频道", "none": "请至少选择一个频道" },
       "promptFile": { "label": "过长提示词作为文件发送", "tooltipTitle": "为什么推荐作为文件发送？", "limits": "Discord 单个 Embed 描述最多 4,096 个字符，单条消息的全部 Embed 文本合计最多 6,000 个字符。", "recommended": "开启后，超过 1,500 字符的提示词会改为 TXT 附件；关闭后，长提示词会拆成连续消息，图像放在最后一条消息中。", "channelRecommendation": "为避免刷屏，跑图交流推荐将过长提示词作为文件发送；一般长度提示词不受影响。" },
       "promptSource": { "setMenu": "✈️ 设为 Discord 分享提示词", "clearMenu": "✈️ 取消 Discord 分享提示词" },
@@ -64,7 +64,7 @@
 "imageCompare": { "empty": "运行工作流后显示对比图", "before": "图像 A", "after": "图像 B", "previousBefore": "上一张图像 A", "nextBefore": "下一张图像 A", "previousAfter": "上一张图像 B", "nextAfter": "下一张图像 B", "slider": "对比位置", "open": "全屏查看图像对比", "title": "图像对比", "viewer": "全屏图像对比。移动指针对比，滚轮缩放，放大后拖动查看，双击还原。", "close": "关闭全屏图像对比", "zoomIn": "放大", "zoomOut": "缩小", "fit": "适应屏幕" },
       "pin": { "pinned": "已固定：点击外侧不会收起。点击开启自动收起。", "unpinned": "已开启自动收起：点击外侧将关闭侧边栏。点击固定。" },
       "autoSave": { "label": "自动保存", "toggle": "自动保存当前侧边栏预设", "on": "开", "off": "关", "enabledHint": "自动保存默认开启。当前侧边栏预设的参数和布局变化会自动保存。", "disabledHint": "自动保存已关闭。需要手动更新当前侧边栏预设才能保留修改。" },
-      "search": { "parameters": "搜索组件", "parametersPlaceholder": "搜索全部组件", "library": "搜索词库", "close": "收起搜索", "results": "组件搜索结果", "open": "打开组件", "noParameters": "没有匹配的组件。" },
+      "search": { "parameters": "搜索组件", "parametersPlaceholder": "搜索全部组件", "library": "搜索词库", "close": "收起搜索", "results": "组件搜索结果", "summary": "匹配 {count} 个组件", "all": "全部 {count} 个组件", "noParameters": "没有匹配的组件。" },
       "groupNavigation": {
         "title": "组导航", "actions": "组导航操作", "groups": "工作流组", "count": "{count} 个组",
         "search": "搜索组", "searchPlaceholder": "搜索工作流组", "navigate": "跳转到 {group}", "unavailable": "无法在当前画布中定位这个组。",

@@ -5,6 +5,7 @@ import {
 	collectExecutionImages,
 	createShareSnapshot,
 	discordPromptBlock,
+	normalizeSharePrompt,
 	normalizeDiscordShareWorkflowState,
 	normalizeSharePlacement,
 } from "../js/lib/discord_share_model.js";
@@ -14,6 +15,11 @@ test("share placement defaults to the sidebar and accepts the three stable value
 	assert.equal(normalizeSharePlacement("topbar"), "topbar");
 	assert.equal(normalizeSharePlacement("hidden"), "hidden");
 	assert.equal(normalizeSharePlacement("permanently-hidden"), "sidebar");
+});
+
+test("share prompt edits normalize line endings and surrounding whitespace", () => {
+	assert.equal(normalizeSharePrompt("  one\r\ntwo  "), "one\ntwo");
+	assert.equal(normalizeSharePrompt(" \n\t"), "");
 });
 
 test("workflow prompt binding is normalized without execution output data", () => {
