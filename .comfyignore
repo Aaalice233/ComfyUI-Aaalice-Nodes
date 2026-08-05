@@ -27,6 +27,7 @@ test/
 **/__pycache__/
 *.py[cod]
 *$py.class
+.playwright/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
