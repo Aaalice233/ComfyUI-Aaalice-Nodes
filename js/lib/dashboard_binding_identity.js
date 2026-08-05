@@ -54,3 +54,13 @@ export function createBindingTargetMatcher(bindings, resolve = null) {
 		return Boolean(widget && group.widgets.has(widget));
 	};
 }
+
+/**
+ * The add-controls picker works with Provider control descriptors; unwrap the
+ * binding once at that UI boundary so identity matching cannot receive the
+ * descriptor itself by accident.
+ */
+export function createControlBindingMatcher(bindings, resolve = null) {
+	const matchesBinding = createBindingTargetMatcher(bindings, resolve);
+	return (control) => matchesBinding(control?.binding);
+}

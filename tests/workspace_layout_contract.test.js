@@ -195,8 +195,10 @@ test("add-controls dialog uses a compact structured picker", () => {
 	assert.match(workspace, /binding\.selectAll/);
 	assert.doesNotMatch(workspace, /aa-add-controls-footer-count/);
 	assert.match(workspace, /const existingBindings = model\.pages\.flatMap/);
-	assert.match(workspace, /const matchesExistingBinding = createBindingTargetMatcher\(relevantBindings, resolve\)/);
-	assert.match(workspace, /const isExisting = \(control\) => matchesExistingBinding\(control\?\.binding\)/);
+	assert.match(workspace, /createControlBindingMatcher, sameBindingTarget/);
+	assert.match(workspace, /const isExisting = createControlBindingMatcher\(relevantBindings, resolve\)/);
+	assert.match(bindingIdentity, /export function createControlBindingMatcher/);
+	assert.match(bindingIdentity, /return \(control\) => matchesBinding\(control\?\.binding\)/);
 	assert.match(bindingIdentity, /export function sameBindingTarget/);
 	assert.match(dashboardUnbinding, /sameBindingTarget\(binding, candidate\.binding, resolve\)/);
 	assert.match(workspace, /sameBindingTarget\(candidate\.binding, item\.binding, resolve\)/);

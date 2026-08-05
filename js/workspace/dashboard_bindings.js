@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "../lib/control_providers.js";
 import { installNodeControlMenu } from "../lib/node_control_menu.js";
 import { bindingKey, controlItemBindings, createPage, linkedBindingCount, normalizeDashboard } from "../lib/dashboard_model.js";
-import { createBindingTargetMatcher, sameBindingTarget } from "../lib/dashboard_binding_identity.js";
+import { createControlBindingMatcher, sameBindingTarget } from "../lib/dashboard_binding_identity.js";
 import { addItems, addLinkedBinding, assignToGroup, detachBinding, moveItems, removeItems, replacePrimaryBinding, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
 import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet, synchronizeLinkedBindingSets } from "../lib/control_binding_set.js";
 import { installLinkedSeedQueueHook as installLinkedSeedQueueLifecycle } from "../lib/linked_seed_queue.js";
@@ -485,8 +485,7 @@ function openAddControls(node, ownerElement = null) {
 	} else { rebuildTargets(); targetGrid.append(field({ label: t("aaalice.workspace.target.page", "Page"), control: pageSelect })); }
 	const existingBindings = model.pages.flatMap((candidatePage) => candidatePage.items.filter((item) => item.kind === "control").flatMap(controlItemBindings));
 	const relevantBindings = existingBindings.filter((binding) => controls.some((control) => binding.provider === control.binding.provider && binding.hostId === control.binding.hostId));
-	const matchesExistingBinding = createBindingTargetMatcher(relevantBindings, resolve);
-	const isExisting = (control) => matchesExistingBinding(control?.binding);
+	const isExisting = createControlBindingMatcher(relevantBindings, resolve);
 	const controlsByKey = new Map(controls.map((control) => [bindingKey(control.binding), control]));
 	selected = new Set(controls.map((control) => bindingKey(control.binding)).filter((key) => !isExisting(controlsByKey.get(key))));
 	const selectionCount = el("span", "aa-add-controls-selection-count");
