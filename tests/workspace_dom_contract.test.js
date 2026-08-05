@@ -462,8 +462,10 @@ test("markdown notes adapt between full rendering and a hover-to-read bar by hei
 	assert.match(dashboardSizing, /DASHBOARD_MARKDOWN_ROW_SPAN = 28/);
 	assert.doesNotMatch(theme, /aa-control-card\.is-compact/);
 	assert.match(theme, /:is\(\.aa-description-tooltip, \.aa-control-markdown__body, \.aa-text-output__body, \.aa-markdown-surface\) h1/);
-	assert.match(theme, /\.aa-control-markdown__body \{[^}]*overflow-y: auto/);
-	assert.match(theme, /\.aa-control-markdown__bar \{[^}]*height: 32px;/);
+	assert.match(theme, /\.aa-control-card\[data-control-kind="markdown"\] \{[^}]*border-color: transparent/);
+	assert.match(theme, /\.aa-control-markdown__body \{[^}]*overflow-y: auto[^}]*border: 0/);
+	assert.match(theme, /\.aa-control-markdown__body:focus-visible \{[^}]*aa-ui-edge-shadow-inset/);
+	assert.match(theme, /\.aa-control-markdown__bar \{[^}]*height: 32px[^}]*border: 0/);
 	assert.match(theme, /\.aa-control-markdown__bar:hover/);
 });
 
