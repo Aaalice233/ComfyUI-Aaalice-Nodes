@@ -21,6 +21,7 @@ const EXPECTED_IMPORTS = [
 	"theme-discord-account.css",
 	"theme-dashboard-quick-group.css",
 	"theme-discord-motion.css",
+	"theme-focus-on-open.css",
 ];
 
 test("the sole feature style entry preserves the reviewed cascade order", () => {

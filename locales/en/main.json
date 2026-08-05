@@ -5,6 +5,11 @@
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
       "error": "Error", "notice": "Notice", "save": "Save"
     },
+    "focusOnOpen": {
+      "menu": { "set": "👁️ Focus on open", "clear": "🚫 Cancel focus on open" },
+      "aria": { "cancel": "Cancel focus on open" },
+      "tooltip": { "cancel": "Cancel focus on open" }
+    },
     "loraList": {
       "title": "LoRA list", "activeSummary": "{active}/{total} enabled", "enabled": "Enabled", "disabled": "Disabled",
       "enableAll": "Enable all", "disableAll": "Disable all", "toggle": "Toggle {name}", "model": "Model", "clip": "CLIP",
