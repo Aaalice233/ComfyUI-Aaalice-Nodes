@@ -49,6 +49,7 @@ test("the marker has both Classic and Nodes 2.0 mount contracts without a layout
 	assert.match(classicAndVueTheme, /aa-focus-on-open__classic-root/);
 	assert.doesNotMatch(classicAndVueTheme, /aa-focus-on-open__vue-root/);
 	assert.match(classicAndVueTheme, /pointer-events: none/);
+	assert.match(classicAndVueTheme, /\.lg-node:has\(\[data-testid="node-pin-indicator"\]\) > \.aa-focus-on-open__button \{\s*right: 36px;/);
 	assert.match(implementation, /text: "🎯"/);
 	assert.match(implementation, /text: "🚫"/);
 	assert.doesNotMatch(implementation, /icon\("eye(?:Off)?"/);

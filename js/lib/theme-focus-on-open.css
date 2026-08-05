@@ -32,6 +32,11 @@
 	transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
 }
 
+/* Nodes 2.0 reserves the trailing header slot for ComfyUI's pin indicator. */
+.lg-node:has([data-testid="node-pin-indicator"]) > .aa-focus-on-open__button {
+	right: 36px;
+}
+
 .aa-focus-on-open__button:hover,
 .aa-focus-on-open__button:focus-visible {
 	border-color: color-mix(in srgb, var(--aa-ui-node-accent) 52%, transparent);
