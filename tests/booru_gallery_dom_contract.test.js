@@ -349,8 +349,13 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.doesNotMatch(source, /image\.src = proxyUrl\(detail\.source, detail\.mediaUrl\)/);
 	assert.doesNotMatch(hoverSource, /capability\(post\.source\)\?\.displayName|`#\$\{post\.postId\}`/);
 	assert.match(hoverSource, /children: \[image, loading, \.\.\.\(rating \? \[rating\] : \[\]\), info\]/);
-	assert.match(theme, /\.aa-gallery-hover-tooltip\.aa-ui-tooltip \{[^}]*width: min\(320px/);
-	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*max-height: 420px/);
+	assert.match(hoverSource, /const scale = Math\.min\(320 \/ width, 420 \/ height, 1\)/);
+	assert.match(hoverSource, /width: Math\.max\(240, Math\.round\(width \* scale\)\), height: Math\.max\(150, Math\.round\(height \* scale\)\)/);
+	assert.match(hoverSource, /--aa-gallery-hover-image-width\", `\$\{size\.width\}px`\)/);
+	assert.match(hoverSource, /--aa-gallery-hover-image-height\", `\$\{size\.height\}px`\)/);
+	assert.match(theme, /\.aa-gallery-hover-tooltip\.aa-ui-tooltip \{[^}]*width: fit-content;[^}]*max-width: min\(320px/);
+	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*width: var\(--aa-gallery-hover-image-width, 320px\);[^}]*height: var\(--aa-gallery-hover-image-height, 240px\)/);
+	assert.match(theme, /\.aa-gallery-hover__media > img \{[^}]*object-fit: contain/);
 	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*position: absolute;[^}]*bottom: 0;[^}]*linear-gradient/);
 	assert.match(theme, /\.aa-gallery-hover__info dl \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
 	assert.match(theme, /\.aa-gallery-hover__info dl > div \{[^}]*border: 0;[^}]*border-radius: 7px/);

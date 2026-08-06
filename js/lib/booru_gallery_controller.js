@@ -357,9 +357,18 @@ return function buildController(node, elements) {
 		const previewSrc = proxyUrl(post.source, post.previewUrl);
 		let usingPreview = true;
 		const image = el("img", { attrs: { src: previewSrc, alt: "", decoding: "async" } });
-		const previewHeight = (item) => {
-			const ratio = Number(item.width) > 0 && Number(item.height) > 0 ? Number(item.width) / Number(item.height) : 1;
-			return Math.max(150, Math.min(420, 320 / ratio));
+		// 大图始终按原图比例完整显示：先缩放进 320×420 盒子（不放大），再为底部信息区
+		// 保证最小可读宽高；图片本体 contain 居中，宽高与容器不一致时留背景边而非裁切。
+		const hoverImageSize = (item) => {
+			const width = Number(item?.width); const height = Number(item?.height);
+			if (!(width > 0) || !(height > 0)) return { width: 320, height: 240 };
+			const scale = Math.min(320 / width, 420 / height, 1);
+			return { width: Math.max(240, Math.round(width * scale)), height: Math.max(150, Math.round(height * scale)) };
+		};
+		const applyHoverImageSize = (item) => {
+			const size = hoverImageSize(item);
+			content.style.setProperty("--aa-gallery-hover-image-width", `${size.width}px`);
+			content.style.setProperty("--aa-gallery-hover-image-height", `${size.height}px`);
 		};
 		const resolution = el("dd", null, dimensions(post));
 		const format = el("dd", null, "—");
@@ -385,7 +394,7 @@ return function buildController(node, elements) {
 		const content = el("div", { className: "aa-gallery-hover", children: [
 			el("div", { className: "aa-gallery-hover__media", children: [image, loading, ...(rating ? [rating] : []), info] }),
 		] });
-		content.style.setProperty("--aa-gallery-hover-image-height", `${previewHeight(post)}px`);
+		applyHoverImageSize(post);
 		let waitingForLargerPreview = true;
 		image.addEventListener("load", () => { if (!usingPreview) waitingForLargerPreview = false; loading.hidden = !waitingForLargerPreview; tooltip.reposition(); });
 		image.addEventListener("error", () => { waitingForLargerPreview = false; loading.hidden = true; if (!usingPreview) { usingPreview = true; image.src = previewSrc; } });
@@ -407,7 +416,7 @@ return function buildController(node, elements) {
 			resolution.textContent = dimensions(detail); format.textContent = detail.fileExt?.toUpperCase() || "—";
 			size.textContent = fileSizeLabel(detail.fileSize); tags.textContent = String(tagCount(detail.tags));
 			if (rating) { rating.dataset.rating = ratingTone(detail.rating); rating.textContent = ratingLabel(detail.rating); }
-			content.style.setProperty("--aa-gallery-hover-image-height", `${previewHeight(detail)}px`);
+			applyHoverImageSize(detail);
 			for (const [category, row] of Object.entries(tagRows)) {
 				const values = detail.tags?.[category] || [];
 				row.hidden = !values.length;
