@@ -645,5 +645,5 @@ test("broken binding cards explain the failure and rebind dialog offers fuzzy ma
 	assert.match(workspace, /primaryEntry\.resolved\?\.status !== "ok"[\s\S]*broken: true/);
 	assert.match(workspace, /badge: target\.broken \? t\("aaalice\.workspace\.binding\.brokenBadge"/);
 	assert.match(uiStyles, /\.aa-searchable-select__option\.is-selected/);
-	assert.match(theme, /\.aa-control-card-broken__icon/);
+	assert.match(theme, /\.aa-control-card-broken__action\.aa-ui-button/);
 });
