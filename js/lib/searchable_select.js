@@ -43,6 +43,9 @@ export function createSearchableSelect({ options = [], value = "", ariaLabel = "
 		if (activeValue == null) return;
 		list.querySelector(`[data-value="${CSS.escape(activeValue)}"].is-active`)?.scrollIntoView({ block: "nearest" });
 	};
+	const scrollSelectedIntoView = () => {
+		list.querySelector(`[data-value="${CSS.escape(currentValue)}"].is-selected`)?.scrollIntoView({ block: "nearest" });
+	};
 
 	const select = (option, { confirm = false } = {}) => {
 		if (!option || option.disabled || isDisabled) return;
@@ -103,6 +106,7 @@ export function createSearchableSelect({ options = [], value = "", ariaLabel = "
 			list.append(row);
 		}
 		if (!visible.length) list.append(el("div", { className: "aa-searchable-select__empty", text: emptyLabel }));
+		scrollSelectedIntoView();
 	};
 
 	const setQuery = (next) => {

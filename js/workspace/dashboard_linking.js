@@ -136,6 +136,20 @@ export function openRebind(item, ownerElement = null) {
 			value: bindingKey(candidate.binding),
 		};
 	});
+	// 失效绑定自带来源身份（promoted 元组的来源名）与卡片标题；按两者给候选打分并预选最高分，
+	// 同名的原参数在列表中时无需手动搜索。
+	const identityLabel = bindingControlIdLabel(item.binding);
+	const preferredLabel = item.labelOverride || item.label || identityLabel;
+	let initialValue = options[0].value;
+	let bestScore = 0;
+	for (const [index, candidate] of candidates.entries()) {
+		const score = Math.max(
+			bindingLabelScore(preferredLabel, rawLabels[index].title),
+			bindingLabelScore(identityLabel, rawLabels[index].title),
+			bindingLabelScore(identityLabel, bindingControlIdLabel(candidate.binding)),
+		);
+		if (score > bestScore) { bestScore = score; initialValue = options[index].value; }
+	}
 	const commitSelection = (value) => {
 		const selected = candidates.find((candidate) => bindingKey(candidate.binding) === value);
 		if (!selected) return;
@@ -144,7 +158,7 @@ export function openRebind(item, ownerElement = null) {
 	};
 	const selection = createSearchableSelect({
 		options,
-		value: options[0].value,
+		value: initialValue,
 		ariaLabel: t("aaalice.workspace.binding.rebind", "Rebind control"),
 		searchPlaceholder: t("aaalice.workspace.binding.searchParameter", "Search parameters…"),
 		emptyLabel: t("aaalice.workspace.binding.noSearchMatches", "No parameters match the search."),
