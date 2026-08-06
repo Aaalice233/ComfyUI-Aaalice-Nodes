@@ -119,7 +119,7 @@
         "error": "侧边栏预设错误", "noContent": "当前没有可以保存的侧边栏布局。", "invalid": "值无效", "unused": "侧边栏中不存在", "layoutOnly": "仅布局组件",
         "unsavedTitle": "当前修改尚未保存", "unsavedHint": "切换前可以保存当前布局和参数，也可以放弃修改。", "discardSwitch": "放弃并切换", "saveSwitch": "保存并切换", "saveAsSwitch": "另存并切换",
         "partialHint": "部分参数无法安全恢复，请确认后再应用其余兼容布局和参数。", "applyCompatible": "应用兼容内容",
-        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "savedReminder": "侧边栏预设已更新，请保存工作流。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "deletedAndSwitched": "侧边栏预设已删除，并自动切换到其它预设；请保存工作流以保留修改。", "deletedAndCleared": "最后一个侧边栏预设已删除，侧边栏已清空；请保存工作流以保留修改。"
+        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "created": "侧边栏预设已创建，请保存工作流以保留它。", "updated": "侧边栏预设已更新，请保存工作流以保留它。", "duplicated": "侧边栏预设已复制，请保存工作流以保留它。", "renamed": "侧边栏预设已重命名，请保存工作流以保留它。", "deleted": "侧边栏预设已删除，请保存工作流以保留修改。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "deletedAndSwitched": "侧边栏预设已删除，并自动切换到其它预设；请保存工作流以保留修改。", "deletedAndCleared": "最后一个侧边栏预设已删除，侧边栏已清空；请保存工作流以保留修改。"
       },
       "transfer": {
 		"backup": "便携备份", "layoutPreset": "布局备份", "preflight": "安全检查", "review": "导入预览",

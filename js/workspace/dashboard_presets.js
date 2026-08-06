@@ -71,6 +71,10 @@ function notifyDashboardPresetError(error) {
 	app.extensionManager?.toast?.add?.({ severity: "error", summary: t("aaalice.workspace.dashboardPreset.error", "Sidebar preset error"), detail: String(error?.message || error), life: 5200 });
 }
 
+function notifyDashboardPresetSuccess(summary, detail) {
+	app.extensionManager?.toast?.add?.({ severity: "success", summary, detail, life: 3600 });
+}
+
 export function currentDashboardPresetSnapshot(model = dashboard(), previousValues = null) {
 	if (previousValues == null) {
 		const state = dashboardPresetState();
@@ -106,7 +110,7 @@ export function scheduleActiveDashboardPresetAutoSave() {
 }
 
 function commitDashboardPresetChange(callback, detail = t("aaalice.workspace.dashboardPreset.saveWorkflowReminder", "Save the workflow to keep these sidebar presets.")) {
-	try { updateDashboardPresetState(callback, detail, { structural: true }); return true; }
+	try { updateDashboardPresetState(callback, null, { structural: true }); if (detail) notifyDashboardPresetSuccess(dashboardPresetLabels().title, detail); return true; }
 	catch (error) { notifyDashboardPresetError(error); return false; }
 }
 
@@ -127,26 +131,26 @@ export async function createCurrentDashboardPreset(model = dashboard()) {
 	const names = new Set(state.presets.map((preset) => preset.name.toLowerCase())); let count = 1; let name;
 	do { name = t("aaalice.workspace.dashboardPreset.defaultName", "Preset {count}").replace("{count}", String(count++)); } while (names.has(name.toLowerCase()));
 	const nextName = await askTextValue(dashboardPresetLabels().create, t("aaalice.workspace.dashboardPreset.name", "Preset name"), name);
-	return nextName ? commitDashboardPresetChange((current) => createDashboardPreset(current, nextName, snapshot)) : false;
+	return nextName ? commitDashboardPresetChange((current) => createDashboardPreset(current, nextName, snapshot), t("aaalice.workspace.dashboardPreset.created", "Sidebar preset created. Save the workflow to keep it.")) : false;
 }
 
 export function updateCurrentDashboardPreset(presetId, model = dashboard()) {
 	const state = dashboardPresetState(); const preset = state.presets.find((item) => item.id === presetId); if (!preset) return false;
 	const snapshot = currentDashboardPresetSnapshot(model, preset.values);
-	return commitDashboardPresetChange((current) => replaceDashboardPreset(current, presetId, snapshot), t("aaalice.workspace.dashboardPreset.savedReminder", "Sidebar preset updated. Save the workflow to keep it."));
+	return commitDashboardPresetChange((current) => replaceDashboardPreset(current, presetId, snapshot), t("aaalice.workspace.dashboardPreset.updated", "Sidebar preset updated. Save the workflow to keep it."));
 }
 
 export async function duplicateCurrentDashboardPreset(presetId) {
 	const state = dashboardPresetState(); const preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
 	const name = t("aaalice.workspace.dashboardPreset.copyName", "{name} copy").replace("{name}", preset.name);
 	const nextName = await askTextValue(dashboardPresetLabels().duplicate, t("aaalice.workspace.dashboardPreset.name", "Preset name"), name);
-	if (nextName) commitDashboardPresetChange((current) => duplicateDashboardPreset(current, presetId, nextName));
+	if (nextName) commitDashboardPresetChange((current) => duplicateDashboardPreset(current, presetId, nextName), t("aaalice.workspace.dashboardPreset.duplicated", "Sidebar preset duplicated. Save the workflow to keep it."));
 }
 
 export async function renameCurrentDashboardPreset(presetId) {
 	const preset = dashboardPresetState().presets.find((item) => item.id === presetId); if (!preset) return;
 	const name = await askTextValue(dashboardPresetLabels().rename, t("aaalice.workspace.dashboardPreset.name", "Preset name"), preset.name);
-	if (name) commitDashboardPresetChange((current) => renameDashboardPreset(current, presetId, name));
+	if (name) commitDashboardPresetChange((current) => renameDashboardPreset(current, presetId, name), t("aaalice.workspace.dashboardPreset.renamed", "Sidebar preset renamed. Save the workflow to keep it."));
 }
 
 export async function deleteCurrentDashboardPreset(presetId) {
@@ -167,7 +171,7 @@ export async function deleteCurrentDashboardPreset(presetId) {
 		.replace("{fallback}", fallback);
 	if (!await confirmAction(message, { title: dashboardPresetLabels().delete, confirmLabel: dashboardPresetLabels().delete, danger: true })) return;
 	if (state.baselinePresetId !== presetId) {
-		commitDashboardPresetChange((current) => removeDashboardPreset(current, presetId));
+		commitDashboardPresetChange((current) => removeDashboardPreset(current, presetId), t("aaalice.workspace.dashboardPreset.deleted", "Sidebar preset deleted. Save the workflow to keep it."));
 		return;
 	}
 	await commitDeletedActiveDashboardPreset(nextState, nextPreset);
@@ -197,7 +201,7 @@ async function commitDeletedActiveDashboardPreset(nextState, nextPreset) {
 	} finally {
 		graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender("dashboard");
 	}
-	remindWorkflowSave(nextPreset
+	notifyDashboardPresetSuccess(dashboardPresetLabels().title, nextPreset
 		? t("aaalice.workspace.dashboardPreset.deletedAndSwitched", "Sidebar preset deleted and switched to another preset. Save the workflow to keep the change.")
 		: t("aaalice.workspace.dashboardPreset.deletedAndCleared", "The last sidebar preset was deleted and the sidebar was cleared. Save the workflow to keep the change."));
 }
@@ -264,7 +268,7 @@ export async function applyDashboardPreset(presetId, { restore = false } = {}) {
 		runtime.setActivePageId(preset.dashboard.pages.some((page) => page.id === activePageId) ? activePageId : preset.dashboard.pages[0]?.id || null);
 	} catch (error) { notifyDashboardPresetError(error); return; }
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender("dashboard"); }
-	remindWorkflowSave(t("aaalice.workspace.dashboardPreset.appliedReminder", "Sidebar preset applied. Save the workflow to keep the layout and values."));
+	notifyDashboardPresetSuccess(preset.name, t("aaalice.workspace.dashboardPreset.appliedReminder", "Sidebar preset applied. Save the workflow to keep the layout and values."));
 }
 
 export function openDashboardExport(model) {

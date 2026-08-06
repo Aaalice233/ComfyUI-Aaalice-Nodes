@@ -235,6 +235,9 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(workspace, /planDashboardPresetApplication/);
 	assert.match(workspace, /applyDashboardSnapshotPlan/);
 	assert.match(workspace, /dashboardPreset\.saveWorkflowReminder/);
+	assert.match(workspace, /notifyDashboardPresetSuccess["\s\S]*severity: "success"/);
+	assert.match(workspace, /commitDashboardPresetChange["\s\S]*updateDashboardPresetState\(callback, null,/);
+	assert.match(workspace, /dashboardPreset\.(created|updated|duplicated|renamed|deleted)/);
 	assert.match(workspace, /deleteCurrentDashboardPreset[\s\S]*confirmAction\(message, \{ title: dashboardPresetLabels\(\)\.delete, confirmLabel: dashboardPresetLabels\(\)\.delete, danger: true \}\)[\s\S]*removeDashboardPreset/);
 	assert.match(workspace, /commitDeletedActiveDashboardPreset[\s\S]*planDashboardPresetApplication/);
 	assert.match(workspace, /normalizeDashboard\(emptyDashboard\(\)\)/);
