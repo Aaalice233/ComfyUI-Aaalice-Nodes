@@ -55,6 +55,7 @@ class GalleryCapabilities:
     auth_required: bool = False
     tag_search: bool = False
     max_search_tags: int | None = None
+    credentials_url: str = ""
 
     def json(self) -> dict[str, Any]:
         return {
@@ -75,6 +76,7 @@ class GalleryCapabilities:
             "authRequired": self.auth_required,
             "tagSearch": self.tag_search,
             "maxSearchTags": self.max_search_tags,
+            "credentialsUrl": self.credentials_url,
         }
 
 
@@ -288,7 +290,8 @@ class DanbooruAdapter(BooruAdapter):
     capabilities = GalleryCapabilities(source, "Danbooru", ("general", "sensitive", "questionable", "explicit"),
                                        ("latest", "score", "favcount", "random"), "page", 200,
                                        ("username", "apiKey"), True, True, True, ("day", "week", "month"),
-                                       tag_search=True, max_search_tags=2)
+                                       tag_search=True, max_search_tags=2,
+                                       credentials_url="https://danbooru.donmai.us/settings")
     media_hosts = frozenset({"cdn.donmai.us", "danbooru.donmai.us"})
     base = "https://danbooru.donmai.us"
 
@@ -393,7 +396,8 @@ class GelbooruAdapter(BooruAdapter):
     source = "gelbooru"
     capabilities = GalleryCapabilities(source, "Gelbooru", ("safe", "questionable", "explicit"),
                                        ("latest", "score"), "pid", 100, ("userId", "apiKey"), True, True, False,
-                                       auth_required=True, tag_search=True)
+                                       auth_required=True, tag_search=True,
+                                       credentials_url="https://gelbooru.com/index.php?page=account&s=options")
     media_hosts = frozenset({"gelbooru.com", "img3.gelbooru.com", "img4.gelbooru.com"})
     base = "https://gelbooru.com/index.php"
 

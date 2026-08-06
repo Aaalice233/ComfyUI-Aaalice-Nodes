@@ -23,6 +23,15 @@ const zhLocale = JSON.parse(fs.readFileSync(new URL("../locales/zh/main.json", i
 test("package entry imports the Booru Gallery extension", () => {
 	assert.match(extensionSource, /import\s+["']\.\/booru_gallery\.js["']/);
 });
+test("gallery settings link each credential form to its site account page", () => {
+	assert.match(source, /cap\.credentialsUrl \? el\("a", \{ className: "aa-gallery-settings__credentials-link"/);
+	assert.match(source, /target: "_blank", rel: "noopener noreferrer"/);
+	assert.match(source, /settings\.credentialsHint["\s\S]*replace\("\{source\}", cap\.displayName\)/);
+	assert.match(theme, /\.aa-gallery-settings__credentials-link \{[^}]*color: var\(--aa-ui-accent\);/);
+	assert.equal(enLocale.aaalice.gallery.settings.credentialsHint, "Get these API credentials from your {source} account page");
+	assert.equal(zhLocale.aaalice.gallery.settings.credentialsHint, "前往 {source} 账户页面获取 API Key");
+});
+
 test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.equal((source.match(/className: "aa-gallery-toolbar"/g) || []).length, 1);
 	assert.match(source, /function createSearchControl\(node, \{ defaultOpen = false \} = \{\}\)/); assert.match(source, /input\.type = "search"/); assert.match(source, /classList\.toggle\("is-open"/);

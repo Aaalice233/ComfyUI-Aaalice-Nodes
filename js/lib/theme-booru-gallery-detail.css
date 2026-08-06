@@ -198,6 +198,9 @@
 .aa-gallery-settings__capabilities { display: flex; flex-wrap: wrap; gap: 4px; }
 .aa-gallery-settings__capabilities span { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--aa-ui-border-soft) 82%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--aa-ui-control) 48%, transparent); color: var(--aa-ui-muted); font-size: 11px; white-space: nowrap; }
 .aa-gallery-settings__credentials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 2px; }
+.aa-gallery-settings__credentials-link { display: inline-flex; grid-column: 1 / -1; align-items: center; gap: 6px; justify-self: start; padding: 4px 8px; border-radius: 7px; color: var(--aa-ui-accent); font-size: 12px; font-weight: 560; text-decoration: none; transition: background-color .14s ease, color .14s ease; }
+.aa-gallery-settings__credentials-link .aa-ui-icon { width: 13px; height: 13px; }
+.aa-gallery-settings__credentials-link:hover, .aa-gallery-settings__credentials-link:focus-visible { background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); outline: none; }
 .aa-gallery-settings__credential { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: end; gap: 5px; }
 .aa-gallery-settings__credential .aa-ui-input { min-height: 32px; border-radius: 8px; font-size: 12.5px; }
 .aa-gallery-settings__credential-clear.aa-ui-button { width: 28px; min-width: 28px; height: 28px; min-height: 28px; margin-bottom: 1px; padding: 0; color: var(--aa-ui-muted); }
