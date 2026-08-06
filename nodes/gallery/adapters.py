@@ -494,72 +494,74 @@ class SafebooruAdapter(GelbooruAdapter):
     def __init__(self) -> None:
         super().__init__()
         # safebooru's tag dapi only matches one exact name per request and rate-limits
-        # concurrent lookups with fake 404s; concurrency 3 measured all-green at 59 tags.
-        self._tag_semaphore = asyncio.Semaphore(3)
+        # bursty lookups with fake 404s; concurrency 2 with short inter-batch pauses
+        # measured zero 404s over repeated 24-tag runs.
+        self._tag_semaphore = asyncio.Semaphore(2)
 
     def auth_params(self, credentials):
         return {}
 
     async def _get_tag_type(self, session, name):
         # safebooru answers XML here; json=1 and the plural names= parameter
-        # are both ignored for the tag endpoint.
+        # are both ignored for the tag endpoint. 404 means rate-limited and is
+        # retried by the batch coordinator below, never concurrently here.
         async with self._tag_semaphore:
-            for attempt in range(2):
+            async with session.get(self.base, params={"page": "dapi", "s": "tag", "q": "index",
+                                                      "name": name, "limit": 1},
+                                   headers={"Accept": "application/xml"}, allow_redirects=True) as response:
+                if _is_upstream_query_timeout(response.status, await response.text()):
+                    raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
+                if response.status >= 400:
+                    raise RuntimeError(f"{self.source} GET {response.url} HTTP {response.status}")
+                text = await response.text()
                 try:
-                    async with session.get(self.base, params={"page": "dapi", "s": "tag", "q": "index",
-                                                              "name": name, "limit": 1},
-                                           headers={"Accept": "application/xml"}, allow_redirects=True) as response:
-                        if _is_upstream_query_timeout(response.status, await response.text()):
-                            raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
-                        if response.status == 404 and attempt == 0:
-                            # safebooru answers 404 while rate-limiting the tag endpoint;
-                            # a single short pause usually clears it, repeated 404s are
-                            # handled by the classify/known_tags circuit breaker.
-                            await asyncio.sleep(1.0)
-                            continue
-                        if response.status >= 400:
-                            raise RuntimeError(f"{self.source} GET {response.url} HTTP {response.status}")
-                        text = await response.text()
-                        try:
-                            root = ET.fromstring(text)
-                        except ET.ParseError as exc:
-                            raise RuntimeError(f"{self.source} GET {response.url} returned invalid tag XML") from exc
-                        for tag in root:
-                            if str(tag.get("name", "")) == name:
-                                return {"name": name, "type": _int(tag.get("type"))}
-                        return None
-                except (aiohttp.ClientError, TimeoutError) as exc:
-                    if attempt >= 1:
-                        raise RuntimeError(f"{self.source} GET {self.base} failed after {attempt + 1} attempts: {exc}") from exc
-                    await asyncio.sleep(1)
-        raise AssertionError("unreachable")
+                    root = ET.fromstring(text)
+                except ET.ParseError as exc:
+                    raise RuntimeError(f"{self.source} GET {response.url} returned invalid tag XML") from exc
+                for tag in root:
+                    if str(tag.get("name", "")) == name:
+                        return {"name": name, "type": _int(tag.get("type"))}
+                return None
 
     async def _lookup_tag_types(self, session, tags):
-        """Batch tag lookups with a rate-limit circuit breaker.
+        """Batch tag lookups with rate-limit protection.
 
-        safebooru answers real HTTP 404 while rate-limiting the tag endpoint,
-        and it ignores batch parameters, so every tag costs one request. Once a
-        batch loses several lookups the endpoint is clearly throttled; the rest
-        of the batch is skipped (degraded to General) instead of hammering it.
-        A later detail refresh retries from the category cache.
+        safebooru answers real HTTP 404 while rate-limiting the tag endpoint
+        and ignores batch parameters, so every tag costs one request. 2-way
+        concurrency plus a short inter-batch pause measured zero 404s over
+        repeated 24-tag runs; failed tags retry serially once after a pause
+        (parallel retries interleave and keep tripping the limiter). If a batch
+        still loses several lookups the endpoint is clearly throttled and the
+        rest is skipped (degraded to General) instead of hammering it. A later
+        detail refresh retries from the category cache.
         """
         known: dict[str, str] = {}
         failures: list[tuple[str, Exception]] = []
         rate_limited = False
         category_map = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
         for offset in range(0, len(tags), 6):
-            batch = tags[offset:offset + 6]
             if rate_limited:
                 continue
+            batch = tags[offset:offset + 6]
             found = await asyncio.gather(*(self._get_tag_type(session, tag) for tag in batch), return_exceptions=True)
-            batch_failures = [(tag, item) for tag, item in zip(batch, found) if isinstance(item, Exception)]
+            batch_failures = [(tag, position) for position, (tag, item) in enumerate(zip(batch, found)) if isinstance(item, Exception)]
+            if batch_failures:
+                await asyncio.sleep(1.0)
+                for tag, position in batch_failures:
+                    try:
+                        found[position] = await self._get_tag_type(session, tag)
+                    except Exception as exc:
+                        found[position] = exc
+                batch_failures = [(tag, position) for position, (tag, item) in enumerate(zip(batch, found)) if isinstance(item, Exception)]
             if len(batch_failures) >= 3:
                 rate_limited = True
-            failures.extend(batch_failures)
+            failures.extend((tag, found[position]) for tag, position in batch_failures)
             for tag, item in zip(batch, found):
                 if isinstance(item, Exception) or not item:
                     continue
                 known[item["name"]] = category_map.get(item["type"], "general")
+            if offset + 6 < len(tags):
+                await asyncio.sleep(0.15)
         return known, failures, rate_limited
 
     async def classify_tags(self, session, tags, credentials):
