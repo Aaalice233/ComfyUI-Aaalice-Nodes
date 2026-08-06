@@ -45,7 +45,7 @@
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,comfy,quick_group_manager,numeric,boolean,choice,text,taglist,tag_pills,image_choice,image_compare,image_output,markdown,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、ComfyUI 控件策略、QuickGroupManager 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 节点缩放 | `js/node_resize.js`、`js/lib/{native_widget_resize,dom_widget_resize}.js` | 精确 node type 的原生 widget 角区让渡、全尺寸 DOM 缩放期失效和生命周期清理 |
-| 打开时聚焦 | `js/focus_on_open.js`、`js/lib/focus_on_open_model.js`、`js/lib/theme-focus-on-open.css` | 通用节点右键菜单、唯一工作流标记、目标视图设置、加载代际、静默子图导航和 Classic / Nodes 2.0 标记图标 |
+| 打开时聚焦 | `js/focus_on_open.js`、`js/lib/focus_on_open_model.js`、`js/lib/theme-focus-on-open.css` | 通用节点右键菜单、唯一工作流标记、目标视图设置、加载代际、静默子图导航和 Classic / Nodes 2.0 标记图标；撤销/重做触发的图重载（`loadGraphData` 以 `clean === false && restore_view === false` 调用）只同步标记视觉，不执行自动聚焦 |
 | DOM 与媒体辅助 | `js/lib/{node_accent,image_reference,image_upload,safe_markdown,markdown_editor,simple_notify_runtime,dom_widget_visibility}.js`、`js/vendor/` | 节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM 渲染与编辑变换、富 DOM 视口降载、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui/{primitives,transient_surfaces,overlays,controls}.js`、`js/lib/ui.css`、`js/lib/theme.css`、`js/lib/theme-*.css` | `ui.js` 保持稳定公开入口；内部按基础 DOM/图标、Tooltip/滚动手势、Popover/Dialog、表单控件的单向依赖拆分。`theme.css` 是唯一功能样式入口并按稳定级联顺序导入控件、工作区和各领域样式分片 |
 
@@ -175,7 +175,7 @@
 
 #### 第三方节点适配
 
-- 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。子图公开控件使用 ComfyUI 的非序列化 `PromotedWidgetView` 作为视图，真实状态仍由内部 widget 持有，因此只在子图 Provider 路径允许该视图进入适配。Promoted widget 的 Control ID 由 `sourceNodeId`、`sourceWidgetName` 和可选 `disambiguatingSourceNodeId` 的源身份生成，不使用公开名称或显示标签；同名的采样器、调度器等公开控件仍保持独立绑定。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
+- 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。子图公开控件是宿主投影，真实状态仍由内部 widget 持有，因此只在子图 Provider 路径允许该投影进入适配。前端两代协议由 `js/lib/promoted_widget_source.js` 统一屏蔽：旧协议投影（`PromotedWidgetView`）自带 `sourceNodeId` / `sourceWidgetName`（嵌套时另有 `disambiguatingSourceNodeId`）；新协议（frontend >= 1.47，上游 ADR 0009）宿主 widget 是由非枚举 `widgetId` 寻址的 widgetValueStore 投影，来源必须沿宿主 input 的 `_subgraphSlot` 链路解析。Promoted widget 的 Control ID 在两代协议下由同一源身份元组（`sourceNodeId`、`sourceWidgetName`、可选 `disambiguatingSourceNodeId`）生成，不使用公开名称或显示标签，旧工作流绑定在新协议下继续命中；同名的采样器、调度器等公开控件仍保持独立绑定。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
 - ComfyUI 内置 `PreviewImage`、`PreviewAny` 与 `ImageCompare` 使用显式只读适配，不进入普通 widget fallback。执行结果与纯文本/Markdown 显示模式变化通过宿主回调触发一次控制面板失效；图像 URL 在同一批结果内保持稳定，禁止轮询或把输出快照持久化进侧边栏预设。
 - 只要普通节点包含未知 widget、DOM 面板、图片上传、预览或自定义操作控件，内置 fallback 就不接管该节点的原生控件，避免把自定义状态拆成不完整的侧边栏副本。此类节点必须由节点作者或本包使用显式适配器逐项接入。
 - ComfyUI 原生 fallback 在适配边界统一处理通用控件名称：`Value`、`值`、`数值`、`text`、`文本`、`string`、`字符串`（含尾随冒号）使用节点实时 `getTitle()`，明确的 widget 显示名保持不变；领域适配器可在 descriptor 中声明 `labelPolicy: "node-title"`，内置 `LoraManager` 的 LoRA 列表 widget 使用该策略统一显示节点实时标题。

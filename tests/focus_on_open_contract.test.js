@@ -37,6 +37,8 @@ test("load focus is one animation-frame action with official subgraph navigation
 	assert.match(implementation, /canvas\.ds\?\.fitToBounds/);
 	assert.match(implementation, /setFocusOnOpenSettings/);
 	assert.match(implementation, /beforeConfigureGraph\(\)[\s\S]*focusScheduler\.beforeConfigure/);
+	assert.match(implementation, /clean === false && restore_view === false/);
+	assert.match(implementation, /scheduleFocus\(root, suppressFocus \? null : normalized\.target\)/);
 	assert.match(implementation, /new MutationObserver/);
 	assert.match(implementation, /data-node-id/);
 });

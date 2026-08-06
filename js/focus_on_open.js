@@ -36,6 +36,29 @@ const focusScheduler = createFocusOnOpenScheduler({
 	run: (target, root, generation) => focusTarget(target, root, generation),
 });
 
+// 撤销/重做是 changeTracker 唯一以 clean === false && restore_view === false
+// 调用 loadGraphData 的路径；官方 before/afterConfigureGraph 不携带该上下文，
+// 只能在这一公共入口标记，让历史恢复跳过自动聚焦而保留标记视觉同步。
+let historyRestoreActive = false;
+let suppressFocusOnConfigure = false;
+const LOAD_GRAPH_WRAP_MARK = "aaaliceFocusOnOpenHistoryDetection";
+
+function installHistoryRestoreDetection() {
+	const original = app.loadGraphData;
+	if (typeof original !== "function" || original[LOAD_GRAPH_WRAP_MARK]) return;
+	const wrapped = async function (graphData, clean, restore_view, ...rest) {
+		const isHistoryRestore = clean === false && restore_view === false;
+		if (isHistoryRestore) historyRestoreActive = true;
+		try {
+			return await original.call(this, graphData, clean, restore_view, ...rest);
+		} finally {
+			if (isHistoryRestore) historyRestoreActive = false;
+		}
+	};
+	wrapped[LOAD_GRAPH_WRAP_MARK] = true;
+	app.loadGraphData = wrapped;
+}
+
 function currentRoot() {
 	return rootGraph(app.canvas?.graph || (app.isGraphReady ? app.rootGraph : null));
 }
@@ -438,6 +461,7 @@ app.registerExtension({
 		scheduleVueSync();
 	},
 	beforeConfigureGraph() {
+		suppressFocusOnConfigure = historyRestoreActive;
 		focusScheduler.beforeConfigure();
 		closeFocusSettingsPopover();
 		activeRoot = null;
@@ -445,12 +469,15 @@ app.registerExtension({
 	},
 	afterConfigureGraph() {
 		const root = currentRoot();
+		const suppressFocus = suppressFocusOnConfigure;
+		suppressFocusOnConfigure = false;
 		if (!root) return;
 		const normalized = normalizeLoadedMarkers(root);
 		syncVisuals(root);
-		scheduleFocus(root, normalized.target);
+		scheduleFocus(root, suppressFocus ? null : normalized.target);
 	},
 	async setup() {
+		installHistoryRestoreDetection();
 		if (isNodes2Mode()) ensureVueObserver();
 		syncVisuals(currentRoot());
 		await ensureI18nReady();
