@@ -270,7 +270,7 @@ export function renderDashboard(container, host) {
 				? t("aaalice.workspace.binding.brokenLinkedHint", "Open linked-parameter management to repair or unlink the affected entries.")
 				: t("aaalice.workspace.binding.brokenMissingHint", "Previously bound to {name}. Rebind to an available parameter to restore this component.").replaceAll("{name}", bindingControlIdLabel(item.binding));
 			const action = button({
-				label: linkedError ? t("aaalice.workspace.binding.manage", "Manage linked parameters") : t("aaalice.workspace.binding.rebind", "Rebind"),
+				label: linkedError ? t("aaalice.workspace.binding.manage", "Manage linked parameters") : t("aaalice.workspace.binding.rebindAction", "Rebind"),
 				iconName: linkedError ? "link" : "swap",
 				variant: "secondary",
 				size: "sm",
@@ -278,8 +278,10 @@ export function renderDashboard(container, host) {
 				onClick: (event) => { const owner = event.currentTarget.closest?.("[data-dashboard-item-id]"); return linkedError ? openManageLinkedBindings(item.id, owner) : openRebind(item, owner); },
 			});
 			control = el("div", { className: `aa-control-card-broken${linkedError ? " is-linked-error" : ""}`, attrs: { role: "alert" }, children: [
-				el("span", { className: "aa-control-card-broken__icon", attrs: { "aria-hidden": "true" }, children: [icon(linkedError ? "link" : "statusWarning")] }),
-				el("div", { className: "aa-control-card-broken__copy", children: [el("strong", null, statusTitle), el("small", null, statusHint)] }),
+				el("div", { className: "aa-control-card-broken__head", children: [
+					el("span", { className: "aa-control-card-broken__icon", attrs: { "aria-hidden": "true" }, children: [icon(linkedError ? "link" : "statusWarning")] }),
+					el("div", { className: "aa-control-card-broken__copy", children: [el("strong", null, statusTitle), el("small", null, statusHint)] }),
+				] }),
 				action,
 			] });
 		}
