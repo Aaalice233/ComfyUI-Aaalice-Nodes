@@ -69,6 +69,8 @@
 .aa-prompt-selector-weight:hover, .aa-prompt-selector-weight:focus-visible { border-color: color-mix(in srgb, var(--aa-ui-accent) 64%, var(--aa-ui-border)); background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--aa-ui-accent) 14%, transparent); }
 .aa-prompt-selector-edit { color: var(--aa-ui-accent); }
 .aa-prompt-selector-edit:hover:not(:disabled), .aa-prompt-selector-edit:focus-visible { background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); }
+.aa-prompt-selector-copy-action { color: var(--aa-ui-muted); }
+.aa-prompt-selector-copy-action:hover:not(:disabled), .aa-prompt-selector-copy-action:focus-visible { background: color-mix(in srgb, var(--aa-ui-accent) 10%, var(--aa-ui-control)); color: var(--aa-ui-text); }
 .aa-prompt-selector-favorite { border-radius: 50%; color: var(--aa-ui-warning); }
 .aa-prompt-selector-favorite.is-active { border-color: transparent; background: transparent; box-shadow: none; color: var(--aa-ui-warning); }
 .aa-prompt-selector-favorite.is-active .aa-ui-icon { fill: currentColor; }

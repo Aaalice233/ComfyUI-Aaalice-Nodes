@@ -17,6 +17,7 @@ import {
 	togglePromptSelection,
 } from "./lib/prompt_selector_model.js";
 import { button, createDialog, createTooltip, el, emptyState, field, icon, iconButton, isolate, searchToggleButton, selectControl } from "./lib/ui.js";
+import { copyEntryPromptText, flashCopied } from "./lib/prompt_copy.js";
 import { destroyVirtualLists, mountVirtualList } from "./lib/virtual_list.js";
 import { observeDOMWidgetVisibility } from "./lib/dom_widget_visibility.js";
 import { openPromptLibraryEntryEditor, openWorkspace } from "./workspace.js";
@@ -243,8 +244,13 @@ function mountPromptEntries(node, list, view, entries) {
 		const editAction = iconButton({ iconName: "edit", label: `${t("aaalice.workspace.libraryUi.edit", "Edit")} ${entry.title}`, className: "aa-prompt-selector-edit", variant: "ghost", onClick: (event) => {
 			event.preventDefault(); event.stopPropagation(); closePromptSurfaces(node); void openPromptLibraryEntryEditor(entry.id);
 		} });
+		const copyAction = iconButton({ iconName: "copy", label: `${t("aaalice.promptSelector.copyEntry", "Copy prompt")} ${entry.title}`, className: "aa-prompt-selector-copy-action", variant: "ghost", onClick: (event) => {
+			event.preventDefault(); event.stopPropagation(); closePromptSurfaces(node);
+			const control = event.currentTarget;
+			void copyEntryPromptText({ text: entry.text, title: t("aaalice.promptSelector.copyEntry", "Copy prompt"), app, copiedLabel: t("aaalice.promptSelector.entryCopied", "Prompt copied to clipboard"), failedLabel: t("aaalice.promptSelector.copyFailedDetail", "The clipboard rejected the copy operation.") }).then((ok) => { if (ok) flashCopied(control); });
+		} });
 		const weightAction = isSelected ? promptWeightControl(node, entry.id, selectionById.get(entry.id)?.weight ?? 1) : null;
-		const actions = el("div", { className: "aa-prompt-selector-row-actions", children: [weightAction, favoriteAction, editAction] });
+		const actions = el("div", { className: "aa-prompt-selector-row-actions", children: [weightAction, favoriteAction, copyAction, editAction] });
 		row.append(preview, copy, actions); return row;
 	}, renderEmpty: () => emptyState({ iconName: "note", className: "aa-prompt-selector-empty", title: t("aaalice.promptSelector.noResultsTitle", "No prompts found"), description: t("aaalice.promptSelector.noResults", "No matching prompt entries.") }) });
 	virtualList.setState = (state) => { view.state = state; selectionById = new Map(state.selections.map((item) => [item.entryId, item])); };

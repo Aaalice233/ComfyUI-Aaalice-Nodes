@@ -375,6 +375,12 @@ input.aa-ui-control:not([type]), input.aa-ui-control[type="text"], input.aa-ui-c
 
 @keyframes aa-ui-dialog-in { from { opacity: 0; transform: translateY(6px) scale(.992); } }
 @keyframes aa-ui-tooltip-in { from { opacity: 0; } }
+/* 复制动作的瞬时成功确认；与 toast 文字反馈一起表达，颜色不单独承载状态。 */
+.aa-ui-button.is-copy-acknowledged { animation: aa-ui-copy-acknowledged .55s ease; }
+@keyframes aa-ui-copy-acknowledged {
+	0%, 100% { background: transparent; box-shadow: none; }
+	35% { background: color-mix(in srgb, var(--p-green-400, var(--aa-ui-accent)) 16%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-green-400, var(--aa-ui-accent)) 18%, transparent); }
+}
 @media (prefers-reduced-motion: reduce) {
 	.aa-ui-button, .aa-ui-dialog, .aa-ui-tooltip { transition: none; animation: none; }
 }

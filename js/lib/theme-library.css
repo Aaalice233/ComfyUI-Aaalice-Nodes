@@ -34,6 +34,8 @@
 .aa-library-entry-actions .aa-ui-button { width: 28px; min-width: 28px; height: 28px; min-height: 28px; }
 .aa-library-entry-edit { color: color-mix(in srgb, var(--aa-ui-accent) 58%, var(--aa-ui-muted)); }
 .aa-library-entry-edit:hover:not(:disabled), .aa-library-entry-edit:focus-visible { border-color: color-mix(in srgb, var(--aa-ui-accent) 34%, transparent); background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); }
+.aa-library-entry-copy-action { color: color-mix(in srgb, var(--aa-ui-accent) 58%, var(--aa-ui-muted)); }
+.aa-library-entry-copy-action:hover:not(:disabled), .aa-library-entry-copy-action:focus-visible { border-color: color-mix(in srgb, var(--aa-ui-accent) 34%, transparent); background: var(--aa-ui-accent-soft); color: var(--aa-ui-accent); }
 .aa-library-entry-delete { color: color-mix(in srgb, var(--aa-ui-danger) 58%, var(--aa-ui-muted)); }
 .aa-library-entry-delete:hover:not(:disabled), .aa-library-entry-delete:focus-visible { border-color: color-mix(in srgb, var(--aa-ui-danger) 34%, transparent); background: color-mix(in srgb, var(--aa-ui-danger) 12%, transparent); color: var(--aa-ui-danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--aa-ui-danger) 16%, transparent); }
 .aa-image-preview-tooltip { --aa-ui-tooltip-surface: color-mix(in srgb, var(--aa-ui-surface) 94%, transparent); width: max-content; max-width: min(440px, calc(100vw - 20px)); padding: 4px; border-color: color-mix(in srgb, var(--aa-ui-border) 68%, var(--aa-ui-text) 7%); border-radius: 14px; background: var(--aa-ui-tooltip-surface); box-shadow: 0 18px 48px rgb(0 0 0 / .38), 0 4px 12px rgb(0 0 0 / .2), inset 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 9%, transparent); backdrop-filter: blur(14px) saturate(1.08); }

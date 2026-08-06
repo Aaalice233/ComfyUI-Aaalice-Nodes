@@ -8,6 +8,7 @@ import { applyCategoryColor, categorySelectOption, nativeCategoryOption } from "
 import { collectionDisplayName, isDefaultCollection } from "../lib/collection.js";
 import { badge, button, closeTooltipWithin, createDialog, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl } from "../lib/ui.js";
 import { mountVirtualList } from "../lib/virtual_list.js";
+import { copyEntryPromptText, flashCopied } from "../lib/prompt_copy.js";
 import { createCollapsibleSearch, createListRow, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceToolbar, formatFileSize } from "../lib/workspace_components.js";
 import { confirmAction, downloadUrl, pickFile, setActionBusy, setDialogFooter } from "./dom_utils.js";
 
@@ -405,7 +406,10 @@ export function renderLibrary(container, host) {
 			preview.input.click();
 		});
 		bindPromptEntryDetails(copy, entry);
-		const actions = el("div", { className: "aa-library-entry-actions", children: [iconButton({ iconName: "settings", label: t("aaalice.workspace.libraryUi.edit", "Edit"), className: "aa-library-entry-edit", variant: "ghost", onClick: () => openLibraryEntryEditor(entry) }), iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), className: "aa-library-entry-delete", variant: "ghost", onClick: async () => { if (await confirmAction(t("aaalice.workspace.libraryUi.deleteEntryConfirm", "Delete this prompt entry?"))) { await promptLibraryStore.deleteEntry(entry.id); selected.delete(entry.id); } } })] });
+		const actions = el("div", { className: "aa-library-entry-actions", children: [iconButton({ iconName: "copy", label: `${t("aaalice.workspace.libraryUi.copyEntry", "Copy prompt")} ${entry.title}`, className: "aa-library-entry-copy-action", variant: "ghost", onClick: (event) => {
+			const control = event.currentTarget;
+			void copyEntryPromptText({ text: entry.text, title: t("aaalice.workspace.libraryUi.copyEntry", "Copy prompt"), app, copiedLabel: t("aaalice.workspace.libraryUi.entryCopied", "Prompt copied to clipboard"), failedLabel: t("aaalice.workspace.libraryUi.copyFailedDetail", "The clipboard rejected the copy operation.") }).then((ok) => { if (ok) flashCopied(control); });
+		} }), iconButton({ iconName: "settings", label: t("aaalice.workspace.libraryUi.edit", "Edit"), className: "aa-library-entry-edit", variant: "ghost", onClick: () => openLibraryEntryEditor(entry) }), iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), className: "aa-library-entry-delete", variant: "ghost", onClick: async () => { if (await confirmAction(t("aaalice.workspace.libraryUi.deleteEntryConfirm", "Delete this prompt entry?"))) { await promptLibraryStore.deleteEntry(entry.id); selected.delete(entry.id); } } })] });
 		row.append(copy, actions); return row;
 	};
 	const virtualList = mountVirtualList(list, { rowHeight: 74, gap: 6, overscan: 5, onBeforeRender: () => closeTooltipWithin(list), renderItem: renderEntry, renderEmpty: () => {
