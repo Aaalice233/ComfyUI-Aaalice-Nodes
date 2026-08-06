@@ -3,10 +3,10 @@ import { t } from "../i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "../lib/control_providers.js";
 import { installNodeControlMenu } from "../lib/node_control_menu.js";
 import { bindingKey, controlItemBindings, createPage, linkedBindingCount, normalizeDashboard } from "../lib/dashboard_model.js";
-import { createControlBindingMatcher, sameBindingTarget } from "../lib/dashboard_binding_identity.js";
+import { createControlBindingMatcher, bindingControlIdLabel, sameBindingTarget } from "../lib/dashboard_binding_identity.js";
 import { dashboardPageMatchLabels, preferredDashboardPage } from "../lib/dashboard_page_matching.js";
-import { addItems, addLinkedBinding, assignToGroup, detachBinding, moveItems, removeItems, replacePrimaryBinding, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
-import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet, synchronizeLinkedBindingSets } from "../lib/control_binding_set.js";
+import { addItems, assignToGroup, detachBinding, moveItems, removeItems, resizeItems, ungroupItems, updateItem } from "../lib/dashboard_commands.js";
+import { ControlBindingSetError, resolveControlBindingSet, synchronizeLinkedBindingSets } from "../lib/control_binding_set.js";
 import { installLinkedSeedQueueHook as installLinkedSeedQueueLifecycle } from "../lib/linked_seed_queue.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS } from "../lib/dashboard_sizing.js";
 import { badge, button, createContextMenu, el, emptyState, field, icon, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
@@ -18,6 +18,8 @@ import { configureNumericRange, isConfigurableNumericControl, openNumericRangeSe
 import { allGraphNodes } from "../lib/graph_scope.js";
 import { boundNodeControlEntries, configureDashboardUnbinding, openUnbindControls } from "./dashboard_unbinding.js";
 import { createDashboardToneControl } from "./dashboard_tone_control.js";
+import { bindingDisplay, linkableControlSources, openLinkControls, openRebind } from "./dashboard_linking.js";
+export { openLinkControls, openRebind } from "./dashboard_linking.js";
 import { normalizeDashboardTone } from "../lib/dashboard_color_system.js";
 let runtime = null;
 export function configureDashboardBindings(dependencies) {
@@ -25,10 +27,10 @@ export function configureDashboardBindings(dependencies) {
 	configureNumericRange({ updateDashboard: dependencies.updateDashboard });
 	configureDashboardUnbinding({ dashboard: dependencies.dashboard, updateDashboard: dependencies.updateDashboard, resolve: dependencies.resolve, bindingDisplay, notifyControlBindingError, remindWorkflowSave: dependencies.remindWorkflowSave });
 }
-const dashboard = () => runtime.dashboard();
-const updateDashboard = (callback) => runtime.updateDashboard(callback);
-const graphNodes = () => runtime.graphNodes();
-const resolve = (binding) => runtime.resolve(binding);
+export const dashboard = () => runtime.dashboard();
+export const updateDashboard = (callback) => runtime.updateDashboard(callback);
+export const graphNodes = () => runtime.graphNodes();
+export const resolve = (binding) => runtime.resolve(binding);
 const workspaceLabels = () => runtime.workspaceLabels();
 const resolveGroupTitle = (group) => runtime.resolveGroupTitle(group);
 const scheduleRender = (view = null) => runtime.scheduleRender(view);
@@ -39,7 +41,7 @@ const currentPage = (model) => runtime.currentPage(model);
 const sourceGroupIdentity = (group) => runtime.sourceGroupIdentity(group);
 const remindWorkflowSave = (detail) => runtime.remindWorkflowSave(detail);
 
-function message(key, fallback, values = {}) {
+export function message(key, fallback, values = {}) {
 	let result = t(key, fallback);
 	for (const [name, value] of Object.entries(values)) result = result.replaceAll(`{${name}}`, String(value));
 	return result;
@@ -107,7 +109,7 @@ export function notifyControlBindingError(error) {
 	scheduleRender("dashboard");
 }
 
-function findDashboardControl(model, itemId) {
+export function findDashboardControl(model, itemId) {
 	for (const page of model.pages) {
 		const item = page.items.find((entry) => entry.id === itemId && entry.kind === "control");
 		if (item) return { page, item };
@@ -115,56 +117,14 @@ function findDashboardControl(model, itemId) {
 	return { page: null, item: null };
 }
 
-function resolvedBindingEntry(binding) {
-	let resolved;
-	try { resolved = resolve(binding); }
-	catch (error) { resolved = { status: "error", error }; }
-	return { binding, resolved };
-}
-
-function bindingNodeTitle(node) {
-	const title = String(node?.getTitle?.() || node?.title || node?.type || ""); if (!title) return "";
-	const matches = graphNodes().filter((candidate) => String(candidate?.getTitle?.() || candidate?.title || candidate?.type || "") === title);
-	const index = matches.indexOf(node);
-	return matches.length > 1 && index >= 0 ? `${title} (${index + 1})` : title;
-}
-
-function bindingDisplay(binding) {
-	const entry = resolvedBindingEntry(binding); const node = entry.resolved.node;
-	return {
-		...entry,
-		title: entry.resolved.label || binding.controlId,
-		description: bindingNodeTitle(node) || binding.provider,
-	};
-}
 
 export function controlTitle(item, resolved) {
 	if (item.labelOverride != null) return item.labelOverride;
-	return resolved.label || item.label || item.binding.controlId;
+	return resolved.label || item.label || bindingControlIdLabel(item.binding);
 }
 
-function compatibleCardTargets(sourceBinding, model = dashboard()) {
-	const source = resolvedBindingEntry(sourceBinding); const targets = [];
-	for (const page of model.pages) {
-		for (const item of page.items) {
-			if (item.kind !== "control" || controlItemBindings(item).some((binding) => sameBindingTarget(binding, sourceBinding, resolve))) continue;
-			const resolvedSet = resolveControlBindingSet(item, resolve);
-			if (resolvedSet.status !== "ok") continue;
-			const primary = resolvedSet.bindingSet.entries[0];
-			if (!inspectControlLinkCompatibility(primary, source).ok) continue;
-			const label = controlTitle(item, resolvedSet);
-			targets.push({ page, item, source, resolved: resolvedSet, label: `${page.name} · ${label}`, controlLabel: label });
-		}
-	}
-	const totals = new Map(); const occurrences = new Map();
-	for (const target of targets) totals.set(target.label, (totals.get(target.label) || 0) + 1);
-	for (const target of targets) if (totals.get(target.label) > 1) {
-		const occurrence = (occurrences.get(target.label) || 0) + 1; occurrences.set(target.label, occurrence); target.label = `${target.label} (${occurrence})`;
-	}
-	return targets;
-}
 
-function commitDashboardBindingSet(next, itemId, { synchronize = false, resolvedBindings = null } = {}) {
+export function commitDashboardBindingSet(next, itemId, { synchronize = false, resolvedBindings = null } = {}) {
 	if (runtime.dashboardModelError()) throw runtime.dashboardModelError();
 	const { item } = findDashboardControl(next, itemId);
 	if (!item) throw new Error("Dashboard control is missing");
@@ -213,37 +173,6 @@ export function installLinkedSeedQueueHook() {
 		synchronizeGraph: synchronizeLinkedSeedsForGraph,
 		onError(error) { console.error("[Aaalice] Unable to reconcile linked seeds while queueing", error); notifyControlBindingError(error); },
 	});
-}
-
-export function openRebind(item, ownerElement = null) {
-	const model = dashboard(); const candidates = [];
-	for (const candidate of graphNodes().flatMap((node) => controlProviders.list(node))) {
-		if (sameBindingTarget(candidate.binding, item.binding, resolve) || candidate.binding.valueType !== item.binding.valueType) continue;
-		try {
-			const next = replacePrimaryBinding(model, item.id, candidate.binding); const { item: nextItem } = findDashboardControl(next, item.id);
-			if (resolveControlBindingSet(nextItem, resolve).status === "ok") candidates.push(candidate);
-		} catch { /* Candidate cannot satisfy the existing linked contract. */ }
-	}
-	const body = el("div", "aa-rebind-list"); const footer = el("div");
-	const rawLabels = candidates.map((candidate) => { const display = bindingDisplay(candidate.binding); return `${display.description} · ${display.title}`; });
-	const totals = new Map(); const occurrences = new Map(); for (const label of rawLabels) totals.set(label, (totals.get(label) || 0) + 1);
-	const options = candidates.map((candidate, index) => {
-		const label = rawLabels[index]; const occurrence = (occurrences.get(label) || 0) + 1; occurrences.set(label, occurrence);
-		return { label: totals.get(label) > 1 ? `${label} (${occurrence})` : label, value: bindingKey(candidate.binding) };
-	});
-	const selection = options.length ? selectControl({ options, value: options[0].value, ariaLabel: t("aaalice.workspace.binding.rebind", "Rebind control") }) : null;
-	if (selection) body.append(field({ label: t("aaalice.workspace.binding.parameter", "Node parameter"), control: selection }));
-	else body.append(emptyState({ description: t("aaalice.workspace.binding.noCompatible", "No compatible controls are available.") }));
-	const dialog = createWorkspaceDialog({ title: t("aaalice.workspace.binding.rebind", "Rebind control"), body, footer }, ownerElement);
-	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), disabled: !selection, onClick: () => {
-		const selected = candidates.find((candidate) => bindingKey(candidate.binding) === selection?.value);
-		if (!selected) return;
-		try {
-			const next = replacePrimaryBinding(dashboard(), item.id, selected.binding);
-			commitDashboardBindingSet(next, item.id, { synchronize: linkedBindingCount(findDashboardControl(next, item.id).item) > 0 });
-			dialog.close();
-		} catch (error) { notifyControlBindingError(error); }
-	} }));
 }
 
 export function openManageLinkedBindings(itemId, ownerElement = null) {
@@ -370,96 +299,6 @@ export function openEditGroup(page, group) {
 	const body = el("div", { children: [field({ label: t("aaalice.workspace.group.name", "Group name"), control: name }), field({ label: t("aaalice.workspace.group.tone", "Group color"), control: tone.root }), field({ label: t("aaalice.workspace.group.showTitle", "Show group title"), control: showTitleControl })] }); const footer = el("div");
 	const dialog = createWorkspaceDialog({ title: t("aaalice.workspace.group.edit", "Edit group"), body, footer });
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.save", "Save"), onClick: () => { if (!name.value.trim()) return; updateDashboard((current) => { const target = current.pages.find((entry) => entry.id === page.id)?.groups.find((entry) => entry.id === group.id); if (target) { target.nameOverride = name.value.trim(); target.tone = tone.value(); target.showTitle = showTitle; } return current; }); dialog.close(); } }));
-}
-
-
-function dashboardHasBinding(model, binding) {
-	return model.pages.some((page) => page.items.some((item) => item.kind === "control" && controlItemBindings(item).some((candidate) => sameBindingTarget(candidate, binding, resolve))));
-}
-
-function bindingLabelScore(sourceLabel, targetLabel) {
-	const source = String(sourceLabel || "").normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, "");
-	const target = String(targetLabel || "").normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, "");
-	if (!source || !target) return 0;
-	if (source === target) return 1000;
-	const shorter = Math.min(source.length, target.length); const longer = Math.max(source.length, target.length);
-	if (shorter < 2 || !(source.includes(target) || target.includes(source))) return 0;
-	return 700 + Math.round((shorter / longer) * 200);
-}
-
-function preferredBindingTarget(sourceLabel, targets) {
-	let best = targets[0] || null; let bestScore = 0;
-	for (const target of targets) {
-		const score = bindingLabelScore(sourceLabel, target.controlLabel || target.label);
-		if (score > bestScore) { best = target; bestScore = score; }
-	}
-	return best;
-}
-
-function linkableControlSources(controls) {
-	const model = dashboard();
-	return controls.map((control) => ({ control, resolved: resolvedBindingEntry(control.binding) }))
-		.filter(({ control, resolved }) => resolved.resolved?.status === "ok" && resolved.resolved.linkable === true
-			&& !dashboardHasBinding(model, control.binding) && compatibleCardTargets(resolved.binding).length);
-}
-
-function openLinkControls(node, listedControls = null, ownerElement = null) {
-	const controls = listedControls || controlProviders.list(node);
-	const sources = linkableControlSources(controls);
-	const body = el("div", "aa-link-controls-dialog"); const footer = el("div"); let dialog; let confirmButton;
-	if (!sources.length) {
-		body.append(emptyState({ iconName: "link", description: t("aaalice.workspace.binding.noLinkTargets", "No compatible sidebar parameters are available for this node.") }));
-		footer.append(button({ label: t("aaalice.common.close", "Close"), variant: "primary", onClick: () => dialog.close() }));
-		dialog = createWorkspaceDialog({ title: t("aaalice.workspace.binding.linkExisting", "Link to an existing sidebar parameter"), body, footer, size: "sm", className: "aa-link-controls-dialog-shell" }, ownerElement || app.canvas?.canvas || null);
-		return;
-	}
-	const sourceLabelTotals = new Map(); const sourceLabelOccurrences = new Map();
-	for (const { control } of sources) sourceLabelTotals.set(control.label, (sourceLabelTotals.get(control.label) || 0) + 1);
-	const sourceOptions = sources.map(({ control }) => {
-		const occurrence = (sourceLabelOccurrences.get(control.label) || 0) + 1; sourceLabelOccurrences.set(control.label, occurrence);
-		return { label: sourceLabelTotals.get(control.label) > 1 ? `${control.label} (${occurrence})` : control.label, value: bindingKey(control.binding) };
-	});
-	const sourceSelect = selectControl({
-		options: sourceOptions,
-		value: bindingKey(sources[0].control.binding),
-		ariaLabel: t("aaalice.workspace.binding.parameter", "Node parameter"),
-		onChange: () => refreshTargets(),
-	});
-	const targetSelect = selectControl({ ariaLabel: t("aaalice.workspace.binding.sidebarParameter", "Sidebar parameter") });
-	let targets = [];
-	const refreshTargets = () => {
-		const source = sources.find(({ control }) => bindingKey(control.binding) === sourceSelect.value);
-		targets = source ? compatibleCardTargets(source.control.binding) : [];
-		const preferred = preferredBindingTarget(source?.control.label, targets);
-		targetSelect.setOptions(targets.map((target) => ({ label: target.label, value: target.item.id })), preferred?.item.id || "");
-		targetSelect.setDisabled(!targets.length); if (confirmButton) confirmButton.disabled = !targets.length;
-	};
-	body.append(
-		field({ label: t("aaalice.workspace.binding.parameter", "Node parameter"), control: sourceSelect }),
-		field({ label: t("aaalice.workspace.binding.sidebarParameter", "Sidebar parameter"), control: targetSelect }),
-	);
-	confirmButton = button({ label: t("aaalice.workspace.binding.link", "Link parameter"), iconName: "link", onClick: () => {
-		const source = sources.find(({ control }) => bindingKey(control.binding) === sourceSelect.value);
-		const target = targets.find((candidate) => candidate.item.id === targetSelect.value);
-		if (!source || !target) return;
-		try {
-			const liveControls = controlProviders.list(node);
-			const liveSource = liveControls.find((control) => sameBindingTarget(control.binding, source.control.binding, resolve));
-			if (!liveSource) throw new ControlBindingSetError("The selected node parameter is no longer available", "unresolved-binding", source.control.binding);
-			const liveTarget = compatibleCardTargets(liveSource.binding).find((candidate) => candidate.item.id === target.item.id);
-			if (!liveTarget) throw new ControlBindingSetError("The selected sidebar parameter is no longer compatible", "incompatible-contract", liveSource.binding);
-			const next = addLinkedBinding(dashboard(), liveTarget.item.id, liveSource.binding);
-			const resolvedBindings = new Map(liveTarget.resolved.bindingSet.entries.map((entry) => [entry.key, entry.resolved]));
-			resolvedBindings.set(bindingKey(liveSource.binding), liveTarget.source.resolved);
-			commitDashboardBindingSet(next, liveTarget.item.id, { synchronize: true, resolvedBindings });
-			const count = controlItemBindings(findDashboardControl(next, liveTarget.item.id).item).length;
-			app.extensionManager?.toast?.add?.({ severity: "success", summary: t("aaalice.workspace.binding.linked", "Parameter linked"), detail: message("aaalice.workspace.binding.linkedDetail", "The sidebar control now updates {count} parameters.", { count }), life: 3600 });
-			dialog.close();
-		} catch (error) { notifyControlBindingError(error); }
-	} });
-	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), confirmButton);
-	refreshTargets();
-	dialog = createWorkspaceDialog({ title: t("aaalice.workspace.binding.linkExisting", "Link to an existing sidebar parameter"), body, footer, size: "sm", className: "aa-link-controls-dialog-shell" }, ownerElement || app.canvas?.canvas || null);
 }
 
 function openAddControls(node, ownerElement = null) {

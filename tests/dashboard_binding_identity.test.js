@@ -66,3 +66,12 @@ test("add-controls matching unwraps Provider control descriptors at the boundary
 	assert.equal(addable[0].binding.controlId, missingId);
 	assert.equal(isExisting(legacyBindings[0]), false, "the matcher accepts control descriptors, not raw bindings");
 });
+
+test("bindingControlIdLabel renders promoted tuples as readable source names", async () => {
+	const { bindingControlIdLabel } = await import("../js/lib/dashboard_binding_identity.js");
+	assert.equal(bindingControlIdLabel({ controlId: 'promoted:["4","cfg",null]' }), "cfg");
+	assert.equal(bindingControlIdLabel({ controlId: 'promoted:["5","seed","6"]' }), "seed");
+	assert.equal(bindingControlIdLabel({ controlId: "steps" }), "steps");
+	assert.equal(bindingControlIdLabel({ controlId: "promoted:not-json" }), "promoted:not-json");
+	assert.equal(bindingControlIdLabel({}), "");
+});

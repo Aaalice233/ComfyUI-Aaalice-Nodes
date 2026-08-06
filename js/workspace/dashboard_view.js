@@ -8,7 +8,8 @@ import { createDashboardGrid, createDashboardSearchResults } from "../lib/dashbo
 import { resolveControlBindingSet } from "../lib/control_binding_set.js";
 import { bindDashboardInteractions } from "../lib/dashboard_interactions.js";
 import { DASHBOARD_DEFAULT_CONTROL_COLUMN_SPAN, DASHBOARD_GRID_COLUMNS } from "../lib/dashboard_sizing.js";
-import { button, createContextMenu, createDialog, el, emptyState, field, iconButton, selectControl } from "../lib/ui.js";
+import { button, createContextMenu, createDialog, el, emptyState, field, icon, iconButton, selectControl } from "../lib/ui.js";
+import { bindingControlIdLabel } from "../lib/dashboard_binding_identity.js";
 import { createComponentNoteButton, createCollapsibleSearch, createControlCard, createDashboardComponentPicker, createDashboardPageHeading, createDashboardPresetPicker, createPageRail, createSelectionActionBar, createWorkspaceToolbar } from "../lib/workspace_components.js";
 import { matchesDashboardSearch, normalizeDashboardSearchText } from "../lib/dashboard_search.js";
 import { createControlElement } from "../lib/workspace_controls.js";
@@ -258,8 +259,29 @@ export function renderDashboard(container, host) {
 		}
 		if (!control) {
 			const linkedError = resolved.status === "linked-error";
-			const errorLabel = linkedError ? t("aaalice.workspace.binding.manage", "Manage linked parameters") : resolved.status === "error" ? t("aaalice.workspace.binding.error", "Control unavailable due to an error") : t("aaalice.workspace.binding.rebind", "Rebind");
-			control = button({ label: errorLabel, variant: "secondary", size: "sm", onClick: (event) => { const owner = event.currentTarget.closest?.("[data-dashboard-item-id]"); return linkedError ? openManageLinkedBindings(item.id, owner) : openRebind(item, owner); } });
+			const statusTitle = linkedError
+				? t("aaalice.workspace.binding.brokenLinkedTitle", "Some linked parameters are unavailable")
+				: resolved.status === "incompatible"
+					? t("aaalice.workspace.binding.brokenTypeTitle", "The bound parameter type has changed")
+					: resolved.status === "error"
+						? t("aaalice.workspace.binding.brokenErrorTitle", "The control failed to load")
+						: t("aaalice.workspace.binding.brokenMissingTitle", "The bound parameter is no longer available");
+			const statusHint = linkedError
+				? t("aaalice.workspace.binding.brokenLinkedHint", "Open linked-parameter management to repair or unlink the affected entries.")
+				: t("aaalice.workspace.binding.brokenMissingHint", "Previously bound to {name}. Rebind to an available parameter to restore this component.").replaceAll("{name}", bindingControlIdLabel(item.binding));
+			const action = button({
+				label: linkedError ? t("aaalice.workspace.binding.manage", "Manage linked parameters") : t("aaalice.workspace.binding.rebind", "Rebind"),
+				iconName: linkedError ? "link" : "swap",
+				variant: "secondary",
+				size: "sm",
+				className: "aa-control-card-broken__action",
+				onClick: (event) => { const owner = event.currentTarget.closest?.("[data-dashboard-item-id]"); return linkedError ? openManageLinkedBindings(item.id, owner) : openRebind(item, owner); },
+			});
+			control = el("div", { className: `aa-control-card-broken${linkedError ? " is-linked-error" : ""}`, attrs: { role: "alert" }, children: [
+				el("span", { className: "aa-control-card-broken__icon", attrs: { "aria-hidden": "true" }, children: [icon(linkedError ? "link" : "statusWarning")] }),
+				el("div", { className: "aa-control-card-broken__copy", children: [el("strong", null, statusTitle), el("small", null, statusHint)] }),
+				action,
+			] });
 		}
 		const cardTitle = controlTitle(item, resolved);
 		const card = createControlCard({ item, title: cardTitle, control, status: resolved.status, description: resolved.status === "ok" ? String(resolved.control?.description || "") : "", linkedCount: resolved.bindingSet?.linkedCount || 0, mixed: Boolean(resolved.bindingSet?.mixed), editMode: search ? false : editMode, labels: workspaceLabels(), onManage: (context) => openCardActions(context, item, resolved), onMove: () => openMoveControl(item),

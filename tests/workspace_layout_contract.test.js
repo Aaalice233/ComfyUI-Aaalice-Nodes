@@ -9,6 +9,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = [
 	"workspace.js",
 	"workspace/dashboard_bindings.js",
+	"workspace/dashboard_linking.js",
 	"workspace/dashboard_presets.js",
 	"workspace/dashboard_view.js",
 	"workspace/component_note.js",
@@ -195,7 +196,7 @@ test("add-controls dialog uses a compact structured picker", () => {
 	assert.match(workspace, /binding\.selectAll/);
 	assert.doesNotMatch(workspace, /aa-add-controls-footer-count/);
 	assert.match(workspace, /const existingBindings = model\.pages\.flatMap/);
-	assert.match(workspace, /createControlBindingMatcher, sameBindingTarget/);
+	assert.match(workspace, /createControlBindingMatcher, bindingControlIdLabel, sameBindingTarget/);
 	assert.match(workspace, /const fallbackPageId = page\?\.id \|\| model\.pages\[0\]\?\.id \|\| ""/);
 	assert.match(workspace, /preferredDashboardPage\(model\.pages, dashboardPageMatchLabels\(node\), fallbackPageId\)/);
 	assert.match(workspace, /const isExisting = createControlBindingMatcher\(relevantBindings, resolve\)/);
@@ -519,7 +520,7 @@ test("reactive sidebar render re-entry is a no-op and value updates preserve con
 
 test("source control titles use live node and binding labels", () => {
 	assert.match(workspace, /typeof node\.getTitle === "function" \? node\.getTitle\(\) : node\.title/);
-	assert.match(workspace, /return resolved\.label \|\| item\.label \|\| item\.binding\.controlId/);
+	assert.match(workspace, /return resolved\.label \|\| item\.label \|\| bindingControlIdLabel\(item\.binding\)/);
 	assert.match(workspace, /function controlTitle\(item, resolved\)/);
 	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT/);
 });

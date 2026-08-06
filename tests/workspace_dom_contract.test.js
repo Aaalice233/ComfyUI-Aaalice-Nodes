@@ -7,7 +7,7 @@ import { readStyleEntry } from "./helpers/style_source.js";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = [
 	"workspace.js",
-	"workspace/dashboard_bindings.js", "workspace/dashboard_unbinding.js", "workspace/dashboard_presets.js",
+	"workspace/dashboard_bindings.js", "workspace/dashboard_linking.js", "workspace/dashboard_unbinding.js", "workspace/dashboard_presets.js",
 	"workspace/dashboard_view.js",
 	"workspace/component_note.js",
 	"workspace/group_navigation.js", "workspace/group_navigation_wheel.js",
@@ -264,7 +264,7 @@ test("projects QuickGroupManager as one presettable sidebar control instead of a
 	assert.match(providers, /function quickGroupManagerTitle\(node\)/);
 	assert.match(providers, /typeof node\?\.getTitle === "function"/);
 	assert.match(providers, /label: quickGroupManagerTitle\(node\)/);
-	assert.match(workspace, /function controlTitle\(item, resolved\) \{[\s\S]*return resolved\.label \|\| item\.label \|\| item\.binding\.controlId/);
+	assert.match(workspace, /function controlTitle\(item, resolved\) \{[\s\S]*return resolved\.label \|\| item\.label \|\| bindingControlIdLabel\(item\.binding\)/);
 	assert.match(providers, /valueType: "quick-group-manager"/);
 	assert.match(providers, /quickGroupManagerPresetSnapshot/);
 	assert.match(providers, /applyQuickGroupManagerPreset/);
@@ -558,14 +558,17 @@ test("control cards move management into an accessible context menu", () => {
 });
 
 test("dashboard cards can link and manage multiple compatible node controls", () => {
-	assert.match(workspace, /function openLinkControls/);
+	assert.match(workspace, /export function openLinkControls/);
+	assert.match(workspace, /createSearchableSelect/);
+	assert.match(workspace, /badge: target\.broken/);
+	assert.match(workspace, /commitRebind\(liveTarget\.item, liveSource\.binding, dialog\)/);
 	assert.match(workspace, /addLinkedBinding\(dashboard\(\), liveTarget\.item\.id, liveSource\.binding\)/);
 	assert.match(workspace, /function openManageLinkedBindings/);
 	assert.match(workspace, /function openUnbindControls/); assert.match(workspace, /detachBinding\(next, entry\.item\.id, entry\.binding\)/); assert.match(workspace, /unbindMenu/);
 	assert.match(workspace, /syncButton\.disabled = bindings\.length < 2 \|\| resolvedSet\.status !== "ok"/);
 	assert.match(workspace, /issueBadge = issue \? badge/);
 	assert.match(workspace, /detachBinding\(dashboard\(\), itemId, binding\)/);
-	assert.match(workspace, /replacePrimaryBinding\(dashboard\(\), item\.id, selected\.binding\)/);
+	assert.match(workspace, /replacePrimaryBinding\(dashboard\(\), item\.id, binding\)/);
 	assert.match(workspace, /synchronizeFromPrimary/);
 	assert.match(workspace, /entries: \[[\s\S]*binding\.linkMenu[\s\S]*binding\.menu/);
 	assert.match(workspace, /function bindingLabelScore/);
@@ -630,4 +633,17 @@ test("PromptSelector injects live library text and exposes inline weight managem
 	assert.match(selector, /_aaalicePromptRecentFirst !== false/); assert.match(selector, /aa-prompt-selector-recent-sort/);
 	assert.match(selector, /function updatePromptSelectorView[\s\S]*view\.virtualList\.setState\?\.\(state\)[\s\S]*view\.virtualList\.setItems\(filteredEntries\(node, state\)/);
 	assert.match(selector, /existingView\?\.root === root && existingView\.searchOpen === searchOpen[\s\S]*observeDOMWidgetVisibility/);
+});
+
+test("broken binding cards explain the failure and rebind dialog offers fuzzy matching", () => {
+	assert.match(workspace, /aa-control-card-broken/);
+	assert.match(workspace, /binding\.brokenMissingTitle/);
+	assert.match(workspace, /binding\.brokenMissingHint/);
+	assert.match(workspace, /bindingControlIdLabel\(item\.binding\)/);
+	assert.match(workspace, /createSearchableSelect\(\{[\s\S]*searchPlaceholder: t\("aaalice\.workspace\.binding\.searchParameter"/);
+	assert.match(workspace, /onConfirm: commitSelection/);
+	assert.match(workspace, /primaryEntry\.resolved\?\.status !== "ok"[\s\S]*broken: true/);
+	assert.match(workspace, /badge: target\.broken \? t\("aaalice\.workspace\.binding\.brokenBadge"/);
+	assert.match(uiStyles, /\.aa-searchable-select__option\.is-selected/);
+	assert.match(theme, /\.aa-control-card-broken__icon/);
 });

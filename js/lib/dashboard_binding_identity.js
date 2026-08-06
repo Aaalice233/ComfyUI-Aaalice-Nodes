@@ -64,3 +64,18 @@ export function createControlBindingMatcher(bindings, resolve = null) {
 	const matchesBinding = createBindingTargetMatcher(bindings, resolve);
 	return (control) => matchesBinding(control?.binding);
 }
+
+/**
+ * controlId 面向用户的可读形式：promoted 元组还原为来源 widget 名，
+ * 避免把持久化 JSON 身份直接展示在界面文案里。
+ */
+export function bindingControlIdLabel(binding) {
+	const controlId = String(binding?.controlId ?? "");
+	if (controlId.startsWith("promoted:")) {
+		try {
+			const tuple = JSON.parse(controlId.slice("promoted:".length));
+			if (Array.isArray(tuple) && typeof tuple[1] === "string" && tuple[1]) return tuple[1];
+		} catch { /* fall through to the raw id */ }
+	}
+	return controlId;
+}

@@ -281,6 +281,25 @@ test("store-backed nested promotions keep disambiguating identity and resolve th
 	assert.equal(adapted?.controlId, 'promoted:["5","seed","6"]');
 });
 
+test("promoted bindings survive subgraph interior node renumbering via unique source-name fallback", () => {
+	const promoted = { name: "public", type: "float", value: 2, options: {}, serialize: false, sourceNodeId: "9", sourceWidgetName: "cfg" };
+	const node = { widgets: [promoted] };
+	// 子图内部重建后 sourceNodeId 从 4 变为 9：唯一来源名匹配应解析到新身份。
+	const resolved = resolveAdaptedWidgetControl(node, 'promoted:["4","cfg",null]', { promoted: true });
+	assert.equal(resolved?.widget, promoted);
+	assert.equal(resolved?.controlId, 'promoted:["9","cfg",null]');
+	// 嵌套消歧身份同时变化时，仍按唯一来源名解析。
+	assert.equal(resolveAdaptedWidgetControl(node, 'promoted:["4","cfg","6"]', { promoted: true })?.widget, promoted);
+});
+
+test("ambiguous source-name fallback stays unresolved instead of guessing", () => {
+	const first = { name: "sampler_name", type: "combo", value: "euler", options: { values: ["euler"] }, serialize: false, sourceNodeId: "4", sourceWidgetName: "sampler_name" };
+	const second = { name: "sampler_name", type: "combo", value: "ddim", options: { values: ["ddim"] }, serialize: false, sourceNodeId: "5", sourceWidgetName: "sampler_name" };
+	const node = { widgets: [first, second] };
+	// 失效的第三个身份与两个现存候选同名：拒绝猜测。
+	assert.equal(resolveAdaptedWidgetControl(node, 'promoted:["7","sampler_name",null]', { promoted: true }), null);
+});
+
 test("promoted widgets with the same public name keep distinct source identities", () => {
 	const first = { name: "sampler_name", type: "combo", value: "euler", options: { values: ["euler"] }, serialize: false, sourceNodeId: "4", sourceWidgetName: "sampler_name" };
 	const second = { name: "sampler_name", type: "combo", value: "ddim", options: { values: ["ddim"] }, serialize: false, sourceNodeId: "5", sourceWidgetName: "sampler_name" };

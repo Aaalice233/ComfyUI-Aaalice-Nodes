@@ -347,12 +347,36 @@ function cacheAdaptedWidgetIndex(node, widgets, controls, options) {
 	indexes.set(adaptedIndexKey(options), { adapterRevision, widgets: [...widgets], byControlId, byLegacyControlId });
 }
 
+export function parsePromotedControlId(controlId) {
+	const key = String(controlId ?? "");
+	if (!key.startsWith("promoted:")) return null;
+	try {
+		const tuple = JSON.parse(key.slice("promoted:".length));
+		return Array.isArray(tuple) && tuple.length >= 2 ? tuple : null;
+	} catch {
+		return null;
+	}
+}
+
 function findAdaptedControl(node, controls, controlId, promoted) {
 	const key = String(controlId);
 	const exact = controls.find((candidate) => candidate.controlId === key);
 	if (exact || !promoted) return exact || null;
 	const legacy = controls.filter((candidate) => legacyControlAliases(node, candidate.widget).includes(key));
-	return legacy.length === 1 ? legacy[0] : null;
+	if (legacy.length === 1) return legacy[0];
+	// 子图内部重建会重排节点 Id，持久化元组中的 sourceNodeId 随之失效；
+	// 此时按来源身份的唯一匹配回退解析，多个候选同名时宁可保持失效也不猜。
+	const tuple = parsePromotedControlId(key);
+	if (!tuple || typeof tuple[1] !== "string" || !tuple[1]) return null;
+	const identityOf = (candidate) => promotedWidgetIdentity(node, candidate.widget);
+	const byFullSource = controls.filter((candidate) => {
+		const identity = identityOf(candidate);
+		return identity && String(identity.sourceWidgetName) === tuple[1]
+			&& String(identity.disambiguatingSourceNodeId ?? null) === String(tuple[2] ?? null);
+	});
+	if (byFullSource.length === 1) return byFullSource[0];
+	const bySourceName = controls.filter((candidate) => identityOf(candidate)?.sourceWidgetName === tuple[1]);
+	return bySourceName.length === 1 ? bySourceName[0] : null;
 }
 
 /** Resolve one bound control without rebuilding descriptors for every sibling widget. */
@@ -364,11 +388,31 @@ export function resolveAdaptedWidgetControl(node, controlId, { promoted = false,
 	const cached = adaptedWidgetIndexes.get(node)?.get(adaptedIndexKey(options));
 	if (cached?.adapterRevision === adapterRevision && sameWidgetSnapshot(cached.widgets, widgets)) {
 		const widget = cached.byControlId.get(key) || (promoted ? cached.byLegacyControlId.get(key) : null);
-		if (!widget) return null;
+		if (!widget) {
+			if (!promoted) return null;
+			const fallbackKey = uniquePromotedFallbackKey(cached.byControlId.keys(), key);
+			const fallbackWidget = fallbackKey ? cached.byControlId.get(fallbackKey) : null;
+			return fallbackWidget ? adaptWidgetControl(node, fallbackWidget, options) : null;
+		}
 		const adapted = adaptWidgetControl(node, widget, options);
 		if (adapted?.controlId === key || (promoted && adapted?.widget === widget)) return adapted;
 	}
 	return findAdaptedControl(node, listAdaptedWidgetControls(node, options), key, promoted);
+}
+
+/** 在已缓存的 canonical controlId 键上按来源名唯一匹配，避免为回退解析重建全部描述符。 */
+function uniquePromotedFallbackKey(controlIds, requestedKey) {
+	const tuple = parsePromotedControlId(requestedKey);
+	if (!tuple || typeof tuple[1] !== "string" || !tuple[1]) return null;
+	const parsed = [];
+	for (const id of controlIds) {
+		const candidate = parsePromotedControlId(id);
+		if (candidate) parsed.push([id, candidate]);
+	}
+	const fullSource = parsed.filter(([, candidate]) => candidate[1] === tuple[1] && String(candidate[2] ?? null) === String(tuple[2] ?? null));
+	if (fullSource.length === 1) return fullSource[0][0];
+	const sourceName = parsed.filter(([, candidate]) => candidate[1] === tuple[1]);
+	return sourceName.length === 1 ? sourceName[0][0] : null;
 }
 
 export function invalidateWidgetControlAdapterCache(node = null) {
