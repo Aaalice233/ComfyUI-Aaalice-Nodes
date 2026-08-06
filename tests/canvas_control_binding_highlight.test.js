@@ -22,7 +22,9 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 	assert.match(highlight, /if \(!installed && typeof widget\.draw === \"function\"\)/);
 	assert.match(highlight, /const intact = existing\.properties\.length > 0/);
 	assert.match(highlight, /uninstallWidgetMarker\(widget\)/);
-	assert.match(highlight, /resolved\.node\.graph === app\.canvas\?\.graph/);
+	assert.match(highlight, /node\.graph === app\.canvas\?\.graph/);
+	assert.match(highlight, /lastResolution\?\.key === structureToken && lastResolution\.model === model/);
+	assert.match(highlight, /export function invalidateCanvasControlBindingResolution\(\) \{\s*lastResolution = null;/);
 	assert.match(highlight, /data-testid=\\?\"node-widgets/);
 	assert.match(highlight, /DOM_BOUND_CLASS/);
 	assert.match(highlight, /mapCanvasWidgetRows\(rows, candidates\)/);
@@ -40,7 +42,7 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 
 test("canvas binding highlights reconcile on structure, host invalidation, and graph navigation", () => {
 	assert.match(workspace, /if \(shouldForceRender \|\| signature !== previousGraphStructure\) \{ previousGraphStructure = signature; scheduleCanvasControlBindingSync\(\);/);
-	assert.match(workspace, /CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{[\s\S]*if \(!dashboardUsesHost\(node\)\) return;[\s\S]*scheduleRender\("dashboard"\); scheduleCanvasControlBindingSync\(\);/);
+	assert.match(workspace, /CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{[\s\S]*if \(!dashboardUsesHost\(node\)\) return;[\s\S]*scheduleRender\("dashboard"\); scheduleCanvasControlBindingSync\(\{ force: true \}\);/);
 	assert.match(workspace, /canvas\.addEventListener\("litegraph:set-graph", \(\) => \{[\s\S]*invalidateWidgetControlAdapterCache\(\);[\s\S]*scheduleCanvasControlBindingSync\(\);/);
 	assert.match(workspace, /installCanvasBindingNavigationSync\(\)/);
 	assert.match(workspace, /function installCanvasBindingModeSync\(\)/);

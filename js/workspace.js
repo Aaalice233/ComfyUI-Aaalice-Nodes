@@ -18,7 +18,7 @@ import { createWorkspaceShell } from "./lib/workspace_components.js";
 import { hasActiveControlGestures } from "./lib/workspace_controls.js";
 import { destroySharedControls } from "./lib/controls/registry.js";
 import { invalidateWidgetControlAdapterCache } from "./lib/widget_control_adapters.js";
-import { syncCanvasControlBindings } from "./lib/canvas_control_binding_highlight.js";
+import { syncCanvasControlBindings, invalidateCanvasControlBindingResolution } from "./lib/canvas_control_binding_highlight.js";
 import { allGraphNodes } from "./lib/graph_scope.js";
 import { graphSyncSignature as createGraphSyncSignature } from "./workspace/graph_signature.js";
 import { configureGroupNavigation, handleGroupNavigationShortcut, handleGroupNavigationShortcutUp, renderGroupNavigation } from "./workspace/group_navigation.js";
@@ -75,6 +75,8 @@ let editMode = false;
 let dashboardModelError = null;
 let renderFrame = 0;
 let deferredWorkspaceRender = false;
+let dashboardCacheSource = null;
+let dashboardCacheValue = null;
 let forcedWorkspaceRender = false;
 const workspaceViewState = {
 	dashboard: { query: "", searchOpen: false, focusSearch: false, focusHost: null, selectedItemIds: new Set(), selectedGroupIds: new Set(), pageTransition: null },
@@ -142,10 +144,14 @@ function dashboard() {
 	app.graph.extra ||= {};
 	try {
 		const source = app.graph.extra[EXTRA_KEY] ?? null;
+		// updateDashboard 每次写回新对象，直接以引用做备忘；失效绑定同步等高频路径不再每次全量规范化。
+		if (source && source === dashboardCacheSource && dashboardCacheValue) return dashboardCacheValue;
 		const value = normalizeDashboard(source); dashboardModelError = null;
 		if (!source || source.version !== value.version) app.graph.extra[EXTRA_KEY] = value;
+		dashboardCacheSource = app.graph.extra[EXTRA_KEY] ?? null;
+		dashboardCacheValue = value;
 		return value;
-	} catch (error) { dashboardModelError = error; return emptyDashboard(); }
+	} catch (error) { dashboardModelError = error; dashboardCacheSource = null; dashboardCacheValue = null; return emptyDashboard(); }
 }
 
 function updateDashboard(callback) {
@@ -237,12 +243,13 @@ function flushDeferredWorkspaceRender() {
 }
 
 let canvasBindingSyncFrame = 0;
-function scheduleCanvasControlBindingSync() {
+function scheduleCanvasControlBindingSync({ force = false } = {}) {
 	if (canvasBindingSyncFrame) return;
 	canvasBindingSyncFrame = requestAnimationFrame(() => {
 		canvasBindingSyncFrame = 0;
 		const nodes = graphNodes();
-		syncCanvasControlBindings(dashboard(), (binding) => controlProviders.resolve(binding, nodes));
+		const hostIndex = createControlHostIndex(nodes);
+		syncCanvasControlBindings(dashboard(), (binding) => controlProviders.resolve(binding, hostIndex), { structureToken: force ? null : graphSyncSignature(nodes) });
 	});
 }
 
@@ -569,7 +576,7 @@ app.registerExtension({
 	},
 	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
 	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
-	beforeConfigureGraph() { clearGroupNavigationCanvasPointer(); closeGroupNavigationWheel(); closeWorkspaceDialogs(); workspaceViewState.dashboard.pageTransition = null; resetDashboardScrollStates(); },
+	beforeConfigureGraph() { clearGroupNavigationCanvasPointer(); closeGroupNavigationWheel(); closeWorkspaceDialogs(); workspaceViewState.dashboard.pageTransition = null; resetDashboardScrollStates(); invalidateCanvasControlBindingResolution(); },
 	afterConfigureGraph() { invalidateWidgetControlAdapterCache(); scheduleGraphSync(true); },
 	setup() {
 		installLinkedSeedQueueHook();
@@ -627,7 +634,7 @@ app.registerExtension({
 		window.addEventListener("focusout", () => queueMicrotask(flushDeferredWorkspaceRender), true);
 		onContextMenuClose(flushDeferredWorkspaceRender);
 		window.addEventListener(CONTROL_HOST_INVALIDATED_EVENT, (event) => {
-			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync(); scheduleActiveDashboardPresetAutoSave();
+			const node = event.detail?.node || null; invalidateWidgetControlAdapterCache(node); if (!dashboardUsesHost(node)) return; scheduleRender("dashboard"); scheduleCanvasControlBindingSync({ force: true }); scheduleActiveDashboardPresetAutoSave();
 		});
 		window.addEventListener(CONTROL_ADAPTER_REGISTRY_CHANGED_EVENT, () => {
 			invalidateWidgetControlAdapterCache(); scheduleGraphSync(true); scheduleActiveDashboardPresetAutoSave();

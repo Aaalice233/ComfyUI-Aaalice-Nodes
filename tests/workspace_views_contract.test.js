@@ -289,7 +289,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.doesNotMatch(workspace, /boundaryPagingState/);
 	assert.match(workspace, /destroyDashboardPageRailForRoot/);
 	assert.doesNotMatch(workspace, /container\.addEventListener\("pointerdown"/);
-	assert.match(workspace, /beforeConfigureGraph\(\) \{ clearGroupNavigationCanvasPointer\(\); closeGroupNavigationWheel\(\); closeWorkspaceDialogs\(\); workspaceViewState\.dashboard\.pageTransition = null; resetDashboardScrollStates\(\); \}/);
+	assert.match(workspace, /beforeConfigureGraph\(\) \{ clearGroupNavigationCanvasPointer\(\); closeGroupNavigationWheel\(\); closeWorkspaceDialogs\(\); workspaceViewState\.dashboard\.pageTransition = null; resetDashboardScrollStates\(\); invalidateCanvasControlBindingResolution\(\); \}/);
 	assert.doesNotMatch(workspace, /beforeConfigureGraph\(\)[\s\S]{0,220}queueMicrotask/);
 	assert.doesNotMatch(workspace, /isEnabled: \(\) => activeWorkspace === "dashboard"/);
 	assert.doesNotMatch(workspace, /requestPage: \(direction\) =>/);

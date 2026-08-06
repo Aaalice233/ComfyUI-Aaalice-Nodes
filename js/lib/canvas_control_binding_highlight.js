@@ -180,8 +180,8 @@ function applyDomRows(state) {
 	const container = state.container;
 	if (!container?.isConnected) return;
 	const rows = widgetRows(container);
-	const defaultCandidates = visibleWidgetCandidates(state.node, Boolean(state.node.showAdvanced || settingShowsAdvancedWidgets()));
-	const allAdvancedCandidates = visibleWidgetCandidates(state.node, true);
+	const defaultCandidates = state.candidatesDefault || visibleWidgetCandidates(state.node, Boolean(state.node.showAdvanced || settingShowsAdvancedWidgets()));
+	const allAdvancedCandidates = state.candidatesAll || visibleWidgetCandidates(state.node, true);
 	clearDomRows(state);
 	const candidates = defaultCandidates.length >= rows.length ? defaultCandidates : allAdvancedCandidates;
 	const rowsByWidget = mapCanvasWidgetRows(rows, candidates);
@@ -289,7 +289,7 @@ function scheduleMountRefresh() {
 	mountRefreshFrame = globalThis.requestAnimationFrame ? requestAnimationFrame(callback) : setTimeout(callback, 0);
 }
 
-function syncDomTargets(targetsByNode) {
+function syncDomTargets(targetsByNode, { refreshCandidates = false } = {}) {
 	if (!isNodes2Mode()) {
 		for (const state of domStates.values()) disconnectDomState(state);
 		domStates.clear();
@@ -307,12 +307,18 @@ function syncDomTargets(targetsByNode) {
 	for (const [node, widgets] of targetsByNode) {
 		let state = domStates.get(node);
 		if (!state) {
-			state = { node, widgets: new Set(), rows: new Set(), root: null, container: null, parent: null };
+			state = { node, widgets: new Set(), rows: new Set(), root: null, container: null, parent: null, candidatesDefault: null, candidatesAll: null };
 			domStates.set(node, state);
 		}
 		if (!sameWidgetSet(state.widgets, widgets)) {
 			state.widgets = new Set(widgets);
 			clearDomRows(state);
+		}
+		// 候选列表读取新协议投影 widget 的响应式访问器，只在真实重解析后刷新；
+		// DOM 变动触发的 applyDomRows 复用缓存，避免每次 mutation 放大 store 读取。
+		if (refreshCandidates || !state.candidatesDefault) {
+			state.candidatesDefault = visibleWidgetCandidates(node, Boolean(node.showAdvanced || settingShowsAdvancedWidgets()));
+			state.candidatesAll = visibleWidgetCandidates(node, true);
 		}
 		const root = nodeElement(node);
 		if (root) {
@@ -325,30 +331,54 @@ function syncDomTargets(targetsByNode) {
 	if (pendingDomStates.size) ensureMountObserver();
 }
 
-export function syncCanvasControlBindings(model, resolve) {
-	const targetsByNode = new Map();
-	const nextWidgets = new Set();
-	for (const page of model?.pages || []) {
-		for (const item of page?.items || []) {
-			if (item?.kind !== "control") continue;
-			for (const binding of controlItemBindings(item)) {
-				if (!binding || !["generic-widget", "subgraph-widget"].includes(binding.provider)) continue;
-				let resolved;
-				try { resolved = resolve(binding); } catch (error) {
-					console.error("[Aaalice] Unable to resolve a bound canvas control", binding, error);
-					continue;
-				}
-				if (resolved?.status !== "ok") continue;
-				const widget = resolved.widget || (resolved.node?.widgets || []).find((candidate) => candidate === resolved.control);
-				if (!resolved.node || !widget) continue;
-				if (resolved.node.graph === app.canvas?.graph) {
-					let widgets = targetsByNode.get(resolved.node);
-					if (!widgets) { widgets = new Set(); targetsByNode.set(resolved.node, widgets); }
+// 高亮只需要绑定目标的 node/widget 身份，与控件的实时值无关；按（模型引用 + 结构签名）
+// 备忘解析结果，结构未变时跳过重解析，失效绑定不再每次同步都全图重扫。
+// 图重载会以相同签名重建全新节点对象，因此 beforeConfigureGraph 必须显式失效。
+let lastResolution = null;
+
+export function invalidateCanvasControlBindingResolution() {
+	lastResolution = null;
+}
+
+export function syncCanvasControlBindings(model, resolve, { structureToken = null } = {}) {
+	let targetsByNode;
+	let nextWidgets;
+	const fresh = structureToken != null && lastResolution?.key === structureToken && lastResolution.model === model;
+	if (fresh) {
+		// 备忘录保存未按当前图过滤的全量目标；图导航后按当前图重新过滤，避免命中旧图节点。
+		targetsByNode = new Map();
+		for (const [node, widgets] of lastResolution.allTargets) {
+			if (node.graph === app.canvas?.graph) targetsByNode.set(node, widgets);
+		}
+		nextWidgets = lastResolution.nextWidgets;
+	} else {
+		const allTargets = new Map();
+		targetsByNode = new Map();
+		nextWidgets = new Set();
+		for (const page of model?.pages || []) {
+			for (const item of page?.items || []) {
+				if (item?.kind !== "control") continue;
+				for (const binding of controlItemBindings(item)) {
+					if (!binding || !["generic-widget", "subgraph-widget"].includes(binding.provider)) continue;
+					let resolved;
+					try { resolved = resolve(binding); } catch (error) {
+						console.error("[Aaalice] Unable to resolve a bound canvas control", binding, error);
+						continue;
+					}
+					if (resolved?.status !== "ok") continue;
+					const widget = resolved.widget || (resolved.node?.widgets || []).find((candidate) => candidate === resolved.control);
+					if (!resolved.node || !widget) continue;
+					let widgets = allTargets.get(resolved.node);
+					if (!widgets) { widgets = new Set(); allTargets.set(resolved.node, widgets); }
 					widgets.add(widget);
+					nextWidgets.add(widget);
 				}
-				nextWidgets.add(widget);
 			}
 		}
+		for (const [node, widgets] of allTargets) {
+			if (node.graph === app.canvas?.graph) targetsByNode.set(node, widgets);
+		}
+		lastResolution = structureToken == null ? null : { key: structureToken, model, allTargets, nextWidgets };
 	}
 	let canvasNeedsRedraw = false;
 	for (const widget of activeWidgets) {
@@ -362,11 +392,12 @@ export function syncCanvasControlBindings(model, resolve) {
 		installWidgetMarker(widget);
 		if (widgetMarkers.get(widget) !== previousMarker) canvasNeedsRedraw = true;
 	}
-	syncDomTargets(targetsByNode);
+	syncDomTargets(targetsByNode, { refreshCandidates: !fresh });
 	if (canvasNeedsRedraw) app.canvas?.setDirty?.(true, true);
 }
 
 export function resetCanvasControlBindingHighlight() {
+	lastResolution = null;
 	const hadMarkers = activeWidgets.size > 0;
 	for (const widget of [...activeWidgets]) uninstallWidgetMarker(widget);
 	syncDomTargets(new Map());
