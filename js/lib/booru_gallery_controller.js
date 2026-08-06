@@ -369,6 +369,8 @@ return function buildController(node, elements) {
 			const size = hoverImageSize(item);
 			content.style.setProperty("--aa-gallery-hover-image-width", `${size.width}px`);
 			content.style.setProperty("--aa-gallery-hover-image-height", `${size.height}px`);
+			// 尺寸过渡结束前按最终尺寸重定位，避免过渡中间测量把浮层留在视口外。
+			content.addEventListener("transitionend", () => tooltip.reposition(), { once: true });
 		};
 		const resolution = el("dd", null, dimensions(post));
 		const format = el("dd", null, "—");

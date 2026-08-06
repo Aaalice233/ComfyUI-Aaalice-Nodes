@@ -103,7 +103,7 @@ function placeTooltip(root, anchor, preferredPlacement = "auto", cursorPoint = n
 		const roomLeft = anchorRect.left - margin;
 		const showRight = roomRight >= tooltipRect.width + gap || roomRight >= roomLeft;
 		const left = showRight
-			? Math.min(window.innerWidth - tooltipRect.width - margin, anchorRect.right + gap)
+			? Math.max(margin, Math.min(window.innerWidth - tooltipRect.width - margin, anchorRect.right + gap))
 			: Math.max(margin, anchorRect.left - tooltipRect.width - gap);
 		// 垂直方向以锚点中心对齐并整体收进视口，上下边缘都不截断。
 		const anchorCenter = anchorRect.top + (anchorRect.height / 2);
@@ -125,6 +125,17 @@ function placeTooltip(root, anchor, preferredPlacement = "auto", cursorPoint = n
 	root.style.setProperty("--aa-ui-tooltip-arrow-x", `${arrowX}px`);
 	root.style.left = `${left}px`;
 	root.style.top = `${top}px`;
+}
+
+// 定位后再按实际渲染尺寸兜底一次：任何测量时机误差（如尺寸过渡中重定位）
+// 导致浮层越出视口时强制整体移回，保证不会有一部分留在屏幕外。
+function clampTooltipToViewport(root, margin = 10) {
+	if (!root?.isConnected) return;
+	const rect = root.getBoundingClientRect();
+	if (rect.left < margin || rect.top < margin || rect.right > window.innerWidth - margin || rect.bottom > window.innerHeight - margin) {
+		root.style.left = `${Math.max(margin, Math.min(window.innerWidth - rect.width - margin, rect.left))}px`;
+		root.style.top = `${Math.max(margin, Math.min(window.innerHeight - rect.height - margin, rect.top))}px`;
+	}
 }
 
 function renderTooltipContent(content, contentMode) {
@@ -156,6 +167,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		positionFrame = requestAnimationFrame(() => {
 			positionFrame = 0;
 			placeTooltip(root, anchor, preferredPlacement, cursorPoint);
+			clampTooltipToViewport(root);
 		});
 	};
 	const cancelScheduledHide = () => {
@@ -259,6 +271,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		} else updateDescribedBy(anchor, root.id, true);
 		onMount?.(root);
 		placeTooltip(root, anchor, preferredPlacement, cursorPoint);
+		clampTooltipToViewport(root);
 		window.addEventListener("resize", schedulePosition);
 		window.addEventListener("scroll", schedulePosition, true);
 		document.addEventListener("keydown", keydown, true);

@@ -70,6 +70,9 @@ test("side tooltips center on the anchor and stay inside the viewport", () => {
 	assert.match(ui, /const anchorCenter = anchorRect\.top \+ \(anchorRect\.height \/ 2\);/);
 	assert.match(ui, /anchorCenter - \(tooltipRect\.height \/ 2\)\)/);
 	assert.match(ui, /Math\.max\(margin, Math\.min\(window\.innerHeight - tooltipRect\.height - margin, anchorCenter - \(tooltipRect\.height \/ 2\)\)\)/);
+	assert.match(ui, /function clampTooltipToViewport\(root, margin = 10\)/);
+	assert.match(ui, /Math\.max\(margin, Math\.min\(window\.innerWidth - rect\.width - margin, rect\.left\)\)/);
+	assert.match(ui, /placeTooltip\(root, anchor, preferredPlacement, cursorPoint\);\s*clampTooltipToViewport\(root\)/);
 });
 const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace.svg"), "utf8");
