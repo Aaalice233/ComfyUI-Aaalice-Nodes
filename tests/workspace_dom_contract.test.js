@@ -64,6 +64,13 @@ const promptEntryDetails = readFileSync(join(ROOT, "js", "lib", "prompt_entry_de
 const categoryColor = readFileSync(join(ROOT, "js", "lib", "category_color.js"), "utf8");
 const ui = uiSource;
 const uiStyles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
+
+// 共享 tooltip 的 side 定位必须垂直居中对齐锚点并整体收进视口，防止边缘截断。
+test("side tooltips center on the anchor and stay inside the viewport", () => {
+	assert.match(ui, /const anchorCenter = anchorRect\.top \+ \(anchorRect\.height \/ 2\);/);
+	assert.match(ui, /anchorCenter - \(tooltipRect\.height \/ 2\)\)/);
+	assert.match(ui, /Math\.max\(margin, Math\.min\(window\.innerHeight - tooltipRect\.height - margin, anchorCenter - \(tooltipRect\.height \/ 2\)\)\)/);
+});
 const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 const workspaceIcon = readFileSync(join(ROOT, "js", "assets", "aaalice-workspace.svg"), "utf8");
 const enLocale = readFileSync(join(ROOT, "locales", "en", "main.json"), "utf8");

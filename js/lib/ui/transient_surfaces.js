@@ -105,8 +105,10 @@ function placeTooltip(root, anchor, preferredPlacement = "auto", cursorPoint = n
 		const left = showRight
 			? Math.min(window.innerWidth - tooltipRect.width - margin, anchorRect.right + gap)
 			: Math.max(margin, anchorRect.left - tooltipRect.width - gap);
-		const top = Math.max(margin, Math.min(window.innerHeight - tooltipRect.height - margin, anchorRect.top - 50));
-		const arrowY = Math.max(14, Math.min(tooltipRect.height - 14, anchorRect.top + (anchorRect.height / 2) - top));
+		// 垂直方向以锚点中心对齐并整体收进视口，上下边缘都不截断。
+		const anchorCenter = anchorRect.top + (anchorRect.height / 2);
+		const top = Math.max(margin, Math.min(window.innerHeight - tooltipRect.height - margin, anchorCenter - (tooltipRect.height / 2)));
+		const arrowY = Math.max(14, Math.min(tooltipRect.height - 14, anchorCenter - top));
 		root.dataset.placement = showRight ? "right" : "left";
 		root.style.setProperty("--aa-ui-tooltip-arrow-y", `${arrowY}px`);
 		root.style.left = `${left}px`;

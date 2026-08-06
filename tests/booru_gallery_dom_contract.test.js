@@ -354,7 +354,7 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.match(hoverSource, /--aa-gallery-hover-image-width\", `\$\{size\.width\}px`\)/);
 	assert.match(hoverSource, /--aa-gallery-hover-image-height\", `\$\{size\.height\}px`\)/);
 	assert.match(theme, /\.aa-gallery-hover-tooltip\.aa-ui-tooltip \{[^}]*width: fit-content;[^}]*max-width: min\(320px/);
-	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*width: var\(--aa-gallery-hover-image-width, 320px\);[^}]*height: var\(--aa-gallery-hover-image-height, 240px\)/);
+	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*width: min\(var\(--aa-gallery-hover-image-width, 320px\), calc\(100vw - 40px\)\);[^}]*height: min\(var\(--aa-gallery-hover-image-height, 240px\), calc\(100vh - 150px\)\)/);
 	assert.match(theme, /\.aa-gallery-hover__media > img \{[^}]*object-fit: contain/);
 	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*position: absolute;[^}]*bottom: 0;[^}]*linear-gradient/);
 	assert.match(theme, /\.aa-gallery-hover__info dl \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
