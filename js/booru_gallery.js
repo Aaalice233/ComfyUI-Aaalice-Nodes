@@ -13,7 +13,7 @@ import { mountVirtualMasonry } from "./lib/virtual_masonry.js";
 import { observeDOMWidgetVisibility } from "./lib/dom_widget_visibility.js";
 import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, isolate, listboxControl, multiSelectControl, searchToggleButton, segmentedControl } from "./lib/ui.js";
 import { createTagPillList } from "./lib/controls/tag_pills.js";
-import { createGalleryCards } from "./lib/booru_gallery_cards.js";
+import { createGalleryCards, installMasonryCardMotion } from "./lib/booru_gallery_cards.js";
 import { createGalleryControllerFactory } from "./lib/booru_gallery_controller.js";
 import { createGalleryDialogs } from "./lib/booru_gallery_dialogs.js";
 import { createGallerySettings } from "./lib/booru_gallery_settings.js";
@@ -300,6 +300,7 @@ function createPageControl(node) {
 	const control = button({ className: "aa-gallery-page-control", label: "", variant: "ghost", size: "sm" });
 	const sync = () => { control.querySelector(".aa-ui-button__label").textContent = label("page.current", "Page {page}").replace("{page}", String(currentPage)); control.title = label("page.open", "Jump to a page"); };
 	control.setPage = (page) => { currentPage = Math.max(1, Math.floor(Number(page) || 1)); sync(); };
+	control.setBusy = (busy) => { control.classList.toggle("is-busy", busy); control.disabled = busy; };
 	control.addEventListener("click", () => {
 		control.classList.add("is-open"); control.setAttribute("aria-expanded", "true");
 		const popover = createAnchoredPopover({ anchor: control, ariaLabel: label("page.title", "Page navigation"), className: "aa-gallery-page-popover", width: 224, onClose: () => { control.classList.remove("is-open"); control.setAttribute("aria-expanded", "false"); } });
@@ -468,6 +469,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	selectedListRoot.addEventListener("drop", (event) => controller?.handleSelectedDrop(event));
 	selectedListRoot.addEventListener("dragleave", (event) => controller?.handleSelectedDragLeave(event));
 	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGallerySelectionMode = selectionMode; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
+	node._aaGalleryCardMotion = installMasonryCardMotion(masonry);
 	node._aaGalleryVisibility = observeDOMWidgetVisibility(root, { onChange: (active) => { elements.masonryController?.setActive(active); elements.selectedList?.setActive(active); } });
 	error.addEventListener("click", () => {
 		const sourceName = stateFor(node).source;
@@ -485,6 +487,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
 	const previousRemoved = node.onRemoved; node.onRemoved = function () {
 		controller.destroy();
+		this._aaGalleryCardMotion?.();
+		this._aaGalleryCardMotion = null;
 		this._aaGalleryVisibility?.destroy?.();
 		this._aaGalleryVisibility = null;
 		selectedDropIndicator.remove();

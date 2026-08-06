@@ -7,20 +7,23 @@ export function createGalleryCards(dependencies) {
 		selectionKey, stateFor, tagCount, transact,
 	} = dependencies;
 
-function installGalleryCardMotion(card) {
+// 卡片倾斜与径向高光由瀑布流容器统一委托：一个 pointermove/pointerleave 监听
+// 管理全部卡片，单 rAF 内只读取指针下方一张卡片的几何；滚动虚拟化卸载卡片后
+// 待处理帧通过 isConnected 自然跳过，不再为每张卡片各挂一对监听器。
+export function installMasonryCardMotion(container) {
 	const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-	let frame = 0; let pointer = null;
-	const reset = () => {
-		pointer = null;
-		card.style.setProperty("--aa-gallery-tilt-x", "0deg");
-		card.style.setProperty("--aa-gallery-tilt-y", "0deg");
-		card.style.setProperty("--aa-gallery-glare-x", "50%");
-		card.style.setProperty("--aa-gallery-glare-y", "50%");
-		card.style.setProperty("--aa-gallery-glare-position", "50%");
+	let frame = 0; let card = null; let pointer = null;
+	const reset = (target) => {
+		if (!target) return;
+		target.style.setProperty("--aa-gallery-tilt-x", "0deg");
+		target.style.setProperty("--aa-gallery-tilt-y", "0deg");
+		target.style.setProperty("--aa-gallery-glare-x", "50%");
+		target.style.setProperty("--aa-gallery-glare-y", "50%");
+		target.style.setProperty("--aa-gallery-glare-position", "50%");
 	};
 	const draw = () => {
 		frame = 0;
-		if (!pointer || !card.isConnected || reducedMotion?.matches) return;
+		if (!card || !card.isConnected || reducedMotion?.matches || !pointer) return;
 		const rect = card.getBoundingClientRect();
 		if (!(rect.width > 0) || !(rect.height > 0)) return;
 		const x = Math.max(-1, Math.min(1, ((pointer.x - rect.left) / rect.width - 0.5) * 2));
@@ -33,17 +36,26 @@ function installGalleryCardMotion(card) {
 	};
 	const onPointerMove = (event) => {
 		if (event.pointerType === "touch" || reducedMotion?.matches) return;
+		const target = event.target instanceof Element ? event.target.closest(".aa-gallery-card") : null;
+		if (target !== card) { reset(card); card = target; }
+		if (!card) { if (frame) cancelAnimationFrame(frame); frame = 0; pointer = null; return; }
 		pointer = { x: event.clientX, y: event.clientY };
 		if (!frame) frame = requestAnimationFrame(draw);
 	};
-	const onPointerLeave = () => { if (frame) cancelAnimationFrame(frame); frame = 0; reset(); };
-	card.addEventListener("pointermove", onPointerMove, { passive: true });
-	card.addEventListener("pointerleave", onPointerLeave, { passive: true });
-	reset();
+	const onPointerLeave = (event) => {
+		if (event.pointerType === "touch") return;
+		const next = event.relatedTarget instanceof Element ? event.relatedTarget.closest(".aa-gallery-card") : null;
+		if (next) return;
+		if (frame) cancelAnimationFrame(frame); frame = 0;
+		reset(card); card = null; pointer = null;
+	};
+	container.addEventListener("pointermove", onPointerMove, { passive: true });
+	container.addEventListener("pointerleave", onPointerLeave, { passive: true });
 	return () => {
-		if (frame) cancelAnimationFrame(frame);
-		card.removeEventListener("pointermove", onPointerMove);
-		card.removeEventListener("pointerleave", onPointerLeave);
+		if (frame) cancelAnimationFrame(frame); frame = 0;
+		container.removeEventListener("pointermove", onPointerMove);
+		container.removeEventListener("pointerleave", onPointerLeave);
+		reset(card); card = null; pointer = null;
 	};
 }
 
@@ -217,8 +229,7 @@ function createGalleryCard(node, controller, post, index) {
 	let hoverTimer = 0;
 	card.addEventListener("mouseenter", () => { if (!getSettings()?.tooltip) return; hoverTimer = setTimeout(() => controller.showHover(card, post), 280); });
 	card.addEventListener("mouseleave", () => { clearTimeout(hoverTimer); controller.tooltip.hide(); });
-	const disposeMotion = installGalleryCardMotion(card);
-	card._aaVirtualMasonryDispose = () => { clearTimeout(hoverTimer); disposeMotion(); };
+	card._aaVirtualMasonryDispose = () => { clearTimeout(hoverTimer); };
 	return card;
 }
 
@@ -400,7 +411,7 @@ function createSelectedRow(node, controller, selection, index) {
 
 
 	return {
-		createGalleryCard, createGalleryTagPills, createSelectedRow, galleryCardActionLayout,
+		createGalleryCard, createGalleryTagPills, createSelectedRow, galleryCardActionLayout, installMasonryCardMotion,
 		moveSelectionIndex, resolveSelectedDropTarget,
 	};
 }

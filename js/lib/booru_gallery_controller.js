@@ -13,7 +13,7 @@ export function createGalleryControllerFactory(dependencies) {
 	} = dependencies;
 
 return function buildController(node, elements) {
-	let posts = []; let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; let detailDialogGeneration = 0; let destroyed = false; let activeDetailDialog = null; const sessionEdits = new Map();
+	let posts = []; let knownPostKeys = new Set(); let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; let detailDialogGeneration = 0; let destroyed = false; let activeDetailDialog = null; const sessionEdits = new Map();
 	const detailCache = new Map(); const previewCache = new Map(); let previewGeneration = 0; let previewPrefetchActive = 0; const previewPrefetchQueue = []; const previewPrefetchPending = new Set(); const prefetchedPreviewSources = new Map();
 	const touchCache = (cache, key, value) => { cache.delete(key); cache.set(key, value); return value; };
 	const trimCache = (cache, maximum) => { while (cache.size > maximum) cache.delete(cache.keys().next().value); };
@@ -51,7 +51,7 @@ return function buildController(node, elements) {
 		errorTimer = setTimeout(() => { elements.error.hidden = true; }, 6000);
 	};
 	const clearError = () => { clearTimeout(errorTimer); errorTimer = 0; elements.error.hidden = true; elements.errorLabel.textContent = ""; };
-	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; };
+	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; elements.pageControl?.setBusy?.(value); };
 	const addTagToSearch = (tag) => {
 		const source = stateFor(node).source;
 		const cap = capability(source);
@@ -195,7 +195,8 @@ return function buildController(node, elements) {
 	const rememberPage = (page) => {
 		const value = Math.max(1, Math.floor(Number(page) || 1));
 		const state = stateFor(node); if (state.navigation.page === value) return;
-		state.navigation.page = value; elements.pageControl?.setPage(value); node.graph?.change?.(); node.graph?.setDirtyCanvas?.(true, false);
+		// 页码只投影到 DOM 控件，画布上没有任何依赖它的原生绘制；滚动跨页不再强制整图重绘。
+		state.navigation.page = value; elements.pageControl?.setPage(value); node.graph?.change?.();
 	};
 	const search = async ({ reset = false, page = null } = {}) => {
 		if ((!reset && loading) || (ended && !reset)) return;
@@ -203,7 +204,7 @@ return function buildController(node, elements) {
 		// Mark the request active before clearing the masonry. setItems() draws synchronously
 		// and may report near-end; that callback must not start a competing first-page request.
 		setLoading(true);
-		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); clearError(); rememberPage(requestedPage); }
+		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); clearError(); rememberPage(requestedPage); }
 		else requestController ||= new AbortController();
 		const currentGeneration = generation; const state = stateFor(node);
 		if (capability(state.source)?.authRequired && !hasSourceCredentials(state.source)) {
@@ -220,7 +221,6 @@ return function buildController(node, elements) {
 			if (state.filters.feed === "ranking") { params.delete("query"); params.delete("sort"); params.set("period", state.filters.period); }
 			const resultPage = await jsonRequest(`${API}/${endpoint}?${params}`, { signal: requestController.signal });
 			if (currentGeneration !== generation || requestController.signal.aborted) return;
-			const knownPostKeys = new Set(posts.map((post) => `${post.source}:${post.postId}`));
 			const additions = (resultPage.posts || []).filter((post) => {
 				if (!post.previewUrl?.startsWith("https://")) return false;
 				const key = `${post.source}:${post.postId}`; if (knownPostKeys.has(key)) return false; knownPostKeys.add(key); return true;
@@ -231,8 +231,14 @@ return function buildController(node, elements) {
 		finally { if (currentGeneration === generation) setLoading(false); }
 	};
 	const visibleIndexChanged = (index) => {
-		const segment = pageSegments.find((item) => index >= item.start && index < item.end);
-		if (segment) rememberPage(segment.page);
+		// 页段按起始下标有序排列；滚动定位在页码数量增长后仍保持对数查找。
+		let low = 0; let high = pageSegments.length;
+		while (low < high) {
+			const middle = (low + high) >>> 1; const segment = pageSegments[middle];
+			if (index < segment.start) high = middle;
+			else if (index >= segment.end) low = middle + 1;
+			else { rememberPage(segment.page); return; }
+		}
 	};
 	const getDetail = (post) => {
 		const key = `${post.source}:${post.postId}`; const cached = detailCache.get(key); if (cached) return touchCache(detailCache, key, cached);

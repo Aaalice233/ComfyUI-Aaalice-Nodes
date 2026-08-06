@@ -544,6 +544,35 @@ class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
                 await service.search("danbooru", " red  hair , ", [], "latest", None, 60)
                 self.assertEqual(adapter.search.await_count, 1)
 
+    @patch("nodes.gallery.service.MediaProxy")
+    async def test_execution_bytes_writes_and_reuses_the_originals_cache(self, _media_cls):
+        with tempfile.TemporaryDirectory() as directory:
+            service = GalleryService(Path(directory))
+            url = "https://cdn.donmai.us/original/11/aa.jpg"
+            service._media.fetch_media = AsyncMock(return_value=(b"image-bytes", "image/jpeg", url))
+            first = await service.execution_bytes("danbooru", "post-1", url)
+            second = await service.execution_bytes("danbooru", "post-1", url)
+            self.assertEqual(first, b"image-bytes")
+            self.assertEqual(second, first)
+            self.assertEqual(service._media.fetch_media.await_count, 1)
+            path = service._cache_path("danbooru", "post-1", url)
+            self.assertTrue(path.exists())
+            self.assertEqual(path.read_bytes(), first)
+            self.assertEqual(path.parent.name, "danbooru")
+
+    @patch("nodes.gallery.service.MediaProxy")
+    async def test_execution_cache_path_sanitizes_post_ids_and_stays_source_scoped(self, _media_cls):
+        with tempfile.TemporaryDirectory() as directory:
+            service = GalleryService(Path(directory))
+            path = service._cache_path("gelbooru", "post/../id", "https://img3.gelbooru.com/1.jpg")
+            self.assertIn("gelbooru", path.parts)
+            self.assertNotIn("..", path.name)
+            self.assertTrue(path.name.endswith(".bin"))
+            self.assertNotEqual(
+                service._cache_path("danbooru", "post-1", "https://cdn.donmai.us/1.jpg"),
+                service._cache_path("gelbooru", "post-1", "https://img3.gelbooru.com/1.jpg"),
+            )
+
 
 class GalleryMediaProxyTests(unittest.IsolatedAsyncioTestCase):
     async def test_cache_round_trip_and_content_type_header(self):

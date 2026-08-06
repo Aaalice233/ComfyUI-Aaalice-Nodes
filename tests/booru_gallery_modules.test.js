@@ -15,7 +15,7 @@ const sources = Object.fromEntries([
 
 test("gallery entry delegates cohesive media, card, controller, dialog, and settings modules", () => {
 	for (const name of ["Media", "Cards", "ControllerFactory", "Dialogs", "Settings"]) {
-		assert.match(sources.entry, new RegExp(`import \\{ createGallery${name} \\}`));
+		assert.match(sources.entry, new RegExp(`import \\{ createGallery${name}(?:, [^}]+)? \\}`));
 	}
 	assert.match(sources.media, /export function createGalleryMedia/);
 	assert.match(sources.cards, /export function createGalleryCards/);

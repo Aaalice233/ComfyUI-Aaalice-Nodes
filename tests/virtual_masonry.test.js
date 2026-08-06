@@ -43,15 +43,50 @@ test("mounted cards receive their real display geometry for adaptive overlays", 
 	assert.match(source, /element\._aaVirtualMasonryLayout\?\.\(placement\.width, placement\.height\)/);
 });
 
-test("masonry reports overscanned visible items for bounded media prefetch", () => {
+test("visible items feed bounded media prefetch only when the visible set changes", () => {
 	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
-	assert.match(source, /onVisibleItemsChange\?\.\(layout\.visible\(container\.scrollTop, container\.clientHeight \|\| 1, 0\.25\)\.map\(\(placement\) => placement\.item\)\)/);
+	// 单次 visible 计算同时驱动差量挂载与预取上报，且只在集合签名变化时回调。
+	assert.match(source, /onVisibleItemsChange\?\.\(visible\.map\(\(placement\) => placement\.item\)\)/);
+	assert.match(source, /signature !== visibleSignature/);
 });
 
 test("masonry redraws once after synchronous data changes so restored widget geometry is used", () => {
 	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
-	assert.match(source, /setItems\(next, \{ preserveScroll = true \} = \{\}\) \{[^\n]+draw\(true\); schedule\(\); \},/);
-	assert.match(source, /append\(next\) \{[^\n]+draw\(true\); schedule\(\); \},/);
+	assert.match(source, /setItems\(next, \{ preserveScroll = true \} = \{\}\) \{[^\n]+draw\(true\); if \(sizesDirty\) schedule\(\); \},/);
+	assert.match(source, /append\(next\) \{[^\n]+draw\(true\); if \(sizesDirty\) schedule\(\); \},/);
+});
+
+test("scrolling frames skip style writes when placement geometry is unchanged", () => {
+	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
+	assert.match(source, /const layoutChanged = layoutRevision !== layout\.revision;/);
+	assert.match(source, /if \(isNew \|\| layoutChanged \|\| force\)/);
+	assert.match(source, /if \(spacer\.style\.height !== `\$\{totalHeight\}px`\) spacer\.style\.height/);
+});
+
+test("natural-size corrections resolve by key without scanning the item list", () => {
+	const layout = new VirtualMasonryLayout({ width: 760 }); layout.append(posts(200));
+	assert.equal(layout.updateItemSize("mock:0", 999, 888), true);
+	assert.equal(layout.updateItemSize("mock:0", 999, 888), false);
+	assert.equal(layout.updateItemSize("mock:missing", 1, 1), false);
+	assert.equal(layout.items[0].width, 999);
+});
+
+test("revision changes only when placements actually move", () => {
+	const layout = new VirtualMasonryLayout({ width: 760 });
+	const initial = layout.revision;
+	layout.append(posts(20));
+	assert.equal(layout.revision, initial);
+	layout.updateItemSize("mock:0", 500, 500);
+	assert.equal(layout.revision, initial);
+	layout.setItems(posts(10));
+	assert.equal(layout.revision, initial + 1);
+	const afterSet = layout.revision;
+	layout.reflow();
+	assert.equal(layout.revision, afterSet + 1);
+	assert.equal(layout.configure(600), true);
+	assert.equal(layout.revision, afterSet + 2);
+	assert.equal(layout.configure(600), false);
+	assert.equal(layout.revision, afterSet + 2);
 });
 
 test("masonry can release mounted cards while its host widget is offscreen", () => {

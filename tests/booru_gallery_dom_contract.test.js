@@ -362,11 +362,12 @@ test("gallery micro-interactions acknowledge state without adding polling or car
 });
 
 test("gallery cards use pointer-coalesced lift, tilt, and glare without moving the masonry root", () => {
-	assert.match(source, /function installGalleryCardMotion\(card\)/);
+	assert.match(source, /export function installMasonryCardMotion\(container\)/);
 	assert.match(source, /if \(!frame\) frame = requestAnimationFrame\(draw\)/);
 	assert.match(source, /--aa-gallery-tilt-x/);
 	assert.match(source, /--aa-gallery-glare-position/);
 	assert.match(source, /prefers-reduced-motion: reduce/);
+	assert.match(source, /event\.target\.closest\("\.aa-gallery-card"\)/);
 	assert.match(source, /card\._aaVirtualMasonryDispose/);
 	assert.match(theme, /\.aa-gallery-card__surface \{[^}]*transform-style: preserve-3d/);
 	assert.match(theme, /rotateX\(var\(--aa-gallery-tilt-x\)\) rotateY\(var\(--aa-gallery-tilt-y\)\)/);
@@ -452,7 +453,9 @@ test("gallery injects queue snapshots and cleans all event-driven resources", ()
 });
 
 test("search pages deduplicate stable post identities before masonry append", () => {
-	assert.match(source, /const knownPostKeys = new Set\(posts\.map\(\(post\) => `\$\{post\.source\}:\$\{post\.postId\}`\)\)/);
+	// 去重集合随会话持久维护，翻页不再线性重建，reset 时重建。
+	assert.match(source, /let knownPostKeys = new Set\(\);/);
+	assert.match(source, /knownPostKeys = new Set\(\); pageSegments = \[\]/);
 	assert.match(source, /if \(knownPostKeys\.has\(key\)\) return false; knownPostKeys\.add\(key\)/);
 });
 
