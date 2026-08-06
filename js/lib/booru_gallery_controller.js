@@ -20,6 +20,7 @@ return function buildController(node, elements) {
 	const trimPreviewCache = () => { while (previewCache.size > 16) { const key = previewCache.keys().next().value; const entry = previewCache.get(key); if (!entry.ready) entry.loader.src = ""; previewCache.delete(key); } };
 	const rotatePreviewCache = () => {
 		previewGeneration += 1;
+		clearTimeout(prefetchTimer); prefetchTimer = 0;
 		previewPrefetchQueue.length = 0; previewPrefetchPending.clear(); prefetchedPreviewSources.clear();
 		for (const entry of previewCache.values()) if (!entry.ready) entry.loader.src = "";
 		previewCache.clear();
@@ -37,6 +38,7 @@ return function buildController(node, elements) {
 			.catch((error) => { if (previewCache.get(src) === entry) previewCache.delete(src); throw error; });
 		previewCache.set(src, entry); trimPreviewCache(); return entry;
 	};
+	let pageCommitTimer = 0;
 	let selectedDragFrom = null;
 	let selectedDropInsertBefore = null;
 	const tooltip = createTooltip({ delay: 0, closeDelay: 120 });
@@ -195,8 +197,11 @@ return function buildController(node, elements) {
 	const rememberPage = (page) => {
 		const value = Math.max(1, Math.floor(Number(page) || 1));
 		const state = stateFor(node); if (state.navigation.page === value) return;
-		// 页码只投影到 DOM 控件，画布上没有任何依赖它的原生绘制；滚动跨页不再强制整图重绘。
-		state.navigation.page = value; elements.pageControl?.setPage(value); node.graph?.change?.();
+		// 页码立即写入内存并投影到 DOM；图 dirty 信号合并到滚动停止后，避免
+		// 快速滚动跨页时 graph.change() 强制整张画布前景+背景全量重绘。
+		state.navigation.page = value; elements.pageControl?.setPage(value);
+		clearTimeout(pageCommitTimer);
+		pageCommitTimer = setTimeout(() => { pageCommitTimer = 0; node.graph?.change?.(); }, 250);
 	};
 	const search = async ({ reset = false, page = null } = {}) => {
 		if ((!reset && loading) || (ended && !reset)) return;
@@ -259,18 +264,25 @@ return function buildController(node, elements) {
 				.finally(() => { previewPrefetchActive -= 1; previewPrefetchPending.delete(task.key); drainPreviewPrefetch(); });
 		}
 	};
+	let prefetchTimer = 0;
 	const prefetchVisible = (visiblePosts) => {
-		for (const post of visiblePosts.slice(0, 12)) {
-			const key = `${post.source}:${post.postId}`;
-			// 只预取真正的 Sample / Large Preview；AI TAG 的预览即原图，不批量下载。
-			const sampleUrl = post.sampleUrl && post.sampleUrl !== post.previewUrl ? post.sampleUrl : null;
-			if (!sampleUrl?.startsWith("https://")) continue;
-			const sampleSrc = proxyUrl(post.source, sampleUrl);
-			if (previewPrefetchPending.has(key) || prefetchedPreviewSources.get(key) === sampleSrc || previewCache.has(sampleSrc)) continue;
-			previewPrefetchPending.add(key); prefetchedPreviewSources.set(key, sampleSrc);
-			previewPrefetchQueue.push({ key, sampleSrc, generation: previewGeneration });
-		}
-		drainPreviewPrefetch();
+		// 快速滚动时可见集合每帧变化；预取合并到滚动停止后一次执行，
+		// 避免滚动帧中持续创建 Image 并触发 sample 下载与解码。
+		clearTimeout(prefetchTimer);
+		prefetchTimer = setTimeout(() => {
+			prefetchTimer = 0;
+			for (const post of visiblePosts.slice(0, 12)) {
+				const key = `${post.source}:${post.postId}`;
+				// 只预取真正的 Sample / Large Preview；AI TAG 的预览即原图，不批量下载。
+				const sampleUrl = post.sampleUrl && post.sampleUrl !== post.previewUrl ? post.sampleUrl : null;
+				if (!sampleUrl?.startsWith("https://")) continue;
+				const sampleSrc = proxyUrl(post.source, sampleUrl);
+				if (previewPrefetchPending.has(key) || prefetchedPreviewSources.get(key) === sampleSrc || previewCache.has(sampleSrc)) continue;
+				previewPrefetchPending.add(key); prefetchedPreviewSources.set(key, sampleSrc);
+				previewPrefetchQueue.push({ key, sampleSrc, generation: previewGeneration });
+			}
+			drainPreviewPrefetch();
+		}, 150);
 	};
 	const recoverPreview = async (post, image) => {
 		if (post.source !== "aitag" || image.dataset.previewRecovery) return;
@@ -584,6 +596,8 @@ return function buildController(node, elements) {
 		updateSize(post, width, height) { elements.masonryController.updateItemSize(`${post.source}:${post.postId}`, width, height); },
 		destroy() {
 			destroyed = true; generation += 1; detailDialogGeneration += 1;
+			clearTimeout(pageCommitTimer); pageCommitTimer = 0;
+			clearTimeout(prefetchTimer); prefetchTimer = 0;
 			requestController?.abort();
 			activeDetailDialog?.close(); activeDetailDialog = null;
 			endSelectedDrag();

@@ -109,6 +109,8 @@
 .aa-gallery-card__surface:not(.is-loading):not(.is-error) > img { opacity: 1; }
 .aa-gallery-card__loading { position: absolute; inset: 0; display: none; background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--aa-ui-muted) 16%, transparent) 50%, transparent 70%); pointer-events: none; transform: translateX(-100%); }
 .aa-gallery-card__surface.is-loading .aa-gallery-card__loading { display: block; animation: aa-gallery-card-shimmer 1.3s linear infinite; }
+/* 快速滚动期间关闭逐卡片无限动画，只留静态占位；停止后恢复 shimmer 与图片淡入。 */
+.aa-virtual-masonry.is-scrolling .aa-gallery-card__surface.is-loading .aa-gallery-card__loading { display: none; }
 @keyframes aa-gallery-card-shimmer { to { transform: translateX(100%); } }
 .aa-gallery-card__error { position: absolute; inset: 0; z-index: 3; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 0; background: color-mix(in srgb, var(--aa-ui-control) 94%, var(--aa-ui-muted)); color: var(--aa-ui-muted); font: inherit; font-size: 11px; cursor: pointer; transition: color .15s ease; }
 .aa-gallery-card__error .aa-ui-icon { width: 20px; height: 20px; }

@@ -24,7 +24,9 @@
 - `setItems()`、`append()`、尺寸变化和刷新在 inactive 时只能更新布局与模型，不得触发 `renderItem`、`onVisibleItemsChange`、`onNearEnd` 或预取。
 - 可见范围变化使用 `requestAnimationFrame` 合并；不得在 `computeSize()`、`getMinHeight()`、`onDrawForeground()` 或 `onDrawBackground()` 中查询 DOM、遍历图或重建数组。
 - 滚动帧只做一次可见区间计算与差量挂载；placement 几何不变时不得重写卡片 style 或 spacer 高度。布局对象用 revision 标记真实几何变化（`setItems` / `reflow` / 列数变化），只有 revision 变化才全量同步已挂载卡片的宽高与 transform。
-- 可见项与首项索引上报（`onVisibleItemsChange` / `onVisibleIndexChange`）只在可见集合签名变化时触发一次，禁止每个滚动帧重复调用预取入口。
+- 可见项与首项索引上报（`onVisibleItemsChange` / `onVisibleIndexChange`）只在可见集合签名变化时触发一次，禁止每个滚动帧重复调用预取入口；预取本身在滚动停止后防抖执行，快速滚动期间不得创建图片下载任务。
+- 快速滚动期间新挂载卡片只显示占位（不设置 `img.src`），滚动停止后统一补挂；同时暂停逐卡片 shimmer 动画。滚动帧中的图片请求、解码与无限动画都属于主线程/合成器开销，必须移到滚动停止后。
+- 滚动跨页产生的持久状态同步（如页码）必须把图 dirty 信号合并到滚动停止后，禁止在滚动帧内调用 `graph.change()`（新版 litegraph 会强制全部画布前景+背景全量重绘）。
 - 卡片级指针动效（倾斜、径向高光）由容器统一委托：单个 `pointermove` / `pointerleave` 监听、单 rAF、每帧至多一次 `getBoundingClientRect`，禁止每张卡片各挂一对监听器；卡片虚拟化卸载后待处理帧必须通过 `isConnected` 自然跳过。
 - 删除条目时先调用业务 dispose，再移除媒体源；`destroy()` 必须幂等，且不遗留 `ResizeObserver`、scroll listener、animation frame 或 controller 引用。
 

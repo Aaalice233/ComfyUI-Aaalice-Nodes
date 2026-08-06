@@ -120,7 +120,7 @@ function markFailedPreview(src) {
 	if (failedPreviewSources.size > MAX_FAILED_PREVIEW_SOURCES) failedPreviewSources.delete(failedPreviewSources.keys().next().value);
 }
 
-function createGalleryCard(node, controller, post, index) {
+function createGalleryCard(node, controller, post, index, deferImage = false) {
 	const card = el("article", { className: "aa-gallery-card", attrs: { tabindex: 0, "aria-label": `${post.source} #${post.postId}` } });
 	const surface = el("div", "aa-gallery-card__surface");
 	const src = proxyUrl(post.source, post.previewUrl);
@@ -151,7 +151,12 @@ function createGalleryCard(node, controller, post, index) {
 			void controller.recoverPreview(post, image);
 		} else {
 			surface.classList.add("is-loading");
-			image.src = src;
+			if (deferImage) {
+				// 滚动活跃期挂载的卡片只占位，滚动停止后由入口统一补挂 src，
+				// 避免快速滚动时每帧创建图片请求与解码任务拖垮主线程。
+				image.dataset.deferred = "1";
+				image.dataset.src = src;
+			} else image.src = src;
 		}
 	}
 	image._aaVirtualMasonryRelease = () => {

@@ -165,7 +165,7 @@
 
 1. `node.properties.booruGalleryState` 只保存来源、查询筛选、Prompt 处理和有序 Detail 快照；浏览结果、详情请求与 DOM 都是会话派生状态。用户目录中的全局内容黑名单由 Service 注入适配器并进入页面缓存键：传统 Booru 同时发送远端排除查询并对轻量响应复核，AI TAG 使用列表响应自带的标签本地过滤；任何来源都不得为了黑名单逐帖 hydrate Detail。
 2. 搜索只获取 Summary。Hover、详情或选择才按需补全 Detail 和分类标签；页面、详情、标签分类和原图分别进入有界缓存。
-3. 独立虚拟瀑布流按最短列增量放置，ResizeObserver 只观察容器；滚动由单一 rAF 计算可见区并差量挂载卡片，离开 overscan 的图片移除 `src`。滚动帧不重写未变化的卡片样式，布局对象以 revision 标记真实几何变化（`setItems`、`reflow`、列数变化），仅 revision 变化时全量同步已挂载卡片的宽高与 transform；可见项上报只在可见集合变化时触发，卡片倾斜动效由容器统一委托（单监听、单 rAF、每帧至多一次 `getBoundingClientRect`）。
+3. 独立虚拟瀑布流按最短列增量放置，ResizeObserver 只观察容器；滚动由单一 rAF 计算可见区并差量挂载卡片，离开 overscan 的图片移除 `src`。滚动帧不重写未变化的卡片样式，布局对象以 revision 标记真实几何变化（`setItems`、`reflow`、列数变化），仅 revision 变化时全量同步已挂载卡片的宽高与 transform；可见项上报只在可见集合变化时触发，卡片倾斜动效由容器统一委托（单监听、单 rAF、每帧至多一次 `getBoundingClientRect`）。快速滚动期间新挂载卡片只占位、滚动停止后统一补挂图片源，sample 预取防抖到停止后，滚动跨页的图 dirty 信号（`graph.change()`，会强制全画布重绘）合并到停止后。
 4. 用户编辑只改本地分类标签。`graphToPrompt` 为每次排队复制当前有序选择和最终 Prompt，后续节点编辑不回写已经排队的任务。
 5. capability 控制 Rating、排行榜、直接跳页、认证和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key，Rating 只暴露站点实际支持的 Safe、Questionable、Explicit；它不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
 

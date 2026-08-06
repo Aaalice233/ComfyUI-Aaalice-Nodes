@@ -452,7 +452,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		searchControl,
 		masonryController: null,
 	};
-	elements.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index), onNearEnd: () => controller?.search(), onVisibleIndexChange: (index) => controller?.visibleIndexChanged(index), onVisibleItemsChange: (items) => controller?.prefetchVisible(items), minCardWidth: 144, gap: 6, maxColumns: 5 });
+	elements.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index, masonry.classList.contains("is-scrolling")), onNearEnd: () => controller?.search(), onVisibleIndexChange: (index) => controller?.visibleIndexChanged(index), onVisibleItemsChange: (items) => controller?.prefetchVisible(items), minCardWidth: 144, gap: 6, maxColumns: 5 });
 	elements.selectedList = mountVirtualList(selectedListRoot, {
 		rowHeight: 96,
 		gap: 7,
@@ -468,6 +468,24 @@ function setupNode(node, { initializeSize = false } = {}) {
 	selectedListRoot.addEventListener("dragover", (event) => controller?.handleSelectedDragOver(event));
 	selectedListRoot.addEventListener("drop", (event) => controller?.handleSelectedDrop(event));
 	selectedListRoot.addEventListener("dragleave", (event) => controller?.handleSelectedDragLeave(event));
+	// 滚动活跃期：新挂载卡片只显示占位、暂停 sample 预取与 shimmer 动画，
+	// 滚动停止后再统一补挂图片 src，把快速滚动帧里的网络/解码压力移到停止后。
+	let scrollSettleTimer = 0;
+	const settleScroll = () => {
+		scrollSettleTimer = 0;
+		masonry.classList.remove("is-scrolling");
+		masonry.querySelectorAll('img[data-deferred="1"]').forEach((image) => {
+			image.removeAttribute("data-deferred");
+			image.src = image.dataset.src;
+			image.removeAttribute("data-src");
+		});
+	};
+	const markScrolling = () => {
+		masonry.classList.add("is-scrolling");
+		clearTimeout(scrollSettleTimer);
+		scrollSettleTimer = setTimeout(settleScroll, 150);
+	};
+	masonry.addEventListener("scroll", markScrolling, { passive: true });
 	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGallerySelectionMode = selectionMode; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
 	node._aaGalleryCardMotion = installMasonryCardMotion(masonry);
 	node._aaGalleryVisibility = observeDOMWidgetVisibility(root, { onChange: (active) => { elements.masonryController?.setActive(active); elements.selectedList?.setActive(active); } });
@@ -487,6 +505,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
 	const previousRemoved = node.onRemoved; node.onRemoved = function () {
 		controller.destroy();
+		clearTimeout(scrollSettleTimer); scrollSettleTimer = 0;
 		this._aaGalleryCardMotion?.();
 		this._aaGalleryCardMotion = null;
 		this._aaGalleryVisibility?.destroy?.();
