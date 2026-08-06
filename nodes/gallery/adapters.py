@@ -393,17 +393,13 @@ class GelbooruAdapter(BooruAdapter):
     source = "gelbooru"
     capabilities = GalleryCapabilities(source, "Gelbooru", ("safe", "questionable", "explicit"),
                                        ("latest", "score"), "pid", 100, ("userId", "apiKey"), True, True, False,
-                                       auth_required=True, tag_search=True)
+                                       tag_search=True)
     media_hosts = frozenset({"gelbooru.com", "img3.gelbooru.com", "img4.gelbooru.com"})
     base = "https://gelbooru.com/index.php"
 
     def auth_params(self, credentials):
         user, key = credentials.get("userId", ""), credentials.get("apiKey", "")
         return {"user_id": user, "api_key": key} if user and key else {}
-
-    def require_credentials(self, credentials):
-        if self.capabilities.auth_required and not self.auth_params(credentials):
-            raise ValueError(f"{self.capabilities.display_name} requires User ID and API Key. Open ComfyUI Settings > Booru Gallery > Accounts.")
 
     def cursor_for_page(self, page: int) -> str:
         return str(max(1, page) - 1)
@@ -416,7 +412,6 @@ class GelbooruAdapter(BooruAdapter):
                                   str(post.get("sample_url") or ""))
 
     async def _posts(self, session, params, credentials):
-        self.require_credentials(credentials)
         raw = await self._get_json(session, self.base, params={"page": "dapi", "s": "post", "q": "index", "json": "1", **params, **self.auth_params(credentials)})
         if isinstance(raw, dict):
             raw = raw.get("post", [])
@@ -453,7 +448,6 @@ class GelbooruAdapter(BooruAdapter):
                                  file_size=_int(post.get("file_size")), tags=tags, complete=False)
 
     async def classify_tags(self, session, tags, credentials):
-        self.require_credentials(credentials)
         result = {category: [] for category in TAG_CATEGORIES}
         category_map = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
         for offset in range(0, len(tags), 100):
@@ -466,7 +460,6 @@ class GelbooruAdapter(BooruAdapter):
         return {key: tuple(value) for key, value in result.items()}
 
     async def known_tags(self, session, names, credentials):
-        self.require_credentials(credentials)
         known = set()
         for offset in range(0, len(names), 100):
             chunk = names[offset:offset + 100]

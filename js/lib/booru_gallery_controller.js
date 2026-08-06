@@ -217,7 +217,10 @@ return function buildController(node, elements) {
 		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); clearError(); rememberPage(requestedPage); }
 		else requestController ||= new AbortController();
 		const currentGeneration = generation; const state = stateFor(node);
-		if (capability(state.source)?.authRequired && !hasSourceCredentials(state.source)) {
+		const favoritesFeed = state.filters.feed === "favorites";
+		const cap = capability(state.source);
+		const needsCredentials = (cap?.authRequired || (favoritesFeed && cap?.favoriteRead)) && !hasSourceCredentials(state.source);
+		if (needsCredentials) {
 			const credentialsError = new Error(label("error.credentialsRequired", "This source requires account credentials. Click here to open Gallery settings."));
 			credentialsError.code = "credentials_required";
 			showError(credentialsError);

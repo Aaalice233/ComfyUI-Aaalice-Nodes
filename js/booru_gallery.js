@@ -491,7 +491,9 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaGalleryVisibility = observeDOMWidgetVisibility(root, { onChange: (active) => { elements.masonryController?.setActive(active); elements.selectedList?.setActive(active); } });
 	error.addEventListener("click", () => {
 		const sourceName = stateFor(node).source;
-		if (capability(sourceName)?.authRequired && !hasSourceCredentials(sourceName)) openGallerySettings();
+		const feed = stateFor(node).filters.feed;
+		const cap = capability(sourceName);
+		if ((cap?.authRequired || (feed === "favorites" && cap?.favoriteRead)) && !hasSourceCredentials(sourceName)) openGallerySettings();
 		else controller.search();
 	});
 	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);

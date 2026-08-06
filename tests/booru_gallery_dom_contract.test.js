@@ -65,6 +65,8 @@ test("gallery restores every workflow-owned browsing state after configuration",
 	assert.match(source, /if \(\(!reset && loading\) \|\| \(ended && !reset\)\) return/);
 	assert.match(source, /setLoading\(true\);\s*if \(reset\) \{[^}]*masonryController\.setItems\(\[\]/s);
 	assert.match(source, /credentialsRequired[\s\S]*setLoading\(false\);\s*return;/);
+	assert.match(source, /needsCredentials = \(cap\?\.authRequired \|\| \(favoritesFeed && cap\?\.favoriteRead\)\) && !hasSourceCredentials\(state\.source\)/);
+	assert.match(source, /\(cap\?\.authRequired \|\| \(feed === "favorites" && cap\?\.favoriteRead\)\) && !hasSourceCredentials\(sourceName\)/);
 });
 
 test("gallery toolbar gives each action one clear visual responsibility", () => {
@@ -304,9 +306,9 @@ test("AI TAG cards recover an exact preview lazily and never render an empty rat
 });
 
 test("credential-required sources route the empty state to Gallery settings", () => {
-	assert.match(source, /capability\(state\.source\)\?\.authRequired && !hasSourceCredentials\(state\.source\)/);
+	assert.match(source, /needsCredentials = \(cap\?\.authRequired \|\| \(favoritesFeed && cap\?\.favoriteRead\)\) && !hasSourceCredentials\(state\.source\)/);
 	assert.match(source, /error\.credentialsRequired/);
-	assert.match(source, /if \(capability\(sourceName\)\?\.authRequired && !hasSourceCredentials\(sourceName\)\) openGallerySettings\(\)/);
+	assert.match(source, /\(cap\?\.authRequired \|\| \(feed === "favorites" && cap\?\.favoriteRead\)\) && !hasSourceCredentials\(sourceName\)\) openGallerySettings\(\)/);
 });
 
 test("gallery hover follows the launcher side-preview pattern without downloading the original", () => {
