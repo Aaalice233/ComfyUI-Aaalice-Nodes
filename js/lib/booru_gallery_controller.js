@@ -49,7 +49,12 @@ return function buildController(node, elements) {
 			? label("error.upstreamTimeout", "The site took too long to sort this many results. Add more tags or filters to narrow the search.")
 			: error?.message || String(error);
 		elements.errorLabel.textContent = text; elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error);
+		// 位置随场景：页面没有任何图像卡片（首次加载、凭证缺失等）时错误横幅
+		// 放在顶部避免被误认为状态条；瀑布流已有内容时保持底部，少遮挡结果。
+		elements.error.classList.toggle("is-top", !posts.length);
 		clearTimeout(errorTimer);
+		// 凭证缺失属于持续状态：横幅保持到配置完成或下一次成功刷新，不自动消失。
+		if (error?.code === "credentials_required") { errorTimer = 0; return; }
 		errorTimer = setTimeout(() => { elements.error.hidden = true; }, 6000);
 	};
 	const clearError = () => { clearTimeout(errorTimer); errorTimer = 0; elements.error.hidden = true; elements.errorLabel.textContent = ""; };
@@ -213,7 +218,9 @@ return function buildController(node, elements) {
 		else requestController ||= new AbortController();
 		const currentGeneration = generation; const state = stateFor(node);
 		if (capability(state.source)?.authRequired && !hasSourceCredentials(state.source)) {
-			showError(new Error(label("error.credentialsRequired", "This source requires account credentials. Click here to open Gallery settings.")));
+			const credentialsError = new Error(label("error.credentialsRequired", "This source requires account credentials. Click here to open Gallery settings."));
+			credentialsError.code = "credentials_required";
+			showError(credentialsError);
 			setLoading(false);
 			return;
 		}

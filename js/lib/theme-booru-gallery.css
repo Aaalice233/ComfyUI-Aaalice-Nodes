@@ -249,6 +249,7 @@
 .aa-gallery-status.is-loading .aa-ui-icon { animation: aa-gallery-status-spin .8s linear infinite; }
 .aa-gallery-status.is-end { border-color: color-mix(in srgb, var(--p-green-400, var(--aa-ui-accent)) 30%, var(--aa-ui-border)); color: color-mix(in srgb, var(--p-green-400, var(--aa-ui-accent)) 74%, var(--aa-ui-text)); box-shadow: none; }
 .aa-gallery-status.is-error { border-color: color-mix(in srgb, var(--aa-ui-danger) 38%, var(--aa-ui-border)); color: var(--aa-ui-danger); cursor: pointer; pointer-events: auto; }
+.aa-gallery-status.is-error.is-top { top: 14px; bottom: auto; }
 @keyframes aa-gallery-status-spin { to { transform: rotate(360deg); } }
 .aa-gallery-selected { --aa-gallery-selected-tone: var(--p-green-400, color-mix(in srgb, var(--aa-ui-accent) 48%, var(--aa-ui-warning))); display: grid; grid-template-rows: minmax(0, 1fr); padding: 6px 10px 14px; }
 .aa-gallery-selected__clear.aa-ui-button { width: auto; min-width: 0; height: 28px; min-height: 28px; flex: none; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--aa-ui-muted); box-shadow: none; }

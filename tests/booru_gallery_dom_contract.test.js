@@ -442,6 +442,8 @@ test("gallery prompt settings use compact pages and category-specific colors", (
 
 test("gallery status cannot render as an unexplained empty capsule", () => {
 	assert.match(source, /className: "aa-gallery-status is-loading"[^;]*icon\("refresh"\)/);
+	assert.match(source, /classList\.toggle\("is-top", !posts\.length\)/);
+	assert.match(theme, /\.aa-gallery-status\.is-error\.is-top \{ top: 14px; bottom: auto; \}/);
 	assert.match(source, /className: "aa-gallery-status is-error"[^;]*icon\("statusWarning"\)/);
 	assert.match(source, /className: "aa-gallery-status is-end"[^;]*icon\("statusCheck"\)/);
 	assert.match(theme, /\.aa-gallery-status\[hidden\], \.aa-gallery-status:empty \{ display: none !important; \}/);
