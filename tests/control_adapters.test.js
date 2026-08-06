@@ -235,6 +235,52 @@ test("promoted widget discovery only exposes actual public subgraph widgets", ()
 	assert.ok(registeredWidgetControlAdapters().some((adapter) => adapter.id === "comfy-native-widget"));
 });
 
+test("store-backed promoted widgets resolve source identity through subgraph slot links", () => {
+	// frontend >= 1.47（上游 ADR 0009）：宿主 widget 只有 widgetId，来源沿 _subgraphSlot 链路解析。
+	const interiorWidget = { name: "cfg", type: "float", value: 7.5, options: {} };
+	const interiorInput = { name: "cfg", link: 11 };
+	const interiorNode = { id: 4, inputs: [interiorInput], isSubgraphNode: () => false, getWidgetFromSlot: (slot) => slot === interiorInput ? interiorWidget : undefined };
+	const link = { resolve: () => ({ inputNode: interiorNode }) };
+	const projected = { name: "cfg", type: "float", value: 8, options: {}, widgetId: "graph-1:1:cfg" };
+	const hostInput = { name: "cfg", widgetId: "graph-1:1:cfg", _widget: projected, _subgraphSlot: { linkIds: [11] } };
+	const host = {
+		isSubgraphNode: () => true,
+		inputs: [hostInput],
+		widgets: [projected],
+		subgraph: { getLink: (id) => id === 11 ? link : null, getNodeById: (id) => id === 4 ? interiorNode : null },
+	};
+	const controls = listAdaptedWidgetControls(host, { promoted: true });
+	assert.deepEqual(controls.map((item) => item.controlId), ['promoted:["4","cfg",null]']);
+	assert.equal(resolveAdaptedWidgetControl(host, 'promoted:["4","cfg",null]', { promoted: true })?.widget, projected);
+	// 旧持久化的裸名绑定仍按 legacy alias 命中。
+	assert.equal(resolveAdaptedWidgetControl(host, "cfg", { promoted: true })?.widget, projected);
+});
+
+test("store-backed nested promotions keep disambiguating identity and resolve the deepest owner", () => {
+	const realWidget = { name: "seed", type: "number", value: 1, options: {} };
+	const realInput = { name: "seed", link: 21 };
+	const realNode = { id: 6, inputs: [realInput], isSubgraphNode: () => false, getWidgetFromSlot: (slot) => slot === realInput ? realWidget : undefined };
+	const innerProjected = { name: "seed", type: "number", value: 1, options: {}, widgetId: "graph-1:5:seed" };
+	const innerInput = { name: "seed", link: 11, widgetId: "graph-1:5:seed", _widget: innerProjected, _subgraphSlot: { linkIds: [21] } };
+	const innerNode = {
+		id: 5, inputs: [innerInput], widgets: [innerProjected], isSubgraphNode: () => true,
+		getWidgetFromSlot: (slot) => slot === innerInput ? innerProjected : undefined,
+		subgraph: { getLink: (id) => id === 21 ? { resolve: () => ({ inputNode: realNode }) } : null, getNodeById: (id) => id === 6 ? realNode : null },
+	};
+	const topProjected = { name: "seed", type: "number", value: 1, options: {}, widgetId: "graph-1:1:seed" };
+	const topInput = { name: "seed", widgetId: "graph-1:1:seed", _widget: topProjected, _subgraphSlot: { linkIds: [11] } };
+	const topHost = {
+		isSubgraphNode: () => true,
+		inputs: [topInput],
+		widgets: [topProjected],
+		subgraph: { getLink: (id) => id === 11 ? { resolve: () => ({ inputNode: innerNode }) } : null, getNodeById: (id) => id === 5 ? innerNode : null },
+	};
+	const controls = listAdaptedWidgetControls(topHost, { promoted: true });
+	assert.deepEqual(controls.map((item) => item.controlId), ['promoted:["5","seed","6"]']);
+	const adapted = adaptWidgetControl(topHost, topProjected, { promoted: true });
+	assert.equal(adapted?.controlId, 'promoted:["5","seed","6"]');
+});
+
 test("promoted widgets with the same public name keep distinct source identities", () => {
 	const first = { name: "sampler_name", type: "combo", value: "euler", options: { values: ["euler"] }, serialize: false, sourceNodeId: "4", sourceWidgetName: "sampler_name" };
 	const second = { name: "sampler_name", type: "combo", value: "ddim", options: { values: ["ddim"] }, serialize: false, sourceNodeId: "5", sourceWidgetName: "sampler_name" };

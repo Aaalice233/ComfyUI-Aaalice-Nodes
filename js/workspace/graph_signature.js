@@ -21,6 +21,9 @@ export function widgetStructureSignature(widget) {
 		ownDataPropertyValue(widget, "sourceNodeId") ?? null,
 		ownDataPropertyValue(widget, "sourceWidgetName") ?? null,
 		ownDataPropertyValue(widget, "disambiguatingSourceNodeId") ?? null,
+		// 新协议宿主投影的身份字段是 widgetId（自有值属性）；name/type 是
+		// store 访问器，刻意不读以避免把响应式 store 变成签名计算依赖。
+		ownDataPropertyValue(widget, "widgetId") ?? null,
 		widgetOptionSignature(widget),
 	];
 }

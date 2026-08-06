@@ -148,11 +148,13 @@ function settingShowsAdvancedWidgets() {
 }
 
 function isPromotedCanvasOnlyWidget(widget) {
-	// The Nodes 2.0 safe mapper adds canvasOnly to promoted $$ pseudo widgets;
-	// the raw PromotedWidgetView options do not carry that derived flag.
-	return typeof widget?.sourceNodeId !== "undefined"
-		&& typeof widget?.sourceWidgetName === "string"
-		&& widget.sourceWidgetName.startsWith("$$");
+	// $$ 开头的是画布专用 pseudo widget（如画布图像预览），不占用 DOM 行映射。
+	// 旧协议看 sourceWidgetName；新协议（widgetId 投影）看宿主 widget 名。
+	const promoted = (typeof widget?.sourceNodeId !== "undefined" && typeof widget?.sourceWidgetName === "string")
+		|| typeof widget?.widgetId !== "undefined";
+	if (!promoted) return false;
+	const name = typeof widget?.sourceWidgetName === "string" ? widget.sourceWidgetName : widget?.name;
+	return typeof name === "string" && name.startsWith("$$");
 }
 
 function visibleWidgetCandidates(node, showAdvanced) {

@@ -3,6 +3,7 @@
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES, validateSeedPresetEntry } from "./seed_preset.js";
 import { invalidateControlHost, notifyControlAdapterRegistryChanged } from "./control_host_events.js";
 import { DASHBOARD_MARKDOWN_ROW_SPAN } from "./dashboard_sizing.js";
+import { isPromotedWidget, promotedWidgetIdentity, resolvePromotedDefinitionOwner } from "./promoted_widget_source.js";
 
 const adapters = [];
 let adapterRevision = 0;
@@ -226,7 +227,7 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 	if (numericDomain != null && !["integer", "float"].includes(numericDomain)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid numericDomain`);
 	const labelPolicy = described.labelPolicy || "widget";
 	if (!LABEL_POLICIES.has(labelPolicy)) throw new TypeError(`Widget control adapter ${adapter.id} returned an invalid labelPolicy`);
-	const controlId = controlIdForWidget(widget, described.controlId);
+	const controlId = controlIdForWidget(node, widget, described.controlId);
 	if (!controlId) throw new TypeError(`Widget control adapter ${adapter.id} returned an empty controlId`);
 	const rawOptions = described.options || widget.options || {};
 	const options = kind === "choice" ? normalizedChoiceOptions(rawOptions, context) : kind === "text" ? normalizedTextOptions(widget, rawOptions) : rawOptions;
@@ -313,7 +314,7 @@ export function listAdaptedWidgetControls(node, { promoted = false, adapterId = 
 	const widgets = node?.widgets || [];
 	const controls = widgets
 		.map((widget) => adaptWidgetControl(node, widget, { promoted, adapterId }))
-		.filter((adapted) => adapted && (!promoted || isPromotedWidget(adapted.widget)));
+		.filter((adapted) => adapted && (!promoted || isPromotedWidget(node, adapted.widget)));
 	assertUniqueControlIds(controls);
 	cacheAdaptedWidgetIndex(node, widgets, controls, { promoted, adapterId });
 	return controls;
@@ -328,9 +329,10 @@ function addLegacyControlAlias(aliases, alias, widget) {
 	else if (aliases.get(key) !== widget) aliases.set(key, null);
 }
 
-function legacyControlAliases(widget) {
-	if (!isPromotedWidget(widget)) return [];
-	return [...new Set([widget.name, widget.sourceWidgetName].filter(Boolean).map(String))];
+function legacyControlAliases(node, widget) {
+	const identity = promotedWidgetIdentity(node, widget);
+	if (!identity) return [];
+	return [...new Set([widget.name, identity.sourceWidgetName].filter(Boolean).map(String))];
 }
 
 function cacheAdaptedWidgetIndex(node, widgets, controls, options) {
@@ -340,16 +342,16 @@ function cacheAdaptedWidgetIndex(node, widgets, controls, options) {
 	const byControlId = new Map(); const byLegacyControlId = new Map();
 	for (const control of controls) {
 		if (!byControlId.has(control.controlId)) byControlId.set(control.controlId, control.widget);
-		for (const alias of legacyControlAliases(control.widget)) addLegacyControlAlias(byLegacyControlId, alias, control.widget);
+		for (const alias of legacyControlAliases(node, control.widget)) addLegacyControlAlias(byLegacyControlId, alias, control.widget);
 	}
 	indexes.set(adaptedIndexKey(options), { adapterRevision, widgets: [...widgets], byControlId, byLegacyControlId });
 }
 
-function findAdaptedControl(controls, controlId, promoted) {
+function findAdaptedControl(node, controls, controlId, promoted) {
 	const key = String(controlId);
 	const exact = controls.find((candidate) => candidate.controlId === key);
 	if (exact || !promoted) return exact || null;
-	const legacy = controls.filter((candidate) => legacyControlAliases(candidate.widget).includes(key));
+	const legacy = controls.filter((candidate) => legacyControlAliases(node, candidate.widget).includes(key));
 	return legacy.length === 1 ? legacy[0] : null;
 }
 
@@ -366,7 +368,7 @@ export function resolveAdaptedWidgetControl(node, controlId, { promoted = false,
 		const adapted = adaptWidgetControl(node, widget, options);
 		if (adapted?.controlId === key || (promoted && adapted?.widget === widget)) return adapted;
 	}
-	return findAdaptedControl(listAdaptedWidgetControls(node, options), key, promoted);
+	return findAdaptedControl(node, listAdaptedWidgetControls(node, options), key, promoted);
 }
 
 export function invalidateWidgetControlAdapterCache(node = null) {
@@ -393,42 +395,15 @@ function bindImageCompareInvalidation(node, widget) {
 
 // 图像上传 combo 在新前端只把标记留在节点定义的 input spec 里，旧路径则落在 widget.options 上，两处都要认。
 function resolveWidgetDefinitionOwner(node, widget) {
-	if (!isPromotedWidget(widget) || !node?.isSubgraphNode?.()) return { node, widget };
+	if (!isPromotedWidget(node, widget)) return { node, widget };
 	let nodeCache = definitionOwnerCache.get(node);
 	if (!nodeCache) { nodeCache = new WeakMap(); definitionOwnerCache.set(node, nodeCache); }
 	const cached = nodeCache.get(widget);
-	const source = [node.subgraph, widget.sourceNodeId, widget.sourceWidgetName, widget.disambiguatingSourceNodeId, widget.node];
-	if (cached && cached.source.every((value, index) => value === source[index])) return cached.owner;
-	let currentHost = node;
-	let currentNodeId = widget.sourceNodeId;
-	let currentWidgetName = widget.sourceWidgetName;
-	let currentSourceNodeId = widget.disambiguatingSourceNodeId;
-	const hostIds = new WeakMap(); const visited = new Set(); let nextHostId = 0;
-	for (let depth = 0; depth < 100; depth++) {
-		if (!hostIds.has(currentHost)) hostIds.set(currentHost, nextHostId++);
-		const key = `${hostIds.get(currentHost)}:${currentNodeId}:${currentWidgetName}:${currentSourceNodeId || ""}`;
-		if (visited.has(key)) break;
-		visited.add(key);
-		const interiorNode = currentHost.subgraph?.getNodeById?.(currentNodeId);
-		if (!interiorNode) break;
-		const interiorWidget = currentSourceNodeId
-			? (interiorNode.widgets || []).find((candidate) => isPromotedWidget(candidate) && (candidate.disambiguatingSourceNodeId ?? candidate.sourceNodeId) === currentSourceNodeId && (candidate.sourceWidgetName === currentWidgetName || candidate.name === currentWidgetName))
-			: (interiorNode.widgets || []).find((candidate) => candidate?.name === currentWidgetName);
-		if (!interiorWidget) break;
-		if (!isPromotedWidget(interiorWidget)) {
-			const owner = { node: interiorNode, widget: interiorWidget };
-			nodeCache.set(widget, { source, owner });
-			return owner;
-		}
-		const nextHost = interiorWidget.node?.isSubgraphNode?.() ? interiorWidget.node : interiorNode?.isSubgraphNode?.() ? interiorNode : null;
-		if (!nextHost) break;
-		currentHost = nextHost;
-		currentNodeId = interiorWidget.sourceNodeId;
-		currentWidgetName = interiorWidget.sourceWidgetName;
-		currentSourceNodeId = undefined;
-	}
-	const owner = { node, widget };
-	nodeCache.set(widget, { source, owner });
+	const identity = promotedWidgetIdentity(node, widget);
+	const source = identity ? [String(identity.sourceNodeId), identity.sourceWidgetName, String(identity.disambiguatingSourceNodeId ?? "")] : null;
+	if (cached && cached.source && source && cached.source.every((value, index) => value === source[index])) return cached.owner;
+	const owner = resolvePromotedDefinitionOwner(node, widget);
+	if (source) nodeCache.set(widget, { source, owner });
 	return owner;
 }
 
@@ -516,18 +491,15 @@ registerWidgetControlAdapter({
 	},
 });
 
-function isPromotedWidget(widget) {
-	return widget && typeof widget.sourceNodeId !== "undefined" && typeof widget.sourceWidgetName === "string";
-}
-
-function controlIdForWidget(widget, requestedControlId) {
-	if (!isPromotedWidget(widget)) return String(requestedControlId || widget?.name || "");
+function controlIdForWidget(node, widget, requestedControlId) {
+	const identity = promotedWidgetIdentity(node, widget);
+	if (!identity) return String(requestedControlId || widget?.name || "");
 	const requested = requestedControlId == null ? "" : String(requestedControlId);
-	if (!requested || requested === String(widget.name || "") || requested === String(widget.sourceWidgetName)) {
+	if (!requested || requested === String(widget.name || "") || requested === String(identity.sourceWidgetName)) {
 		return `promoted:${JSON.stringify([
-			String(widget.sourceNodeId),
-			String(widget.sourceWidgetName),
-			widget.disambiguatingSourceNodeId == null ? null : String(widget.disambiguatingSourceNodeId),
+			String(identity.sourceNodeId),
+			String(identity.sourceWidgetName),
+			identity.disambiguatingSourceNodeId == null ? null : String(identity.disambiguatingSourceNodeId),
 		])}`;
 	}
 	return requested;

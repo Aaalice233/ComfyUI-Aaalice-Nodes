@@ -37,8 +37,16 @@ test("workspace signatures never evaluate accessor-backed widget options", () =>
 	const promoted = { sourceNodeId: "7", sourceWidgetName: "cfg" };
 	Object.defineProperty(promoted, "name", { get() { nameReads += 1; return "cfg"; } });
 	Object.defineProperty(promoted, "type", { get() { typeReads += 1; return "number"; } });
-	assert.deepEqual(widgetStructureSignature(promoted), ["cfg", null, "7", "cfg", null, null]);
+	assert.deepEqual(widgetStructureSignature(promoted), ["cfg", null, "7", "cfg", null, null, null]);
 	assert.equal(nameReads, 0); assert.equal(typeReads, 0);
+
+	// 新协议宿主投影：name/type 是 store 访问器，身份只能读自有的 widgetId。
+	let projectedNameReads = 0;
+	const projected = {};
+	Object.defineProperty(projected, "name", { get() { projectedNameReads += 1; return "seed"; } });
+	Object.defineProperty(projected, "widgetId", { value: "graph-1:3:seed", enumerable: false });
+	assert.deepEqual(widgetStructureSignature(projected), [null, null, null, null, null, "graph-1:3:seed", null]);
+	assert.equal(projectedNameReads, 0);
 });
 
 test("workspace signatures keep stable own data-property option arrays", () => {
