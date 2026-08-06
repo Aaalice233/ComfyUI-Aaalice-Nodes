@@ -96,7 +96,7 @@ class GalleryAdapterTests(unittest.TestCase):
         self.assertFalse(safe["favoriteRead"])
         self.assertEqual(safe["ratings"], ["safe"])
         self.assertEqual(gelbooru["ratings"], ["safe", "questionable", "explicit"])
-        self.assertFalse(gelbooru["authRequired"])
+        self.assertTrue(gelbooru["authRequired"])
         self.assertEqual(gelbooru["maxPageSize"], 100)
         self.assertEqual(AITagAdapter.capabilities.json()["ratings"], [])
         self.assertEqual(danbooru["rankingPeriods"], ["day", "week", "month"])
@@ -225,17 +225,13 @@ class GalleryAdapterTests(unittest.TestCase):
         import asyncio
         asyncio.run(run())
 
-    def test_gelbooru_search_is_anonymous_and_favorites_need_user_id(self):
+    def test_gelbooru_requires_official_api_credentials_before_network_access(self):
         async def run():
             adapter = GelbooruAdapter()
-            adapter._get_json = AsyncMock(return_value={"post": [{"id": "1", "preview_url": "p.jpg", "sample_url": "s.jpg",
-                                                                 "width": 10, "height": 10, "rating": "safe", "created_at": "2024-01-01", "tags": ""}]})
-            page = await adapter.search(None, "hatsune_miku", [], "latest", None, 20, {})
-            self.assertEqual(page.page, 1)
-            adapter._get_json.assert_awaited_once()
-            self.assertNotIn("user_id", adapter._get_json.await_args.kwargs["params"])
-            with self.assertRaisesRegex(ValueError, "User ID is required to read favorites"):
-                await adapter.list_favorites(None, None, 20, {})
+            adapter._get_json = AsyncMock()
+            with self.assertRaisesRegex(ValueError, "User ID and API Key"):
+                await adapter.search(None, "", [], "latest", None, 20, {})
+            adapter._get_json.assert_not_awaited()
         import asyncio
         asyncio.run(run())
 
@@ -460,10 +456,10 @@ class GalleryQueryNormalizationTests(unittest.TestCase):
         import asyncio
         asyncio.run(run())
 
-    def test_credential_requirement_follows_favorites_capability(self):
-        self.assertEqual(SafebooruAdapter().auth_params({}), {})
-        self.assertEqual(GelbooruAdapter().auth_params({}), {})
-        self.assertEqual(GelbooruAdapter().auth_params({"userId": "1", "apiKey": "k"}), {"user_id": "1", "api_key": "k"})
+    def test_credential_requirement_follows_auth_required_capability(self):
+        SafebooruAdapter().require_credentials({})
+        with self.assertRaisesRegex(ValueError, "User ID and API Key"):
+            GelbooruAdapter().require_credentials({})
 
 
 class GallerySettingsTests(unittest.TestCase):
