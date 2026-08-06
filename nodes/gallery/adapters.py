@@ -504,17 +504,18 @@ class SafebooruAdapter(GelbooruAdapter):
         # safebooru answers XML here; json=1 and the plural names= parameter
         # are both ignored for the tag endpoint.
         async with self._tag_semaphore:
-            for attempt in range(3):
+            for attempt in range(2):
                 try:
                     async with session.get(self.base, params={"page": "dapi", "s": "tag", "q": "index",
                                                               "name": name, "limit": 1},
                                            headers={"Accept": "application/xml"}, allow_redirects=True) as response:
                         if _is_upstream_query_timeout(response.status, await response.text()):
                             raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
-                        if response.status == 404 and attempt < 2:
+                        if response.status == 404 and attempt == 0:
                             # safebooru answers 404 while rate-limiting the tag endpoint;
-                            # a short pause usually clears it.
-                            await asyncio.sleep(0.4 * (attempt + 1))
+                            # a single short pause usually clears it, repeated 404s are
+                            # handled by the classify/known_tags circuit breaker.
+                            await asyncio.sleep(1.0)
                             continue
                         if response.status >= 400:
                             raise RuntimeError(f"{self.source} GET {response.url} HTTP {response.status}")
@@ -528,38 +529,61 @@ class SafebooruAdapter(GelbooruAdapter):
                                 return {"name": name, "type": _int(tag.get("type"))}
                         return None
                 except (aiohttp.ClientError, TimeoutError) as exc:
-                    if attempt >= 2:
+                    if attempt >= 1:
                         raise RuntimeError(f"{self.source} GET {self.base} failed after {attempt + 1} attempts: {exc}") from exc
-                    await asyncio.sleep(attempt + 1)
+                    await asyncio.sleep(1)
         raise AssertionError("unreachable")
+
+    async def _lookup_tag_types(self, session, tags):
+        """Batch tag lookups with a rate-limit circuit breaker.
+
+        safebooru answers real HTTP 404 while rate-limiting the tag endpoint,
+        and it ignores batch parameters, so every tag costs one request. Once a
+        batch loses several lookups the endpoint is clearly throttled; the rest
+        of the batch is skipped (degraded to General) instead of hammering it.
+        A later detail refresh retries from the category cache.
+        """
+        known: dict[str, str] = {}
+        failures: list[tuple[str, Exception]] = []
+        rate_limited = False
+        category_map = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
+        for offset in range(0, len(tags), 6):
+            batch = tags[offset:offset + 6]
+            if rate_limited:
+                continue
+            found = await asyncio.gather(*(self._get_tag_type(session, tag) for tag in batch), return_exceptions=True)
+            batch_failures = [(tag, item) for tag, item in zip(batch, found) if isinstance(item, Exception)]
+            if len(batch_failures) >= 3:
+                rate_limited = True
+            failures.extend(batch_failures)
+            for tag, item in zip(batch, found):
+                if isinstance(item, Exception) or not item:
+                    continue
+                known[item["name"]] = category_map.get(item["type"], "general")
+        return known, failures, rate_limited
 
     async def classify_tags(self, session, tags, credentials):
         result = {category: [] for category in TAG_CATEGORIES}
-        category_map = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
-        found = await asyncio.gather(*(self._get_tag_type(session, tag) for tag in tags), return_exceptions=True)
-        known = {}
-        for tag, item in zip(tags, found):
-            if isinstance(item, Exception):
-                # Failed lookups degrade to General; the detail stays usable and the
-                # original error stays visible in the server log for diagnosis.
-                print(f"[Aaalice] safebooru tag classification failed for {tag!r}: {item}", flush=True)
-                continue
-            if item:
-                known[item["name"]] = category_map.get(item["type"], "general")
+        known, failures, rate_limited = await self._lookup_tag_types(session, tags)
+        if failures:
+            first, error = failures[0]
+            if rate_limited:
+                print(f"[Aaalice] safebooru tag classification rate-limited; {len(tags)} tags degraded to general (first: {first!r}: {error})", flush=True)
+            else:
+                print(f"[Aaalice] safebooru tag classification failed for {len(failures)} tags (first: {first!r}: {error})", flush=True)
         for tag in tags:
             result[known.get(tag, "general")].append(tag)
         return {key: tuple(value) for key, value in result.items()}
 
     async def known_tags(self, session, names, credentials):
-        found = await asyncio.gather(*(self._get_tag_type(session, name) for name in names), return_exceptions=True)
-        known = set()
-        for name, item in zip(names, found):
-            if isinstance(item, Exception):
-                print(f"[Aaalice] safebooru tag lookup failed for {name!r}: {item}", flush=True)
-                continue
-            if item:
-                known.add(item["name"].casefold())
-        return frozenset(known)
+        known, failures, rate_limited = await self._lookup_tag_types(session, names)
+        if failures:
+            first, error = failures[0]
+            if rate_limited:
+                print(f"[Aaalice] safebooru tag lookup rate-limited; {len(names)} names skipped (first: {first!r}: {error})", flush=True)
+            else:
+                print(f"[Aaalice] safebooru tag lookup failed for {len(failures)} names (first: {first!r}: {error})", flush=True)
+        return frozenset(name.casefold() for name in known)
 
     def _summary(self, post):
         post_id = str(post.get("id", ""))

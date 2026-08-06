@@ -314,6 +314,31 @@ class GalleryAdapterTests(unittest.TestCase):
         import asyncio
         asyncio.run(run())
 
+    def test_safebooru_tag_rate_limit_breaks_the_batch(self):
+        async def run():
+            adapter = SafebooruAdapter()
+            class FakeNotFound:
+                status = 404
+                url = "https://safebooru.org/index.php"
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, *_args):
+                    return False
+                async def text(self):
+                    return ""
+            session = MagicMock()
+            session.get.return_value = FakeNotFound()
+            printed = []
+            with patch("asyncio.sleep", new=AsyncMock()), patch("builtins.print", side_effect=lambda *args, **kwargs: printed.append(" ".join(str(item) for item in args))):
+                classified = await adapter.classify_tags(session, [f"tag_{index}" for index in range(8)], {})
+            # 批内 6 个标签每标签 404 重试一次共 12 次请求后熔断，剩余 2 个不再请求。
+            self.assertEqual(session.get.call_count, 12)
+            self.assertEqual(classified["general"], tuple(f"tag_{index}" for index in range(8)))
+            self.assertEqual(len(printed), 1)
+            self.assertIn("rate-limited", printed[0])
+        import asyncio
+        asyncio.run(run())
+
     def test_rate_limited_json_retries_with_backoff_then_succeeds(self):
         async def run():
             adapter = DanbooruAdapter()
