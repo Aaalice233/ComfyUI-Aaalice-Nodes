@@ -47,6 +47,13 @@ function createSearchControl(node, { defaultOpen = false } = {}) {
 	};
 	input.addEventListener("input", syncInput);
 	input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; syncInput(); });
+	// 失焦即确认：未提交的查询在焦点离开输入框时自动执行；补全候选面板与
+	// IME 组合中的失焦属于编辑延续，让位给面板与 compositionend。
+	const commitOnBlur = () => {
+		if (input.hasAttribute("data-autocomplete-plus-open") || composing) return;
+		if (input.value.trim() !== searchQuery(stateFor(node))) submit();
+	};
+	input.addEventListener("blur", commitOnBlur);
 	input.addEventListener("keydown", (event) => {
 		// 补全候选面板打开时，导航、确认和关闭键全部让给 Autocomplete-Plus
 		if (input.hasAttribute("data-autocomplete-plus-open")) return;

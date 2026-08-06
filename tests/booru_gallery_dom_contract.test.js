@@ -38,6 +38,8 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(source, /setOpen\(defaultOpen, \{ focus: false \}\)/);
 	assert.match(source, /createSearchControl\(node, \{ defaultOpen: true \}\)/);
 	assert.match(source, /if \(!composing && !input\.value\.trim\(\) && searchQuery\(stateFor\(node\)\)\) submit\(\)/);
+	assert.match(source, /input\.addEventListener\("blur", commitOnBlur\)/);
+	assert.match(source, /data-autocomplete-plus-open"\) \|\| composing\) return;/);
 	assert.match(source, /_aaGalleryController\?\.search\(\{ reset: true, page: 1 \}\)/);
 	assert.match(source, /className: "aa-gallery-toolbar__search", children: \[searchControl\.root, searchControl\.toggle\]/);
 	assert.match(theme, /\.aa-gallery-toolbar__search \{ min-width: 0; flex: 0 1 280px; \}/);
