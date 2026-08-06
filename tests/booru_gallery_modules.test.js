@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import test from "node:test";
 
@@ -11,7 +13,22 @@ const sources = Object.fromEntries([
 	["controller", "../js/lib/booru_gallery_controller.js"],
 	["dialogs", "../js/lib/booru_gallery_dialogs.js"],
 	["settings", "../js/lib/booru_gallery_settings.js"],
-].map(([name, path]) => [name, fs.readFileSync(new URL(path, import.meta.url), "utf8")]));
+].map(([name, modulePath]) => [name, fs.readFileSync(new URL(modulePath, import.meta.url), "utf8")]));
+
+test("every gallery module parses as a real ES module", () => {
+	for (const [name, modulePath] of [
+		["entry", "../js/booru_gallery.js"],
+		["media", "../js/lib/booru_gallery_media.js"],
+		["cards", "../js/lib/booru_gallery_cards.js"],
+		["controller", "../js/lib/booru_gallery_controller.js"],
+		["dialogs", "../js/lib/booru_gallery_dialogs.js"],
+		["settings", "../js/lib/booru_gallery_settings.js"],
+	]) {
+		const file = fileURLToPath(new URL(modulePath, import.meta.url));
+		execFileSync(process.execPath, ["--check", file], { encoding: "utf8" });
+		assert.ok(true, `${name} module parses`);
+	}
+});
 
 test("gallery entry delegates cohesive media, card, controller, dialog, and settings modules", () => {
 	for (const name of ["Media", "Cards", "ControllerFactory", "Dialogs", "Settings"]) {

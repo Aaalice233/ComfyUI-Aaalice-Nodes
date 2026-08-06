@@ -1,11 +1,4 @@
 /** Gallery card, selection-row, and drag-order view helpers. */
-export function createGalleryCards(dependencies) {
-	const {
-		GALLERY_CATEGORIES, canWriteFavorite, capability, createSelectionStamp, createTagPillList,
-		dimensions, effectivePrompt, el, finalPrompt, getSettings, icon, iconButton,
-		isPromptAssistantAvailable, label, notifyFavorite, proxyUrl, ratingLabel, ratingTone,
-		selectionKey, stateFor, tagCount, transact,
-	} = dependencies;
 
 // 卡片倾斜与径向高光由瀑布流容器统一委托：一个 pointermove/pointerleave 监听
 // 管理全部卡片，单 rAF 内只读取指针下方一张卡片的几何；滚动虚拟化卸载卡片后
@@ -58,6 +51,14 @@ export function installMasonryCardMotion(container) {
 		reset(card); card = null; pointer = null;
 	};
 }
+
+export function createGalleryCards(dependencies) {
+	const {
+		GALLERY_CATEGORIES, canWriteFavorite, capability, createSelectionStamp, createTagPillList,
+		dimensions, effectivePrompt, el, finalPrompt, getSettings, icon, iconButton,
+		isPromptAssistantAvailable, label, notifyFavorite, proxyUrl, ratingLabel, ratingTone,
+		selectionKey, stateFor, tagCount, transact,
+	} = dependencies;
 
 function galleryCardActionLayout(width, height, count) {
 	const buttonSize = 28; const gap = 4; const inset = 14;
