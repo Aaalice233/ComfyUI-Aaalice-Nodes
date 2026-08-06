@@ -228,25 +228,6 @@
         "soundFailed": "The alert sound could not be played. Use ‘Enable and Test Alerts’ from the node menu to test it."
       }
     },
-    "characterSwap": {
-      "features": {
-        "label": "Replace features", "placeholder": "Enter features and press Enter", "append": "+ Add feature",
-        "empty": "Add at least one replacement feature", "input": "Add replacement features",
-        "enable": "Enable {tag}", "disable": "Disable {tag}", "remove": "Remove {tag}",
-        "model": "Model", "thinking": "Thinking"
-      },
-      "settings": {
-        "entry": "Character Feature Swap LLM", "open": "Configure LLM…", "title": "Character Feature Swap",
-        "apiKey": "DeepSeek API Key", "model": "DeepSeek model", "timeout": "Timeout (seconds)",
-        "thinking": "Thinking effort", "thinkingDisabled": "Off", "thinkingHigh": "High", "thinkingMax": "Maximum",
-        "thinkingHint": "DeepSeek exposes Off, High, and Maximum; Low and Medium are mapped to High by the service.",
-        "template": "Prompt template", "templateHint": "Must contain {original_prompt}, {character_prompt}, and {target_features}.",
-        "keyConfigured": "Configured; leave blank to keep", "keyMissing": "Enter a DeepSeek API key", "clearKey": "Clear saved API key", "keyWillClear": "Saved key will be cleared",
-        "fetchModels": "Get models", "loadingModels": "Loading models…", "modelsLoaded": "Model list loaded.",
-        "test": "Test connection", "testing": "Testing a DeepSeek request…", "testPassed": "DeepSeek request succeeded ({count} available models).",
-        "restoreTemplate": "Restore default template", "saving": "Saving…"
-      }
-    },
     "gallery": {
       "source": "Source", "toolbar": "Booru Gallery", "toolbarActions": "Browse tools", "more": "More", "reload": "Reload search", "refreshing": "Refreshing…", "loading": "Loading…", "end": "End of results",
       "collection": { "label": "Gallery collection", "latest": "Latest", "new": "Latest", "score": "Top rated", "favcount": "Popular", "random": "Random", "dayRanking": "Today's ranking", "weekRanking": "Weekly ranking", "monthRanking": "Monthly ranking", "favorites": "Favorites" },

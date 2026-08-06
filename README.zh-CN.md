@@ -62,7 +62,6 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除首尾空白和空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 执行到达时按开关发送桌面通知和提示音，并原样透传输入值。 |
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序并加权输出可复用提示词条。 |
-| `CharacterFeatureSwapNode` | `Aaalice/prompt` | 从参考角色迁移选中特征，并保持原提示词的语言和格式。 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 在 Danbooru、Gelbooru、Safebooru 与 AI TAG 的虚拟瀑布流中搜索，并按顺序输出图片与对应提示词。 |
 | `FetchFromKrita` | `Aaalice/krita` | 将 Krita 当前活动文档的可见合成图与选区读取为 `IMAGE` 和 `MASK`。 |
 
@@ -150,17 +149,6 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 </details>
 
 <details>
-<summary><strong>CharacterFeatureSwapNode — LLM 角色特征迁移</strong></summary>
-
-连接原提示词和参考角色提示词，然后用紧凑的特征标签选择需要迁移的内容。标签可以启用、停用、拖动排序、删除，也可以添加自定义特征描述。同一个默认指令同时处理自然语言、Tag 列表和混合提示词；结果保持原提示词的语言与格式，参考提示词缺少某项特征时会要求模型保留原特征。
-
-前往 **ComfyUI 设置 → Aaalice Nodes → Character Feature Swap** 配置 DeepSeek API Key、模型、超时和思考强度。节点固定使用 DeepSeek 官方 API，不提供其它服务或自定义地址。思考默认关闭，也可以设为官方支持的“高”或“最高”；DeepSeek 会把“低”和“中”映射为“高”，因此界面不提供无实际差别的档位。API Key 只保存在当前 ComfyUI 用户目录，不会写入工作流 JSON。高级提示词模板可以修改或恢复默认值，但必须保留 `{original_prompt}`、`{character_prompt}` 和 `{target_features}`。
-
-节点只面向单角色。多角色归属、区域提示词和角色分区编辑不属于本节点。实际替换由配置的外部模型完成，因此结果会受到服务可用性、模型能力和非确定性的影响。
-
-</details>
-
-<details>
 <summary><strong>SimpleStringSplit — 清理式文本拆分</strong></summary>
 
 输入文本并选择 `,` 或 `|` 作为分隔符。节点会清理每段首尾空白、丢弃空段，并以字符串列表输出剩余内容。
@@ -188,7 +176,6 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 - 前端结构变更后，已有节点实例可能需要在刷新后重新创建。
 - QuickGroupManager 只控制当前图中的可视组，联动规则不会跨 Manager 实例传播。
 - SimpleNotify 只在发起执行的前端提醒，不代表整个工作流或队列已完成。
-- CharacterFeatureSwapNode 仅支持 DeepSeek 官方 API，需要有效的 DeepSeek API Key 和可用模型；API 可用性、费用、隐私与输出质量由 DeepSeek 决定。
 - BooruGalleryNode 依赖第三方站点 API 与媒体主机；网络、凭据、站点限制、帖子元数据和收藏行为由各站点控制。只能选择静态 JPG、PNG、WebP 和 GIF 帖子。
 - FetchFromKrita 需要本机 Krita 正在运行、随包 Bridge 已启用且存在活动文档。每次执行只读取一个活动文档，不支持远程或持续编辑会话。
 - 词库保存在当前 ComfyUI 用户目录，不会嵌入工作流；跨安装迁移工作流时需要单独导出词库。

@@ -42,15 +42,6 @@
     "inputs": { "prefix_prompt": { "name": "前缀提示词", "tooltip": "放在已选词条之前的可选提示词。" } },
     "outputs": { "0": { "name": "提示词", "tooltip": "组合后的提示词文本。" } }
   },
-  "CharacterFeatureSwapNode": {
-    "display_name": "🧬 角色特征交换",
-    "description": "在保留原提示词语言和格式的同时，迁移选中的角色特征。",
-    "inputs": {
-      "original_prompt": { "name": "原提示词", "tooltip": "作为结果基础，未选中的内容会被保留。" },
-      "character_prompt": { "name": "参考角色提示词", "tooltip": "提供待迁移角色特征的参考提示词。" }
-    },
-    "outputs": { "0": { "name": "新提示词", "tooltip": "替换选中特征后的提示词。" } }
-  },
   "BooruGalleryNode": {
     "display_name": "🖼️ Booru 画廊",
     "description": "搜索多个 Booru 站点，并按已选顺序输出图片与提示词快照。",

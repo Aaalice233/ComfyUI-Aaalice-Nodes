@@ -11,7 +11,6 @@
 | `SimpleStringSplit` | `Aaalice/tools` | 拆分字符串、清理空白并移除空段 | 无业务前端 |
 | `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
 | `PromptSelector` | `Aaalice/prompt` | 组合前缀与有序词条正文，校验缺失引用和权重 | 跨分类选择、筛选、排序、权重和实时词库 payload 注入 |
-| `CharacterFeatureSwapNode` | `Aaalice/prompt` | 通过 DeepSeek 官方 API 迁移指定的单角色特征 | 复用 Tag List 编辑特征，并注入节点状态和配置版本 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 下载有序选择快照，原子解码并输出一一对应的 IMAGE/STRING list | 多站点搜索、虚拟瀑布流、选择排序、本地标签编辑、详情、收藏与设置 |
 | `FetchFromKrita` | `Aaalice/krita` | 每次执行请求当前活动文档快照并输出 IMAGE/MASK | Bridge 连接、活动文档与最近获取状态，以及共享 Krita 设置入口 |
 
@@ -19,13 +18,12 @@
 
 ## 后端边界
 
-- V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `CharacterFeatureSwapNode` 与 `PromptSelector` 的自定义校验签名只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
+- V3 `validate_inputs()` 运行在上游节点执行之前，只允许声明并校验当前 prompt 中已经存在的字面量或前端注入 payload。连接输入的真实值只在 `execute()` 可用，因此所有非空、内容结构和业务语义检查都在执行阶段完成。当前 `PromptSelector` 的自定义校验签名只暴露自己的注入 payload，不使用 `**kwargs` 接收无关连接输入。
 - `nodes/control/quick_group_manager.py` 只注册无输入输出的 V3 节点；组发现和模式变化不进入后端。
 - `nodes/tools/resolution_preset.py` 没有可见输入，只接受前端注入的版本化 `resolution_json`，校验 ComfyUI 尺寸范围与基础 8 px 对齐后输出两个具名 INT。个人预设 Store 位于当前用户目录，使用线程锁、临时文件和原子替换；专用 HTTP 路由只负责 CRUD 和明确错误映射。
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。`nodes/_lib/prompt_library.py` 拥有 SQLite 词库领域服务，`prompt_library_archive.py` 独立负责 ZIP 导入导出与图片归档，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
-- `CharacterFeatureSwapNode` 接收原提示词与参考角色提示词，读取前端注入的启用特征和配置版本，并使用当前用户目录中的 DeepSeek 配置异步生成单一 STRING。纯逻辑负责 payload、模板和响应校验；配置、模型查询和真实 Chat Completion 连接测试路由不把 API Key 返回前端或写入工作流。
 - `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability（Summary 携带 Sample / Large Preview 地址供前端直接预取），路由只处理 JSON、流式媒体和错误映射；媒体代理（`nodes/gallery/media.py`）复用共享连接池，按 URL 磁盘缓存并去重并发请求，瞬时失败退避重试、客户端断开不中断共享下载，逐次复核 HTTPS 白名单、Content-Type 和大小，缓存与执行原图统一受 `cacheBudgetMiB` 预算修剪。
 - `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
 - Discord 分享不新增执行节点。`nodes/tools/discord_share_routes.py` 只向前端公开中继和社区 URL，Webhook、OAuth Secret 与成员会话不进入 ComfyUI Python 进程；可信中继实现位于 `deploy/discord-share-worker/`：`worker.js` 只负责环境校验与路由装配，`auth.js` 拥有 OAuth、会话和逐次成员/角色校验，`share.js` 拥有限流、公开 Target、消息规划和 Webhook 事务，`http.js` 统一 JSON、CORS 与配置错误。频道配置以 Worker Secret 中的 `{ id, label, url, default, prefer_prompt_file }` 数组为真源，浏览器只接收不含 URL 的公开字段并提交 Target Id。`prefer_prompt_file` 只驱动客户端推荐状态，不强制覆盖用户最终选择。KV 只保存短时 OAuth handoff 与带 TTL 的会话；每次发送的用户级滥用保护由 Cloudflare 原生 Rate Limiting binding 承担，避免分享吞吐受 KV 每日写入额度限制。
@@ -40,7 +38,6 @@
 | 组管理与导航 | `js/quick_group_manager.js`、`js/workspace/{group_navigation,group_navigation_wheel}.js`、`js/lib/{quick_group_manager_runtime,quick_group_manager_popovers,group_navigation,group_navigation_model,group_navigation_wheel_model}.js` | 节点生命周期与紧凑 DOM、独立颜色/联动浮层、原子模式事务、共享组边界导航、版本化手工清单与轮盘几何模型；轮盘 DOM 生命周期由工作区入口装配并按 owner 清理 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
-| 角色特征交换 | `js/character_feature_swap.js`、`js/lib/character_feature_swap_model.js` | 共享 Tag List 特征编辑、ComfyUI LLM 设置入口、生命周期和执行 payload 注入 |
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_{model,cards,controller,dialogs,media,settings},virtual_masonry}.js` | 入口装配与选择快照注入；模型、卡片（含仅持有 detached 图片的会话解码图池）、控制器、弹窗、媒体交互、设置和自然比例虚拟瀑布流按职责分离 |
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
 | Discord 分享 | `js/discord_share.js`、`js/lib/discord_share_{capture,client,model,picker,image_viewer,prompt_file,target_picker}.js` | 入口与发送流程装配；执行快照、网络客户端、纯模型、选择器、图像查看、提示词附件和 Target 选择按职责分离 |
@@ -68,10 +65,8 @@
 | ResolutionPreset 个人预设 | 当前 ComfyUI 用户目录 JSON | 当前用户的名称、尺寸、alignment 和稳定 UUID | 工作流 JSON、节点属性或浏览器存储 |
 | QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
 | PromptSelector | `node.properties.promptSelectorState` | 当前词条正文、缺失引用、执行 payload | 节点内正文快照、DOM 复选状态 |
-| CharacterFeatureSwapNode | `node.properties.characterFeatureSwap` | 启用特征、配置版本和执行 payload | DOM 标签副本、全局活动预设、API Key 或模型配置 |
 | BooruGalleryNode | `node.properties.booruGalleryState`（查询上下文、逻辑页码、选择模式与选择快照） | 搜索 Summary、详情、当前请求和执行 payload | 搜索结果、cursor、滚动像素、Hover、Dialog、凭据、缓存或图片 DOM |
 | Booru Gallery 用户设置 | 当前 ComfyUI 用户目录配置文件 | 凭据、默认来源、黑名单、Prompt 默认值、超时与缓存预算 | 工作流 JSON、节点属性或搜索结果 |
-| Character Feature Swap LLM | 当前 ComfyUI 用户目录配置文件 | DeepSeek API Key、模型、超时、思考强度、模板和配置版本 | 工作流 JSON、节点属性或前端缓存 |
 | Krita Bridge | Krita 插件目录与本机专用临时目录 | 连接心跳、请求关联的 JSON/PNG 和最近执行摘要 | `node.properties`、工作流 JSON、浏览器存储或旧快照复用 |
 | Discord 分享入口 | ComfyUI 应用设置 `Aaalice.DiscordShare.Placement` | 侧栏/顶栏 DOM 和验证状态点 | 多个布尔开关、工作流 JSON 或入口 DOM |
 | Discord 提示词来源 | `app.graph.extra.aaaliceDiscordShare.promptSource` | Preview Any 的限定执行 Id 与本次输出文本 | 提示词正文副本、节点标题或裸 Node Id |
@@ -152,14 +147,6 @@
 7. Collection 保持备份与 API 的稳定协议名，产品界面统一称为“收藏夹”；后端保证稳定身份的默认收藏夹存在并拒绝删除，节点收藏按钮只从词库快照派生状态和提交关系变更。
 8. 多选移动、收藏关系更新和删除都进入词库领域事务；批量删除先校验全部稳定词条 ID，再统一删除关系并按最后引用清理预览资源，不允许前端逐条请求形成部分成功。
 9. PromptSelector 排队后按实际 payload 批量写入词条最近使用时间；列表默认以该用户级元数据降序显示，同批与未使用词条继续保持词库顺序。最近使用时间不进入工作流状态或词库导出。
-
-### CharacterFeatureSwapNode
-
-1. 节点以 `node.properties.characterFeatureSwap` 保存版本化特征列表；共享 Tag List 负责启用、停用、增删和排序，修改进入正常图历史边界。
-2. `graphToPrompt` 只注入特征 payload 和当前配置版本，使节点状态及 LLM 设置变化参与执行缓存；API Key、Base URL、模型和模板不进入工作流。
-3. 后端用固定占位符替换构建兼容自然语言与 Tag 列表的请求，通过 DeepSeek 官方 `/chat/completions` 执行，并对空输入、无启用特征、配置、HTTP、超时和响应结构错误显式失败。
-4. ComfyUI 设置页通过专用路由维护用户目录配置、查询模型和测试连接；读取设置只公开 API Key 是否存在，空 Key 更新保留原值，清除必须显式请求。
-5. 每次请求都显式发送 DeepSeek `thinking` 开关；默认关闭思考，启用时只发送官方实际区分的 `high` 或 `max` `reasoning_effort`。服务地址固定为 DeepSeek 官方端点，不保存或接受自定义 Base URL。
 
 ### BooruGalleryNode
 

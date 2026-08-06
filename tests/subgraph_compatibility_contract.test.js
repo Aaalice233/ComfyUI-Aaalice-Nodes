@@ -7,7 +7,6 @@ function source(path) {
 }
 
 const payloadInjectors = [
-	"../js/character_feature_swap.js",
 	"../js/prompt_selector.js",
 	"../js/resolution_preset.js",
 	"../js/booru_gallery.js",

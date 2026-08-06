@@ -62,7 +62,6 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
-| `CharacterFeatureSwapNode` | `Aaalice/prompt` | Transfer selected character features while preserving the original prompt's language and format. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
 | `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
 
@@ -150,17 +149,6 @@ Configure site credentials, defaults, the global content blacklist, new-node pro
 </details>
 
 <details>
-<summary><strong>CharacterFeatureSwapNode — LLM character-feature transfer</strong></summary>
-
-Connect the original prompt and a reference character prompt, then use the compact feature chips to choose what should be transferred. Chips can be enabled, disabled, reordered, removed, or extended with custom feature descriptions. The same default instruction handles natural language, tag lists, and mixed prompts; the result follows the original prompt's language and formatting and keeps an original feature when the reference does not provide its replacement.
-
-Configure the DeepSeek API key, model, timeout, and thinking effort from **ComfyUI Settings → Aaalice Nodes → Character Feature Swap**. The node uses the official DeepSeek API only; other providers and custom endpoints are not exposed. Thinking is off by default and can be set to the officially distinct High or Maximum levels. DeepSeek maps Low and Medium to High, so the UI does not present ineffective duplicate levels. The API Key is stored only in the current ComfyUI user directory and is never embedded in workflow JSON. The advanced prompt template can be customized or restored to its default; it must retain `{original_prompt}`, `{character_prompt}`, and `{target_features}`.
-
-The node is intended for one character. Multi-character ownership, regional prompting, and character-to-region editing remain outside this node. Because the transformation is performed by the configured external model, results depend on that service and may not be perfectly deterministic.
-
-</details>
-
-<details>
 <summary><strong>SimpleStringSplit — cleaned text splitting</strong></summary>
 
 Enter text and choose `,` or `|` as the delimiter. The node trims each segment, removes empty segments, and returns the remaining strings as a list.
@@ -188,7 +176,6 @@ The **Library** workspace manages entries, flat categories, multi-membership fav
 - Structural frontend updates can require recreating existing node instances after refresh.
 - QuickGroupManager only controls visual groups in its current graph and does not propagate linkage rules across manager instances.
 - SimpleNotify alerts only in the initiating frontend and does not represent whole-workflow or empty-queue completion.
-- CharacterFeatureSwapNode supports only the official DeepSeek API and requires a valid DeepSeek API key and available model; API availability, billing, privacy, and output quality are controlled by DeepSeek.
 - BooruGalleryNode depends on third-party site APIs and media hosts. Network availability, credentials, site limits, post metadata, and favorite behavior remain controlled by each site; only static JPG, PNG, WebP, and GIF posts are selectable.
 - FetchFromKrita requires a locally running Krita with the bundled Bridge enabled and an active document. It supports one active-document snapshot per execution and no remote or persistent editing session.
 - Prompt-library data lives in the current ComfyUI user directory and is not embedded in workflows; export it separately when moving workflows between installations.

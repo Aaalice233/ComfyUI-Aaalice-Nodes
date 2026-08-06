@@ -228,25 +228,6 @@
         "soundFailed": "无法播放提示音，请从节点右键菜单选择“启用并测试提醒”进行测试。"
       }
     },
-    "characterSwap": {
-      "features": {
-        "label": "替换特征", "placeholder": "输入特征后按回车添加", "append": "+ 添加特征",
-        "empty": "请至少添加一个替换特征", "input": "添加替换特征",
-        "enable": "启用 {tag}", "disable": "停用 {tag}", "remove": "删除 {tag}",
-        "model": "模型", "thinking": "思考强度"
-      },
-      "settings": {
-        "entry": "角色特征交换 LLM", "open": "配置 LLM…", "title": "角色特征交换",
-        "apiKey": "DeepSeek API Key", "model": "DeepSeek 模型", "timeout": "超时（秒）",
-        "thinking": "思考强度", "thinkingDisabled": "关闭", "thinkingHigh": "高", "thinkingMax": "最高",
-        "thinkingHint": "DeepSeek 仅提供关闭、高和最高；低、中会被服务端映射为高。",
-        "template": "提示词模板", "templateHint": "必须包含 {original_prompt}、{character_prompt} 和 {target_features}。",
-        "keyConfigured": "已配置；留空则保持不变", "keyMissing": "请输入 DeepSeek API Key", "clearKey": "清除已保存的 API Key", "keyWillClear": "保存后将清除 API Key",
-        "fetchModels": "获取模型", "loadingModels": "正在获取模型…", "modelsLoaded": "模型列表已加载。",
-        "test": "测试连接", "testing": "正在测试 DeepSeek 请求…", "testPassed": "DeepSeek 请求成功（{count} 个可用模型）。",
-        "restoreTemplate": "恢复默认模板", "saving": "正在保存…"
-      }
-    },
     "gallery": {
       "source": "来源", "toolbar": "Booru 画廊", "toolbarActions": "浏览工具", "more": "更多", "reload": "重新搜索", "refreshing": "正在刷新…", "loading": "正在加载…", "end": "已经到底了",
       "collection": { "label": "画廊频道", "latest": "最新", "new": "最新", "score": "高分榜", "favcount": "人气榜", "random": "随机", "dayRanking": "今日榜", "weekRanking": "周榜", "monthRanking": "月榜", "favorites": "收藏夹" },

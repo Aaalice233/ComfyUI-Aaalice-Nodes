@@ -10,7 +10,6 @@ import "./simple_notify.js";
 import "./node_resize.js";
 import "./focus_on_open.js";
 import "./prompt_selector.js";
-import "./character_feature_swap.js";
 import "./booru_gallery.js";
 import "./resolution_preset.js";
 import "./fetch_from_krita.js";

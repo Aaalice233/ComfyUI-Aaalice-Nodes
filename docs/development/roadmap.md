@@ -17,7 +17,6 @@
 | 4 | `SimpleNotify` | tools | 在透明透传执行点提醒一次。 |
 | 8 | `ResolutionPreset` | tools | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
 | 11 | `PromptSelector` | prompt | 从独立词库跨分类选择、排序并加权输出提示词。 |
-| 12 | `CharacterFeatureSwapNode` | prompt | 通过 DeepSeek 官方 API 迁移当前节点选中的单角色特征。 |
 | 17 | `GroupIsEnabled` | control | 队列提交时快照可视组成员模式，报告是否被完全禁用。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |

@@ -15,9 +15,6 @@
 - **Prompt Selection（提示词选择）**：PromptSelector 持有的有序 Prompt Entry 引用及各自权重。它引用词条身份，不复制词条正文。
 
 - **PromptSelector（提示词选择器）**：从 Prompt Library 中跨分类选择、排序并加权输出提示词的图节点。词库维护不是该节点的职责。
-
-- **Character Feature Swap（角色特征交换）**：以一个单角色原提示词为主体，从参考角色提示词迁移用户明确启用的特征，同时保持原提示词的语言、格式和未选择内容。避免使用 General Prompt Rewrite、Multi-character Editor。
-
 - **Booru Source（画廊来源）**：提供搜索、详情和可选账户能力的一个独立站点；来源身份是稳定英文协议值，不等于显示名称。
 
 - **Gallery Capability（画廊能力）**：一个 Booru Source 明确声明的 Rating、分页、认证、标签分类、收藏和下载支持范围。避免使用 Cross-site fallback、Implicit support。

@@ -42,15 +42,6 @@
     "inputs": { "prefix_prompt": { "name": "Prefix prompt", "tooltip": "Optional prompt placed before selected entries." } },
     "outputs": { "0": { "name": "Prompt", "tooltip": "Combined selected prompt text." } }
   },
-  "CharacterFeatureSwapNode": {
-    "display_name": "🧬 Character Feature Swap",
-    "description": "Transfer selected character features while preserving the original prompt's language and format.",
-    "inputs": {
-      "original_prompt": { "name": "Original prompt", "tooltip": "Base prompt whose unselected content is preserved." },
-      "character_prompt": { "name": "Reference character prompt", "tooltip": "Prompt that supplies replacement character features." }
-    },
-    "outputs": { "0": { "name": "New Prompt", "tooltip": "Prompt with selected features replaced." } }
-  },
   "BooruGalleryNode": {
     "display_name": "🖼️ Booru Gallery",
     "description": "Search supported booru sites and output an ordered image and prompt snapshot.",
