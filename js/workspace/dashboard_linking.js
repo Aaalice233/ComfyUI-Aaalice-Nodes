@@ -121,7 +121,7 @@ export function describeRebindCandidates(item) {
 	// 同名的原参数在候选中时无需手动搜索。
 	const identityLabel = bindingControlIdLabel(item.binding);
 	const match = bestRebindMatch(
-		{ preferredLabel: item.labelOverride || item.label || identityLabel, identityLabel },
+		{ preferredLabel: item.labelOverride || item.label || identityLabel, identityLabel, itemLabel: item.label || "" },
 		candidates.map((candidate, index) => ({ title: rawLabels[index].title, description: rawLabels[index].description, identityLabel: bindingControlIdLabel(candidate.binding) })),
 	);
 	return { candidates, options, match };
