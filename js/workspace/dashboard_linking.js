@@ -141,14 +141,23 @@ export function openRebind(item, ownerElement = null) {
 	const identityLabel = bindingControlIdLabel(item.binding);
 	const preferredLabel = item.labelOverride || item.label || identityLabel;
 	let initialValue = options[0].value;
-	let bestScore = 0;
+	let bestScore = 0; let bestNodeScore = 0;
 	for (const [index, candidate] of candidates.entries()) {
+		const candidateIdentity = bindingControlIdLabel(candidate.binding);
 		const score = Math.max(
 			bindingLabelScore(preferredLabel, rawLabels[index].title),
 			bindingLabelScore(identityLabel, rawLabels[index].title),
-			bindingLabelScore(identityLabel, bindingControlIdLabel(candidate.binding)),
+			bindingLabelScore(identityLabel, candidateIdentity),
+			bindingLabelScore(preferredLabel, `${rawLabels[index].description} ${rawLabels[index].title}`),
 		);
-		if (score > bestScore) { bestScore = score; initialValue = options[index].value; }
+		// 主分数打平时用节点标题消歧：多个同名参数（如多个 seed）应优先落在原节点上。
+		const nodeScore = Math.max(
+			bindingLabelScore(preferredLabel, rawLabels[index].description),
+			bindingLabelScore(identityLabel, rawLabels[index].description),
+		);
+		if (score > bestScore || (score === bestScore && score > 0 && nodeScore > bestNodeScore)) {
+			bestScore = score; bestNodeScore = nodeScore; initialValue = options[index].value;
+		}
 	}
 	const commitSelection = (value) => {
 		const selected = candidates.find((candidate) => bindingKey(candidate.binding) === value);
@@ -168,6 +177,8 @@ export function openRebind(item, ownerElement = null) {
 	dialog = createWorkspaceDialog({ title: t("aaalice.workspace.binding.rebind", "Rebind control"), body, footer, size: "sm" }, ownerElement);
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.common.confirm", "Confirm"), onClick: () => commitSelection(selection.value) }));
 	selection.focusSearch();
+	// 预选项在对话框挂载后才可定位，补一帧把列表滚动到自动匹配的参数上。
+	requestAnimationFrame(() => selection.revealSelected());
 }
 
 export function linkableControlSources(controls) {

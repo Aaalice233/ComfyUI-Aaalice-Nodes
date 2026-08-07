@@ -150,6 +150,12 @@ export function createSearchableSelect({ options = [], value = "", ariaLabel = "
 		rebuild();
 	};
 	root.setValue = (next) => { currentValue = String(next); activeValue = null; rebuild(); };
+	// 初始重建发生在对话框挂载之前，rebuild 内的滚动是 no-op；挂载完成后由调用方显式补一次居中定位。
+	root.revealSelected = () => {
+		const selected = list.querySelector(`[data-value="${CSS.escape(currentValue)}"].is-selected`);
+		if (selected) selected.scrollIntoView({ block: "center" });
+		else scrollActiveIntoView();
+	};
 	root.setDisabled = setDisabled;
 	root.focusSearch = () => input.focus();
 	Object.defineProperty(root, "value", { get: () => currentValue });
