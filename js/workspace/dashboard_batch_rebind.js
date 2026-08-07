@@ -63,6 +63,8 @@ export function openPageRebind(pageId, ownerElement = null) {
 
 	const included = () => rows.filter((row) => !row.skipped && row.selectedValue != null);
 	const refreshConfirm = () => {
+		// 行构建早于主按钮创建，此期间无需刷新。
+		if (!confirmButton) return;
 		const count = included().length;
 		confirmButton.disabled = count === 0;
 		setButtonLabel(confirmButton, t("aaalice.workspace.rebindAll.confirm", "Rebind {count}").replace("{count}", String(count)));
