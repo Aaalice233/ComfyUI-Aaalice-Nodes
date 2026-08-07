@@ -221,26 +221,34 @@ test("queue reconciliation copies the primary seed state across linked cards onc
 	assert.deepEqual(states.linked, states.primary);
 });
 
-test("missing primary and linked targets remain visible as binding issues", () => {
+test("missing primary fails the card while missing linked targets stay visible as issues", () => {
 	const primary = binding("primary"); const linked = binding("linked");
 	const missingPrimary = resolveControlBindingSet(item(primary, linked), resolver(new Map()));
 	assert.equal(missingPrimary.status, "missing");
 	assert.equal(missingPrimary.bindingSet.issues[0].binding.controlId, "primary");
-	const targetGraph = graph();
+	const targetGraph = graph(); const states = { primary: { value: 1 } };
 	const resolved = resolveControlBindingSet(item(primary, linked), resolver(new Map([
-		["primary", numericResolved("primary", { value: 1 }, targetGraph)],
+		["primary", numericResolved("primary", states.primary, targetGraph)],
 	])));
-	assert.equal(resolved.status, "linked-error");
+	assert.equal(resolved.status, "ok");
 	assert.equal(resolved.bindingSet.issues[0].binding.controlId, "linked");
-	assert.equal(typeof resolved.setValue, "function", "primary API remains visible for diagnostics");
+	assert.equal(resolved.bindingSet.issues[0].reason, "unresolved-binding");
+	assert.equal(resolved.bindingSet.linkedCount, 1, "missing binding remains listed for management");
 });
 
-test("missing linked targets disable the aggregate without hiding their binding", () => {
-	const targetGraph = graph(); const primary = binding("primary"); const linked = binding("missing");
-	const resolved = resolveControlBindingSet(item(primary, linked), resolver(new Map([
-		["primary", numericResolved("primary", { value: 1 }, targetGraph)],
+test("missing linked targets are skipped by writes and synchronization without blocking the card", () => {
+	const targetGraph = graph(); const primary = binding("primary"); const missing = binding("missing"); const linked = binding("linked");
+	const states = { primary: { value: 1 }, linked: { value: 2 } };
+	const resolved = resolveControlBindingSet(item(primary, missing, linked), resolver(new Map([
+		["primary", numericResolved("primary", states.primary, targetGraph)],
+		["linked", numericResolved("linked", states.linked, targetGraph)],
 	])));
-	assert.equal(resolved.status, "linked-error");
-	assert.equal(resolved.bindingSet.issues[0].binding.controlId, "missing");
-	assert.equal(typeof resolved.setValue, "function", "primary API remains visible for diagnostics");
+	assert.equal(resolved.status, "ok");
+	assert.deepEqual(resolved.bindingSet.issues.map((issue) => issue.binding.controlId), ["missing"]);
+	resolved.setValue(9);
+	assert.deepEqual(states, { primary: { value: 9 }, linked: { value: 9 } });
+	assert.deepEqual({ before: targetGraph.before, after: targetGraph.after, dirty: targetGraph.dirty }, { before: 1, after: 1, dirty: 1 });
+	states.linked.value = 3;
+	assert.equal(resolved.synchronizeFromPrimary(), true);
+	assert.equal(states.linked.value, 9);
 });

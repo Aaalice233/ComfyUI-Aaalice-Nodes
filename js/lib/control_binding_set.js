@@ -182,24 +182,33 @@ export function resolveControlBindingSet(item, resolveBinding) {
 	const primary = entries[0];
 	if (!primary) return { status: "missing", bindingSet: { entries: [], linkedCount: 0, mixed: false, issues: [] } };
 	const issues = [];
+	// 已删除节点的 linked 绑定不再拖垮整卡：保留在 issues 里供管理对话框展示，
+	// 但从写入/同步集合中剔除；契约漂移（incompatible 等）仍然视为致命错误。
+	const activeEntries = [primary];
 	if (primary.resolved?.status !== "ok") issues.push({ binding: primary.binding, key: primary.key, status: primary.resolved?.status || "missing", reason: "unresolved-binding", error: primary.resolved?.error });
 	else {
 		for (const entry of entries.slice(1)) {
+			if (entry.resolved?.status !== "ok") {
+				issues.push({ binding: entry.binding, key: entry.key, status: entry.resolved?.status || "missing", reason: "unresolved-binding", error: entry.resolved?.error });
+				continue;
+			}
 			const compatibility = inspectControlLinkCompatibility(primary, entry);
 			if (!compatibility.ok) issues.push({ binding: entry.binding, key: entry.key, status: entry.resolved?.status || "incompatible", reason: compatibility.reason, error: entry.resolved?.error });
+			else activeEntries.push(entry);
 		}
 	}
+	const fatalIssues = issues.filter((issue) => issue.reason !== "unresolved-binding");
 	let mixed = false;
-	if (primary.resolved?.status === "ok" && !issues.length && entries.length > 1 && !entries.some((entry) => availabilityState(entry.resolved))) {
+	if (primary.resolved?.status === "ok" && !fatalIssues.length && activeEntries.length > 1 && !activeEntries.some((entry) => availabilityState(entry.resolved))) {
 		try {
-			const values = entries.map((entry) => readEntry(entry).payload);
+			const values = activeEntries.map((entry) => readEntry(entry).payload);
 			mixed = values.slice(1).some((value) => !equalValue(values[0], value));
 		} catch (error) { issues.push({ binding: primary.binding, key: primary.key, status: "error", reason: error.message, error }); }
 	}
 	const bindingSet = { entries, linkedCount: Math.max(0, entries.length - 1), mixed, issues };
 	if (primary.resolved?.status !== "ok" || entries.length === 1) return { ...primary.resolved, bindingSet };
-	if (issues.length) return { ...primary.resolved, status: "linked-error", bindingSet };
-	const unavailableEntry = entries.find((entry) => availabilityState(entry.resolved));
+	if (fatalIssues.length) return { ...primary.resolved, status: "linked-error", bindingSet };
+	const unavailableEntry = activeEntries.find((entry) => availabilityState(entry.resolved));
 	const assertAvailable = () => {
 		if (unavailableEntry) throw new ControlBindingSetError("Linked controls are temporarily unavailable", "unavailable-binding", unavailableEntry.binding);
 	};
@@ -207,10 +216,10 @@ export function resolveControlBindingSet(item, resolveBinding) {
 		...primary.resolved,
 		availability: unavailableEntry?.resolved.availability || primary.resolved.availability,
 		bindingSet,
-		setValue(next, options = {}) { assertAvailable(); return writeValue(entries, next, options); },
-		flushValue() { assertAvailable(); for (const entry of entries) successfulResult(entry.resolved.flushValue?.(), "flush", entry.binding); },
-		setSeedBehavior(behavior, options = {}) { assertAvailable(); return writeSeedBehavior(entries, behavior, options); },
-		synchronizeFromPrimary(options = {}) { assertAvailable(); return synchronizePreset(entries.slice(1), readEntry(primary), options); },
+		setValue(next, options = {}) { assertAvailable(); return writeValue(activeEntries, next, options); },
+		flushValue() { assertAvailable(); for (const entry of activeEntries) successfulResult(entry.resolved.flushValue?.(), "flush", entry.binding); },
+		setSeedBehavior(behavior, options = {}) { assertAvailable(); return writeSeedBehavior(activeEntries, behavior, options); },
+		synchronizeFromPrimary(options = {}) { assertAvailable(); return synchronizePreset(activeEntries.slice(1), readEntry(primary), options); },
 	};
 }
 
