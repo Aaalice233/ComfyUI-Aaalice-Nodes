@@ -9,6 +9,7 @@ const workspace = [
 	"workspace.js",
 	"workspace/dashboard_bindings.js", "workspace/dashboard_linking.js", "workspace/dashboard_unbinding.js", "workspace/dashboard_presets.js",
 	"workspace/dashboard_view.js",
+	"workspace/dashboard_batch_rebind.js",
 	"workspace/component_note.js",
 	"workspace/group_navigation.js", "workspace/group_navigation_wheel.js",
 	"workspace/library.js",
@@ -21,6 +22,7 @@ const workspace = [
 	"workspace/sidebar_preferences.js",
 ].map((path) => readFileSync(join(ROOT, "js", ...path.split("/")), "utf8")).join("\n");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
+const rebindMatch = readFileSync(join(ROOT, "js", "lib", "rebind_match.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
 const nodeControlMenu = readFileSync(join(ROOT, "js", "lib", "node_control_menu.js"), "utf8");
@@ -571,7 +573,8 @@ test("dashboard cards can link and manage multiple compatible node controls", ()
 	assert.match(workspace, /replacePrimaryBinding\(dashboard\(\), item\.id, binding\)/);
 	assert.match(workspace, /synchronizeFromPrimary/);
 	assert.match(workspace, /entries: \[[\s\S]*binding\.linkMenu[\s\S]*binding\.menu/);
-	assert.match(workspace, /function bindingLabelScore/);
+	assert.match(rebindMatch, /export function bindingLabelScore/);
+	assert.match(rebindMatch, /export function bestRebindMatch/);
 	assert.match(workspace, /repairDuplicateHostIds\(graphNodes\(\)\)/);
 	assert.match(workspace, /const liveControls = controlProviders\.list\(node\)/);
 	assert.match(workspace, /const liveTarget = compatibleCardTargets\(liveSource\.binding\)/);
@@ -644,9 +647,22 @@ test("broken binding cards explain the failure and rebind dialog offers fuzzy ma
 	assert.match(workspace, /onConfirm: commitSelection/);
 	assert.match(workspace, /primaryEntry\.resolved\?\.status !== "ok"[\s\S]*broken: true/);
 	assert.match(workspace, /badge: target\.broken \? t\("aaalice\.workspace\.binding\.brokenBadge"/);
-	assert.match(workspace, /bindingLabelScore\(identityLabel, candidateIdentity\)/);
-	assert.match(workspace, /nodeScore > bestNodeScore/);
+	assert.match(workspace, /bestRebindMatch\(/);
+	assert.match(workspace, /match \? options\[match\.index\]\.value : options\[0\]\.value/);
 	assert.match(workspace, /selection\.revealSelected\(\)/);
 	assert.match(uiStyles, /\.aa-searchable-select__option\.is-selected/);
 	assert.match(theme, /\.aa-control-card-broken__action\.aa-ui-button/);
+});
+
+test("page menu offers batch rebinding with reviewable suggestions and one atomic commit", () => {
+	assert.match(workspace, /brokenPageControls\(page\)\.length/);
+	assert.match(workspace, /rebindAll\.menu[\s\S]*openPageRebind\(page\.id, host\)/);
+	assert.match(workspace, /describeRebindCandidates\(item\)/);
+	assert.match(workspace, /skipped: !match/);
+	assert.match(workspace, /rebindAll\.exactBadge[\s\S]*rebindAll\.suggestedBadge[\s\S]*rebindAll\.unmatchedBadge/);
+	assert.match(workspace, /row\.selectedValue = value; row\.manual = true; row\.skipped = false/);
+	assert.match(workspace, /next = replacePrimaryBinding\(next, row\.item\.id, candidate\.binding\)/);
+	assert.match(workspace, /commitDashboardBindingSet\(next, applied\.map\(\(row\) => row\.item\.id\), \{ synchronize \}\)/);
+	assert.match(theme, /\.aa-rebind-all__row\.is-skipped/);
+	assert.match(theme, /\.aa-rebind-all__match\.is-empty/);
 });

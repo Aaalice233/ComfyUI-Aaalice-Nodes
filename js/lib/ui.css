@@ -44,6 +44,7 @@
 	--aa-ui-focus: var(--aa-ui-accent);
 	--aa-ui-danger: var(--error-text, var(--p-red-400, #d66d75));
 	--aa-ui-warning: var(--warning-text, var(--p-amber-400, #d6a84f));
+	--aa-ui-success: var(--success-text, var(--p-green-400, #6fbf73));
 	--aa-ui-radius-sm: 6px;
 	--aa-ui-radius-md: 10px;
 	--aa-ui-radius-lg: 14px;

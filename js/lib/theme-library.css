@@ -280,6 +280,7 @@
 .aa-transfer-entry-row > .aa-ui-badge { justify-self: end; }
 .aa-transfer-dialog .aa-ui-badge.is-warning, .aa-transfer-dialog .aa-ui-badge.is-danger { border-color: transparent; box-shadow: var(--aa-transfer-surface-shadow); }
 .aa-ui-badge.is-warning { border-color: color-mix(in srgb, var(--aa-ui-warning) 32%, var(--aa-ui-border)); background: color-mix(in srgb, var(--aa-ui-warning) 10%, transparent); color: var(--aa-ui-warning); }
+.aa-ui-badge.is-success { border-color: color-mix(in srgb, var(--aa-ui-success) 32%, var(--aa-ui-border)); background: color-mix(in srgb, var(--aa-ui-success) 10%, transparent); color: var(--aa-ui-success); }
 .aa-ui-badge.is-danger { border-color: color-mix(in srgb, var(--aa-ui-danger) 32%, var(--aa-ui-border)); background: color-mix(in srgb, var(--aa-ui-danger) 10%, transparent); color: var(--aa-ui-danger); }
 .aa-transfer-callout { display: grid; min-height: 48px; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid transparent; border-radius: 9px; background: color-mix(in srgb, var(--aa-transfer-info) 7%, var(--aa-ui-surface-raised)); box-shadow: var(--aa-transfer-surface-shadow), inset 0 1px 0 color-mix(in srgb, var(--aa-transfer-info) 16%, transparent); color: var(--aa-transfer-info); }
 .aa-transfer-callout.is-success { --aa-transfer-info: var(--aa-transfer-success); }

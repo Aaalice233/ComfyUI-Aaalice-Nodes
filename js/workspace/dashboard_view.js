@@ -16,6 +16,7 @@ import { matchesDashboardSearch, normalizeDashboardSearchText } from "../lib/das
 import { createControlElement } from "../lib/workspace_controls.js";
 import { confirmAction, pickFile } from "./dom_utils.js";
 import { createDashboardToneControl } from "./dashboard_tone_control.js";
+import { brokenPageControls, openPageRebind } from "./dashboard_batch_rebind.js";
 
 let runtime = null;
 export function configureDashboardView(dependencies) { runtime = dependencies; }
@@ -109,10 +110,12 @@ export function renderDashboard(container, host) {
 	const openPageMenu = (x, y) => {
 		if (!page) return;
 		const sourceGroupCount = page.groups.filter((group) => group.source).length;
+		const brokenCount = brokenPageControls(page).length;
 		createContextMenu({ x, y, ownerElement: host, ariaLabel: t("aaalice.workspace.page.menu", "Page actions"), items: [
 			{ label: t("aaalice.workspace.page.rename", "Rename page"), iconName: "edit", onSelect: () => askText(t("aaalice.workspace.page.rename", "Rename page"), t("aaalice.workspace.page.name", "Page name"), page.name, renamePage) },
 			{ label: t("aaalice.workspace.page.duplicate", "Duplicate page"), iconName: "copy", onSelect: duplicateCurrentPage },
 			{ label: t("aaalice.workspace.group.sync.currentPage", "Synchronize source groups on this page"), iconName: "refresh", disabled: !sourceGroupCount, onSelect: () => syncCurrentPageSourceGroups(page.id) },
+			{ label: brokenCount ? `${t("aaalice.workspace.rebindAll.menu", "Rebind broken parameters…")} (${brokenCount})` : t("aaalice.workspace.rebindAll.menu", "Rebind broken parameters…"), iconName: "swap", disabled: !brokenCount, onSelect: () => openPageRebind(page.id, host) },
 			{ label: t("aaalice.workspace.page.tone", "Page color"), iconName: "settings", onSelect: () => openPageToneMenu(x + 12, y + 12) },
 			...(editMode ? [
 				{ separator: true },

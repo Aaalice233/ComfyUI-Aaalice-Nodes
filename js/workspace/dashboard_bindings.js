@@ -124,25 +124,33 @@ export function controlTitle(item, resolved) {
 }
 
 
-export function commitDashboardBindingSet(next, itemId, { synchronize = false, resolvedBindings = null } = {}) {
+export function commitDashboardBindingSet(next, itemIdOrIds, { synchronize = false, resolvedBindings = null } = {}) {
 	if (runtime.dashboardModelError()) throw runtime.dashboardModelError();
-	const { item } = findDashboardControl(next, itemId);
-	if (!item) throw new Error("Dashboard control is missing");
+	// 支持单卡片或批量提交；批量时全部校验在一次 beforeChange/afterChange 事务内完成，撤销为一步。
+	const itemIds = Array.isArray(itemIdOrIds) ? itemIdOrIds : [itemIdOrIds];
 	const resolveForCommit = resolvedBindings
 		? (binding) => resolvedBindings.has(bindingKey(binding)) ? resolvedBindings.get(bindingKey(binding)) : resolve(binding)
 		: resolve;
-	const resolvedSet = resolveControlBindingSet(item, resolveForCommit);
-	if (resolvedSet.status !== "ok") {
-		const issue = resolvedSet.bindingSet?.issues?.[0];
-		const error = new ControlBindingSetError("Linked controls are unavailable", issue?.reason || "unresolved-binding", issue?.binding || null, issue?.error || null);
-		error.issues = resolvedSet.bindingSet?.issues || [];
-		throw error;
+	const resolvedSets = [];
+	for (const itemId of itemIds) {
+		const { item } = findDashboardControl(next, itemId);
+		if (!item) throw new Error("Dashboard control is missing");
+		const resolvedSet = resolveControlBindingSet(item, resolveForCommit);
+		if (resolvedSet.status !== "ok") {
+			const issue = resolvedSet.bindingSet?.issues?.[0];
+			const error = new ControlBindingSetError("Linked controls are unavailable", issue?.reason || "unresolved-binding", issue?.binding || null, issue?.error || null);
+			error.issues = resolvedSet.bindingSet?.issues || [];
+			throw error;
+		}
+		resolvedSets.push(resolvedSet);
 	}
 	const graph = app.graph; if (!graph) throw new Error("Workflow graph is unavailable");
 	const previousDashboard = graph.extra?.[runtime.extraKey]; const normalized = normalizeDashboard(next); graph.beforeChange?.();
 	try {
 		graph.extra ||= {}; graph.extra[runtime.extraKey] = normalized;
-		if (synchronize && (!resolvedSet.availability?.state || resolvedSet.availability.state === "ready")) resolvedSet.synchronizeFromPrimary?.({ transaction: false });
+		if (synchronize) for (const resolvedSet of resolvedSets) {
+			if (!resolvedSet.availability?.state || resolvedSet.availability.state === "ready") resolvedSet.synchronizeFromPrimary?.({ transaction: false });
+		}
 		runtime.clearDashboardModelError();
 	} catch (error) {
 		if (previousDashboard === undefined) delete graph.extra[runtime.extraKey];

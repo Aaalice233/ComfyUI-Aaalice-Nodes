@@ -8,6 +8,7 @@ import { bindingControlIdLabel, sameBindingTarget } from "../lib/dashboard_bindi
 import { addLinkedBinding, replacePrimaryBinding } from "../lib/dashboard_commands.js";
 import { ControlBindingSetError, inspectControlLinkCompatibility, resolveControlBindingSet } from "../lib/control_binding_set.js";
 import { button, el, emptyState, field } from "../lib/ui.js";
+import { bindingLabelScore, bestRebindMatch } from "../lib/rebind_match.js";
 import { createSearchableSelect } from "../lib/searchable_select.js";
 import { createWorkspaceDialog } from "./dialogs.js";
 // 与 dashboard_bindings 存在函数级循环依赖（双向都只在运行期调用），不要在模块顶层求值这些导入。
@@ -74,16 +75,6 @@ function compatibleCardTargets(sourceBinding, model = dashboard()) {
 	return dedupeTargetLabels(targets);
 }
 
-function bindingLabelScore(sourceLabel, targetLabel) {
-	const source = String(sourceLabel || "").normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, "");
-	const target = String(targetLabel || "").normalize("NFKC").toLocaleLowerCase().replace(/[\s\p{P}\p{S}_]+/gu, "");
-	if (!source || !target) return 0;
-	if (source === target) return 1000;
-	const shorter = Math.min(source.length, target.length); const longer = Math.max(source.length, target.length);
-	if (shorter < 2 || !(source.includes(target) || target.includes(source))) return 0;
-	return 700 + Math.round((shorter / longer) * 200);
-}
-
 function preferredBindingTarget(sourceLabel, targets) {
 	let best = targets[0] || null; let bestScore = 0;
 	for (const target of targets) {
@@ -93,7 +84,7 @@ function preferredBindingTarget(sourceLabel, targets) {
 	return best;
 }
 
-function rebindCandidates(item, model = dashboard()) {
+export function rebindCandidates(item, model = dashboard()) {
 	const candidates = [];
 	for (const candidate of graphNodes().flatMap((node) => controlProviders.list(node))) {
 		if (sameBindingTarget(candidate.binding, item.binding, resolve) || candidate.binding.valueType !== item.binding.valueType) continue;
@@ -105,22 +96,12 @@ function rebindCandidates(item, model = dashboard()) {
 	return candidates;
 }
 
-function commitRebind(item, binding, dialog) {
-	const next = replacePrimaryBinding(dashboard(), item.id, binding);
-	commitDashboardBindingSet(next, item.id, { synchronize: linkedBindingCount(findDashboardControl(next, item.id).item) > 0 });
-	app.extensionManager?.toast?.add?.({ severity: "success", summary: t("aaalice.workspace.binding.rebound", "Parameter rebound"), detail: message("aaalice.workspace.binding.reboundDetail", "The sidebar control is now driven by {name}.", { name: bindingDisplay(binding).title }), life: 3200 });
-	dialog?.close();
-}
-
-export function openRebind(item, ownerElement = null) {
+/**
+ * 失效卡片的重绑候选及自动匹配结果。options 可直接交给 createSearchableSelect；
+ * match 为 bestRebindMatch 的结果（可能为 null），用于预选与置信徽章。
+ */
+export function describeRebindCandidates(item) {
 	const candidates = rebindCandidates(item);
-	const body = el("div", "aa-rebind-list"); const footer = el("div"); let dialog;
-	if (!candidates.length) {
-		body.append(emptyState({ description: t("aaalice.workspace.binding.noCompatible", "No compatible controls are available.") }));
-		footer.append(button({ label: t("aaalice.common.close", "Close"), variant: "primary", onClick: () => dialog.close() }));
-		dialog = createWorkspaceDialog({ title: t("aaalice.workspace.binding.rebind", "Rebind control"), body, footer, size: "sm" }, ownerElement);
-		return;
-	}
 	const rawLabels = candidates.map((candidate) => { const display = bindingDisplay(candidate.binding); return { title: display.title, description: display.description }; });
 	const labelTotals = new Map(); const labelOccurrences = new Map();
 	for (const entry of rawLabels) {
@@ -136,29 +117,33 @@ export function openRebind(item, ownerElement = null) {
 			value: bindingKey(candidate.binding),
 		};
 	});
-	// 失效绑定自带来源身份（promoted 元组的来源名）与卡片标题；按两者给候选打分并预选最高分，
-	// 同名的原参数在列表中时无需手动搜索。
+	// 失效绑定自带来源身份（promoted 元组的来源名）与卡片标题；按两者给候选打分，
+	// 同名的原参数在候选中时无需手动搜索。
 	const identityLabel = bindingControlIdLabel(item.binding);
-	const preferredLabel = item.labelOverride || item.label || identityLabel;
-	let initialValue = options[0].value;
-	let bestScore = 0; let bestNodeScore = 0;
-	for (const [index, candidate] of candidates.entries()) {
-		const candidateIdentity = bindingControlIdLabel(candidate.binding);
-		const score = Math.max(
-			bindingLabelScore(preferredLabel, rawLabels[index].title),
-			bindingLabelScore(identityLabel, rawLabels[index].title),
-			bindingLabelScore(identityLabel, candidateIdentity),
-			bindingLabelScore(preferredLabel, `${rawLabels[index].description} ${rawLabels[index].title}`),
-		);
-		// 主分数打平时用节点标题消歧：多个同名参数（如多个 seed）应优先落在原节点上。
-		const nodeScore = Math.max(
-			bindingLabelScore(preferredLabel, rawLabels[index].description),
-			bindingLabelScore(identityLabel, rawLabels[index].description),
-		);
-		if (score > bestScore || (score === bestScore && score > 0 && nodeScore > bestNodeScore)) {
-			bestScore = score; bestNodeScore = nodeScore; initialValue = options[index].value;
-		}
+	const match = bestRebindMatch(
+		{ preferredLabel: item.labelOverride || item.label || identityLabel, identityLabel },
+		candidates.map((candidate, index) => ({ title: rawLabels[index].title, description: rawLabels[index].description, identityLabel: bindingControlIdLabel(candidate.binding) })),
+	);
+	return { candidates, options, match };
+}
+
+function commitRebind(item, binding, dialog) {
+	const next = replacePrimaryBinding(dashboard(), item.id, binding);
+	commitDashboardBindingSet(next, item.id, { synchronize: linkedBindingCount(findDashboardControl(next, item.id).item) > 0 });
+	app.extensionManager?.toast?.add?.({ severity: "success", summary: t("aaalice.workspace.binding.rebound", "Parameter rebound"), detail: message("aaalice.workspace.binding.reboundDetail", "The sidebar control is now driven by {name}.", { name: bindingDisplay(binding).title }), life: 3200 });
+	dialog?.close();
+}
+
+export function openRebind(item, ownerElement = null) {
+	const { candidates, options, match } = describeRebindCandidates(item);
+	const body = el("div", "aa-rebind-list"); const footer = el("div"); let dialog;
+	if (!candidates.length) {
+		body.append(emptyState({ description: t("aaalice.workspace.binding.noCompatible", "No compatible controls are available.") }));
+		footer.append(button({ label: t("aaalice.common.close", "Close"), variant: "primary", onClick: () => dialog.close() }));
+		dialog = createWorkspaceDialog({ title: t("aaalice.workspace.binding.rebind", "Rebind control"), body, footer, size: "sm" }, ownerElement);
+		return;
 	}
+	const initialValue = match ? options[match.index].value : options[0].value;
 	const commitSelection = (value) => {
 		const selected = candidates.find((candidate) => bindingKey(candidate.binding) === value);
 		if (!selected) return;
