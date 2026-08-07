@@ -256,6 +256,31 @@ test("store-backed promoted widgets resolve source identity through subgraph slo
 	assert.equal(resolveAdaptedWidgetControl(host, "cfg", { promoted: true })?.widget, projected);
 });
 
+test("store-backed promoted seed widgets keep the dedicated seed control", () => {
+	// 新协议宿主投影不带 linkedWidgets，种子行为控件只存在于内部真实节点上。
+	const controlWidget = {
+		name: "control_after_generate", type: "combo", value: "randomize",
+		options: { values: ["fixed", "increment", "decrement", "randomize"], serialize: false, canvasOnly: true },
+	};
+	const interiorWidget = { name: "seed", type: "number", value: 1, options: {}, linkedWidgets: [controlWidget] };
+	const interiorInput = { name: "seed", link: 11 };
+	const interiorNode = { id: 4, inputs: [interiorInput], widgets: [interiorWidget, controlWidget], isSubgraphNode: () => false, getWidgetFromSlot: (slot) => slot === interiorInput ? interiorWidget : undefined };
+	const link = { resolve: () => ({ inputNode: interiorNode }) };
+	const projected = { name: "seed", type: "number", value: 1, options: {}, widgetId: "graph-1:1:seed" };
+	const hostInput = { name: "seed", widgetId: "graph-1:1:seed", _widget: projected, _subgraphSlot: { linkIds: [11] } };
+	const host = {
+		isSubgraphNode: () => true,
+		inputs: [hostInput],
+		widgets: [projected],
+		subgraph: { getLink: (id) => id === 11 ? link : null, getNodeById: (id) => id === 4 ? interiorNode : null },
+	};
+	const adapted = adaptWidgetControl(host, projected, { promoted: true });
+	assert.equal(adapted?.kind, "seed");
+	assert.equal(adapted?.options?.control_after_generate, "randomize");
+	adapted.setSeedBehavior("fixed");
+	assert.equal(controlWidget.value, "fixed");
+});
+
 test("store-backed nested promotions keep disambiguating identity and resolve the deepest owner", () => {
 	const realWidget = { name: "seed", type: "number", value: 1, options: {} };
 	const realInput = { name: "seed", link: 21 };

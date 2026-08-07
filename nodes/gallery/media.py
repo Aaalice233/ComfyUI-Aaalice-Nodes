@@ -36,47 +36,75 @@ class _MediaUpstreamError(RuntimeError):
     """Transient upstream failure (5xx) that may succeed on retry."""
 
 
+class _LoopMediaState:
+    """aiohttp objects bound to one event loop. ComfyUI serves the frontend
+    on the server loop but runs async node execution on a separate execution
+    loop; sharing a ClientSession, Semaphore or Task across them raises
+    "Timeout context manager should be used inside a task" or loop-binding
+    errors, so every loop gets its own session, semaphores and dedup table."""
+
+    def __init__(self):
+        self.session: aiohttp.ClientSession | None = None
+        self.session_timeout: int | None = None
+        self.host_semaphores: dict[str, asyncio.Semaphore] = {}
+        self.inflight: dict[str, asyncio.Task] = {}
+
+
 class MediaProxy:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir
-        self._session: aiohttp.ClientSession | None = None
-        self._session_timeout: int | None = None
-        self._host_semaphores: dict[str, asyncio.Semaphore] = {}
-        self._inflight: dict[str, asyncio.Task] = {}
+        self._states: dict[asyncio.AbstractEventLoop, _LoopMediaState] = {}
+
+    def _state(self) -> _LoopMediaState:
+        loop = asyncio.get_running_loop()
+        state = self._states.get(loop)
+        if state is None:
+            state = _LoopMediaState()
+            self._states[loop] = state
+        return state
 
     def session(self) -> aiohttp.ClientSession:
+        state = self._state()
         timeout = get_gallery_settings_store().load()["timeout"]
-        current = self._session
-        if current is None or self._session_timeout != timeout:
-            self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout), trust_env=True)
-            self._session_timeout = timeout
+        current = state.session
+        if current is None or state.session_timeout != timeout:
+            state.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout), trust_env=True)
+            state.session_timeout = timeout
             if current is not None:
                 asyncio.get_running_loop().create_task(self._retire(current))
-        return self._session
+        return state.session
 
     async def _retire(self, session: aiohttp.ClientSession) -> None:
         await asyncio.sleep(SESSION_RETIRE_SECONDS)
         await session.close()
 
     async def close(self) -> None:
-        session = self._session
-        self._session = None
-        self._session_timeout = None
-        if session is not None:
-            await session.close()
+        states = self._states
+        self._states = {}
+        current_loop = asyncio.get_running_loop()
+        for loop, state in states.items():
+            session = state.session
+            if session is None:
+                continue
+            if loop is current_loop and not loop.is_closed():
+                await session.close()
+            else:
+                # 其他 loop 的 session 无法在当前 loop 关闭；detach 避免析构告警。
+                session.detach()
 
     async def fetch_media(self, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
         validate_url(url)
         cached = await self._read_cache(url)
         if cached is not None:
             return cached
-        inflight = self._inflight.get(url)
+        state = self._state()
+        inflight = state.inflight.get(url)
         if inflight is None:
-            inflight = asyncio.create_task(self._download(source, url, validate_url))
-            self._inflight[url] = inflight
+            inflight = asyncio.create_task(self._download(state, source, url, validate_url))
+            state.inflight[url] = inflight
 
             def _finish(finished):
-                self._inflight.pop(url, None)
+                state.inflight.pop(url, None)
                 # 所有等待者都取消时任务异常无人检索，这里消费掉避免 asyncio 警告。
                 if not finished.cancelled():
                     finished.exception()
@@ -86,23 +114,23 @@ class MediaProxy:
         # 同一 URL 反复全量重下。
         return await asyncio.shield(inflight)
 
-    async def _download(self, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
+    async def _download(self, state: _LoopMediaState, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
         # Transient upstream failures (5xx, timeouts, connection drops) retry with
         # backoff; 4xx stays a hard error because it usually means a real miss.
         for attempt in range(3):
             try:
-                return await self._fetch_once(source, url, validate_url)
+                return await self._fetch_once(state, source, url, validate_url)
             except (aiohttp.ClientError, TimeoutError, _MediaUpstreamError) as exc:
                 if attempt >= 2:
                     raise RuntimeError(f"{source} media GET {url} failed after {attempt + 1} attempts: {exc}") from exc
                 await asyncio.sleep(0.5 * (attempt + 1))
 
-    async def _fetch_once(self, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
+    async def _fetch_once(self, state: _LoopMediaState, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
         current = url
         for _redirect in range(MAX_REDIRECTS):
             validate_url(current)
             host = aiohttp.client_reqrep.URL(current).host or ""
-            semaphore = self._host_semaphores.setdefault(host, asyncio.Semaphore(6))
+            semaphore = state.host_semaphores.setdefault(host, asyncio.Semaphore(6))
             async with semaphore, self.session().get(current, allow_redirects=False, headers={"Accept": "image/*"}) as response:
                 if response.status in {301, 302, 303, 307, 308}:
                     location = response.headers.get("Location")

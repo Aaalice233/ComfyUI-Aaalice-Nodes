@@ -559,7 +559,10 @@ registerWidgetControlAdapter({
 	describe({ node, widget, promoted }) {
 		const definition = simpleNativeWidgetDefinition(widget, { promoted });
 		const numericDomain = nativeNumericDomain(node, widget, definition);
-		const seedMode = numericDomain !== "float" ? linkedSeedModeWidget(node, widget) : null;
+		// 新协议下宿主投影不带 linkedWidgets，宿主上也没有 control_after_generate，
+		// 必须沿提升链到内部真实 widget 上检测种子行为控件。
+		const owner = resolveWidgetDefinitionOwner(node, widget);
+		const seedMode = numericDomain !== "float" ? linkedSeedModeWidget(owner.node, owner.widget) : null;
 		const kind = seedMode ? "seed" : definition.kind;
 		const options = { ...(widget.options || {}) };
 		if (kind === "numeric" || kind === "seed") options.step = realWidgetStep(widget.options);
