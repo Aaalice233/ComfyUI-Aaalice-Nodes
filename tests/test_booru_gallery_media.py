@@ -207,3 +207,24 @@ class GalleryMediaProxyTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(list((Path(directory) / "media").glob("*.bin")), [])
 
 
+    async def test_cached_media_file_streams_header_offset_without_loading_body(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            body = b"x" * 4096
+            await proxy._write_cache("https://cdn.test/stream.jpg", "image/webp", body)
+            resolved = proxy.cached_media_file("https://cdn.test/stream.jpg")
+            self.assertIsNotNone(resolved)
+            content_type, path, offset = resolved
+            self.assertEqual(content_type, "image/webp")
+            with open(path, "rb") as stream:
+                stream.seek(offset)
+                self.assertEqual(stream.read(), body)
+            self.assertIsNone(proxy.cached_media_file("https://cdn.test/missing.jpg"))
+
+    async def test_cached_media_file_rejects_unknown_content_type_header(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            path = proxy._cache_path("https://cdn.test/bogus.jpg")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"text/html\n<html>")
+            self.assertIsNone(proxy.cached_media_file("https://cdn.test/bogus.jpg"))

@@ -168,8 +168,9 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 	assert.match(source, /const PROMPT_ASSISTANT_API = "\/prompt-assistant\/api"/);
 	assert.match(source, /\$\{PROMPT_ASSISTANT_API\}\/config\/llm\/masked/);
 	assert.match(source, /promptAssistantAvailable = Boolean\(assistantAvailable\)/);
-	assert.match(source, /actionButton\("copy", "copyPrompt", label\("card\.copyPrompt", "Copy prompt"\)/);
-	assert.match(source, /isPromptAssistantAvailable\(\) \? actionButton\("scan", "interrogate", label\("card\.interrogate", "Interrogate prompt"\)/);
+	assert.match(source, /actionButton\("copy", "copyPrompt", 2, async \(\) =>/);
+	assert.match(source, /copyPromptAction\.setAttribute\("aria-label", label\("card\.copyPrompt", "Copy prompt"\)\)/);
+	assert.match(source, /interrogateAction\.style\.display = isPromptAssistantAvailable\(\) \? "" : "none"/);
 	assert.match(source, /const copyPostPrompt = async \(post\) =>/);
 	assert.match(source, /navigator\.clipboard\.writeText\(text\)/);
 	assert.match(source, /label\("card\.promptCopied", "Prompt copied to clipboard"\)/);
@@ -182,7 +183,7 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 	assert.match(source, /className: "aa-gallery-card__scan"/);
 	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__scan \{[^}]*animation: aa-gallery-card-scan/);
 	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__surface \{[^}]*translate3d\(0, -4px, 12px\)[^}]*animation: aa-gallery-card-scan-glow/);
-	assert.match(source, /actionControls = \[editAction, \.\.\.\(favoriteAction \? \[favoriteAction\] : \[\]\), copyPromptAction, \.\.\.\(interrogateAction \? \[interrogateAction\] : \[\]\), detailAction\]/);
+	assert.match(source, /actionControls = \[editAction, favoriteAction, copyPromptAction, interrogateAction, detailAction\]/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.equal(typeof locale.aaalice.gallery.card.copyPrompt, "string");
 		assert.equal(typeof locale.aaalice.gallery.card.promptCopied, "string");

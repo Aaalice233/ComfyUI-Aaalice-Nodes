@@ -237,6 +237,11 @@ class GalleryService:
         adapter = adapter_for(source)
         return await self._media.fetch_media(source, url, adapter.validate_media_url)
 
+    def cached_media_file(self, source: str, url: str) -> tuple[str, Path, int] | None:
+        adapter = adapter_for(source)
+        adapter.validate_media_url(url)
+        return self._media.cached_media_file(url)
+
     def _cache_path(self, source: str, post_id: str, url: str) -> Path:
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
         safe_id = "".join(character for character in post_id if character.isalnum() or character in "-_") or "post"

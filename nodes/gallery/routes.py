@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import aiohttp
 from aiohttp import web
 
@@ -66,11 +68,49 @@ async def detail(request):
         return _error(exc)
 
 
+MEDIA_CHUNK_BYTES = 1024 * 1024
+
+
+async def _stream_cached_file(request: web.Request, content_type: str, path, offset: int) -> web.StreamResponse:
+    """Send a disk-cached media body without loading it into memory."""
+    total = path.stat().st_size
+    length = total - offset
+    response = web.StreamResponse(status=200, headers={
+        "Content-Type": content_type,
+        "Content-Length": str(length),
+        "Cache-Control": "private, max-age=86400, immutable",
+        "X-Content-Type-Options": "nosniff",
+    })
+    await response.prepare(request)
+    position = offset
+    while position < total:
+        chunk = await asyncio.to_thread(_read_chunk, path, position, MEDIA_CHUNK_BYTES)
+        if not chunk:
+            break
+        position += len(chunk)
+        await response.write(chunk)
+    await response.write_eof()
+    return response
+
+
+def _read_chunk(path, position: int, size: int) -> bytes:
+    with open(path, "rb") as stream:
+        stream.seek(position)
+        return stream.read(size)
+
+
 async def media(request):
     try:
-        data, content_type, _final = await get_gallery_service().fetch_media(request.query.get("source", ""), request.query.get("url", ""))
+        source = request.query.get("source", "")
+        url = request.query.get("url", "")
+        service = get_gallery_service()
+        cached = service.cached_media_file(source, url)
+        if cached is not None:
+            content_type, path, offset = cached
+            return await _stream_cached_file(request, content_type, path, offset)
+        data, content_type, _final = await service.fetch_media(source, url)
         response = web.Response(body=data, content_type=content_type)
-        response.headers["Cache-Control"] = "private, max-age=86400"
+        response.headers["Cache-Control"] = "private, max-age=86400, immutable"
         response.headers["Content-Length"] = str(len(data))
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response

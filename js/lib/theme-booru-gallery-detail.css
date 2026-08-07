@@ -3,6 +3,10 @@
 .aa-gallery-hover { display: grid; overflow: hidden; border-radius: 13px; background: var(--aa-ui-surface); }
 .aa-gallery-hover__media { position: relative; display: grid; width: min(var(--aa-gallery-hover-image-width, 320px), calc(100vw - 40px)); height: min(var(--aa-gallery-hover-image-height, 240px), calc(100vh - 150px)); overflow: hidden; place-items: center; background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--aa-ui-control) 78%, transparent), var(--aa-ui-canvas)); transition: width .2s cubic-bezier(.2, .78, .22, 1), height .2s cubic-bezier(.2, .78, .22, 1); }
 .aa-gallery-hover__media > img { display: block; width: 100%; height: 100%; object-fit: contain; animation: aa-gallery-media-in .18s ease-out; }
+/* Sample 升级层：淡入覆盖底图，淡化结束后再把 src 落回底图，不做硬切换。 */
+.aa-gallery-hover__media > img.is-upgrade { position: absolute; inset: 0; z-index: 1; opacity: 0; animation: none; transition: opacity .18s ease-out; }
+.aa-gallery-hover__media > img.is-upgrade.is-visible { opacity: 1; }
+.aa-gallery-hover__media > img.is-upgrade[hidden] { display: none; }
 .aa-gallery-hover__loading { position: absolute; z-index: 3; top: 8px; right: 8px; display: grid; width: 24px; height: 24px; place-items: center; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--aa-ui-canvas) 62%, transparent); box-shadow: 0 3px 10px rgb(0 0 0 / .2), inset 0 1px rgb(255 255 255 / .12); color: color-mix(in srgb, var(--aa-ui-on-media) 88%, transparent); pointer-events: none; backdrop-filter: blur(8px); animation: aa-gallery-hover-loading .16s ease-out; }
 .aa-gallery-hover__loading .aa-ui-icon { width: 13px; height: 13px; stroke-width: 2.2; animation: aa-gallery-loader-orbit .9s linear infinite; }
 .aa-gallery-hover__loading[hidden] { display: none; }

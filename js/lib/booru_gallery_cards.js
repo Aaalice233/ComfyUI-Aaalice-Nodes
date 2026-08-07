@@ -120,123 +120,190 @@ function markFailedPreview(src) {
 	if (failedPreviewSources.size > MAX_FAILED_PREVIEW_SOURCES) failedPreviewSources.delete(failedPreviewSources.keys().next().value);
 }
 
+// 卡片 DOM 回收池：虚拟瀑布流滚动时持续挂载/卸载卡片，新建一张卡片要创建约
+// 15 个元素和全部按钮监听。视图把 DOM 结构与数据绑定分离——卸载卡片回池、挂载时
+// bind 新 post 复用整棵子树，滚动帧内只做重绑定；换绑时旧图进入 decoded-preview
+// 池，新图优先从池中取回已解码元素。
+const cardViewPool = [];
+const MAX_POOLED_CARD_VIEWS = 48;
+
+function createCardImage() {
+	const image = document.createElement("img");
+	image.alt = ""; image.loading = "lazy"; image.decoding = "async"; image.fetchPriority = "low";
+	// 图片元素会在卡片池与预览池之间迁移，事件委托给当前持有者，迁移时无需拆装监听。
+	image.addEventListener("load", () => image._aaCardView?.handleImageLoad(image));
+	image.addEventListener("error", () => image._aaCardView?.handleImageError(image));
+	// 图片生命周期由卡片池接管，瀑布流卸载时不剥离 src， decoded 位图随卡片保留。
+	image._aaVirtualMasonryRelease = () => true;
+	return image;
+}
+
+function releaseCardImage(view, image) {
+	image._aaCardView = null;
+	const loadedSrc = image.dataset.deferred === "1" ? null : image.getAttribute("src");
+	if (loadedSrc && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) rememberPreviewImage(loadedSrc, image, image.naturalWidth, image.naturalHeight);
+	else image.removeAttribute("src");
+	image.remove();
+}
+
 function createGalleryCard(node, controller, post, index, deferImage = false) {
-	const card = el("article", { className: "aa-gallery-card", attrs: { tabindex: 0, "aria-label": `${post.source} #${post.postId}` } });
+	const view = cardViewPool.pop() || buildGalleryCardView();
+	view.bind(node, controller, post, deferImage);
+	return view.root;
+}
+
+function buildGalleryCardView() {
+	const card = el("article", { className: "aa-gallery-card", attrs: { tabindex: 0 } });
 	const surface = el("div", "aa-gallery-card__surface");
-	const src = proxyUrl(post.source, post.previewUrl);
-	const pooled = takePreviewImage(src);
-	let image;
-	if (pooled) {
-		// 池只持有已从卡片卸载的图片，取出后所有权重新交给当前卡片。
-		image = pooled.image;
-		controller.updateSize(post, pooled.width, pooled.height);
-	} else {
-		image = document.createElement("img"); image.alt = ""; image.loading = "lazy"; image.decoding = "async"; image.fetchPriority = "low";
-		image.width = Math.max(1, Number(post.width) || 1); image.height = Math.max(1, Number(post.height) || 1);
-		image.addEventListener("load", () => {
-			surface.classList.remove("is-loading", "is-error");
-			failedPreviewSources.delete(src);
-			if (image.naturalWidth > 0 && image.naturalHeight > 0) controller.updateSize(post, image.naturalWidth, image.naturalHeight);
-		});
-		image.addEventListener("error", () => {
-			surface.classList.remove("is-loading");
-			surface.classList.add("is-error");
-			markFailedPreview(src);
-			void controller.recoverPreview(post, image);
-		});
-		const failedAt = failedPreviewSources.get(src);
-		if (failedAt && failedAt > Date.now()) {
-			// 已知失败：不重复请求注定失败的 URL，直接走恢复链路换真实来源。
-			surface.classList.add("is-error");
-			void controller.recoverPreview(post, image);
-		} else {
-			surface.classList.add("is-loading");
-			if (deferImage) {
-				// 滚动活跃期挂载的卡片只占位，滚动停止后由入口统一补挂 src，
-				// 避免快速滚动时每帧创建图片请求与解码任务拖垮主线程。
-				image.dataset.deferred = "1";
-				image.dataset.src = src;
-			} else image.src = src;
-		}
-	}
-	image._aaVirtualMasonryRelease = () => {
-		if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) return false;
-		const loadedSrc = image.getAttribute("src");
-		return Boolean(loadedSrc) && rememberPreviewImage(loadedSrc, image, image.naturalWidth, image.naturalHeight);
-	};
 	const errorLayer = el("button", { className: "aa-gallery-card__error", attrs: { type: "button", "aria-label": label("card.retryImage", "Retry image") }, children: [icon("statusError"), el("span", null, label("card.imageFailed", "Load failed"))] });
+	const selectionStamp = createSelectionStamp(getSettings()?.selectionStamp);
+	const selectedLayer = el("div", "aa-gallery-card__selected-layer");
+	const rating = el("span", { className: "aa-gallery-card__rating", attrs: { hidden: true } });
+	const actions = el("div", { className: "aa-gallery-card__actions", attrs: { role: "group", "aria-label": label("card.actions", "Image actions") } });
+	const view = {
+		root: card, node: null, controller: null, post: null, image: null, currentSrc: "", hoverTimer: 0, selectionPending: false, visibleActions: 0,
+	};
+	const actionButton = (iconName, action, actionIndex, onClick) => {
+		const control = iconButton({ iconName, label: "", variant: "ghost", className: `aa-gallery-card-action is-${action}`, onClick: (event) => { event?.stopPropagation?.(); onClick(event); if (event?.detail) control.blur(); } });
+		control.style.setProperty("--aa-gallery-action-delay", `${actionIndex * 34}ms`);
+		return control;
+	};
+	const editAction = actionButton("edit", "edit", 0, () => view.controller.openEditor(view.post).catch(view.controller.showError));
+	editAction.setAttribute("aria-label", label("card.edit", "Edit image tags")); editAction.title = label("card.edit", "Edit image tags");
+	const favoriteAction = actionButton("favorite", "favorite", 1, async () => {
+		const post = view.post; const targetFavorite = !Boolean(post.favorite);
+		if (!canWriteFavorite(post.source, targetFavorite)) return;
+		try { await view.controller.toggleFavorite(post); card._aaGalleryUpdate?.(); favoriteAction.classList.add("is-acknowledged"); notifyFavorite(post.source, targetFavorite); }
+		catch (error) { notifyFavorite(post.source, targetFavorite, error); view.controller.showError(error); }
+	});
+	const copyPromptAction = actionButton("copy", "copyPrompt", 2, async () => {
+		try { if (await view.controller.copyPostPrompt(view.post)) copyPromptAction.classList.add("is-acknowledged"); }
+		catch (error) { view.controller.showError(error); }
+	});
+	copyPromptAction.setAttribute("aria-label", label("card.copyPrompt", "Copy prompt")); copyPromptAction.title = label("card.copyPrompt", "Copy prompt");
+	const interrogateAction = actionButton("scan", "interrogate", 3, async () => {
+		try { await view.controller.interrogatePost(view.post, card, interrogateAction); interrogateAction.classList.add("is-acknowledged"); }
+		catch (error) { view.controller.showError(error); }
+	});
+	interrogateAction.setAttribute("aria-label", label("card.interrogate", "Interrogate prompt")); interrogateAction.title = label("card.interrogate", "Interrogate prompt");
+	const detailAction = actionButton("note", "detail", 4, () => view.controller.openDetail(view.post).catch(view.controller.showError));
+	detailAction.setAttribute("aria-label", label("card.detail", "View details")); detailAction.title = label("card.detail", "View details");
+	const actionControls = [editAction, favoriteAction, copyPromptAction, interrogateAction, detailAction];
+	actions.append(...actionControls);
+	surface.append(el("div", { className: "aa-gallery-card__loading", attrs: { "aria-hidden": "true" } }), selectedLayer, el("div", { className: "aa-gallery-card__shade" }), el("div", { className: "aa-gallery-card__scan", attrs: { "aria-hidden": "true" } }), rating, selectionStamp.root, errorLayer, actions);
+	card.append(surface);
+
+	view.handleImageLoad = (image) => {
+		if (image !== view.image || !view.post) return;
+		surface.classList.remove("is-loading", "is-error");
+		failedPreviewSources.delete(view.currentSrc);
+		if (image.naturalWidth > 0 && image.naturalHeight > 0) view.controller.updateSize(view.post, image.naturalWidth, image.naturalHeight);
+	};
+	view.handleImageError = (image) => {
+		if (image !== view.image || !view.post) return;
+		surface.classList.remove("is-loading");
+		surface.classList.add("is-error");
+		markFailedPreview(view.currentSrc);
+		void view.controller.recoverPreview(view.post, image);
+	};
+
+	view.bind = (node, controller, post, deferImage = false) => {
+		view.node = node; view.controller = controller; view.post = post;
+		const src = proxyUrl(post.source, post.previewUrl);
+		view.currentSrc = src;
+		let image = view.image;
+		const boundSrc = image ? (image.dataset.deferred === "1" ? image.dataset.src : image.getAttribute("src")) : null;
+		if (image && boundSrc !== src) { releaseCardImage(view, image); image = null; }
+		if (!image) {
+			const pooled = takePreviewImage(src);
+			if (pooled) {
+				// 池只持有已解码图片，取出后所有权转给当前卡片。
+				image = pooled.image; image._aaCardView = view;
+				controller.updateSize(post, pooled.width, pooled.height);
+				surface.classList.remove("is-loading", "is-error");
+			} else {
+				image = createCardImage(); image._aaCardView = view;
+				image.width = Math.max(1, Number(post.width) || 1); image.height = Math.max(1, Number(post.height) || 1);
+				const failedAt = failedPreviewSources.get(src);
+				if (failedAt && failedAt > Date.now()) {
+					// 已知失败：不重复请求注定失败的 URL，直接走恢复链路换真实来源。
+					surface.classList.remove("is-loading");
+					surface.classList.add("is-error");
+					void controller.recoverPreview(post, image);
+				} else {
+					surface.classList.remove("is-error");
+					surface.classList.add("is-loading");
+					if (deferImage) {
+						// 滚动活跃期挂载的卡片只占位，滚动停止后由入口统一补挂 src。
+						image.dataset.deferred = "1";
+						image.dataset.src = src;
+					} else image.src = src;
+				}
+			}
+			surface.insertBefore(image, selectedLayer);
+			view.image = image;
+		}
+		const favoriteCapability = capability(post.source);
+		const favoriteVisible = Boolean(favoriteCapability?.favoriteRead || favoriteCapability?.favoriteWrite);
+		// .aa-ui-button 的 display 声明会覆盖 hidden 属性，显隐必须走 inline style。
+		favoriteAction.style.display = favoriteVisible ? "" : "none";
+		interrogateAction.style.display = isPromptAssistantAvailable() ? "" : "none";
+		view.favoriteVisible = favoriteVisible;
+		view.visibleActions = actionControls.filter((control) => control.style.display !== "none").length;
+		const hasRating = Boolean(post.rating) && Boolean(favoriteCapability?.ratings?.length);
+		rating.hidden = !hasRating;
+		if (hasRating) { rating.dataset.rating = ratingTone(post.rating); rating.textContent = ratingLabel(post.rating); }
+		view.update();
+	};
+
+	view.update = () => {
+		const post = view.post; if (!post || !view.node) return;
+		const selected = stateFor(view.node).selections.some((item) => selectionKey(item) === `${post.source}:${post.postId}`);
+		const previousSelected = card.dataset.selected;
+		card.classList.toggle("is-selected", selected);
+		selectionStamp.setStyle(getSettings()?.selectionStamp);
+		card.dataset.selected = String(selected);
+		if (previousSelected != null && previousSelected !== String(selected)) card.classList.add("is-selection-feedback");
+		if (view.favoriteVisible) { favoriteAction.classList.toggle("is-active", Boolean(post.favorite)); favoriteAction.setAttribute("aria-label", post.favorite ? label("card.unfavorite", "Remove favorite") : label("card.favorite", "Favorite")); favoriteAction.title = favoriteAction.getAttribute("aria-label"); }
+		card.setAttribute("aria-label", `${post.source} #${post.postId} · ${selected ? label("card.cancel", "Cancel selection") : label("card.select", "Select image")}`);
+	};
+	card._aaGalleryUpdate = () => view.update();
+	card._aaVirtualMasonryLayout = (width, height) => { card.dataset.actionsLayout = galleryCardActionLayout(width, height, view.visibleActions); };
+
+	const runSelection = async (event = null) => {
+		if (view.selectionPending || !view.post) return;
+		view.controller.tooltip.hide();
+		if (event?.type === "click") card.blur();
+		view.selectionPending = true; card.classList.add("is-selection-pending");
+		try { await view.controller.toggleSelection(view.post); }
+		catch (error) { view.controller.showError(error); }
+		finally { view.selectionPending = false; card.classList.remove("is-selection-pending"); }
+	};
 	errorLayer.addEventListener("click", () => {
+		const image = view.image; const src = view.currentSrc;
+		if (!image || !src) return;
 		surface.classList.remove("is-error");
 		surface.classList.add("is-loading");
 		failedPreviewSources.delete(src);
 		image.removeAttribute("src");
 		image.src = src;
 	});
-	const selectionStamp = createSelectionStamp(getSettings()?.selectionStamp);
-	const selectedLayer = el("div", "aa-gallery-card__selected-layer");
-	const hasRating = Boolean(post.rating) && Boolean(capability(post.source)?.ratings?.length);
-	const rating = hasRating ? el("span", { className: "aa-gallery-card__rating", attrs: { "data-rating": ratingTone(post.rating) }, text: ratingLabel(post.rating) }) : null;
-	const actions = el("div", { className: "aa-gallery-card__actions", attrs: { role: "group", "aria-label": label("card.actions", "Image actions") } });
-	let selectionPending = false;
-	const runSelection = async (event = null) => {
-		if (selectionPending) return;
-		controller.tooltip.hide();
-		if (event?.type === "click") card.blur();
-		selectionPending = true; card.classList.add("is-selection-pending");
-		try { await controller.toggleSelection(post); }
-		catch (error) { controller.showError(error); }
-		finally { selectionPending = false; card.classList.remove("is-selection-pending"); }
-	};
-	const actionButton = (iconName, action, actionLabel, actionIndex, onClick) => {
-		const control = iconButton({ iconName, label: actionLabel, variant: "ghost", className: `aa-gallery-card-action is-${action}`, onClick: (event) => { event?.stopPropagation?.(); onClick(event); if (event?.detail) control.blur(); } });
-		control.style.setProperty("--aa-gallery-action-delay", `${actionIndex * 34}ms`);
-		return control;
-	};
-	const editAction = actionButton("edit", "edit", label("card.edit", "Edit image tags"), 0, () => controller.openEditor(post).catch(controller.showError));
-	let actionIndex = 1;
-	const favoriteCapability = capability(post.source);
-	const favoriteAction = (favoriteCapability?.favoriteRead || favoriteCapability?.favoriteWrite) ? actionButton("favorite", "favorite", post.favorite ? label("card.unfavorite", "Remove favorite") : label("card.favorite", "Favorite"), actionIndex++, async () => {
-		const targetFavorite = !Boolean(post.favorite);
-		if (!canWriteFavorite(post.source, targetFavorite)) return;
-		try { await controller.toggleFavorite(post); card._aaGalleryUpdate?.(); favoriteAction.classList.add("is-acknowledged"); notifyFavorite(post.source, targetFavorite); }
-		catch (error) { notifyFavorite(post.source, targetFavorite, error); controller.showError(error); }
-	}) : null;
-	const copyPromptAction = actionButton("copy", "copyPrompt", label("card.copyPrompt", "Copy prompt"), actionIndex++, async () => {
-		try { if (await controller.copyPostPrompt(post)) copyPromptAction.classList.add("is-acknowledged"); }
-		catch (error) { controller.showError(error); }
-	});
-	const interrogateAction = isPromptAssistantAvailable() ? actionButton("scan", "interrogate", label("card.interrogate", "Interrogate prompt"), actionIndex++, async () => {
-		try { await controller.interrogatePost(post, card, interrogateAction); interrogateAction.classList.add("is-acknowledged"); }
-		catch (error) { controller.showError(error); }
-	}) : null;
-	const detailAction = actionButton("note", "detail", label("card.detail", "View details"), actionIndex++, () => controller.openDetail(post).catch(controller.showError));
-	const actionControls = [editAction, ...(favoriteAction ? [favoriteAction] : []), copyPromptAction, ...(interrogateAction ? [interrogateAction] : []), detailAction];
-	actions.append(...actionControls);
-	card._aaVirtualMasonryLayout = (width, height) => { card.dataset.actionsLayout = galleryCardActionLayout(width, height, actionControls.length); };
-	surface.append(el("div", { className: "aa-gallery-card__loading", attrs: { "aria-hidden": "true" } }), image, selectedLayer, el("div", { className: "aa-gallery-card__shade" }), el("div", { className: "aa-gallery-card__scan", attrs: { "aria-hidden": "true" } }), ...(rating ? [rating] : []), selectionStamp.root, errorLayer, actions);
-	card.append(surface);
-	const update = () => {
-		const selected = stateFor(node).selections.some((item) => selectionKey(item) === `${post.source}:${post.postId}`);
-		const previousSelected = card.dataset.selected;
-		card.classList.toggle("is-selected", selected);
-		selectionStamp.setStyle(getSettings()?.selectionStamp);
-		card.dataset.selected = String(selected);
-		if (previousSelected != null && previousSelected !== String(selected)) card.classList.add("is-selection-feedback");
-		if (favoriteAction) { favoriteAction.classList.toggle("is-active", Boolean(post.favorite)); favoriteAction.setAttribute("aria-label", post.favorite ? label("card.unfavorite", "Remove favorite") : label("card.favorite", "Favorite")); favoriteAction.title = favoriteAction.getAttribute("aria-label"); }
-		card.setAttribute("aria-label", `${post.source} #${post.postId} · ${selected ? label("card.cancel", "Cancel selection") : label("card.select", "Select image")}`);
-	};
-	card._aaGalleryUpdate = update; update();
 	card.addEventListener("animationend", (event) => {
 		if (event.animationName === "aa-gallery-selection-feedback") card.classList.remove("is-selection-feedback");
 		if (event.animationName === "aa-gallery-favorite-feedback") event.target.classList?.remove("is-acknowledged");
 	});
 	card.addEventListener("click", (event) => runSelection(event));
 	card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); runSelection(); } });
-	let hoverTimer = 0;
-	card.addEventListener("mouseenter", () => { if (!getSettings()?.tooltip) return; hoverTimer = setTimeout(() => controller.showHover(card, post), 280); });
-	card.addEventListener("mouseleave", () => { clearTimeout(hoverTimer); controller.tooltip.hide(); });
-	card._aaVirtualMasonryDispose = () => { clearTimeout(hoverTimer); };
-	return card;
+	card.addEventListener("mouseenter", () => { if (!getSettings()?.tooltip || !view.controller) return; view.hoverTimer = setTimeout(() => view.controller?.showHover(card, view.post), 280); });
+	card.addEventListener("mouseleave", () => { clearTimeout(view.hoverTimer); view.hoverTimer = 0; view.controller?.tooltip.hide(); });
+	card._aaVirtualMasonryDispose = () => {
+		clearTimeout(view.hoverTimer); view.hoverTimer = 0;
+		view.node = null; view.controller = null; view.post = null; view.selectionPending = false;
+		card.classList.remove("is-selection-pending", "is-interrogating", "is-selection-feedback");
+		if (cardViewPool.length < MAX_POOLED_CARD_VIEWS) cardViewPool.push(view);
+		else if (view.image) { releaseCardImage(view, view.image); view.image = null; }
+	};
+	return view;
 }
 
 function moveSelectionIndex(from, insertBefore) {

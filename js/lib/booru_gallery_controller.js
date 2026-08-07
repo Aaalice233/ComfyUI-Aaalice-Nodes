@@ -355,20 +355,28 @@ return function buildController(node, elements) {
 	};
 	const showHover = (anchor, post) => {
 		const previewSrc = proxyUrl(post.source, post.previewUrl);
-		let usingPreview = true;
-		const image = el("img", { attrs: { src: previewSrc, alt: "", decoding: "async" } });
+		// Sample 地址随搜索结果返回：已预取就绪时直接以 Sample 起步，跳过小图阶段。
+		const searchSample = post.sampleUrl && post.sampleUrl !== post.previewUrl ? post.sampleUrl : null;
+		const searchSampleSrc = searchSample ? proxyUrl(post.source, searchSample) : null;
+		const readySampleSrc = searchSampleSrc && previewCache.get(searchSampleSrc)?.ready ? searchSampleSrc : null;
+		// 双层图片：base 常驻，sample 就绪后作为 upgrade 叠加层淡入覆盖，
+		// 淡化结束后把 src 落回 base 并收起叠加层，避免硬切造成的闪变。
+		const base = el("img", { attrs: { src: readySampleSrc || previewSrc, alt: "", decoding: "async" } });
+		const upgrade = el("img", { className: "is-upgrade", attrs: { alt: "", decoding: "async", hidden: true } });
 		// 大图始终按原图比例完整显示：先缩放进 320×420 盒子（不放大），再为底部信息区
 		// 保证最小可读宽高；图片本体 contain 居中，宽高与容器不一致时留背景边而非裁切。
-		const hoverImageSize = (item) => {
-			const width = Number(item?.width); const height = Number(item?.height);
-			if (!(width > 0) || !(height > 0)) return { width: 320, height: 240 };
-			const scale = Math.min(320 / width, 420 / height, 1);
-			return { width: Math.max(240, Math.round(width * scale)), height: Math.max(150, Math.round(height * scale)) };
-		};
+		// 尺寸在 show 时一次锁定，只有 detail 返回的真实宽高与当前值不同才重算，
+		// 避免悬浮框在加载过程中反复改变尺寸并重新定位。
+		let lockedSize = null;
 		const applyHoverImageSize = (item) => {
-			const size = hoverImageSize(item);
-			content.style.setProperty("--aa-gallery-hover-image-width", `${size.width}px`);
-			content.style.setProperty("--aa-gallery-hover-image-height", `${size.height}px`);
+			const width = Number(item?.width); const height = Number(item?.height);
+			const next = !(width > 0) || !(height > 0)
+				? { width: 320, height: 240 }
+				: (() => { const scale = Math.min(320 / width, 420 / height, 1); return { width: Math.max(240, Math.round(width * scale)), height: Math.max(150, Math.round(height * scale)) }; })();
+			if (lockedSize && Math.abs(lockedSize.width - next.width) <= 2 && Math.abs(lockedSize.height - next.height) <= 2) return;
+			lockedSize = next;
+			content.style.setProperty("--aa-gallery-hover-image-width", `${next.width}px`);
+			content.style.setProperty("--aa-gallery-hover-image-height", `${next.height}px`);
 			// 尺寸过渡结束前按最终尺寸重定位，避免过渡中间测量把浮层留在视口外。
 			content.addEventListener("transitionend", () => tooltip.reposition(), { once: true });
 		};
@@ -394,25 +402,41 @@ return function buildController(node, elements) {
 				el("div", { className: "aa-gallery-hover__tags", children: Object.values(tagRows) }),
 			] });
 		const content = el("div", { className: "aa-gallery-hover", children: [
-			el("div", { className: "aa-gallery-hover__media", children: [image, loading, ...(rating ? [rating] : []), info] }),
+			el("div", { className: "aa-gallery-hover__media", children: [base, upgrade, loading, ...(rating ? [rating] : []), info] }),
 		] });
 		applyHoverImageSize(post);
-		let waitingForLargerPreview = true;
-		image.addEventListener("load", () => { if (!usingPreview) waitingForLargerPreview = false; loading.hidden = !waitingForLargerPreview; tooltip.reposition(); });
-		image.addEventListener("error", () => { waitingForLargerPreview = false; loading.hidden = true; if (!usingPreview) { usingPreview = true; image.src = previewSrc; } });
+		base.addEventListener("load", () => { if (upgrade.hidden) tooltip.reposition(); });
+		base.addEventListener("error", () => {
+			loading.hidden = true;
+			// 预览图失败时若已有 Sample 来源，直接尝试以 Sample 作为底图。
+			if (sampleRequested && base.getAttribute("src") !== sampleRequested) base.src = sampleRequested;
+		});
 		tooltip.show(anchor, content, { className: "aa-gallery-hover-tooltip", immediate: true, interactive: false, placement: "side" });
 		let sampleRequested = null;
 		const upgradeSample = (sampleSrc) => {
-			if (sampleRequested === sampleSrc) return;
+			if (sampleRequested === sampleSrc || base.getAttribute("src") === sampleSrc) return;
 			sampleRequested = sampleSrc;
 			const cachedImage = cacheImage(sampleSrc);
-			const apply = () => { if (!content.isConnected || !tooltip.isOpenFor(anchor) || sampleRequested !== sampleSrc) return; usingPreview = false; waitingForLargerPreview = false; loading.hidden = true; image.src = sampleSrc; tooltip.reposition(); };
+			const apply = () => {
+				if (!content.isConnected || !tooltip.isOpenFor(anchor) || sampleRequested !== sampleSrc) return;
+				loading.hidden = true;
+				const settle = () => {
+					if (sampleRequested !== sampleSrc || !upgrade.classList.contains("is-visible")) return;
+					base.src = sampleSrc;
+					upgrade.classList.remove("is-visible");
+					upgrade.hidden = true;
+					upgrade.removeAttribute("src");
+				};
+				upgrade.addEventListener("transitionend", settle, { once: true });
+				upgrade.src = sampleSrc;
+				upgrade.hidden = false;
+				requestAnimationFrame(() => upgrade.classList.add("is-visible"));
+			};
 			if (cachedImage?.ready) apply();
-			else { loading.hidden = false; void cachedImage?.promise.then(apply).catch(() => { if (sampleRequested === sampleSrc) { waitingForLargerPreview = false; loading.hidden = true; } }); }
+			else { loading.hidden = false; void cachedImage?.promise.then(apply).catch(() => { if (sampleRequested === sampleSrc) loading.hidden = true; }); }
 		};
-		// Sample 地址随搜索结果返回：不等 Detail 直接升级大图。
-		const searchSample = post.sampleUrl && post.sampleUrl !== post.previewUrl ? post.sampleUrl : null;
-		if (searchSample) upgradeSample(proxyUrl(post.source, searchSample));
+		if (readySampleSrc) { sampleRequested = readySampleSrc; loading.hidden = true; }
+		else if (searchSampleSrc) upgradeSample(searchSampleSrc);
 		void getDetail(post).then((detail) => {
 			if (!content.isConnected || !tooltip.isOpenFor(anchor)) return;
 			resolution.textContent = dimensions(detail); format.textContent = detail.fileExt?.toUpperCase() || "—";
@@ -426,9 +450,8 @@ return function buildController(node, elements) {
 			}
 			const detailSample = detail.sampleUrl && detail.sampleUrl !== post.previewUrl ? detail.sampleUrl : null;
 			if (detailSample && detailSample !== post.sampleUrl) upgradeSample(proxyUrl(detail.source, detailSample));
-			if (!detailSample && !searchSample) { waitingForLargerPreview = false; loading.hidden = true; }
-			tooltip.reposition();
-		}).catch(() => { waitingForLargerPreview = false; loading.hidden = true; });
+			if (!detailSample && !searchSample) loading.hidden = true;
+		}).catch(() => { loading.hidden = true; });
 	};
 	const openDetail = async (post) => {
 		const openGeneration = ++detailDialogGeneration; activeDetailDialog?.close(); activeDetailDialog = null;

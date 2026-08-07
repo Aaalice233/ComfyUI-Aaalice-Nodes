@@ -177,7 +177,7 @@ test("browse and selected switcher states use distinct semantic colors", () => {
 
 test("gallery cards use direct selection and adaptive animated overlay actions", () => {
 	assert.match(source, /card\.addEventListener\("click", \(event\) => runSelection\(event\)\)/);
-	assert.match(source, /iconName, action, actionLabel, actionIndex/);
+	assert.match(source, /iconName, action, actionIndex, onClick/);
 	for (const action of ["edit", "favorite", "copyPrompt", "interrogate", "detail"]) assert.match(theme, new RegExp(`\\.aa-gallery-card-action\\.is-${action}`));
 	assert.match(theme, /\.aa-gallery-card-action\.is-favorite\.is-active \.aa-ui-icon \{[^}]*fill: currentColor/);
 	assert.match(theme, /\.aa-gallery-detail__action\.is-favorite\.is-active \.aa-ui-icon \{[^}]*fill: currentColor/);
@@ -189,7 +189,7 @@ test("gallery cards use direct selection and adaptive animated overlay actions",
 	assert.match(source, /availableWidth >= linearSize && availableHeight >= buttonSize/);
 	assert.match(source, /availableHeight >= linearSize && availableWidth >= buttonSize/);
 	assert.ok(source.indexOf("availableHeight >= linearSize") < source.indexOf("availableWidth >= linearSize"), "card actions must prefer a vertical column when both layouts fit");
-	assert.match(source, /card\._aaVirtualMasonryLayout = \(width, height\) => \{ card\.dataset\.actionsLayout = galleryCardActionLayout\(width, height, actionControls\.length\); \}/);
+	assert.match(source, /card\._aaVirtualMasonryLayout = \(width, height\) => \{ card\.dataset\.actionsLayout = galleryCardActionLayout\(width, height, view\.visibleActions\); \}/);
 	assert.match(theme, /\.aa-gallery-card\.aa-virtual-masonry__item \{[^}]*position: absolute;/);
 	assert.match(theme, /\.aa-gallery-card__actions \{[^}]*top: 7px;[^}]*right: 7px;/);
 	assert.doesNotMatch(theme, /\.aa-gallery-card__actions \{[^}]*top: 50%;/);
@@ -223,7 +223,7 @@ test("selected gallery cards use configurable approval stamps and a clear blue h
 	assert.match(source, /const SELECTION_STAMPS = \[[^\]]+"exclusiveCertification"/);
 	assert.match(source, /function createSelectionStamp\(initialStyle, \{ preview = false \} = \{\}\)/);
 	assert.match(source, /selectionStamp\.setStyle\(getSettings\(\)\?\.selectionStamp\)/);
-	assert.match(source, /stateFor\(node\)\.selections\.some\(\(item\) => selectionKey\(item\) === `\$\{post\.source\}:\$\{post\.postId\}`\)/);
+	assert.match(source, /stateFor\(view\.node\)\.selections\.some\(\(item\) => selectionKey\(item\) === `\$\{post\.source\}:\$\{post\.postId\}`\)/);
 	assert.doesNotMatch(source, /selectionOrder|selection-order|selectionState|selection-state/);
 	assert.match(theme, /\.aa-gallery-card__selected-layer \{[^}]*inset: 0;[^}]*opacity: 0;[^}]*var\(--p-blue-500[^}]*mix-blend-mode: screen/);
 	assert.doesNotMatch(theme, /\.aa-gallery-card__selected-layer \{[^}]*backdrop-filter/);
@@ -330,7 +330,7 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.match(source, /if \(!content\.isConnected \|\| !tooltip\.isOpenFor\(anchor\)\) return/);
 	assert.match(source, /placement: "side"/);
 	assert.match(source, /post\.sampleUrl && post\.sampleUrl !== post\.previewUrl/);
-	assert.match(source, /upgradeSample\(proxyUrl\(post\.source, searchSample\)\)/);
+	assert.match(source, /else if \(searchSampleSrc\) upgradeSample\(searchSampleSrc\)/);
 	assert.match(source, /const detailCache = new Map\(\); const previewCache = new Map\(\); let previewGeneration = 0; let previewPrefetchActive = 0/);
 	assert.match(source, /for \(const post of visiblePosts\.slice\(0, 12\)\)/);
 	assert.match(source, /onVisibleItemsChange: \(items\) => controller\?\.prefetchVisible\(items\)/);
@@ -344,18 +344,24 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.match(source, /if \(cachedImage\?\.ready\) apply\(\)/);
 	assert.match(source, /generation \+= 1; rotatePreviewCache\(\); posts = \[\]/);
 	assert.match(source, /className: "aa-gallery-hover__loading"[^]*children: \[icon\("loading"\)\]/);
-	assert.match(source, /let waitingForLargerPreview = true/);
-	assert.match(source, /if \(!detailSample && !searchSample\) \{ waitingForLargerPreview = false; loading\.hidden = true; \}/);
+	assert.match(source, /const base = el\("img", \{ attrs: \{ src: readySampleSrc \|\| previewSrc/);
+	assert.match(source, /const upgrade = el\("img", \{ className: "is-upgrade"/);
+	assert.match(source, /upgrade\.classList\.add\("is-visible"\)/);
+	assert.match(source, /base\.src = sampleSrc;/);
+	assert.match(source, /if \(!detailSample && !searchSample\) loading\.hidden = true;/);
 	assert.doesNotMatch(source, /image\.src = proxyUrl\(detail\.source, detail\.mediaUrl\)/);
 	assert.doesNotMatch(hoverSource, /capability\(post\.source\)\?\.displayName|`#\$\{post\.postId\}`/);
-	assert.match(hoverSource, /children: \[image, loading, \.\.\.\(rating \? \[rating\] : \[\]\), info\]/);
+	assert.match(hoverSource, /children: \[base, upgrade, loading, \.\.\.\(rating \? \[rating\] : \[\]\), info\]/);
 	assert.match(hoverSource, /const scale = Math\.min\(320 \/ width, 420 \/ height, 1\)/);
 	assert.match(hoverSource, /width: Math\.max\(240, Math\.round\(width \* scale\)\), height: Math\.max\(150, Math\.round\(height \* scale\)\)/);
-	assert.match(hoverSource, /--aa-gallery-hover-image-width\", `\$\{size\.width\}px`\)/);
-	assert.match(hoverSource, /--aa-gallery-hover-image-height\", `\$\{size\.height\}px`\)/);
+	assert.match(hoverSource, /--aa-gallery-hover-image-width\", `\$\{next\.width\}px`\)/);
+	assert.match(hoverSource, /--aa-gallery-hover-image-height\", `\$\{next\.height\}px`\)/);
+	assert.match(hoverSource, /Math\.abs\(lockedSize\.width - next\.width\) <= 2/);
 	assert.match(theme, /\.aa-gallery-hover-tooltip\.aa-ui-tooltip \{[^}]*width: fit-content;[^}]*max-width: min\(320px/);
 	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*width: min\(var\(--aa-gallery-hover-image-width, 320px\), calc\(100vw - 40px\)\);[^}]*height: min\(var\(--aa-gallery-hover-image-height, 240px\), calc\(100vh - 150px\)\)/);
 	assert.match(theme, /\.aa-gallery-hover__media > img \{[^}]*object-fit: contain/);
+	assert.match(theme, /\.aa-gallery-hover__media > img\.is-upgrade \{[^}]*position: absolute;[^}]*opacity: 0;[^}]*transition: opacity/);
+	assert.match(theme, /\.aa-gallery-hover__media > img\.is-upgrade\.is-visible \{[^}]*opacity: 1/);
 	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*position: absolute;[^}]*bottom: 0;[^}]*linear-gradient/);
 	assert.match(theme, /\.aa-gallery-hover__info dl \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
 	assert.match(theme, /\.aa-gallery-hover__info dl > div \{[^}]*border: 0;[^}]*border-radius: 7px/);

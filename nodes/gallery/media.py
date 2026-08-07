@@ -68,7 +68,8 @@ class MediaProxy:
         timeout = get_gallery_settings_store().load()["timeout"]
         current = state.session
         if current is None or state.session_timeout != timeout:
-            state.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout), trust_env=True)
+            connector = aiohttp.TCPConnector(ttl_dns_cache=300, keepalive_timeout=45)
+            state.session = aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=timeout), trust_env=True)
             state.session_timeout = timeout
             if current is not None:
                 asyncio.get_running_loop().create_task(self._retire(current))
@@ -163,6 +164,23 @@ class MediaProxy:
     def _cache_path(self, url: str) -> Path:
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
         return self.cache_dir / "media" / f"{digest}.bin"
+
+    def cached_media_file(self, url: str) -> tuple[str, Path, int] | None:
+        """Locate a disk-cached body for streaming: returns (content_type, path,
+        body_offset) so the HTTP route can send the file without loading it into
+        memory. Only the short header line is read here."""
+        path = self._cache_path(url)
+        if not path.exists():
+            return None
+        try:
+            with open(path, "rb") as stream:
+                header = stream.readline(256)
+        except OSError:
+            return None
+        content_type = header.rstrip(b"\n").decode("ascii", errors="ignore")
+        if not content_type or content_type not in STATIC_CONTENT_TYPES:
+            return None
+        return content_type, path, len(header)
 
     async def _read_cache(self, url: str) -> tuple[bytes, str, str] | None:
         path = self._cache_path(url)
