@@ -664,6 +664,9 @@ test("page menu offers batch rebinding with reviewable suggestions and one atomi
 	assert.match(workspace, /next = replacePrimaryBinding\(next, row\.item\.id, candidate\.binding\)/);
 	assert.match(workspace, /commitDashboardBindingSet\(next, applied\.map\(\(row\) => row\.item\.id\), \{ synchronize \}\)/);
 	assert.match(workspace, /if \(!confirmButton\) return;/);
+	assert.match(workspace, /scheduleRelocatedBindingMigration/);
+	assert.match(workspace, /binding\.hostId = migration\.hostId/);
+	assert.match(providers, /relocateOrphanedBinding\(\{ provider, binding, nodes/);
 	assert.match(theme, /\.aa-rebind-all__row\.is-skipped/);
 	assert.match(theme, /\.aa-rebind-all__match\.is-empty/);
 });

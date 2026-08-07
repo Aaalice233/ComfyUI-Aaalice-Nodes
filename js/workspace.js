@@ -6,7 +6,7 @@ import { ensureI18nReady, t } from "./i18n.js";
 import { controlProviders, createControlHostIndex, HOST_ID_PROPERTY, repairDuplicateHostIds } from "./lib/control_providers.js";
 import { CONTROL_ADAPTER_REGISTRY_CHANGED_EVENT, CONTROL_HOST_INVALIDATED_EVENT, CONTROL_RENDERER_REGISTRY_CHANGED_EVENT } from "./lib/control_host_events.js";
 import {
-	controlItemBindings, createPage, emptyDashboard, linkedBindingCount, normalizeDashboard,
+	controlItemBindings, bindingKey, createPage, emptyDashboard, linkedBindingCount, normalizeDashboard,
 } from "./lib/dashboard_model.js";
 import { resolveControlBindingSet } from "./lib/control_binding_set.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
@@ -316,14 +316,46 @@ function dashboardUsesHost(node) {
 	return model.pages.some((page) => page.items.some((item) => item.kind === "control" && controlItemBindings(item).some((binding) => binding.hostId === hostId)));
 }
 
+const pendingRelocatedMigrations = new Set();
+// 宿主被替换导致的失效绑定经唯一重定位自愈后，把新 hostId 写回持久身份，避免每次解析都全图扫描。
+function scheduleRelocatedBindingMigration(relocations) {
+	const fresh = relocations.filter((entry) => !pendingRelocatedMigrations.has(entry.key));
+	if (!fresh.length) return;
+	for (const entry of fresh) pendingRelocatedMigrations.add(entry.key);
+	setTimeout(() => {
+		try {
+			updateDashboard((model) => {
+				for (const page of model.pages) for (const item of page.items) {
+					if (item.kind !== "control") continue;
+					for (const binding of controlItemBindings(item)) {
+						const migration = fresh.find((entry) => entry.key === bindingKey(binding));
+						if (migration) binding.hostId = migration.hostId;
+					}
+				}
+				return model;
+			});
+			app.extensionManager?.toast?.add?.({ severity: "info", summary: t("aaalice.workspace.binding.relocated", "Bindings restored"), detail: t("aaalice.workspace.binding.relocatedDetail", "{count} sidebar binding(s) were re-attached to their replacement nodes.").replace("{count}", String(fresh.length)), life: 3600 });
+		} catch (error) {
+			console.error("[Aaalice] Failed to persist relocated bindings", error);
+		} finally { for (const entry of fresh) pendingRelocatedMigrations.delete(entry.key); }
+	}, 0);
+}
+
 function resolvePageControls(page) {
 	const controls = new Map(); const sizeProjections = new Map();
 	const hostIndex = createControlHostIndex(graphNodes()), resolvePageBinding = (binding) => resolve(binding, hostIndex);
+	const relocations = [];
 	for (const item of page?.items || []) {
 		if (item.kind !== "control") continue;
 		let resolved;
 		try { resolved = resolveControlBindingSet(item, resolvePageBinding); }
 		catch (error) { resolved = { status: "error", error, binding: item.binding, bindingSet: { entries: [], linkedCount: linkedBindingCount(item), mixed: false, issues: [] } }; }
+		if (resolved.status === "ok" && resolved.bindingSet?.entries) {
+			for (const entry of resolved.bindingSet.entries) {
+				const relocated = entry.resolved?.relocatedHostId;
+				if (relocated && entry.binding && entry.binding.hostId !== relocated) relocations.push({ key: bindingKey(entry.binding), hostId: relocated });
+			}
+		}
 		if (resolved.status === "ok" && resolved.kind === "resolution" && item.layout.rowSpan === 40) resolved = { ...resolved, layoutProjection: { ...(resolved.layoutProjection || {}), rowSpan: DASHBOARD_DEFAULT_CONTROL_ROW_SPAN } }; // Keep cards created by the old editor compact without rewriting saved layout.
 		controls.set(item.id, resolved);
 		if (resolved.status !== "ok" || !resolved.layoutProjection || typeof resolved.layoutProjection !== "object") continue;
@@ -335,6 +367,7 @@ function resolvePageControls(page) {
 		}
 		if (Object.keys(projection).length) sizeProjections.set(item.id, projection);
 	}
+	if (relocations.length) scheduleRelocatedBindingMigration(relocations);
 	return { controls, sizeProjections };
 }
 

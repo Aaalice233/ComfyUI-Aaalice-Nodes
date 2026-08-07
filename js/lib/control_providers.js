@@ -1,6 +1,7 @@
 /** Extensible registry that projects node controls without owning their values. */
 
 import { listNativeOutputControls, resolveNativeOutputControl } from "./native_output_controls.js";
+import { relocateOrphanedBinding } from "./binding_relocation.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardContentRowSpan, normalizeDashboardColumnSpan, normalizeDashboardRowSpan, recommendedControlRowSpan } from "./dashboard_sizing.js";
 import { SEED_AFTER_GENERATE_MODES } from "./seed_preset.js";
 import { adaptWidgetControl, listAdaptedWidgetControls, resolveAdaptedWidgetControl } from "./widget_control_adapters.js";
@@ -119,9 +120,10 @@ class ProviderRegistry {
 	}
 	resolve(binding, nodes) {
 		const provider = this.provider(binding);
+		if (!provider) return { status: "missing" };
 		const node = findControlHost(nodes, binding.hostId);
-		if (!provider || !node) return { status: "missing" };
-		return provider.resolve(node, binding);
+		if (node) return provider.resolve(node, binding);
+		return relocateOrphanedBinding({ provider, binding, nodes, hostIdOf: (candidate) => candidate?.properties?.[HOST_ID_PROPERTY] });
 	}
 	resolveGroup(source, nodes) {
 		const provider = this.provider(source);
