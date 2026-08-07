@@ -16,7 +16,7 @@ import { matchesDashboardSearch, normalizeDashboardSearchText } from "../lib/das
 import { createControlElement } from "../lib/workspace_controls.js";
 import { confirmAction, pickFile } from "./dom_utils.js";
 import { createDashboardToneControl } from "./dashboard_tone_control.js";
-import { brokenPageControls, openPageRebind } from "./dashboard_batch_rebind.js";
+import { brokenDashboardBindingEntries, brokenPageControls, openBindingHealthDialog, openPageRebind } from "./dashboard_batch_rebind.js";
 
 let runtime = null;
 export function configureDashboardView(dependencies) { runtime = dependencies; }
@@ -139,6 +139,7 @@ export function renderDashboard(container, host) {
 	}
 	const presetPicker = createDashboardPresetPicker({
 		presets: presetState.presets, baselineId: baselinePreset?.id || null, comparison: presetComparison, error: dashboardPresetModelError || presetSnapshotError, labels: dashboardPresetLabels(),
+		attentionReview: presetComparison?.attention ? { count: brokenDashboardBindingEntries(model).length, onReview: () => openBindingHealthDialog(null) } : null,
 		onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
 		onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
 	});

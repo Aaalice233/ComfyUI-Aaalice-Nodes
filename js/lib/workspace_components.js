@@ -222,7 +222,7 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 	});
 }
 
-export function createDashboardPresetPicker({ presets = [], baselineId = null, comparison = null, error = null, labels = {}, onSelect, onCreate, onUpdate, onDuplicate, onRename, onDelete, onRestore } = {}) {
+export function createDashboardPresetPicker({ presets = [], baselineId = null, comparison = null, error = null, labels = {}, attentionReview = null, onSelect, onCreate, onUpdate, onDuplicate, onRename, onDelete, onRestore } = {}) {
 	const hasError = Boolean(error);
 	const availablePresets = hasError ? [] : presets;
 	const selected = availablePresets.find((preset) => preset.id === baselineId) || null;
@@ -258,6 +258,19 @@ export function createDashboardPresetPicker({ presets = [], baselineId = null, c
 			...(availablePresets.length ? [el("span", "aa-value-preset-count", (labels.presetCount || "{count} presets").replace("{count}", String(availablePresets.length)))] : []),
 			...(!hasError && availablePresets.length ? [button({ label: labels.add || "New", iconName: "add", variant: "ghost", size: "sm", onClick: () => invoke(onCreate) })] : []),
 		] });
+		// 「需要处理」诊断入口：列出具体失效绑定并直达修复，不让用户逐卡片猜测。
+		const attentionRow = !hasError && comparison?.attention ? (() => {
+			const count = Math.max(0, Number(attentionReview?.count) || 0);
+			const text = count
+				? (labels.attentionBindings || "{count} bindings need attention").replace("{count}", String(count))
+				: (labels.attentionStale || "The preset holds values of removed components");
+			const row = el("button", {
+				className: "aa-value-preset-attention", attrs: { type: "button" },
+				children: [icon("statusWarning"), el("span", null, text), icon("arrowRight", { className: "aa-value-preset-attention__arrow" })],
+			});
+			row.addEventListener("click", () => invoke(attentionReview?.onReview));
+			return row;
+		})() : null;
 		const list = el("div", {
 			className: `aa-value-preset-list${availablePresets.length ? "" : " is-empty"}`,
 			attrs: availablePresets.length ? { role: "listbox", "aria-label": labels.title || "Sidebar presets" } : {},
@@ -302,7 +315,7 @@ export function createDashboardPresetPicker({ presets = [], baselineId = null, c
 				...(selected ? [button({ label: labels.restore || "Discard changes", iconName: "refresh", variant: "ghost", size: "sm", onClick: () => invoke(onRestore, selected.id) })] : [button({ label: labels.saveCurrent || "Save as preset", iconName: "copy", variant: "primary", size: "sm", onClick: () => invoke(onCreate) })]),
 			] }),
 		] }) : null;
-		popover.root.append(heading, list, ...(currentActions ? [currentActions] : []));
+		popover.root.append(heading, ...(attentionRow ? [attentionRow] : []), list, ...(currentActions ? [currentActions] : []));
 		popover.reposition();
 	};
 	trigger.addEventListener("click", () => { if (popover) close(); else open(); });

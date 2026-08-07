@@ -23,6 +23,7 @@ const workspace = [
 	"workspace/dashboard_scroll.js",
 	"workspace/dashboard_source_groups.js",
 	"workspace/sidebar_preferences.js",
+	"workspace/dashboard_batch_rebind.js",
 ].map((path) => readFileSync(join(ROOT, "js", ...path.split("/")), "utf8")).join("\n");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
@@ -288,6 +289,21 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(theme, /\.aa-value-preset-option-row:hover \.aa-value-preset-option-actions, \.aa-value-preset-option-row:focus-within \.aa-value-preset-option-actions/);
 	assert.match(theme, /\.aa-value-preset-option-actions \.aa-ui-button\.is-danger:hover/);
 	assert.match(theme, /\.aa-value-preset-list\.is-empty/);
+	assert.match(components, /attentionReview = null/);
+	assert.match(components, /aa-value-preset-attention/);
+	assert.match(components, /labels\.attentionBindings/);
+	assert.match(components, /labels\.attentionStale/);
+	assert.match(workspace, /attentionReview: presetComparison\?\.attention/);
+	assert.match(workspace, /brokenDashboardBindingEntries\(model\)\.length/);
+	assert.match(workspace, /export function brokenDashboardBindingEntries/);
+	assert.match(workspace, /export function openBindingHealthDialog/);
+	assert.match(workspace, /openManageLinkedBindings\(entry\.item\.id/);
+	assert.match(workspace, /openRebind\(entry\.item/);
+	assert.match(workspace, /healthClearLinked/);
+	assert.match(workspace, /detachBinding\(next, entry\.item\.id, entry\.binding\)/);
+	assert.match(enLocale, /"attentionBindings": "\{count\} bindings need attention"/);
+	assert.match(zhLocale, /"attentionBindings": "\{count\} 个绑定需要处理"/);
+	assert.match(theme, /\.aa-value-preset-attention \{[^}]*color: color-mix\(in srgb, var\(--aa-ui-warning\) 78%/);
 	assert.match(theme, /\.aa-value-preset-empty__icon/);
 	assert.match(theme, /\.aa-value-preset-switch-warning/);
 	assert.match(dashboardPresets, /DASHBOARD_PRESETS_VERSION = 1/);

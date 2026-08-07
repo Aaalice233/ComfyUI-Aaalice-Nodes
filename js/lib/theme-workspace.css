@@ -168,6 +168,11 @@
 .aa-value-preset-popover__header { display: flex; min-height: 43px; flex: none; align-items: center; gap: 7px; padding: 7px 10px 7px 13px; border-bottom: 1px solid var(--aa-ui-border-soft); background: color-mix(in srgb, var(--aa-ui-surface-raised) 48%, var(--aa-ui-surface)); }
 .aa-value-preset-popover__header > strong { min-width: 0; flex: 1; overflow: hidden; color: var(--aa-ui-text); font-size: 12px; font-weight: 720; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
 .aa-value-preset-popover__header > .aa-ui-button { height: 29px; min-height: 29px; padding-inline: 8px; font-size: 10px; }
+.aa-value-preset-attention { display: flex; width: 100%; min-width: 0; align-items: center; gap: 8px; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--aa-ui-border-soft); outline: 0; background: color-mix(in srgb, var(--aa-ui-warning) 9%, var(--aa-ui-surface)); color: color-mix(in srgb, var(--aa-ui-warning) 78%, var(--aa-ui-text)); font: inherit; font-size: 11px; font-weight: 640; text-align: left; cursor: pointer; transition: background-color .14s ease, color .14s ease; }
+.aa-value-preset-attention:hover, .aa-value-preset-attention:focus-visible { background: color-mix(in srgb, var(--aa-ui-warning) 15%, var(--aa-ui-surface)); color: var(--aa-ui-text); }
+.aa-value-preset-attention > .aa-ui-icon { width: 13px; height: 13px; flex: 0 0 auto; color: var(--aa-ui-warning); }
+.aa-value-preset-attention > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aa-value-preset-attention__arrow { transform: rotate(-90deg); opacity: .62; }
 .aa-value-preset-count { display: grid; min-width: 48px; height: 22px; box-sizing: border-box; place-items: center; padding: 0 7px; border: 1px solid var(--aa-ui-border-soft); border-radius: 999px; background: color-mix(in srgb, var(--aa-ui-control) 68%, transparent); color: var(--aa-ui-muted); font-size: 10px; font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
 .aa-value-preset-list { display: flex; min-height: 50px; flex: 1; flex-direction: column; gap: 3px; overflow-y: auto; padding: 7px; }
 .aa-value-preset-list.is-empty { min-height: 0; overflow: visible; padding: 0; }

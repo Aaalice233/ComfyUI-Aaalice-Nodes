@@ -118,7 +118,7 @@
       },
       "preset": { "title": "布局备份", "export": "导出布局", "import": "导入布局", "missingConfirm": "个绑定已失效或类型不兼容。是否仍导入布局并跳过不兼容的值？" },
       "dashboardPreset": {
-          "title": "侧边栏预设", "open": "打开侧边栏预设", "placeholder": "选择预设", "attention": "需要处理",
+          "title": "侧边栏预设", "open": "打开侧边栏预设", "placeholder": "选择预设", "attention": "需要处理", "attentionBindings": "{count} 个绑定需要处理", "attentionStale": "预设包含已移除组件的数值", "healthTitle": "绑定状态", "healthLinked": "联动", "healthClearLinked": "一键清除失效联动 · {count}", "healthCleared": "已清除 {count} 条失效联动绑定。", "healthEmpty": "当前所有绑定都能正常解析。该标记通常是因为预设保存了已移除组件的数值，保存预设即可清除。",
           "empty": "还没有预设", "emptyHint": "保存当前所有页面、布局和参数值，之后可一键切换；预设随工作流一起保存和分享。", "emptyAction": "创建第一个预设", "name": "预设名称", "defaultName": "预设 {count}", "copyName": "{name} 副本",
 		  "presetCount": "{count} 个预设", "presetSummary": "{pages} 个页面 · {values} 个参数", "add": "新增", "create": "新增预设", "manage": "管理预设", "modified": "当前有修改", "update": "保存修改", "saveCurrent": "保存为预设", "restore": "放弃修改", "duplicate": "复制", "rename": "重命名", "delete": "删除", "deleteConfirm": "确定删除侧边栏预设“{name}”吗？当前侧边栏不会改变。", "deleteSwitchConfirm": "确定删除侧边栏预设“{name}”吗？侧边栏将自动切换到“{fallback}”。", "deleteLastConfirm": "确定删除侧边栏预设“{name}”吗？删除后将清空侧边栏，因为已经没有其它预设。",
 		  "changeSummary": "布局 {layout} 处 · 参数 {values} 处", "dataError": "预设数据异常", "dataErrorHint": "无法读取工作流中保存的侧边栏预设数据。",
