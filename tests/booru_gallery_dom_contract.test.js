@@ -352,7 +352,7 @@ test("gallery hover follows the launcher side-preview pattern without downloadin
 	assert.doesNotMatch(source, /image\.src = proxyUrl\(detail\.source, detail\.mediaUrl\)/);
 	assert.doesNotMatch(hoverSource, /capability\(post\.source\)\?\.displayName|`#\$\{post\.postId\}`/);
 	assert.match(hoverSource, /children: \[base, upgrade, loading, \.\.\.\(rating \? \[rating\] : \[\]\), info\]/);
-	assert.match(hoverSource, /const scale = Math\.min\(320 \/ width, 420 \/ height, 1\)/);
+	assert.match(hoverSource, /const scale = Math\.min\(320 \/ width, 420 \/ height\)/);
 	assert.match(hoverSource, /width: Math\.max\(240, Math\.round\(width \* scale\)\), height: Math\.max\(150, Math\.round\(height \* scale\)\)/);
 	assert.match(hoverSource, /--aa-gallery-hover-image-width\", `\$\{next\.width\}px`\)/);
 	assert.match(hoverSource, /--aa-gallery-hover-image-height\", `\$\{next\.height\}px`\)/);

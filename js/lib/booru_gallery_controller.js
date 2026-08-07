@@ -370,9 +370,12 @@ return function buildController(node, elements) {
 		let lockedSize = null;
 		const applyHoverImageSize = (item) => {
 			const width = Number(item?.width); const height = Number(item?.height);
+			// 盒子只由宽高比决定：卡片会把 post 尺寸改写成预览图的自然像素，
+			// 若按绝对像素计算，Detail 到达后盒子会从预览比例突然撑大到原图比例。
+			// 预览/原图比例一致，按比例适配 320×420 时两种尺寸算出同一盒子。
 			const next = !(width > 0) || !(height > 0)
 				? { width: 320, height: 240 }
-				: (() => { const scale = Math.min(320 / width, 420 / height, 1); return { width: Math.max(240, Math.round(width * scale)), height: Math.max(150, Math.round(height * scale)) }; })();
+				: (() => { const scale = Math.min(320 / width, 420 / height); return { width: Math.max(240, Math.round(width * scale)), height: Math.max(150, Math.round(height * scale)) }; })();
 			if (lockedSize && Math.abs(lockedSize.width - next.width) <= 2 && Math.abs(lockedSize.height - next.height) <= 2) return;
 			lockedSize = next;
 			content.style.setProperty("--aa-gallery-hover-image-width", `${next.width}px`);
