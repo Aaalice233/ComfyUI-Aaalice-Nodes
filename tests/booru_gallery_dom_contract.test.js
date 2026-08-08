@@ -470,6 +470,9 @@ test("gallery status cannot render as an unexplained empty capsule", () => {
 	assert.match(source, /className: "aa-gallery-status is-loading"[^;]*icon\("refresh"\)/);
 	assert.match(source, /classList\.toggle\("is-top", !posts\.length\)/);
 	assert.match(theme, /\.aa-gallery-status\.is-error\.is-top \{ top: 14px; bottom: auto; \}/);
+	assert.match(source, /className: "aa-gallery-status is-empty"/);
+	assert.match(theme, /\.aa-gallery-status\.is-empty \{ top: 14px; bottom: auto;/);
+	assert.match(theme, /\.aa-gallery-status\.is-empty > span \{ overflow: visible; text-overflow: clip; white-space: normal;/);
 	assert.match(source, /className: "aa-gallery-status is-error"[^;]*icon\("statusWarning"\)/);
 	assert.match(source, /className: "aa-gallery-status is-end"[^;]*icon\("statusCheck"\)/);
 	assert.match(theme, /\.aa-gallery-status\[hidden\], \.aa-gallery-status:empty \{ display: none !important; \}/);

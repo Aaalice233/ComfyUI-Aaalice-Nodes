@@ -248,6 +248,10 @@
 .aa-gallery-status.is-loading { border-color: color-mix(in srgb, var(--p-blue-400, var(--aa-ui-accent)) 34%, var(--aa-ui-border)); color: color-mix(in srgb, var(--p-blue-400, var(--aa-ui-accent)) 80%, var(--aa-ui-text)); }
 .aa-gallery-status.is-loading .aa-ui-icon { animation: aa-gallery-status-spin .8s linear infinite; }
 .aa-gallery-status.is-end { border-color: color-mix(in srgb, var(--p-green-400, var(--aa-ui-accent)) 30%, var(--aa-ui-border)); color: color-mix(in srgb, var(--p-green-400, var(--aa-ui-accent)) 74%, var(--aa-ui-text)); box-shadow: none; }
+/* 零结果空态是内容本身的替代物，放在内容区开头并允许换行；底部悬浮只留给伴随内容的加载 / 到底 / 错误状态。 */
+.aa-gallery-status.is-empty { top: 14px; bottom: auto; align-items: flex-start; width: auto; max-width: min(560px, calc(100% - 42px)); padding: 9px 14px; border-color: color-mix(in srgb, var(--aa-ui-node-accent, var(--aa-ui-accent)) 26%, var(--aa-ui-border)); border-radius: 12px; color: var(--aa-ui-text); }
+.aa-gallery-status.is-empty .aa-ui-icon { margin-top: 2px; color: color-mix(in srgb, var(--aa-ui-node-accent, var(--aa-ui-accent)) 70%, var(--aa-ui-text)); }
+.aa-gallery-status.is-empty > span { overflow: visible; text-overflow: clip; white-space: normal; line-height: 1.55; }
 .aa-gallery-status.is-error { border-color: color-mix(in srgb, var(--aa-ui-danger) 38%, var(--aa-ui-border)); color: var(--aa-ui-danger); cursor: pointer; pointer-events: auto; }
 .aa-gallery-status.is-error.is-top { top: 14px; bottom: auto; }
 @keyframes aa-gallery-status-spin { to { transform: rotate(360deg); } }
