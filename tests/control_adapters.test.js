@@ -481,6 +481,38 @@ test("nested promoted widgets follow disambiguating source identity across subgr
 	assert.equal(control?.options.image_folder, "output");
 });
 
+test("image-choice writes list values missing from stale combo options on host and interior widgets", () => {
+	const promotedImage = {
+		name: "image",
+		type: "combo",
+		value: "old.png",
+		options: { values: ["old.png"] },
+		serialize: false,
+		sourceNodeId: "170",
+		sourceWidgetName: "image",
+	};
+	const interiorNode = {
+		constructor: { nodeData: { input: { required: { image: ["COMBO", { image_upload: true }] } } } },
+		widgets: [{ name: "image", type: "combo", value: "old.png", options: { values: ["old.png"] } }],
+	};
+	const subgraphNode = {
+		widgets: [promotedImage],
+		isSubgraphNode: () => true,
+		subgraph: { getNodeById: (id) => id === "170" ? interiorNode : null },
+	};
+	const [control] = listAdaptedWidgetControls(subgraphNode, { promoted: true });
+	assert.equal(control?.adapterId, "comfy-image-combo");
+	control.setValue("Aaalice_example.jpg");
+	assert.equal(promotedImage.value, "Aaalice_example.jpg");
+	assert.ok(promotedImage.options.values.includes("Aaalice_example.jpg"));
+	assert.ok(interiorNode.widgets[0].options.values.includes("Aaalice_example.jpg"));
+	control.setValue("old.png");
+	assert.deepEqual(promotedImage.options.values.filter((value) => value === "old.png"), ["old.png"]);
+	control.setValue("");
+	assert.equal(promotedImage.value, "");
+	assert.ok(promotedImage.options.values.includes("Aaalice_example.jpg"));
+});
+
 test("legacy native combo bindings upgrade to the image preview adapter", () => {
 	assert.match(providerSource, /requestedAdapterId = binding\.adapterId \|\| null/);
 	assert.match(providerSource, /resolveAdaptedWidgetControl\(node, binding\.controlId, \{ promoted, adapterId: requestedAdapterId \}\)/);
