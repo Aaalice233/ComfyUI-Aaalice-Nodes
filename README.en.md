@@ -13,7 +13,7 @@ Compact parameter controls and workflow utilities for ComfyUI.
 > This package is a published preview. Workflows and behavior may change before the first stable release. Legacy workflows are not migrated automatically; the Library can import the supported legacy prompt-library exports described below.
 
 > [!WARNING]
-> **Do not install this package together with [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)**: the two register the same node IDs (`PromptSelector`, `GroupIsEnabled`, `SimpleNotify`, `SimpleStringSplit`, `FetchFromKrita`), and the legacy package's frontend still hooks those node types, so having both installed produces duplicate widgets and unpredictable behavior. Keep only one of them installed.
+> **Do not install this package together with [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)**: the two register the same node IDs (`PromptSelector`, `GroupIsEnabled`, `SimpleNotify`, `SimpleStringSplit`, `FetchFromKrita`), and the legacy package's frontend still hooks those node types, so having both installed produces duplicate widgets and unpredictable behavior. Keep only one of them installed. A warning toast appears in the interface when both are detected.
 
 ## 📋 Requirements
 

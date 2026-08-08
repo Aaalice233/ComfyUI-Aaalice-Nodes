@@ -13,7 +13,7 @@
 > 当前为已发布的预览版。首次稳定发布前，工作流格式和节点行为仍可能调整。旧版工作流不会自动迁移；词库管理可以导入下文列出的受支持旧版词库导出文件。
 
 > [!WARNING]
-> **不要与 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 同时安装**：两者注册了相同的节点 ID（`PromptSelector`、`GroupIsEnabled`、`SimpleNotify`、`SimpleStringSplit`、`FetchFromKrita`），且旧版包前端仍会挂钩这些节点类型，同时安装会产生重复控件和不可预期行为。请只保留其中一个。
+> **不要与 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 同时安装**：两者注册了相同的节点 ID（`PromptSelector`、`GroupIsEnabled`、`SimpleNotify`、`SimpleStringSplit`、`FetchFromKrita`），且旧版包前端仍会挂钩这些节点类型，同时安装会产生重复控件和不可预期行为。请只保留其中一个。若检测到两者共存，界面会弹出警告提示。
 
 ## 📋 环境要求
 

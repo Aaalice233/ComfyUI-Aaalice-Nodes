@@ -15,6 +15,7 @@ import "./resolution_preset.js";
 import "./fetch_from_krita.js";
 import "./workspace.js";
 import "./discord_share.js";
+import { warnIfLegacyPackageConflict } from "./legacy_conflict.js";
 
 const STYLE_ENTRIES = ["ui.css", "theme.css"];
 
@@ -40,5 +41,6 @@ app.registerExtension({
 	async setup() {
 		injectStyles();
 		await ensureI18nReady();
+		await warnIfLegacyPackageConflict();
 	},
 });

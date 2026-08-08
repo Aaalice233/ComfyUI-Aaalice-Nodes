@@ -5,6 +5,10 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
+    "legacyConflict": {
+      "title": "检测到冲突的旧版插件",
+      "detail": "ComfyUI-Danbooru-Gallery 与 ComfyUI-Aaalice-Nodes 同时安装，两者注册了相同的节点 ID，会产生重复控件和不可预期行为。请只保留其中一个，然后重启 ComfyUI。"
+    },
     "focusOnOpen": {
       "menu": { "set": "👁️ 打开时聚焦", "settings": "⚙️ 打开时聚焦设置", "clear": "🚫 取消打开时聚焦" },
       "aria": { "cancel": "取消打开时聚焦" },

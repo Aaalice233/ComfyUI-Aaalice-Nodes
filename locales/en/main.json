@@ -5,6 +5,10 @@
       "copy": "Copy", "delete": "Delete", "disabled": "Disabled", "enabled": "Enabled",
       "error": "Error", "notice": "Notice", "save": "Save"
     },
+    "legacyConflict": {
+      "title": "Conflicting legacy package detected",
+      "detail": "ComfyUI-Danbooru-Gallery is installed alongside ComfyUI-Aaalice-Nodes. Both register the same node IDs, which produces duplicate widgets and unpredictable behavior. Keep only one of them, then restart ComfyUI."
+    },
     "focusOnOpen": {
       "menu": { "set": "👁️ Focus on open", "settings": "⚙️ Focus view settings", "clear": "🚫 Cancel focus on open" },
       "aria": { "cancel": "Cancel focus on open" },
