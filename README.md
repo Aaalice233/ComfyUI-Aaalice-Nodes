@@ -12,6 +12,9 @@
 
 > 当前为已发布的预览版。首次稳定发布前，工作流格式和节点行为仍可能调整。旧版工作流不会自动迁移；词库管理可以导入下文列出的受支持旧版词库导出文件。
 
+> [!WARNING]
+> **不要与 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 同时安装**：两者注册了相同的节点 ID（`PromptSelector`、`GroupIsEnabled`、`SimpleNotify`、`SimpleStringSplit`、`FetchFromKrita`），且旧版包前端仍会挂钩这些节点类型，同时安装会产生重复控件和不可预期行为。请只保留其中一个。
+
 ## 📋 环境要求
 
 - 支持 V3 自定义节点的较新 ComfyUI。
@@ -189,8 +192,6 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器。缺少 Bridge、Krit
 - FetchFromKrita 需要本机运行已启用随附 Bridge 的 Krita 且有活动文档。
 - 词库数据保存在当前 ComfyUI 用户目录，不随工作流保存；迁移安装时请单独导出。
 - 侧边栏自动支持简单原生标量/文本/下拉节点与子图公开 widget；带未知自定义控件或 DOM 面板的节点需要显式适配器。
-
-不要与 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 同时安装：两者注册了相同的节点 ID（`PromptSelector`、`GroupIsEnabled`、`SimpleNotify`、`SimpleStringSplit`、`FetchFromKrita`），且旧版包前端仍会挂钩这些节点类型，同时安装会产生重复控件和不可预期行为。请只保留其中一个。
 
 ## 💬 反馈与许可
 

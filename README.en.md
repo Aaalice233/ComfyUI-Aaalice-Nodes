@@ -12,6 +12,9 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 > This package is a published preview. Workflows and behavior may change before the first stable release. Legacy workflows are not migrated automatically; the Library can import the supported legacy prompt-library exports described below.
 
+> [!WARNING]
+> **Do not install this package together with [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)**: the two register the same node IDs (`PromptSelector`, `GroupIsEnabled`, `SimpleNotify`, `SimpleStringSplit`, `FetchFromKrita`), and the legacy package's frontend still hooks those node types, so having both installed produces duplicate widgets and unpredictable behavior. Keep only one of them installed.
+
 ## 📋 Requirements
 
 - A current ComfyUI installation with V3 custom-node support.
@@ -189,8 +192,6 @@ The **Library** view manages entries, flat categories, multi-membership favorite
 - FetchFromKrita requires a locally running Krita with the bundled Bridge enabled and an active document.
 - Prompt-library data lives in the current ComfyUI user directory and is not embedded in workflows; export it separately when moving between installations.
 - Dashboard bindings automatically support simple native scalar/text/combo nodes and public subgraph widgets. A node containing an unknown custom widget or DOM panel requires an explicit adapter.
-
-Do not install this package together with [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery): the two register the same node IDs (`PromptSelector`, `GroupIsEnabled`, `SimpleNotify`, `SimpleStringSplit`, `FetchFromKrita`), and the legacy package's frontend still hooks those node types, so having both installed produces duplicate widgets and unpredictable behavior. Keep only one of them installed.
 
 ## 💬 Feedback and license
 
