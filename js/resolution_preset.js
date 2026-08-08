@@ -242,14 +242,16 @@ function beginDrag(node, mode, event) {
 		if (cancel) node.properties[PROPERTY] = snapshot;
 		else node.properties[PROPERTY] = updateDimensions(stateFor(node), {}, personalPresets, { expandCanvas: false });
 		drag.target.releasePointerCapture?.(drag.pointerId); node._aaResolutionDrag = null; node._aaResolutionRoot?.classList.remove("is-dragging");
-		window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", cancelEvent); window.removeEventListener("blur", blur); window.removeEventListener("keydown", key, true);
+		// WidgetDOM.vue stops pointer event propagation in Nodes 2.0, so the
+		// gesture listeners must observe the capture phase to receive moves/ups.
+		window.removeEventListener("pointermove", move, true); window.removeEventListener("pointerup", up, true); window.removeEventListener("pointercancel", cancelEvent, true); window.removeEventListener("blur", blur); window.removeEventListener("keydown", key, true);
 		node.graph?.afterChange?.(); node.graph?.change?.(); node.graph?.setDirtyCanvas?.(true, true); render(node, { syncHost: true }); notifySidebarViews(node._aaResolutionHost || node, node._aaResolutionUpdate);
 	};
 	drag.cancel = () => finish(true);
 	const up = (nextEvent) => { if (nextEvent.pointerId === drag.pointerId) finish(false); };
 	const cancelEvent = (nextEvent) => { if (nextEvent.pointerId === drag.pointerId) finish(true); };
 	const blur = () => finish(true); const key = (keyEvent) => { if (keyEvent.key === "Escape") { keyEvent.preventDefault(); finish(true); } };
-	window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", cancelEvent); window.addEventListener("blur", blur); window.addEventListener("keydown", key, true); event.preventDefault();
+	window.addEventListener("pointermove", move, true); window.addEventListener("pointerup", up, true); window.addEventListener("pointercancel", cancelEvent, true); window.addEventListener("blur", blur); window.addEventListener("keydown", key, true); event.preventDefault();
 }
 
 function keyboardAdjust(node, mode, event) {
