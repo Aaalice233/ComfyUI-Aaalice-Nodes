@@ -672,10 +672,18 @@ test("page menu offers batch rebinding with reviewable suggestions and one atomi
 	assert.match(theme, /\.aa-rebind-all__match\.is-empty/);
 });
 
-test("adjustment profiles hide the page scope row when only one page exists", () => {
-	// 单页 Dashboard 下范围限定无从谈起，整行隐藏而不是禁用。
-	assert.match(workspace, /if \(pageOptions\.length >= 2\) \{/);
-	assert.match(workspace, /setValueProfilePageScope\(current, profile\.id, values\)/);
+test("adjustment profiles use card-level candidates and drop the page scope", () => {
+	// 页面范围功能已移除：规则按组件细度匹配，不再有范围限定 UI 与分类。
+	assert.doesNotMatch(workspace, /setValueProfilePageScope|classifyValueProfileMatches|aa-value-profiles__scope/);
+	// 候选以侧边栏卡片为单位：身份取主绑定，多绑一卡片只出一条候选。
+	assert.match(workspace, /item\.kind !== "control" \|\| !item\.binding/);
+	assert.match(workspace, /bindingKey\(item\.binding\)/);
+	assert.match(workspace, /linkedCount: Math\.max\(0, controlItemBindings\(item\)\.length - 1\)/);
+	// 应用时把命中卡片展开为主绑定 + 全部联动绑定，复用预设的校验 / 快照 / 整体回滚管线。
+	assert.match(workspace, /controlItemBindings\(match\.candidate\.item\)/);
+	// 已有规则的组件不再出现在添加候选里。
+	assert.match(workspace, /available = candidates\.filter\(\(candidate\) => !taken\.has\(candidate\.key\)\)/);
+	assert.match(theme, /\.aa-value-profile-rule__linked/);
 });
 
 test("prompt-bearing text inputs opt into Autocomplete-Plus", () => {

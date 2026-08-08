@@ -5,9 +5,9 @@ import { t } from "../i18n.js";
 import { bindingKey, controlItemBindings } from "../lib/dashboard_model.js";
 import { applyDashboardPresetPlan, captureDashboardValues, planDashboardPresetApplication } from "../lib/dashboard_preset_runtime.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES } from "../lib/seed_preset.js";
-import { badge, button, createDialog, el, emptyState, field, iconButton, multiSelectControl, selectControl, toggleSwitch } from "../lib/ui.js";
+import { badge, button, createDialog, el, emptyState, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
 import { createSearchableSelect } from "../lib/searchable_select.js";
-import { createValueProfile, matchValueProfileRules, classifyValueProfileMatches, removeValueProfile, removeValueProfileRule, renameValueProfile, setValueProfilePageScope, upsertValueProfileRule } from "../lib/value_profiles.js";
+import { createValueProfile, matchValueProfileRules, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule } from "../lib/value_profiles.js";
 import { loadValueProfiles, saveValueProfiles } from "./sidebar_preferences.js";
 import { confirmAction } from "./dom_utils.js";
 
@@ -25,19 +25,34 @@ function notify(severity, detail) {
 
 function hostTitleOf(node) { return String(node?.getTitle?.() || node?.title || "").trim(); }
 
+function linkedLabel(count) {
+	return t("aaalice.workspace.valueProfiles.linkedTargets", "Linked ×{count}").replace("{count}", String(count));
+}
+
+/**
+ * 候选以侧边栏卡片为单位：一张多绑一卡片只出一条，身份取主绑定，
+ * 应用时再由应用管线展开整卡绑定，联动目标随主目标一起写入与回滚。
+ */
 function collectCandidates() {
 	const model = runtime.dashboard(); const seen = new Map();
 	for (const page of model?.pages || []) for (const item of page.items || []) {
-		if (item.kind !== "control") continue;
-		for (const binding of controlItemBindings(item)) {
-			const key = bindingKey(binding);
-			if (seen.has(key)) continue;
-			let resolved = null;
-			try { resolved = runtime.resolve(binding); } catch { resolved = null; }
-			if (resolved?.status !== "ok" || resolved.presettable === false) continue;
-			const label = binding === item.binding ? runtime.controlTitle(item, resolved) : String(resolved.label || binding.controlId);
-			seen.set(key, { binding, key, valueType: binding.valueType, label, hostLabel: hostTitleOf(resolved.node), pageId: String(page.id), pageName: String(page.name || ""), resolved });
-		}
+		if (item.kind !== "control" || !item.binding) continue;
+		const key = bindingKey(item.binding);
+		if (seen.has(key)) continue;
+		let resolved = null;
+		try { resolved = runtime.resolve(item.binding); } catch { resolved = null; }
+		if (resolved?.status !== "ok" || resolved.presettable === false) continue;
+		seen.set(key, {
+			item,
+			binding: item.binding,
+			key,
+			valueType: item.binding.valueType,
+			label: runtime.controlTitle(item, resolved),
+			hostLabel: hostTitleOf(resolved.node),
+			pageName: String(page.name || ""),
+			linkedCount: Math.max(0, controlItemBindings(item).length - 1),
+			resolved,
+		});
 	}
 	return [...seen.values()];
 }
@@ -149,22 +164,28 @@ function confirmProfileIssues(profileName, issues) {
 async function applyValueProfile(profile) {
 	if (!profile.rules.length) { notify("info", t("aaalice.workspace.valueProfiles.noRules", "This profile has no rules yet.")); return; }
 	const candidates = collectCandidates();
-	const { ready: applicable, scoped } = classifyValueProfileMatches(matchValueProfileRules(profile.rules, candidates), profile.pages);
-	const matched = applicable.filter((match) => match.status === "ready");
-	const synthetic = { version: 4, pages: [{ id: "value-profiles", name: "", gridColumns: 12, tone: null, groups: [], items: matched.map((match, index) => ({ id: `rule-${index}`, kind: "control", binding: match.candidate.binding, layout: { row: index * 13, column: 0, columnSpan: 6, rowSpan: 13 } })) }] };
-	const values = {};
-	for (const match of matched) values[match.candidate.key] = { valueType: match.rule.valueType, payload: structuredClone(match.rule.payload) };
+	const matches = matchValueProfileRules(profile.rules, candidates);
+	const matched = matches.filter((match) => match.status === "ready");
+	// 命中卡片展开为主绑定 + 全部联动绑定，复用预设管线的逐目标校验、快照与整体回滚。
+	const items = []; const values = {}; const issueLabels = new Map();
+	for (const match of matched) {
+		const label = match.rule.label || match.rule.key;
+		for (const binding of controlItemBindings(match.candidate.item)) {
+			const key = bindingKey(binding);
+			items.push({ id: `rule-${items.length}`, kind: "control", binding, layout: { row: items.length * 13, column: 0, columnSpan: 6, rowSpan: 13 } });
+			values[key] = { valueType: match.rule.valueType, payload: structuredClone(match.rule.payload) };
+			issueLabels.set(key, label);
+		}
+	}
+	const synthetic = { version: 4, pages: [{ id: "value-profiles", name: "", gridColumns: 12, tone: null, groups: [], items }] };
 	const plan = planDashboardPresetApplication({ dashboard: synthetic, values }, (binding) => runtime.resolve(binding));
-	const issueLabels = new Map(matched.map((match) => [match.candidate.key, match.rule.label]));
 	const issues = [
-		...applicable.filter((match) => match.status !== "ready").map((match) => ({ label: match.rule.label || match.rule.key, status: match.status, reason: "" })),
+		...matches.filter((match) => match.status !== "ready").map((match) => ({ label: match.rule.label || match.rule.key, status: match.status, reason: "" })),
 		...plan.issues.map((entry) => ({ label: issueLabels.get(entry.key) || entry.binding?.controlId || entry.key, status: entry.status, reason: entry.reason || "" })),
 	];
 	if (issues.length && !await confirmProfileIssues(profile.name, issues)) return;
 	if (!plan.ready.length) {
-		notify("info", scoped.length
-			? t("aaalice.workspace.valueProfiles.nothingInScope", "No rule applies inside the selected page scope; {count} rule(s) were skipped.").replace("{count}", String(scoped.length))
-			: t("aaalice.workspace.valueProfiles.nothingToApply", "No rule can be applied to the current sidebar."));
+		notify("info", t("aaalice.workspace.valueProfiles.nothingToApply", "No rule can be applied to the current sidebar."));
 		return;
 	}
 	const graph = app.graph; graph?.beforeChange?.();
@@ -177,11 +198,8 @@ async function applyValueProfile(profile) {
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); }
 	runtime.scheduleStructuralRender("dashboard");
 	runtime.scheduleActiveDashboardPresetAutoSave();
-	const scopeNames = profile.pages?.length ? [...new Set(matched.map((match) => match.candidate.pageName).filter(Boolean))] : [];
-	const applied = scopeNames.length
-		? t("aaalice.workspace.valueProfiles.appliedOnPages", "Applied {count} rule(s) from “{name}” on {pages}.").replace("{count}", String(plan.ready.length)).replace("{name}", profile.name).replace("{pages}", scopeNames.join(", "))
-		: t("aaalice.workspace.valueProfiles.applied", "Applied {count} rule(s) from “{name}”.").replace("{count}", String(plan.ready.length)).replace("{name}", profile.name);
-	notify("success", scoped.length ? `${applied} ${t("aaalice.workspace.valueProfiles.skippedScoped", "{count} rule(s) outside the page scope were skipped.").replace("{count}", String(scoped.length))}` : applied);
+	const appliedCount = new Set(plan.ready.map((entry) => issueLabels.get(entry.key))).size;
+	notify("success", t("aaalice.workspace.valueProfiles.applied", "Applied {count} rule(s) from “{name}”.").replace("{count}", String(appliedCount)).replace("{name}", profile.name));
 }
 
 export function openValueProfiles() {
@@ -211,20 +229,20 @@ export function openValueProfiles() {
 
 	const renderRules = (profile, container) => {
 		const candidates = collectCandidates();
-		const { ready: applicable, scoped } = classifyValueProfileMatches(matchValueProfileRules(profile.rules, candidates), profile.pages);
-		const matches = [...applicable, ...scoped];
+		const matches = matchValueProfileRules(profile.rules, candidates);
 		if (!matches.length) {
 			container.append(emptyState({
 				iconName: "sliders",
 				description: t("aaalice.workspace.valueProfiles.emptyRules", "No rules yet. Add a control below and its current value becomes the target."),
+				actions: [button({ label: t("aaalice.workspace.valueProfiles.addRule", "Add rule"), iconName: "add", variant: "ghost", onClick: () => { addPanelOpen = true; render(); } })],
 			}));
 			return;
 		}
 		for (const match of matches) {
 			const { rule } = match;
 			const statusBadge = match.status === "ready" ? null : badge(match.status === "ambiguous" ? t("aaalice.workspace.valueProfiles.issue.ambiguous", "Ambiguous") : t("aaalice.workspace.valueProfiles.issue.missing", "Not on sidebar"), { className: "is-warning" });
-			const scopedBadge = match.status === "scoped" ? badge(t("aaalice.workspace.valueProfiles.scopedOut", "Outside page scope"), { className: "is-warning" }) : null;
 			const pageBadge = match.candidate?.pageName ? badge(match.candidate.pageName, { className: "aa-value-profile-rule__page" }) : null;
+			const linkedBadge = match.candidate?.linkedCount ? badge(linkedLabel(match.candidate.linkedCount), { className: "aa-value-profile-rule__linked" }) : null;
 			const updateButton = match.status === "ready" ? iconButton({
 				iconName: "refresh",
 				label: t("aaalice.workspace.valueProfiles.captureCurrent", "Update to current value"),
@@ -241,12 +259,12 @@ export function openValueProfiles() {
 				children: [
 					el("div", { className: "aa-value-profile-rule__head", children: [
 						el("div", { className: "aa-value-profile-rule__copy", children: [
-							el("strong", null, rule.label || rule.key),
-							rule.hostLabel ? el("small", null, rule.hostLabel) : null,
+							el("strong", null, match.candidate?.label || rule.label || rule.key),
+							(match.candidate?.hostLabel || rule.hostLabel) ? el("small", null, match.candidate?.hostLabel || rule.hostLabel) : null,
 						].filter(Boolean) }),
 						pageBadge,
+						linkedBadge,
 						statusBadge,
-						scopedBadge,
 						updateButton,
 						iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: () => persist((current) => removeValueProfileRule(current, profile.id, rule.key)) }),
 					].filter(Boolean) }),
@@ -292,52 +310,50 @@ export function openValueProfiles() {
 				});
 			} }),
 		] }));
-		const scopeModel = runtime.dashboard();
-		const pageOptions = (scopeModel?.pages || []).map((page) => ({ value: String(page.id), label: String(page.name || page.id) }));
-		// 只有一个页面时范围限定无从谈起，整行隐藏而不是禁用，减少设置噪音。
-		if (pageOptions.length >= 2) {
-		const scopeLimited = Array.isArray(profile.pages) && profile.pages.length > 0;
-		const scopeToggle = toggleSwitch({
-			checked: scopeLimited,
-			label: t("aaalice.workspace.valueProfiles.scopeLimited", "Limit to selected pages"),
-			onChange: (on) => persist((current) => setValueProfilePageScope(current, profile.id, on ? pageOptions.map((option) => option.value) : null)),
-		});
-		body.append(el("div", { className: "aa-value-profiles__scope", children: [
-			field({ label: t("aaalice.workspace.valueProfiles.scopeField", "Apply to pages"), control: scopeToggle }),
-			scopeLimited ? multiSelectControl({
-				className: "aa-value-profiles__scope-pages",
-				options: pageOptions,
-				values: (profile.pages || []).filter((id) => pageOptions.some((option) => option.value === id)),
-				ariaLabel: t("aaalice.workspace.valueProfiles.scopePages", "Pages in scope"),
-				onChange: (values) => persist((current) => setValueProfilePageScope(current, profile.id, values)),
-			}) : el("span", { className: "aa-value-profiles__scope-all", text: t("aaalice.workspace.valueProfiles.scopeAll", "All pages") }),
-		] }));
-		}
 		const rulesContainer = el("div", { className: "aa-value-profile-rules" });
 		renderRules(profile, rulesContainer);
 		body.append(rulesContainer);
 		if (addPanelOpen) {
 			const candidates = collectCandidates();
-			const picker = createSearchableSelect({
-				options: candidates.map((candidate) => ({
-					value: candidate.key,
-					label: candidate.label,
-					description: candidate.hostLabel,
-					badge: profile.rules.some((rule) => rule.key === candidate.key) ? t("aaalice.workspace.valueProfiles.ruleExists", "Added") : null,
-				})),
-				ariaLabel: t("aaalice.workspace.valueProfiles.addRule", "Add rule"),
-				searchPlaceholder: t("aaalice.workspace.valueProfiles.searchControl", "Search components…"),
-				emptyLabel: t("aaalice.workspace.valueProfiles.noControlMatches", "No components match the search."),
-				onChange: (key) => addRule(candidates.find((candidate) => candidate.key === key)),
-			});
+			const taken = new Set(profile.rules.map((rule) => rule.key));
+			const available = candidates.filter((candidate) => !taken.has(candidate.key));
+			let pickerControl;
+			if (available.length) {
+				const picker = createSearchableSelect({
+					options: available.map((candidate) => ({
+						value: candidate.key,
+						label: candidate.label,
+						description: candidate.linkedCount ? `${candidate.hostLabel} · ${linkedLabel(candidate.linkedCount)}` : candidate.hostLabel,
+						badge: candidate.pageName || null,
+					})),
+					ariaLabel: t("aaalice.workspace.valueProfiles.addRule", "Add rule"),
+					searchPlaceholder: t("aaalice.workspace.valueProfiles.searchControl", "Search components…"),
+					emptyLabel: t("aaalice.workspace.valueProfiles.noControlMatches", "No components match the search."),
+					onChange: (key) => addRule(candidates.find((candidate) => candidate.key === key)),
+				});
+				requestAnimationFrame(() => picker.focusSearch());
+				pickerControl = picker;
+			} else {
+				pickerControl = el("p", { className: "aa-value-profiles__picker-empty", text: candidates.length
+					? t("aaalice.workspace.valueProfiles.allAdded", "Every sidebar component already has a rule.")
+					: t("aaalice.workspace.valueProfiles.noComponents", "No bindable components on the sidebar yet.") });
+			}
 			body.append(el("div", { className: "aa-value-profiles__picker", children: [
-				field({ label: t("aaalice.workspace.valueProfiles.addRule", "Add rule"), control: picker }),
+				el("div", { className: "aa-value-profiles__picker-head", children: [
+					el("span", { className: "aa-value-profiles__picker-title", text: t("aaalice.workspace.valueProfiles.addRule", "Add rule") }),
+					iconButton({ iconName: "close", label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => { addPanelOpen = false; render(); } }),
+				] }),
+				pickerControl,
 			] }));
-			requestAnimationFrame(() => picker.focusSearch());
+		} else {
+			body.append(button({
+				label: t("aaalice.workspace.valueProfiles.addRule", "Add rule"),
+				iconName: "add",
+				variant: "ghost",
+				className: "aa-value-profiles__add",
+				onClick: () => { addPanelOpen = true; render(); },
+			}));
 		}
-		body.append(el("div", { className: "aa-value-profiles__actions", children: [
-			button({ label: addPanelOpen ? t("aaalice.common.close", "Close") : t("aaalice.workspace.valueProfiles.addRule", "Add rule"), iconName: addPanelOpen ? "close" : "add", variant: "ghost", size: "sm", onClick: () => { addPanelOpen = !addPanelOpen; render(); } }),
-		] }));
 		footer.append(
 			button({ label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => dialog.close() }),
 			button({ label: t("aaalice.workspace.valueProfiles.apply", "Apply to current sidebar"), onClick: () => { void applyValueProfile(profile); } }),

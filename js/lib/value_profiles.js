@@ -58,17 +58,10 @@ export function normalizeValueProfileState(raw) {
 			if (ruleKeys.has(normalized.key)) throw new ValueProfileError(`Duplicate value profile rule: ${normalized.key}`, "duplicate-profile-rule");
 			ruleKeys.add(normalized.key); rules.push(normalized);
 		}
-		return { id, name, pages: normalizePageScope(source.pages), rules };
+		// 早期版本的 pages 页面范围字段已随功能移除，读取时直接丢弃。
+		return { id, name, rules };
 	});
 	return { version: VALUE_PROFILES_VERSION, profiles };
-}
-
-/** null 表示全部页面；空数组与 null 同义，避免保存永远不命中的死档案。 */
-function normalizePageScope(value) {
-	if (value == null) return null;
-	if (!Array.isArray(value)) throw new ValueProfileError("Value profile page scope must be an array", "invalid-profile-pages");
-	const pages = [...new Set(value.map((page) => String(page || "").trim()).filter(Boolean))];
-	return pages.length ? pages : null;
 }
 
 function copy(state) { return structuredClone(normalizeValueProfileState(state)); }
@@ -85,7 +78,7 @@ function assertUniqueName(state, name, ignoredId = null) {
 
 export function createValueProfile(state, name) {
 	const next = copy(state);
-	next.profiles.push({ id: stableProfileId(), name: assertUniqueName(next, name), pages: null, rules: [] });
+	next.profiles.push({ id: stableProfileId(), name: assertUniqueName(next, name), rules: [] });
 	return next;
 }
 
@@ -116,28 +109,6 @@ export function removeValueProfileRule(state, profileId, key) {
 	const profile = findProfile(next, profileId);
 	profile.rules = profile.rules.filter((rule) => rule.key !== key);
 	return next;
-}
-
-export function setValueProfilePageScope(state, profileId, pages) {
-	const next = copy(state);
-	findProfile(next, profileId).pages = normalizePageScope(pages);
-	return next;
-}
-
-/**
- * 在身份匹配之后按页面范围分类：范围内的 ready 规则进入应用集合，
- * 范围外匹配记为 scoped（跳过而非错误），其余状态原样保留。
- * 范围必须先在身份匹配之后应用，否则同名控件可能被错误重定向到范围内的另一页。
- */
-export function classifyValueProfileMatches(matches, pages) {
-	if (!Array.isArray(pages) || !pages.length) return { ready: matches || [], scoped: [] };
-	const scope = new Set(pages.map(String));
-	const ready = []; const scoped = [];
-	for (const match of matches || []) {
-		if (match.status === "ready" && match.candidate && !scope.has(String(match.candidate.pageId ?? ""))) scoped.push({ ...match, status: "scoped" });
-		else ready.push(match);
-	}
-	return { ready, scoped };
 }
 
 function labelKey(value) { return String(value || "").trim().toLocaleLowerCase(); }

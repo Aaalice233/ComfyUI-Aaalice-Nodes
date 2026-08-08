@@ -182,7 +182,7 @@ The compact preset picker saves and switches the complete dashboard — pages, g
 
 ### 🎚️ Adjustment profiles
 
-The toolbar's **Adjustment profiles** button opens value-override profiles stored globally on this ComfyUI installation. Each rule targets one sidebar control chosen by fuzzy search and remembers a target value (including a Seed's after-generate mode); applying a profile writes every matching rule into the current controls in one transaction that rolls back on failure. Rules that cannot be matched or validated are listed for review instead of being silently skipped. Profiles are not embedded in workflows, so your own profiles stay available no matter which workflow is open. Profiles apply to all pages by default and can be limited to selected pages: out-of-scope rules are skipped and reported, so one page can switch to a different sampler/scheduler set without touching the others.
+The toolbar's **Adjustment profiles** button opens value-override profiles stored globally on this ComfyUI installation. Each rule targets one sidebar component card chosen by fuzzy search and remembers a target value (including a Seed's after-generate mode); linked targets of a multi-bound card are written together with the primary. The picker lists components from every sidebar page with a page badge, and components that already have a rule are hidden. Applying a profile writes every matching rule into the current controls in one transaction that rolls back on failure. Rules that cannot be matched or validated are listed for review instead of being silently skipped. Profiles are not embedded in workflows, so your own profiles stay available no matter which workflow is open.
 
 ### 🧭 Groups navigation
 
