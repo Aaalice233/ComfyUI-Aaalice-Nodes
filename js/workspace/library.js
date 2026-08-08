@@ -44,6 +44,8 @@ function libraryExportPayload(scope, { selected, categoryId, collectionId }) {
 export function openLibraryEntryEditor(entry = null) {
 	const title = document.createElement("input"); title.value = entry?.title || "";
 	const text = document.createElement("textarea"); text.value = entry?.text || "";
+	// 词条正文是提示词文本：opt-in Autocomplete-Plus，未安装时属性完全惰性。
+	text.setAttribute("data-autocomplete-plus", "");
 	const note = document.createElement("textarea"); note.value = entry?.note || "";
 	const category = listboxControl({
 		ariaLabel: t("aaalice.workspace.libraryUi.category", "Category"),

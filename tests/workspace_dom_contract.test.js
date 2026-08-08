@@ -20,6 +20,7 @@ const workspace = [
 	"workspace/dashboard_scroll.js",
 	"workspace/dashboard_source_groups.js",
 	"workspace/sidebar_preferences.js",
+	"workspace/value_profiles.js",
 ].map((path) => readFileSync(join(ROOT, "js", ...path.split("/")), "utf8")).join("\n");
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const rebindMatch = readFileSync(join(ROOT, "js", "lib", "rebind_match.js"), "utf8");
@@ -669,4 +670,19 @@ test("page menu offers batch rebinding with reviewable suggestions and one atomi
 	assert.match(providers, /relocateOrphanedBinding\(\{ provider, binding, nodes/);
 	assert.match(theme, /\.aa-rebind-all__row\.is-skipped/);
 	assert.match(theme, /\.aa-rebind-all__match\.is-empty/);
+});
+
+test("adjustment profiles hide the page scope row when only one page exists", () => {
+	// 单页 Dashboard 下范围限定无从谈起，整行隐藏而不是禁用。
+	assert.match(workspace, /if \(pageOptions\.length >= 2\) \{/);
+	assert.match(workspace, /setValueProfilePageScope\(current, profile\.id, values\)/);
+});
+
+test("prompt-bearing text inputs opt into Autocomplete-Plus", () => {
+	// 词库词条编辑正文与共享 text / taglist 控件声明外部输入 opt-in；未安装插件时属性惰性。
+	assert.match(workspace, /text\.setAttribute\("data-autocomplete-plus", ""\)/);
+	assert.match(textControl, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
+	assert.match(taglistControl, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
+	// 补全候选面板打开时，taglist 的 Enter 提交让位给插件确认候选。
+	assert.match(taglistControl, /hasAttribute\("data-autocomplete-plus-open"\)/);
 });

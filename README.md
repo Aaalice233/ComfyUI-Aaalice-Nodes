@@ -138,7 +138,7 @@ PromptSelector 保存稳定的词条引用而不是复制文本：编辑词库�
 - 站点凭据、默认值、全局内容黑名单、输出过滤标签、超时与图像缓存预算位于 **ComfyUI 设置 → Aaalice Nodes → Booru Gallery**；凭据与缓存保存在当前 ComfyUI 用户目录，不进入工作流 JSON。Gelbooru 需要官方 User ID 和 API Key。
 - 内容黑名单会隐藏含该标签的帖子；输出过滤标签不隐藏帖子，只从节点输出与复制的提示词中剔除（适合 watermark、画师名等），两者都在提示词处理浮层与详情标签菜单中维护。
 - Danbooru 支持收藏读写；Gelbooru 仅支持读取。
-- 安装 ComfyUI-Autocomplete-Aaalice 后，搜索获得其标签补全，帖子详情显示标签翻译；安装 prompt-assistant 后，卡片可通过其视觉分析反推图像。
+- 安装 ComfyUI-Autocomplete-Aaalice 后，搜索、排除标签与输出过滤等标签输入框获得其标签补全，帖子详情显示标签翻译；安装 prompt-assistant 后，卡片可通过其视觉分析反推图像。
 
 </details>
 

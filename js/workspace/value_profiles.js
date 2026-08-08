@@ -294,6 +294,8 @@ export function openValueProfiles() {
 		] }));
 		const scopeModel = runtime.dashboard();
 		const pageOptions = (scopeModel?.pages || []).map((page) => ({ value: String(page.id), label: String(page.name || page.id) }));
+		// 只有一个页面时范围限定无从谈起，整行隐藏而不是禁用，减少设置噪音。
+		if (pageOptions.length >= 2) {
 		const scopeLimited = Array.isArray(profile.pages) && profile.pages.length > 0;
 		const scopeToggle = toggleSwitch({
 			checked: scopeLimited,
@@ -310,6 +312,7 @@ export function openValueProfiles() {
 				onChange: (values) => persist((current) => setValueProfilePageScope(current, profile.id, values)),
 			}) : el("span", { className: "aa-value-profiles__scope-all", text: t("aaalice.workspace.valueProfiles.scopeAll", "All pages") }),
 		] }));
+		}
 		const rulesContainer = el("div", { className: "aa-value-profile-rules" });
 		renderRules(profile, rulesContainer);
 		body.append(rulesContainer);

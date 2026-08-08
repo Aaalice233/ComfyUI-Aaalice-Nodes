@@ -456,7 +456,7 @@ test("gallery prompt settings use compact pages and category-specific colors", (
 	assert.doesNotMatch(promptSource, /aa-gallery-tool-section|aa-gallery-prompt-layout__lower|aa-gallery-tool-popover__footer/);
 	assert.match(theme, /\.aa-gallery-prompt-popover__body \{[^}]*min-height: 128px/);
 	assert.match(theme, /\.aa-gallery-prompt-panel\[hidden\] \{ display: none !important; \}/);
-	assert.match(theme, /\.aa-gallery-prompt-panel\[data-panel="exclude"\] \{[^}]*height: 128px/);
+	assert.match(theme, /\.aa-gallery-prompt-panel\[data-panel="exclude"\], \.aa-gallery-prompt-panel\[data-panel="outputFilter"\] \{[^}]*height: 128px/);
 	assert.match(theme, /\.aa-gallery-prompt-excluded \{[^}]*width: 100%;[^}]*height: 100%/);
 	assert.match(theme, /\.aa-gallery-prompt-transform strong \{[^}]*font-size: 11\.5px/);
 	assert.doesNotMatch(theme, /\.aa-gallery-prompt-transform small/);
@@ -477,6 +477,15 @@ test("gallery status cannot render as an unexplained empty capsule", () => {
 	assert.match(source, /className: "aa-gallery-status is-end"[^;]*icon\("statusCheck"\)/);
 	assert.match(theme, /\.aa-gallery-status\[hidden\], \.aa-gallery-status:empty \{ display: none !important; \}/);
 	assert.match(theme, /\.aa-gallery-masonry \{[^}]*overflow-x: hidden;[^}]*overflow-y: auto;/);
+});
+
+test("tag inputs opt into Autocomplete-Plus and yield keys while its panel is open", () => {
+	// 搜索框 + 排除标签 / 输出过滤（提示词浮层与画廊设置）都声明外部输入 opt-in。
+	assert.equal(source.match(/setAttribute\("data-autocomplete-plus", ""\)/g)?.length ?? 0, 5);
+	// 详情标签编辑与新增输入框：面板打开期间按键与失焦提交全部让位给补全插件。
+	assert.equal(tagPillsSource.match(/setAttribute\("data-autocomplete-plus", ""\)/g)?.length ?? 0, 2);
+	assert.match(tagPillsSource, /hasAttribute\("data-autocomplete-plus-open"\)\) return;/);
+	assert.match(tagPillsSource, /attributeFilter: \["data-autocomplete-plus-open"\]/);
 });
 
 test("gallery injects queue snapshots and cleans all event-driven resources", () => {

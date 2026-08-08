@@ -138,7 +138,7 @@ Choose Danbooru, Gelbooru, Safebooru, or AI TAG, search and filter posts, then s
 - Site credentials, defaults, the global content blacklist, output filter tags, timeout, and the image cache budget live under **ComfyUI Settings → Aaalice Nodes → Booru Gallery**; credentials and caches stay in the current ComfyUI user directory and never enter workflow JSON. Gelbooru requires its official User ID and API Key.
 - The content blacklist hides matching posts; output filter tags keep posts visible and only strip the tags from node output and copied prompts (handy for watermarks or artist names). Both are maintained from the prompt popover and the detail tag menu.
 - Danbooru supports favorite reading and writing; Gelbooru supports reading only.
-- With ComfyUI-Autocomplete-Aaalice installed, search gains its tag completion and the post detail shows tag translations; with prompt-assistant installed, cards can interrogate images through its vision analysis.
+- With ComfyUI-Autocomplete-Aaalice installed, search and tag inputs such as excluded tags and output filter gain its tag completion, and the post detail shows tag translations; with prompt-assistant installed, cards can interrogate images through its vision analysis.
 
 </details>
 

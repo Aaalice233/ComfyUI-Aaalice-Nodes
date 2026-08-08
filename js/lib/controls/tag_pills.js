@@ -65,6 +65,7 @@ export function createTagPillList({ tokens = [], editable = false, allowAdd = fa
 				input.value = token.raw;
 				input.spellcheck = false;
 				input.autocomplete = "off";
+				input.setAttribute("data-autocomplete-plus", "");
 				input.setAttribute("aria-label", message(labels, "editValue", "Edit tag value"));
 				let composing = false;
 				let settled = false;
@@ -82,10 +83,21 @@ export function createTagPillList({ tokens = [], editable = false, allowAdd = fa
 				input.addEventListener("compositionstart", () => { composing = true; });
 				input.addEventListener("compositionend", () => { composing = false; });
 				input.addEventListener("keydown", (event) => {
+					// 补全候选面板打开时，导航、确认和关闭键全部让给 Autocomplete-Plus
+					if (input.hasAttribute("data-autocomplete-plus-open")) return;
 					if (event.key === "Escape") { event.preventDefault(); cancel(); }
 					else if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); }
 				});
-				input.addEventListener("blur", commit);
+				input.addEventListener("blur", () => {
+					if (!input.hasAttribute("data-autocomplete-plus-open")) { commit(); return; }
+					// 补全面板打开期间的失焦（如点击候选）：等插件关闭面板、写入最终文本后再提交，避免输入框被提前替换。
+					const observer = new MutationObserver(() => {
+						if (input.hasAttribute("data-autocomplete-plus-open")) return;
+						observer.disconnect(); setTimeout(commit, 0);
+					});
+					observer.observe(input, { attributes: true, attributeFilter: ["data-autocomplete-plus-open"] });
+					setTimeout(() => observer.disconnect(), 2000);
+				});
 				content.replaceWith(input);
 				input.focus({ preventScroll: true });
 				input.select();
@@ -132,8 +144,10 @@ export function createTagPillList({ tokens = [], editable = false, allowAdd = fa
 					input.placeholder = addPlaceholder;
 					input.autocomplete = "off";
 					input.spellcheck = false;
+					input.setAttribute("data-autocomplete-plus", "");
 					input.setAttribute("aria-label", addPlaceholder);
 					input.addEventListener("keydown", (event) => {
+						if (input.hasAttribute("data-autocomplete-plus-open")) return;
 						if (event.key === "Escape") { event.preventDefault(); render(); return; }
 						if (event.key !== "Enter" || event.isComposing) return;
 						event.preventDefault();
