@@ -7,6 +7,7 @@ import "./group_is_enabled.js";
 import "./group_logic_probe.js";
 import "./quick_group_manager.js";
 import "./simple_notify.js";
+import "./conditional_save_image.js";
 import "./node_resize.js";
 import "./focus_on_open.js";
 import "./prompt_selector.js";

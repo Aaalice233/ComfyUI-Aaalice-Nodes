@@ -20,6 +20,26 @@
     },
     "outputs": { "0": { "name": "Value", "tooltip": "The unchanged input value." } }
   },
+  "ConditionalSaveImage": {
+    "display_name": "💾 Conditional Save Image",
+    "description": "Save images only while enabled; otherwise pass them through unchanged. Uses LoraManager's save implementation when installed, otherwise the core PNG save.",
+    "inputs": {
+      "images": { "name": "Images", "tooltip": "Images to save; always passed through unchanged." },
+      "enabled": { "name": "Enabled", "tooltip": "When off, nothing is saved and the images pass through unchanged." },
+      "filename_prefix": { "name": "Filename Prefix", "tooltip": "Base filename. With LoraManager installed, patterns like %seed% or %date:...% are supported." },
+      "file_format": { "name": "File Format", "tooltip": "png/jpeg/webp. jpeg and webp require ComfyUI-Lora-Manager." },
+      "lossless_webp": { "name": "Lossless WebP", "tooltip": "Save WebP losslessly. Larger files; requires ComfyUI-Lora-Manager." },
+      "quality": { "name": "Quality", "tooltip": "Compression quality for JPEG and lossy WebP (1-100)." },
+      "webp_method": { "name": "WebP Method", "tooltip": "WebP compression method (0-6). 0=fastest/largest, 6=slowest/smallest." },
+      "jpeg_subsampling": { "name": "JPEG Subsampling", "tooltip": "JPEG chroma subsampling. 0=4:4:4 (best), 1=4:2:2, 2=4:2:0 (smallest)." },
+      "embed_workflow": { "name": "Embed Workflow", "tooltip": "Store the complete workflow in saved images so they can be dragged back into ComfyUI. PNG and WebP only." },
+      "save_with_metadata": { "name": "Save With Metadata", "tooltip": "Embed generation parameters into the saved image metadata." },
+      "add_loras_to_prompt": { "name": "Add LoRAs To Prompt", "tooltip": "Append the LoRA syntax line after the positive prompt in the saved metadata. Requires ComfyUI-Lora-Manager." },
+      "add_counter_to_filename": { "name": "Add Counter To Filename", "tooltip": "Append an incremental counter to filenames to avoid overwriting previous images." },
+      "save_as_recipe": { "name": "Save As Recipe", "tooltip": "Also save each image as a LoRA Manager recipe. Requires ComfyUI-Lora-Manager." }
+    },
+    "outputs": { "0": { "name": "Images", "tooltip": "The unchanged input images." } }
+  },
   "GroupIsEnabled": {
     "display_name": "🚦 Group Is Enabled",
     "description": "Report whether the selected visual group is fully disabled at the moment the prompt is queued.",

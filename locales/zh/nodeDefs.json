@@ -20,6 +20,26 @@
     },
     "outputs": { "0": { "name": "值", "tooltip": "未经修改的输入值。" } }
   },
+  "ConditionalSaveImage": {
+    "display_name": "💾 条件保存图像",
+    "description": "仅在启用时保存图像，关闭时原样透传。安装 LoraManager 时使用其保存实现，否则回退到核心 PNG 保存。",
+    "inputs": {
+      "images": { "name": "图像", "tooltip": "待保存的图像；始终原样透传到输出。" },
+      "enabled": { "name": "启用", "tooltip": "关闭时不保存任何文件，图像原样透传。" },
+      "filename_prefix": { "name": "文件名前缀", "tooltip": "基础文件名。安装 LoraManager 后支持 %seed%、%date:...% 等变量。" },
+      "file_format": { "name": "文件格式", "tooltip": "png/jpeg/webp。jpeg 与 webp 需要安装 ComfyUI-Lora-Manager。" },
+      "lossless_webp": { "name": "无损 WebP", "tooltip": "以无损方式保存 WebP，文件更大；需要 ComfyUI-Lora-Manager。" },
+      "quality": { "name": "质量", "tooltip": "JPEG 与有损 WebP 的压缩质量（1–100）。" },
+      "webp_method": { "name": "WebP 压缩方式", "tooltip": "WebP 压缩方式（0–6）。0=最快/最大，6=最慢/最小。" },
+      "jpeg_subsampling": { "name": "JPEG 子采样", "tooltip": "JPEG 色度子采样。0=4:4:4（最佳），1=4:2:2，2=4:2:0（最小）。" },
+      "embed_workflow": { "name": "嵌入工作流", "tooltip": "将完整工作流存入图像，可拖回 ComfyUI 还原。仅 PNG 与 WebP。" },
+      "save_with_metadata": { "name": "保存元数据", "tooltip": "将生成参数嵌入图像元数据。" },
+      "add_loras_to_prompt": { "name": "追加 LoRA 提示词", "tooltip": "在保存的元数据正面提示词后追加 LoRA 语法行。需要 ComfyUI-Lora-Manager。" },
+      "add_counter_to_filename": { "name": "文件名计数器", "tooltip": "在文件名后追加递增计数，避免覆盖已有图像。" },
+      "save_as_recipe": { "name": "保存为配方", "tooltip": "同时将每张图像保存为 LoRA Manager 配方。需要 ComfyUI-Lora-Manager。" }
+    },
+    "outputs": { "0": { "name": "图像", "tooltip": "未经修改的输入图像。" } }
+  },
   "GroupIsEnabled": {
     "display_name": "🚦 组启用探测",
     "description": "在队列提交时报告选中可视组是否被完全禁用。",

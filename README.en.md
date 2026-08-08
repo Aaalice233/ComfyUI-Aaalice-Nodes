@@ -59,6 +59,7 @@ pip install -r requirements.txt
 | `ResolutionPreset` | `Aaalice/tools` | Pick an exact aligned width and height with presets, direct input, or a draggable canvas. |
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
+| `ConditionalSaveImage` | `Aaalice/tools` | Save images only while enabled, otherwise pass them through; reuses LoraManager's save implementation when installed. |
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
 | `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
@@ -107,6 +108,15 @@ This node does not calculate a target size from megapixels, recommend models, or
 <summary><strong>SimpleNotify — execution-point alerts</strong></summary>
 
 Connect any value to receive one alert when execution reaches the node, then continue with the unchanged value. Desktop notifications and the bundled sound can be enabled independently, with configurable volume. Use **🔔 Enable and Test Alerts** from the node menu to request browser permission and test the enabled channels. The alert confirms only that execution reached this node; it does not wait for parallel branches or an empty queue.
+
+</details>
+
+<details>
+<summary><strong>ConditionalSaveImage — toggleable image saving</strong></summary>
+
+The same saving capabilities and options as `Save Image (LoraManager)` (`%seed%` filename patterns, png/jpeg/webp, metadata, workflow embedding, recipes), plus an **Enabled** toggle: when off, nothing is written, the images pass through unchanged, and the save-related widgets are dimmed. With ComfyUI-Lora-Manager installed, all saving is performed by its original implementation; without it, the node falls back to the core PNG save and clearly errors on LoraManager-only capabilities such as jpeg/webp or recipes.
+
+Every save node is an output node that the executor runs unconditionally, so placing a save node upstream of a switch cannot prevent writes. Building the toggle into the save node itself is the only option that does not require manually muting the node (`Ctrl+M`).
 
 </details>
 

@@ -59,6 +59,7 @@ pip install -r requirements.txt
 | `ResolutionPreset` | `Aaalice/tools` | 通过预设、直接输入或画布拖拽选择精确对齐的宽高。 |
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除空白并移除空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 在执行到达时发送可选的桌面和声音提醒，并原样透传数值。 |
+| `ConditionalSaveImage` | `Aaalice/tools` | 仅在启用时保存图像，关闭时原样透传；安装 LoraManager 时复用其保存实现。 |
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序、加权可复用词条。 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 在虚拟瀑布流画廊中搜索 Danbooru、Gelbooru、Safebooru 和 AI TAG，按顺序输出图像与对应提示词。 |
 | `FetchFromKrita` | `Aaalice/krita` | 读取 Krita 活动文档的可见合成图像与选区，输出 `IMAGE` 和 `MASK`。 |
@@ -107,6 +108,15 @@ QuickGroupManager 不参与工作流执行，也没有输入输出引脚。它�
 <summary><strong>SimpleNotify — 执行到达提醒</strong></summary>
 
 连接任意数值即可在执行到达该节点时收到一次提醒，随后原样透传。桌面通知和内置提示音可独立启用，音量可调。通过节点菜单的 **🔔 启用并测试提醒** 请求浏览器权限并测试已启用通道。提醒只表示执行到达该节点，不等待并行分支或队列清空。
+
+</details>
+
+<details>
+<summary><strong>ConditionalSaveImage — 可开关的图像保存</strong></summary>
+
+与 `Save Image (LoraManager)` 相同的保存能力与选项（`%seed%` 等文件名变量、png/jpeg/webp、元数据、工作流嵌入、配方），但多了一个 **启用** 开关：关闭时不写盘、图像原样透传，保存相关控件随之灰化。安装 ComfyUI-Lora-Manager 时保存逻辑完全由其原版实现承担；未安装时回退为核心 PNG 保存，jpeg/webp 与配方等专属能力会明确报错提示。
+
+所有保存节点都是输出节点，会被执行器无条件运行，因此“在开关节点上游串一个保存节点”无法阻止写盘；本节点把开关做进保存节点内部，是唯一不需要手动静音节点（`Ctrl+M`）的方案。
 
 </details>
 
