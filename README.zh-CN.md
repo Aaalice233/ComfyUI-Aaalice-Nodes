@@ -181,7 +181,7 @@ PromptSelector 保存稳定词条引用，不复制正文。修改词库词条�
 - 词库保存在当前 ComfyUI 用户目录，不会嵌入工作流；跨安装迁移工作流时需要单独导出词库。
 - 侧边栏自动支持简单原生标量、文本和下拉节点及子图公开 widget。只要节点含未知自定义 widget 或 DOM 面板，就不会自动做不完整投影，必须使用显式适配器。
 
-如果仍需旧节点，请单独保留 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)。
+请勿将本包与 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 同时安装：两者注册了相同的节点 ID（`PromptSelector`、`GroupIsEnabled`、`SimpleNotify`、`SimpleStringSplit`、`FetchFromKrita`），且旧包前端仍会 hook 这些同名节点类型，同装会出现重复控件和不可预期的行为。请只保留其中一个。
 
 ## 反馈与许可
 

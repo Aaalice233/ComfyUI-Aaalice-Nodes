@@ -365,7 +365,11 @@ class DanbooruAdapter(BooruAdapter):
             chunk = names[offset:offset + 100]
             raw = await self._get_json(session, f"{self.base}/tags.json", params={"search[name_comma]": ",".join(chunk), "limit": 100, **self.auth_params(credentials)})
             if isinstance(raw, list):
-                known.update(str(item.get("name", "")).casefold() for item in raw if isinstance(item, dict))
+                # tags.json also returns dead tags with zero posts or a deprecated flag
+                # (e.g. blue, archive); treating them as valid standalone words would
+                # block repairing spaced phrases like "blue archive" into blue_archive.
+                known.update(str(item.get("name", "")).casefold() for item in raw
+                             if isinstance(item, dict) and _int(item.get("post_count")) > 0 and not item.get("is_deprecated"))
         known.discard("")
         return frozenset(known)
 
@@ -478,7 +482,11 @@ class GelbooruAdapter(BooruAdapter):
             raw = await self._get_json(session, self.base, params={"page": "dapi", "s": "tag", "q": "index", "json": "1", "names": " ".join(chunk), "limit": 100, **self.auth_params(credentials)})
             items = raw.get("tag", []) if isinstance(raw, dict) else raw
             if isinstance(items, list):
-                known.update(str(item.get("name", "")).casefold() for item in items if isinstance(item, dict))
+                # Same dead-tag guard as danbooru: a zero-post standalone word must not
+                # block joining a spaced phrase into its real underscore tag. Only filter
+                # when the endpoint reports a count so older payloads stay valid.
+                known.update(str(item.get("name", "")).casefold() for item in items
+                             if isinstance(item, dict) and ("count" not in item or _int(item.get("count")) > 0))
         known.discard("")
         return frozenset(known)
 

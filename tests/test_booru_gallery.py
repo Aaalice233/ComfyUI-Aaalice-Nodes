@@ -392,7 +392,7 @@ class GalleryQueryNormalizationTests(unittest.TestCase):
     def test_danbooru_repairs_spaced_tags_and_trailing_commas(self):
         async def run():
             adapter = DanbooruAdapter()
-            adapter._get_json = AsyncMock(return_value=[{"name": "red_hair", "category": 0}])
+            adapter._get_json = AsyncMock(return_value=[{"name": "red_hair", "category": 0, "post_count": 50}])
             normalized = await adapter.normalize_tag_query(None, "red hair,", {})
             self.assertEqual(normalized, "red_hair")
             params = adapter._get_json.await_args.kwargs["params"]
@@ -403,16 +403,29 @@ class GalleryQueryNormalizationTests(unittest.TestCase):
     def test_danbooru_keeps_valid_native_multi_tag_queries(self):
         async def run():
             adapter = DanbooruAdapter()
-            adapter._get_json = AsyncMock(return_value=[{"name": "1girl", "category": 0}, {"name": "solo", "category": 0}, {"name": "1girl_solo", "category": 0}])
+            adapter._get_json = AsyncMock(return_value=[{"name": "1girl", "category": 0, "post_count": 100}, {"name": "solo", "category": 0, "post_count": 100}, {"name": "1girl_solo", "category": 0, "post_count": 100}])
             normalized = await adapter.normalize_tag_query(None, "1girl solo", {})
             self.assertEqual(normalized, "1girl solo")
+        import asyncio
+        asyncio.run(run())
+
+    def test_danbooru_dead_tags_do_not_block_spaced_tag_repair(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            adapter._get_json = AsyncMock(return_value=[
+                {"name": "blue_archive", "category": 3, "post_count": 440229},
+                {"name": "archive", "category": 0, "post_count": 0},
+                {"name": "blue", "category": 0, "post_count": 0, "is_deprecated": True},
+            ])
+            normalized = await adapter.normalize_tag_query(None, "blue archive, ", {})
+            self.assertEqual(normalized, "blue_archive")
         import asyncio
         asyncio.run(run())
 
     def test_gelbooru_known_tags_reads_dict_response(self):
         async def run():
             adapter = GelbooruAdapter()
-            adapter._get_json = AsyncMock(return_value={"tag": [{"name": "red_hair", "type": 0}]})
+            adapter._get_json = AsyncMock(return_value={"tag": [{"name": "red_hair", "type": 0, "count": 10}]})
             credentials = {"userId": "u", "apiKey": "k"}
             known = await adapter.known_tags(None, ["red_hair"], credentials)
             self.assertEqual(known, frozenset({"red_hair"}))
