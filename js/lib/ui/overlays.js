@@ -1,6 +1,7 @@
 /** Popover, context-menu, dialog, and inline-edit surfaces. */
 
 import { button, el, icon, isolate } from "./primitives.js";
+import { guardClipboardEvents } from "./clipboard_guard.js";
 import { registerTransientHoverSurface } from "./transient_surfaces.js";
 
 const DEFAULT_DIALOG_SIZE = "compact";
@@ -51,6 +52,7 @@ export function createAnchoredPopover({ anchor, ariaLabel, className = "", width
 	if (!(anchor instanceof HTMLElement)) throw new Error("[Aaalice] Popover anchor is unavailable");
 	const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : anchor;
 	const root = isolate(el("section", { className: `aa-ui-popover${className ? ` ${className}` : ""}`, attrs: { role: "dialog", "aria-modal": "false", "aria-label": ariaLabel, tabindex: -1 } }));
+	guardClipboardEvents(root);
 	document.body.append(root);
 	root.style.width = `${width}px`;
 	const reposition = () => {
@@ -129,6 +131,7 @@ export function createContextMenu({ x, y, ariaLabel = "Menu", items = [], onClos
 		? explicitOwnerElement
 		: triggerElement instanceof Element && !["body", "html"].includes(triggerElement.localName) ? triggerElement : previousFocus;
 	const root = isolate(el("div", { className: "aa-ui-context-menu", attrs: { role: "menu", "aria-label": ariaLabel, tabindex: -1 } }));
+	guardClipboardEvents(root);
 	const menuItems = [];
 	let closed = false;
 	const close = ({ restoreFocus = true } = {}) => {
@@ -195,6 +198,7 @@ export function createDialog({
 		className: `aa-ui-dialog aa-ui-dialog--${size}${className ? ` ${className}` : ""}`,
 		attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": titleId, tabindex: -1 },
 	});
+	guardClipboardEvents(dialog);
 	const header = el("header", "aa-ui-dialog__header");
 	const heading = el("h2", { className: "aa-ui-dialog__title", text: title, attrs: { id: titleId } });
 	header.append(heading);

@@ -10,9 +10,10 @@ function optionSearchText(option) {
 /**
  * options: [{ value, label, description?, badge?, badgeTone?: "warning"|"danger"|null, disabled? }]
  * onChange(value) fires on selection; onConfirm(value) fires on Enter/double-click commit.
+ * initialQuery 恢复上一次搜索词，onSearchChange(query) 在查询变化时回调，供宿主在重建后保持搜索状态。
  * Exposes value, setValue, setOptions, setDisabled, focusSearch.
  */
-export function createSearchableSelect({ options = [], value = "", ariaLabel = "", searchPlaceholder = "", emptyLabel = "", disabled = false, onChange = null, onConfirm = null } = {}) {
+export function createSearchableSelect({ options = [], value = "", ariaLabel = "", searchPlaceholder = "", emptyLabel = "", disabled = false, initialQuery = "", onSearchChange = null, onChange = null, onConfirm = null } = {}) {
 	let currentOptions = [];
 	let currentValue = "";
 	let query = "";
@@ -113,6 +114,7 @@ export function createSearchableSelect({ options = [], value = "", ariaLabel = "
 		query = String(next || "");
 		if (input.value !== query) input.value = query;
 		rebuild();
+		onSearchChange?.(query);
 	};
 
 	input.addEventListener("input", () => setQuery(input.value));
@@ -162,5 +164,6 @@ export function createSearchableSelect({ options = [], value = "", ariaLabel = "
 
 	setDisabled(isDisabled);
 	root.setOptions(options, value);
+	if (initialQuery) setQuery(initialQuery);
 	return root;
 }

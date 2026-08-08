@@ -9,3 +9,4 @@ export {
 } from "./ui/transient_surfaces.js";
 export * from "./ui/overlays.js";
 export * from "./ui/controls.js";
+export * from "./ui/clipboard_guard.js";

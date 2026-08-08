@@ -206,6 +206,9 @@ export function openValueProfiles() {
 	let state = loadValueProfiles();
 	let selectedId = state.profiles[0]?.id || null;
 	let addPanelOpen = false;
+	// 面板重建（添加规则等 persist 触发 render）后保留搜索词与列表滚动，不打断连续操作。
+	let pickerSearch = "";
+	const closeAddPanel = () => { addPanelOpen = false; pickerSearch = ""; };
 
 	const body = el("div", { className: "aa-value-profiles" });
 	const footer = el("div");
@@ -275,10 +278,16 @@ export function openValueProfiles() {
 	};
 
 	const render = () => {
+		const rulesScroll = body.querySelector(".aa-value-profile-rules")?.scrollTop ?? null;
 		body.replaceChildren();
 		footer.replaceChildren();
 		const profile = selectedProfile() || state.profiles[0] || null;
 		selectedId = profile?.id || null;
+		const restoreRulesScroll = () => {
+			if (rulesScroll == null) return;
+			const list = body.querySelector(".aa-value-profile-rules");
+			if (list) list.scrollTop = rulesScroll;
+		};
 		if (!profile) {
 			body.append(emptyState({
 				iconName: "sliders",
@@ -287,13 +296,14 @@ export function openValueProfiles() {
 				actions: [button({ label: t("aaalice.workspace.valueProfiles.create", "New profile"), iconName: "add", onClick: createProfile })],
 			}));
 			footer.append(button({ label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => dialog.close() }));
+			restoreRulesScroll();
 			return;
 		}
 		const profileSelect = selectControl({
 			options: state.profiles.map((entry) => ({ value: entry.id, label: entry.name })),
 			value: profile.id,
 			ariaLabel: t("aaalice.workspace.valueProfiles.select", "Adjustment profile"),
-			onChange: (value) => { selectedId = value; addPanelOpen = false; render(); },
+			onChange: (value) => { selectedId = value; closeAddPanel(); render(); },
 		});
 		body.append(el("div", { className: "aa-value-profiles__bar", children: [
 			profileSelect,
@@ -329,6 +339,8 @@ export function openValueProfiles() {
 					ariaLabel: t("aaalice.workspace.valueProfiles.addRule", "Add rule"),
 					searchPlaceholder: t("aaalice.workspace.valueProfiles.searchControl", "Search components…"),
 					emptyLabel: t("aaalice.workspace.valueProfiles.noControlMatches", "No components match the search."),
+					initialQuery: pickerSearch,
+					onSearchChange: (query) => { pickerSearch = query; },
 					onChange: (key) => addRule(candidates.find((candidate) => candidate.key === key)),
 				});
 				requestAnimationFrame(() => picker.focusSearch());
@@ -341,7 +353,7 @@ export function openValueProfiles() {
 			body.append(el("div", { className: "aa-value-profiles__picker", children: [
 				el("div", { className: "aa-value-profiles__picker-head", children: [
 					el("span", { className: "aa-value-profiles__picker-title", text: t("aaalice.workspace.valueProfiles.addRule", "Add rule") }),
-					iconButton({ iconName: "close", label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => { addPanelOpen = false; render(); } }),
+					iconButton({ iconName: "close", label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => { closeAddPanel(); render(); } }),
 				] }),
 				pickerControl,
 			] }));
@@ -358,6 +370,7 @@ export function openValueProfiles() {
 			button({ label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => dialog.close() }),
 			button({ label: t("aaalice.workspace.valueProfiles.apply", "Apply to current sidebar"), onClick: () => { void applyValueProfile(profile); } }),
 		);
+		restoreRulesScroll();
 	};
 
 	const createProfile = () => {

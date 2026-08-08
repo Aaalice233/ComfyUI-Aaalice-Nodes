@@ -1,6 +1,6 @@
 /** Shared slider and seed control renderer. */
 
-import { button, createAnchoredPopover, el, icon, iconButton } from "../ui.js";
+import { button, createAnchoredPopover, el, icon, iconButton, guardClipboardEvents } from "../ui.js";
 import { controlView } from "./contract.js";
 
 const handledNumericWheels = new WeakSet();
@@ -66,6 +66,7 @@ export function createNumericEditor(anchor, { value, min = 0, max = Number.MAX_S
 	input.style.setProperty("--aaalice-inline-editor-color", editorColor);
 	input.style.setProperty("--aaalice-inline-editor-accent", editorAccent);
 	input.style.setProperty("--aaalice-inline-editor-accent-soft", editorAccentSoft);
+	guardClipboardEvents(input);
 	Object.assign(input.style, { position: "fixed", left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px`, zIndex: "10000" });
 	anchor.classList.add("is-editing"); anchor.ownerDocument.body.append(input);
 	let done = false;

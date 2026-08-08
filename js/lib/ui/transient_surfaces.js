@@ -1,6 +1,7 @@
 /** Tooltip and scroll-gesture lifecycle helpers. */
 
 import { renderSafeMarkdown } from "../safe_markdown.js";
+import { guardClipboardEvents } from "./clipboard_guard.js";
 import { el } from "./primitives.js";
 
 let activeTooltip = null;
@@ -258,6 +259,7 @@ export function createTooltip({ closeDelay = 140, delay = 180 } = {}) {
 		root.id = `aa-ui-tooltip-${++tooltipId}`;
 		root.append(rendered);
 		anchor = nextAnchor;
+		guardClipboardEvents(root);
 		document.body.append(root);
 		if (interactive) {
 			const mountedRoot = root;

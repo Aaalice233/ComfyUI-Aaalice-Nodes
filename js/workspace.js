@@ -11,7 +11,7 @@ import {
 import { resolveControlBindingSet } from "./lib/control_binding_set.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
-import { button, closeAnchoredPopoversWithin, closeContextMenuWithin, closeTooltipWithin, createDialog, createTooltip, el, field, hasAnchoredPopoverWithin, hasContextMenuWithin, icon, iconButton, onContextMenuClose, toggleSwitch } from "./lib/ui.js";
+import { button, closeAnchoredPopoversWithin, closeContextMenuWithin, closeTooltipWithin, createDialog, createTooltip, el, field, guardClipboardEvents, hasAnchoredPopoverWithin, hasContextMenuWithin, icon, iconButton, onContextMenuClose, toggleSwitch } from "./lib/ui.js";
 import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
 import { destroyVirtualLists } from "./lib/virtual_list.js";
 import { createWorkspaceShell } from "./lib/workspace_components.js";
@@ -626,6 +626,7 @@ app.registerExtension({
 		app.extensionManager.registerSidebarTab({ id: TAB_ID, icon: "aaalice-workspace-sidebar-icon", title: t("aaalice.workspace.sidebarTitle", "Aaalice"), tooltip: t("aaalice.workspace.title", "Aaalice Workspace"), type: "custom", render: (element) => {
 			if (renderedWorkspaceTabs.has(element) && !ownsWorkspaceRoot(element)) destroyWorkspaceRoot(element);
 			element.classList.add("aa-workspace-host"); mounted.add(element);
+			guardClipboardEvents(element);
 			// ComfyUI 会在 render 期间读取的响应式 widget 值变化后再次调用此回调。
 			// 已拥有完整树时必须幂等返回；值同步由 binding channel 定向更新，结构失效才显式 scheduleRender。
 			if (renderedWorkspaceTabs.has(element)) return;

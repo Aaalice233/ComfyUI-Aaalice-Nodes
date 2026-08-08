@@ -672,6 +672,20 @@ test("page menu offers batch rebinding with reviewable suggestions and one atomi
 	assert.match(theme, /\.aa-rebind-all__match\.is-empty/);
 });
 
+test("workspace UI stops clipboard events before ComfyUI canvas handlers see them", () => {
+	// ComfyUI 在 document 级处理 paste/copy/cut，本包 UI 内的剪贴板事件不得漏到画布；只阻断传播，不拦截默认行为。
+	const guard = readFileSync(join(ROOT, "js", "lib", "ui", "clipboard_guard.js"), "utf8");
+	assert.match(guard, /event\.stopPropagation\(\)/);
+	assert.doesNotMatch(guard, /preventDefault\(/);
+	assert.match(workspace, /guardClipboardEvents\(element\)/);
+	assert.match(uiSource, /guardClipboardEvents\(dialog\)/);
+	assert.match(uiSource, /guardClipboardEvents\(root\)/);
+	assert.match(numericControl, /guardClipboardEvents\(input\)/);
+	const domWidgetLifecycle = readFileSync(join(ROOT, "js", "lib", "dom_widget_lifecycle.js"), "utf8");
+	// 节点内 DOM widget（各节点搜索框等）统一在挂载边界拦截，业务模块无需各自处理。
+	assert.match(domWidgetLifecycle, /guardClipboardEvents\(element\)/);
+});
+
 test("adjustment profiles use card-level candidates and drop the page scope", () => {
 	// 页面范围功能已移除：规则按组件细度匹配，不再有范围限定 UI 与分类。
 	assert.doesNotMatch(workspace, /setValueProfilePageScope|classifyValueProfileMatches|aa-value-profiles__scope/);
@@ -684,6 +698,20 @@ test("adjustment profiles use card-level candidates and drop the page scope", ()
 	// 已有规则的组件不再出现在添加候选里。
 	assert.match(workspace, /available = candidates\.filter\(\(candidate\) => !taken\.has\(candidate\.key\)\)/);
 	assert.match(theme, /\.aa-value-profile-rule__linked/);
+	// 数值 + 执行后行为编辑器：行为下拉不能抢宽度把数值框挤没。
+	assert.match(theme, /\.aa-value-profile-rule__editor \.aa-ui-select \{ flex: 0 0 auto;/);
+	// 连续添加与编辑不被重建打断：搜索词与规则列表滚动在 render 后恢复。
+	assert.match(workspace, /initialQuery: pickerSearch/);
+	assert.match(workspace, /onSearchChange: \(query\) => \{ pickerSearch = query; \}/);
+	assert.match(workspace, /const rulesScroll = body\.querySelector\("\.aa-value-profile-rules"\)\?\.scrollTop/);
+	assert.match(workspace, /if \(list\) list\.scrollTop = rulesScroll;/);
+});
+
+test("searchable select can restore and report the search query across host rebuilds", () => {
+	const searchableSelect = readFileSync(join(ROOT, "js", "lib", "searchable_select.js"), "utf8");
+	assert.match(searchableSelect, /initialQuery = "", onSearchChange = null/);
+	assert.match(searchableSelect, /onSearchChange\?\.\(query\);/);
+	assert.match(searchableSelect, /if \(initialQuery\) setQuery\(initialQuery\);/);
 });
 
 test("prompt-bearing text inputs opt into Autocomplete-Plus", () => {

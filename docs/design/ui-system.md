@@ -106,6 +106,8 @@
 
 共享控件统一使用 `comfy` family，覆盖普通 ComfyUI widget、内置执行预览、子图公开 widget 和第三方适配器；Provider 负责把不同来源规范化为同一 Control Spec，业务宿主不得复制控件实现。`Preview Image`、`Preview as Text` 和 `Compare Images` 属于只读执行视图：卡片与预设只保存稳定 Binding 和布局，不复制临时输出；执行或显示模式变化通过事件失效刷新，不轮询。
 
+本包所有挂载边界（侧边栏根、Dialog、Popover、Context Menu、Tooltip、body 浮动编辑器、`addLifecycleDOMWidget` 的节点内 DOM widget）统一通过 `js/lib/ui/clipboard_guard.js` 的 `guardClipboardEvents()` 拦截 paste / copy / cut 的冒泡：ComfyUI 在 document 级处理画布节点粘贴，本包 UI 内的剪贴板事件不得漏给画布，但不拦截默认行为。新增挂载面必须在同一挂载点补上该调用。
+
 | 组件 | 职责 |
 |---|---|
 | `el()` | 安全创建 DOM，普通文本使用 `textContent` |
