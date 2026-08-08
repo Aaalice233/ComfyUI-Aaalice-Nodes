@@ -52,6 +52,17 @@ class GalleryModelTests(unittest.TestCase):
         selected, options = parse_gallery_payload(json.dumps({"version": 1, "prompt": {}, "selections": [item]}))
         self.assertEqual(compose_prompt(selected[0], options), "new_series, green_hair")
 
+    def test_output_filter_tags_strip_prompts_without_hiding_posts(self):
+        selected, options = parse_gallery_payload(json.dumps({"version": 1, "prompt": {
+            "outputFilterTags": ["watermark", "series_a"],
+        }, "selections": [selection()]}))
+        self.assertEqual(options.excluded_tags, ())
+        self.assertEqual(compose_prompt(selected[0], options), "hero_(series), blue_hair, duplicate")
+        _, combined = parse_gallery_payload(json.dumps({"version": 1, "prompt": {
+            "excludedTags": ["watermark"], "outputFilterTags": ["series_a"],
+        }, "selections": [selection()]}))
+        self.assertEqual(compose_prompt(selected[0], combined), "hero_(series), blue_hair, duplicate")
+
 
 class GalleryAdapterTests(unittest.TestCase):
     def test_capabilities_are_site_specific_and_camel_case(self):
@@ -143,6 +154,35 @@ class GalleryAdapterTests(unittest.TestCase):
             page = await adapter.search(None, "", ["general"], "latest", None, 20, {})
             self.assertEqual([post.post_id for post in page.posts], ["7"])
             self.assertIn("rating:general", adapter._get_json.await_args.kwargs["params"]["tags"])
+        import asyncio
+        asyncio.run(run())
+
+    def test_danbooru_flags_anonymous_pages_with_all_media_hidden(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            adapter._get_json = AsyncMock(return_value=[
+                {"id": 7, "rating": "e", "file_ext": "jpg"},
+                {"id": 8, "rating": "q", "file_ext": "jpg"},
+            ])
+            page = await adapter.search(None, "loli", [], "latest", None, 20, {})
+            self.assertEqual(page.posts, ())
+            self.assertTrue(page.ended)
+            self.assertIsNone(page.next_cursor)
+            self.assertEqual(page.warnings, ("restricted-media-hidden",))
+        import asyncio
+        asyncio.run(run())
+
+    def test_danbooru_keeps_pages_with_visible_media(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            adapter._get_json = AsyncMock(return_value=[
+                {"id": 7, "rating": "e", "file_ext": "jpg"},
+                {"id": 8, "rating": "s", "preview_file_url": "https://cdn.donmai.us/8.jpg"},
+            ])
+            page = await adapter.search(None, "1girl", [], "latest", None, 20, {})
+            self.assertEqual([post.post_id for post in page.posts], ["7", "8"])
+            self.assertEqual(page.warnings, ())
+            self.assertTrue(page.ended)
         import asyncio
         asyncio.run(run())
 
@@ -498,6 +538,17 @@ class GallerySettingsTests(unittest.TestCase):
             loaded = GallerySettingsStore(path).load()
             self.assertEqual(loaded["blacklist"], ["watermark", "text_focus"])
             self.assertNotIn("excludedTags", loaded["promptDefaults"])
+
+    def test_output_filter_tags_are_persisted_validated_and_independent_from_blacklist(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = GallerySettingsStore(Path(directory) / "gallery.json")
+            self.assertEqual(store.load()["outputFilterTags"], [])
+            public = store.save({"outputFilterTags": [" watermark ", "artist_a", "watermark", ""]})
+            self.assertEqual(public["outputFilterTags"], ["watermark", "artist_a"])
+            self.assertEqual(public["blacklist"], [])
+            reloaded = GallerySettingsStore(store.path)
+            self.assertEqual(reloaded.load()["outputFilterTags"], ["watermark", "artist_a"])
+            self.assertEqual(reloaded.load()["blacklist"], [])
 
 
 class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):

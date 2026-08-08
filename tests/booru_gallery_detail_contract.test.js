@@ -165,9 +165,9 @@ test("gallery scroll areas follow the focused wheel-capture protocol", () => {
 });
 
 test("gallery cards offer prompt copy and prompt-assistant interrogation", () => {
-	assert.match(source, /const PROMPT_ASSISTANT_API = "\/prompt-assistant\/api"/);
-	assert.match(source, /\$\{PROMPT_ASSISTANT_API\}\/config\/llm\/masked/);
-	assert.match(source, /promptAssistantAvailable = Boolean\(assistantAvailable\)/);
+	assert.match(source, /const PROMPT_ASSISTANT_API_CANDIDATES = \["\/prompt-assistant\/api", "\/ComfyUI-Prompt-Assistant\/api"\]/);
+	assert.match(source, /\$\{base\}\/config\/llm\/masked/);
+	assert.match(source, /promptAssistantAvailable = Boolean\(assistantApi\)/);
 	assert.match(source, /actionButton\("copy", "copyPrompt", 2, async \(\) =>/);
 	assert.match(source, /copyPromptAction\.setAttribute\("aria-label", label\("card\.copyPrompt", "Copy prompt"\)\)/);
 	assert.match(source, /interrogateAction\.style\.display = isPromptAssistantAvailable\(\) \? "" : "none"/);
@@ -177,7 +177,7 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 	assert.match(source, /label\("selected\.noPrompt"/);
 	assert.match(source, /const interrogatePost = async \(post, card, control\) =>/);
 	assert.match(source, /card\.classList\.add\("is-interrogating"\)/);
-	assert.match(source, /\$\{PROMPT_ASSISTANT_API\}\/vlm\/analyze/);
+	assert.match(source, /\$\{base\}\/vlm\/analyze/);
 	assert.match(source, /request_id: crypto\.randomUUID\(\)/);
 	assert.match(source, /openInterrogateResultDialog\(detail, String\(result\.data\?\.description/);
 	assert.match(source, /className: "aa-gallery-card__scan"/);

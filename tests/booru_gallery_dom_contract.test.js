@@ -48,7 +48,11 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(source, /createSearchControl\(node, \{ defaultOpen: true \}\)/);
 	assert.match(source, /if \(!composing && !input\.value\.trim\(\) && searchQuery\(stateFor\(node\)\)\) submit\(\)/);
 	assert.match(source, /input\.addEventListener\("blur", commitOnBlur\)/);
-	assert.match(source, /data-autocomplete-plus-open"\) \|\| composing\) return;/);
+	assert.match(source, /const commitIfChanged = \(\) => \{ if \(input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\); \};/);
+	assert.match(source, /if \(composing\) return;/);
+	assert.match(source, /new MutationObserver\(\(\) => \{/);
+	assert.match(source, /attributeFilter: \["data-autocomplete-plus-open"\]/);
+	assert.match(source, /input\.addEventListener\("focus", \(\) => pendingBlurCommit\?\.cancel\(\)\)/);
 	assert.match(source, /_aaGalleryController\?\.search\(\{ reset: true, page: 1 \}\)/);
 	assert.match(source, /className: "aa-gallery-toolbar__search", children: \[searchControl\.root, searchControl\.toggle\]/);
 	assert.match(theme, /\.aa-gallery-toolbar__search \{ min-width: 0; flex: 0 1 280px; \}/);
@@ -413,7 +417,7 @@ test("gallery uses the shared styled listbox instead of native select controls",
 test("gallery rating filter stays focused, localized, and semantically colored", () => {
 	const filterSource = source.slice(source.indexOf("function openFilter"), source.indexOf("function createPageControl"));
 	assert.match(filterSource, /className: "aa-gallery-filter-popover", width: 300/);
-	assert.match(source, /className: "aa-gallery-prompt-popover", width: 360/);
+	assert.match(source, /className: "aa-gallery-prompt-popover", width: 440/);
 	for (const iconName of ["ratingGeneral", "ratingSensitive", "ratingQuestionable", "ratingExplicit"]) assert.match(source, new RegExp(iconName));
 	assert.match(theme, /\.aa-gallery-filter-ratings \.aa-ui-multiselect__leading-icon/);
 	assert.doesNotMatch(filterSource, /galleryPopoverHeader|filter\.sort|sortPanel|listboxControl/);
@@ -440,7 +444,7 @@ test("gallery rating filter stays focused, localized, and semantically colored",
 
 test("gallery prompt settings use compact pages and category-specific colors", () => {
 	const promptSource = source.slice(source.indexOf("function openPromptOptions"), source.indexOf("function setupNode"));
-	assert.match(promptSource, /className: "aa-gallery-prompt-popover", width: 360/);
+	assert.match(promptSource, /className: "aa-gallery-prompt-popover", width: 440/);
 	assert.match(promptSource, /className: "aa-gallery-prompt-tabs"/);
 	for (const panel of ["categories", "format", "exclude"]) assert.match(promptSource, new RegExp(`"data-panel": "${panel}"`));
 	assert.match(promptSource, /panel\.hidden = name !== value/);
@@ -473,7 +477,7 @@ test("gallery status cannot render as an unexplained empty capsule", () => {
 });
 
 test("gallery injects queue snapshots and cleans all event-driven resources", () => {
-	assert.match(source, /graphToPrompt/); assert.match(source, /galleryPayload\(stateFor\(node\), settings\?\.blacklist\)/);
+	assert.match(source, /graphToPrompt/); assert.match(source, /galleryPayload\(stateFor\(node\), settings\?\.blacklist, settings\?\.outputFilterTags\)/);
 	assert.match(source, /requestController\?\.abort/); assert.match(source, /controller\.destroy\(\)/); assert.doesNotMatch(source, /setInterval/);
 	assert.doesNotMatch(source, /queue-prompt|QueueButton|promptButton/);
 });

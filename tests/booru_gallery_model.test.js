@@ -79,3 +79,14 @@ test("excluded tags are one global payload input instead of workflow state", () 
 	assert.equal("excludedTags" in state.prompt, false);
 	assert.deepEqual(galleryPayload(state, ["global_tag"]).prompt.excludedTags, ["global_tag"]);
 });
+
+test("output filter tags strip prompts alongside exclusions without entering workflow state", () => {
+	const item = normalizeGalleryState({ version: 1, source: "danbooru", filters: {}, prompt: { categories: ["general", "copyright"] }, selections: [selected("danbooru", 1)] }).selections[0];
+	assert.equal(finalPrompt(item, { categories: ["general", "copyright"], outputFilterTags: ["blue_hair"] }), "series_a");
+	assert.equal(finalPrompt(item, { categories: ["general", "copyright"], excludedTags: ["series_a"], outputFilterTags: ["blue_hair"] }), "");
+	const state = normalizeGalleryState({ version: 1, prompt: { outputFilterTags: ["stale_local"] }, selections: [selected("danbooru", 1)] });
+	assert.equal("outputFilterTags" in state.prompt, false);
+	const payload = galleryPayload(state, ["global_tag"], ["blue_hair"]);
+	assert.deepEqual(payload.prompt.outputFilterTags, ["blue_hair"]);
+	assert.deepEqual(payload.prompts, [""]);
+});

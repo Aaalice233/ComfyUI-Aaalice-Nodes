@@ -62,6 +62,8 @@ class PromptOptions:
     replace_underscores: bool = False
     escape_parentheses: bool = False
     excluded_tags: tuple[str, ...] = ()
+    # 两组标签都会从提示词中剔除；区别在浏览层：blacklist 还会隐藏帖子，输出过滤不影响帖子可见性。
+    output_filter_tags: tuple[str, ...] = ()
 
 
 def _positive_int(value: Any, field: str) -> int:
@@ -98,6 +100,7 @@ def parse_gallery_payload(payload_json: str) -> tuple[list[GallerySelection], Pr
         replace_underscores=bool(raw_prompt.get("replaceUnderscores", False)),
         escape_parentheses=bool(raw_prompt.get("escapeParentheses", False)),
         excluded_tags=_tags(raw_prompt.get("excludedTags", [])),
+        output_filter_tags=_tags(raw_prompt.get("outputFilterTags", [])),
     )
     raw_selections = payload.get("selections", [])
     if not isinstance(raw_selections, list):
@@ -136,7 +139,7 @@ def parse_gallery_payload(payload_json: str) -> tuple[list[GallerySelection], Pr
 
 
 def compose_prompt(selection: GallerySelection, options: PromptOptions) -> str:
-    excluded = set(options.excluded_tags)
+    excluded = set(options.excluded_tags) | set(options.output_filter_tags)
     result: list[str] = []
     seen: set[str] = set()
     for category in CATEGORY_ORDER:

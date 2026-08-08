@@ -135,7 +135,8 @@ PromptSelector stores stable entry references instead of copied text: editing a 
 Choose Danbooru, Gelbooru, Safebooru, or AI TAG, search and filter posts, then select across an automatically loading natural-ratio masonry gallery. The Selected view preserves order, supports drag reordering, and lets each post edit its local tags without modifying the remote site. `images` and `prompts` are paired lists in that exact order; a failed download fails the node instead of inserting a placeholder.
 
 - Search accepts booru-style tag queries and pasted prompt-style text; Danbooru exposes daily/weekly/monthly rankings, AI TAG its monthly ranking.
-- Site credentials, defaults, the global content blacklist, timeout, and the image cache budget live under **ComfyUI Settings → Aaalice Nodes → Booru Gallery**; credentials and caches stay in the current ComfyUI user directory and never enter workflow JSON. Gelbooru requires its official User ID and API Key.
+- Site credentials, defaults, the global content blacklist, output filter tags, timeout, and the image cache budget live under **ComfyUI Settings → Aaalice Nodes → Booru Gallery**; credentials and caches stay in the current ComfyUI user directory and never enter workflow JSON. Gelbooru requires its official User ID and API Key.
+- The content blacklist hides matching posts; output filter tags keep posts visible and only strip the tags from node output and copied prompts (handy for watermarks or artist names). Both are maintained from the prompt popover and the detail tag menu.
 - Danbooru supports favorite reading and writing; Gelbooru supports reading only.
 - With ComfyUI-Autocomplete-Aaalice installed, search gains its tag completion and the post detail shows tag translations; with prompt-assistant installed, cards can interrogate images through its vision analysis.
 
@@ -181,7 +182,7 @@ The compact preset picker saves and switches the complete dashboard — pages, g
 
 ### 🎚️ Adjustment profiles
 
-The toolbar's **Adjustment profiles** button opens value-override profiles stored globally on this ComfyUI installation. Each rule targets one sidebar control chosen by fuzzy search and remembers a target value (including a Seed's after-generate mode); applying a profile writes every matching rule into the current controls in one transaction that rolls back on failure. Rules that cannot be matched or validated are listed for review instead of being silently skipped. Profiles are not embedded in workflows, so your own profiles stay available no matter which workflow is open.
+The toolbar's **Adjustment profiles** button opens value-override profiles stored globally on this ComfyUI installation. Each rule targets one sidebar control chosen by fuzzy search and remembers a target value (including a Seed's after-generate mode); applying a profile writes every matching rule into the current controls in one transaction that rolls back on failure. Rules that cannot be matched or validated are listed for review instead of being silently skipped. Profiles are not embedded in workflows, so your own profiles stay available no matter which workflow is open. Profiles apply to all pages by default and can be limited to selected pages: out-of-scope rules are skipped and reported, so one page can switch to a different sampler/scheduler set without touching the others.
 
 ### 🧭 Groups navigation
 

@@ -29,6 +29,7 @@ def default_settings() -> dict[str, Any]:
         "revision": 0,
         "defaultSource": "danbooru",
         "blacklist": [],
+        "outputFilterTags": [],
         "promptDefaults": {"categories": list(DEFAULT_PROMPT_CATEGORIES), "replaceUnderscores": False,
                            "escapeParentheses": False},
         "tooltip": True,
@@ -92,6 +93,7 @@ class GallerySettingsStore:
         settings["timeout"] = timeout
         settings["cacheBudgetMiB"] = budget
         settings["blacklist"] = _string_list(settings.get("blacklist", []), "blacklist")
+        settings["outputFilterTags"] = _string_list(settings.get("outputFilterTags", []), "outputFilterTags")
         prompt = settings.get("promptDefaults")
         if not isinstance(prompt, dict):
             raise ValueError("promptDefaults must be an object")
@@ -123,7 +125,7 @@ class GallerySettingsStore:
             raise ValueError("settings update must be an object")
         with self._lock:
             settings = self.load()
-            for key in ("defaultSource", "blacklist", "promptDefaults", "tooltip", "selectionStamp", "timeout", "cacheBudgetMiB"):
+            for key in ("defaultSource", "blacklist", "outputFilterTags", "promptDefaults", "tooltip", "selectionStamp", "timeout", "cacheBudgetMiB"):
                 if key in update:
                     settings[key] = copy.deepcopy(update[key])
             credential_update = update.get("credentials", {})

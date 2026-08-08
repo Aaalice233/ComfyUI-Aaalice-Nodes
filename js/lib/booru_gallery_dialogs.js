@@ -47,13 +47,25 @@ function createSearchControl(node, { defaultOpen = false } = {}) {
 	};
 	input.addEventListener("input", syncInput);
 	input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; syncInput(); });
-	// 失焦即确认：未提交的查询在焦点离开输入框时自动执行；补全候选面板与
-	// IME 组合中的失焦属于编辑延续，让位给面板与 compositionend。
+	// 失焦即确认：未提交的查询在焦点离开输入框时自动执行；IME 组合中的失焦让位给 compositionend。
+	// 补全面板打开期间的失焦（如点击画布）先等插件关闭面板、写入最终文本，再按结果提交。
+	let pendingBlurCommit = null;
+	const commitIfChanged = () => { if (input.value.trim() !== searchQuery(stateFor(node))) submit(); };
 	const commitOnBlur = () => {
-		if (input.hasAttribute("data-autocomplete-plus-open") || composing) return;
-		if (input.value.trim() !== searchQuery(stateFor(node))) submit();
+		if (composing) return;
+		if (!input.hasAttribute("data-autocomplete-plus-open")) { commitIfChanged(); return; }
+		if (pendingBlurCommit) return;
+		const observer = new MutationObserver(() => {
+			if (input.hasAttribute("data-autocomplete-plus-open")) return;
+			observer.disconnect(); pendingBlurCommit = null;
+			setTimeout(commitIfChanged, 0);
+		});
+		observer.observe(input, { attributes: true, attributeFilter: ["data-autocomplete-plus-open"] });
+		const guard = setTimeout(() => { observer.disconnect(); pendingBlurCommit = null; }, 2000);
+		pendingBlurCommit = { cancel: () => { clearTimeout(guard); observer.disconnect(); pendingBlurCommit = null; } };
 	};
 	input.addEventListener("blur", commitOnBlur);
+	input.addEventListener("focus", () => pendingBlurCommit?.cancel());
 	input.addEventListener("keydown", (event) => {
 		// 补全候选面板打开时，导航、确认和关闭键全部让给 Autocomplete-Plus
 		if (input.hasAttribute("data-autocomplete-plus-open")) return;

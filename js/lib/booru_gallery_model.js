@@ -79,7 +79,8 @@ export function selectionKey(value) { return `${value.source}:${value.postId}`; 
 
 export function finalPrompt(selection, prompt) {
 	const groups = selection.editedTags || selection.originalTags || {};
-	const categories = new Set(prompt.categories || []); const excluded = new Set(prompt.excludedTags || []);
+	const categories = new Set(prompt.categories || []);
+	const excluded = new Set([...(prompt.excludedTags || []), ...(prompt.outputFilterTags || [])]);
 	const seen = new Set(); const result = [];
 	for (const category of GALLERY_CATEGORIES) {
 		if (!categories.has(category)) continue;
@@ -93,9 +94,9 @@ export function finalPrompt(selection, prompt) {
 	return result.join(", ");
 }
 
-export function galleryPayload(state, excludedTags = []) {
+export function galleryPayload(state, excludedTags = [], outputFilterTags = []) {
 	const normalized = normalizeGalleryState(state);
-	const prompt = { ...structuredClone(normalized.prompt), excludedTags: strings(excludedTags) };
+	const prompt = { ...structuredClone(normalized.prompt), excludedTags: strings(excludedTags), outputFilterTags: strings(outputFilterTags) };
 	return { version: 1, prompt, selections: normalized.selections.map((item) => structuredClone(item)),
 		prompts: normalized.selections.map((item) => finalPrompt(item, prompt)) };
 }

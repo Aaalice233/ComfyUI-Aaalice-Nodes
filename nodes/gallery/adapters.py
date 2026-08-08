@@ -269,6 +269,11 @@ def _with_blacklist(query: str, blacklist: tuple[str, ...]) -> str:
     return " ".join(part for part in (query.strip(), *exclusions) if part)
 
 
+def _restricted_media_hidden(posts: tuple) -> bool:
+    """Danbooru 对 Member 级及以下账户整页隐藏受限内容的媒体地址：帖子返回但 preview_url 全为空。"""
+    return bool(posts) and all(not post.preview_url for post in posts)
+
+
 def _int(value: Any) -> int:
     try:
         return max(0, int(value or 0))
@@ -320,6 +325,10 @@ class DanbooruAdapter(BooruAdapter):
             raise RuntimeError("danbooru search response must be a list")
         posts = tuple(post for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist)
                       for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
+        if _restricted_media_hidden(posts):
+            # 受限内容（loli/shota 等）对 Member 级及以下账户整页隐藏媒体地址；继续翻页只会得到
+            # 同样的空页，直接结束并给出明确信号，由前端提示配置账户。
+            return GalleryPage((), None, True, ("restricted-media-hidden",), page=page)
         return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, page=page)
 
     async def ranking(self, session, period, cursor, limit, credentials, blacklist=()):
@@ -333,6 +342,8 @@ class DanbooruAdapter(BooruAdapter):
         if not isinstance(raw, list):
             raise RuntimeError("danbooru ranking response must be a list")
         posts = tuple(self._summary(item) for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist))
+        if _restricted_media_hidden(posts):
+            return GalleryPage((), None, True, ("restricted-media-hidden",), page=page)
         return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, page=page)
 
     async def get_post(self, session, post_id, credentials):

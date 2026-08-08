@@ -22,8 +22,10 @@ import { createGalleryMedia } from "./lib/booru_gallery_media.js";
 const NODE = "BooruGalleryNode";
 const PROPERTY = "booruGalleryState";
 const API = "/aaalice/booru-gallery";
-const PROMPT_ASSISTANT_API = "/prompt-assistant/api";
+// PromptAssistant 的 API 前缀随其安装目录名变化（旧版固定 /prompt-assistant/api），两个候选都要探。
+const PROMPT_ASSISTANT_API_CANDIDATES = ["/prompt-assistant/api", "/ComfyUI-Prompt-Assistant/api"];
 let promptAssistantAvailable = false;
+let promptAssistantApi = null;
 const DEFAULT_SIZE = [760, 760];
 const MIN_SIZE = [620, 300];
 const STATIC_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
@@ -75,7 +77,29 @@ const { createDetailImageViewer, createSelectionStamp, ratingIcon, SELECTION_STA
 });
 
 function effectivePrompt(node) {
-	return { ...stateFor(node).prompt, excludedTags: [...(settings?.blacklist || [])] };
+	return { ...stateFor(node).prompt, excludedTags: [...(settings?.blacklist || [])], outputFilterTags: [...(settings?.outputFilterTags || [])] };
+}
+
+// 输出过滤只影响组合出的提示词，不隐藏帖子，因此保存后只需刷新已选视图与提示词预览。
+async function saveGlobalOutputFilter(value) {
+	const outputFilterTags = Array.isArray(value) ? [...new Set(value.map((tag) => String(tag).trim()).filter(Boolean))] : tagLines(value);
+	settings = await jsonRequest(`${API}/settings/save`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ outputFilterTags }),
+	});
+	for (const galleryNode of allGraphNodes(app.graph)) {
+		if (!isGallery(galleryNode)) continue;
+		galleryNode._aaGalleryController?.renderSelected();
+	}
+	return outputFilterTags;
+}
+
+async function addGlobalOutputFilterTag(tag) {
+	const value = String(tag || "").trim();
+	if (!value) return;
+	const current = settings?.outputFilterTags || [];
+	if (!current.some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase())) await saveGlobalOutputFilter([...current, value]);
 }
 
 async function saveGlobalBlacklist(value) {
@@ -182,15 +206,23 @@ async function jsonRequest(path, options = {}) {
 	return data;
 }
 
+async function detectPromptAssistantApi() {
+	for (const base of PROMPT_ASSISTANT_API_CANDIDATES) {
+		const ok = await api.fetchApi(`${base}/config/llm/masked`).then((response) => response.ok).catch(() => false);
+		if (ok) return base;
+	}
+	return null;
+}
+
 async function loadSetup({ force = false } = {}) {
 	if (!force && settings && capabilities.length) return { settings, capabilities };
 	if (!force && setupRequest) return setupRequest;
 	setupRequest = Promise.all([
 		jsonRequest(`${API}/settings`),
 		jsonRequest(`${API}/sources`),
-		api.fetchApi(`${PROMPT_ASSISTANT_API}/config/llm/masked`).then((response) => response.ok).catch(() => false),
-	]).then(([nextSettings, sourceData, assistantAvailable]) => {
-		settings = nextSettings; capabilities = sourceData.sources || []; promptAssistantAvailable = Boolean(assistantAvailable); return { settings, capabilities };
+		detectPromptAssistantApi(),
+	]).then(([nextSettings, sourceData, assistantApi]) => {
+		settings = nextSettings; capabilities = sourceData.sources || []; promptAssistantApi = assistantApi; promptAssistantAvailable = Boolean(assistantApi); return { settings, capabilities };
 	}).finally(() => { setupRequest = null; });
 	return setupRequest;
 }
@@ -261,15 +293,15 @@ const {
 });
 
 const buildController = createGalleryControllerFactory({
-	API, GALLERY_CATEGORIES, PROMPT_ASSISTANT_API, STATIC_EXTENSIONS,
-	addGlobalBlacklistTag, app, blobToDataUrl, button, canWriteFavorite, capability,
+	API, GALLERY_CATEGORIES, STATIC_EXTENSIONS,
+	addGlobalBlacklistTag, addGlobalOutputFilterTag, app, blobToDataUrl, button, canWriteFavorite, capability,
 	copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
 	createTooltip, currentLocale, dimensions, effectivePrompt, el, fetchMediaBlob,
 	fileSizeLabel, finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
 	moveSelectionIndex, normalizeTagGroups, notifyFavorite, openInterrogateResultDialog,
 	openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
 	searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
-	streamTagTranslations, tagCount, transact,
+	streamTagTranslations, tagCount, transact, promptAssistantApi: () => promptAssistantApi,
 });
 
 function openFilter(node, anchor) {
@@ -318,7 +350,7 @@ function createPageControl(node) {
 }
 
 function openPromptOptions(node, anchor) {
-	const prompt = effectivePrompt(node); anchor.classList.add("is-open"); anchor.setAttribute("aria-expanded", "true"); const popover = createAnchoredPopover({ anchor, ariaLabel: label("prompt.title", "Prompt processing"), className: "aa-gallery-prompt-popover", width: 360, onClose: () => { anchor.classList.remove("is-open"); anchor.setAttribute("aria-expanded", "false"); } });
+	const prompt = effectivePrompt(node); anchor.classList.add("is-open"); anchor.setAttribute("aria-expanded", "true"); const popover = createAnchoredPopover({ anchor, ariaLabel: label("prompt.title", "Prompt processing"), className: "aa-gallery-prompt-popover", width: 440, onClose: () => { anchor.classList.remove("is-open"); anchor.setAttribute("aria-expanded", "false"); } });
 	const categories = multiSelectControl({ className: "aa-gallery-prompt-categories", options: GALLERY_CATEGORIES.map((value) => ({ value, label: label(`category.${value}`, value), attrs: { "data-category": value } })), values: prompt.categories, ariaLabel: label("prompt.categories", "Categories"), onChange: (values) => transact(node, (state) => { state.prompt.categories = values; }) });
 	const underscores = checkboxControl({ checked: prompt.replaceUnderscores, label: label("prompt.underscores", "Replace underscores with spaces"), onChange: (value) => transact(node, (state) => { state.prompt.replaceUnderscores = value; }) });
 	const parentheses = checkboxControl({ checked: prompt.escapeParentheses, label: label("prompt.parentheses", "Escape parentheses"), onChange: (value) => transact(node, (state) => { state.prompt.escapeParentheses = value; }) });
@@ -330,16 +362,25 @@ function openPromptOptions(node, anchor) {
 		finally { excluded.disabled = false; }
 	});
 	const transformOption = (control, title) => el("label", { className: "aa-gallery-prompt-transform", children: [control, el("strong", null, title)] });
+	const outputFilter = document.createElement("textarea"); outputFilter.className = "aa-ui-input aa-gallery-prompt-excluded"; outputFilter.value = (settings?.outputFilterTags || []).join("\n"); outputFilter.placeholder = label("prompt.outputFilterPlaceholder", "e.g. watermark, artist name"); outputFilter.title = label("prompt.outputFilterHint", "Shared by every Gallery node and source; removes the tags from output and copied prompts without hiding posts");
+	outputFilter.addEventListener("change", async () => {
+		outputFilter.disabled = true;
+		try { outputFilter.value = (await saveGlobalOutputFilter(outputFilter.value)).join("\n"); outputFilter.setAttribute("aria-invalid", "false"); }
+		catch (error) { outputFilter.setAttribute("aria-invalid", "true"); console.error("[Aaalice] Failed to save the output filter tags", error); }
+		finally { outputFilter.disabled = false; }
+	});
 	const panels = {
 		categories: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "categories" }, children: [categories] }),
 		format: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "format" }, children: [el("div", { className: "aa-gallery-prompt-switches", children: [transformOption(underscores, label("prompt.underscores", "Replace underscores with spaces")), transformOption(parentheses, label("prompt.parentheses", "Escape parentheses"))] })] }),
 		exclude: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "exclude" }, children: [excluded] }),
+		outputFilter: el("section", { className: "aa-gallery-prompt-panel", attrs: { "data-panel": "outputFilter" }, children: [outputFilter] }),
 	};
 	const showPanel = (value) => { for (const [name, panel] of Object.entries(panels)) panel.hidden = name !== value; popover.reposition(); };
 	const tabs = segmentedControl({ className: "aa-gallery-prompt-tabs", value: "categories", options: [
 		{ value: "categories", label: label("prompt.categories", "Categories"), iconName: "tag" },
 		{ value: "format", label: label("prompt.transformTitle", "Formatting"), iconName: "settings" },
 		{ value: "exclude", label: label("prompt.exclude", "Excluded tags"), iconName: "filter" },
+		{ value: "outputFilter", label: label("prompt.outputFilter", "Output filter"), iconName: "delete" },
 	], ariaLabel: label("prompt.sections", "Prompt setting sections"), onChange: showPanel });
 	const header = el("header", { className: "aa-gallery-prompt-popover__header", children: [el("span", { className: "aa-gallery-prompt-popover__icon", children: [icon("tag")] }), el("strong", null, label("prompt.title", "Prompt processing")), el("span", { className: "aa-gallery-prompt-popover__live", children: [icon("statusCheck"), el("span", null, label("prompt.live", "Live"))] })] });
 	const body = el("div", { className: "aa-gallery-prompt-popover__body", children: Object.values(panels) });
@@ -412,6 +453,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const errorLabel = el("span");
 	const error = el("button", { className: "aa-gallery-status is-error", attrs: { type: "button", "aria-live": "assertive" }, children: [icon("statusWarning"), errorLabel] }); error.hidden = true;
 	const end = el("div", { className: "aa-gallery-status is-end", attrs: { role: "status" }, children: [icon("statusCheck"), el("span", null, label("end", "End of results"))] }); end.hidden = true;
+	const emptyResults = el("div", { className: "aa-gallery-status is-empty", attrs: { role: "status" }, children: [icon("search"), el("span", null, label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags."))] }); emptyResults.hidden = true;
 	const selected = el("div", "aa-gallery-selected"); const selectedListRoot = el("div", { className: "aa-gallery-selected__list", attrs: { tabindex: 0 } });
 	focusScrollableOnPointerEnter(selectedListRoot);
 	const selectedDropIndicator = el("div", {
@@ -429,7 +471,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const emptySelected = el("div", { className: "aa-gallery-selected__empty", children: [el("span", { className: "aa-gallery-selected__empty-icon", children: [icon("statusCheck")] }), el("strong", null, label("selected.emptyTitle", "Build your output set")), el("p", null, label("selected.empty", "Select posts from the waterfall to build an ordered output."))] });
 	selected.append(selectedListRoot, emptySelected);
 	document.body.append(selectedDropIndicator);
-	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end] }), selected);
+	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end, emptyResults] }), selected);
 	let controller = null;
 	const elements = {
 		root,
@@ -438,6 +480,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		error,
 		errorLabel,
 		end,
+		emptyResults,
 		tabs,
 		selectionMode,
 		selectedCount,
@@ -562,7 +605,7 @@ function installPromptHook() {
 		const output = result?.output ?? result;
 		for (const node of allGraphNodes(app.graph)) {
 			if (!isGallery(node)) continue;
-			const payload = JSON.stringify(galleryPayload(stateFor(node), settings?.blacklist));
+			const payload = JSON.stringify(galleryPayload(stateFor(node), settings?.blacklist, settings?.outputFilterTags));
 			for (const promptNode of promptNodesForGraphNode(output, node)) {
 				promptNode.inputs ||= {};
 				promptNode.inputs.gallery_payload = payload;

@@ -1,15 +1,15 @@
 /** Stateful browse/selection controller for one mounted Booru Gallery node. */
 export function createGalleryControllerFactory(dependencies) {
 	const {
-		API, GALLERY_CATEGORIES, PROMPT_ASSISTANT_API, STATIC_EXTENSIONS,
-		addGlobalBlacklistTag, app, blobToDataUrl, button, canWriteFavorite, capability,
+		API, GALLERY_CATEGORIES, STATIC_EXTENSIONS,
+		addGlobalBlacklistTag, addGlobalOutputFilterTag, app, blobToDataUrl, button, canWriteFavorite, capability,
 		copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
 		createTooltip, currentLocale, dimensions, effectivePrompt, el, fetchMediaBlob,
 		fileSizeLabel, finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
 		moveSelectionIndex, normalizeTagGroups, notifyFavorite, openInterrogateResultDialog,
 		openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
 		searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
-		streamTagTranslations, tagCount, transact,
+		streamTagTranslations, tagCount, transact, promptAssistantApi,
 	} = dependencies;
 
 return function buildController(node, elements) {
@@ -214,7 +214,7 @@ return function buildController(node, elements) {
 		// Mark the request active before clearing the masonry. setItems() draws synchronously
 		// and may report near-end; that callback must not start a competing first-page request.
 		setLoading(true);
-		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); clearError(); rememberPage(requestedPage); }
+		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); elements.end.hidden = true; elements.emptyResults.hidden = true; clearError(); rememberPage(requestedPage); }
 		else requestController ||= new AbortController();
 		const currentGeneration = generation; const state = stateFor(node);
 		const favoritesFeed = state.filters.feed === "favorites";
@@ -241,7 +241,16 @@ return function buildController(node, elements) {
 				const key = `${post.source}:${post.postId}`; if (knownPostKeys.has(key)) return false; knownPostKeys.add(key); return true;
 			});
 			const start = posts.length; posts.push(...additions); pageSegments.push({ page: Math.max(1, Number(resultPage.page) || requestedPage || pageSegments.at(-1)?.page + 1 || 1), start, end: posts.length }); elements.masonryController.append(additions);
-			nextCursor = resultPage.nextCursor || null; ended = Boolean(resultPage.ended || !nextCursor); elements.end.hidden = !ended; clearError();
+			nextCursor = resultPage.nextCursor || null; ended = Boolean(resultPage.ended || !nextCursor);
+		const noResults = ended && !posts.length;
+		elements.end.hidden = !ended || noResults; elements.emptyResults.hidden = !noResults;
+		if (noResults) {
+			const anonymousHidden = (resultPage.warnings || []).includes("restricted-media-hidden");
+			elements.emptyResults.querySelector("span").textContent = anonymousHidden
+				? label("warning.restrictedMediaHidden", "Danbooru hides loli/shota posts from member and anonymous accounts; only Builder-level and above can view them.")
+				: label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags.");
+		}
+		clearError();
 		} catch (error) { if (error.name !== "AbortError") showError(error); }
 		finally { if (currentGeneration === generation) setLoading(false); }
 	};
@@ -344,7 +353,9 @@ return function buildController(node, elements) {
 			const mediaSrc = detail.mediaUrl || detail.sampleUrl || detail.previewUrl;
 			if (!mediaSrc) throw new Error(label("error.incomplete", "The post detail is incomplete."));
 			const imageData = await blobToDataUrl(await fetchMediaBlob(proxyUrl(detail.source, mediaSrc)));
-			const result = await jsonRequest(`${PROMPT_ASSISTANT_API}/vlm/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageData, request_id: crypto.randomUUID() }) });
+			const base = promptAssistantApi?.();
+			if (!base) throw new Error(label("interrogate.failed", "Interrogation failed."));
+			const result = await jsonRequest(`${base}/vlm/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageData, request_id: crypto.randomUUID() }) });
 			if (!result?.success) throw new Error(result?.error || label("interrogate.failed", "Interrogation failed."));
 			if (destroyed) return;
 			openInterrogateResultDialog(detail, String(result.data?.description || ""));
@@ -521,6 +532,12 @@ return function buildController(node, elements) {
 							catch (error) { showError(error); }
 						} },
 						{ label: label("detail.addToSearch", "Add to search"), iconName: "search", disabled: !cap?.tagSearch, onSelect: () => addTagToSearch(token.raw) },
+						{ label: label("detail.outputFilterTag", "Filter tag from output"), iconName: "delete", onSelect: async () => {
+							try {
+								await addGlobalOutputFilterTag(token.raw);
+								app.extensionManager.toast.add({ severity: "success", summary: label("settings.outputFilter", "Output filter tags"), detail: label("detail.outputFilterAdded", "{tag} will be removed from output and copied prompts").replace("{tag}", token.raw), life: 4000 });
+							} catch (error) { showError(error); }
+						} },
 						{ label: label("detail.blockTag", "Block tag"), iconName: "filter", danger: true, onSelect: async () => {
 							dialog.close();
 							try {
