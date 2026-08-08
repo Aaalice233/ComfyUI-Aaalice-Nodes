@@ -5,9 +5,9 @@ import { t } from "../i18n.js";
 import { bindingKey, controlItemBindings } from "../lib/dashboard_model.js";
 import { applyDashboardPresetPlan, captureDashboardValues, planDashboardPresetApplication } from "../lib/dashboard_preset_runtime.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES } from "../lib/seed_preset.js";
-import { badge, button, createDialog, el, emptyState, field, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
+import { badge, button, createDialog, el, emptyState, field, iconButton, multiSelectControl, selectControl, toggleSwitch } from "../lib/ui.js";
 import { createSearchableSelect } from "../lib/searchable_select.js";
-import { createValueProfile, matchValueProfileRules, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule } from "../lib/value_profiles.js";
+import { createValueProfile, matchValueProfileRules, classifyValueProfileMatches, removeValueProfile, removeValueProfileRule, renameValueProfile, setValueProfilePageScope, upsertValueProfileRule } from "../lib/value_profiles.js";
 import { loadValueProfiles, saveValueProfiles } from "./sidebar_preferences.js";
 import { confirmAction } from "./dom_utils.js";
 
@@ -36,7 +36,7 @@ function collectCandidates() {
 			try { resolved = runtime.resolve(binding); } catch { resolved = null; }
 			if (resolved?.status !== "ok" || resolved.presettable === false) continue;
 			const label = binding === item.binding ? runtime.controlTitle(item, resolved) : String(resolved.label || binding.controlId);
-			seen.set(key, { binding, key, valueType: binding.valueType, label, hostLabel: hostTitleOf(resolved.node), resolved });
+			seen.set(key, { binding, key, valueType: binding.valueType, label, hostLabel: hostTitleOf(resolved.node), pageId: String(page.id), pageName: String(page.name || ""), resolved });
 		}
 	}
 	return [...seen.values()];
@@ -149,19 +149,24 @@ function confirmProfileIssues(profileName, issues) {
 async function applyValueProfile(profile) {
 	if (!profile.rules.length) { notify("info", t("aaalice.workspace.valueProfiles.noRules", "This profile has no rules yet.")); return; }
 	const candidates = collectCandidates();
-	const matches = matchValueProfileRules(profile.rules, candidates);
-	const matched = matches.filter((match) => match.status === "ready");
+	const { ready: applicable, scoped } = classifyValueProfileMatches(matchValueProfileRules(profile.rules, candidates), profile.pages);
+	const matched = applicable.filter((match) => match.status === "ready");
 	const synthetic = { version: 4, pages: [{ id: "value-profiles", name: "", gridColumns: 12, tone: null, groups: [], items: matched.map((match, index) => ({ id: `rule-${index}`, kind: "control", binding: match.candidate.binding, layout: { row: index * 13, column: 0, columnSpan: 6, rowSpan: 13 } })) }] };
 	const values = {};
 	for (const match of matched) values[match.candidate.key] = { valueType: match.rule.valueType, payload: structuredClone(match.rule.payload) };
 	const plan = planDashboardPresetApplication({ dashboard: synthetic, values }, (binding) => runtime.resolve(binding));
 	const issueLabels = new Map(matched.map((match) => [match.candidate.key, match.rule.label]));
 	const issues = [
-		...matches.filter((match) => match.status !== "ready").map((match) => ({ label: match.rule.label || match.rule.key, status: match.status, reason: "" })),
+		...applicable.filter((match) => match.status !== "ready").map((match) => ({ label: match.rule.label || match.rule.key, status: match.status, reason: "" })),
 		...plan.issues.map((entry) => ({ label: issueLabels.get(entry.key) || entry.binding?.controlId || entry.key, status: entry.status, reason: entry.reason || "" })),
 	];
 	if (issues.length && !await confirmProfileIssues(profile.name, issues)) return;
-	if (!plan.ready.length) { notify("info", t("aaalice.workspace.valueProfiles.nothingToApply", "No rule can be applied to the current sidebar.")); return; }
+	if (!plan.ready.length) {
+		notify("info", scoped.length
+			? t("aaalice.workspace.valueProfiles.nothingInScope", "No rule applies inside the selected page scope; {count} rule(s) were skipped.").replace("{count}", String(scoped.length))
+			: t("aaalice.workspace.valueProfiles.nothingToApply", "No rule can be applied to the current sidebar."));
+		return;
+	}
 	const graph = app.graph; graph?.beforeChange?.();
 	try { applyDashboardPresetPlan(plan); }
 	catch (error) {
@@ -172,7 +177,11 @@ async function applyValueProfile(profile) {
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); }
 	runtime.scheduleStructuralRender("dashboard");
 	runtime.scheduleActiveDashboardPresetAutoSave();
-	notify("success", t("aaalice.workspace.valueProfiles.applied", "Applied {count} rule(s) from “{name}”.").replace("{count}", String(plan.ready.length)).replace("{name}", profile.name));
+	const scopeNames = profile.pages?.length ? [...new Set(matched.map((match) => match.candidate.pageName).filter(Boolean))] : [];
+	const applied = scopeNames.length
+		? t("aaalice.workspace.valueProfiles.appliedOnPages", "Applied {count} rule(s) from “{name}” on {pages}.").replace("{count}", String(plan.ready.length)).replace("{name}", profile.name).replace("{pages}", scopeNames.join(", "))
+		: t("aaalice.workspace.valueProfiles.applied", "Applied {count} rule(s) from “{name}”.").replace("{count}", String(plan.ready.length)).replace("{name}", profile.name);
+	notify("success", scoped.length ? `${applied} ${t("aaalice.workspace.valueProfiles.skippedScoped", "{count} rule(s) outside the page scope were skipped.").replace("{count}", String(scoped.length))}` : applied);
 }
 
 export function openValueProfiles() {
@@ -202,7 +211,8 @@ export function openValueProfiles() {
 
 	const renderRules = (profile, container) => {
 		const candidates = collectCandidates();
-		const matches = matchValueProfileRules(profile.rules, candidates);
+		const { ready: applicable, scoped } = classifyValueProfileMatches(matchValueProfileRules(profile.rules, candidates), profile.pages);
+		const matches = [...applicable, ...scoped];
 		if (!matches.length) {
 			container.append(emptyState({
 				iconName: "sliders",
@@ -213,6 +223,8 @@ export function openValueProfiles() {
 		for (const match of matches) {
 			const { rule } = match;
 			const statusBadge = match.status === "ready" ? null : badge(match.status === "ambiguous" ? t("aaalice.workspace.valueProfiles.issue.ambiguous", "Ambiguous") : t("aaalice.workspace.valueProfiles.issue.missing", "Not on sidebar"), { className: "is-warning" });
+			const scopedBadge = match.status === "scoped" ? badge(t("aaalice.workspace.valueProfiles.scopedOut", "Outside page scope"), { className: "is-warning" }) : null;
+			const pageBadge = match.candidate?.pageName ? badge(match.candidate.pageName, { className: "aa-value-profile-rule__page" }) : null;
 			const updateButton = match.status === "ready" ? iconButton({
 				iconName: "refresh",
 				label: t("aaalice.workspace.valueProfiles.captureCurrent", "Update to current value"),
@@ -232,7 +244,9 @@ export function openValueProfiles() {
 							el("strong", null, rule.label || rule.key),
 							rule.hostLabel ? el("small", null, rule.hostLabel) : null,
 						].filter(Boolean) }),
+						pageBadge,
 						statusBadge,
+						scopedBadge,
 						updateButton,
 						iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: () => persist((current) => removeValueProfileRule(current, profile.id, rule.key)) }),
 					].filter(Boolean) }),
@@ -277,6 +291,24 @@ export function openValueProfiles() {
 					return next;
 				});
 			} }),
+		] }));
+		const scopeModel = runtime.dashboard();
+		const pageOptions = (scopeModel?.pages || []).map((page) => ({ value: String(page.id), label: String(page.name || page.id) }));
+		const scopeLimited = Array.isArray(profile.pages) && profile.pages.length > 0;
+		const scopeToggle = toggleSwitch({
+			checked: scopeLimited,
+			label: t("aaalice.workspace.valueProfiles.scopeLimited", "Limit to selected pages"),
+			onChange: (on) => persist((current) => setValueProfilePageScope(current, profile.id, on ? pageOptions.map((option) => option.value) : null)),
+		});
+		body.append(el("div", { className: "aa-value-profiles__scope", children: [
+			field({ label: t("aaalice.workspace.valueProfiles.scopeField", "Apply to pages"), control: scopeToggle }),
+			scopeLimited ? multiSelectControl({
+				className: "aa-value-profiles__scope-pages",
+				options: pageOptions,
+				values: (profile.pages || []).filter((id) => pageOptions.some((option) => option.value === id)),
+				ariaLabel: t("aaalice.workspace.valueProfiles.scopePages", "Pages in scope"),
+				onChange: (values) => persist((current) => setValueProfilePageScope(current, profile.id, values)),
+			}) : el("span", { className: "aa-value-profiles__scope-all", text: t("aaalice.workspace.valueProfiles.scopeAll", "All pages") }),
 		] }));
 		const rulesContainer = el("div", { className: "aa-value-profile-rules" });
 		renderRules(profile, rulesContainer);

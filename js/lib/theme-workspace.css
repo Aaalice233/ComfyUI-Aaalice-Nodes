@@ -222,6 +222,11 @@
 .aa-value-profiles { display: flex; min-height: 220px; flex-direction: column; gap: 12px; }
 .aa-value-profiles__bar { display: flex; align-items: center; gap: 6px; }
 .aa-value-profiles__bar .aa-ui-select, .aa-value-profiles__bar select { min-width: 0; flex: 1; }
+.aa-value-profiles__scope { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-control) 38%, transparent); }
+.aa-value-profiles__scope .aa-ui-field { flex: 0 0 auto; }
+.aa-value-profiles__scope-pages { max-height: 92px; flex: 1; flex-wrap: wrap; align-content: flex-start; overflow-y: auto; }
+.aa-value-profiles__scope-all { color: var(--aa-ui-muted); font-size: 10.5px; }
+.aa-value-profile-rule__page { flex: 0 0 auto; }
 .aa-value-profile-rules { display: flex; max-height: 320px; flex-direction: column; gap: 6px; overflow-y: auto; }
 .aa-value-profile-rule { display: flex; flex-direction: column; gap: 7px; padding: 8px 10px; border: 1px solid var(--aa-ui-border-soft); border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-control) 55%, transparent); }
 .aa-value-profile-rule.is-unmatched { opacity: .72; }

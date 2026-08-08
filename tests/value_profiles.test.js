@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
 import { applyDashboardPresetPlan, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
-import { createValueProfile, emptyValueProfileState, matchValueProfileRules, normalizeValueProfileState, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule, ValueProfileError } from "../js/lib/value_profiles.js";
+import { createValueProfile, emptyValueProfileState, matchValueProfileRules, classifyValueProfileMatches, normalizeValueProfileState, removeValueProfile, removeValueProfileRule, renameValueProfile, setValueProfilePageScope, upsertValueProfileRule, ValueProfileError } from "../js/lib/value_profiles.js";
 
 const binding = (controlId, valueType = "number", hostId = "host-a") => ({ provider: "generic-widget", hostId, controlId, valueType });
 const candidate = (controlId, { valueType = "number", hostId = "host-a", label = controlId, hostLabel = "Host A" } = {}) => ({
@@ -118,4 +118,33 @@ test("plan reports invalid and unavailable rules as issues instead of writing th
 	assert.equal(plan.ready.length, 0);
 	assert.equal(plan.issues[0].status, "invalid");
 	assert.equal(plan.issues[0].reason, "invalid-value");
+});
+
+test("page scope normalizes to null or a deduplicated page id list", () => {
+	let state = createValueProfile(emptyValueProfileState(), "scoped");
+	const id = state.profiles[0].id;
+	assert.equal(state.profiles[0].pages, null);
+	state = setValueProfilePageScope(state, id, [" page-b ", "page-a", "page-b", ""]);
+	assert.deepEqual(state.profiles[0].pages, ["page-b", "page-a"]);
+	state = setValueProfilePageScope(state, id, []);
+	assert.equal(state.profiles[0].pages, null);
+	assert.throws(() => setValueProfilePageScope(state, id, "page-a"), (error) => error.code === "invalid-profile-pages");
+	const legacy = normalizeValueProfileState({ version: 1, profiles: [{ id: "p1", name: "legacy", rules: [] }] });
+	assert.equal(legacy.profiles[0].pages, null);
+});
+
+test("classification keeps identity matches outside the scope as skipped, never retargeted", () => {
+	const inScope = { ...candidate("steps"), pageId: "page-a" };
+	const outOfScope = { ...candidate("cfg", { hostId: "host-b" }), pageId: "page-b" };
+	const sameNameElsewhere = { ...candidate("steps", { hostId: "host-c" }), pageId: "page-c", label: "steps" };
+	const matches = matchValueProfileRules([rule("steps"), rule("cfg", { hostId: "host-b" }), rule("missing")], [inScope, outOfScope, sameNameElsewhere]);
+	const { ready, scoped } = classifyValueProfileMatches(matches, ["page-a"]);
+	assert.deepEqual(ready.map((match) => match.status), ["ready", "missing"]);
+	assert.equal(ready[0].candidate.binding.controlId, "steps");
+	assert.equal(scoped.length, 1);
+	assert.equal(scoped[0].status, "scoped");
+	assert.equal(scoped[0].candidate.binding.controlId, "cfg");
+	const unscoped = classifyValueProfileMatches(matches, null);
+	assert.equal(unscoped.ready.length, matches.length);
+	assert.equal(unscoped.scoped.length, 0);
 });
