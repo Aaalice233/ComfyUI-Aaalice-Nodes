@@ -127,6 +127,21 @@
         "partialHint": "Some controls cannot be restored safely. Review them before applying the compatible layout and values.", "applyCompatible": "Apply compatible preset",
         "saveWorkflowReminder": "Save the workflow to keep these sidebar presets.", "created": "Sidebar preset created. Save the workflow to keep it.", "updated": "Sidebar preset updated. Save the workflow to keep it.", "duplicated": "Sidebar preset duplicated. Save the workflow to keep it.", "renamed": "Sidebar preset renamed. Save the workflow to keep it.", "deleted": "Sidebar preset deleted. Save the workflow to keep it.", "appliedReminder": "Sidebar preset applied. Save the workflow to keep the layout and values.", "deletedAndSwitched": "Sidebar preset deleted and switched to another preset. Save the workflow to keep the change.", "deletedAndCleared": "The last sidebar preset was deleted and the sidebar was cleared. Save the workflow to keep the change."
       },
+      "valueProfiles": {
+        "open": "Adjustment profiles", "title": "Adjustment profiles", "select": "Adjustment profile", "name": "Profile name",
+        "create": "New profile", "rename": "Rename profile", "deleteConfirm": "Delete adjustment profile “{name}”?",
+        "emptyTitle": "No adjustment profiles", "emptyHint": "Create a profile, add rules for the controls you adjust every time, then apply them in one click.",
+        "emptyRules": "No rules yet. Add a control below and its current value becomes the target.",
+        "addRule": "Add rule", "ruleExists": "Added", "searchControl": "Search components…", "noControlMatches": "No components match the search.",
+        "captureCurrent": "Update to current value", "captureFailed": "The control value cannot be captured right now.",
+        "apply": "Apply to current sidebar", "applyMatching": "Apply matching rules", "applied": "Applied {count} rule(s) from “{name}”.",
+        "applyFailed": "The profile could not be applied; values were restored.", "noRules": "This profile has no rules yet.",
+        "nothingToApply": "No rule can be applied to the current sidebar.",
+        "partialHint": "Some rules cannot be applied safely. Review them before applying the matching rules.",
+        "on": "On", "off": "Off", "seedValue": "Seed value", "seedBehavior": "After generate",
+        "behaviors": { "fixed": "Fixed", "increment": "Increment", "decrement": "Decrement", "randomize": "Randomize" },
+        "issue": { "missing": "Not on sidebar", "ambiguous": "Ambiguous", "incompatible": "Incompatible", "invalid": "Invalid value", "unset": "No value available", "unavailable": "Temporarily unavailable", "empty": "No options available" }
+      },
       "transfer": {
 		"backup": "Portable backup", "layoutPreset": "Layout backup", "preflight": "Safety check", "review": "Import preview",
 		"zipArchive": "ZIP archive", "jsonPreset": "JSON layout backup", "legacyJson": "Legacy JSON", "untitled": "Untitled entry",

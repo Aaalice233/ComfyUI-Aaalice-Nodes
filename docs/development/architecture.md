@@ -77,6 +77,7 @@
 | 打开时聚焦 | 根图及嵌套 Subgraph 节点的 `node.properties.aaaliceFocusOnOpen` | 目标节点、X/Y 画布偏移、目标视图缩放 | 节点标题、裸 Node Id、浏览器已读状态或 DOM 按钮 |
 | DIY 侧边栏布局 | `app.graph.extra.aaaliceSidebar` | 页面、组、卡片布局、稳定 Binding、来源组身份、`groupSource` 纳管关系、源标题快照、用户覆盖、卡片 tone 和卡片/分隔项 Component Note；控件值、目标解析和 Missing Binding 状态为实时派生 | 侧边栏 DOM、节点标题或位置、同步状态本身 |
 | DIY 侧边栏预设 | `app.graph.extra.aaaliceSidebarPresets` | 当前完整 Dashboard 快照、控件值与基准预设身份 | 滚动、选区、编辑模式、图钉、搜索、词库与工作流节点结构 |
+| Dashboard 参数调整档案 | 浏览器 `localStorage`（`aaalice.workspace.valueProfiles`） | 档案列表与规则（稳定 Binding Key、快照式目标值 payload、回退匹配用的控件名与宿主标题） | 工作流 JSON、节点属性、布局与选区状态 |
 | Prompt Library | 用户目录 SQLite | 当前筛选、PromptSelector 引用解析 | 单个工作流、单个节点或浏览器缓存 |
 
 

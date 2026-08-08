@@ -49,6 +49,7 @@ const ICON_PATHS = {
 	moveToBottom: "m7 13 5 5 5-5M7 6l5 5 5-5",
 	refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
 	skipForward: "M5 5v14l11-7L5 5Zm14 0v14",
+	sliders: "M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M6 10v4M10 18v4",
 	fit: "M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5",
 		globe: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-20a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10ZM2 12h20",
 	image: "M3 5h18v14H3V5Zm0 10 5-5 4 4 2-2 7 7M16 9h.01",

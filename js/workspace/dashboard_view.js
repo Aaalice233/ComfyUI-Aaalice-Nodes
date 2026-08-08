@@ -27,6 +27,7 @@ export function renderDashboard(container, host) {
 		isWorkspaceRootInteractive, scheduleRender, scheduleStructuralRender, askText, updateDashboard, removePage, syncCurrentPageSourceGroups,
 		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetModelError, dashboardPresetLabels,
 		applyDashboardPreset, createCurrentDashboardPreset, updateCurrentDashboardPreset, duplicateCurrentDashboardPreset,
+		openValueProfiles,
 		renameCurrentDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
 		dashboardPageRails, workspaceLabels, openDashboardExport, importDashboardPreset, openEditGroup,
 		openComponentNoteEditor, numericRangeForControl, flushDeferredWorkspaceRender, notifyWorkspaceImageUpload,
@@ -220,6 +221,7 @@ export function renderDashboard(container, host) {
 		iconButton({ iconName: "layout", label: t("aaalice.workspace.layout.compact", "Tidy layout"), variant: "ghost", className: "aa-dashboard-tidy-layout", onClick: () => updateDashboard((current) => compactDashboard(current, page.id)) }),
 	].filter(Boolean) : [];
 	const utilityActions = editMode ? [] : [
+		iconButton({ iconName: "sliders", label: t("aaalice.workspace.valueProfiles.open", "Adjustment profiles"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action aa-dashboard-value-profiles", onClick: () => openValueProfiles() }),
 		button({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export layout"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => openDashboardExport(model) }),
 		button({ iconName: "download", label: t("aaalice.workspace.preset.import", "Import layout"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
 		search.toggle,

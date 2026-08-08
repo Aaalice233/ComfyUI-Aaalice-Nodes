@@ -219,6 +219,22 @@
 .aa-value-preset-issue strong, .aa-value-preset-issue small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aa-value-preset-issue strong { color: var(--aa-ui-text); font-size: 10px; font-weight: 620; }
 .aa-value-preset-issue small { color: var(--aa-ui-muted); font-size: 10px; }
+.aa-value-profiles { display: flex; min-height: 220px; flex-direction: column; gap: 12px; }
+.aa-value-profiles__bar { display: flex; align-items: center; gap: 6px; }
+.aa-value-profiles__bar .aa-ui-select, .aa-value-profiles__bar select { min-width: 0; flex: 1; }
+.aa-value-profile-rules { display: flex; max-height: 320px; flex-direction: column; gap: 6px; overflow-y: auto; }
+.aa-value-profile-rule { display: flex; flex-direction: column; gap: 7px; padding: 8px 10px; border: 1px solid var(--aa-ui-border-soft); border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-control) 55%, transparent); }
+.aa-value-profile-rule.is-unmatched { opacity: .72; }
+.aa-value-profile-rule__head { display: flex; align-items: center; gap: 7px; }
+.aa-value-profile-rule__copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 1px; }
+.aa-value-profile-rule__copy strong, .aa-value-profile-rule__copy small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aa-value-profile-rule__copy strong { color: var(--aa-ui-text); font-size: 11px; font-weight: 650; }
+.aa-value-profile-rule__copy small { color: var(--aa-ui-muted); font-size: 10px; }
+.aa-value-profile-rule__value { color: var(--aa-ui-muted); font-size: 10.5px; }
+.aa-value-profile-rule__editor { display: flex; align-items: center; gap: 7px; }
+.aa-value-profile-rule__editor .aa-ui-input { flex: 1; min-width: 0; }
+.aa-value-profiles__picker { padding-top: 2px; }
+.aa-value-profiles__actions { display: flex; justify-content: flex-start; }
 .aa-library-toolbar > :first-child, .aa-dashboard-edit-toggle:first-child { margin-right: auto; }
 .aa-dashboard-toolbar.is-searching .aa-dashboard-toolbar__row--context { opacity: .88; }
 .aa-dashboard-page-heading {

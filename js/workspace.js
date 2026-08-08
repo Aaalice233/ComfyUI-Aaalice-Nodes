@@ -26,6 +26,7 @@ import { clearGroupNavigationCanvasPointer, closeGroupNavigationWheel, isGroupNa
 import { confirmAction } from "./workspace/dom_utils.js";
 import { configureLibraryWorkspace, openLibraryEntryEditor, renderLibrary } from "./workspace/library.js";
 import { configureDashboardView, renderDashboard } from "./workspace/dashboard_view.js";
+import { configureValueProfiles, openValueProfiles } from "./workspace/value_profiles.js";
 import { workspaceLabels } from "./workspace/labels.js";
 import {
 	configureDashboardBindings, installLinkedSeedQueueHook, notifyControlBindingError,
@@ -542,6 +543,14 @@ configureGroupNavigation({
 configureLibraryWorkspace({ scheduleRender, scheduleStructuralRender, workspaceRootId, isWorkspaceRootInteractive, viewState: workspaceViewState.library });
 configureDashboardSourceGroups({ dashboard, graphNodes, scheduleRender, scheduleStructuralRender, updateDashboard });
 configureDashboardScroll({ mounted, ownsWorkspaceRoot, isWorkspaceRootInteractive, workspaceOwnedTrees });
+configureValueProfiles({
+	dashboard,
+	resolve,
+	controlTitle,
+	askText,
+	scheduleStructuralRender,
+	scheduleActiveDashboardPresetAutoSave,
+});
 configureDashboardView({
 	dashboard,
 	currentPage,
@@ -565,6 +574,7 @@ configureDashboardView({
 	createCurrentDashboardPreset,
 	updateCurrentDashboardPreset,
 	duplicateCurrentDashboardPreset,
+	openValueProfiles,
 	renameCurrentDashboardPreset,
 	deleteCurrentDashboardPreset,
 	mounted,

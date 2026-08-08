@@ -127,6 +127,21 @@
         "partialHint": "部分参数无法安全恢复，请确认后再应用其余兼容布局和参数。", "applyCompatible": "应用兼容内容",
         "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "created": "侧边栏预设已创建，请保存工作流以保留它。", "updated": "侧边栏预设已更新，请保存工作流以保留它。", "duplicated": "侧边栏预设已复制，请保存工作流以保留它。", "renamed": "侧边栏预设已重命名，请保存工作流以保留它。", "deleted": "侧边栏预设已删除，请保存工作流以保留修改。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "deletedAndSwitched": "侧边栏预设已删除，并自动切换到其它预设；请保存工作流以保留修改。", "deletedAndCleared": "最后一个侧边栏预设已删除，侧边栏已清空；请保存工作流以保留修改。"
       },
+      "valueProfiles": {
+        "open": "调整档案", "title": "参数调整档案", "select": "调整档案", "name": "档案名称",
+        "create": "新建档案", "rename": "重命名档案", "deleteConfirm": "删除调整档案“{name}”？",
+        "emptyTitle": "还没有调整档案", "emptyHint": "创建档案，为每次都要调整的控件添加规则，之后一键套用。",
+        "emptyRules": "还没有规则。在下方添加控件，控件当前值会成为目标值。",
+        "addRule": "添加规则", "ruleExists": "已添加", "searchControl": "搜索组件…", "noControlMatches": "没有匹配搜索的组件。",
+        "captureCurrent": "更新为当前值", "captureFailed": "当前无法捕获该控件的值。",
+        "apply": "应用到当前侧边栏", "applyMatching": "应用可匹配规则", "applied": "已应用“{name}”的 {count} 条规则。",
+        "applyFailed": "档案应用失败，参数已恢复原值。", "noRules": "该档案还没有规则。",
+        "nothingToApply": "没有可应用到当前侧边栏的规则。",
+        "partialHint": "部分规则无法安全应用。检查后可以继续应用可匹配的规则。",
+        "on": "开", "off": "关", "seedValue": "种子值", "seedBehavior": "生成后行为",
+        "behaviors": { "fixed": "固定", "increment": "递增", "decrement": "递减", "randomize": "随机" },
+        "issue": { "missing": "不在侧边栏", "ambiguous": "存在歧义", "incompatible": "类型不兼容", "invalid": "值无效", "unset": "无可用值", "unavailable": "暂时不可用", "empty": "无可选项" }
+      },
       "transfer": {
 		"backup": "便携备份", "layoutPreset": "布局备份", "preflight": "安全检查", "review": "导入预览",
 		"zipArchive": "ZIP 压缩包", "jsonPreset": "JSON 布局备份", "legacyJson": "旧版 JSON", "untitled": "未命名词条",

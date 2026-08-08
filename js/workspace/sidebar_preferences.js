@@ -1,3 +1,5 @@
+import { emptyValueProfileState, normalizeValueProfileState } from "../lib/value_profiles.js";
+
 const SIDEBAR_PIN_STORAGE_KEY = "aaalice.workspace.sidebarPinned";
 const SIDEBAR_AUTO_SAVE_STORAGE_KEY = "aaalice.workspace.sidebarPresetAutoSave";
 
@@ -24,3 +26,23 @@ export function loadSidebarPinned() { return loadBooleanPreference(SIDEBAR_PIN_S
 export function saveSidebarPinned(value) { saveBooleanPreference(SIDEBAR_PIN_STORAGE_KEY, value, "sidebar pin"); }
 export function loadSidebarPresetAutoSave() { return loadBooleanPreference(SIDEBAR_AUTO_SAVE_STORAGE_KEY, true, "sidebar preset auto-save"); }
 export function saveSidebarPresetAutoSave(value) { saveBooleanPreference(SIDEBAR_AUTO_SAVE_STORAGE_KEY, value, "sidebar preset auto-save"); }
+
+const VALUE_PROFILES_STORAGE_KEY = "aaalice.workspace.valueProfiles";
+
+export function loadValueProfiles() {
+	try {
+		const stored = globalThis.localStorage?.getItem(VALUE_PROFILES_STORAGE_KEY);
+		return normalizeValueProfileState(stored ? JSON.parse(stored) : null);
+	} catch (error) {
+		console.warn("[Aaalice] Unable to read the value adjustment profiles", error);
+		return emptyValueProfileState();
+	}
+}
+
+export function saveValueProfiles(state) {
+	try {
+		globalThis.localStorage?.setItem(VALUE_PROFILES_STORAGE_KEY, JSON.stringify(normalizeValueProfileState(state)));
+	} catch (error) {
+		console.warn("[Aaalice] Unable to save the value adjustment profiles", error);
+	}
+}
