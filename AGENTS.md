@@ -24,7 +24,7 @@
 
 | 位置 | 职责 | 不应包含 |
 |---|---|---|
-| `README.md` / `README.zh-CN.md` | 用户安装、已发布功能、用法和公开限制 | 开发进度、下一项、完整排期、测试记录、协作规则 |
+| `README.md` / `README.en.md` | 用户安装、已发布功能、用法和公开限制 | 开发进度、下一项、完整排期、测试记录、协作规则 |
 | `AGENTS.md` | 开发硬规则、架构边界、验收门槛 | 具体 Bug、长命令、教程、调查过程 |
 | `CONTEXT.md` | 项目领域词汇和统一称呼 | 文件路径、字段名、实现方案 |
 | `docs/adr/` | 难逆且存在真实取舍的架构决策 | 操作步骤、视觉细节 |
@@ -32,7 +32,7 @@
 | `docs/development/` | 架构、内部路线图、测试与发布 runbook | 普通用户安装教程 |
 
 - 文档入口见 [`docs/README.md`](docs/README.md)。
-- `README.md` 为 English Registry README；`README.zh-CN.md` 为简体中文。两份结构必须对齐、页顶互链。
+- `README.md` 为简体中文首页 README（同时作为 Registry readme）；`README.en.md` 为 English。两份结构必须对齐、页顶互链。
 - 节点重置或增删时：README 只更新已发布节点、用户用法和公开限制；[`roadmap.md`](docs/development/roadmap.md) 独立维护进度、下一项、稳定编号和排期。
 - ADR 状态只用 `Accepted`、`Superseded by ADR NNNN` 或 `Rejected`。已发布决策被替代时保留历史并链接后继；未发布中间态删除后不保留 ADR。
 - 一次性调查、聊天结论、本机故障笔记和测试截图不进入仓库。

@@ -4,7 +4,7 @@
 
 - Package: `comfyui-aaalice-nodes`
 - Publisher: `aaalice`
-- Registry readme: `README.md`
+- Registry readme: `README.md`（简体中文首页版）
 - Workflow: `.github/workflows/publish.yml`
 - Secret: `REGISTRY_ACCESS_TOKEN`
 

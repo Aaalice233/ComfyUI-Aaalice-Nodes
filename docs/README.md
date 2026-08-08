@@ -8,7 +8,7 @@
 
 | 文档 | 面向对象 | 唯一职责 |
 |---|---|---|
-| [English README](../README.md) / [中文 README](../README.zh-CN.md) | 用户 | 安装、已发布节点、操作方法和公开限制 |
+| [中文 README](../README.md) / [English README](../README.en.md) | 用户 | 安装、已发布节点、操作方法和公开限制 |
 | [AGENTS.md](../AGENTS.md) | 协作者 | 开发硬规则、上下文路由和验收门槛 |
 | [CONTEXT.md](../CONTEXT.md) | 产品与开发 | 领域词汇、身份概念和统一称呼 |
 
