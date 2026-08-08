@@ -61,3 +61,4 @@ build/
 *.egg-info/
 .eggs/
 /.comfyui-chrome-devtools-testing/
+.playwright-cli/
