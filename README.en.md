@@ -12,15 +12,15 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 > This package is a published preview. Workflows and behavior may change before the first stable release. Legacy workflows are not migrated automatically; the Library can import the supported legacy prompt-library exports described below.
 
-## Requirements
+## 📋 Requirements
 
 - A current ComfyUI installation with V3 custom-node support.
 - Classic canvas or Nodes 2.0. App Mode is not currently supported.
 - English and Simplified Chinese UI are included; other locales fall back to English.
 
-## Installation
+## 📥 Installation
 
-### ComfyUI Manager (recommended)
+### 📦 ComfyUI Manager (recommended)
 
 1. Open **ComfyUI Manager** and go to the custom-node management page.
 2. Search for `ComfyUI-Aaalice-Nodes` or the Registry package id `comfyui-aaalice-nodes`.
@@ -28,7 +28,7 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 Manager installs the published [`comfyui-aaalice-nodes`](https://registry.comfy.org/nodes/comfyui-aaalice-nodes) package and its declared dependencies. Use Manager for normal installation and updates.
 
-### Manual Git installation
+### 🔧 Manual Git installation
 
 Use Git when you need the latest development revision or a specific commit. Clone the repository into `ComfyUI/custom_nodes`, install dependencies with the Python environment used by ComfyUI, and restart:
 
@@ -39,14 +39,14 @@ cd ComfyUI-Aaalice-Nodes
 pip install -r requirements.txt
 ```
 
-## Updating and troubleshooting
+## 🔄 Updating and troubleshooting
 
 - Registry installations should be updated through ComfyUI Manager.
 - Manual Git installations can be updated with `git pull` from this repository directory.
 - Restart ComfyUI after Python updates and hard-refresh the browser after frontend updates.
 - If an existing node keeps an old socket or widget structure after a structural update, remove that node instance and create it again.
 
-## Included nodes
+## 🧩 Included nodes
 
 | Node | Category | Purpose |
 |---|---|---|
@@ -60,7 +60,7 @@ pip install -r requirements.txt
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
 | `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
 
-## Node details
+## 📖 Node details
 
 <details>
 <summary><strong>QuickGroupManager — fast visual-group control</strong></summary>
@@ -144,15 +144,15 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 
 </details>
 
-## Aaalice Workspace
+## 🖥️ Aaalice Workspace
 
 Open **Aaalice Workspace** from ComfyUI's left sidebar. It hosts three views: **Controls** (dashboard pages), **Groups** (navigation), and **Library** (prompt library).
 
-### Focus on open
+### 👁️ Focus on open
 
 Right-click any node and choose **👁️ Focus on open** to make it the workflow's single focus target, with optional X/Y offsets and target zoom. Each time the workflow opens, ComfyUI silently enters the target's subgraph and focuses the canvas on it; marking another node replaces the previous target.
 
-### Controls dashboard
+### 🎛️ Controls dashboard
 
 - Right-click any compatible node and choose **📌 Add controls to sidebar…**, select its controls and a target page, then adjust the original values from the sidebar. No page is generated automatically.
 - **Search components** searches live control titles across every page; results stay grouped by page and remain fully editable.
@@ -162,23 +162,23 @@ Right-click any node and choose **👁️ Focus on open** to make it the workflo
 - Bindings use stable identities rather than node titles or positions. Broken cards explain why and offer fuzzy-search rebinding, including a page-level review for all broken parameters at once; a replaced node re-attaches automatically when it is the unique match. The workspace never searches inside a subgraph.
 - Compatible sources: simple nodes composed of native `INT`, `FLOAT`, `BOOLEAN`, `STRING`, and `COMBO` widgets, widgets publicly exposed by a subgraph, and ComfyUI's `Preview Image`, `Preview as Text`, and `Compare Images` views (with navigation and full-window viewers). Nodes with unknown custom panels require an explicit adapter.
 
-### Sidebar presets
+### 💾 Sidebar presets
 
 The compact preset picker saves and switches the complete dashboard — pages, groups, bindings, card geometry, and compatible values, including each Seed's value and after-generate mode. Local changes mark the preset name in italics with a trailing `*`; saving the workflow with `Ctrl`/`Cmd`+`S` also commits the working copy into the active preset. Presets are stored inside the workflow file, so recipients of a shared workflow (including through Aaalice Workflow Hub) get the presets you shipped. A portable JSON backup can be exported and imported through the same validation flow.
 
-### Adjustment profiles
+### 🎚️ Adjustment profiles
 
 The toolbar's **Adjustment profiles** button opens value-override profiles stored globally on this ComfyUI installation. Each rule targets one sidebar control chosen by fuzzy search and remembers a target value (including a Seed's after-generate mode); applying a profile writes every matching rule into the current controls in one transaction that rolls back on failure. Rules that cannot be matched or validated are listed for review instead of being silently skipped. Profiles are not embedded in workflows, so your own profiles stay available no matter which workflow is open.
 
-### Groups navigation
+### 🧭 Groups navigation
 
 **Groups** replaces a floating canvas shortcut with a curated navigation list. Add only the visual groups you want to navigate, then optionally assign each a `Ctrl`, `Alt`, or `Command` key combination, a target offset, and a target zoom from 10% to 300%. Click a row or press its shortcut to animate to that group's view. Entries and view settings are saved with the workflow.
 
-### Prompt library
+### 📚 Prompt library
 
 The **Library** view manages entries, flat categories, multi-membership favorite folders, tags, and one preview image per entry. Selected entries can be moved, exported, or deleted in one transaction, and each entry's full prompt can be copied with one click. The library exports the whole collection or the current filter as a ZIP with hashed assets, and imports current archives plus legacy `data.json + preview/` exports, with preflight review and per-entry conflict choices. Transfers are limited to 2 GiB and streamed instead of loaded into memory.
 
-## Compatibility and limitations
+## ⚠️ Compatibility and limitations
 
 - This preview has no compatibility layer for workflows created with the legacy package.
 - `PromptAssistantBridge` was removed in 0.7.0 and `PromptCleaningMaid` in 0.8.0; workflows containing them must replace or remove those nodes before execution.
@@ -192,7 +192,7 @@ The **Library** view manages entries, flat categories, multi-membership favorite
 
 Do not install this package together with [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery): the two register the same node IDs (`PromptSelector`, `GroupIsEnabled`, `SimpleNotify`, `SimpleStringSplit`, `FetchFromKrita`), and the legacy package's frontend still hooks those node types, so having both installed produces duplicate widgets and unpredictable behavior. Keep only one of them installed.
 
-## Feedback and license
+## 💬 Feedback and license
 
 Report bugs and feature requests in [GitHub Issues](https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes/issues).
 

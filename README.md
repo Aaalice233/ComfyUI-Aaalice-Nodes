@@ -12,15 +12,15 @@
 
 > 当前为已发布的预览版。首次稳定发布前，工作流格式和节点行为仍可能调整。旧版工作流不会自动迁移；词库管理可以导入下文列出的受支持旧版词库导出文件。
 
-## 环境要求
+## 📋 环境要求
 
 - 支持 V3 自定义节点的较新 ComfyUI。
 - 支持经典画布和 Nodes 2.0；暂不支持 App Mode。
 - 内置 English 和简体中文界面；其它语言回退到 English。
 
-## 安装
+## 📥 安装
 
-### ComfyUI Manager（推荐）
+### 📦 ComfyUI Manager（推荐）
 
 1. 打开 **ComfyUI Manager**，进入自定义节点管理页面。
 2. 搜索 `ComfyUI-Aaalice-Nodes` 或 Registry 包 ID `comfyui-aaalice-nodes`。
@@ -28,7 +28,7 @@
 
 Manager 会安装 Registry 中已发布的 [`comfyui-aaalice-nodes`](https://registry.comfy.org/nodes/comfyui-aaalice-nodes) 及其声明依赖。日常安装和更新推荐使用 Manager。
 
-### 手动 Git 安装
+### 🔧 手动 Git 安装
 
 仅在需要最新开发版本或指定提交时使用 Git。将仓库克隆到 `ComfyUI/custom_nodes`，使用 ComfyUI 所在的 Python 环境安装依赖，然后重启：
 
@@ -39,14 +39,14 @@ cd ComfyUI-Aaalice-Nodes
 pip install -r requirements.txt
 ```
 
-## 更新与故障排查
+## 🔄 更新与故障排查
 
 - Registry 安装请通过 ComfyUI Manager 更新。
 - 手动 Git 安装可在仓库目录执行 `git pull` 更新。
 - Python 更新后重启 ComfyUI；前端更新后硬刷新浏览器。
 - 如果结构更新后已有节点仍保留旧引脚或控件，请删除该节点实例并重新创建。
 
-## 已包含节点
+## 🧩 已包含节点
 
 | 节点 | 分类 | 用途 |
 |---|---|---|
@@ -60,7 +60,7 @@ pip install -r requirements.txt
 | `BooruGalleryNode` | `Aaalice/gallery` | 在虚拟瀑布流画廊中搜索 Danbooru、Gelbooru、Safebooru 和 AI TAG，按顺序输出图像与对应提示词。 |
 | `FetchFromKrita` | `Aaalice/krita` | 读取 Krita 活动文档的可见合成图像与选区，输出 `IMAGE` 和 `MASK`。 |
 
-## 节点详情
+## 📖 节点详情
 
 <details>
 <summary><strong>QuickGroupManager — 快速可视组控制</strong></summary>
@@ -144,15 +144,15 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器。缺少 Bridge、Krit
 
 </details>
 
-## Aaalice 工作区
+## 🖥️ Aaalice 工作区
 
 从 ComfyUI 左侧打开 **Aaalice 工作区**，其中包含三个视图：**参数控制**（看板页面）、**组导航**和**词库**。
 
-### 打开时聚焦
+### 👁️ 打开时聚焦
 
 右键任意节点选择 **👁️ 打开时聚焦**，将其设为该工作流唯一的聚焦目标，并可选设置 X/Y 偏移与目标缩放。之后每次打开工作流，ComfyUI 会静默进入目标所在子图并把画布聚焦到它；标记其它节点会替换原目标。
 
-### 参数控制看板
+### 🎛️ 参数控制看板
 
 - 右键兼容节点选择 **📌 添加参数到侧边栏…**，勾选参数和目标页面，然后在侧边栏实时修改原节点值。页面不会自动生成。
 - **搜索参数**跨所有页面搜索实时参数标题，结果按页面分组且可直接编辑。
@@ -162,23 +162,23 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器。缺少 Bridge、Krit
 - 绑定使用稳定身份，不依赖节点标题或位置。失效卡片会说明原因并提供模糊搜索重绑，页面菜单可一次性复核全部失效参数；节点被替换且匹配唯一时会自动重挂。侧边栏不会进入子图内部搜索。
 - 兼容来源：仅由原生 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 控件组成的简单节点、子图整体公开的 widget，以及 ComfyUI 原生 `Preview Image`、`Preview as Text`、`Compare Images` 视图（带导航和全窗口查看器）。带未知自定义面板的节点需要显式适配器。
 
-### 侧边栏预设
+### 💾 侧边栏预设
 
 紧凑的预设选择器整体保存和切换看板的页面、布局组、绑定、卡片几何与兼容参数值，包括每个 Seed 的数值和执行后行为。本地修改后预设名称以斜体加末尾 `*` 标记；用 `Ctrl`/`Cmd`+`S` 保存工作流时也会同步提交当前修改到启用的预设。预设保存在工作流文件内，分享工作流（包括通过 Aaalice Workflow Hub）后接收方即可获得你随工作流携带的预设。也可以通过同一套校验流程导出、导入便携 JSON 备份。
 
-### 调整档案
+### 🎚️ 调整档案
 
 工具栏的 **调整档案** 按钮打开保存在本机 ComfyUI 的全局参数覆盖档案。每条规则通过模糊搜索选定一个侧边栏控件并记录目标值（含 Seed 的执行后行为）；应用档案会在同一个事务中写入所有可匹配规则，失败时整体回滚。无法匹配或校验的规则会列入复核清单，不会静默跳过。档案不随工作流保存，因此无论打开哪份工作流都可以使用自己的档案。
 
-### 组导航
+### 🧭 组导航
 
 **组导航**用精选导航列表取代画布悬浮入口。只添加真正需要导航的可视组，并可为每项设置 `Ctrl`、`Alt` 或 `Command` 组合键、目标偏移和 10%–300% 的目标缩放。点击行或按下快捷键即可平滑移动到该组视图。导航项与视图设置随工作流保存。
 
-### 词库
+### 📚 词库
 
 **词库**视图管理词条、扁平分类、多归属收藏夹、标签和每条词条的一张预览图。已选词条可一次移动、导出或事务化删除，每条词条的完整提示词可一键复制。词库可将全部或当前筛选结果导出为带哈希资产的 ZIP，并可导入当前归档以及旧版 `data.json + preview/` 导出，导入前提供预检与逐条冲突选择。传输上限 2 GiB，全程流式处理而非读入内存。
 
-## 兼容性与限制
+## ⚠️ 兼容性与限制
 
 - 本预览版不为旧版包创建的工作流提供兼容层。
 - `PromptAssistantBridge` 已在 0.7.0 移除、`PromptCleaningMaid` 已在 0.8.0 移除；包含它们的工作流需要先替换或移除这些节点。
@@ -192,7 +192,7 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器。缺少 Bridge、Krit
 
 不要与 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 同时安装：两者注册了相同的节点 ID（`PromptSelector`、`GroupIsEnabled`、`SimpleNotify`、`SimpleStringSplit`、`FetchFromKrita`），且旧版包前端仍会挂钩这些节点类型，同时安装会产生重复控件和不可预期行为。请只保留其中一个。
 
-## 反馈与许可
+## 💬 反馈与许可
 
 在 [GitHub Issues](https://github.com/Aaalice233/ComfyUI-Aaalice-Nodes/issues) 反馈 bug 和功能建议。
 
