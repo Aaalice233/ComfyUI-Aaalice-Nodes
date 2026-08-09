@@ -40,6 +40,23 @@
     },
     "outputs": { "0": { "name": "Images", "tooltip": "The unchanged input images." } }
   },
+  "UniversalVAEEncode": {
+    "display_name": "🧬 Universal VAE Encode",
+    "description": "Encode an IMAGE batch as independent images or as one ordered video while retaining ComfyUI's native VAE memory management.",
+    "inputs": {
+      "pixels": { "name": "Images", "tooltip": "Images to encode. Batch entries follow the selected input mode." },
+      "vae": { "name": "VAE", "tooltip": "VAE used to encode the input." },
+      "input_mode": {
+        "name": "Input Mode",
+        "tooltip": "Independent Images preserves one latent sample per image. Video Frames requires a 3D/video VAE and treats the complete batch as one ordered clip.",
+        "options": {
+          "image_batch": "Independent Images",
+          "video_frames": "Video Frames"
+        }
+      }
+    },
+    "outputs": { "0": { "name": "Latent", "tooltip": "Encoded latent with batch and temporal layout determined by Input Mode." } }
+  },
   "GroupIsEnabled": {
     "display_name": "🚦 Group Is Enabled",
     "description": "Report whether the selected visual group is fully disabled at the moment the prompt is queued.",

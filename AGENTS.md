@@ -162,6 +162,7 @@ ComfyUI-Aaalice-Nodes/
 ## 5. 领域不变量
 
 - `SimpleNotify` 只表示执行到达，不表示并行分支完成或队列清空；通知副作用只发生在前端。
+- `UniversalVAEEncode` 的模式表示输入语义，不表示模型类型：独立图片和视频帧必须由用户明确选择，不按模型名称猜测。三维 VAE 只在浅复制包装器上设置布局并对完整 IMAGE 批次调用一次原生 `vae.encode()`；禁止修改传入 VAE、循环手工拆批、暴露 `per_batch` 或接管 ComfyUI 的显存管理。
 - `GroupIsEnabled` 在 graphToPrompt 时按组标题快照组成员 mode 并注入 payload，探测器自身不计入判定；组不存在或为空时显式失败，不猜测状态。
 - `GroupLogicProbe` 复用同一快照注入机制（`js/lib/group_probe.js`），多条组条件按扁平 AND/OR 组合，不提供嵌套表达式；结果只输出单个布尔，懒执行分支交给 ImpactConditionalBranch 等既有节点，不在本包重复实现。
 - Booru Gallery 内容黑名单属于当前 ComfyUI 用户的应用级持久设置，只能存放在用户目录的 Gallery 设置文件中；不得写入 `node.properties`、工作流 JSON、节点默认值或切换工作流时会重建的前端状态。加载、切换、新建工作流以及重启 ComfyUI 都不得清空黑名单。

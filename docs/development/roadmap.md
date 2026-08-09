@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- 进度：`10 / 10` 个节点
+- 进度：`11 / 11` 个节点
 - 下一项：无
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
@@ -15,6 +15,7 @@
 |---:|---|---|---|
 | 1 | `SimpleStringSplit` | tools | 将文本拆分为清理后的字符串 list。 |
 | 4 | `SimpleNotify` | tools | 在透明透传执行点提醒一次。 |
+| 6 | `UniversalVAEEncode` | tools | 按独立图片或视频帧语义调用原生 VAE 编码，不再依赖 VHS 手工拆批。 |
 | 8 | `ResolutionPreset` | tools | 通过预设、精确输入或二维拖拽选择并输出对齐的宽高。 |
 | 11 | `PromptSelector` | prompt | 从独立词库跨分类选择、排序并加权输出提示词。 |
 | 17 | `GroupIsEnabled` | control | 队列提交时快照可视组成员模式，报告是否被完全禁用。 |
@@ -22,6 +23,7 @@
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
 | 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
 | 27 | `GroupLogicProbe` | control | 多条组启用/禁用条件按 AND/OR 组合，队列提交时快照求值并输出单个布尔用于懒执行分支。 |
+| 28 | `ConditionalSaveImage` | tools | 仅在启用时复用现有保存实现，关闭时透明透传图像。 |
 
 ## 不再重置
 
@@ -29,7 +31,6 @@
 |---:|---|---|
 | 2 | `SimpleValueSwitch` | 实用价值不足，不在当前范围内。 |
 | 5 | `WorkflowDescription` | ComfyUI 已原生提供 `MarkdownNote`，无需重复实现。 |
-| 6 | `VAEImageBatchFix` | 当前不需要为 VAE batch 形态提供单独修正节点。 |
 | 7 | `ModelNameExtractor` | 当前不需要单独提取模型名称。 |
 | 9 | `SimpleLoadImage` | ComfyUI 原生 `Load Image` 已覆盖图像与 mask 加载；默认黑图不能解决实际输入图像的工作流资产分享问题。 |
 | 10 | `PromptCleaningMaid` | 当前不再提供提示词清理能力；已在发布后移除。 |
@@ -37,7 +38,7 @@
 | 14 | `SimpleCheckpointLoaderWithName` | 当前不需要额外提供模型名称和预览的检查点加载节点。 |
 | 19 | `GroupIgnoreManager` | 静音与绕过职责已合并到 #18 `QuickGroupManager`。 |
 | 22 | `MultiCharacterEditorNode` | 当前不需要多角色提示词编辑能力。 |
-| 23 | `SaveImagePlus` | 当前不需要额外提供图像保存节点。 |
+| 23 | `SaveImagePlus` | 不再提供附加预览输出与重复元数据逻辑；条件保存由 #28 `ConditionalSaveImage` 负责。 |
 | 25 | `SendToKrita` | 当前工作方式只需在 Krita 中提前准备活动文档和选区，再由 `FetchFromKrita` 执行时读取；不需要反向发送节点。 |
 | 26 | `PromptAssistantBridge` | 提示词小助手已自带提示词优化节点，桥接节点不再必要；已在发布后移除。 |
 

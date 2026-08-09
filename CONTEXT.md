@@ -55,6 +55,8 @@
 
 - **ResolutionPreset（分辨率预设）**：通过内置预设、个人预设、精确输入或二维拖拽选择并输出确定宽高的工具节点。它不按百万像素推算尺寸，也不生成、裁剪或缩放图像。
 
+- **VAE Input Mode（VAE 输入模式）**：明确 IMAGE 批次的语义。**Independent Images（独立图片）**表示每个批次项都是独立样本；**Video Frames（视频帧）**表示完整批次是一段有序视频。模型名称和 VAE 架构不能替代输入语义。
+
 - **Pixel Alignment（像素对齐）**：宽高必须落在指定像素步长的整数倍上；本节点支持 8、16、32 与 64 px。避免使用 Megapixel Scale、Model Resolution。
 
 - **Krita Bridge（Krita 桥接器）**：随包提供、由用户显式安装到 Krita 的共享本机插件。它只负责执行短请求并交换请求关联的媒体快照，不负责启动、关闭或定位 Krita。
