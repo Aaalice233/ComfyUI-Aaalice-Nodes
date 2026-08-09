@@ -466,15 +466,20 @@ function isImageUploadCombo(node, widget) {
 }
 
 // 侧边栏资产列表实时拉取，可能包含页面加载后才加入 input/ 的文件；前端按
-// “值必须在 options.values 里”判定缺图并把匹配不到的值显示为占位符，
-// 所以写入前要把新值补进宿主投影（store options）与内部源 widget 的选项。
-function listImageComboValue(node, widget, value) {
-	if (typeof value !== "string" || !value) return;
-	const targets = new Set([widget, resolveWidgetDefinitionOwner(node, widget).widget]);
-	for (const target of targets) {
-		const values = target?.options?.values;
-		if (Array.isArray(values) && !values.includes(value)) values.push(value);
+// “值必须在 options.values 里”判定缺图并把匹配不到的值显示为占位符。
+// Nodes 2.0 进入/退出子图时还会从内部 widget 重建宿主投影，因此这里同时
+// 同步内部值，避免重建后用空默认值覆盖侧边栏刚写入的媒体引用。
+function prepareImageComboValue(node, widget, value) {
+	if (typeof value !== "string") return;
+	const owner = resolveWidgetDefinitionOwner(node, widget);
+	const targets = new Set([widget, owner.widget]);
+	if (value) {
+		for (const target of targets) {
+			const values = target?.options?.values;
+			if (Array.isArray(values) && !values.includes(value)) values.push(value);
+		}
 	}
+	if (owner.widget && owner.widget !== widget) owner.widget.value = value;
 }
 
 registerWidgetControlAdapter({
@@ -521,7 +526,7 @@ registerWidgetControlAdapter({
 				},
 			availability: values.length ? undefined : { state: "empty", reason: "no-options" },
 			setValue(next) {
-				listImageComboValue(node, widget, next);
+				prepareImageComboValue(node, widget, next);
 				return setNativeWidgetValue(node, widget, next);
 			},
 		};

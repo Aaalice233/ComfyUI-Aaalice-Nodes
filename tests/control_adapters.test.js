@@ -481,7 +481,7 @@ test("nested promoted widgets follow disambiguating source identity across subgr
 	assert.equal(control?.options.image_folder, "output");
 });
 
-test("image-choice writes list values missing from stale combo options on host and interior widgets", () => {
+test("image-choice keeps promoted source values and stale combo options synchronized", () => {
 	const promotedImage = {
 		name: "image",
 		type: "combo",
@@ -504,12 +504,15 @@ test("image-choice writes list values missing from stale combo options on host a
 	assert.equal(control?.adapterId, "comfy-image-combo");
 	control.setValue("Aaalice_example.jpg");
 	assert.equal(promotedImage.value, "Aaalice_example.jpg");
+	assert.equal(interiorNode.widgets[0].value, "Aaalice_example.jpg");
 	assert.ok(promotedImage.options.values.includes("Aaalice_example.jpg"));
 	assert.ok(interiorNode.widgets[0].options.values.includes("Aaalice_example.jpg"));
 	control.setValue("old.png");
+	assert.equal(interiorNode.widgets[0].value, "old.png");
 	assert.deepEqual(promotedImage.options.values.filter((value) => value === "old.png"), ["old.png"]);
 	control.setValue("");
 	assert.equal(promotedImage.value, "");
+	assert.equal(interiorNode.widgets[0].value, "");
 	assert.ok(promotedImage.options.values.includes("Aaalice_example.jpg"));
 });
 
