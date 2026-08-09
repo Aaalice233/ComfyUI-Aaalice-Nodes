@@ -8,6 +8,7 @@ __pycache__/
 .eggs/
 dist/
 build/
+/node.zip
 *.egg
 
 # Virtual env

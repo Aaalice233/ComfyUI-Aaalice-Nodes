@@ -59,6 +59,7 @@ env/
 node_modules/
 dist/
 build/
+/node.zip
 *.egg-info/
 .eggs/
 /.comfyui-chrome-devtools-testing/
