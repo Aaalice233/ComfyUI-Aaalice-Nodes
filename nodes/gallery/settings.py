@@ -8,6 +8,7 @@ import os
 import threading
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs
 
 from .._lib.booru_gallery import CATEGORY_ORDER, DEFAULT_PROMPT_CATEGORIES
 
@@ -60,6 +61,22 @@ def _string_list(value: Any, field: str) -> list[str]:
     return result
 
 
+def _normalize_gelbooru_credentials(settings: dict[str, Any]) -> None:
+    credentials = settings.get("credentials")
+    gelbooru = credentials.get("gelbooru") if isinstance(credentials, dict) else None
+    if not isinstance(gelbooru, dict):
+        return
+    raw_key = str(gelbooru.get("apiKey") or "").strip()
+    copied = parse_qs(raw_key.lstrip("?&")) if "=" in raw_key else {}
+    api_key = (copied.get("api_key") or [""])[0].strip()
+    if not api_key:
+        return
+    gelbooru["apiKey"] = api_key
+    copied_user = (copied.get("user_id") or [""])[0].strip()
+    if copied_user and not str(gelbooru.get("userId") or "").strip():
+        gelbooru["userId"] = copied_user
+
+
 class GallerySettingsStore:
     def __init__(self, path: Path):
         self.path = path
@@ -109,6 +126,7 @@ class GallerySettingsStore:
             raise ValueError("selectionStamp is invalid")
         settings["selectionStamp"] = selection_stamp
         settings["revision"] = max(0, int(settings.get("revision", 0)))
+        _normalize_gelbooru_credentials(settings)
         return settings
 
     def public(self) -> dict[str, Any]:

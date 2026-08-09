@@ -8,7 +8,7 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import aiohttp
 
@@ -160,12 +160,13 @@ class BooruAdapter:
                                 delay = min(5.0, float(response.headers.get("Retry-After", attempt + 1)))
                                 await asyncio.sleep(delay)
                                 continue
+                        response_url = urlparse(str(response.url))._replace(query="", fragment="").geturl()
                         if response.status >= 400:
-                            raise RuntimeError(f"{self.source} GET {response.url} HTTP {response.status}: {text[:300]}")
+                            raise RuntimeError(f"{self.source} GET {response_url} HTTP {response.status}: {text[:300]}")
                         try:
                             return await response.json(content_type=None)
                         except Exception as exc:
-                            raise RuntimeError(f"{self.source} GET {response.url} returned invalid JSON") from exc
+                            raise RuntimeError(f"{self.source} GET {response_url} returned invalid JSON") from exc
                 except (aiohttp.ClientError, TimeoutError) as exc:
                     if attempt >= 2:
                         raise RuntimeError(f"{self.source} GET {url} failed after {attempt + 1} attempts: {exc}") from exc
@@ -213,6 +214,9 @@ class BooruAdapter:
         parsed = urlparse(url)
         if parsed.scheme != "https" or parsed.hostname not in self.media_hosts or parsed.username or parsed.password:
             raise ValueError(f"{self.source} media URL is not allowed: {url}")
+
+    def media_request_headers(self) -> dict[str, str]:
+        return {}
 
     async def test_credentials(self, session: aiohttp.ClientSession, credentials: dict[str, str]) -> dict[str, Any]:
         await self.search(session, "", [], "", None, 1, credentials)
@@ -288,7 +292,7 @@ def rating_matches(source: str, value: str, ratings: list[str]) -> bool:
     if not ratings:
         return True
     aliases = ({"g": "general", "s": "sensitive", "q": "questionable", "e": "explicit"}
-               if source == "danbooru" else
+               if source in {"danbooru", "gelbooru"} else
                {"g": "safe", "general": "safe", "s": "safe", "q": "questionable", "e": "explicit"})
     return aliases.get(str(value).strip().lower(), str(value).strip().lower()) in ratings
 
@@ -414,15 +418,25 @@ class DanbooruAdapter(BooruAdapter):
 
 class GelbooruAdapter(BooruAdapter):
     source = "gelbooru"
-    capabilities = GalleryCapabilities(source, "Gelbooru", ("safe", "questionable", "explicit"),
+    capabilities = GalleryCapabilities(source, "Gelbooru", ("general", "sensitive", "questionable", "explicit"),
                                        ("latest", "score"), "pid", 100, ("userId", "apiKey"), True, True, False,
                                        auth_required=True, tag_search=True,
                                        credentials_url="https://gelbooru.com/index.php?page=account&s=options")
     media_hosts = frozenset({"gelbooru.com", "img3.gelbooru.com", "img4.gelbooru.com"})
     base = "https://gelbooru.com/index.php"
 
+    def media_request_headers(self) -> dict[str, str]:
+        # Gelbooru redirects media requests without a site Referer to the HTML post page.
+        return {"Referer": "https://gelbooru.com/"}
+
     def auth_params(self, credentials):
-        user, key = credentials.get("userId", ""), credentials.get("apiKey", "")
+        user = str(credentials.get("userId") or "").strip()
+        key = str(credentials.get("apiKey") or "").strip()
+        copied = parse_qs(key.lstrip("?&")) if "=" in key else {}
+        copied_key = (copied.get("api_key") or [""])[0].strip()
+        if copied_key:
+            key = copied_key
+            user = user or (copied.get("user_id") or [""])[0].strip()
         return {"user_id": user, "api_key": key} if user and key else {}
 
     def require_credentials(self, credentials):
@@ -452,8 +466,9 @@ class GelbooruAdapter(BooruAdapter):
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         pid = _int(cursor)
         tags = _with_blacklist(query, blacklist)
-        if ratings:
-            tags = f"{tags} rating:{','.join(ratings)}".strip()
+        # Gelbooru cannot OR multiple rating metatags; keep that case local so pagination still advances over real pages.
+        if len(ratings) == 1:
+            tags = f"{tags} rating:{ratings[0]}".strip()
         if sort == "score":
             tags = f"{tags} sort:score:desc".strip()
         size = min(max(1, limit), 100)

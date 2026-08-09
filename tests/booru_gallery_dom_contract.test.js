@@ -466,8 +466,10 @@ test("gallery status cannot render as an unexplained empty capsule", () => {
 test("tag inputs opt into Autocomplete-Plus and yield keys while its panel is open", () => {
 	// 搜索框 + 排除标签 / 输出过滤（提示词浮层与画廊设置）都声明外部输入 opt-in。
 	assert.equal(source.match(/setAttribute\("data-autocomplete-plus", ""\)/g)?.length ?? 0, 5);
+	assert.equal(source.match(/setAttribute\("data-autocomplete-plus-mode", "raw-tag"\)/g)?.length ?? 0, 5);
 	// 详情标签编辑与新增输入框：面板打开期间按键与失焦提交全部让位给补全插件。
 	assert.equal(tagPillsSource.match(/setAttribute\("data-autocomplete-plus", ""\)/g)?.length ?? 0, 2);
+	assert.equal(tagPillsSource.match(/setAttribute\("data-autocomplete-plus-mode", "raw-tag"\)/g)?.length ?? 0, 2);
 	assert.match(tagPillsSource, /hasAttribute\("data-autocomplete-plus-open"\)\) return;/);
 	assert.match(tagPillsSource, /attributeFilter: \["data-autocomplete-plus-open"\]/);
 });

@@ -9,6 +9,7 @@ function createSearchControl(node, { defaultOpen = false } = {}) {
 	const root = el("div", "aa-gallery-search");
 	const input = document.createElement("input"); input.type = "search"; input.className = "aa-gallery-search__input aa-ui-search-input";
 	input.setAttribute("data-autocomplete-plus", "");
+	input.setAttribute("data-autocomplete-plus-mode", "raw-tag");
 	input.placeholder = label("search.placeholder", "Search tags…"); input.setAttribute("aria-label", label("search.label", "Search posts"));
 	const close = iconButton({ iconName: "arrowRight", label: label("search.close", "Close search"), className: "aa-ui-search-collapse", variant: "ghost", onClick: () => setOpen(false) });
 	root.append(icon("search"), input, close);

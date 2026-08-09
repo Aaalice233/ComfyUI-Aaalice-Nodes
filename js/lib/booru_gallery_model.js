@@ -6,7 +6,7 @@ export const DEFAULT_PROMPT_CATEGORIES = ["copyright", "character", "general"];
 
 export function defaultGalleryRatings(source) {
 	if (source === "aitag") return [];
-	if (source === "gelbooru" || source === "safebooru") return ["safe"];
+	if (source === "safebooru") return ["safe"];
 	return ["general"];
 }
 
@@ -64,9 +64,10 @@ export function normalizeGalleryState(value, settings = {}) {
 	const selectionMode = value.selectionMode === "multi" || (!value.selectionMode && selections.length > 1) ? "multi" : fallback.selectionMode;
 	const legacyMonthly = source === "aitag" && value.filters?.sort === "monthly";
 	const feed = value.filters?.feed === "favorites" ? "favorites" : value.filters?.feed === "ranking" || legacyMonthly ? "ranking" : "search";
+	const ratings = strings(strings(value.filters?.ratings).map((rating) => source === "gelbooru" && rating === "safe" ? "general" : rating));
 	return {
 		version: GALLERY_STATE_VERSION, source, query: String(value.query || ""), view: value.view === "selected" ? "selected" : "browse", selectionMode,
-		filters: { ratings: strings(value.filters?.ratings), sort: legacyMonthly ? "new" : String(value.filters?.sort || "latest"), feed,
+		filters: { ratings, sort: legacyMonthly ? "new" : String(value.filters?.sort || "latest"), feed,
 			period: feed === "ranking" ? String(value.filters?.period || "month") : "" },
 		navigation: { page: Math.max(1, Math.floor(Number(value.navigation?.page) || 1)) },
 		prompt: { categories, replaceUnderscores: Boolean(value.prompt?.replaceUnderscores),

@@ -93,7 +93,7 @@ class MediaProxy:
                 # 其他 loop 的 session 无法在当前 loop 关闭；detach 避免析构告警。
                 session.detach()
 
-    async def fetch_media(self, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
+    async def fetch_media(self, source: str, url: str, validate_url: Callable[[str], None], request_headers: dict[str, str] | None = None) -> tuple[bytes, str, str]:
         validate_url(url)
         cached = await self._read_cache(url)
         if cached is not None:
@@ -101,7 +101,7 @@ class MediaProxy:
         state = self._state()
         inflight = state.inflight.get(url)
         if inflight is None:
-            inflight = asyncio.create_task(self._download(state, source, url, validate_url))
+            inflight = asyncio.create_task(self._download(state, source, url, validate_url, request_headers))
             state.inflight[url] = inflight
 
             def _finish(finished):
@@ -115,24 +115,25 @@ class MediaProxy:
         # 同一 URL 反复全量重下。
         return await asyncio.shield(inflight)
 
-    async def _download(self, state: _LoopMediaState, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
+    async def _download(self, state: _LoopMediaState, source: str, url: str, validate_url: Callable[[str], None], request_headers: dict[str, str] | None) -> tuple[bytes, str, str]:
         # Transient upstream failures (5xx, timeouts, connection drops) retry with
         # backoff; 4xx stays a hard error because it usually means a real miss.
         for attempt in range(3):
             try:
-                return await self._fetch_once(state, source, url, validate_url)
+                return await self._fetch_once(state, source, url, validate_url, request_headers)
             except (aiohttp.ClientError, TimeoutError, _MediaUpstreamError) as exc:
                 if attempt >= 2:
                     raise RuntimeError(f"{source} media GET {url} failed after {attempt + 1} attempts: {exc}") from exc
                 await asyncio.sleep(0.5 * (attempt + 1))
 
-    async def _fetch_once(self, state: _LoopMediaState, source: str, url: str, validate_url: Callable[[str], None]) -> tuple[bytes, str, str]:
+    async def _fetch_once(self, state: _LoopMediaState, source: str, url: str, validate_url: Callable[[str], None], request_headers: dict[str, str] | None) -> tuple[bytes, str, str]:
         current = url
+        headers = {"Accept": "image/*", **(request_headers or {})}
         for _redirect in range(MAX_REDIRECTS):
             validate_url(current)
             host = aiohttp.client_reqrep.URL(current).host or ""
             semaphore = state.host_semaphores.setdefault(host, asyncio.Semaphore(6))
-            async with semaphore, self.session().get(current, allow_redirects=False, headers={"Accept": "image/*"}) as response:
+            async with semaphore, self.session().get(current, allow_redirects=False, headers=headers) as response:
                 if response.status in {301, 302, 303, 307, 308}:
                     location = response.headers.get("Location")
                     if not location:

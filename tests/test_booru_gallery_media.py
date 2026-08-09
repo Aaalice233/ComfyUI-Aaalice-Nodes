@@ -37,9 +37,11 @@ class FakeMediaSession:
     def __init__(self, responses):
         self.responses = list(responses)
         self.gets: list[str] = []
+        self.requests: list[tuple[str, dict]] = []
 
-    def get(self, url, **_kwargs):
+    def get(self, url, **kwargs):
         self.gets.append(url)
+        self.requests.append((url, kwargs))
         return self.responses[min(len(self.gets), len(self.responses)) - 1]
 
 
@@ -58,6 +60,14 @@ class GalleryMediaProxyTests(unittest.IsolatedAsyncioTestCase):
                 data, content_type, _final = await proxy.fetch_media("safebooru", "https://cdn.test/a.jpg", lambda _url: None)
             mocked.assert_not_called()
             self.assertEqual((data, content_type), (b"image-bytes", "image/webp"))
+
+    async def test_source_media_headers_are_sent_with_the_image_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            session = FakeMediaSession([FakeMediaResponse(b"image")])
+            with patch.object(proxy, "session", return_value=session):
+                await proxy.fetch_media("gelbooru", "https://img4.gelbooru.com/a.jpg", lambda _url: None, {"Referer": "https://gelbooru.com/"})
+            self.assertEqual(session.requests[0][1]["headers"], {"Accept": "image/*", "Referer": "https://gelbooru.com/"})
 
     async def test_concurrent_same_url_downloads_once(self):
         with tempfile.TemporaryDirectory() as directory:

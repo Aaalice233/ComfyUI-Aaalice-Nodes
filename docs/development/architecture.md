@@ -24,7 +24,7 @@
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。`nodes/_lib/prompt_library.py` 拥有 SQLite 词库领域服务，`prompt_library_archive.py` 独立负责 ZIP 导入导出与图片归档，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
-- `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability（Summary 携带 Sample / Large Preview 地址供前端直接预取），路由只处理 JSON、流式媒体和错误映射；媒体代理（`nodes/gallery/media.py`）复用共享连接池，按 URL 磁盘缓存并去重并发请求，瞬时失败退避重试、客户端断开不中断共享下载，逐次复核 HTTPS 白名单、Content-Type 和大小，缓存与执行原图统一受 `cacheBudgetMiB` 预算修剪。
+- `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability（Summary 携带 Sample / Large Preview 地址供前端直接预取），路由只处理 JSON、流式媒体和错误映射；媒体代理（`nodes/gallery/media.py`）复用共享连接池，按 URL 磁盘缓存并去重并发请求，瞬时失败退避重试、客户端断开不中断共享下载，逐次复核 HTTPS 白名单、Content-Type 和大小，并使用适配器声明的站点请求头处理媒体源约束（Gelbooru 必须携带站点 Referer，否则上游会把图片重定向到 HTML 帖子页）。缓存与执行原图统一受 `cacheBudgetMiB` 预算修剪。
 - `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
 - Discord 分享不新增执行节点。`nodes/tools/discord_share_routes.py` 只向前端公开中继和社区 URL，Webhook、OAuth Secret 与成员会话不进入 ComfyUI Python 进程；可信中继实现位于 `deploy/discord-share-worker/`：`worker.js` 只负责环境校验与路由装配，`auth.js` 拥有 OAuth、会话和逐次成员/角色校验，`share.js` 拥有限流、公开 Target、消息规划和 Webhook 事务，`http.js` 统一 JSON、CORS 与配置错误。频道配置以 Worker Secret 中的 `{ id, label, url, default, prefer_prompt_file }` 数组为真源，浏览器只接收不含 URL 的公开字段并提交 Target Id。`prefer_prompt_file` 只驱动客户端推荐状态，不强制覆盖用户最终选择。KV 只保存短时 OAuth handoff 与带 TTL 的会话；每次发送的用户级滥用保护由 Cloudflare 原生 Rate Limiting binding 承担，避免分享吞吐受 KV 每日写入额度限制。
 
@@ -155,7 +155,8 @@
 2. 搜索只获取 Summary。Hover、详情或选择才按需补全 Detail 和分类标签；页面、详情、标签分类和原图分别进入有界缓存。
 3. 独立虚拟瀑布流按最短列增量放置，ResizeObserver 只观察容器；滚动由单一 rAF 计算可见区并差量挂载卡片，离开 overscan 的图片移除 `src`。滚动帧不重写未变化的卡片样式，布局对象以 revision 标记真实几何变化（`setItems`、`reflow`、列数变化），仅 revision 变化时全量同步已挂载卡片的宽高与 transform；可见项上报只在可见集合变化时触发，卡片倾斜动效由容器统一委托（单监听、单 rAF、每帧至多一次 `getBoundingClientRect`）。快速滚动期间新挂载卡片只占位、滚动停止后统一补挂图片源，sample 预取防抖到停止后，滚动跨页的图 dirty 信号（`graph.change()`，会强制全画布重绘）合并到停止后。
 4. 用户编辑只改本地分类标签。`graphToPrompt` 为每次排队复制当前有序选择和最终 Prompt，后续节点编辑不回写已经排队的任务。
-5. capability 控制 Rating、排行榜、直接跳页、认证和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key，Rating 只暴露站点实际支持的 Safe、Questionable、Explicit；它不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
+5. capability 控制 Rating、排行榜、直接跳页、认证和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key；设置边界接受账户页复制的 `&api_key=…&user_id=…` 凭据片段并规范化保存，不能改动其它来源凭据。其 Rating 使用站点当前的 General、Sensitive、Questionable、Explicit；单选分级发送远端 metatag，多选分级因远端不支持同类 metatag OR 而在真实分页结果上本地过滤。Gelbooru 不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
+6. Gallery 的搜索、过滤列表和本地标签编辑通过 Autocomplete-Plus 的 `raw-tag` 外部输入模式接入补全；站点原始标签身份在插件边界保持不变，面向生成提示词的空格替换、括号转义、画师前缀和自动分隔符不得进入搜索与精确匹配路径。
 
 ### DIY 左侧工作区
 

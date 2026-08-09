@@ -350,6 +350,7 @@ function openPromptOptions(node, anchor) {
 	const excluded = document.createElement("textarea"); excluded.className = "aa-ui-input aa-gallery-prompt-excluded"; excluded.value = (settings?.blacklist || []).join("\n"); excluded.placeholder = label("prompt.excludePlaceholder", "e.g. watermark, text focus"); excluded.title = label("prompt.excludeHint", "Shared by every Gallery node and source");
 	// Autocomplete-Plus 的外部输入 opt-in：装了补全扩展即自动接入，未安装时属性完全惰性。
 	excluded.setAttribute("data-autocomplete-plus", "");
+	excluded.setAttribute("data-autocomplete-plus-mode", "raw-tag");
 	excluded.addEventListener("change", async () => {
 		excluded.disabled = true;
 		try { excluded.value = (await saveGlobalBlacklist(excluded.value)).join("\n"); excluded.setAttribute("aria-invalid", "false"); }
@@ -359,6 +360,7 @@ function openPromptOptions(node, anchor) {
 	const transformOption = (control, title) => el("label", { className: "aa-gallery-prompt-transform", children: [control, el("strong", null, title)] });
 	const outputFilter = document.createElement("textarea"); outputFilter.className = "aa-ui-input aa-gallery-prompt-excluded"; outputFilter.value = (settings?.outputFilterTags || []).join("\n"); outputFilter.placeholder = label("prompt.outputFilterPlaceholder", "e.g. watermark, artist name"); outputFilter.title = label("prompt.outputFilterHint", "Shared by every Gallery node and source; removes the tags from output and copied prompts without hiding posts");
 	outputFilter.setAttribute("data-autocomplete-plus", "");
+	outputFilter.setAttribute("data-autocomplete-plus-mode", "raw-tag");
 	outputFilter.addEventListener("change", async () => {
 		outputFilter.disabled = true;
 		try { outputFilter.value = (await saveGlobalOutputFilter(outputFilter.value)).join("\n"); outputFilter.setAttribute("aria-invalid", "false"); }

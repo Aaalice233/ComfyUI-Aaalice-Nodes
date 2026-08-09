@@ -235,7 +235,7 @@ class GalleryService:
 
     async def fetch_media(self, source: str, url: str) -> tuple[bytes, str, str]:
         adapter = adapter_for(source)
-        return await self._media.fetch_media(source, url, adapter.validate_media_url)
+        return await self._media.fetch_media(source, url, adapter.validate_media_url, adapter.media_request_headers())
 
     def cached_media_file(self, source: str, url: str) -> tuple[str, Path, int] | None:
         adapter = adapter_for(source)

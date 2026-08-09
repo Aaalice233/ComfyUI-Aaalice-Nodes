@@ -73,7 +73,7 @@ class GalleryAdapterTests(unittest.TestCase):
         self.assertFalse(gelbooru["favoriteWrite"])
         self.assertFalse(safe["favoriteRead"])
         self.assertEqual(safe["ratings"], ["safe"])
-        self.assertEqual(gelbooru["ratings"], ["safe", "questionable", "explicit"])
+        self.assertEqual(gelbooru["ratings"], ["general", "sensitive", "questionable", "explicit"])
         self.assertTrue(gelbooru["authRequired"])
         self.assertEqual(gelbooru["maxPageSize"], 100)
         self.assertEqual(gelbooru["credentialsUrl"], "https://gelbooru.com/index.php?page=account&s=options")
@@ -116,6 +116,23 @@ class GalleryAdapterTests(unittest.TestCase):
         import asyncio
         asyncio.run(run())
 
+    def test_http_errors_do_not_expose_api_credentials(self):
+        async def run():
+            adapter = GelbooruAdapter()
+            response = MagicMock()
+            response.status = 401
+            response.text = AsyncMock(return_value="Unauthorized")
+            response.url = "https://gelbooru.com/index.php?page=dapi&api_key=secret&user_id=42"
+            session = MagicMock()
+            session.get.return_value.__aenter__ = AsyncMock(return_value=response)
+            session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+            with self.assertRaisesRegex(RuntimeError, r"gelbooru GET https://gelbooru.com/index.php HTTP 401") as ctx:
+                await adapter._get_json(session, "https://gelbooru.com/index.php")
+            self.assertNotIn("secret", str(ctx.exception))
+            self.assertNotIn("user_id", str(ctx.exception))
+        import asyncio
+        asyncio.run(run())
+
     def test_danbooru_daily_ranking_uses_official_popular_endpoint(self):
         async def run():
             adapter = DanbooruAdapter()
@@ -153,6 +170,23 @@ class GalleryAdapterTests(unittest.TestCase):
             ])
             page = await adapter.search(None, "", ["general"], "latest", None, 20, {})
             self.assertEqual([post.post_id for post in page.posts], ["7"])
+            self.assertIn("rating:general", adapter._get_json.await_args.kwargs["params"]["tags"])
+        import asyncio
+        asyncio.run(run())
+
+    def test_gelbooru_uses_current_ratings_and_filters_multiple_values_locally(self):
+        async def run():
+            adapter = GelbooruAdapter()
+            adapter._get_json = AsyncMock(return_value={"post": [
+                {"id": 7, "rating": "general", "preview_url": "https://gelbooru.com/7.jpg"},
+                {"id": 8, "rating": "sensitive", "preview_url": "https://gelbooru.com/8.jpg"},
+                {"id": 9, "rating": "explicit", "preview_url": "https://gelbooru.com/9.jpg"},
+            ]})
+            credentials = {"userId": "42", "apiKey": "secret"}
+            page = await adapter.search(None, "1girl", ["general", "sensitive"], "latest", None, 20, credentials)
+            self.assertEqual([post.post_id for post in page.posts], ["7", "8"])
+            self.assertNotIn("rating:", adapter._get_json.await_args.kwargs["params"]["tags"])
+            await adapter.search(None, "1girl", ["general"], "latest", None, 20, credentials)
             self.assertIn("rating:general", adapter._get_json.await_args.kwargs["params"]["tags"])
         import asyncio
         asyncio.run(run())
@@ -245,6 +279,11 @@ class GalleryAdapterTests(unittest.TestCase):
         import asyncio
         asyncio.run(run())
 
+    def test_gelbooru_accepts_the_credential_fragment_from_its_account_page(self):
+        fragment = "&api_key=secret&user_id=42"
+        self.assertEqual(GelbooruAdapter().auth_params({"apiKey": fragment}), {"api_key": "secret", "user_id": "42"})
+        self.assertEqual(GelbooruAdapter().auth_params({"apiKey": fragment, "userId": "84"}), {"api_key": "secret", "user_id": "84"})
+
     def test_aitag_monthly_ranking_is_separate_from_search_sort(self):
         async def run():
             adapter = AITagAdapter()
@@ -292,6 +331,9 @@ class GalleryAdapterTests(unittest.TestCase):
         for url in ("http://cdn.donmai.us/a.jpg", "https://127.0.0.1/a.jpg", "https://cdn.donmai.us.evil.test/a.jpg"):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 adapter.validate_media_url(url)
+        gelbooru = adapter_for("gelbooru")
+        gelbooru.validate_media_url("https://img4.gelbooru.com/samples/a.jpg")
+        self.assertEqual(gelbooru.media_request_headers(), {"Referer": "https://gelbooru.com/"})
 
     def test_safebooru_tag_index_parses_xml_despite_json_param(self):
         async def run():
@@ -521,6 +563,23 @@ class GallerySettingsTests(unittest.TestCase):
             store.save({"clearCredentials": {"danbooru": ["apiKey"]}})
             self.assertEqual(store.load()["credentials"]["danbooru"]["apiKey"], "")
 
+    def test_gelbooru_fragment_save_preserves_danbooru_credentials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = GallerySettingsStore(Path(directory) / "gallery.json")
+            store.save({"credentials": {"danbooru": {"username": "alice", "apiKey": "danbooru-secret"}}})
+            public = store.save({"credentials": {
+                "danbooru": {"username": "", "apiKey": ""},
+                "gelbooru": {"userId": "", "apiKey": "&api_key=gelbooru-secret&user_id=42"},
+            }})
+            credentials = store.load()["credentials"]
+            self.assertEqual(credentials["danbooru"], {"username": "alice", "apiKey": "danbooru-secret"})
+            self.assertEqual(credentials["gelbooru"], {"userId": "42", "apiKey": "gelbooru-secret"})
+            self.assertTrue(public["credentialStatus"]["danbooru"]["hasApiKey"])
+            self.assertTrue(public["credentialStatus"]["gelbooru"]["hasApiKey"])
+            persisted = store.path.read_text(encoding="utf-8")
+            self.assertNotIn("&api_key=", persisted)
+            self.assertNotIn("&user_id=", persisted)
+
     def test_blacklist_is_trimmed_deduplicated_and_kept_out_of_workflows(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "gallery.json"
@@ -556,6 +615,14 @@ class GallerySettingsTests(unittest.TestCase):
 
 
 class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
+    @patch("nodes.gallery.service.MediaProxy")
+    async def test_gelbooru_media_uses_its_required_referer(self, _media_cls):
+        with tempfile.TemporaryDirectory() as directory:
+            service = GalleryService(Path(directory))
+            service._media.fetch_media = AsyncMock(return_value=(b"image", "image/jpeg", "https://img4.gelbooru.com/a.jpg"))
+            await service.fetch_media("gelbooru", "https://img4.gelbooru.com/a.jpg")
+            self.assertEqual(service._media.fetch_media.await_args.args[3], {"Referer": "https://gelbooru.com/"})
+
     @patch("nodes.gallery.service.MediaProxy")
     async def test_ranking_applies_ratings_and_separates_cache_entries(self, _media_cls):
         with tempfile.TemporaryDirectory() as directory:

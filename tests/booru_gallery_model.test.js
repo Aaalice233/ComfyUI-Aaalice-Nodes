@@ -4,12 +4,17 @@ import { defaultGalleryRatings, defaultGalleryState, finalPrompt, galleryPayload
 
 const selected = (source, postId) => ({ source, postId, mediaUrl: `https://media.test/${postId}.jpg`, previewUrl: `https://preview.test/${postId}.jpg`, originalTags: { copyright: ["series_a"], character: ["hero_(a)"], general: ["blue_hair"] } });
 
-test("new galleries use fixed safe rating defaults instead of shared settings", () => {
+test("new galleries use source-native rating defaults instead of shared settings", () => {
 	assert.deepEqual(defaultGalleryRatings("danbooru"), ["general"]);
-	assert.deepEqual(defaultGalleryRatings("gelbooru"), ["safe"]);
+	assert.deepEqual(defaultGalleryRatings("gelbooru"), ["general"]);
 	assert.deepEqual(defaultGalleryRatings("safebooru"), ["safe"]);
 	assert.deepEqual(defaultGalleryRatings("aitag"), []);
 	assert.deepEqual(normalizeGalleryState(null, { defaultRatings: { danbooru: ["explicit"] } }).filters.ratings, ["general"]);
+});
+
+test("legacy Gelbooru safe ratings migrate to the current general value", () => {
+	const state = normalizeGalleryState({ version: 1, source: "gelbooru", prompt: {}, filters: { ratings: ["safe", "questionable"] }, selections: [] });
+	assert.deepEqual(state.filters.ratings, ["general", "questionable"]);
 });
 
 test("saved node ratings survive normalization independently from defaults", () => {

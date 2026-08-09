@@ -66,6 +66,7 @@ export function createTagPillList({ tokens = [], editable = false, allowAdd = fa
 				input.spellcheck = false;
 				input.autocomplete = "off";
 				input.setAttribute("data-autocomplete-plus", "");
+				input.setAttribute("data-autocomplete-plus-mode", "raw-tag");
 				input.setAttribute("aria-label", message(labels, "editValue", "Edit tag value"));
 				let composing = false;
 				let settled = false;
@@ -145,6 +146,7 @@ export function createTagPillList({ tokens = [], editable = false, allowAdd = fa
 					input.autocomplete = "off";
 					input.spellcheck = false;
 					input.setAttribute("data-autocomplete-plus", "");
+					input.setAttribute("data-autocomplete-plus-mode", "raw-tag");
 					input.setAttribute("aria-label", addPlaceholder);
 					input.addEventListener("keydown", (event) => {
 						if (input.hasAttribute("data-autocomplete-plus-open")) return;
