@@ -126,10 +126,10 @@ Every save node is an output node that the executor runs unconditionally, so pla
 
 Connect `IMAGE` and `VAE`, then choose the mode that matches the input's actual meaning:
 
-- **Independent Images** (default): every IMAGE batch entry is a separate sample, so the output count stays aligned with the input image count. Use it for Qwen Image, Krea2, and ordinary image batches.
-- **Video Frames**: send the complete IMAGE batch to a 3D/video VAE as one ordered video. Use it for temporal processing such as SeedVR2 and Wan video; a 2D image VAE fails clearly instead of silently producing the wrong semantics.
+- **Independent Images** (default): every IMAGE batch entry is a separate sample, so the output count stays aligned with the input image count. Use it for Qwen Image, Krea2, ordinary image batches, and separate SeedVR2 enlargement of unrelated images.
+- **Video Frames**: send the complete IMAGE batch to a 3D/video VAE as ordered video. Use it for SeedVR2, Wan, and similar models only when the input is an actual continuous clip; a 2D image VAE fails clearly instead of silently producing the wrong semantics.
 
-The node does not guess from a model name because the same three-dimensional VAE architecture can serve either images or video. It makes one native ComfyUI VAE encode call, leaving memory estimation, automatic batching, and OOM tiled fallback in core; there is no `per_batch` control that can accidentally break temporal semantics. To replace `VAE Encode Batched 🎥🅥🅗🅢`, reconnect the existing `pixels` and `vae`, then select the correct input mode.
+The node does not guess from a model name because the same three-dimensional VAE can serve either independent images or video. When upstream already outputs a 5-D IMAGE tensor with `B × T` dimensions, Independent Images merges those dimensions into one complete image batch, while Video Frames preserves the video structure. Both modes make one native ComfyUI VAE encode call, leaving memory estimation, automatic batching, and OOM tiled fallback in core; there is no `per_batch` control that can accidentally break temporal semantics. To replace `VAE Encode Batched 🎥🅥🅗🅢`, reconnect the existing `pixels` and `vae`, then select the correct input mode.
 
 </details>
 

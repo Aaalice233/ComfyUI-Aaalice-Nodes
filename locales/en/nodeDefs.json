@@ -48,7 +48,7 @@
       "vae": { "name": "VAE", "tooltip": "VAE used to encode the input." },
       "input_mode": {
         "name": "Input Mode",
-        "tooltip": "Independent Images preserves one latent sample per image. Video Frames requires a 3D/video VAE and treats the complete batch as one ordered clip.",
+        "tooltip": "Independent Images keeps every entry independent, including prebatched B/T inputs. Video Frames requires a 3D/video VAE and preserves the input as ordered clips.",
         "options": {
           "image_batch": "Independent Images",
           "video_frames": "Video Frames"

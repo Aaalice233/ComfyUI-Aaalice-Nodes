@@ -59,8 +59,8 @@ class UniversalVAEEncode(io.ComfyNode):
                     options=list(INPUT_MODES),
                     default=IMAGE_BATCH,
                     tooltip=(
-                        "Independent Images preserves one latent sample per image. "
-                        "Video Frames requires a 3D/video VAE and treats the complete batch as one ordered clip."
+                        "Independent Images keeps every entry independent, including prebatched B/T inputs. "
+                        "Video Frames requires a 3D/video VAE and preserves the input as ordered clips."
                     ),
                 ),
             ],
@@ -86,6 +86,11 @@ class UniversalVAEEncode(io.ComfyNode):
             raise ValueError("UniversalVAEEncode: pixels batch must contain at least one image.")
 
         encoder = _vae_for_input_mode(vae, input_mode)
+        if input_mode == IMAGE_BATCH and pixels.ndim == 5:
+            # `not_video` only controls ComfyUI's promotion of 4-D IMAGE inputs.
+            # Flatten an existing B/T layout so a causal VAE cannot treat unrelated
+            # images as consecutive frames and leak earlier images into later ones.
+            pixels = pixels.flatten(0, 1)
         return io.NodeOutput({"samples": encoder.encode(pixels)})
 
 

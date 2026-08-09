@@ -29,12 +29,16 @@ class _RecordingVAE:
         self.calls = []
 
     def encode(self, pixels):
-        markers = pixels[:, 0, 0, 0]
         self.calls.append({
             "instance": self,
             "not_video": self.not_video,
             "shape": tuple(pixels.shape),
         })
+        if pixels.ndim == 5:
+            markers = pixels[:, :, 0, 0, 0]
+            return markers.reshape(pixels.shape[0], 1, pixels.shape[1], 1, 1)
+
+        markers = pixels[:, 0, 0, 0]
         if self.latent_dim == 3 and not self.not_video:
             return markers.reshape(1, 1, -1, 1, 1)
         if self.latent_dim == 3:
@@ -46,6 +50,12 @@ def _pixels(count: int) -> torch.Tensor:
     pixels = torch.zeros((count, 8, 8, 3), dtype=torch.float32)
     if count:
         pixels[:, 0, 0, 0] = torch.arange(count, dtype=torch.float32)
+    return pixels
+
+
+def _batched_frames(batch: int, frames: int) -> torch.Tensor:
+    pixels = torch.zeros((batch, frames, 8, 8, 3), dtype=torch.float32)
+    pixels[:, :, 0, 0, 0] = torch.arange(batch * frames, dtype=torch.float32).reshape(batch, frames)
     return pixels
 
 
@@ -73,6 +83,17 @@ class UniversalVAEEncodeTests(unittest.TestCase):
         self.assertTrue(vae.calls[0]["not_video"])
         self.assertEqual(vae.calls[0]["shape"], (3, 8, 8, 3))
 
+    def test_preprocessed_image_batch_keeps_every_frame_independent(self):
+        vae = _RecordingVAE(latent_dim=3, not_video=False)
+
+        output = UniversalVAEEncode.execute(_batched_frames(2, 3), vae, IMAGE_BATCH).args[0]
+
+        self.assertEqual(tuple(output["samples"].shape), (6, 1, 1, 1, 1))
+        self.assertEqual(output["samples"][:, 0, 0, 0, 0].tolist(), [0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+        self.assertEqual(len(vae.calls), 1)
+        self.assertTrue(vae.calls[0]["not_video"])
+        self.assertEqual(vae.calls[0]["shape"], (6, 8, 8, 3))
+
     def test_video_frames_make_one_temporal_latent(self):
         vae = _RecordingVAE(latent_dim=3, not_video=True)
 
@@ -82,6 +103,17 @@ class UniversalVAEEncodeTests(unittest.TestCase):
         self.assertEqual(output["samples"][0, 0, :, 0, 0].tolist(), [0.0, 1.0, 2.0])
         self.assertEqual(len(vae.calls), 1)
         self.assertFalse(vae.calls[0]["not_video"])
+
+    def test_prebatched_video_keeps_batch_and_time_axes(self):
+        vae = _RecordingVAE(latent_dim=3, not_video=True)
+
+        output = UniversalVAEEncode.execute(_batched_frames(2, 3), vae, VIDEO_FRAMES).args[0]
+
+        self.assertEqual(tuple(output["samples"].shape), (2, 1, 3, 1, 1))
+        self.assertEqual(output["samples"][:, 0, :, 0, 0].tolist(), [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]])
+        self.assertEqual(len(vae.calls), 1)
+        self.assertFalse(vae.calls[0]["not_video"])
+        self.assertEqual(vae.calls[0]["shape"], (2, 3, 8, 8, 3))
 
     def test_mode_configuration_does_not_mutate_shared_vae(self):
         vae = _RecordingVAE(latent_dim=3, not_video=False)

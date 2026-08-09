@@ -48,7 +48,7 @@
       "vae": { "name": "VAE", "tooltip": "用于编码输入的 VAE。" },
       "input_mode": {
         "name": "输入模式",
-        "tooltip": "独立图片会为每张输入保留一个 Latent 样本；视频帧要求三维/视频 VAE，并把完整批次视为一段有序视频。",
+        "tooltip": "独立图片会让每个输入相互独立，包括已带 B/T 维度的批次；视频帧要求三维/视频 VAE，并保留输入中的有序视频结构。",
         "options": {
           "image_batch": "独立图片",
           "video_frames": "视频帧"

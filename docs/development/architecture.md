@@ -23,7 +23,7 @@
 - `nodes/control/quick_group_manager.py` 只注册无输入输出的 V3 节点；组发现和模式变化不进入后端。
 - `nodes/tools/resolution_preset.py` 没有可见输入，只接受前端注入的版本化 `resolution_json`，校验 ComfyUI 尺寸范围与基础 8 px 对齐后输出两个具名 INT。个人预设 Store 位于当前用户目录，使用线程锁、临时文件和原子替换；专用 HTTP 路由只负责 CRUD 和明确错误映射。
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
-- `UniversalVAEEncode` 只拥有 IMAGE 批次的输入语义：独立图片模式下二维 VAE 直接复用原对象；三维 VAE 浅复制包装器并只在副本上设置图片批次或视频帧布局，再用一次原生 `vae.encode()` 完成编码；二维 VAE 请求视频帧语义时明确失败。模型、Patcher、显存估算、自动批处理和分块回退仍由 ComfyUI VAE 层拥有；节点不按模型名称探测、不手动改 Tensor 布局、不循环拆批，也不修改传入 VAE。
+- `UniversalVAEEncode` 只拥有 IMAGE 批次的输入语义：独立图片模式下二维 VAE 直接复用原对象；三维 VAE 浅复制包装器并只在副本上设置图片批次或视频帧布局；若独立图片输入已是带 B/T 维度的 5D IMAGE，则只把前两维展平为完整图片批次，避免 ComfyUI 的 `not_video` 仅处理 4D 输入时把互不相关的图片送入因果时间轴。随后始终用一次原生 `vae.encode()` 完成编码；二维 VAE 请求视频帧语义时明确失败。模型、Patcher、Latent 布局、显存估算、自动批处理和分块回退仍由 ComfyUI VAE 层拥有；节点不按模型名称探测、不循环拆批，也不修改传入 VAE。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。`nodes/_lib/prompt_library.py` 拥有 SQLite 词库领域服务，`prompt_library_archive.py` 独立负责 ZIP 导入导出与图片归档，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
 - `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability（Summary 携带 Sample / Large Preview 地址供前端直接预取），路由只处理 JSON、流式媒体和错误映射；媒体代理（`nodes/gallery/media.py`）复用共享连接池，按 URL 磁盘缓存并去重并发请求，瞬时失败退避重试、客户端断开不中断共享下载，逐次复核 HTTPS 白名单、Content-Type 和大小，缓存与执行原图统一受 `cacheBudgetMiB` 预算修剪。
