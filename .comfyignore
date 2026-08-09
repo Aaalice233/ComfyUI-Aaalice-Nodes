@@ -16,6 +16,7 @@ docs/
 # —— CI / 元数据（安装运行不需要）——
 .github/
 deploy/
+.gitattributes
 .gitignore
 .comfyignore
 package.json
