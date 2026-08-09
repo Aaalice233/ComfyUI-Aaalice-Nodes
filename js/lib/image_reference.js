@@ -34,12 +34,14 @@ export function imageComboReference(value, defaultType = "input") {
 	};
 }
 
-/** Convert an uploaded image reference back into ComfyUI's annotated combo value. */
+/** Convert an image reference into ComfyUI's annotated filepath format. */
 export function imageReferenceComboValue(value, defaultType = "input") {
 	const reference = normalizeImageReference(value);
 	if (!reference) return "";
-	const type = ["input", "output", "temp"].includes(reference.type) ? reference.type : "input";
 	const fallbackType = ["input", "output", "temp"].includes(defaultType) ? defaultType : "input";
+	const type = ["input", "output", "temp"].includes(reference.type) ? reference.type : fallbackType;
 	const path = [reference.subfolder, reference.filename].filter(Boolean).join("/");
-	return type === fallbackType ? path : `${path} [${type}]`;
+	// folder_paths.py only treats input/ as implicit. ComfyUI's createAnnotatedPath
+	// therefore always annotates output/ and temp/, including on output-folder widgets.
+	return type === "input" ? path : `${path} [${type}]`;
 }

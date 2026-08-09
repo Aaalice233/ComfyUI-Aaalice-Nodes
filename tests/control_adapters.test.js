@@ -502,18 +502,19 @@ test("image-choice keeps promoted source values and stale combo options synchron
 	};
 	const [control] = listAdaptedWidgetControls(subgraphNode, { promoted: true });
 	assert.equal(control?.adapterId, "comfy-image-combo");
-	control.setValue("Aaalice_example.jpg");
-	assert.equal(promotedImage.value, "Aaalice_example.jpg");
-	assert.equal(interiorNode.widgets[0].value, "Aaalice_example.jpg");
-	assert.ok(promotedImage.options.values.includes("Aaalice_example.jpg"));
-	assert.ok(interiorNode.widgets[0].options.values.includes("Aaalice_example.jpg"));
+	const generated = "SeedVR2/results/Aaalice_example.jpg [output]";
+	control.setValue(generated);
+	assert.equal(promotedImage.value, generated);
+	assert.equal(interiorNode.widgets[0].value, generated);
+	assert.ok(promotedImage.options.values.includes(generated));
+	assert.ok(interiorNode.widgets[0].options.values.includes(generated));
 	control.setValue("old.png");
 	assert.equal(interiorNode.widgets[0].value, "old.png");
 	assert.deepEqual(promotedImage.options.values.filter((value) => value === "old.png"), ["old.png"]);
 	control.setValue("");
 	assert.equal(promotedImage.value, "");
 	assert.equal(interiorNode.widgets[0].value, "");
-	assert.ok(promotedImage.options.values.includes("Aaalice_example.jpg"));
+	assert.ok(promotedImage.options.values.includes(generated));
 });
 
 test("legacy native combo bindings upgrade to the image preview adapter", () => {

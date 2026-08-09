@@ -36,8 +36,10 @@ test("image combo references preserve output folders and explicit type markers",
 	});
 });
 
-test("uploaded image references serialize for the combo's default folder", () => {
+test("image references use ComfyUI's input-only implicit folder convention", () => {
 	assert.equal(imageReferenceComboValue({ filename: "frame.png", subfolder: "uploads", type: "input" }), "uploads/frame.png");
-	assert.equal(imageReferenceComboValue({ filename: "frame.png", subfolder: "uploads", type: "input" }, "output"), "uploads/frame.png [input]");
+	assert.equal(imageReferenceComboValue({ filename: "frame.png", subfolder: "uploads", type: "input" }, "output"), "uploads/frame.png");
+	assert.equal(imageReferenceComboValue({ filename: "frame.png", subfolder: "results", type: "output" }, "output"), "results/frame.png [output]");
+	assert.equal(imageReferenceComboValue({ filename: "frame.png", subfolder: "preview", type: "temp" }, "temp"), "preview/frame.png [temp]");
 	assert.equal(imageReferenceComboValue(null), "");
 });
