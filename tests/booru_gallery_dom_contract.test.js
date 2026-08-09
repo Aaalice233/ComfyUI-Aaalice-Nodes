@@ -346,12 +346,15 @@ test("gallery hover copies the launcher preview card and translates its tag rows
 	assert.match(hoverSource, /stat\("image", resolution/);
 	assert.match(hoverSource, /stat\("thumbUp", score/);
 	assert.match(hoverSource, /stat\("favorite", favorites/);
+	assert.match(hoverSource, /stat\("tag", tags, label\("hover\.tags", "Tags"\)\)/);
+	assert.match(hoverSource, /tags\.textContent = String\(tagCount\(detail\.tags\)\)/);
 	assert.match(hoverSource, /tag\.replaceAll\("_", " "\)/);
 	assert.match(hoverSource, /streamTagTranslations\(\{/);
 	assert.match(hoverSource, /translated \? `\$\{tag\.replaceAll\("_", " "\)\} \(\$\{translated\}\)`/);
 	assert.match(hoverSource, /signal: translationAbort\.signal/);
 	assert.match(source, /tooltip\.hide = \(\) => \{ hoverTranslationAbort\?\.abort\(\)/);
-	assert.match(theme, /\.aa-gallery-hover-tooltip\.aa-ui-tooltip \{[^}]*width: min\(320px[^}]*max-height: min\(500px[^}]*border: 2px solid/);
+	assert.match(theme, /\.aa-gallery-hover-tooltip\.aa-ui-tooltip \{[^}]*width: min\(320px[^}]*max-height: min\(500px[^}]*border: 0;[^}]*box-shadow: var\(--aa-ui-edge-shadow\), var\(--aa-ui-shadow\)/);
+	assert.match(theme, /\.aa-gallery-hover \{[^}]*border-radius: 14px/);
 	assert.match(theme, /\.aa-gallery-hover__media \{[^}]*height: min\(var\(--aa-gallery-hover-image-height, 320px\)[^}]*min-height: 150px/);
 	assert.match(theme, /\.aa-gallery-hover__media > img \{[^}]*object-fit: cover/);
 	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*padding: 12px;[^}]*overflow-y: auto/);

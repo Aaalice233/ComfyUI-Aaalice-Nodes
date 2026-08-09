@@ -1,6 +1,6 @@
-.aa-gallery-hover-tooltip.aa-ui-tooltip { width: min(320px, calc(100vw - 20px)); max-height: min(500px, calc(100vh - 20px)); padding: 0; overflow: hidden; border: 2px solid color-mix(in srgb, var(--aa-ui-node-accent) 30%, var(--aa-ui-border)); border-radius: 12px; background: var(--aa-ui-surface); box-shadow: 0 24px 60px 16px rgb(0 0 0 / .4), 0 16px 32px 8px rgb(0 0 0 / .6), 0 -4px 20px -8px color-mix(in srgb, var(--aa-ui-node-accent) 25%, transparent); backdrop-filter: none; }
+.aa-gallery-hover-tooltip.aa-ui-tooltip { width: min(320px, calc(100vw - 20px)); max-height: min(500px, calc(100vh - 20px)); padding: 0; overflow: hidden; border: 0; border-radius: 14px; background: var(--aa-ui-surface); box-shadow: var(--aa-ui-edge-shadow), var(--aa-ui-shadow); backdrop-filter: none; }
 .aa-gallery-hover-tooltip.aa-ui-tooltip::before { display: none; }
-.aa-gallery-hover { display: flex; width: 100%; max-height: min(496px, calc(100vh - 24px)); flex-direction: column; overflow: hidden; border-radius: 10px; background: var(--aa-ui-surface); }
+.aa-gallery-hover { display: flex; width: 100%; max-height: min(500px, calc(100vh - 20px)); flex-direction: column; overflow: hidden; border-radius: 14px; background: var(--aa-ui-surface); }
 .aa-gallery-hover__media { position: relative; display: grid; width: 100%; height: min(var(--aa-gallery-hover-image-height, 320px), calc(100vh - 164px)); min-height: 150px; flex: 0 1 auto; overflow: hidden; place-items: center; background: var(--aa-ui-control); transition: height .2s cubic-bezier(.2, .78, .22, 1); }
 .aa-gallery-hover__media > img { display: block; width: 100%; height: 100%; object-fit: cover; animation: aa-gallery-media-in .18s ease-out; }
 .aa-gallery-hover__media > img.is-upgrade { position: absolute; inset: 0; z-index: 1; opacity: 0; animation: none; transition: opacity .18s ease-out; }
@@ -10,7 +10,7 @@
 .aa-gallery-hover__loading .aa-ui-icon { width: 13px; height: 13px; stroke-width: 2.2; animation: aa-gallery-loader-orbit .9s linear infinite; }
 .aa-gallery-hover__loading[hidden] { display: none; }
 .aa-gallery-hover__info { display: grid; min-height: 0; gap: 10px; padding: 12px; overflow-y: auto; background: var(--aa-ui-surface); color: var(--aa-ui-text); scrollbar-width: thin; }
-.aa-gallery-hover__stats { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.aa-gallery-hover__stats { display: flex; min-width: 0; align-items: center; gap: 9px; }
 .aa-gallery-hover__stat { display: inline-flex; min-width: 0; align-items: center; gap: 3px; color: var(--aa-ui-muted); font-size: 11px; line-height: 1.2; }
 .aa-gallery-hover__stat .aa-ui-icon { width: 12px; height: 12px; flex: 0 0 auto; }
 .aa-gallery-hover__stat:first-child { max-width: 120px; }

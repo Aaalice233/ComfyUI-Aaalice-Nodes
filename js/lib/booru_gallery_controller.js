@@ -392,6 +392,7 @@ return function buildController(node, elements) {
 		const resolution = el("span", null, dimensions(post));
 		const score = el("span", null, String(post.score ?? 0));
 		const favorites = el("span", null, String(post.favCount ?? 0));
+		const tags = el("span", null, post.tags ? String(tagCount(post.tags)) : "—");
 		const hasRating = Boolean(post.rating) && Boolean(capability(post.source)?.ratings?.length);
 		const rating = hasRating ? el("span", { className: "aa-gallery-hover__rating", attrs: { "data-rating": ratingTone(post.rating) }, text: ratingLabel(post.rating) }) : null;
 		const tagSpecs = [
@@ -412,6 +413,7 @@ return function buildController(node, elements) {
 			stat("image", resolution, label("hover.resolution", "Resolution")),
 			stat("thumbUp", score, label("hover.score", "Score")),
 			stat("favorite", favorites, label("hover.favorites", "Favorites")),
+			stat("tag", tags, label("hover.tags", "Tags")),
 			...(rating ? [rating] : []),
 		] });
 		const info = el("div", { className: "aa-gallery-hover__info", children: [
@@ -459,6 +461,7 @@ return function buildController(node, elements) {
 			resolution.textContent = dimensions(detail);
 			score.textContent = String(detail.score ?? post.score ?? 0);
 			favorites.textContent = String(detail.favCount ?? post.favCount ?? 0);
+			tags.textContent = String(tagCount(detail.tags));
 			if (rating) { rating.dataset.rating = ratingTone(detail.rating); rating.textContent = ratingLabel(detail.rating); }
 			applyHoverImageSize(detail);
 			const translationTags = [];
