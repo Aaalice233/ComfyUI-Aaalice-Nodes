@@ -92,6 +92,8 @@ class GalleryPostSummary:
     created_at: str = ""
     favorite: bool | None = None
     sample_url: str = ""
+    score: int = 0
+    fav_count: int = 0
 
     def json(self) -> dict[str, Any]:
         data = asdict(self)
@@ -100,6 +102,7 @@ class GalleryPostSummary:
         data["previewUrl"] = data.pop("preview_url")
         data["createdAt"] = data.pop("created_at")
         data["sampleUrl"] = data.pop("sample_url")
+        data["favCount"] = data.pop("fav_count")
         return data
 
 
@@ -310,7 +313,8 @@ class DanbooruAdapter(BooruAdapter):
                                   str(post.get("preview_file_url") or post.get("large_file_url") or ""),
                                   _int(post.get("image_width")), _int(post.get("image_height")),
                                   str(post.get("rating", "")), str(post.get("created_at", "")),
-                                  post.get("is_favorited"), str(post.get("large_file_url") or ""))
+                                  post.get("is_favorited"), str(post.get("large_file_url") or ""),
+                                  _int(post.get("score")), _int(post.get("fav_count")))
 
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         page = max(1, _int(cursor) or 1)
@@ -352,7 +356,8 @@ class DanbooruAdapter(BooruAdapter):
             raise RuntimeError(f"danbooru post {post_id} response must be an object")
         summary = self._summary(raw)
         tags = {category: _split(raw.get(f"tag_string_{category}")) for category in TAG_CATEGORIES}
-        fields = asdict(summary); fields.pop("sample_url", None)
+        fields = asdict(summary)
+        fields.pop("sample_url", None)
         return GalleryPostDetail(**fields, media_url=str(raw.get("file_url") or ""),
                                  sample_url=str(raw.get("large_file_url") or raw.get("preview_file_url") or ""),
                                  file_ext=str(raw.get("file_ext") or ""), file_size=_int(raw.get("file_size")), tags=tags)
@@ -433,7 +438,7 @@ class GelbooruAdapter(BooruAdapter):
         return GalleryPostSummary(self.source, post_id, f"https://gelbooru.com/index.php?page=post&s=view&id={post_id}",
                                   str(post.get("preview_url") or post.get("sample_url") or ""), _int(post.get("width")),
                                   _int(post.get("height")), str(post.get("rating", "")), str(post.get("created_at", "")), None,
-                                  str(post.get("sample_url") or ""))
+                                  str(post.get("sample_url") or ""), _int(post.get("score")), _int(post.get("fav_count")))
 
     async def _posts(self, session, params, credentials):
         self.require_credentials(credentials)
@@ -466,7 +471,8 @@ class GelbooruAdapter(BooruAdapter):
         flat = list(_split(post.get("tags")))
         tags = {"artist": (), "copyright": (), "character": (), "general": tuple(flat), "meta": ()}
         media = str(post.get("file_url") or post.get("source") or "")
-        fields = asdict(summary); fields.pop("sample_url", None)
+        fields = asdict(summary)
+        fields.pop("sample_url", None)
         return GalleryPostDetail(**fields, media_url=media,
                                  sample_url=str(post.get("sample_url") or post.get("preview_url") or ""),
                                  file_ext=media.rsplit(".", 1)[-1].lower(),
@@ -594,9 +600,9 @@ class SafebooruAdapter(GelbooruAdapter):
         if failures:
             first, error = failures[0]
             if rate_limited:
-                print(f"[Aaalice] safebooru tag classification rate-limited; {len(tags)} tags degraded to general (first: {first!r}: {error})", flush=True)
+                print(f"[Aaalice] safebooru tag classification rate-limited; {len(tags)} tags degraded to general (first: {first!r}: {error})", flush=True)  # noqa: T201
             else:
-                print(f"[Aaalice] safebooru tag classification failed for {len(failures)} tags (first: {first!r}: {error})", flush=True)
+                print(f"[Aaalice] safebooru tag classification failed for {len(failures)} tags (first: {first!r}: {error})", flush=True)  # noqa: T201
         for tag in tags:
             result[known.get(tag, "general")].append(tag)
         return {key: tuple(value) for key, value in result.items()}
@@ -606,9 +612,9 @@ class SafebooruAdapter(GelbooruAdapter):
         if failures:
             first, error = failures[0]
             if rate_limited:
-                print(f"[Aaalice] safebooru tag lookup rate-limited; {len(names)} names skipped (first: {first!r}: {error})", flush=True)
+                print(f"[Aaalice] safebooru tag lookup rate-limited; {len(names)} names skipped (first: {first!r}: {error})", flush=True)  # noqa: T201
             else:
-                print(f"[Aaalice] safebooru tag lookup failed for {len(failures)} names (first: {first!r}: {error})", flush=True)
+                print(f"[Aaalice] safebooru tag lookup failed for {len(failures)} names (first: {first!r}: {error})", flush=True)  # noqa: T201
         return frozenset(name.casefold() for name in known)
 
     def _summary(self, post):
@@ -616,7 +622,7 @@ class SafebooruAdapter(GelbooruAdapter):
         return GalleryPostSummary(self.source, post_id, f"https://safebooru.org/index.php?page=post&s=view&id={post_id}",
                                   str(post.get("preview_url") or post.get("sample_url") or ""), _int(post.get("width")),
                                   _int(post.get("height")), str(post.get("rating", "safe")), str(post.get("created_at", "")), None,
-                                  str(post.get("sample_url") or ""))
+                                  str(post.get("sample_url") or ""), _int(post.get("score")), _int(post.get("fav_count")))
 
     async def list_favorites(self, session, cursor, limit, credentials, blacklist=()):
         raise ValueError("safebooru does not support account favorites")

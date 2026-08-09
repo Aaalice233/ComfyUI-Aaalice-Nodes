@@ -54,13 +54,6 @@ function stateFor(node) { node.properties ||= {}; node.properties[PROPERTY] = no
 function capability(source) { return capabilities.find((item) => item.source === source); }
 function label(key, fallback) { return t(`aaalice.gallery.${key}`, fallback); }
 function dimensions(value) { return `${Math.max(0, Number(value?.width) || 0)}×${Math.max(0, Number(value?.height) || 0)}`; }
-function fileSizeLabel(value) {
-	const bytes = Math.max(0, Number(value) || 0);
-	if (!bytes) return "—";
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KiB`;
-	return `${(bytes / 1024 ** 2).toFixed(bytes < 10 * 1024 ** 2 ? 1 : 0)} MiB`;
-}
 function tagCount(groups) { return GALLERY_CATEGORIES.reduce((total, category) => total + (groups?.[category]?.length || 0), 0); }
 function ratingKey(value) {
 	const rating = String(value || "").trim().toLowerCase();
@@ -297,7 +290,7 @@ const buildController = createGalleryControllerFactory({
 	addGlobalBlacklistTag, addGlobalOutputFilterTag, app, blobToDataUrl, button, canWriteFavorite, capability,
 	copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
 	createTooltip, currentLocale, dimensions, effectivePrompt, el, fetchMediaBlob,
-	fileSizeLabel, finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
+	finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
 	moveSelectionIndex, normalizeTagGroups, notifyFavorite, openInterrogateResultDialog,
 	openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
 	searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,

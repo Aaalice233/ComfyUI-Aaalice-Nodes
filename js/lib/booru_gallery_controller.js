@@ -5,7 +5,7 @@ export function createGalleryControllerFactory(dependencies) {
 		addGlobalBlacklistTag, addGlobalOutputFilterTag, app, blobToDataUrl, button, canWriteFavorite, capability,
 		copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
 		createTooltip, currentLocale, dimensions, effectivePrompt, el, fetchMediaBlob,
-		fileSizeLabel, finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
+		finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
 		moveSelectionIndex, normalizeTagGroups, notifyFavorite, openInterrogateResultDialog,
 		openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
 		searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
@@ -41,7 +41,11 @@ return function buildController(node, elements) {
 	let pageCommitTimer = 0;
 	let selectedDragFrom = null;
 	let selectedDropInsertBefore = null;
+	let hoverTranslationAbort = null;
 	const tooltip = createTooltip({ delay: 0, closeDelay: 120 });
+	const hideTooltip = tooltip.hide;
+	tooltip.hide = () => { hoverTranslationAbort?.abort(); hoverTranslationAbort = null; hideTooltip(); };
+	tooltip.destroy = tooltip.hide;
 	let errorTimer = 0;
 	const showError = (error) => {
 		// 已知上游失败签名映射为可操作提示；原始信息保留在 console。
@@ -365,64 +369,63 @@ return function buildController(node, elements) {
 		}
 	};
 	const showHover = (anchor, post) => {
+		hoverTranslationAbort?.abort();
+		hoverTranslationAbort = new AbortController();
+		const translationAbort = hoverTranslationAbort;
 		const previewSrc = proxyUrl(post.source, post.previewUrl);
-		// Sample 地址随搜索结果返回：已预取就绪时直接以 Sample 起步，跳过小图阶段。
 		const searchSample = post.sampleUrl && post.sampleUrl !== post.previewUrl ? post.sampleUrl : null;
 		const searchSampleSrc = searchSample ? proxyUrl(post.source, searchSample) : null;
 		const readySampleSrc = searchSampleSrc && previewCache.get(searchSampleSrc)?.ready ? searchSampleSrc : null;
-		// 双层图片：base 常驻，sample 就绪后作为 upgrade 叠加层淡入覆盖，
-		// 淡化结束后把 src 落回 base 并收起叠加层，避免硬切造成的闪变。
 		const base = el("img", { attrs: { src: readySampleSrc || previewSrc, alt: "", decoding: "async" } });
 		const upgrade = el("img", { className: "is-upgrade", attrs: { alt: "", decoding: "async", hidden: true } });
-		// 大图始终按原图比例完整显示：先缩放进 320×420 盒子（不放大），再为底部信息区
-		// 保证最小可读宽高；图片本体 contain 居中，宽高与容器不一致时留背景边而非裁切。
-		// 尺寸在 show 时一次锁定，只有 detail 返回的真实宽高与当前值不同才重算，
-		// 避免悬浮框在加载过程中反复改变尺寸并重新定位。
-		let lockedSize = null;
+		const loading = el("span", { className: "aa-gallery-hover__loading", attrs: { role: "status", "aria-label": label("hover.loading", "Loading larger preview…") }, children: [icon("loading")] });
+		let lockedHeight = null;
 		const applyHoverImageSize = (item) => {
 			const width = Number(item?.width); const height = Number(item?.height);
-			// 盒子只由宽高比决定：卡片会把 post 尺寸改写成预览图的自然像素，
-			// 若按绝对像素计算，Detail 到达后盒子会从预览比例突然撑大到原图比例。
-			// 预览/原图比例一致，按比例适配 320×420 时两种尺寸算出同一盒子。
-			const next = !(width > 0) || !(height > 0)
-				? { width: 320, height: 240 }
-				: (() => { const scale = Math.min(320 / width, 420 / height); return { width: Math.max(240, Math.round(width * scale)), height: Math.max(150, Math.round(height * scale)) }; })();
-			if (lockedSize && Math.abs(lockedSize.width - next.width) <= 2 && Math.abs(lockedSize.height - next.height) <= 2) return;
-			lockedSize = next;
-			content.style.setProperty("--aa-gallery-hover-image-width", `${next.width}px`);
-			content.style.setProperty("--aa-gallery-hover-image-height", `${next.height}px`);
-			// 尺寸过渡结束前按最终尺寸重定位，避免过渡中间测量把浮层留在视口外。
+			const next = width > 0 && height > 0 ? Math.max(150, Math.min(360, Math.round(320 * height / width))) : 320;
+			if (lockedHeight != null && Math.abs(lockedHeight - next) <= 2) return;
+			lockedHeight = next;
+			content.style.setProperty("--aa-gallery-hover-image-height", `${next}px`);
 			content.addEventListener("transitionend", () => tooltip.reposition(), { once: true });
 		};
-		const resolution = el("dd", null, dimensions(post));
-		const format = el("dd", null, "—");
-		const size = el("dd", null, "—");
-		const tags = el("dd", null, "—");
+		const stat = (iconName, value, ariaLabel) => el("span", { className: "aa-gallery-hover__stat", attrs: { "aria-label": ariaLabel }, children: [icon(iconName), value] });
+		const resolution = el("span", null, dimensions(post));
+		const score = el("span", null, String(post.score ?? 0));
+		const favorites = el("span", null, String(post.favCount ?? 0));
 		const hasRating = Boolean(post.rating) && Boolean(capability(post.source)?.ratings?.length);
 		const rating = hasRating ? el("span", { className: "aa-gallery-hover__rating", attrs: { "data-rating": ratingTone(post.rating) }, text: ratingLabel(post.rating) }) : null;
-		const loading = el("span", { className: "aa-gallery-hover__loading", attrs: { role: "status", "aria-label": label("hover.loading", "Loading larger preview…") }, children: [icon("loading")] });
-		const facts = [
-			[label("detail.resolution", "Resolution"), resolution], [label("detail.format", "Format"), format],
-			[label("detail.fileSize", "File size"), size], [label("detail.tags", "Tags"), tags],
+		const tagSpecs = [
+			["artist", "brush", 3], ["character", "person", 4], ["copyright", "movie", 2],
 		];
-		const tagRows = Object.fromEntries(["artist", "character", "copyright"].map((category) => {
-			const row = el("div", { className: `aa-gallery-hover__tag-row is-${category}`, attrs: { hidden: true }, children: [
-				el("span", null, label(`category.${category}`, category)), el("p"),
-			] });
-			return [category, row];
+		const tagRows = Object.fromEntries(tagSpecs.map(([category, iconName, limit]) => {
+			const values = el("p");
+			const root = el("div", { className: `aa-gallery-hover__tag-row is-${category}`, attrs: { hidden: true }, children: [icon(iconName), values] });
+			return [category, { root, values, limit, tags: [], translations: {} }];
 		}));
+		const renderTagRow = (entry) => {
+			entry.values.replaceChildren(...entry.tags.map((tag) => {
+				const translated = entry.translations[tag];
+				return el("span", null, translated ? `${tag.replaceAll("_", " ")} (${translated})` : tag.replaceAll("_", " "));
+			}));
+		};
+		const stats = el("div", { className: "aa-gallery-hover__stats", children: [
+			stat("image", resolution, label("hover.resolution", "Resolution")),
+			stat("thumbUp", score, label("hover.score", "Score")),
+			stat("favorite", favorites, label("hover.favorites", "Favorites")),
+			...(rating ? [rating] : []),
+		] });
 		const info = el("div", { className: "aa-gallery-hover__info", children: [
-				el("dl", { children: facts.map(([term, value]) => el("div", { children: [el("dt", null, term), value] })) }),
-				el("div", { className: "aa-gallery-hover__tags", children: Object.values(tagRows) }),
-			] });
+			stats,
+			el("div", { className: "aa-gallery-hover__tags", children: Object.values(tagRows).map((entry) => entry.root) }),
+		] });
 		const content = el("div", { className: "aa-gallery-hover", children: [
-			el("div", { className: "aa-gallery-hover__media", children: [base, upgrade, loading, ...(rating ? [rating] : []), info] }),
+			el("div", { className: "aa-gallery-hover__media", children: [base, upgrade, loading] }),
+			info,
 		] });
 		applyHoverImageSize(post);
 		base.addEventListener("load", () => { if (upgrade.hidden) tooltip.reposition(); });
 		base.addEventListener("error", () => {
 			loading.hidden = true;
-			// 预览图失败时若已有 Sample 来源，直接尝试以 Sample 作为底图。
 			if (sampleRequested && base.getAttribute("src") !== sampleRequested) base.src = sampleRequested;
 		});
 		tooltip.show(anchor, content, { className: "aa-gallery-hover-tooltip", immediate: true, interactive: false, placement: "side" });
@@ -453,15 +456,28 @@ return function buildController(node, elements) {
 		else if (searchSampleSrc) upgradeSample(searchSampleSrc);
 		void getDetail(post).then((detail) => {
 			if (!content.isConnected || !tooltip.isOpenFor(anchor)) return;
-			resolution.textContent = dimensions(detail); format.textContent = detail.fileExt?.toUpperCase() || "—";
-			size.textContent = fileSizeLabel(detail.fileSize); tags.textContent = String(tagCount(detail.tags));
+			resolution.textContent = dimensions(detail);
+			score.textContent = String(detail.score ?? post.score ?? 0);
+			favorites.textContent = String(detail.favCount ?? post.favCount ?? 0);
 			if (rating) { rating.dataset.rating = ratingTone(detail.rating); rating.textContent = ratingLabel(detail.rating); }
 			applyHoverImageSize(detail);
-			for (const [category, row] of Object.entries(tagRows)) {
-				const values = detail.tags?.[category] || [];
-				row.hidden = !values.length;
-				row.querySelector("p").textContent = values.slice(0, 2).join(" · ");
+			const translationTags = [];
+			for (const [category, entry] of Object.entries(tagRows)) {
+				entry.tags = (detail.tags?.[category] || []).slice(0, entry.limit);
+				entry.root.hidden = !entry.tags.length;
+				renderTagRow(entry);
+				for (const tag of entry.tags) translationTags.push({ name: tag, category });
 			}
+			if (currentLocale() === "zh" && translationTags.length) void streamTagTranslations({
+				locale: "zh",
+				tags: translationTags,
+				signal: translationAbort.signal,
+				onChunk: ({ translations }) => {
+					if (!content.isConnected || !tooltip.isOpenFor(anchor)) return;
+					for (const entry of Object.values(tagRows)) { Object.assign(entry.translations, translations); renderTagRow(entry); }
+					tooltip.reposition();
+				},
+			});
 			const detailSample = detail.sampleUrl && detail.sampleUrl !== post.previewUrl ? detail.sampleUrl : null;
 			if (detailSample && detailSample !== post.sampleUrl) upgradeSample(proxyUrl(detail.source, detailSample));
 			if (!detailSample && !searchSample) loading.hidden = true;
