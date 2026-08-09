@@ -8,6 +8,7 @@ import {
 	createDashboardPreset,
 	dashboardPresetFileName,
 	dashboardPresetNameFromFile,
+	dashboardPresetStateNeedsMigration,
 	duplicateDashboardPreset,
 	emptyDashboardPresetState,
 	normalizeDashboardPresetState,
@@ -94,6 +95,26 @@ test("legacy colon-delimited preset keys migrate to collision-free tuple keys", 
 	});
 	assert.equal(state.presets[0].values[KEY].payload, 27);
 	assert.equal(Object.prototype.hasOwnProperty.call(state.presets[0].values, legacyBindingKey(binding)), false);
+});
+
+test("QuickGroupManager preset values migrate to shared configuration semantics", () => {
+	const managerKey = "quick-group-manager";
+	const legacyGroups = [{ id: "managed", nodes: [{ id: "101", mode: 2 }] }];
+	const groups = [{ id: "managed", nodes: [{ id: "101", enabled: false }] }];
+	const legacyPreset = {
+		id: "preset-a",
+		name: "Legacy manager",
+		dashboard: layout(),
+		values: { [managerKey]: { valueType: "quick-group-manager", payload: { version: 1, state: { offMode: "bypass", rules: { managed: { disable: { other: "disable" } } } }, groups: legacyGroups } } },
+	};
+	const legacyState = { version: 1, baselinePresetId: "preset-a", presets: [legacyPreset] };
+	const state = normalizeDashboardPresetState(legacyState);
+	assert.equal(dashboardPresetStateNeedsMigration(legacyState, state), true);
+	assert.equal(dashboardPresetStateNeedsMigration(state, normalizeDashboardPresetState(state)), false);
+	assert.deepEqual(state.presets[0].values[managerKey].payload, { version: 2, groups });
+	const current = { dashboard: layout(), values: { [managerKey]: { valueType: "quick-group-manager", payload: { version: 2, groups } } } };
+	assert.equal(compareDashboardPreset(legacyPreset, current).modified, false);
+	assert.deepEqual(parseDashboardPreset(serializeDashboardPreset(legacyPreset)).values[managerKey].payload, { version: 2, groups });
 });
 
 test("preset state rejects old value-only state and invalid payloads", () => {

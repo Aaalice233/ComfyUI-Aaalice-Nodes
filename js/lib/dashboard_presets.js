@@ -41,13 +41,32 @@ function clonePayload(value, seen = new Set()) {
 	seen.delete(value); return result;
 }
 
+function normalizeQuickGroupManagerPreset(value) {
+	if (![1, 2].includes(Number(value?.version)) || !Array.isArray(value?.groups)) return value;
+	if (Number(value.version) === 2) return { version: 2, groups: value.groups };
+	const valid = value.groups.every((group) => group?.id != null && Array.isArray(group.nodes) && group.nodes.every((member) => member?.id != null && [0, 2, 4].includes(Number(member.mode))));
+	if (!valid) return value;
+	return {
+		version: 2,
+		groups: value.groups.map((group) => ({
+			id: group.id,
+			nodes: group.nodes.map((member) => ({ id: member.id, enabled: Number(member.mode) === 0 })),
+		})),
+	};
+}
+
+function normalizePresetPayload(valueType, payload) {
+	const value = clonePayload(payload);
+	return valueType === "quick-group-manager" ? normalizeQuickGroupManagerPreset(value) : value;
+}
+
 export function normalizeDashboardPresetValues(values) {
 	if (!values || typeof values !== "object" || Array.isArray(values)) throw new DashboardPresetError("Preset values must be an object", "invalid-preset-values");
 	const result = {};
 	for (const [key, entry] of Object.entries(values)) {
 		if (UNSAFE_VALUE_KEYS.has(key)) throw new DashboardPresetError(`Unsafe preset value key: ${key}`, "invalid-preset-key");
 		if (!key || !entry || typeof entry !== "object" || typeof entry.valueType !== "string" || !entry.valueType || !("payload" in entry)) throw new DashboardPresetError(`Invalid preset value: ${key || "missing key"}`, "invalid-preset-value");
-		result[key] = { valueType: entry.valueType, payload: clonePayload(entry.payload) };
+		result[key] = { valueType: entry.valueType, payload: normalizePresetPayload(entry.valueType, entry.payload) };
 	}
 	return result;
 }
@@ -125,6 +144,13 @@ export function normalizeDashboardPresetState(raw) {
 		return { id, name, ...normalizeDashboardSnapshot(source) };
 	});
 	return { version: DASHBOARD_PRESETS_VERSION, presets, baselinePresetId: ids.has(raw.baselinePresetId) ? raw.baselinePresetId : null };
+}
+
+export function dashboardPresetStateNeedsMigration(source, normalized) {
+	return Boolean(source?.presets?.some((preset) => {
+		if (preset.dashboard?.version !== normalized.presets.find((entry) => entry.id === preset.id)?.dashboard.version) return true;
+		return Object.values(preset.values || {}).some((entry) => entry?.valueType === "quick-group-manager" && (entry.payload?.version !== 2 || Object.prototype.hasOwnProperty.call(entry.payload || {}, "state")));
+	}));
 }
 
 function copy(state) { return structuredClone(normalizeDashboardPresetState(state)); }

@@ -67,7 +67,7 @@ test("keeps sidebar and preset snapshots safe when a graph group has no member c
 	const current = manager(graph("root", [incomplete]), 1);
 	const snapshot = quickGroupManagerSnapshot(current);
 	assert.deepEqual(snapshot.groups, [incomplete]);
-	assert.deepEqual(quickGroupManagerPresetSnapshot(current).groups, [{ id: "incomplete", nodes: [] }]);
+	assert.deepEqual(quickGroupManagerPresetSnapshot(current), { version: 2, groups: [{ id: "incomplete", nodes: [] }] });
 	assert.equal(applyQuickGroupManagerPreset(current, { version: 1, state: snapshot.state, groups: [{ id: "incomplete", nodes: [] }] }, { transaction: false }).ok, true);
 });
 
@@ -102,19 +102,46 @@ test("updates the off mode without a second transaction when unchanged", () => {
 	assert.equal(managerGraph.beforeChangeCount, 1);
 });
 
-test("captures and restores manager configuration and group node modes", () => {
-	const member = node(GROUP_MODE.ALWAYS, 101);
-	const managed = group("managed", "Managed", [member]);
+test("presets restore group switches without specializing manager configuration or linkage", () => {
+	const enabledMember = node(GROUP_MODE.ALWAYS, 101);
+	const disabledMember = node(GROUP_MODE.BYPASS, 102);
+	const managed = group("managed", "Managed", [enabledMember, disabledMember]);
 	const managerGraph = graph("root", [managed]);
-	const current = manager(managerGraph, 1, { offMode: "bypass", groupOrder: ["managed"] });
+	const current = manager(managerGraph, 1, {
+		offMode: "bypass",
+		groupOrder: ["managed"],
+		rules: { managed: { disable: { other: "disable" } } },
+	});
 	const snapshot = quickGroupManagerPresetSnapshot(current);
-	member.mode = GROUP_MODE.BYPASS;
-	current.properties.quickGroupManagerState.offMode = "mute";
+	assert.deepEqual(snapshot, { version: 2, groups: [{ id: "managed", nodes: [{ id: "101", enabled: true }, { id: "102", enabled: false }] }] });
+	enabledMember.mode = GROUP_MODE.BYPASS;
+	disabledMember.mode = GROUP_MODE.ALWAYS;
+	current.properties.quickGroupManagerState = {
+		version: 1,
+		offMode: "mute",
+		filter: { mode: "selected", colors: ["#ff0000"], customColors: [], includeUncolored: false },
+		groupOrder: ["other", "managed"],
+		rules: { other: { enable: { managed: "enable" }, disable: {} } },
+	};
+	const sharedState = structuredClone(current.properties.quickGroupManagerState);
 	const result = applyQuickGroupManagerPreset(current, snapshot, { transaction: false });
 	assert.equal(result.ok, true);
-	assert.equal(member.mode, GROUP_MODE.ALWAYS);
-	assert.equal(current.properties.quickGroupManagerState.offMode, "bypass");
+	assert.equal(enabledMember.mode, GROUP_MODE.ALWAYS);
+	assert.equal(disabledMember.mode, GROUP_MODE.NEVER);
+	assert.deepEqual(current.properties.quickGroupManagerState, sharedState);
 	assert.equal(managerGraph.beforeChangeCount, 0);
+
+	enabledMember.mode = GROUP_MODE.BYPASS;
+	disabledMember.mode = GROUP_MODE.ALWAYS;
+	const legacy = {
+		version: 1,
+		state: { offMode: "bypass", rules: { managed: { disable: { other: "disable" } } } },
+		groups: [{ id: "managed", nodes: [{ id: "101", mode: GROUP_MODE.ALWAYS }, { id: "102", mode: GROUP_MODE.BYPASS }] }],
+	};
+	assert.equal(applyQuickGroupManagerPreset(current, legacy, { transaction: false }).ok, true);
+	assert.equal(enabledMember.mode, GROUP_MODE.ALWAYS);
+	assert.equal(disabledMember.mode, GROUP_MODE.NEVER);
+	assert.deepEqual(current.properties.quickGroupManagerState, sharedState);
 });
 
 test("rejects invalid linkage before changing node modes", () => {

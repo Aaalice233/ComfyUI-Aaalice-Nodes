@@ -1,7 +1,7 @@
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { emptyDashboard, normalizeDashboard } from "../lib/dashboard_model.js";
-import { availableDashboardPresetName, compareDashboardPreset, createDashboardPreset, dashboardPresetFileName, dashboardPresetNameFromFile, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
+import { availableDashboardPresetName, compareDashboardPreset, createDashboardPreset, dashboardPresetFileName, dashboardPresetNameFromFile, dashboardPresetStateNeedsMigration, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPreset, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../lib/dashboard_preset_runtime.js";
 import { badge, button, createDialog, el, field, icon, segmentedControl, selectControl } from "../lib/ui.js";
 import { createTransferHero, createTransferResult, createTransferSection, createTransferStats, formatFileSize } from "../lib/workspace_components.js";
@@ -25,7 +25,7 @@ export function dashboardPresetState() {
 	try {
 		const source = app.graph?.extra?.[runtime.presetsExtraKey] ?? null;
 		const value = normalizeDashboardPresetState(source); dashboardPresetModelError = null;
-		if (source && source.presets?.some((preset) => preset.dashboard?.version !== value.presets.find((entry) => entry.id === preset.id)?.dashboard.version)) app.graph.extra[runtime.presetsExtraKey] = value;
+		if (source && dashboardPresetStateNeedsMigration(source, value)) app.graph.extra[runtime.presetsExtraKey] = value;
 		return value;
 	} catch (error) { dashboardPresetModelError = error; return emptyDashboardPresetState(); }
 }

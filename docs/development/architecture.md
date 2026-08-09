@@ -128,7 +128,7 @@
 2. QuickGroupManager 通过 Control Provider 以单一稳定 binding 暴露到 Dashboard，侧边栏卡片只投影该节点，不复制另一份组管理状态。
 3. 全局 `graphChanged` 监听在动画帧内合并刷新，节点实例和侧边栏控件只读取所属 graph 的实时组快照；组成员优先使用官方 `recomputeInsideNodes()`，图恢复期间为空时再从当前 `children` / 几何边界恢复实时节点，不把空缓存当成永久事实。
 4. 用户开关先在纯模型中规划同 Manager 级联和节点模式变化；环路、缺失目标、路径冲突或重叠组冲突会在写入前中止。节点面和侧边栏都通过同一 runtime 提交模式，并在图事务完成后刷新另一表面。
-5. 通过预检后，在一个 Manager 所属 graph 的变更边界内提交全部模式；Dashboard 预设通过同一整体 codec 保存和恢复 Manager 配置及组状态。
+5. 通过预检后，在一个 Manager 所属 graph 的变更边界内提交全部模式；Dashboard 预设通过同一整体 codec 只保存和恢复当前组开关状态。颜色范围、排序、关闭模式与联动规则继续以 Manager 节点状态为共享真源，不随侧边栏预设切换。
 
 ### 节点强调色
 

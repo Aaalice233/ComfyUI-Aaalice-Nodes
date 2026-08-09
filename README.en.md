@@ -178,7 +178,7 @@ Right-click any node and choose **👁️ Focus on open** to make it the workflo
 
 ### 💾 Sidebar presets
 
-The compact preset picker saves and switches the complete dashboard — pages, groups, bindings, card geometry, and compatible values, including each Seed's value and after-generate mode. Local changes mark the preset name in italics with a trailing `*`; saving the workflow with `Ctrl`/`Cmd`+`S` also commits the working copy into the active preset. Presets are stored inside the workflow file, so recipients of a shared workflow (including through Aaalice Workflow Hub) get the presets you shipped. A portable JSON backup can be exported and imported through the same validation flow.
+The compact preset picker saves and switches the complete dashboard — pages, groups, bindings, card geometry, and compatible values, including each Seed's value and after-generate mode. Quick Group Manager controls store only each group's on/off state in a preset; color scope, ordering, off mode, and linkage rules remain shared on the Manager node. Local changes mark the preset name in italics with a trailing `*`; saving the workflow with `Ctrl`/`Cmd`+`S` also commits the working copy into the active preset. Presets are stored inside the workflow file, so recipients of a shared workflow (including through Aaalice Workflow Hub) get the presets you shipped. A portable JSON backup can be exported and imported through the same validation flow.
 
 ### 🎚️ Adjustment profiles
 
