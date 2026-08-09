@@ -293,6 +293,9 @@
 .aaalice-qgm-rule-entry select { width: 86px; height: 28px; border: 1px solid var(--aa-ui-border-soft); border-radius: 7px; background: var(--aa-ui-control); color: var(--aa-ui-text); }
 .aaalice-qgm-rule-empty { display: block; padding: 10px 4px; color: var(--aa-ui-muted); }
 .aaalice-qgm-popover-footer { display: flex; justify-content: flex-end; gap: 7px; padding-top: 9px; border-top: 1px solid var(--aa-ui-border-soft); }
+@media (max-width: 760px) {
+	.aaalice-qgm-rule-content { grid-template-columns: minmax(0, 1fr); }
+}
 @media (prefers-reduced-motion: reduce) {
 	.aaalice-qgm *,
 	.aaalice-qgm *::before,

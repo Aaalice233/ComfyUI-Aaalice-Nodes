@@ -49,7 +49,8 @@ export function createQuickGroupManagerPopoverController({ commit, render, toast
 
 	function createPopover(node, anchor, className, ariaLabel) {
 		closePopover(node);
-		const width = className.includes("rules") ? 440 : className.includes("filter") ? 360 : 280;
+		const preferredWidth = className.includes("rules") ? 720 : className.includes("filter") ? 360 : 280;
+		const width = Math.min(preferredWidth, window.innerWidth - 16);
 		let popup = null;
 		popup = createAnchoredPopover({
 			anchor,

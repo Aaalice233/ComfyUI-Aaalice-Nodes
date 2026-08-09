@@ -237,6 +237,9 @@ test("provides filtered drag ordering, keyboard ordering and accessible popovers
 	assert.match(uiOverlays, /aria-modal/);
 	assert.match(uiOverlays, /event\.key === "Escape"/);
 	assert.match(uiOverlays, /previousFocus\?\.focus/);
+	assert.match(popoverSource, /className\.includes\("rules"\) \? 720/);
+	assert.match(popoverSource, /Math\.min\(preferredWidth, window\.innerWidth - 16\)/);
+	assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.aaalice-qgm-rule-content \{ grid-template-columns: minmax\(0, 1fr\)/);
 });
 
 test("shares cascade preflight and graph transaction logic with workspace", () => {
