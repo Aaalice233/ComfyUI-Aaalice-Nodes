@@ -60,7 +60,6 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除空白并移除空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 在执行到达时发送可选的桌面和声音提醒，并原样透传数值。 |
 | `ConditionalSaveImage` | `Aaalice/tools` | 仅在启用时保存图像，关闭时原样透传；安装 LoraManager 时复用其保存实现。 |
-| `UniversalVAEEncode` | `Aaalice/tools` | 将 IMAGE 批次明确编码为独立图片或一段连续视频，可替代 VHS 的批量 VAE 编码节点。 |
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序、加权可复用词条。 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 在虚拟瀑布流画廊中搜索 Danbooru、Gelbooru、Safebooru 和 AI TAG，按顺序输出图像与对应提示词。 |
 | `FetchFromKrita` | `Aaalice/krita` | 读取 Krita 活动文档的可见合成图像与选区，输出 `IMAGE` 和 `MASK`。 |
@@ -118,18 +117,6 @@ QuickGroupManager 不参与工作流执行，也没有输入输出引脚。它�
 与 `Save Image (LoraManager)` 相同的保存能力与选项（`%seed%` 等文件名变量、png/jpeg/webp、元数据、工作流嵌入、配方），但多了一个 **启用** 开关：关闭时不写盘、图像原样透传，保存相关控件随之灰化。安装 ComfyUI-Lora-Manager 时保存逻辑完全由其原版实现承担；未安装时回退为核心 PNG 保存，jpeg/webp 与配方等专属能力会明确报错提示。
 
 所有保存节点都是输出节点，会被执行器无条件运行，因此“在开关节点上游串一个保存节点”无法阻止写盘；本节点把开关做进保存节点内部，是唯一不需要手动静音节点（`Ctrl+M`）的方案。
-
-</details>
-
-<details>
-<summary><strong>UniversalVAEEncode — 通用图片/视频 VAE 编码</strong></summary>
-
-连接 `IMAGE` 与 `VAE`，再按输入真实含义选择模式：
-
-- **独立图片**（默认）：每个 IMAGE 批次项都是独立样本，输出数量与输入图片数一致。适合 Qwen Image、Krea2、普通批量出图，以及用 SeedVR2 分别放大多张互不相关的图片。
-- **视频帧**：把完整 IMAGE 批次作为有序视频交给三维/视频 VAE。只在 SeedVR2、Wan 等输入确实是一段连续视频时使用；二维图片 VAE 会明确报错，避免静默产生错误语义。
-
-节点不按模型名称猜测模式，因为同一个三维 VAE 既可能处理独立图片，也可能处理视频。上游若已经输出带 `B × T` 维度的 5D IMAGE，独立图片模式会先把两维合并为完整图片批次，视频帧模式则保留原有视频结构。两种模式都只调用一次 ComfyUI 原生 VAE 编码，让核心继续负责显存估算、自动批处理和 OOM 分块回退；不提供容易破坏时间维度的 `per_batch`。替换 `VAE Encode Batched 🎥🅥🅗🅢` 时直接连接原有 `pixels` 和 `vae`，然后选择正确的输入模式即可。
 
 </details>
 

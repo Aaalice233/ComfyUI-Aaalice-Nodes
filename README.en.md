@@ -60,7 +60,6 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
 | `ConditionalSaveImage` | `Aaalice/tools` | Save images only while enabled, otherwise pass them through; reuses LoraManager's save implementation when installed. |
-| `UniversalVAEEncode` | `Aaalice/tools` | Explicitly encode an IMAGE batch as independent images or one continuous video, replacing VHS batched VAE encoding. |
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
 | `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
@@ -118,18 +117,6 @@ Connect any value to receive one alert when execution reaches the node, then con
 The same saving capabilities and options as `Save Image (LoraManager)` (`%seed%` filename patterns, png/jpeg/webp, metadata, workflow embedding, recipes), plus an **Enabled** toggle: when off, nothing is written, the images pass through unchanged, and the save-related widgets are dimmed. With ComfyUI-Lora-Manager installed, all saving is performed by its original implementation; without it, the node falls back to the core PNG save and clearly errors on LoraManager-only capabilities such as jpeg/webp or recipes.
 
 Every save node is an output node that the executor runs unconditionally, so placing a save node upstream of a switch cannot prevent writes. Building the toggle into the save node itself is the only option that does not require manually muting the node (`Ctrl+M`).
-
-</details>
-
-<details>
-<summary><strong>UniversalVAEEncode — universal image/video VAE encoding</strong></summary>
-
-Connect `IMAGE` and `VAE`, then choose the mode that matches the input's actual meaning:
-
-- **Independent Images** (default): every IMAGE batch entry is a separate sample, so the output count stays aligned with the input image count. Use it for Qwen Image, Krea2, ordinary image batches, and separate SeedVR2 enlargement of unrelated images.
-- **Video Frames**: send the complete IMAGE batch to a 3D/video VAE as ordered video. Use it for SeedVR2, Wan, and similar models only when the input is an actual continuous clip; a 2D image VAE fails clearly instead of silently producing the wrong semantics.
-
-The node does not guess from a model name because the same three-dimensional VAE can serve either independent images or video. When upstream already outputs a 5-D IMAGE tensor with `B × T` dimensions, Independent Images merges those dimensions into one complete image batch, while Video Frames preserves the video structure. Both modes make one native ComfyUI VAE encode call, leaving memory estimation, automatic batching, and OOM tiled fallback in core; there is no `per_batch` control that can accidentally break temporal semantics. To replace `VAE Encode Batched 🎥🅥🅗🅢`, reconnect the existing `pixels` and `vae`, then select the correct input mode.
 
 </details>
 

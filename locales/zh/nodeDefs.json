@@ -40,23 +40,6 @@
     },
     "outputs": { "0": { "name": "图像", "tooltip": "未经修改的输入图像。" } }
   },
-  "UniversalVAEEncode": {
-    "display_name": "🧬 通用 VAE 编码",
-    "description": "将 IMAGE 批次编码为相互独立的图片或一段连续视频，并保留 ComfyUI 原生 VAE 显存管理。",
-    "inputs": {
-      "pixels": { "name": "图像", "tooltip": "待编码图像；批次内容按所选输入模式解释。" },
-      "vae": { "name": "VAE", "tooltip": "用于编码输入的 VAE。" },
-      "input_mode": {
-        "name": "输入模式",
-        "tooltip": "独立图片会让每个输入相互独立，包括已带 B/T 维度的批次；视频帧要求三维/视频 VAE，并保留输入中的有序视频结构。",
-        "options": {
-          "image_batch": "独立图片",
-          "video_frames": "视频帧"
-        }
-      }
-    },
-    "outputs": { "0": { "name": "Latent", "tooltip": "批次与时间布局由输入模式决定的编码结果。" } }
-  },
   "GroupIsEnabled": {
     "display_name": "🚦 组启用探测",
     "description": "在队列提交时报告选中可视组是否被完全禁用。",
