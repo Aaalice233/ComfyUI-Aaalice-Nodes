@@ -276,6 +276,35 @@ return function buildController(node, elements) {
 		}).catch((error) => { if (detailCache.get(key) === request) detailCache.delete(key); throw error; });
 		detailCache.set(key, request); trimCache(detailCache, 128); return request;
 	};
+	const downloadOriginal = async (post, control = null) => {
+		const operation = Symbol();
+		if (control) {
+			control._aaGalleryDownloadOperation = operation;
+			control.disabled = true;
+			control.classList.add("is-downloading");
+			control.querySelector(".aa-ui-icon")?.replaceWith(icon("loading"));
+		}
+		try {
+			const detail = await getDetail(post);
+			if (destroyed) return;
+			const safePart = (value, fallback) => String(value || fallback).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || fallback;
+			const extension = String(detail.fileExt).toLowerCase();
+			const anchor = document.createElement("a");
+			anchor.href = proxyUrl(detail.source, detail.mediaUrl);
+			anchor.download = `${safePart(detail.source, "gallery")}-${safePart(detail.postId, "image")}.${extension}`;
+			anchor.hidden = true;
+			document.body.append(anchor);
+			anchor.click();
+			anchor.remove();
+		} finally {
+			if (control?._aaGalleryDownloadOperation === operation) {
+				control._aaGalleryDownloadOperation = null;
+				control.disabled = false;
+				control.classList.remove("is-downloading");
+				control.querySelector(".aa-ui-icon")?.replaceWith(icon("download"));
+			}
+		}
+	};
 	const drainPreviewPrefetch = () => {
 		while (!destroyed && previewPrefetchActive < 4 && previewPrefetchQueue.length) {
 			const task = previewPrefetchQueue.shift();
@@ -513,9 +542,11 @@ return function buildController(node, elements) {
 		const previewUrl = detail.sampleUrl || detail.previewUrl || post.previewUrl || detail.mediaUrl;
 		const viewer = createDetailImageViewer({ previewSrc: proxyUrl(detail.source, previewUrl), originalSrc: proxyUrl(detail.source, detail.mediaUrl), alt: `${detail.source} #${detail.postId}` });
 		const actions = [];
+		const cap = capability(detail.source);
 		let dialog; actions.push(button({ className: `aa-gallery-detail__action is-selection${selected ? " is-selected" : ""}`, label: selected ? label("detail.remove", "Remove selection") : label("detail.select", "Select"), variant: selected ? "danger" : "primary", onClick: async () => { await toggleSelection(detail); dialog.close(); } }));
 		actions.push(button({ className: "aa-gallery-detail__action is-source", label: label("detail.source", "Open source"), iconName: "link", variant: "ghost", onClick: () => window.open(detail.postUrl, "_blank", "noopener") }));
-		actions.push(button({ className: "aa-gallery-detail__action is-original", label: label("detail.original", "Open original"), iconName: "download", variant: "ghost", onClick: () => window.open(proxyUrl(detail.source, detail.mediaUrl), "_blank", "noopener") }));
+		actions.push(button({ className: "aa-gallery-detail__action is-original", label: label("detail.original", "Open original"), iconName: "externalLink", variant: "ghost", onClick: () => window.open(proxyUrl(detail.source, detail.mediaUrl), "_blank", "noopener") }));
+		if (cap?.download) actions.push(button({ className: "aa-gallery-detail__action is-download", label: label("detail.download", "Download original"), iconName: "download", variant: "ghost", onClick: (event) => downloadOriginal(detail, event.currentTarget).catch(showError) }));
 		actions.push(button({ className: "aa-gallery-detail__action is-copy-image", label: label("detail.copyImage", "Copy image"), iconName: "copy", variant: "ghost", onClick: async (event) => {
 			const control = event.currentTarget; control.disabled = true;
 			try {
@@ -524,7 +555,6 @@ return function buildController(node, elements) {
 			} catch (error) { showError(error); }
 			finally { control.disabled = false; }
 		} }));
-		const cap = capability(detail.source);
 		if (cap?.favoriteRead || cap?.favoriteWrite) actions.push(button({ className: `aa-gallery-detail__action is-favorite${detail.favorite ? " is-active" : ""}`, label: detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"), iconName: "favorite", variant: "ghost", onClick: async (event) => { const targetFavorite = !Boolean(detail.favorite); if (!canWriteFavorite(detail.source, targetFavorite)) return; const control = event.currentTarget; const previous = Boolean(detail.favorite); detail.favorite = targetFavorite; control.disabled = true; try { await jsonRequest(`${API}/favorite`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: detail.source, postId: detail.postId, favorite: detail.favorite }) }); control.classList.toggle("is-active", detail.favorite); control.querySelector(".aa-ui-button__label").textContent = detail.favorite ? label("detail.unfavorite", "Remove favorite") : label("detail.favorite", "Favorite"); notifyFavorite(detail.source, targetFavorite); } catch (error) { detail.favorite = previous; notifyFavorite(detail.source, targetFavorite, error); showError(error); } finally { control.disabled = false; } } }));
 		const tagTotal = tagCount(detail.tags);
 		const facts = [
@@ -667,6 +697,7 @@ return function buildController(node, elements) {
 		toggleFavorite,
 		copyPostPrompt,
 		interrogatePost,
+		downloadOriginal,
 		recoverPreview,
 		showHover,
 		openDetail,

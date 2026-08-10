@@ -183,7 +183,7 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 	assert.match(source, /className: "aa-gallery-card__scan"/);
 	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__scan \{[^}]*animation: aa-gallery-card-scan/);
 	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__surface \{[^}]*translate3d\(0, -4px, 12px\)[^}]*animation: aa-gallery-card-scan-glow/);
-	assert.match(source, /actionControls = \[editAction, favoriteAction, copyPromptAction, interrogateAction, detailAction\]/);
+	assert.match(source, /actionControls = \[editAction, favoriteAction, copyPromptAction, interrogateAction, downloadAction, detailAction\]/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.equal(typeof locale.aaalice.gallery.card.copyPrompt, "string");
 		assert.equal(typeof locale.aaalice.gallery.card.promptCopied, "string");
@@ -197,6 +197,28 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 	assert.match(source, /label\("error\.media", "Image request failed \(HTTP \{status\}\)"\)/);
 	assert.match(source, /life: 3200/);
 	assert.match(source, /life: 5000/);
+});
+
+test("gallery cards and post details download originals with distinct open and download icons", () => {
+	const cardSource = source.slice(source.indexOf("function buildGalleryCardView"), source.indexOf("function createSelectedRow"));
+	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
+	assert.match(cardSource, /actionButton\("download", "download", 4/);
+	assert.match(cardSource, /label\("card\.download", "Download original"\)/);
+	assert.match(cardSource, /downloadAction\.style\.display = favoriteCapability\?\.download \? "" : "none"/);
+	assert.match(detailSource, /className: "aa-gallery-detail__action is-original"[\s\S]*iconName: "externalLink"/);
+	assert.match(detailSource, /className: "aa-gallery-detail__action is-download"[\s\S]*label\("detail\.download", "Download original"\)[\s\S]*iconName: "download"/);
+	assert.match(source, /const downloadOriginal = async \(post, control = null\)/);
+	assert.match(source, /anchor\.href = proxyUrl\(detail\.source, detail\.mediaUrl\)/);
+	assert.match(source, /anchor\.download = `\$\{safePart\(detail\.source, "gallery"\)\}-\$\{safePart\(detail\.postId, "image"\)\}\.\$\{extension\}`/);
+	assert.match(source, /document\.body\.append\(anchor\);[\s\S]*anchor\.click\(\);[\s\S]*anchor\.remove\(\)/);
+	assert.match(source, /control\?\._aaGalleryDownloadOperation === operation/);
+	assert.match(cardSource, /downloadAction\._aaGalleryDownloadOperation = null;[\s\S]*downloadAction\.classList\.remove\("is-downloading"\)/);
+	assert.match(theme, /\.aa-gallery-card-action\.is-download \{[^}]*--aa-gallery-action-tone/);
+	assert.match(theme, /\.aa-gallery-detail__action\.is-download \{[^}]*--aa-gallery-detail-action-tone/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.card.download, "string");
+		assert.equal(typeof locale.aaalice.gallery.detail.download, "string");
+	}
 });
 
 test("post details offer copying the original image to the clipboard", () => {
@@ -252,7 +274,7 @@ test("post details use maintainable semantic color hooks", () => {
 	assert.match(detailSource, /`rating-\$\{ratingTone\(detail\.rating\)\}`/);
 	assert.match(detailSource, /attrs: \{ "data-category": category \}/);
 	for (const category of ["artist", "copyright", "character", "general", "meta"]) assert.match(theme, new RegExp(`tag-group\\[data-category="${category}"\\]`));
-	for (const action of ["is-source", "is-original", "is-favorite"]) assert.match(detailSource, new RegExp(action));
+	for (const action of ["is-source", "is-original", "is-download", "is-favorite"]) assert.match(detailSource, new RegExp(action));
 });
 
 test("local tag editor focuses one color-coded category with reusable editable pills", () => {

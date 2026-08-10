@@ -231,7 +231,9 @@
 .aa-gallery-card-action.is-favorite { --aa-gallery-action-tone: var(--p-pink-400, color-mix(in srgb, var(--aa-ui-danger) 72%, var(--aa-ui-text))); }
 .aa-gallery-card-action.is-copyPrompt { --aa-gallery-action-tone: var(--p-green-400, color-mix(in srgb, var(--aa-ui-accent) 48%, var(--aa-ui-warning))); }
 .aa-gallery-card-action.is-interrogate { --aa-gallery-action-tone: var(--p-amber-400, var(--aa-ui-warning)); }
+.aa-gallery-card-action.is-download { --aa-gallery-action-tone: var(--p-cyan-400, color-mix(in srgb, var(--aa-ui-accent) 66%, var(--aa-ui-text))); }
 .aa-gallery-card-action.is-detail { --aa-gallery-action-tone: var(--p-blue-400, var(--aa-ui-accent)); }
+.aa-gallery-card-action.is-download.is-downloading .aa-ui-icon { animation: aa-gallery-loader-orbit .9s linear infinite; }
 .aa-gallery-card-action.is-favorite.is-active { background: color-mix(in srgb, var(--aa-gallery-action-tone) 72%, rgb(0 0 0 / .26)); color: var(--aa-ui-on-media); }
 .aa-gallery-card-action.is-favorite.is-active .aa-ui-icon { fill: currentColor; filter: drop-shadow(0 1px 4px color-mix(in srgb, var(--aa-gallery-action-tone) 65%, transparent)); }
 .aa-gallery-card-action.is-acknowledged { animation: aa-gallery-favorite-feedback .3s cubic-bezier(.18, .88, .3, 1.28); }

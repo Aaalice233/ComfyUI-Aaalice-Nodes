@@ -89,8 +89,10 @@
 .aa-gallery-detail__action { --aa-gallery-detail-action-tone: var(--aa-ui-node-accent); }
 .aa-gallery-detail__action.is-source { --aa-gallery-detail-action-tone: var(--p-blue-400, var(--aa-ui-accent)); }
 .aa-gallery-detail__action.is-original { --aa-gallery-detail-action-tone: var(--p-purple-400, var(--aa-ui-node-accent)); }
+.aa-gallery-detail__action.is-download { --aa-gallery-detail-action-tone: var(--p-cyan-400, color-mix(in srgb, var(--aa-ui-accent) 66%, var(--aa-ui-text))); }
 .aa-gallery-detail__action.is-copy-image { --aa-gallery-detail-action-tone: var(--p-green-400, color-mix(in srgb, var(--aa-ui-accent) 48%, var(--aa-ui-warning))); }
 .aa-gallery-detail__action.is-favorite { --aa-gallery-detail-action-tone: var(--p-pink-400, var(--aa-ui-danger)); }
+.aa-gallery-detail__action.is-download.is-downloading .aa-ui-icon { animation: aa-gallery-loader-orbit .9s linear infinite; }
 .aa-gallery-detail__action.aa-ui-button--ghost:not(:disabled) { color: color-mix(in srgb, var(--aa-gallery-detail-action-tone) 62%, var(--aa-ui-muted)); }
 .aa-gallery-detail__action.aa-ui-button--ghost:hover:not(:disabled), .aa-gallery-detail__action.aa-ui-button--ghost.is-active { border-color: color-mix(in srgb, var(--aa-gallery-detail-action-tone) 30%, transparent); background: color-mix(in srgb, var(--aa-gallery-detail-action-tone) 10%, var(--aa-ui-control)); color: color-mix(in srgb, var(--aa-gallery-detail-action-tone) 82%, var(--aa-ui-text)); }
 .aa-gallery-detail__action.is-favorite.is-active .aa-ui-icon { fill: currentColor; }

@@ -34,6 +34,7 @@ const ICON_PATHS = {
 	listOrdered: "M10 6h11M10 12h11M10 18h11M4 6h1V3L3 4m0 10c0-1 2-2 2-3s-2-1-2 0m0 6h2l-2 3h2",
 	listTodo: "M3 5h6v6H3V5Zm0 8h6v6H3v-6Zm10-6h8m-8 4h8m-8 4h8m-8 4h8",
 	link: "M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1",
+	externalLink: "M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5",
 	loading: "M21 12a9 9 0 1 1-6.22-8.56",
 	lock: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
 	subtract: "M5 12h14",

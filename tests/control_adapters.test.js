@@ -256,6 +256,35 @@ test("store-backed promoted widgets resolve source identity through subgraph slo
 	assert.equal(resolveAdaptedWidgetControl(host, "cfg", { promoted: true })?.widget, projected);
 });
 
+test("host-owned promoted multiline widgets are listed as sidebar controls", () => {
+	let value = "first line\nsecond line";
+	const interiorWidget = { name: "prompt", type: "customtext", value, options: {} };
+	const interiorInput = { name: "prompt", link: 11 };
+	const interiorNode = { id: 4, inputs: [interiorInput], isSubgraphNode: () => false, getWidgetFromSlot: (slot) => slot === interiorInput ? interiorWidget : undefined };
+	const projected = {
+		name: "prompt", type: "customtext", options: { hideOnZoom: true },
+		get value() { return value; },
+		set value(next) { value = next; },
+	};
+	const hostInput = { name: "prompt", widgetId: "graph-1:1:prompt", _widget: projected, _subgraphSlot: { linkIds: [11] } };
+	const host = {
+		isSubgraphNode: () => true,
+		inputs: [{ name: "unpromoted" }, hostInput],
+		widgets: [projected],
+		subgraph: {
+			getLink: (id) => id === 11 ? { resolve: () => ({ inputNode: interiorNode }) } : null,
+			getNodeById: (id) => id === 4 ? interiorNode : null,
+		},
+	};
+	const [listed] = listAdaptedWidgetControls(host, { promoted: true });
+	assert.equal(listed?.controlId, 'promoted:["4","prompt",null]');
+	assert.equal(listed?.kind, "text");
+	assert.equal(listed?.options.multiline, true);
+	const resolved = resolveAdaptedWidgetControl(host, listed.controlId, { promoted: true });
+	resolved.setValue("edited\ntext");
+	assert.equal(value, "edited\ntext");
+});
+
 test("store-backed promoted seed widgets keep the dedicated seed control", () => {
 	// 新协议宿主投影不带 linkedWidgets，种子行为控件只存在于内部真实节点上。
 	const controlWidget = {

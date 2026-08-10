@@ -155,7 +155,7 @@
 2. 搜索只获取 Summary。Hover、详情或选择才按需补全 Detail 和分类标签；页面、详情、标签分类和原图分别进入有界缓存。
 3. 独立虚拟瀑布流按最短列增量放置，ResizeObserver 只观察容器；滚动由单一 rAF 计算可见区并差量挂载卡片，离开 overscan 的图片移除 `src`。滚动帧不重写未变化的卡片样式，布局对象以 revision 标记真实几何变化（`setItems`、`reflow`、列数变化），仅 revision 变化时全量同步已挂载卡片的宽高与 transform；可见项上报只在可见集合变化时触发，卡片倾斜动效由容器统一委托（单监听、单 rAF、每帧至多一次 `getBoundingClientRect`）。快速滚动期间新挂载卡片只占位、滚动停止后统一补挂图片源，sample 预取防抖到停止后，滚动跨页的图 dirty 信号（`graph.change()`，会强制全画布重绘）合并到停止后。
 4. 用户编辑只改本地分类标签。`graphToPrompt` 为每次排队复制当前有序选择和最终 Prompt，后续节点编辑不回写已经排队的任务。
-5. capability 控制 Rating、排行榜、直接跳页、认证和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key；设置边界接受账户页复制的 `&api_key=…&user_id=…` 凭据片段并规范化保存，不能改动其它来源凭据。其 Rating 使用站点当前的 General、Sensitive、Questionable、Explicit；单选分级发送远端 metatag，多选分级因远端不支持同类 metatag OR 而在真实分页结果上本地过滤。Gelbooru 不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
+5. capability 控制 Rating、排行榜、直接跳页、认证、原图下载和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key；设置边界接受账户页复制的 `&api_key=…&user_id=…` 凭据片段并规范化保存，不能改动其它来源凭据。其 Rating 使用站点当前的 General、Sensitive、Questionable、Explicit；单选分级发送远端 metatag，多选分级因远端不支持同类 metatag OR 而在真实分页结果上本地过滤。Gelbooru 不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
 6. Gallery 的搜索、过滤列表和本地标签编辑通过 Autocomplete-Plus 的 `raw-tag` 外部输入模式接入补全；站点原始标签身份在插件边界保持不变，面向生成提示词的空格替换、括号转义、画师前缀和自动分隔符不得进入搜索与精确匹配路径。
 
 ### DIY 左侧工作区
@@ -177,7 +177,7 @@
 
 #### 第三方节点适配
 
-- 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。子图公开控件是宿主投影，真实状态仍由内部 widget 持有，因此只在子图 Provider 路径允许该投影进入适配。前端两代协议由 `js/lib/promoted_widget_source.js` 统一屏蔽：旧协议投影（`PromotedWidgetView`）自带 `sourceNodeId` / `sourceWidgetName`（嵌套时另有 `disambiguatingSourceNodeId`）；新协议（frontend >= 1.47，上游 ADR 0009）宿主 widget 是由非枚举 `widgetId` 寻址的 widgetValueStore 投影，来源必须沿宿主 input 的 `_subgraphSlot` 链路解析。Promoted widget 的 Control ID 在两代协议下由同一源身份元组（`sourceNodeId`、`sourceWidgetName`、可选 `disambiguatingSourceNodeId`）生成，不使用公开名称或显示标签，旧工作流绑定在新协议下继续命中；同名的采样器、调度器等公开控件仍保持独立绑定。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
+- 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。子图公开控件是宿主投影，真实状态仍由内部 widget 持有，因此只在子图 Provider 路径允许该投影进入适配。前端两代协议由 `js/lib/promoted_widget_source.js` 统一屏蔽：旧协议投影（`PromotedWidgetView`）自带 `sourceNodeId` / `sourceWidgetName`（嵌套时另有 `disambiguatingSourceNodeId`）；新协议（frontend >= 1.47，上游 ADR 0009）普通宿主 widget 是由非枚举 `widgetId` 寻址的 widgetValueStore 投影；官方多行 `STRING` 则会物化为不携带 `widgetId` 的宿主 DOM widget，必须先按宿主 input 的 `_widget` 对象身份认领，再沿同一 input 的 `_subgraphSlot` 链路解析来源，不能把 DOM widget 当作未公开控件过滤。Promoted widget 的 Control ID 在两代协议下由同一源身份元组（`sourceNodeId`、`sourceWidgetName`、可选 `disambiguatingSourceNodeId`）生成，不使用公开名称或显示标签，旧工作流绑定在新协议下继续命中；同名的采样器、调度器等公开控件仍保持独立绑定。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
 - ComfyUI 内置 `PreviewImage`、`PreviewAny` 与 `ImageCompare` 使用显式只读适配，不进入普通 widget fallback。执行结果与纯文本/Markdown 显示模式变化通过宿主回调触发一次控制面板失效；图像 URL 在同一批结果内保持稳定，禁止轮询或把输出快照持久化进侧边栏预设。
 - 只要普通节点包含未知 widget、DOM 面板、图片上传、预览或自定义操作控件，内置 fallback 就不接管该节点的原生控件，避免把自定义状态拆成不完整的侧边栏副本。此类节点必须由节点作者或本包使用显式适配器逐项接入。
 - ComfyUI 原生 fallback 在适配边界统一处理通用控件名称：`Value`、`值`、`数值`、`text`、`文本`、`string`、`字符串`（含尾随冒号）使用节点实时 `getTitle()`，明确的 widget 显示名保持不变；领域适配器可在 descriptor 中声明 `labelPolicy: "node-title"`，内置 `LoraManager` 的 LoRA 列表 widget 使用该策略统一显示节点实时标题。

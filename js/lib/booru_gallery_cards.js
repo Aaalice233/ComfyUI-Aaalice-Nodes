@@ -186,9 +186,11 @@ function buildGalleryCardView() {
 		catch (error) { view.controller.showError(error); }
 	});
 	interrogateAction.setAttribute("aria-label", label("card.interrogate", "Interrogate prompt")); interrogateAction.title = label("card.interrogate", "Interrogate prompt");
-	const detailAction = actionButton("note", "detail", 4, () => view.controller.openDetail(view.post).catch(view.controller.showError));
+	const downloadAction = actionButton("download", "download", 4, () => view.controller.downloadOriginal(view.post, downloadAction).catch(view.controller.showError));
+	downloadAction.setAttribute("aria-label", label("card.download", "Download original")); downloadAction.title = label("card.download", "Download original");
+	const detailAction = actionButton("note", "detail", 5, () => view.controller.openDetail(view.post).catch(view.controller.showError));
 	detailAction.setAttribute("aria-label", label("card.detail", "View details")); detailAction.title = label("card.detail", "View details");
-	const actionControls = [editAction, favoriteAction, copyPromptAction, interrogateAction, detailAction];
+	const actionControls = [editAction, favoriteAction, copyPromptAction, interrogateAction, downloadAction, detailAction];
 	actions.append(...actionControls);
 	surface.append(el("div", { className: "aa-gallery-card__loading", attrs: { "aria-hidden": "true" } }), selectedLayer, el("div", { className: "aa-gallery-card__shade" }), el("div", { className: "aa-gallery-card__scan", attrs: { "aria-hidden": "true" } }), rating, selectionStamp.root, errorLayer, actions);
 	card.append(surface);
@@ -209,6 +211,10 @@ function buildGalleryCardView() {
 
 	view.bind = (node, controller, post, deferImage = false) => {
 		view.node = node; view.controller = controller; view.post = post;
+		downloadAction._aaGalleryDownloadOperation = null;
+		downloadAction.disabled = false;
+		downloadAction.classList.remove("is-downloading");
+		downloadAction.querySelector(".aa-ui-icon")?.replaceWith(icon("download"));
 		const src = proxyUrl(post.source, post.previewUrl);
 		view.currentSrc = src;
 		let image = view.image;
@@ -248,6 +254,7 @@ function buildGalleryCardView() {
 		// .aa-ui-button 的 display 声明会覆盖 hidden 属性，显隐必须走 inline style。
 		favoriteAction.style.display = favoriteVisible ? "" : "none";
 		interrogateAction.style.display = isPromptAssistantAvailable() ? "" : "none";
+		downloadAction.style.display = favoriteCapability?.download ? "" : "none";
 		view.favoriteVisible = favoriteVisible;
 		view.visibleActions = actionControls.filter((control) => control.style.display !== "none").length;
 		const hasRating = Boolean(post.rating) && Boolean(favoriteCapability?.ratings?.length);

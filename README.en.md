@@ -138,7 +138,7 @@ Choose Danbooru, Gelbooru, Safebooru, or AI TAG, search and filter posts, then s
 - Site credentials, defaults, the global content blacklist, output filter tags, timeout, and the image cache budget live under **ComfyUI Settings → Aaalice Nodes → Booru Gallery**; credentials and caches stay in the current ComfyUI user directory and never enter workflow JSON. Gelbooru requires its official User ID and API Key; its complete `&api_key=…&user_id=…` account-page fragment can also be pasted directly into the API Key field.
 - The content blacklist hides matching posts; output filter tags keep posts visible and only strip the tags from node output and copied prompts (handy for watermarks or artist names). Both are maintained from the prompt popover and the detail tag menu.
 - Danbooru supports favorite reading and writing; Gelbooru supports reading only.
-- Hover previews show the larger image, resolution, score, favorite count, rating, and categorized tags. With ComfyUI-Autocomplete-Aaalice installed, search and tag inputs such as excluded tags and output filter gain its tag completion, while hover previews and post details both show tag translations; with prompt-assistant installed, cards can interrogate images through its vision analysis.
+- Hover previews show the larger image, resolution, score, favorite count, rating, and categorized tags. Cards and post details can download originals, while details keep a separate action for opening the original in a new tab. With ComfyUI-Autocomplete-Aaalice installed, search and tag inputs such as excluded tags and output filter gain its tag completion, while hover previews and post details both show tag translations; with prompt-assistant installed, cards can interrogate images through its vision analysis.
 
 </details>
 
@@ -174,7 +174,7 @@ Right-click any node and choose **👁️ Focus on open** to make it the workflo
 - **🔗 Link to an existing sidebar parameter…** makes one card drive multiple compatible controls; linked writes apply in one undoable transaction and roll back together on failure.
 - **Edit layout** arranges cards on a twelve-column grid with snapping, separators, named layout groups, marquee multi-selection, and a tidy-layout action.
 - Bindings use stable identities rather than node titles or positions. Broken cards explain why and offer fuzzy-search rebinding, including a page-level review for all broken parameters at once; a replaced node re-attaches automatically when it is the unique match. The workspace never searches inside a subgraph.
-- Compatible sources: simple nodes composed of native `INT`, `FLOAT`, `BOOLEAN`, `STRING`, and `COMBO` widgets, widgets publicly exposed by a subgraph, and ComfyUI's `Preview Image`, `Preview as Text`, and `Compare Images` views (with navigation and full-window viewers). Nodes with unknown custom panels require an explicit adapter.
+- Compatible sources: simple nodes composed of native `INT`, `FLOAT`, `BOOLEAN`, `STRING`, and `COMBO` widgets, widgets publicly exposed by a subgraph (including multiline `STRING` widgets), and ComfyUI's `Preview Image`, `Preview as Text`, and `Compare Images` views (with navigation and full-window viewers). Nodes with unknown custom panels require an explicit adapter.
 
 ### 💾 Sidebar presets
 

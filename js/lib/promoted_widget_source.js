@@ -2,9 +2,9 @@
  * Promoted（子图宿主）widget 身份解析，兼容两代前端协议：
  * - 旧协议（frontend <= 1.26）：PromotedWidgetView 自带 sourceNodeId /
  *   sourceWidgetName（嵌套时另有 disambiguatingSourceNodeId）。
- * - 新协议（frontend >= 1.47，上游 ADR 0009）：宿主 widget 是由非枚举
- *   widgetId 寻址的 widgetValueStore 投影，不再携带来源字段；来源必须沿
- *   宿主 input 的 _subgraphSlot 链路解析到子图内部节点。
+ * - 新协议（frontend >= 1.47，上游 ADR 0009）：普通宿主 widget 由非枚举
+ *   widgetId 寻址；多行文本 DOM widget 由宿主 input 的 _widget 持有。
+ *   两者都沿该 input 的 _subgraphSlot 链路解析到子图内部节点。
  * 绑定持久化的 controlId 在两代协议下保持同一元组，旧工作流绑定才能继续命中。
  */
 
@@ -12,14 +12,22 @@ export function isPromotedWidgetHost(node) {
 	return Boolean(node?.isSubgraphNode?.() || node?.subgraph);
 }
 
+function promotedHostInput(host, widget) {
+	const inputs = host?.inputs || [];
+	const owned = inputs.find((candidate) => candidate?._widget === widget);
+	if (owned) return owned;
+	if (typeof widget?.widgetId === "undefined") return null;
+	return inputs.find((candidate) => candidate?.widgetId === widget.widgetId) || null;
+}
+
 export function isPromotedWidget(node, widget) {
 	if (!widget) return false;
 	if (typeof widget.sourceNodeId !== "undefined" && typeof widget.sourceWidgetName === "string") return true;
-	return isPromotedWidgetHost(node) && typeof widget.widgetId !== "undefined";
+	return isPromotedWidgetHost(node) && Boolean(promotedHostInput(node, widget));
 }
 
 function resolveStoreBackedIdentity(host, widget) {
-	const input = (host?.inputs || []).find((candidate) => candidate?.widgetId === widget.widgetId || candidate?._widget === widget);
+	const input = promotedHostInput(host, widget);
 	const slot = input?._subgraphSlot;
 	if (!slot) return null;
 	for (const linkId of slot.linkIds || []) {

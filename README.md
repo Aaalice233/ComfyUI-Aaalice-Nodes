@@ -138,7 +138,7 @@ PromptSelector 保存稳定的词条引用而不是复制文本：编辑词库�
 - 站点凭据、默认值、全局内容黑名单、输出过滤标签、超时与图像缓存预算位于 **ComfyUI 设置 → Aaalice Nodes → Booru Gallery**；凭据与缓存保存在当前 ComfyUI 用户目录，不进入工作流 JSON。Gelbooru 需要官方 User ID 和 API Key，也可把账户页提供的完整 `&api_key=…&user_id=…` 片段直接粘贴到 API Key 输入框。
 - 内容黑名单会隐藏含该标签的帖子；输出过滤标签不隐藏帖子，只从节点输出与复制的提示词中剔除（适合 watermark、画师名等），两者都在提示词处理浮层与详情标签菜单中维护。
 - Danbooru 支持收藏读写；Gelbooru 仅支持读取。
-- 悬浮预览会显示大图、分辨率、评分、收藏数、分级与分类标签；安装 ComfyUI-Autocomplete-Aaalice 后，搜索、排除标签与输出过滤等标签输入框获得其标签补全，悬浮预览和帖子详情同时显示标签翻译；安装 prompt-assistant 后，卡片可通过其视觉分析反推图像。
+- 悬浮预览会显示大图、分辨率、评分、收藏数、分级与分类标签；卡片与帖子详情都可下载原图，详情另提供在新标签页打开原图的入口；安装 ComfyUI-Autocomplete-Aaalice 后，搜索、排除标签与输出过滤等标签输入框获得其标签补全，悬浮预览和帖子详情同时显示标签翻译；安装 prompt-assistant 后，卡片可通过其视觉分析反推图像。
 
 </details>
 
@@ -174,7 +174,7 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器。缺少 Bridge、Krit
 - **🔗 绑定到侧边栏已有参数…** 让一张卡片驱动多个兼容参数；联动写入在同一个可撤销事务中完成，失败时整体回滚。
 - **编辑布局** 在十二列网格上吸附式调整卡片、分隔线、命名布局组、框选多选与整理布局。
 - 绑定使用稳定身份，不依赖节点标题或位置。失效卡片会说明原因并提供模糊搜索重绑，页面菜单可一次性复核全部失效参数；节点被替换且匹配唯一时会自动重挂。侧边栏不会进入子图内部搜索。
-- 兼容来源：仅由原生 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 控件组成的简单节点、子图整体公开的 widget，以及 ComfyUI 原生 `Preview Image`、`Preview as Text`、`Compare Images` 视图（带导航和全窗口查看器）。带未知自定义面板的节点需要显式适配器。
+- 兼容来源：仅由原生 `INT`、`FLOAT`、`BOOLEAN`、`STRING`、`COMBO` 控件组成的简单节点、子图整体公开的 widget（包括多行 `STRING`），以及 ComfyUI 原生 `Preview Image`、`Preview as Text`、`Compare Images` 视图（带导航和全窗口查看器）。带未知自定义面板的节点需要显式适配器。
 
 ### 💾 侧边栏预设
 
