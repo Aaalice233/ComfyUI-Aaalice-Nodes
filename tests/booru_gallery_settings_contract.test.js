@@ -4,6 +4,7 @@ import test from "node:test";
 import { readStyleEntry } from "./helpers/style_source.js";
 
 const source = fs.readFileSync(new URL("../js/lib/booru_gallery_settings.js", import.meta.url), "utf8");
+const gallerySource = fs.readFileSync(new URL("../js/booru_gallery.js", import.meta.url), "utf8");
 const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 const uiStyles = fs.readFileSync(new URL("../js/lib/ui.css", import.meta.url), "utf8");
 const zhLocale = JSON.parse(fs.readFileSync(new URL("../locales/zh/main.json", import.meta.url), "utf8"));
@@ -65,5 +66,6 @@ test("content blacklist is a backend filter with visible settings feedback", () 
 	assert.match(source, /className: "aa-gallery-settings__blacklist-card"/);
 	assert.match(source, /settings\.blacklistCount/);
 	assert.doesNotMatch(source, /map\(\(tag\) => `-\$\{tag\}`\)/);
+	assert.match(gallerySource, /function tagLines\(value\) \{ return \[\.\.\.new Set\(parseTagListValue\(value\)\)\]; \}/);
 	assert.match(theme, /\.aa-gallery-settings__blacklist-card/);
 });

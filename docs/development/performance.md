@@ -29,6 +29,7 @@
 - 滚动跨页产生的持久状态同步（如页码）必须把图 dirty 信号合并到滚动停止后，禁止在滚动帧内调用 `graph.change()`（新版 litegraph 会强制全部画布前景+背景全量重绘）。
 - 卡片级指针动效（倾斜、径向高光）由容器统一委托：单个 `pointermove` / `pointerleave` 监听、单 rAF、每帧至多一次 `getBoundingClientRect`，禁止每张卡片各挂一对监听器；卡片虚拟化卸载后待处理帧必须通过 `isConnected` 自然跳过。
 - 删除条目时先调用业务 dispose，再移除媒体源；`destroy()` 必须幂等，且不遗留 `ResizeObserver`、scroll listener、animation frame 或 controller 引用。
+- Gallery 的本地内容黑名单在每次列表响应边界一次性规范化为集合，并直接过滤响应已有标签，不得逐帖请求 Detail。过滤后补页只能在响应完成时读取瀑布流已缓存的 `totalHeight`、`scrollTop` 和 `clientHeight`，不得扫描卡片或进入滚动帧；自动补页必须有固定预算，超出后转为用户操作。
 
 ## 4. 局部更新与交互
 

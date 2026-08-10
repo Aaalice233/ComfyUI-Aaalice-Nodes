@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Any
@@ -48,16 +49,17 @@ def default_settings() -> dict[str, Any]:
 
 def _string_list(value: Any, field: str) -> list[str]:
     if isinstance(value, str):
-        value = value.splitlines()
+        value = [value]
     if not isinstance(value, list):
         raise ValueError(f"{field} must be a list")
     result: list[str] = []
     for item in value:
         if not isinstance(item, str):
             raise ValueError(f"{field} values must be strings")
-        item = item.strip()
-        if item and item not in result:
-            result.append(item)
+        for part in re.split(r"[,，、\r\n]+", item):
+            part = part.strip()
+            if part and part not in result:
+                result.append(part)
     return result
 
 

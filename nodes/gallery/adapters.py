@@ -251,11 +251,15 @@ def _raw_tags(value: Any) -> frozenset[str]:
     return frozenset(str(tag).strip().casefold() for tag in value if str(tag).strip())
 
 
-def _is_blacklisted(post: dict[str, Any], blacklist: tuple[str, ...]) -> bool:
+def _normalize_blacklist(blacklist: tuple[str, ...]) -> frozenset[str]:
+    return frozenset(str(tag).strip().casefold() for tag in blacklist if str(tag).strip())
+
+
+def _is_blacklisted(post: dict[str, Any], blacklist: frozenset[str]) -> bool:
     if not blacklist:
         return False
     tags = _raw_tags(post.get("tag_string") or post.get("tags"))
-    return bool(tags.intersection(tag.casefold() for tag in blacklist))
+    return not tags.isdisjoint(blacklist)
 
 
 def _is_supported_static_post(post: dict[str, Any]) -> bool:
@@ -268,12 +272,6 @@ def _is_supported_static_post(post: dict[str, Any]) -> bool:
         if len(suffix) == 2 and suffix[1]:
             return suffix[1].lower() in STATIC_IMAGE_EXTENSIONS
     return True
-
-
-def _with_blacklist(query: str, blacklist: tuple[str, ...]) -> str:
-    # Query operators are not tags. Unsafe values still receive exact local filtering.
-    exclusions = (f"-{tag}" for tag in blacklist if re.fullmatch(r"[^\s:]+", tag) and not tag.startswith("-"))
-    return " ".join(part for part in (query.strip(), *exclusions) if part)
 
 
 def _restricted_media_hidden(posts: tuple) -> bool:
@@ -322,7 +320,7 @@ class DanbooruAdapter(BooruAdapter):
 
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         page = max(1, _int(cursor) or 1)
-        tags = _with_blacklist(query, blacklist)
+        tags = query.strip()
         if ratings:
             tags = f"{tags} rating:{','.join(ratings)}".strip()
         if sort and sort != "latest":
@@ -331,13 +329,16 @@ class DanbooruAdapter(BooruAdapter):
         raw = await self._get_json(session, f"{self.base}/posts.json", params={"tags": tags, "page": page, "limit": size, **self.auth_params(credentials)})
         if not isinstance(raw, list):
             raise RuntimeError("danbooru search response must be a list")
-        posts = tuple(post for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist)
-                      for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
+        blocked = _normalize_blacklist(blacklist)
+        candidates = tuple(item for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item))
+        visible = tuple(item for item in candidates if not _is_blacklisted(item, blocked))
+        posts = tuple(post for item in visible for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
+        warnings = ("local-blacklist-filtered",) if len(visible) < len(candidates) else ()
         if _restricted_media_hidden(posts):
             # 受限内容（loli/shota 等）对 Member 级及以下账户整页隐藏媒体地址；继续翻页只会得到
             # 同样的空页，直接结束并给出明确信号，由前端提示配置账户。
-            return GalleryPage((), None, True, ("restricted-media-hidden",), page=page)
-        return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, page=page)
+            return GalleryPage((), None, True, warnings + ("restricted-media-hidden",), page=page)
+        return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, warnings, page)
 
     async def ranking(self, session, period, cursor, limit, credentials, blacklist=()):
         if period not in self.capabilities.ranking_periods:
@@ -349,10 +350,14 @@ class DanbooruAdapter(BooruAdapter):
         })
         if not isinstance(raw, list):
             raise RuntimeError("danbooru ranking response must be a list")
-        posts = tuple(self._summary(item) for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist))
+        blocked = _normalize_blacklist(blacklist)
+        candidates = tuple(item for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item))
+        visible = tuple(item for item in candidates if not _is_blacklisted(item, blocked))
+        posts = tuple(self._summary(item) for item in visible)
+        warnings = ("local-blacklist-filtered",) if len(visible) < len(candidates) else ()
         if _restricted_media_hidden(posts):
-            return GalleryPage((), None, True, ("restricted-media-hidden",), page=page)
-        return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, page=page)
+            return GalleryPage((), None, True, warnings + ("restricted-media-hidden",), page=page)
+        return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, warnings, page)
 
     async def get_post(self, session, post_id, credentials):
         raw = await self._get_json(session, f"{self.base}/posts/{post_id}.json", params=self.auth_params(credentials))
@@ -465,7 +470,7 @@ class GelbooruAdapter(BooruAdapter):
 
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         pid = _int(cursor)
-        tags = _with_blacklist(query, blacklist)
+        tags = query.strip()
         # Gelbooru cannot OR multiple rating metatags; keep that case local so pagination still advances over real pages.
         if len(ratings) == 1:
             tags = f"{tags} rating:{ratings[0]}".strip()
@@ -473,9 +478,12 @@ class GelbooruAdapter(BooruAdapter):
             tags = f"{tags} sort:score:desc".strip()
         size = min(max(1, limit), 100)
         raw = await self._posts(session, {"tags": tags, "pid": pid, "limit": size}, credentials)
-        posts = tuple(post for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item) and not _is_blacklisted(item, blacklist)
-                      for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
-        return GalleryPage(posts, str(pid + 1) if len(raw) == size else None, len(raw) < size, page=pid + 1)
+        blocked = _normalize_blacklist(blacklist)
+        candidates = tuple(item for item in raw if isinstance(item, dict) and item.get("id") and _is_supported_static_post(item))
+        visible = tuple(item for item in candidates if not _is_blacklisted(item, blocked))
+        posts = tuple(post for item in visible for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
+        warnings = ("local-blacklist-filtered",) if len(visible) < len(candidates) else ()
+        return GalleryPage(posts, str(pid + 1) if len(raw) == size else None, len(raw) < size, warnings, pid + 1)
 
     async def get_post(self, session, post_id, credentials):
         raw = await self._posts(session, {"id": post_id, "limit": 1}, credentials)
@@ -690,11 +698,15 @@ class AITagAdapter(BooruAdapter):
         raw = await self._get_json(session, f"{self.base}{path}", params=params)
         if not isinstance(raw, dict) or not isinstance(raw.get("items"), list):
             raise RuntimeError("aitag search response must contain an items list")
-        items = raw["items"]
-        posts = tuple(self._summary(item) for item in items if isinstance(item, dict) and item.get("id") and not _is_blacklisted(item, blacklist))
+        items = tuple(item for item in raw["items"] if isinstance(item, dict) and item.get("id"))
+        blocked = _normalize_blacklist(blacklist)
+        visible = tuple(item for item in items if not _is_blacklisted(item, blocked))
+        posts = tuple(self._summary(item) for item in visible)
         total = _int(raw.get("total"))
         ended = len(items) < size or (total > 0 and page * size >= total)
         warnings = ("AI TAG does not expose rating or categorized tag metadata.",)
+        if len(visible) < len(items):
+            warnings += ("local-blacklist-filtered",)
         return GalleryPage(posts, None if ended else str(page + 1), ended, warnings, page)
 
     async def ranking(self, session, period, cursor, limit, credentials, blacklist=()):
@@ -705,12 +717,16 @@ class AITagAdapter(BooruAdapter):
         raw = await self._get_json(session, f"{self.base}/api/rank/monthly/real", params={"page": page, "page_size": size})
         if not isinstance(raw, dict) or not isinstance(raw.get("items"), list):
             raise RuntimeError("aitag monthly ranking response must contain an items list")
-        items = raw["items"]
-        posts = tuple(self._summary(item) for item in items if isinstance(item, dict) and item.get("id") and not _is_blacklisted(item, blacklist))
+        items = tuple(item for item in raw["items"] if isinstance(item, dict) and item.get("id"))
+        blocked = _normalize_blacklist(blacklist)
+        visible = tuple(item for item in items if not _is_blacklisted(item, blocked))
+        posts = tuple(self._summary(item) for item in visible)
         total = _int(raw.get("total"))
         ended = len(items) < size or (total > 0 and page * size >= total)
-        return GalleryPage(posts, None if ended else str(page + 1), ended,
-                           ("AI TAG does not expose rating or categorized tag metadata.",), page)
+        warnings = ("AI TAG does not expose rating or categorized tag metadata.",)
+        if len(visible) < len(items):
+            warnings += ("local-blacklist-filtered",)
+        return GalleryPage(posts, None if ended else str(page + 1), ended, warnings, page)
 
     async def get_post(self, session, post_id, credentials):
         raw = await self._get_json(session, f"{self.base}/api/work/{post_id}")

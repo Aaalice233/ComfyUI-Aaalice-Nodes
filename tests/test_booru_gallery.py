@@ -146,18 +146,18 @@ class GalleryAdapterTests(unittest.TestCase):
         import asyncio
         asyncio.run(run())
 
-    def test_blacklist_is_adapter_owned_and_exactly_filters_lightweight_results(self):
+    def test_danbooru_blacklist_stays_local_and_exactly_filters_lightweight_results(self):
         async def run():
             adapter = DanbooruAdapter()
             adapter._get_json = AsyncMock(return_value=[
                 {"id": 7, "tag_string": "blue_hair watermark", "preview_file_url": "https://cdn.donmai.us/7.jpg"},
                 {"id": 8, "tag_string": "blue_hair text_focus", "preview_file_url": "https://cdn.donmai.us/8.jpg"},
             ])
-            page = await adapter.search(None, "blue_hair", [], "latest", None, 20, {}, ("watermark", "text"))
+            page = await adapter.search(None, "blue_hair", [], "latest", None, 20, {}, ("WATERMARK", "text"))
             params = adapter._get_json.await_args.kwargs["params"]
-            self.assertIn("-watermark", params["tags"])
-            self.assertIn("-text", params["tags"])
+            self.assertEqual(params["tags"], "blue_hair")
             self.assertEqual([post.post_id for post in page.posts], ["8"])
+            self.assertEqual(page.warnings, ("local-blacklist-filtered",))
         import asyncio
         asyncio.run(run())
 
@@ -188,6 +188,20 @@ class GalleryAdapterTests(unittest.TestCase):
             self.assertNotIn("rating:", adapter._get_json.await_args.kwargs["params"]["tags"])
             await adapter.search(None, "1girl", ["general"], "latest", None, 20, credentials)
             self.assertIn("rating:general", adapter._get_json.await_args.kwargs["params"]["tags"])
+        import asyncio
+        asyncio.run(run())
+
+    def test_gelbooru_family_blacklist_is_not_sent_to_the_site(self):
+        async def run():
+            for adapter, credentials in ((GelbooruAdapter(), {"userId": "42", "apiKey": "secret"}), (SafebooruAdapter(), {})):
+                adapter._get_json = AsyncMock(return_value={"post": [
+                    {"id": 7, "tags": "1girl watermark", "preview_url": "https://gelbooru.com/7.jpg"},
+                    {"id": 8, "tags": "1girl solo", "preview_url": "https://gelbooru.com/8.jpg"},
+                ]})
+                page = await adapter.search(None, "1girl", [], "latest", None, 20, credentials, ("watermark",))
+                self.assertEqual(adapter._get_json.await_args.kwargs["params"]["tags"], "1girl")
+                self.assertEqual([post.post_id for post in page.posts], ["8"])
+                self.assertIn("local-blacklist-filtered", page.warnings)
         import asyncio
         asyncio.run(run())
 
@@ -305,6 +319,8 @@ class GalleryAdapterTests(unittest.TestCase):
             ranking_page = await adapter.ranking(None, "month", None, 60, {}, ("watermark",))
             self.assertEqual([post.post_id for post in search_page.posts], ["43"])
             self.assertEqual([post.post_id for post in ranking_page.posts], ["43"])
+            self.assertIn("local-blacklist-filtered", search_page.warnings)
+            self.assertIn("local-blacklist-filtered", ranking_page.warnings)
             self.assertEqual(adapter._get_json.await_count, 2)
         import asyncio
         asyncio.run(run())
@@ -590,6 +606,15 @@ class GallerySettingsTests(unittest.TestCase):
             reloaded = GallerySettingsStore(path)
             self.assertEqual(reloaded.load()["blacklist"], ["watermark", "text"])
             self.assertNotIn("blacklist", json.dumps(workflow))
+
+    def test_legacy_combined_blacklist_values_split_every_supported_separator(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "gallery.json"
+            value = default_settings()
+            value["blacklist"] = ["pokemon、mario_(series)，mihoyo, zenless_zone_zero\nwatermark"]
+            path.write_text(json.dumps(value), encoding="utf-8")
+            self.assertEqual(GallerySettingsStore(path).load()["blacklist"],
+                             ["pokemon", "mario_(series)", "mihoyo", "zenless_zone_zero", "watermark"])
 
     def test_legacy_prompt_exclusions_migrate_into_the_single_global_blacklist(self):
         with tempfile.TemporaryDirectory() as directory:

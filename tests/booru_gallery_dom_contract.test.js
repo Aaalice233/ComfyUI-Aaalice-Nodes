@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { readStyleEntry } from "./helpers/style_source.js";
+import { filteredPageRefillAction } from "../js/lib/booru_gallery_controller.js";
 import test from "node:test";
 
 const sourcePaths = [
@@ -75,7 +76,7 @@ test("gallery restores every workflow-owned browsing state after configuration",
 	assert.match(source, /node\._aaGalleryController\.setSelectionMode\(state\.selectionMode, \{ persist: false \}\)/);
 	assert.match(source, /node\._aaGalleryController\.search\(\{ reset: true, page: state\.navigation\.page \}\)/);
 	assert.match(source, /loadedGraphNode\(node\) \{ if \(isGallery\(node\)\) \{ setupNodeSafely\(node\); restoreNode\(node\); \} \}/);
-	assert.match(source, /if \(\(!reset && loading\) \|\| \(ended && !reset\)\) return/);
+	assert.match(source, /if \(\(!reset && \(loading \|\| !elements\.continueResults\.hidden\)\) \|\| \(ended && !reset\)\) return/);
 	assert.match(source, /setLoading\(true\);\s*if \(reset\) \{[^}]*masonryController\.setItems\(\[\]/s);
 	assert.match(source, /credentialsRequired[\s\S]*setLoading\(false\);\s*return;/);
 	assert.match(source, /needsCredentials = \(cap\?\.authRequired \|\| \(favoritesFeed && cap\?\.favoriteRead\)\) && !hasSourceCredentials\(state\.source\)/);
@@ -459,8 +460,25 @@ test("gallery status cannot render as an unexplained empty capsule", () => {
 	assert.match(theme, /\.aa-gallery-status\.is-empty > span \{ overflow: visible; text-overflow: clip; white-space: normal;/);
 	assert.match(source, /className: "aa-gallery-status is-error"[^;]*icon\("statusWarning"\)/);
 	assert.match(source, /className: "aa-gallery-status is-end"[^;]*icon\("statusCheck"\)/);
+	assert.match(source, /className: "aa-gallery-status is-filtered"[^;]*continueFiltered/);
+	assert.match(source, /MAX_AUTOMATIC_REFILL_PAGES = 4/);
+	assert.match(source, /filteredPageRefillAction\(resultPage\.warnings, ended, elements\.masonryController\.needsMore\(\), automaticRefillPages, MAX_AUTOMATIC_REFILL_PAGES\)/);
+	assert.match(source, /continueResults\.addEventListener\("click", \(\) => \{ continueResults\.hidden = true; controller\.search\(\); \}\)/);
+	assert.match(theme, /\.aa-gallery-status\.is-filtered \{[^}]*pointer-events: auto;/);
+	assert.equal(enLocale.aaalice.gallery.continueFiltered, "Blocked posts were skipped. Continue searching");
+	assert.equal(zhLocale.aaalice.gallery.continueFiltered, "已跳过多页屏蔽内容，继续查找");
 	assert.match(theme, /\.aa-gallery-status\[hidden\], \.aa-gallery-status:empty \{ display: none !important; \}/);
 	assert.match(theme, /\.aa-gallery-masonry \{[^}]*overflow-x: hidden;[^}]*overflow-y: auto;/);
+});
+
+test("locally filtered pages refill within a fixed automatic budget", () => {
+	const warning = ["local-blacklist-filtered"];
+	assert.equal(filteredPageRefillAction(warning, false, true, 0, 4), "automatic");
+	assert.equal(filteredPageRefillAction(warning, false, true, 3, 4), "automatic");
+	assert.equal(filteredPageRefillAction(warning, false, true, 4, 4), "manual");
+	assert.equal(filteredPageRefillAction(warning, true, true, 0, 4), "none");
+	assert.equal(filteredPageRefillAction([], false, true, 0, 4), "none");
+	assert.equal(filteredPageRefillAction(warning, false, false, 0, 4), "none");
 });
 
 test("tag inputs opt into Autocomplete-Plus and yield keys while its panel is open", () => {

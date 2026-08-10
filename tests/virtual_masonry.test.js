@@ -96,3 +96,8 @@ test("masonry can release mounted cards while its host widget is offscreen", () 
 	assert.match(source, /image\._aaVirtualMasonryRelease\?\.\(\) === true/);
 	assert.match(source, /if \(!preserved\) image\.removeAttribute\("src"\)/);
 });
+
+test("near-end refill reads cached layout geometry without scanning cards", () => {
+	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
+	assert.match(source, /needsMore\(\) \{ return active && layout\.totalHeight - container\.scrollTop - container\.clientHeight <= nearEndDistance; \}/);
+});

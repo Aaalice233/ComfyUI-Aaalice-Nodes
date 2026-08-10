@@ -1,4 +1,9 @@
 /** Stateful browse/selection controller for one mounted Booru Gallery node. */
+export function filteredPageRefillAction(warnings, ended, needsMore, automaticPages, maximumAutomaticPages) {
+	if (ended || !needsMore || !warnings?.includes("local-blacklist-filtered")) return "none";
+	return automaticPages < maximumAutomaticPages ? "automatic" : "manual";
+}
+
 export function createGalleryControllerFactory(dependencies) {
 	const {
 		API, GALLERY_CATEGORIES, STATIC_EXTENSIONS,
@@ -13,7 +18,8 @@ export function createGalleryControllerFactory(dependencies) {
 	} = dependencies;
 
 return function buildController(node, elements) {
-	let posts = []; let knownPostKeys = new Set(); let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; let detailDialogGeneration = 0; let destroyed = false; let activeDetailDialog = null; const sessionEdits = new Map();
+	let posts = []; let knownPostKeys = new Set(); let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; let automaticRefillPages = 0; let detailDialogGeneration = 0; let destroyed = false; let activeDetailDialog = null; const sessionEdits = new Map();
+	const MAX_AUTOMATIC_REFILL_PAGES = 4;
 	const detailCache = new Map(); const previewCache = new Map(); let previewGeneration = 0; let previewPrefetchActive = 0; const previewPrefetchQueue = []; const previewPrefetchPending = new Set(); const prefetchedPreviewSources = new Map();
 	const touchCache = (cache, key, value) => { cache.delete(key); cache.set(key, value); return value; };
 	const trimCache = (cache, maximum) => { while (cache.size > maximum) cache.delete(cache.keys().next().value); };
@@ -212,8 +218,9 @@ return function buildController(node, elements) {
 		clearTimeout(pageCommitTimer);
 		pageCommitTimer = setTimeout(() => { pageCommitTimer = 0; node.graph?.change?.(); }, 250);
 	};
-	const search = async ({ reset = false, page = null } = {}) => {
-		if ((!reset && loading) || (ended && !reset)) return;
+	const search = async ({ reset = false, page = null, automaticRefill = false } = {}) => {
+		if ((!reset && (loading || !elements.continueResults.hidden)) || (ended && !reset)) return;
+		if (!automaticRefill) { automaticRefillPages = 0; elements.continueResults.hidden = true; }
 		const requestedPage = reset ? Math.max(1, Math.floor(Number(page ?? stateFor(node).navigation.page) || 1)) : null;
 		// Mark the request active before clearing the masonry. setItems() draws synchronously
 		// and may report near-end; that callback must not start a competing first-page request.
@@ -231,6 +238,7 @@ return function buildController(node, elements) {
 			setLoading(false);
 			return;
 		}
+		let continueAutomatically = false;
 		try {
 			const favorites = state.filters.feed === "favorites";
 			const params = new URLSearchParams({ source: state.source, limit: "60" });
@@ -246,17 +254,24 @@ return function buildController(node, elements) {
 			});
 			const start = posts.length; posts.push(...additions); pageSegments.push({ page: Math.max(1, Number(resultPage.page) || requestedPage || pageSegments.at(-1)?.page + 1 || 1), start, end: posts.length }); elements.masonryController.append(additions);
 			nextCursor = resultPage.nextCursor || null; ended = Boolean(resultPage.ended || !nextCursor);
-		const noResults = ended && !posts.length;
-		elements.end.hidden = !ended || noResults; elements.emptyResults.hidden = !noResults;
-		if (noResults) {
-			const anonymousHidden = (resultPage.warnings || []).includes("restricted-media-hidden");
-			elements.emptyResults.querySelector("span").textContent = anonymousHidden
-				? label("warning.restrictedMediaHidden", "Danbooru hides loli/shota posts from member and anonymous accounts; only Builder-level and above can view them.")
-				: label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags.");
-		}
-		clearError();
+			const noResults = ended && !posts.length;
+			elements.end.hidden = !ended || noResults; elements.emptyResults.hidden = !noResults;
+			if (noResults) {
+				const anonymousHidden = (resultPage.warnings || []).includes("restricted-media-hidden");
+				elements.emptyResults.querySelector("span").textContent = anonymousHidden
+					? label("warning.restrictedMediaHidden", "Danbooru hides loli/shota posts from member and anonymous accounts; only Builder-level and above can view them.")
+					: label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags.");
+			}
+			const refillAction = filteredPageRefillAction(resultPage.warnings, ended, elements.masonryController.needsMore(), automaticRefillPages, MAX_AUTOMATIC_REFILL_PAGES);
+			if (refillAction === "automatic") { automaticRefillPages += 1; continueAutomatically = true; }
+			elements.continueResults.hidden = refillAction !== "manual";
+			clearError();
 		} catch (error) { if (error.name !== "AbortError") showError(error); }
-		finally { if (currentGeneration === generation) setLoading(false); }
+		finally {
+			if (currentGeneration !== generation) return;
+			setLoading(false);
+			if (continueAutomatically && !destroyed) void search({ automaticRefill: true });
+		}
 	};
 	const visibleIndexChanged = (index) => {
 		// 页段按起始下标有序排列；滚动定位在页码数量增长后仍保持对数查找。

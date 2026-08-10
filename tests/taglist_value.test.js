@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 import { normalizeTagListValue, parseTagListValue, tagToneIndexes } from "../js/lib/taglist_value.js";
 import { CONTROL_TONE_COUNT, stableToneIndexes } from "../js/lib/control_tones.js";
 
-test("tag lists accept English commas, Chinese commas and line breaks", () => {
+test("tag lists accept English commas, Chinese separators and line breaks", () => {
 	assert.deepEqual(
-		parseTagListValue("测试1, 测试2，测试3\r\n测试4\n\n测试5"),
-		["测试1", "测试2", "测试3", "测试4", "测试5"],
+		parseTagListValue("测试1, 测试2，测试3、测试4\r\n测试5\n\n测试6"),
+		["测试1", "测试2", "测试3", "测试4", "测试5", "测试6"],
 	);
 });
 

@@ -16,7 +16,7 @@ export function normalizeTagListValue(value) {
 
 export function parseTagListValue(value) {
 	return String(value ?? "")
-		.split(/[,，\r\n]+/u)
+		.split(/[,，、\r\n]+/u)
 		.map((item) => item.trim())
 		.filter(Boolean);
 }

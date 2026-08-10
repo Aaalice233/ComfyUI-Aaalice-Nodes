@@ -4,6 +4,7 @@ import { api } from "../../scripts/api.js";
 import { ensureI18nReady, currentLocale, t } from "./i18n.js";
 import { defaultGalleryRatings, finalPrompt, galleryPayload, GALLERY_CATEGORIES, normalizeGalleryState, normalizeTagGroups, selectionFromDetail, selectionKey } from "./lib/booru_gallery_model.js";
 import { streamTagTranslations } from "./lib/tag_translation.js";
+import { parseTagListValue } from "./lib/taglist_value.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
@@ -253,7 +254,7 @@ async function copyImageToClipboard(src) {
 	} finally { bitmap.close(); }
 }
 function searchQuery(state) { return state.query.trim(); }
-function tagLines(value) { return [...new Set(String(value || "").split(/\n/).map((tag) => tag.trim()).filter(Boolean))]; }
+function tagLines(value) { return [...new Set(parseTagListValue(value))]; }
 
 function selectionContainsTag(selection, tag) {
 	const target = String(tag).toLocaleLowerCase();
@@ -451,6 +452,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const errorLabel = el("span");
 	const error = el("button", { className: "aa-gallery-status is-error", attrs: { type: "button", "aria-live": "assertive" }, children: [icon("statusWarning"), errorLabel] }); error.hidden = true;
 	const end = el("div", { className: "aa-gallery-status is-end", attrs: { role: "status" }, children: [icon("statusCheck"), el("span", null, label("end", "End of results"))] }); end.hidden = true;
+	const continueResults = el("button", { className: "aa-gallery-status is-filtered", attrs: { type: "button" }, children: [icon("search"), el("span", null, label("continueFiltered", "Blocked posts were skipped. Continue searching"))] }); continueResults.hidden = true;
 	const emptyResults = el("div", { className: "aa-gallery-status is-empty", attrs: { role: "status" }, children: [icon("search"), el("span", null, label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags."))] }); emptyResults.hidden = true;
 	const selected = el("div", "aa-gallery-selected"); const selectedListRoot = el("div", { className: "aa-gallery-selected__list", attrs: { tabindex: 0 } });
 	focusScrollableOnPointerEnter(selectedListRoot);
@@ -469,7 +471,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const emptySelected = el("div", { className: "aa-gallery-selected__empty", children: [el("span", { className: "aa-gallery-selected__empty-icon", children: [icon("statusCheck")] }), el("strong", null, label("selected.emptyTitle", "Build your output set")), el("p", null, label("selected.empty", "Select posts from the waterfall to build an ordered output."))] });
 	selected.append(selectedListRoot, emptySelected);
 	document.body.append(selectedDropIndicator);
-	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end, emptyResults] }), selected);
+	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end, continueResults, emptyResults] }), selected);
 	let controller = null;
 	const elements = {
 		root,
@@ -478,6 +480,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		error,
 		errorLabel,
 		end,
+		continueResults,
 		emptyResults,
 		tabs,
 		selectionMode,
@@ -537,6 +540,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		if ((cap?.authRequired || (feed === "favorites" && cap?.favoriteRead)) && !hasSourceCredentials(sourceName)) openGallerySettings();
 		else controller.search();
 	});
+	continueResults.addEventListener("click", () => { continueResults.hidden = true; controller.search(); });
 	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
 	const previousResize = node.onResize; node.onResize = function (size) {
