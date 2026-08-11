@@ -52,6 +52,26 @@ function uniqueBindings(dashboard) {
 	return { bindings, conflicts };
 }
 
+export function dashboardPresetIssueLocations(dashboard, issue) {
+	const issueKey = issue?.binding ? bindingKey(issue.binding) : String(issue?.key || "");
+	if (!issueKey) return [];
+	const locations = [];
+	for (const page of dashboard?.pages || []) for (const item of page.items || []) {
+		if (item.kind !== "control") continue;
+		const bindings = controlItemBindings(item); const bindingIndex = bindings.findIndex((binding) => bindingKey(binding) === issueKey);
+		if (bindingIndex < 0) continue;
+		const group = (page.groups || []).find((candidate) => candidate.id === item.groupId) || null;
+		const parameterLabel = String(issue?.resolved?.label || bindingControlIdLabel(bindings[bindingIndex])).trim();
+		const savedComponentLabel = String(item.labelOverride ?? item.label ?? "").trim();
+		locations.push({
+			pageName: String(page.name || "").trim(), groupName: String(group?.nameOverride ?? group?.name ?? "").trim(),
+			componentLabel: savedComponentLabel || (bindingIndex === 0 ? parameterLabel : bindingControlIdLabel(item.binding)),
+			parameterLabel, linked: bindingIndex > 0,
+		});
+	}
+	return locations;
+}
+
 function semanticText(value) { return String(value || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase(); }
 function cardLabels(item) {
 	return new Set([item.labelOverride, item.labelSource, item.label].map(semanticText).filter(Boolean));

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
-import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, mergeDashboardPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../js/lib/dashboard_preset_runtime.js";
+import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssueLocations, mergeCapturedPresetValues, mergeDashboardPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../js/lib/dashboard_preset_runtime.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "../js/lib/seed_preset.js";
 
 const binding = (controlId, valueType = "number") => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType });
@@ -323,6 +323,21 @@ test("linked targets surface missing and invalid values in application issues", 
 		[bindingKey(invalid), "invalid"],
 	]);
 	assert.equal(plan.issues[1].reason, "invalid-linked-value");
+});
+
+test("preset issues resolve to human-readable sidebar component locations", () => {
+	const primary = binding("model"); const linked = binding("linked-model"); const layout = dashboard(primary);
+	const item = layout.pages[0].items[0];
+	layout.pages[0].name = "Upscaling";
+	layout.pages[0].groups = [{ id: "upscaler", name: "SeedVR2", nameOverride: "Sharpener", layout: { row: 0, column: 0, columnSpan: 12, rowSpan: 13 } }];
+	item.groupId = "upscaler"; item.label = "Model"; item.labelOverride = "SeedVR2 model"; item.linkedBindings = [linked];
+	assert.deepEqual(dashboardPresetIssueLocations(layout, { binding: linked, resolved: { label: "UNET name" } }), [{
+		pageName: "Upscaling", groupName: "Sharpener", componentLabel: "SeedVR2 model", parameterLabel: "UNET name", linked: true,
+	}]);
+	const mirrored = dashboardPresetIssueLocations(layout, { binding: primary, resolved: { label: "Current model label" } });
+	assert.equal(mirrored.length, 2);
+	assert.deepEqual(mirrored[0], { pageName: "Upscaling", groupName: "Sharpener", componentLabel: "SeedVR2 model", parameterLabel: "Current model label", linked: false });
+	assert.deepEqual(dashboardPresetIssueLocations(layout, { key: "removed-binding" }), []);
 });
 
 test("preset application resolves each unique linked binding once and rolls all targets back", () => {

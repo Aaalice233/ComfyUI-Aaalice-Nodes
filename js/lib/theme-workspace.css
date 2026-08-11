@@ -213,12 +213,12 @@
 .aa-value-preset-switch-warning strong { color: var(--aa-ui-text); font-size: 12px; }
 .aa-value-preset-switch-warning p, .aa-value-preset-review > p { margin: 0; color: var(--aa-ui-muted); font-size: 10.5px; line-height: 1.55; }
 .aa-value-preset-review { display: flex; flex-direction: column; gap: 12px; }
-.aa-value-preset-issues { display: flex; max-height: 220px; flex-direction: column; gap: 4px; overflow-y: auto; }
-.aa-value-preset-issue { display: flex; min-height: 34px; box-sizing: border-box; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border: 1px solid var(--aa-ui-border-soft); border-radius: 7px; background: color-mix(in srgb, var(--aa-ui-control) 66%, transparent); }
-.aa-value-preset-issue > div { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 1px; }
-.aa-value-preset-issue strong, .aa-value-preset-issue small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aa-value-preset-issue strong { color: var(--aa-ui-text); font-size: 10px; font-weight: 620; }
-.aa-value-preset-issue small { color: var(--aa-ui-muted); font-size: 10px; }
+.aa-value-preset-issues { display: flex; max-height: 260px; flex-direction: column; gap: 6px; overflow-y: auto; }
+.aa-value-preset-issue { display: flex; min-height: 58px; box-sizing: border-box; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--aa-ui-warning) 22%, var(--aa-ui-border-soft)); border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-warning) 5%, var(--aa-ui-control)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--aa-ui-warning) 56%, transparent); }
+.aa-value-preset-issue > div { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.aa-value-preset-issue strong { min-width: 0; overflow-wrap: anywhere; color: var(--aa-ui-text); font-size: 11.5px; font-weight: 650; line-height: 1.35; }
+.aa-value-preset-issue__location { min-width: 0; overflow-wrap: anywhere; color: color-mix(in srgb, var(--aa-ui-text) 72%, var(--aa-ui-muted)); font-size: 10px; line-height: 1.4; }
+.aa-value-preset-issue small { min-width: 0; overflow-wrap: anywhere; color: var(--aa-ui-muted); font-size: 10.5px; line-height: 1.45; }
 .aa-library-toolbar > :first-child, .aa-dashboard-edit-toggle:first-child { margin-right: auto; }
 .aa-dashboard-toolbar.is-searching .aa-dashboard-toolbar__row--context { opacity: .88; }
 .aa-dashboard-page-heading {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createBindingTargetMatcher, createControlBindingMatcher, sameBindingTarget } from "../js/lib/dashboard_binding_identity.js";
+import { createBindingTargetMatcher, createControlBindingMatcher, isModelResourceBinding, sameBindingTarget } from "../js/lib/dashboard_binding_identity.js";
 
 const binding = (controlId, overrides = {}) => ({
 	provider: "subgraph-widget",
@@ -74,4 +74,15 @@ test("bindingControlIdLabel renders promoted tuples as readable source names", a
 	assert.equal(bindingControlIdLabel({ controlId: "steps" }), "steps");
 	assert.equal(bindingControlIdLabel({ controlId: "promoted:not-json" }), "promoted:not-json");
 	assert.equal(bindingControlIdLabel({}), "");
+});
+
+test("model resource bindings are identified without treating ordinary combos as model files", () => {
+	assert.equal(isModelResourceBinding(binding('promoted:["4","unet_name",null]'), "custom-model"), true);
+	assert.equal(isModelResourceBinding(binding("clip_name3"), "text-encoder"), true);
+	assert.equal(isModelResourceBinding(binding("custom_choice"), "weights/model.gguf"), true);
+	assert.equal(isModelResourceBinding(binding("custom_choice"), "weights/model.safetensors"), true);
+	assert.equal(isModelResourceBinding(binding("custom_choice"), "model-without-extension", "Checkpoint name"), true);
+	assert.equal(isModelResourceBinding(binding("sampler_name"), "euler"), false);
+	assert.equal(isModelResourceBinding(binding("model_type"), "flux"), false);
+	assert.equal(isModelResourceBinding(binding("image"), "example.png"), false);
 });

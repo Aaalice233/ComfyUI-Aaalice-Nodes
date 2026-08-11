@@ -79,3 +79,11 @@ export function bindingControlIdLabel(binding) {
 	}
 	return controlId;
 }
+
+const MODEL_RESOURCE_CONTROL_NAME = /^(?:(?:ckpt|checkpoint|unet|diffusion|transformer|vae|clip(?:_vision)?|lora|control_?net|gligen|hypernetwork|embedding|text_encoder|vision_encoder|audio_encoder)(?:_model)?(?:_name)?\d*|(?:style|upscale|latent_upscale|photomaker|sam|yolo|grounding_dino)(?:_model)?(?:_name)?|model_name|(?:ipadapter|instantid|pulid)(?:_model)?(?:_name|_file)?)$/i;
+const MODEL_RESOURCE_FILE = /\.(?:safetensors|ckpt|pt|pth|bin|gguf|onnx|engine|t7|pkl|model)$/i;
+
+export function isModelResourceBinding(binding, savedValue = null, parameterLabel = "") {
+	const names = [bindingControlIdLabel(binding), parameterLabel].map((value) => String(value || "").trim().replace(/[\s-]+/g, "_"));
+	return (typeof savedValue === "string" && MODEL_RESOURCE_FILE.test(savedValue.trim())) || names.some((name) => MODEL_RESOURCE_CONTROL_NAME.test(name));
+}

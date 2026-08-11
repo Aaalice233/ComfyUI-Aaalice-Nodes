@@ -1,9 +1,9 @@
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
-import { bindingControlIdLabel } from "../lib/dashboard_binding_identity.js";
+import { bindingControlIdLabel, isModelResourceBinding } from "../lib/dashboard_binding_identity.js";
 import { bindingKey, controlItemBindings, emptyDashboard, normalizeDashboard } from "../lib/dashboard_model.js";
 import { availableDashboardPresetName, compareDashboardPreset, createDashboardPreset, dashboardPresetFileName, dashboardPresetNameFromFile, dashboardPresetStateNeedsMigration, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPresetForImport, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
-import { applyDashboardSnapshotPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../lib/dashboard_preset_runtime.js";
+import { applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssueLocations, mergeCapturedPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../lib/dashboard_preset_runtime.js";
 import { badge, button, createDialog, el, field, icon, segmentedControl, selectControl } from "../lib/ui.js";
 import { createTransferHero, createTransferResult, createTransferSection, createTransferStats, formatFileSize } from "../lib/workspace_components.js";
 import { confirmAction, downloadBlob, setActionBusy, setDialogFooter } from "./dom_utils.js";
@@ -226,16 +226,33 @@ function confirmDashboardPresetSwitch(activePreset = null) {
 	});
 }
 
-function dashboardPresetIssueReason(entry) {
+function dashboardPresetIssueReason(entry, modelResource = false) {
+	const value = ["string", "number", "boolean"].includes(typeof entry.saved?.payload) ? String(entry.saved.payload) : "";
 	const reasons = {
+		"missing-option": t(modelResource ? "aaalice.workspace.dashboardPreset.reasonMissingModelOption" : "aaalice.workspace.dashboardPreset.reasonMissingOption", modelResource ? "The saved model “{value}” is not in this parameter's current model list. Check that the model file still exists in the matching model location scanned by ComfyUI and that its name and path match the preset. If it already exists, refresh the ComfyUI page and switch presets again. The current workflow value will be kept." : "The saved option “{value}” is no longer in this parameter's list. The current workflow value will be kept.").replaceAll("{value}", () => value),
+		"below-minimum": t("aaalice.workspace.dashboardPreset.reasonBelowMinimum", "The saved number is below this parameter's current minimum. The current workflow value will be kept."),
+		"above-maximum": t("aaalice.workspace.dashboardPreset.reasonAboveMaximum", "The saved number is above this parameter's current maximum. The current workflow value will be kept."),
 		"ambiguous-semantic-match": t("aaalice.workspace.dashboardPreset.reasonAmbiguous", "Several components could match, so no value was guessed."),
-		"value-type-mismatch": t("aaalice.workspace.dashboardPreset.reasonTypeChanged", "This control now uses a different value type."),
-		"conflicting-value-type": t("aaalice.workspace.dashboardPreset.reasonTypeConflict", "This target has conflicting value types."),
-		"invalid-value": t("aaalice.workspace.dashboardPreset.reasonRejected", "This control no longer accepts the saved value."),
+		"value-type-mismatch": t("aaalice.workspace.dashboardPreset.reasonTypeChanged", "This parameter now uses a different value type. The current workflow value will be kept."),
+		"conflicting-value-type": t("aaalice.workspace.dashboardPreset.reasonTypeConflict", "This target has conflicting value types, so its saved value was skipped."),
 		"invalid-preset-value": t("aaalice.workspace.dashboardPreset.reasonDamaged", "This saved value is damaged and was skipped."),
 		"invalid-preset-key": t("aaalice.workspace.dashboardPreset.reasonDamaged", "This saved value is damaged and was skipped."),
 	};
-	return reasons[entry.reason] || entry.reason || "";
+	const statusReasons = { missing: t("aaalice.workspace.dashboardPreset.reasonMissing", "The original parameter is not available in the current workflow. Rebind this component before restoring its value."), incompatible: t("aaalice.workspace.dashboardPreset.reasonIncompatible", "The parameter contract has changed. The current workflow value will be kept."), unused: t("aaalice.workspace.dashboardPreset.reasonUnused", "This value belongs to a component that is no longer on the sidebar and will be skipped."), empty: t("aaalice.workspace.dashboardPreset.reasonEmpty", "This parameter currently has no available options. The current workflow value will be kept."), unset: t("aaalice.workspace.dashboardPreset.reasonUnset", "This parameter currently has no value to restore."), unavailable: t("aaalice.workspace.dashboardPreset.reasonUnavailable", "This parameter is temporarily unavailable. The current workflow value will be kept."), error: t("aaalice.workspace.dashboardPreset.reasonControlError", "This parameter could not be read safely. The current workflow value will be kept."), invalid: t("aaalice.workspace.dashboardPreset.reasonRejected", "This parameter no longer accepts the saved value. The current workflow value will be kept.") };
+	return reasons[entry.reason] || statusReasons[entry.status] || t("aaalice.workspace.dashboardPreset.reasonUnknown", "This saved value cannot be restored safely and will be skipped.");
+}
+
+function dashboardPresetIssueView(entry, dashboard) {
+	const locations = dashboardPresetIssueLocations(dashboard, entry); const location = locations[0] || null;
+	const modelResource = entry.reason === "missing-option" && isModelResourceBinding(entry.binding, entry.saved?.payload, location?.parameterLabel || entry.resolved?.label);
+	const fallbackLabel = entry.binding ? bindingControlIdLabel(entry.binding) : t("aaalice.workspace.dashboardPreset.removedComponent", "Removed sidebar component");
+	const componentLabel = location?.componentLabel || entry.resolved?.label || fallbackLabel;
+	const details = [];
+	if (location?.pageName) details.push(t("aaalice.workspace.dashboardPreset.locationPage", "Page “{page}”").replaceAll("{page}", () => location.pageName));
+	if (location?.groupName) details.push(t("aaalice.workspace.dashboardPreset.locationGroup", "Group “{group}”").replaceAll("{group}", () => location.groupName));
+	if (location?.parameterLabel && location.parameterLabel !== componentLabel) details.push(t("aaalice.workspace.dashboardPreset.locationParameter", "Parameter “{parameter}”").replaceAll("{parameter}", () => location.parameterLabel));
+	if (locations.length > 1) details.push(t("aaalice.workspace.dashboardPreset.locationMore", "+{count} more locations").replaceAll("{count}", () => String(locations.length - 1)));
+	return { componentLabel, location: details.join(" · "), reason: dashboardPresetIssueReason(entry, modelResource), modelResource };
 }
 
 function confirmPartialDashboardPreset(plan, preset) {
@@ -244,13 +261,10 @@ function confirmPartialDashboardPreset(plan, preset) {
 		const finish = (confirmed) => { if (settled) return; settled = true; dialog.close(); resolveConfirmed(confirmed); };
 		const availability = workspaceLabels().availability;
 		const labels = { missing: t("aaalice.workspace.binding.missing", "Missing"), incompatible: t("aaalice.workspace.binding.incompatible", "Incompatible"), invalid: t("aaalice.workspace.dashboardPreset.invalid", "Invalid value"), ambiguous: t("aaalice.workspace.dashboardPreset.ambiguous", "Needs review"), unused: t("aaalice.workspace.dashboardPreset.unused", "Not on sidebar"), "layout-only": t("aaalice.workspace.dashboardPreset.layoutOnly", "Layout only"), empty: availability.noOptions, unset: availability.unset, unavailable: availability.unavailable, error: availability.error };
-		const rows = plan.issues.map((entry) => {
-			const reason = dashboardPresetIssueReason(entry);
-			return el("div", { className: "aa-value-preset-issue", children: [
-				el("div", { children: [el("strong", null, entry.binding?.controlId || entry.key), ...(reason ? [el("small", null, reason)] : [])] }),
-				badge(labels[entry.status] || entry.status, { className: "is-warning" }),
-			] });
-		});
+		const rows = plan.issues.map((entry) => { const view = dashboardPresetIssueView(entry, plan.dashboard); return el("div", { className: "aa-value-preset-issue", children: [
+			el("div", { children: [el("strong", null, view.componentLabel), ...(view.location ? [el("span", { className: "aa-value-preset-issue__location" }, view.location)] : []), el("small", null, view.reason)] }),
+			badge(view.modelResource ? t("aaalice.workspace.dashboardPreset.modelUnavailable", "Model not listed") : entry.reason === "missing-option" ? t("aaalice.workspace.dashboardPreset.optionUnavailable", "Option unavailable") : labels[entry.status] || t("aaalice.workspace.dashboardPreset.attention", "Needs attention"), { className: "is-warning" }),
+		] }); });
 		const body = el("div", { className: "aa-value-preset-review", children: [
 			el("p", null, t("aaalice.workspace.dashboardPreset.partialHint", "Some controls cannot be restored safely. Review them before applying the compatible layout and values.")),
 			el("div", { className: "aa-value-preset-issues", children: rows }),
