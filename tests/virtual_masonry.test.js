@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { VirtualMasonryLayout, masonryColumnCount } from "../js/lib/virtual_masonry.js";
+import { VirtualMasonryLayout, masonryColumnCount, mountVirtualMasonry } from "../js/lib/virtual_masonry.js";
 
 function posts(count) { return Array.from({ length: count }, (_, index) => ({ source: "mock", postId: String(index), width: 400 + (index % 7) * 70, height: 300 + (index % 11) * 90 })); }
 
@@ -100,4 +100,45 @@ test("masonry can release mounted cards while its host widget is offscreen", () 
 test("near-end refill reads cached layout geometry without scanning cards", () => {
 	const source = readFileSync(new URL("../js/lib/virtual_masonry.js", import.meta.url), "utf8");
 	assert.match(source, /needsMore\(\) \{ return active && layout\.totalHeight - container\.scrollTop - container\.clientHeight <= nearEndDistance; \}/);
+});
+
+test("near-end can be rechecked without scrolling away from the boundary", () => {
+	const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+	const element = () => ({
+		className: "",
+		classList: { add() {} },
+		dataset: {},
+		style: {},
+		append() {},
+		querySelector() { return null; },
+		remove() {},
+	});
+	Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: element } });
+	const container = {
+		clientWidth: 300,
+		clientHeight: 500,
+		scrollTop: 0,
+		classList: { add() {} },
+		replaceChildren() {},
+		addEventListener() {},
+		removeEventListener() {},
+	};
+	let nearEndCalls = 0;
+	try {
+		const controller = mountVirtualMasonry(container, {
+			renderItem: element,
+			onNearEnd: () => { nearEndCalls += 1; },
+		});
+		nearEndCalls = 0;
+		controller.append([{ source: "mock", postId: "short", width: 1, height: 1 }]);
+		assert.equal(nearEndCalls, 1);
+		controller.refresh();
+		assert.equal(nearEndCalls, 1, "ordinary redraw remains disarmed at the same boundary");
+		controller.recheckNearEnd();
+		assert.equal(nearEndCalls, 2, "settled page load can replay the consumed boundary signal");
+		controller.destroy();
+	} finally {
+		if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+		else delete globalThis.document;
+	}
 });

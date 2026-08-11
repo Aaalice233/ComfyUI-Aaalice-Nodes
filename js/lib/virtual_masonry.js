@@ -126,6 +126,7 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 		updateItemSize(key, width, height) { if (layout.updateItemSize(key, width, height)) { sizesDirty = true; schedule(); } },
 		setActive(nextActive) { const next = Boolean(nextActive); if (next === active) return; active = next; if (!active) { if (frame) cancelAnimationFrame(frame); frame = 0; clearMounted(); return; } draw(true); schedule(); },
 		refresh() { draw(true); },
+		recheckNearEnd() { nearEndArmed = true; draw(); },
 		needsMore() { return active && layout.totalHeight - container.scrollTop - container.clientHeight <= nearEndDistance; },
 		get active() { return active; }, get mountedCount() { return mounted.size; }, get layout() { return layout; },
 		destroy() { if (destroyed) return; destroyed = true; if (frame) cancelAnimationFrame(frame); container.removeEventListener("scroll", schedule); resizeObserver?.disconnect(); clearMounted(); spacer.remove(); if (container._aaaliceVirtualMasonry === controller) delete container._aaaliceVirtualMasonry; },

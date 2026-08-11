@@ -238,7 +238,7 @@ return function buildController(node, elements) {
 			setLoading(false);
 			return;
 		}
-		let continueAutomatically = false;
+		let continueAutomatically = false; let pageLoaded = false;
 		try {
 			const favorites = state.filters.feed === "favorites";
 			const params = new URLSearchParams({ source: state.source, limit: "60" });
@@ -265,12 +265,14 @@ return function buildController(node, elements) {
 			const refillAction = filteredPageRefillAction(resultPage.warnings, ended, elements.masonryController.needsMore(), automaticRefillPages, MAX_AUTOMATIC_REFILL_PAGES);
 			if (refillAction === "automatic") { automaticRefillPages += 1; continueAutomatically = true; }
 			elements.continueResults.hidden = refillAction !== "manual";
-			clearError();
+			clearError(); pageLoaded = true;
 		} catch (error) { if (error.name !== "AbortError") showError(error); }
 		finally {
 			if (currentGeneration !== generation) return;
 			setLoading(false);
+			// append() 会同步上报 near-end；游标状态落定后重放被 loading guard 吃掉的信号。
 			if (continueAutomatically && !destroyed) void search({ automaticRefill: true });
+			else if (pageLoaded && !ended && elements.continueResults.hidden && !destroyed) elements.masonryController.recheckNearEnd();
 		}
 	};
 	const visibleIndexChanged = (index) => {

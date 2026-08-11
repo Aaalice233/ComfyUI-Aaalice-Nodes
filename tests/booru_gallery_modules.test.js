@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import test from "node:test";
 
+import { createGalleryControllerFactory } from "../js/lib/booru_gallery_controller.js";
 import { createGalleryDialogs } from "../js/lib/booru_gallery_dialogs.js";
 
 const sources = Object.fromEntries([
@@ -99,4 +100,55 @@ test("gallery interrogation dialog uses explicit proxy and app dependencies at r
 		if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
 		else delete globalThis.navigator;
 	}
+});
+
+test("gallery replays a near-end request after the current page settles", async () => {
+	const state = { source: "gelbooru", filters: { feed: "search", sort: "newest", ratings: [] }, navigation: { page: 1 } };
+	let controller = null;
+	let requestCount = 0;
+	let resolveSecondRequest;
+	const secondRequest = new Promise((resolve) => { resolveSecondRequest = resolve; });
+	const requestNearEnd = () => controller?.search();
+	const masonryController = {
+		setItems() { requestNearEnd(); },
+		append() { requestNearEnd(); },
+		needsMore() { return true; },
+		recheckNearEnd() { requestNearEnd(); },
+		updateItemSize() {},
+		destroy() {},
+	};
+	const elements = {
+		continueResults: { hidden: true },
+		loading: { hidden: true },
+		pageControl: { setBusy() {}, setPage() {} },
+		end: { hidden: true },
+		emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) },
+		error: { hidden: true, classList: { toggle() {} } },
+		errorLabel: { textContent: "" },
+		masonryController,
+		selectedDropIndicator: null,
+		selectedList: { destroy() {} },
+	};
+	const buildController = createGalleryControllerFactory({
+		API: "/gallery",
+		capability: () => ({ authRequired: false }),
+		createTooltip: () => ({ hide() {}, destroy() {} }),
+		hasSourceCredentials: () => true,
+		jsonRequest: async (url) => {
+			requestCount += 1;
+			if (requestCount === 1) return { page: 1, posts: [{ source: "gelbooru", postId: "1", previewUrl: "https://example.test/1.jpg", width: 1, height: 1 }], nextCursor: "next", ended: false, warnings: [] };
+			assert.match(url, /cursor=next/);
+			resolveSecondRequest();
+			return { page: 2, posts: [], nextCursor: null, ended: true, warnings: [] };
+		},
+		label: (_key, fallback) => fallback,
+		searchQuery: () => "",
+		stateFor: () => state,
+	});
+	controller = buildController({ graph: { change() {} } }, elements);
+	await controller.search({ reset: true, page: 1 });
+	await secondRequest;
+	await new Promise((resolve) => setImmediate(resolve));
+	assert.equal(requestCount, 2, "the near-end callback consumed during append must run again after loading clears");
+	controller.destroy();
 });
