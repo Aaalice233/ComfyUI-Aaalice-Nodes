@@ -71,7 +71,7 @@ test("selected count and clear action live in the main toolbar", () => {
 	assert.match(toolbarSource, /className: "aa-gallery-view-switcher__count"/);
 	assert.match(toolbarSource, /tabs\.querySelector\('\[data-value="selected"\]'\)\?\.append\(selectedCount\)/);
 	assert.match(toolbarSource, /children: \[source, tabs, selectionMode,/);
-	assert.match(toolbarSource, /children: \[refresh, clear, openSettings\]/);
+	assert.match(toolbarSource, /children: \[randomMode, refresh, clear, openSettings\]/);
 	assert.match(source, /elements\.selectedCount\.textContent = String\(count\)/);
 	assert.match(theme, /\.aa-gallery-view-switcher__count \{[^}]*min-width: 18px;[^}]*border: 0;[^}]*font-size: 10px;[^}]*font-weight: 800/);
 	const countStyle = theme.match(/\.aa-gallery-view-switcher__count \{([^}]*)\}/)?.[1] || "";

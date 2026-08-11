@@ -19,6 +19,7 @@ from PIL import Image, ImageOps
 
 from .adapters import ADAPTERS, GalleryPage, GalleryPostDetail, adapter_for, rating_matches
 from .media import MediaProxy
+from .random_sampling import sample_favorites, sample_ranking, sample_search
 from .settings import get_gallery_settings_store
 
 T = TypeVar("T")
@@ -100,6 +101,8 @@ class GalleryService:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir
         self.search_cache: TTLCache[Any] = TTLCache(64, 300)
+        self.normalized_query_cache: TTLCache[str] = TTLCache(64, 300)
+        self.random_count_cache: TTLCache[int] = TTLCache(64, 300)
         self.detail_cache: TTLCache[GalleryPostDetail] = TTLCache(512, 86400)
         self.tag_cache = TagCategoryCache(cache_dir / "tag_categories.sqlite3")
         self._media = MediaProxy(cache_dir)
@@ -115,12 +118,13 @@ class GalleryService:
         return tuple(get_gallery_settings_store().load()["blacklist"])
 
     async def search(self, source: str, query: str, ratings: list[str], sort: str,
-                     cursor: str | None, limit: int, page: int | None = None) -> dict[str, Any]:
+                     cursor: str | None, limit: int, page: int | None = None,
+                     random_mode: bool = False) -> dict[str, Any]:
         adapter = adapter_for(source)
         invalid_ratings = set(ratings) - set(adapter.capabilities.ratings)
         if invalid_ratings:
             raise ValueError(f"{source} does not support ratings: {', '.join(sorted(invalid_ratings))}")
-        if page is not None:
+        if page is not None and not random_mode:
             if not adapter.capabilities.page_jump:
                 raise ValueError(f"{source} does not support direct page navigation")
             cursor = adapter.cursor_for_page(page)
@@ -128,39 +132,51 @@ class GalleryService:
         blacklist = self._blacklist()
         credentials = self._credentials(source)
         session = self._media.session()
-        normalized = await adapter.normalize_tag_query(session, query, credentials)
+        normalized_key = repr((source, query))
+        normalized = self.normalized_query_cache.get(normalized_key)
+        if normalized is None:
+            normalized = await adapter.normalize_tag_query(session, query, credentials)
+            self.normalized_query_cache.put(normalized_key, normalized)
+        if random_mode:
+            result = await sample_search(adapter, session, normalized, ratings, limit, credentials, blacklist, self.random_count_cache)
+            return result.json()
         key = repr((source, normalized, tuple(ratings), sort, cursor, limit, blacklist))
         cached = self.search_cache.get(key)
         if cached is not None:
             return cached.json()
-        page = await adapter.search(session, normalized, ratings, sort, cursor, limit, credentials, blacklist)
-        self.search_cache.put(key, page)
-        return page.json()
+        result = await adapter.search(session, normalized, ratings, sort, cursor, limit, credentials, blacklist)
+        self.search_cache.put(key, result)
+        return result.json()
 
     async def ranking(self, source: str, period: str, ratings: list[str], cursor: str | None,
-                      limit: int, page: int | None = None) -> dict[str, Any]:
+                      limit: int, page: int | None = None, random_mode: bool = False) -> dict[str, Any]:
         adapter = adapter_for(source)
         if period not in adapter.capabilities.ranking_periods:
             raise ValueError(f"{source} does not support {period} rankings")
         invalid_ratings = set(ratings) - set(adapter.capabilities.ratings)
         if invalid_ratings:
             raise ValueError(f"{source} does not support ratings: {', '.join(sorted(invalid_ratings))}")
-        if page is not None:
+        if page is not None and not random_mode:
             if not adapter.capabilities.page_jump:
                 raise ValueError(f"{source} does not support direct page navigation")
             cursor = adapter.cursor_for_page(page)
         limit = min(max(1, int(limit)), adapter.capabilities.max_page_size)
         blacklist = self._blacklist()
         key = repr(("ranking", source, period, tuple(ratings), cursor, limit, blacklist))
-        cached = self.search_cache.get(key)
-        if cached is not None:
-            return cached.json()
         session = self._media.session()
-        result = await adapter.ranking(session, period, cursor, limit, self._credentials(source), blacklist)
+        credentials = self._credentials(source)
+        if random_mode:
+            result = await sample_ranking(adapter, session, period, ratings, limit, credentials, blacklist, self.random_count_cache)
+        else:
+            cached = self.search_cache.get(key)
+            if cached is not None:
+                return cached.json()
+            result = await adapter.ranking(session, period, cursor, limit, credentials, blacklist)
         if ratings:
             result = GalleryPage(tuple(post for post in result.posts if rating_matches(source, post.rating, ratings)),
-                                 result.next_cursor, result.ended, result.warnings, result.page)
-        self.search_cache.put(key, result)
+                                 result.next_cursor, result.ended, result.warnings, result.page, result.total)
+        if not random_mode:
+            self.search_cache.put(key, result)
         return result.json()
 
     async def detail(self, source: str, post_id: str) -> dict[str, Any]:
@@ -207,20 +223,24 @@ class GalleryService:
         session = self._media.session()
         return await adapter.test_credentials(session, credentials)
 
-    async def favorites(self, source: str, cursor: str | None, limit: int, page: int | None = None) -> dict[str, Any]:
+    async def favorites(self, source: str, cursor: str | None, limit: int, page: int | None = None,
+                        random_mode: bool = False) -> dict[str, Any]:
         adapter = adapter_for(source)
-        if page is not None:
+        if page is not None and not random_mode:
             if not adapter.capabilities.page_jump:
                 raise ValueError(f"{source} does not support direct page navigation")
             cursor = adapter.cursor_for_page(page)
         limit = min(max(1, int(limit)), adapter.capabilities.max_page_size)
         blacklist = self._blacklist()
+        credentials = self._credentials(source)
+        if random_mode:
+            result = await sample_favorites(adapter, self._media.session(), limit, credentials, blacklist)
+            return result.json()
         key = repr(("favorites", source, cursor, limit, blacklist))
         cached = self.search_cache.get(key)
         if cached is not None:
             return cached.json()
-        session = self._media.session()
-        result = await adapter.list_favorites(session, cursor, limit, self._credentials(source), blacklist)
+        result = await adapter.list_favorites(self._media.session(), cursor, limit, credentials, blacklist)
         self.search_cache.put(key, result)
         return result.json()
 
@@ -263,6 +283,8 @@ class GalleryService:
 
     def clear_caches(self) -> None:
         self.search_cache.clear()
+        self.normalized_query_cache.clear()
+        self.random_count_cache.clear()
         self.detail_cache.clear()
         self.tag_cache.clear()
         self._media.clear()

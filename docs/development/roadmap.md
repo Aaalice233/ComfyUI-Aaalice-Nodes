@@ -19,7 +19,7 @@
 | 11 | `PromptSelector` | prompt | 从独立词库跨分类选择、排序并加权输出提示词。 |
 | 17 | `GroupIsEnabled` | control | 队列提交时快照可视组成员模式，报告是否被完全禁用。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
-| 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
+| 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索或无重复随机抽取自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
 | 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
 | 27 | `GroupLogicProbe` | control | 多条组启用/禁用条件按 AND/OR 组合，队列提交时快照求值并输出单个布尔用于懒执行分支。 |
 | 28 | `ConditionalSaveImage` | tools | 仅在启用时复用现有保存实现，关闭时透明透传图像。 |

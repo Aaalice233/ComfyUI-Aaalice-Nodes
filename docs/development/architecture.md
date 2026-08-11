@@ -65,7 +65,7 @@
 | ResolutionPreset 个人预设 | 当前 ComfyUI 用户目录 JSON | 当前用户的名称、尺寸、alignment 和稳定 UUID | 工作流 JSON、节点属性或浏览器存储 |
 | QuickGroupManager | `node.properties.quickGroupManagerState` | 组名、颜色、成员和实际模式 | 缓存的组快照、其它 Manager 状态 |
 | PromptSelector | `node.properties.promptSelectorState` | 当前词条正文、缺失引用、执行 payload | 节点内正文快照、DOM 复选状态 |
-| BooruGalleryNode | `node.properties.booruGalleryState`（查询上下文、逻辑页码、选择模式与选择快照） | 搜索 Summary、详情、当前请求和执行 payload | 搜索结果、cursor、滚动像素、Hover、Dialog、凭据、缓存或图片 DOM |
+| BooruGalleryNode | `node.properties.booruGalleryState`（查询上下文、逻辑页码、随机/选择模式与选择快照） | 搜索 Summary、随机会话已见集合、详情、当前请求和执行 payload | 搜索结果、随机顺序、cursor、滚动像素、Hover、Dialog、凭据、缓存或图片 DOM |
 | Booru Gallery 用户设置 | 当前 ComfyUI 用户目录配置文件 | 凭据、默认来源、黑名单、Prompt 默认值、超时与缓存预算 | 工作流 JSON、节点属性或搜索结果 |
 | Krita Bridge | Krita 插件目录与本机专用临时目录 | 连接心跳、请求关联的 JSON/PNG 和最近执行摘要 | `node.properties`、工作流 JSON、浏览器存储或旧快照复用 |
 | Discord 分享入口 | ComfyUI 应用设置 `Aaalice.DiscordShare.Placement` | 侧栏/顶栏 DOM 和验证状态点 | 多个布尔开关、工作流 JSON 或入口 DOM |
@@ -157,6 +157,7 @@
 4. 用户编辑只改本地分类标签。`graphToPrompt` 为每次排队复制当前有序选择和最终 Prompt，后续节点编辑不回写已经排队的任务。
 5. capability 控制 Rating、排行榜、直接跳页、认证、原图下载和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key；设置边界接受账户页复制的 `&api_key=…&user_id=…` 凭据片段并规范化保存，不能改动其它来源凭据。其 Rating 使用站点当前的 General、Sensitive、Questionable、Explicit；单选分级发送远端 metatag，多选分级因远端不支持同类 metatag OR 而在真实分页结果上本地过滤。Gelbooru 不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
 6. Gallery 的搜索、过滤列表和本地标签编辑通过 Autocomplete-Plus 的 `raw-tag` 外部输入模式接入补全；站点原始标签身份在插件边界保持不变，面向生成提示词的空格替换、括号转义、画师前缀和自动分隔符不得进入搜索与精确匹配路径。
+7. 随机模式只把开关写入 `booruGalleryState`；已见 `source + postId` 集合由单个前端节点会话拥有，并以来源、查询、频道、周期和 Rating 组成作用域，退出模式或作用域变化时释放。随机 API 不接收顺序 cursor、不写搜索结果缓存，前端请求同时使用 `cache: "no-store"`：Danbooru 搜索使用官方 `random:<limit>` 抽样元标签而不执行 `order:random` 全量排序，Gelbooru / Safebooru 搜索使用来源原生随机排序，AI TAG 以只缓存总数的随机页采样覆盖全集，前端再用 Web Crypto 拒绝采样驱动 Fisher–Yates 洗牌并做稳定身份去重。适配器继续先执行本机黑名单过滤，客户端只把实际展示项记入已见集合；唯一结果耗尽采用有限空批次预算，不以无限翻页维持表面成功。
 
 ### DIY 左侧工作区
 

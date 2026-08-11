@@ -128,6 +128,7 @@ class GalleryPage:
     ended: bool
     warnings: tuple[str, ...] = ()
     page: int = 1
+    total: int | None = None
 
     def json(self) -> dict[str, Any]:
         return {"posts": [post.json() for post in self.posts], "nextCursor": self.next_cursor,
@@ -298,7 +299,7 @@ def rating_matches(source: str, value: str, ratings: list[str]) -> bool:
 class DanbooruAdapter(BooruAdapter):
     source = "danbooru"
     capabilities = GalleryCapabilities(source, "Danbooru", ("general", "sensitive", "questionable", "explicit"),
-                                       ("latest", "score", "favcount", "random"), "page", 200,
+                                       ("latest", "score", "favcount"), "page", 200,
                                        ("username", "apiKey"), True, True, True, ("day", "week", "month"),
                                        tag_search=True, max_search_tags=2,
                                        credentials_url="https://danbooru.donmai.us/settings")
@@ -320,12 +321,14 @@ class DanbooruAdapter(BooruAdapter):
 
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         page = max(1, _int(cursor) or 1)
+        size = min(max(1, limit), self.capabilities.max_page_size)
         tags = query.strip()
         if ratings:
             tags = f"{tags} rating:{','.join(ratings)}".strip()
-        if sort and sort != "latest":
+        if sort == "random":
+            tags = f"{tags} random:{size}".strip()
+        elif sort and sort != "latest":
             tags = f"{tags} order:{sort}".strip()
-        size = min(max(1, limit), self.capabilities.max_page_size)
         raw = await self._get_json(session, f"{self.base}/posts.json", params={"tags": tags, "page": page, "limit": size, **self.auth_params(credentials)})
         if not isinstance(raw, list):
             raise RuntimeError("danbooru search response must be a list")
@@ -476,6 +479,8 @@ class GelbooruAdapter(BooruAdapter):
             tags = f"{tags} rating:{ratings[0]}".strip()
         if sort == "score":
             tags = f"{tags} sort:score:desc".strip()
+        elif sort == "random":
+            tags = f"{tags} sort:random".strip()
         size = min(max(1, limit), 100)
         raw = await self._posts(session, {"tags": tags, "pid": pid, "limit": size}, credentials)
         blocked = _normalize_blacklist(blacklist)
@@ -707,7 +712,7 @@ class AITagAdapter(BooruAdapter):
         warnings = ("AI TAG does not expose rating or categorized tag metadata.",)
         if len(visible) < len(items):
             warnings += ("local-blacklist-filtered",)
-        return GalleryPage(posts, None if ended else str(page + 1), ended, warnings, page)
+        return GalleryPage(posts, None if ended else str(page + 1), ended, warnings, page, total)
 
     async def ranking(self, session, period, cursor, limit, credentials, blacklist=()):
         if period != "month":
@@ -726,7 +731,7 @@ class AITagAdapter(BooruAdapter):
         warnings = ("AI TAG does not expose rating or categorized tag metadata.",)
         if len(visible) < len(items):
             warnings += ("local-blacklist-filtered",)
-        return GalleryPage(posts, None if ended else str(page + 1), ended, warnings, page)
+        return GalleryPage(posts, None if ended else str(page + 1), ended, warnings, page, total)
 
     async def get_post(self, session, post_id, credentials):
         raw = await self._get_json(session, f"{self.base}/api/work/{post_id}")

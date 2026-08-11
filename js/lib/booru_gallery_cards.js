@@ -52,6 +52,16 @@ export function installMasonryCardMotion(container) {
 	};
 }
 
+// ComfyUI 只在 data-capture-wheel 内保有焦点时让业务区接收滚轮；
+// 指针动作清除卡片控件焦点时必须交还瀑布流，不能 blur 到 document.body。
+export function restoreGalleryScrollFocus(card, focusedElement, event) {
+	if (!event?.detail || document.activeElement !== focusedElement) return false;
+	const scrollArea = card.closest?.(".aa-gallery-masonry");
+	if (!scrollArea) return false;
+	scrollArea.focus({ preventScroll: true });
+	return true;
+}
+
 export function createGalleryCards(dependencies) {
 	const {
 		GALLERY_CATEGORIES, canWriteFavorite, capability, createSelectionStamp, createTagPillList,
@@ -164,7 +174,7 @@ function buildGalleryCardView() {
 		root: card, node: null, controller: null, post: null, image: null, currentSrc: "", hoverTimer: 0, selectionPending: false, visibleActions: 0,
 	};
 	const actionButton = (iconName, action, actionIndex, onClick) => {
-		const control = iconButton({ iconName, label: "", variant: "ghost", className: `aa-gallery-card-action is-${action}`, onClick: (event) => { event?.stopPropagation?.(); onClick(event); if (event?.detail) control.blur(); } });
+		const control = iconButton({ iconName, label: "", variant: "ghost", className: `aa-gallery-card-action is-${action}`, onClick: (event) => { event?.stopPropagation?.(); restoreGalleryScrollFocus(card, control, event); onClick(event); } });
 		control.style.setProperty("--aa-gallery-action-delay", `${actionIndex * 34}ms`);
 		return control;
 	};
@@ -280,7 +290,7 @@ function buildGalleryCardView() {
 	const runSelection = async (event = null) => {
 		if (view.selectionPending || !view.post) return;
 		view.controller.tooltip.hide();
-		if (event?.type === "click") card.blur();
+		if (event?.type === "click") restoreGalleryScrollFocus(card, card, event);
 		view.selectionPending = true; card.classList.add("is-selection-pending");
 		try { await view.controller.toggleSelection(view.post); }
 		catch (error) { view.controller.showError(error); }

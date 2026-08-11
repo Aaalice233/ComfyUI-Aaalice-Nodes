@@ -43,7 +43,7 @@ async def search(request):
         page = int(request.query["page"]) if request.query.get("page") else None
         result = await get_gallery_service().search(request.query.get("source", ""), request.query.get("query", ""), ratings,
                                                     request.query.get("sort", "latest"), request.query.get("cursor") or None,
-                                                    int(request.query.get("limit", "60")), page)
+                                                    int(request.query.get("limit", "60")), page, request.query.get("random") == "1")
         return web.json_response(result)
     except Exception as exc:
         return _error(exc)
@@ -55,7 +55,7 @@ async def ranking(request):
         page = int(request.query["page"]) if request.query.get("page") else None
         result = await get_gallery_service().ranking(request.query.get("source", ""), request.query.get("period", ""),
                                                      ratings, request.query.get("cursor") or None,
-                                                     int(request.query.get("limit", "60")), page)
+                                                     int(request.query.get("limit", "60")), page, request.query.get("random") == "1")
         return web.json_response(result)
     except Exception as exc:
         return _error(exc)
@@ -148,7 +148,7 @@ async def favorites(request):
     try:
         page = int(request.query["page"]) if request.query.get("page") else None
         result = await get_gallery_service().favorites(request.query.get("source", ""), request.query.get("cursor") or None,
-                                                       int(request.query.get("limit", "60")), page)
+                                                       int(request.query.get("limit", "60")), page, request.query.get("random") == "1")
         return web.json_response(result)
     except Exception as exc:
         return _error(exc)

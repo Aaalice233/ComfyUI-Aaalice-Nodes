@@ -9,6 +9,7 @@ const sourcePaths = [
 	"../js/lib/booru_gallery_media.js",
 	"../js/lib/booru_gallery_cards.js",
 	"../js/lib/booru_gallery_controller.js",
+	"../js/lib/booru_gallery_random.js",
 	"../js/lib/booru_gallery_dialogs.js",
 	"../js/lib/booru_gallery_settings.js",
 ];
@@ -94,12 +95,12 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.match(source, /className: "aa-gallery-toolbar-action is-prompt", iconName: "tag"/);
 	assert.doesNotMatch(source, /iconName: "settings", label: label\("prompt/);
 	assert.doesNotMatch(source, /iconName: "more"/);
-	assert.match(source, /className: "aa-gallery-refresh", iconName: "refresh"/);
+	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-refresh", iconName: "refresh", label: label\("refresh", "Refresh"\), ariaLabel: label\("reload", "Reload search"\)/);
 	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-selected__clear"[\s\S]*label: label\("selected\.clear", "Clear"\)/);
 	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-open-settings", iconName: "settings", label: label\("settings\.short", "Settings"\)/);
 	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
 	assert.doesNotMatch(source, /Comfy\.ShowSettingsDialog|app\.ui\?\.settings\?\.show|openComfySettings/);
-	assert.match(source, /className: "aa-gallery-toolbar__utilities", children: \[refresh, clear, openSettings\]/);
+	assert.match(source, /className: "aa-gallery-toolbar__utilities", children: \[randomMode, refresh, clear, openSettings\]/);
 	assert.match(source, /className: "aa-gallery-toolbar__row aa-gallery-toolbar__primary"/);
 	assert.match(source, /className: "aa-gallery-toolbar__row aa-gallery-toolbar__context"/);
 	assert.match(source, /className: "aa-gallery-toolbar__page-actions"/);
@@ -116,10 +117,32 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.match(theme, /\.aa-gallery-toolbar__page-actions \{[^}]*flex: 0 0 auto;/);
 	assert.match(theme, /@container \(max-width: 700px\)[^}]*\.aa-gallery-toolbar-action\.aa-ui-button \{ width: 28px;/);
 	assert.match(theme, /@container \(max-width: 580px\)[^]*?\.aa-gallery-view-switcher button:has\(\.aa-ui-icon\), \.aa-gallery-selection-switcher button:has\(\.aa-ui-icon\) \{ width: 31px;/);
-	assert.match(theme, /\.aa-gallery-toolbar-text-action\.aa-ui-button \{[^}]*min-height: 26px;[^}]*padding: 4px 8px;[^}]*font-size: 10px;/);
+	assert.match(theme, /\.aa-gallery-toolbar-text-action\.aa-ui-button \{[^}]*min-height: 26px;[^}]*padding: 4px 8px;[^}]*font-size: 11px;/);
 	assert.match(theme, /@container \(max-width: 580px\) \{[^\n]*\.aa-gallery-toolbar-text-action \.aa-ui-button__label \{ display: none; \}/);
+	assert.equal(enLocale.aaalice.gallery.refresh, "Refresh");
+	assert.equal(zhLocale.aaalice.gallery.refresh, "刷新");
 	assert.equal(enLocale.aaalice.gallery.settings.short, "Settings");
 	assert.equal(zhLocale.aaalice.gallery.settings.short, "设置");
+});
+
+test("random draw mode is an explicit persistent switch with no redundant bottom banner", () => {
+	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-random-mode", iconName: "shuffle"/);
+	assert.match(source, /randomMode\.setAttribute\("role", "switch"\)/);
+	assert.match(source, /className: "aa-gallery-random-mode__switch"[^\n]*"aria-hidden": "true"/);
+	assert.match(source, /transact\(node, \(state\) => \{ state\.randomMode = active; \}\)/);
+	assert.match(source, /randomMode\.setAttribute\("aria-checked", String\(active\)\)/);
+	assert.match(source, /pageControl\.hidden = active/);
+	assert.match(source, /node\._aaGalleryRandomMode\.setActive\(state\.randomMode\)/);
+	assert.match(source, /if \(randomMode\) params\.set\("random", "1"\)/);
+	assert.match(source, /randomSession\.take\(candidates\)/);
+	assert.match(source, /randomMisses < RANDOM_UNIQUE_MISS_LIMIT \? "random" : null/);
+	assert.doesNotMatch(source, /label\("random\.active"/);
+	assert.doesNotMatch(source, /className: "aa-gallery-status is-random/);
+	assert.match(theme, /\.aa-gallery-random-mode\.aa-ui-button\.is-active[^}]*linear-gradient[^}]*box-shadow:/s);
+	assert.match(theme, /\.aa-gallery-random-mode\.aa-ui-button\.is-active \.aa-gallery-random-mode__thumb \{[^}]*transform: translateX\(11px\)/);
+	assert.equal(enLocale.aaalice.gallery.random.on, "Random on");
+	assert.equal(zhLocale.aaalice.gallery.random.on, "随机中");
+	assert.equal(zhLocale.aaalice.gallery.random.draw, "再抽一组");
 });
 
 test("selection mode switcher persists workflow state and enforces single selection", () => {
@@ -132,7 +155,7 @@ test("selection mode switcher persists workflow state and enforces single select
 	assert.match(source, /state\.selections = state\.selections\.slice\(0, 1\)/);
 	assert.match(source, /openSingleSelectionDialog/);
 	assert.match(theme, /\.aa-gallery-selection-switcher\[data-value="single"\]/);
-	assert.match(theme, /\.aa-gallery\[data-mode="selected"\] \.aa-gallery-toolbar__page-actions, \.aa-gallery\[data-mode="selected"\] \.aa-gallery-refresh \{ display: none; \}/);
+	assert.match(theme, /\.aa-gallery\[data-mode="selected"\] \.aa-gallery-toolbar__page-actions, \.aa-gallery\[data-mode="selected"\] \.aa-gallery-random-mode, \.aa-gallery\[data-mode="selected"\] \.aa-gallery-refresh \{ display: none; \}/);
 	assert.equal(enLocale.aaalice.gallery.selectionMode.single, "Single");
 	assert.equal(zhLocale.aaalice.gallery.selectionMode.multiple, "多选");
 });
@@ -158,9 +181,10 @@ test("page navigation uses a compact custom control instead of a native number f
 
 test("gallery refresh and settings utilities expose their real state and destination", () => {
 	assert.match(source, /refresh\.classList\.add\("is-refreshing"\)/);
-	assert.match(source, /refresh\.setAttribute\("aria-label", label\("refreshing", "Refreshing…"\)\)/);
+	assert.match(source, /updateRefreshPresentation\(stateFor\(node\)\.randomMode \? label\("random\.drawing", "Drawing…"\) : label\("refreshing", "Refreshing…"\), undefined, "loading"\)/);
+	assert.match(source, /refresh\.querySelector\("\.aa-ui-button__label"\)\.textContent = visibleText/);
 	assert.match(source, /await controller\.search\(\{ reset: true, page: 1 \}\)/);
-	assert.match(source, /finally \{ refreshing = false; refresh\.disabled = false; refresh\.classList\.remove\("is-refreshing"\)/);
+	assert.match(source, /finally \{ refreshing = false; refresh\.disabled = false; refresh\.classList\.remove\("is-refreshing"\); updateRefreshIdlePresentation\(\); \}/);
 	assert.match(theme, /\.aa-gallery-refresh\.is-refreshing \.aa-ui-icon \{ animation: aa-gallery-status-spin \.72s linear infinite; \}/);
 	assert.match(source, /function openGallerySettings\(\) \{[^]*openSettingsDialog\(\)/);
 	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-open-settings"[^\n]*onClick: openGallerySettings/);
@@ -188,8 +212,9 @@ test("gallery cards use direct selection and adaptive animated overlay actions",
 	assert.match(theme, /\.aa-gallery-detail__action\.is-favorite\.is-active \.aa-ui-icon \{[^}]*fill: currentColor/);
 	assert.doesNotMatch(source, /actionButton\("statusCheck", "select"/);
 	assert.doesNotMatch(theme, /\.aa-gallery-card-action\.is-select/);
-	assert.match(source, /if \(event\?\.type === "click"\) card\.blur\(\)/);
-	assert.match(source, /if \(event\?\.detail\) control\.blur\(\)/);
+	assert.match(source, /if \(event\?\.type === "click"\) restoreGalleryScrollFocus\(card, card, event\)/);
+	assert.match(source, /restoreGalleryScrollFocus\(card, control, event\); onClick\(event\)/);
+	assert.doesNotMatch(source, /(?:card|control)\.blur\(\)/);
 	assert.match(source, /function galleryCardActionLayout\(width, height, count\)/);
 	assert.match(source, /availableWidth >= linearSize && availableHeight >= buttonSize/);
 	assert.match(source, /availableHeight >= linearSize && availableWidth >= buttonSize/);
@@ -392,7 +417,9 @@ test("gallery uses the shared styled listbox instead of native select controls",
 	assert.match(source, /listboxControl/);
 	assert.doesNotMatch(source, /selectControl|document\.createElement\("select"\)/);
 	assert.match(source, /capabilities\.map\(\(item\) => \(\{ value: item\.source, label: item\.displayName, iconName: "globe" \}\)\)/);
-	assert.match(source, /sortIcons = \{ latest: "statusIdle", new: "statusIdle", score: "statusCheck", favcount: "favorite", random: "refresh" \}/);
+	assert.match(source, /sortIcons = \{ latest: "statusIdle", new: "statusIdle", score: "statusCheck", favcount: "favorite" \}/);
+	assert.equal(enLocale.aaalice.gallery.collection.random, undefined);
+	assert.equal(zhLocale.aaalice.gallery.collection.random, undefined);
 	assert.match(source, /iconName: "statusIdle" \}\);/);
 	assert.match(source, /value: "favorites"[^}]*iconName: "favorite"/);
 	assert.match(theme, /\.aa-gallery-toolbar__primary > \.aa-ui-listbox-select \{/);

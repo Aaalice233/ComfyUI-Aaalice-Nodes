@@ -27,6 +27,20 @@ test("gallery view is workflow state while legacy workflows default to browsing"
 	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [] }).view, "browse");
 });
 
+test("random mode persists in workflow state without entering execution payloads", () => {
+	assert.equal(defaultGalleryState().randomMode, false);
+	const state = normalizeGalleryState({ version: 1, source: "danbooru", randomMode: true, prompt: {}, filters: {}, selections: [] });
+	assert.equal(state.randomMode, true);
+	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [] }).randomMode, false);
+	assert.equal("randomMode" in galleryPayload(state), false);
+});
+
+test("legacy Danbooru random sorting migrates to the dedicated random mode", () => {
+	const state = normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: { sort: "random" }, selections: [] });
+	assert.equal(state.randomMode, true);
+	assert.equal(state.filters.sort, "latest");
+});
+
 test("selection mode defaults to single while explicit saved modes survive normalization", () => {
 	assert.equal(defaultGalleryState().selectionMode, "single");
 	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", selectionMode: "single", prompt: {}, filters: {}, selections: [] }).selectionMode, "single");

@@ -119,7 +119,7 @@ async function saveGlobalBlacklist(value) {
 }
 function collectionOptions(source) {
 	const cap = capability(source);
-	const sortIcons = { latest: "statusIdle", new: "statusIdle", score: "statusCheck", favcount: "favorite", random: "refresh" };
+	const sortIcons = { latest: "statusIdle", new: "statusIdle", score: "statusCheck", favcount: "favorite" };
 	const options = (cap?.sortValues || ["latest"]).map((value) => ({ value: `sort:${value}`, label: sortLabel(value), iconName: sortIcons[value] || "layout" }));
 	for (const period of cap?.rankingPeriods || []) options.push({ value: `ranking:${period}`, label: label(`collection.${period}Ranking`, `${period} ranking`), iconName: "statusIdle" });
 	if (cap?.favoriteRead) options.push({ value: "favorites", label: label("collection.favorites", "Favorites"), iconName: "favorite" });
@@ -428,13 +428,43 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const pageControl = createPageControl(node);
 	const searchControl = createSearchControl(node, { defaultOpen: true });
 	let refreshing = false;
-	const refresh = iconButton({ className: "aa-gallery-refresh", iconName: "refresh", label: label("reload", "Reload search"), variant: "ghost", onClick: async () => {
+	const randomMode = button({ className: "aa-gallery-toolbar-text-action aa-gallery-random-mode", iconName: "shuffle", label: label("random.off", "Random"), title: label("random.enable", "Enable random mode"), variant: "ghost", size: "sm", onClick: async () => {
+		const active = !stateFor(node).randomMode;
+		transact(node, (state) => { state.randomMode = active; });
+		syncRandomModePresentation(active);
+		await controller.search({ reset: true, page: 1 });
+	} });
+	randomMode.setAttribute("role", "switch");
+	randomMode.append(el("span", { className: "aa-gallery-random-mode__switch", attrs: { "aria-hidden": "true" }, children: [el("span", "aa-gallery-random-mode__thumb")] }));
+	const refresh = button({ className: "aa-gallery-toolbar-text-action aa-gallery-refresh", iconName: "refresh", label: label("refresh", "Refresh"), ariaLabel: label("reload", "Reload search"), title: label("reload", "Reload search"), variant: "ghost", size: "sm", onClick: async () => {
 		if (refreshing) return;
 		refreshing = true; refresh.disabled = true; refresh.classList.add("is-refreshing");
-		refresh.setAttribute("aria-label", label("refreshing", "Refreshing…")); refresh.title = label("refreshing", "Refreshing…");
+		updateRefreshPresentation(stateFor(node).randomMode ? label("random.drawing", "Drawing…") : label("refreshing", "Refreshing…"), undefined, "loading");
 		try { await controller.search({ reset: true, page: 1 }); }
-		finally { refreshing = false; refresh.disabled = false; refresh.classList.remove("is-refreshing"); refresh.setAttribute("aria-label", label("reload", "Reload search")); refresh.title = label("reload", "Reload search"); }
+		finally { refreshing = false; refresh.disabled = false; refresh.classList.remove("is-refreshing"); updateRefreshIdlePresentation(); }
 	} });
+	let refreshIcon = refresh.querySelector(".aa-ui-icon");
+	function updateRefreshPresentation(visibleText, accessibleText = visibleText, iconName = "refresh") {
+		refresh.querySelector(".aa-ui-button__label").textContent = visibleText;
+		const nextIcon = icon(iconName); refreshIcon.replaceWith(nextIcon); refreshIcon = nextIcon;
+		refresh.setAttribute("aria-label", accessibleText);
+		refresh.title = accessibleText;
+	}
+	function updateRefreshIdlePresentation() {
+		if (stateFor(node).randomMode) updateRefreshPresentation(label("random.draw", "Draw again"), label("random.drawHint", "Draw another unseen batch"), "shuffle");
+		else updateRefreshPresentation(label("refresh", "Refresh"), label("reload", "Reload search"), "refresh");
+	}
+	function syncRandomModePresentation(active) {
+		active = Boolean(active);
+		root.dataset.randomMode = active ? "active" : "off";
+		randomMode.setAttribute("aria-checked", String(active));
+		randomMode.classList.toggle("is-active", active);
+		randomMode.querySelector(".aa-ui-button__label").textContent = active ? label("random.on", "Random on") : label("random.off", "Random");
+		const accessibleLabel = active ? label("random.disable", "Disable random mode") : label("random.enable", "Enable random mode");
+		randomMode.setAttribute("aria-label", accessibleLabel); randomMode.title = accessibleLabel;
+		pageControl.hidden = active;
+		if (!refreshing) updateRefreshIdlePresentation();
+	}
 	const openSettings = button({ className: "aa-gallery-toolbar-text-action aa-gallery-open-settings", iconName: "settings", label: label("settings.short", "Settings"), title: label("settings.open", "Configure Gallery…"), variant: "ghost", size: "sm", onClick: openGallerySettings });
 	const browseNavigation = el("div", { className: "aa-gallery-toolbar__navigation", children: [collection, pageControl] });
 	const browseTools = el("div", { className: "aa-gallery-toolbar__tools", children: [filter, prompt] });
@@ -442,7 +472,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const selectedSummaryText = el("span", null, "");
 	const selectedSummary = el("div", { className: "aa-gallery-toolbar__selected-summary", attrs: { role: "status" }, children: [icon("statusCheck"), selectedSummaryText] });
 	const searchActions = el("div", { className: "aa-gallery-toolbar__search", children: [searchControl.root, searchControl.toggle] });
-	const utilityActions = el("div", { className: "aa-gallery-toolbar__utilities", children: [refresh, clear, openSettings] });
+	const utilityActions = el("div", { className: "aa-gallery-toolbar__utilities", children: [randomMode, refresh, clear, openSettings] });
 	const primaryRow = el("div", { className: "aa-gallery-toolbar__row aa-gallery-toolbar__primary", children: [source, tabs, selectionMode, el("span", "aa-gallery-toolbar__spacer"), searchActions] });
 	const contextRow = el("div", { className: "aa-gallery-toolbar__row aa-gallery-toolbar__context", children: [pageActions, selectedSummary, el("span", "aa-gallery-toolbar__spacer"), utilityActions] });
 	const toolbar = el("header", { className: "aa-gallery-toolbar", attrs: { role: "toolbar", "aria-label": label("toolbar", "Booru Gallery") }, children: [primaryRow, contextRow] });
@@ -451,7 +481,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const loading = el("div", { className: "aa-gallery-status is-loading", attrs: { role: "status", "aria-live": "polite" }, children: [icon("refresh"), el("span", null, label("loading", "Loading…"))] }); loading.hidden = true;
 	const errorLabel = el("span");
 	const error = el("button", { className: "aa-gallery-status is-error", attrs: { type: "button", "aria-live": "assertive" }, children: [icon("statusWarning"), errorLabel] }); error.hidden = true;
-	const end = el("div", { className: "aa-gallery-status is-end", attrs: { role: "status" }, children: [icon("statusCheck"), el("span", null, label("end", "End of results"))] }); end.hidden = true;
+	const endLabel = el("span", null, label("end", "End of results"));
+	const end = el("div", { className: "aa-gallery-status is-end", attrs: { role: "status" }, children: [icon("statusCheck"), endLabel] }); end.hidden = true;
 	const continueResults = el("button", { className: "aa-gallery-status is-filtered", attrs: { type: "button" }, children: [icon("search"), el("span", null, label("continueFiltered", "Blocked posts were skipped. Continue searching"))] }); continueResults.hidden = true;
 	const emptyResults = el("div", { className: "aa-gallery-status is-empty", attrs: { role: "status" }, children: [icon("search"), el("span", null, label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags."))] }); emptyResults.hidden = true;
 	const selected = el("div", "aa-gallery-selected"); const selectedListRoot = el("div", { className: "aa-gallery-selected__list", attrs: { tabindex: 0 } });
@@ -472,6 +503,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	selected.append(selectedListRoot, emptySelected);
 	document.body.append(selectedDropIndicator);
 	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end, continueResults, emptyResults] }), selected);
+	syncRandomModePresentation(stateFor(node).randomMode);
 	let controller = null;
 	const elements = {
 		root,
@@ -480,6 +512,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 		error,
 		errorLabel,
 		end,
+		endLabel,
+		randomMode,
 		continueResults,
 		emptyResults,
 		tabs,
@@ -530,7 +564,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 		scrollSettleTimer = setTimeout(settleScroll, 150);
 	};
 	masonry.addEventListener("scroll", markScrolling, { passive: true });
-	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGallerySelectionMode = selectionMode; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
+	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryRandomMode = { setActive: syncRandomModePresentation }; node._aaGallerySelectionMode = selectionMode; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
 	node._aaGalleryCardMotion = installMasonryCardMotion(masonry);
 	node._aaGalleryVisibility = observeDOMWidgetVisibility(root, { onChange: (active) => { elements.masonryController?.setActive(active); elements.selectedList?.setActive(active); } });
 	error.addEventListener("click", () => {
@@ -575,6 +609,7 @@ function restoreNode(node) {
 	node._aaGallerySearch.sync();
 	node._aaGalleryCollection.setOptions(collectionOptions(state.source), collectionValue(state));
 	node._aaGalleryPage.setPage(state.navigation.page);
+	node._aaGalleryRandomMode.setActive(state.randomMode);
 	node._aaGalleryController.setMode(state.view, { persist: false });
 	node._aaGalleryController.setSelectionMode(state.selectionMode, { persist: false });
 	node._aaGalleryController.renderSelected();

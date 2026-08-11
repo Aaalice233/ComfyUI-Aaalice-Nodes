@@ -1,4 +1,6 @@
 /** Stateful browse/selection controller for one mounted Booru Gallery node. */
+import { createRandomGallerySession, RANDOM_UNIQUE_MISS_LIMIT } from "./booru_gallery_random.js";
+
 export function filteredPageRefillAction(warnings, ended, needsMore, automaticPages, maximumAutomaticPages) {
 	if (ended || !needsMore || !warnings?.includes("local-blacklist-filtered")) return "none";
 	return automaticPages < maximumAutomaticPages ? "automatic" : "manual";
@@ -19,6 +21,7 @@ export function createGalleryControllerFactory(dependencies) {
 
 return function buildController(node, elements) {
 	let posts = []; let knownPostKeys = new Set(); let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let requestController = null; let generation = 0; let automaticRefillPages = 0; let detailDialogGeneration = 0; let destroyed = false; let activeDetailDialog = null; const sessionEdits = new Map();
+	const randomSession = createRandomGallerySession(); let randomMisses = 0;
 	const MAX_AUTOMATIC_REFILL_PAGES = 4;
 	const detailCache = new Map(); const previewCache = new Map(); let previewGeneration = 0; let previewPrefetchActive = 0; const previewPrefetchQueue = []; const previewPrefetchPending = new Set(); const prefetchedPreviewSources = new Map();
 	const touchCache = (cache, key, value) => { cache.delete(key); cache.set(key, value); return value; };
@@ -68,7 +71,7 @@ return function buildController(node, elements) {
 		errorTimer = setTimeout(() => { elements.error.hidden = true; }, 6000);
 	};
 	const clearError = () => { clearTimeout(errorTimer); errorTimer = 0; elements.error.hidden = true; elements.errorLabel.textContent = ""; };
-	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; elements.pageControl?.setBusy?.(value); };
+	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; elements.pageControl?.setBusy?.(value); if (elements.randomMode) elements.randomMode.disabled = value; };
 	const addTagToSearch = (tag) => {
 		const source = stateFor(node).source;
 		const cap = capability(source);
@@ -221,13 +224,16 @@ return function buildController(node, elements) {
 	const search = async ({ reset = false, page = null, automaticRefill = false } = {}) => {
 		if ((!reset && (loading || !elements.continueResults.hidden)) || (ended && !reset)) return;
 		if (!automaticRefill) { automaticRefillPages = 0; elements.continueResults.hidden = true; }
-		const requestedPage = reset ? Math.max(1, Math.floor(Number(page ?? stateFor(node).navigation.page) || 1)) : null;
+		const state = stateFor(node); const randomMode = Boolean(state.randomMode);
+		const randomScope = JSON.stringify([state.source, state.filters.feed, state.filters.period, searchQuery(state), state.filters.ratings]);
+		randomSession.sync(randomMode, randomScope);
+		const requestedPage = reset && !randomMode ? Math.max(1, Math.floor(Number(page ?? state.navigation.page) || 1)) : null;
 		// Mark the request active before clearing the masonry. setItems() draws synchronously
 		// and may report near-end; that callback must not start a competing first-page request.
 		setLoading(true);
-		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; elements.masonryController.setItems([], { preserveScroll: false }); elements.end.hidden = true; elements.emptyResults.hidden = true; clearError(); rememberPage(requestedPage); }
+		if (reset) { requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; randomMisses = 0; elements.masonryController.setItems([], { preserveScroll: false }); elements.end.hidden = true; elements.emptyResults.hidden = true; clearError(); if (!randomMode) rememberPage(requestedPage); }
 		else requestController ||= new AbortController();
-		const currentGeneration = generation; const state = stateFor(node);
+		const currentGeneration = generation;
 		const favoritesFeed = state.filters.feed === "favorites";
 		const cap = capability(state.source);
 		const needsCredentials = (cap?.authRequired || (favoritesFeed && cap?.favoriteRead)) && !hasSourceCredentials(state.source);
@@ -243,28 +249,35 @@ return function buildController(node, elements) {
 			const favorites = state.filters.feed === "favorites";
 			const params = new URLSearchParams({ source: state.source, limit: "60" });
 			if (!favorites) { params.set("query", searchQuery(state)); params.set("sort", state.filters.sort); for (const rating of state.filters.ratings) params.append("rating", rating); }
-			if (requestedPage != null) params.set("page", String(requestedPage)); else if (nextCursor) params.set("cursor", nextCursor);
+			if (randomMode) params.set("random", "1");
+			else if (requestedPage != null) params.set("page", String(requestedPage));
+			else if (nextCursor) params.set("cursor", nextCursor);
 			const endpoint = favorites ? "favorites" : state.filters.feed === "ranking" ? "ranking" : "search";
 			if (state.filters.feed === "ranking") { params.delete("query"); params.delete("sort"); params.set("period", state.filters.period); }
-			const resultPage = await jsonRequest(`${API}/${endpoint}?${params}`, { signal: requestController.signal });
+			const resultPage = await jsonRequest(`${API}/${endpoint}?${params}`, { signal: requestController.signal, ...(randomMode ? { cache: "no-store" } : {}) });
 			if (currentGeneration !== generation || requestController.signal.aborted) return;
-			const additions = (resultPage.posts || []).filter((post) => {
-				if (!post.previewUrl?.startsWith("https://")) return false;
+			const candidates = (resultPage.posts || []).filter((post) => post.previewUrl?.startsWith("https://"));
+			const additions = (randomMode ? randomSession.take(candidates) : candidates).filter((post) => {
 				const key = `${post.source}:${post.postId}`; if (knownPostKeys.has(key)) return false; knownPostKeys.add(key); return true;
 			});
-			const start = posts.length; posts.push(...additions); pageSegments.push({ page: Math.max(1, Number(resultPage.page) || requestedPage || pageSegments.at(-1)?.page + 1 || 1), start, end: posts.length }); elements.masonryController.append(additions);
-			nextCursor = resultPage.nextCursor || null; ended = Boolean(resultPage.ended || !nextCursor);
+			const start = posts.length; posts.push(...additions);
+			if (!randomMode) pageSegments.push({ page: Math.max(1, Number(resultPage.page) || requestedPage || pageSegments.at(-1)?.page + 1 || 1), start, end: posts.length });
+			elements.masonryController.append(additions);
+			if (randomMode) { randomMisses = additions.length ? 0 : randomMisses + 1; nextCursor = randomMisses < RANDOM_UNIQUE_MISS_LIMIT ? "random" : null; ended = !nextCursor; }
+			else { nextCursor = resultPage.nextCursor || null; ended = Boolean(resultPage.ended || !nextCursor); }
 			const noResults = ended && !posts.length;
+			elements.endLabel.textContent = randomMode ? label("random.exhausted", "No new images were found after several draws") : label("end", "End of results");
 			elements.end.hidden = !ended || noResults; elements.emptyResults.hidden = !noResults;
 			if (noResults) {
 				const anonymousHidden = (resultPage.warnings || []).includes("restricted-media-hidden");
 				elements.emptyResults.querySelector("span").textContent = anonymousHidden
 					? label("warning.restrictedMediaHidden", "Danbooru hides loli/shota posts from member and anonymous accounts; only Builder-level and above can view them.")
+					: randomMode ? label("random.empty", "No unseen images were found. Try changing the search or rating filters.")
 					: label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags.");
 			}
-			const refillAction = filteredPageRefillAction(resultPage.warnings, ended, elements.masonryController.needsMore(), automaticRefillPages, MAX_AUTOMATIC_REFILL_PAGES);
+			const refillAction = randomMode ? "none" : filteredPageRefillAction(resultPage.warnings, ended, elements.masonryController.needsMore(), automaticRefillPages, MAX_AUTOMATIC_REFILL_PAGES);
 			if (refillAction === "automatic") { automaticRefillPages += 1; continueAutomatically = true; }
-			elements.continueResults.hidden = refillAction !== "manual";
+			elements.continueResults.hidden = randomMode || refillAction !== "manual";
 			clearError(); pageLoaded = true;
 		} catch (error) { if (error.name !== "AbortError") showError(error); }
 		finally {

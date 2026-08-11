@@ -257,8 +257,9 @@
       }
     },
     "gallery": {
-      "source": "来源", "toolbar": "Booru 画廊", "toolbarActions": "浏览工具", "more": "更多", "reload": "重新搜索", "refreshing": "正在刷新...", "loading": "正在加载...", "end": "已经到底了", "continueFiltered": "已跳过多页屏蔽内容，继续查找", "emptyResults": "没有找到符合条件的帖子。试试放宽分级筛选或减少屏蔽标签。", "warning": { "restrictedMediaHidden": "Danbooru 对普通账户和匿名访客隐藏 loli / shota 类帖子，仅 Builder 及以上账户可见，画廊无法绕过此限制。" },
-      "collection": { "label": "画廊频道", "latest": "最新", "new": "最新", "score": "高分榜", "favcount": "人气榜", "random": "随机", "dayRanking": "今日榜", "weekRanking": "周榜", "monthRanking": "月榜", "favorites": "收藏夹" },
+      "source": "来源", "toolbar": "Booru 画廊", "toolbarActions": "浏览工具", "more": "更多", "refresh": "刷新", "reload": "重新搜索", "refreshing": "正在刷新...", "loading": "正在加载...", "end": "已经到底了", "continueFiltered": "已跳过多页屏蔽内容，继续查找", "emptyResults": "没有找到符合条件的帖子。试试放宽分级筛选或减少屏蔽标签。", "warning": { "restrictedMediaHidden": "Danbooru 对普通账户和匿名访客隐藏 loli / shota 类帖子，仅 Builder 及以上账户可见，画廊无法绕过此限制。" },
+      "random": { "off": "随机", "on": "随机中", "enable": "开启随机模式", "disable": "关闭随机模式", "draw": "再抽一组", "drawHint": "再抽一组未出现过的图片", "drawing": "抽取中...", "exhausted": "连续多次未抽到新图片", "empty": "没有抽到未出现的图片，请调整搜索或分级筛选。" },
+      "collection": { "label": "画廊频道", "latest": "最新", "new": "最新", "score": "高分榜", "favcount": "人气榜", "dayRanking": "今日榜", "weekRanking": "周榜", "monthRanking": "月榜", "favorites": "收藏夹" },
       "page": { "current": "第 {page} 页", "open": "跳转页面", "title": "页面导航", "input": "页码", "unit": "页", "previous": "上一页", "next": "下一页", "go": "前往" },
       "tab": { "label": "画廊视图", "browse": "浏览", "selected": "已选" },
       "selectionMode": { "label": "选择模式", "single": "单选", "multiple": "多选", "changeTitle": "切换为单选", "changeConfirm": "切换后只保留第一张已选图片，是否继续？", "changeAction": "保留第一张" },

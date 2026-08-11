@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import test from "node:test";
 
+import { restoreGalleryScrollFocus } from "../js/lib/booru_gallery_cards.js";
 import { createGalleryControllerFactory } from "../js/lib/booru_gallery_controller.js";
 import { createGalleryDialogs } from "../js/lib/booru_gallery_dialogs.js";
 
@@ -12,6 +13,7 @@ const sources = Object.fromEntries([
 	["media", "../js/lib/booru_gallery_media.js"],
 	["cards", "../js/lib/booru_gallery_cards.js"],
 	["controller", "../js/lib/booru_gallery_controller.js"],
+	["random", "../js/lib/booru_gallery_random.js"],
 	["dialogs", "../js/lib/booru_gallery_dialogs.js"],
 	["settings", "../js/lib/booru_gallery_settings.js"],
 ].map(([name, modulePath]) => [name, fs.readFileSync(new URL(modulePath, import.meta.url), "utf8")]));
@@ -22,12 +24,41 @@ test("every gallery module parses as a real ES module", () => {
 		["media", "../js/lib/booru_gallery_media.js"],
 		["cards", "../js/lib/booru_gallery_cards.js"],
 		["controller", "../js/lib/booru_gallery_controller.js"],
+		["random", "../js/lib/booru_gallery_random.js"],
 		["dialogs", "../js/lib/booru_gallery_dialogs.js"],
 		["settings", "../js/lib/booru_gallery_settings.js"],
 	]) {
 		const file = fileURLToPath(new URL(modulePath, import.meta.url));
 		execFileSync(process.execPath, ["--check", file], { encoding: "utf8" });
 		assert.ok(true, `${name} module parses`);
+	}
+});
+
+test("pointer card actions return focus to masonry so wheel capture stays active", () => {
+	const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+	const favoriteButton = {};
+	const dialogControl = {};
+	const fakeDocument = { activeElement: favoriteButton };
+	let focusOptions = null;
+	const masonry = { focus(options) { focusOptions = options; fakeDocument.activeElement = masonry; } };
+	const card = { closest(selector) { assert.equal(selector, ".aa-gallery-masonry"); return masonry; } };
+	Object.defineProperty(globalThis, "document", { configurable: true, value: fakeDocument });
+	try {
+		assert.equal(restoreGalleryScrollFocus(card, favoriteButton, { detail: 1 }), true);
+		assert.deepEqual(focusOptions, { preventScroll: true });
+		assert.equal(fakeDocument.activeElement, masonry);
+
+		fakeDocument.activeElement = favoriteButton;
+		focusOptions = null;
+		assert.equal(restoreGalleryScrollFocus(card, favoriteButton, { detail: 0 }), false, "keyboard activation keeps the button focused");
+		assert.equal(focusOptions, null);
+
+		fakeDocument.activeElement = dialogControl;
+		assert.equal(restoreGalleryScrollFocus(card, favoriteButton, { detail: 1 }), false, "a dialog that already took focus must keep it");
+		assert.equal(fakeDocument.activeElement, dialogControl);
+	} finally {
+		if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+		else delete globalThis.document;
 	}
 });
 
@@ -102,6 +133,42 @@ test("gallery interrogation dialog uses explicit proxy and app dependencies at r
 	}
 });
 
+test("random browse requests omit cursors and keep source-scoped posts unseen across draws", async () => {
+	const state = { source: "danbooru", query: "blue hair", randomMode: true, filters: { feed: "search", sort: "latest", period: "", ratings: [] }, navigation: { page: 7 } };
+	const urls = []; const requestOptions = []; const appended = [];
+	const elements = {
+		continueResults: { hidden: true }, loading: { hidden: true }, randomMode: { disabled: false },
+		pageControl: { setBusy() {}, setPage() {} }, end: { hidden: true }, endLabel: { textContent: "" },
+		emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) },
+		error: { hidden: true, classList: { toggle() {} } }, errorLabel: { textContent: "" },
+		masonryController: { setItems() {}, append(posts) { appended.push(posts); }, needsMore() { return false; }, recheckNearEnd() {}, updateItemSize() {}, destroy() {} },
+		selectedDropIndicator: null, selectedList: { destroy() {} },
+	};
+	const controller = createGalleryControllerFactory({
+		API: "/gallery", capability: () => ({ authRequired: false }), createTooltip: () => ({ hide() {}, destroy() {} }),
+		hasSourceCredentials: () => true,
+		jsonRequest: async (url, options) => {
+			urls.push(url); requestOptions.push(options);
+			return { page: 1, posts: [{ source: "danbooru", postId: "42", previewUrl: "https://example.test/42.jpg", width: 1, height: 1 }], nextCursor: null, ended: true, warnings: [] };
+		},
+		label: (_key, fallback) => fallback, searchQuery: () => state.query, stateFor: () => state,
+	})({ graph: { change() {} } }, elements);
+	await controller.search({ reset: true, page: 7 });
+	await controller.search({ reset: true, page: 7 });
+	assert.match(urls[0], /random=1/);
+	assert.doesNotMatch(urls[0], /(?:page|cursor)=/);
+	assert.equal(requestOptions[0].cache, "no-store", "random draws must bypass the browser HTTP cache");
+	assert.equal(appended[0].length, 1);
+	assert.equal(appended[1].length, 0, "a new draw must not replay a post already seen in this random session");
+	state.randomMode = false;
+	await controller.search({ reset: true, page: 7 });
+	assert.match(urls[2], /page=7/);
+	assert.doesNotMatch(urls[2], /random=1/);
+	assert.equal(requestOptions[2].cache, undefined);
+	assert.equal(appended[2].length, 1, "leaving random mode clears its transient seen set");
+	controller.destroy();
+});
+
 test("gallery replays a near-end request after the current page settles", async () => {
 	const state = { source: "gelbooru", filters: { feed: "search", sort: "newest", ratings: [] }, navigation: { page: 1 } };
 	let controller = null;
@@ -122,6 +189,7 @@ test("gallery replays a near-end request after the current page settles", async 
 		loading: { hidden: true },
 		pageControl: { setBusy() {}, setPage() {} },
 		end: { hidden: true },
+		endLabel: { textContent: "" },
 		emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) },
 		error: { hidden: true, classList: { toggle() {} } },
 		errorLabel: { textContent: "" },
