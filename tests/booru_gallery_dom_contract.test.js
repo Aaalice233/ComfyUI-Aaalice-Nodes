@@ -106,7 +106,7 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.match(source, /className: "aa-gallery-toolbar__page-actions"/);
 	assert.match(source, /className: "aa-gallery-toolbar__navigation", children: \[collection, pageControl\]/);
 	assert.match(source, /className: "aa-gallery-toolbar__tools", children: \[filter, prompt\]/);
-	assert.match(source, /error\?\.code === "upstream_timeout"/);
+	assert.match(source, /code === "upstream_timeout"/);
 	assert.match(source, /label\("error\.upstreamTimeout"/);
 	assert.match(source, /if \(data\.code\) error\.code = data\.code;/);
 	assert.match(theme, /\.aa-gallery-collection-select \{ width: auto; min-width: 82px; max-width: 132px;/);
@@ -496,6 +496,23 @@ test("gallery status cannot render as an unexplained empty capsule", () => {
 	assert.equal(zhLocale.aaalice.gallery.continueFiltered, "已跳过多页屏蔽内容，继续查找");
 	assert.match(theme, /\.aa-gallery-status\[hidden\], \.aa-gallery-status:empty \{ display: none !important; \}/);
 	assert.match(theme, /\.aa-gallery-masonry \{[^}]*overflow-x: hidden;[^}]*overflow-y: auto;/);
+});
+
+test("gallery preserves complete TLS diagnostics without disabling certificate verification", () => {
+	assert.match(source, /code === "tls_certificate_error"/);
+	assert.match(source, /lastError = \{ code, message, summary \}/);
+	assert.match(source, /getLastError\(\) \{ return lastError; \}/);
+	assert.match(source, /openGalleryErrorDialog\(currentError, \(\) => controller\.search\(\)\)/);
+	assert.match(source, /navigator\.clipboard\.writeText\(message\)/);
+	assert.match(source, /Gallery will not disable certificate verification/);
+	assert.match(theme, /\.aa-gallery-status\.is-error > span \{ overflow: visible; text-overflow: clip; white-space: normal;/);
+	assert.match(theme, /\.aa-gallery-error-details__raw \{[^}]*white-space: pre-wrap;[^}]*overflow-wrap: anywhere;/);
+	for (const locale of [enLocale, zhLocale]) {
+		assert.equal(typeof locale.aaalice.gallery.error.tlsCertificateSummary, "string");
+		assert.equal(typeof locale.aaalice.gallery.error.tlsCertificate, "string");
+		assert.equal(typeof locale.aaalice.gallery.error.copy, "string");
+		assert.equal(typeof locale.aaalice.gallery.error.retry, "string");
+	}
 });
 
 test("locally filtered pages refill within a fixed automatic budget", () => {

@@ -133,6 +133,58 @@ test("gallery interrogation dialog uses explicit proxy and app dependencies at r
 	}
 });
 
+test("gallery error dialog preserves and copies the complete TLS failure", async () => {
+	const harness = galleryDialogHarness();
+	const dialogs = createGalleryDialogs(harness.dependencies);
+	const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+	const message = "Cannot connect to host danbooru.donmai.us:443 ssl:True [SSLCertVerificationError: certificate has expired]";
+	let copied = ""; let retries = 0;
+	Object.defineProperty(globalThis, "navigator", {
+		configurable: true,
+		value: { clipboard: { writeText: async (value) => { copied = value; } } },
+	});
+	try {
+		dialogs.openGalleryErrorDialog({ code: "tls_certificate_error", message }, () => { retries += 1; });
+		assert.equal(harness.dialogs.length, 1);
+		assert.equal(harness.dialogs[0].options.className, "aa-gallery-error-dialog");
+		assert.equal(harness.dialogs[0].options.body.options.children.at(-1).options.text, message);
+		await harness.buttons.find((entry) => entry.label === "Copy error").onClick();
+		assert.equal(copied, message);
+		assert.equal(harness.toastCalls[0]?.severity, "success");
+		harness.buttons.find((entry) => entry.label === "Retry").onClick();
+		assert.equal(retries, 1);
+	} finally {
+		if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+		else delete globalThis.navigator;
+	}
+});
+
+test("gallery controller exposes a persistent TLS summary without dropping raw diagnostics", () => {
+	const elements = {
+		error: { hidden: true, title: "", classList: { toggle() {} } },
+		errorLabel: { textContent: "" },
+		masonryController: { destroy() {} },
+		selectedDropIndicator: null,
+		selectedList: { destroy() {} },
+	};
+	const controller = createGalleryControllerFactory({
+		createTooltip: () => ({ hide() {}, destroy() {} }),
+		label: (_key, fallback) => fallback,
+	})({}, elements);
+	const previousConsoleError = console.error;
+	console.error = () => {};
+	try {
+		const message = "certificate has expired (_ssl.c:1010)";
+		controller.showError({ code: "tls_certificate_error", message });
+		assert.equal(elements.error.hidden, false);
+		assert.match(elements.errorLabel.textContent, /SSL certificate verification failed/);
+		assert.deepEqual(controller.getLastError(), { code: "tls_certificate_error", message, summary: elements.errorLabel.textContent });
+	} finally {
+		console.error = previousConsoleError;
+		controller.destroy();
+	}
+});
+
 test("random browse requests omit cursors and keep source-scoped posts unseen across draws", async () => {
 	const state = { source: "danbooru", query: "blue hair", randomMode: true, filters: { feed: "search", sort: "latest", period: "", ratings: [] }, navigation: { page: 7 } };
 	const urls = []; const requestOptions = []; const appended = [];

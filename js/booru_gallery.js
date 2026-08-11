@@ -270,7 +270,7 @@ async function addGlobalBlacklistTag(tag) {
 }
 
 const {
-	createSearchControl, openClearSelectionDialog, openInterrogateResultDialog, openSingleSelectionDialog,
+	createSearchControl, openClearSelectionDialog, openGalleryErrorDialog, openInterrogateResultDialog, openSingleSelectionDialog,
 } = createGalleryDialogs({
 	app, button, createDialog, el, icon, iconButton, label, proxyUrl, searchQuery,
 	searchToggleButton, stateFor, t, transact,
@@ -572,7 +572,11 @@ function setupNode(node, { initializeSize = false } = {}) {
 		const feed = stateFor(node).filters.feed;
 		const cap = capability(sourceName);
 		if ((cap?.authRequired || (feed === "favorites" && cap?.favoriteRead)) && !hasSourceCredentials(sourceName)) openGallerySettings();
-		else controller.search();
+		else {
+			const currentError = controller.getLastError();
+			if (currentError) openGalleryErrorDialog(currentError, () => controller.search());
+			else controller.search();
+		}
 	});
 	continueResults.addEventListener("click", () => { continueResults.hidden = true; controller.search(); });
 	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);

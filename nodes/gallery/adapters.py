@@ -24,6 +24,12 @@ class GalleryUpstreamTimeoutError(RuntimeError):
     code = "upstream_timeout"
 
 
+class GalleryTLSCertificateError(RuntimeError):
+    """TLS peer verification failed and must not be bypassed or retried."""
+
+    code = "tls_certificate_error"
+
+
 def _is_upstream_query_timeout(status: int, body: str) -> bool:
     # Danbooru cancels oversized result sets (e.g. order:score over millions of
     # posts) with ActiveRecord::QueryCanceled; retrying cannot help.
@@ -168,6 +174,8 @@ class BooruAdapter:
                             return await response.json(content_type=None)
                         except Exception as exc:
                             raise RuntimeError(f"{self.source} GET {response_url} returned invalid JSON") from exc
+                except aiohttp.ClientConnectorCertificateError as exc:
+                    raise GalleryTLSCertificateError(f"{self.source} TLS certificate verification failed for {url}: {exc}") from exc
                 except (aiohttp.ClientError, TimeoutError) as exc:
                     if attempt >= 2:
                         raise RuntimeError(f"{self.source} GET {url} failed after {attempt + 1} attempts: {exc}") from exc

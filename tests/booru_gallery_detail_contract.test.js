@@ -193,7 +193,8 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 		assert.equal(typeof locale.aaalice.gallery.interrogate.failed, "string");
 		assert.equal(typeof locale.aaalice.gallery.error.media, "string");
 	}
-	assert.match(source, /errorTimer = setTimeout\(\(\) => \{ elements\.error\.hidden = true; \}, 6000\)/);
+	assert.match(source, /code === "credentials_required" \|\| code === "tls_certificate_error"/);
+	assert.match(source, /errorTimer = setTimeout\(clearError, 6000\)/);
 	assert.match(source, /label\("error\.media", "Image request failed \(HTTP \{status\}\)"\)/);
 	assert.match(source, /life: 3200/);
 	assert.match(source, /life: 5000/);

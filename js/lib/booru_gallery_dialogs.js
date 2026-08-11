@@ -77,6 +77,37 @@ function createSearchControl(node, { defaultOpen = false } = {}) {
 	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
 }
 
+function openGalleryErrorDialog(error, onRetry) {
+	const message = String(error?.message || error?.summary || error || "");
+	const isCertificateError = error?.code === "tls_certificate_error";
+	const guidance = isCertificateError
+		? label("error.tlsCertificate", "SSL certificate verification failed. Check the system clock, HTTPS proxy or packet-inspection certificate, and trusted root certificates. Gallery will not disable certificate verification.")
+		: "";
+	let dialog;
+	const close = button({ label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => dialog.close() });
+	const copy = button({ label: label("error.copy", "Copy error"), iconName: "copy", variant: "secondary", onClick: async () => {
+		try {
+			await navigator.clipboard.writeText(message);
+			app.extensionManager.toast.add({ severity: "success", summary: label("error.dialogTitle", "Gallery error details"), detail: label("error.copied", "Complete error copied to clipboard."), life: 3200 });
+		} catch (copyError) {
+			app.extensionManager.toast.add({ severity: "error", summary: label("error.dialogTitle", "Gallery error details"), detail: copyError.message, life: 5000 });
+		}
+	} });
+	const retry = button({ label: label("error.retry", "Retry"), iconName: "refresh", variant: "primary", onClick: () => { dialog.close(); onRetry?.(); } });
+	const body = el("div", { className: "aa-gallery-error-details", attrs: { "data-code": error?.code || "generic" }, children: [
+		...(guidance ? [el("div", { className: "aa-gallery-error-details__notice", children: [icon("statusWarning"), el("p", null, guidance)] })] : []),
+		el("pre", { className: "aa-gallery-error-details__raw", attrs: { tabindex: "0", "aria-label": label("error.complete", "Complete error") }, text: message }),
+	] });
+	dialog = createDialog({
+		title: label("error.dialogTitle", "Gallery error details"),
+		body,
+		footer: el("div", { className: "aa-gallery-dialog-actions", children: [close, copy, retry] }),
+		size: "sm",
+		className: "aa-gallery-error-dialog",
+		confirmOnEnter: false,
+	});
+}
+
 function openInterrogateResultDialog(detail, text) {
 	let dialog;
 	const copy = button({ label: t("aaalice.common.copy", "Copy"), iconName: "copy", variant: "primary", onClick: async () => {
@@ -138,5 +169,5 @@ function openSingleSelectionDialog(onConfirm) {
 }
 
 
-	return { createSearchControl, openClearSelectionDialog, openInterrogateResultDialog, openSingleSelectionDialog };
+	return { createSearchControl, openClearSelectionDialog, openGalleryErrorDialog, openInterrogateResultDialog, openSingleSelectionDialog };
 }

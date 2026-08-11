@@ -55,22 +55,28 @@ return function buildController(node, elements) {
 	const hideTooltip = tooltip.hide;
 	tooltip.hide = () => { hoverTranslationAbort?.abort(); hoverTranslationAbort = null; hideTooltip(); };
 	tooltip.destroy = tooltip.hide;
-	let errorTimer = 0;
+	let errorTimer = 0; let lastError = null;
 	const showError = (error) => {
-		// 已知上游失败签名映射为可操作提示；原始信息保留在 console。
-		const text = error?.code === "upstream_timeout"
+		const code = error?.code || "";
+		const message = error?.message || String(error);
+		const summary = code === "upstream_timeout"
 			? label("error.upstreamTimeout", "The site took too long to sort this many results. Add more tags or filters to narrow the search.")
-			: error?.message || String(error);
-		elements.errorLabel.textContent = text; elements.error.hidden = false; console.error("[Aaalice] Booru Gallery", error);
+			: code === "tls_certificate_error"
+				? label("error.tlsCertificateSummary", "SSL certificate verification failed. Click to view the complete error and troubleshooting steps.")
+				: message;
+		lastError = { code, message, summary };
+		elements.errorLabel.textContent = summary; elements.error.hidden = false;
+		elements.error.title = code === "credentials_required" ? label("settings.open", "Configure Gallery…") : label("error.detailsHint", "Open complete error details");
+		console.error("[Aaalice] Booru Gallery", error);
 		// 位置随场景：页面没有任何图像卡片（首次加载、凭证缺失等）时错误横幅
 		// 放在顶部避免被误认为状态条；瀑布流已有内容时保持底部，少遮挡结果。
 		elements.error.classList.toggle("is-top", !posts.length);
 		clearTimeout(errorTimer);
-		// 凭证缺失属于持续状态：横幅保持到配置完成或下一次成功刷新，不自动消失。
-		if (error?.code === "credentials_required") { errorTimer = 0; return; }
-		errorTimer = setTimeout(() => { elements.error.hidden = true; }, 6000);
+		// 凭证和 TLS 校验失败都需要用户处理，持续显示到用户重试或配置更新。
+		if (code === "credentials_required" || code === "tls_certificate_error") { errorTimer = 0; return; }
+		errorTimer = setTimeout(clearError, 6000);
 	};
-	const clearError = () => { clearTimeout(errorTimer); errorTimer = 0; elements.error.hidden = true; elements.errorLabel.textContent = ""; };
+	const clearError = () => { clearTimeout(errorTimer); errorTimer = 0; lastError = null; elements.error.hidden = true; elements.error.title = ""; elements.errorLabel.textContent = ""; };
 	const setLoading = (value) => { loading = value; elements.loading.hidden = !value; elements.pageControl?.setBusy?.(value); if (elements.randomMode) elements.randomMode.disabled = value; };
 	const addTagToSearch = (tag) => {
 		const source = stateFor(node).source;
@@ -737,9 +743,11 @@ return function buildController(node, elements) {
 		setMode,
 		setSelectionMode,
 		showError,
+		getLastError() { return lastError; },
 		updateSize(post, width, height) { elements.masonryController.updateItemSize(`${post.source}:${post.postId}`, width, height); },
 		destroy() {
 			destroyed = true; generation += 1; detailDialogGeneration += 1;
+			clearTimeout(errorTimer); errorTimer = 0;
 			clearTimeout(pageCommitTimer); pageCommitTimer = 0;
 			clearTimeout(prefetchTimer); prefetchTimer = 0;
 			requestController?.abort();
