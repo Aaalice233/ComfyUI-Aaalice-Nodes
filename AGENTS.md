@@ -61,7 +61,7 @@
 | FetchFromKrita 或 Krita Bridge | @docs/adr/README.md、@docs/adr/0011-krita-bridge-execution-snapshots.md |
 | BooruGalleryNode、多站点画廊或虚拟瀑布流 | @docs/design/booru-gallery.md、@docs/adr/0010-booru-gallery-capability-snapshots-masonry.md |
 | Discord 分享、最新运行相册或成员验证中继 | @docs/design/discord-share.md |
-| PromptSelector、词库或 DIY 侧边栏 | @docs/design/prompt-selector-workspace.md、@docs/adr/0007-independent-prompt-library-live-references.md、@docs/adr/0008-stable-dashboard-control-bindings.md、@docs/adr/0012-dashboard-source-scoped-groups.md、@docs/adr/0013-dashboard-multi-target-binding-sets.md |
+| PromptSelector、词库或 DIY 侧边栏 | @docs/design/prompt-selector-workspace.md、@docs/adr/0007-independent-prompt-library-live-references.md、@docs/adr/0008-stable-dashboard-control-bindings.md、@docs/adr/0012-dashboard-source-scoped-groups.md、@docs/adr/0013-dashboard-multi-target-binding-sets.md、@docs/adr/0014-dashboard-value-import-recovery.md |
 
 新增专题文档时，若其内容会影响实现或验收，必须同时补到本节。README 面向用户，不作为默认开发上下文注入。
 

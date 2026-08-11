@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { grabSpanOffset, isGroupMembershipDrop, normalizeDragSelection, selectionFootprint, shouldStartMarquee } from "../js/lib/dashboard_interactions.js";
+import { grabSpanOffset, insertionDisplacements, isGroupMembershipDrop, marqueeAnchorAfterScroll, normalizeDragSelection, nudgeSelectionTarget, resolveMarqueeSelection, selectionFootprint, shouldStartMarquee } from "../js/lib/dashboard_interactions.js";
 import { applyMarqueeSelection, containedIds, nearestInDirection, nextClickSelection } from "../js/lib/dashboard_selection.js";
+import { insertEntries } from "../js/lib/dashboard_layout.js";
 
 test("drag grab offset preserves the pointer anchor across grid spans", () => {
 	assert.equal(grabSpanOffset(150, 0, 300, 6), 3);
@@ -41,6 +42,64 @@ test("group membership drop only activates when cards enter another group", () =
 	assert.equal(isGroupMembershipDrop("group-b", ["group-a"]), true);
 	assert.equal(isGroupMembershipDrop("group-b", ["group-b"]), false);
 	assert.equal(isGroupMembershipDrop(null, ["group-a"]), false);
+});
+
+test("marquee group units do not leave apparently deselected tail members behind", () => {
+	const entries = [
+		{ id: "loose", groupId: null },
+		{ id: "member-a", groupId: "group-a" },
+		{ id: "member-b", groupId: "group-a" },
+	];
+	const added = resolveMarqueeSelection(entries, { baseItemIds: ["member-a"], itemHits: ["member-b"], groupHits: ["group-a"] });
+	assert.deepEqual([...added.items], []);
+	assert.deepEqual([...added.groups], ["group-a"]);
+	const removed = resolveMarqueeSelection(entries, { baseItemIds: ["loose", "member-a", "member-b"], baseGroupIds: ["group-a"], groupHits: ["group-a"], mode: "subtract" });
+	assert.deepEqual([...removed.items], ["loose"]);
+	assert.deepEqual([...removed.groups], []);
+});
+
+test("marquee keeps its content anchor while edge scrolling", () => {
+	assert.deepEqual(marqueeAnchorAfterScroll({ x: 120, y: 180 }, { left: 0, top: 40 }, { left: 0, top: 140 }), { x: 120, y: 80 });
+	assert.deepEqual(marqueeAnchorAfterScroll({ x: 120, y: 180 }, { left: 20, top: 140 }, { left: 5, top: 80 }), { x: 135, y: 240 });
+});
+
+test("keyboard nudging preserves the selected footprint and clamps page edges", () => {
+	const layouts = [
+		{ row: 4, column: 7, rowSpan: 3, columnSpan: 3 },
+		{ row: 8, column: 8, rowSpan: 2, columnSpan: 3 },
+	];
+	assert.deepEqual(nudgeSelectionTarget(layouts, "right"), { row: 4, column: 8 });
+	assert.deepEqual(nudgeSelectionTarget(layouts, "up", { step: 2 }), { row: 2, column: 7 });
+	assert.deepEqual(nudgeSelectionTarget([{ row: 0, column: 0, rowSpan: 2, columnSpan: 6 }], "left"), { row: 0, column: 0 });
+});
+
+test("insertion preview mirrors the stable downward collision chain", () => {
+	const shifts = insertionDisplacements(
+		[{ row: 2, column: 0, rowSpan: 4, columnSpan: 6 }],
+		[
+			{ id: "hit", layout: { row: 3, column: 0, rowSpan: 4, columnSpan: 6 } },
+			{ id: "chain", layout: { row: 7, column: 0, rowSpan: 3, columnSpan: 6 } },
+			{ id: "aside", layout: { row: 3, column: 6, rowSpan: 4, columnSpan: 6 } },
+		],
+	);
+	assert.deepEqual([...shifts], [["hit", 3], ["chain", 3]]);
+});
+
+test("insertion preview stays identical to the committed layout command", () => {
+	const page = {
+		gridColumns: 12,
+		items: [
+			{ id: "moving", groupId: null, layout: { row: 2, column: 0, rowSpan: 4, columnSpan: 6 } },
+			{ id: "hit", groupId: null, layout: { row: 3, column: 0, rowSpan: 4, columnSpan: 6 } },
+			{ id: "chain", groupId: null, layout: { row: 7, column: 0, rowSpan: 3, columnSpan: 6 } },
+			{ id: "aside", groupId: null, layout: { row: 3, column: 6, rowSpan: 4, columnSpan: 6 } },
+		],
+		groups: [],
+	};
+	const fixed = page.items.slice(1).map((entry) => ({ id: entry.id, layout: { ...entry.layout } }));
+	const preview = insertionDisplacements([page.items[0].layout], fixed);
+	insertEntries(page, ["moving"]);
+	for (const entry of fixed) assert.equal(page.items.find((item) => item.id === entry.id).layout.row - entry.layout.row, preview.get(entry.id) || 0);
 });
 
 test("marquee application supports additive and subtractive modes", () => {

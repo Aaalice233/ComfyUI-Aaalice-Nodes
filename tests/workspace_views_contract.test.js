@@ -366,7 +366,7 @@ test("workspace visual hierarchy uses a compact shell, dedicated icon and headin
 	assert.match(dashboardCommands, /export function moveTopLevelSelection/);
 	assert.match(dashboardInteractions, /normalizeDragSelection/);
 	assert.match(dashboardInteractions, /hit\?\.closest\?\.\("\[data-dashboard-group-id\]"\)/);
-	assert.match(dashboardInteractions, /isGroupMembershipDrop\(target\.groupId, gesture\.sourceGroupIds\)/);
+	assert.match(dashboardInteractions, /current\.membershipTarget = isGroupMembershipDrop\(target\.groupId, current\.sourceGroupIds\)/);
 	assert.match(dashboardInteractions, /aa-dashboard-group-drop-label/);
 	assert.match(theme, /\.aa-dashboard-group\.is-drop-target \{[^}]*background:/);
 	assert.match(theme, /\.aa-dashboard-group-drop-label \{[^}]*pointer-events: none;/);

@@ -45,6 +45,7 @@
 - Subgraph Provider 解析单个 Binding 时只适配目标 promoted widget。允许按 Node、widget 列表身份、Adapter Revision 和 Control Id 缓存结构索引，但值、availability、options 与 preset payload 必须实时读取；注册/卸载 Adapter、`graphChanged`、工作流恢复和 `CONTROL_HOST_INVALIDATED_EVENT` 必须使相关索引失效。
 - 嵌套 promoted widget 的定义 owner 可按宿主与 promoted view identity 缓存，失效边界同上。禁止在每张卡片解析时为同一 view 重复沿最多 100 层 Subgraph 链创建 Set、WeakMap 或扫描兄弟 widgets。
 - 连续手势期间若发生真实结构失效，只记录一次待处理完整渲染；手势结束后补一次。值提交本身不得制造待处理结构渲染。
+- Dashboard 布局拖拽只允许一个边缘自动滚动 `requestAnimationFrame` 循环；每帧复用当前选区几何与指针位置，更新一个落点预览和实际碰撞链中的有限 DOM，不扫描 graph、不重建 Control View。卡片内部随宽高变化的排布使用 CSS Container Query，禁止为每张卡片新增 `ResizeObserver`、窗口监听或尺寸写回。
 
 ## 6. 验收门槛
 

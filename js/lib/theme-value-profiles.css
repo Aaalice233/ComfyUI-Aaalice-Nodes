@@ -1,0 +1,223 @@
+/* Adjustment profiles: one focused task surface with restrained tonal rows. */
+
+.aa-value-profiles-dialog .aa-ui-dialog__body {
+	min-height: min(520px, 68vh);
+}
+
+.aa-value-profiles {
+	display: flex;
+	min-height: 0;
+	height: 100%;
+	flex-direction: column;
+	gap: 10px;
+	container-type: inline-size;
+}
+
+.aa-value-profiles__bar {
+	display: flex;
+	min-height: 42px;
+	align-items: center;
+	padding: 5px 6px 5px 10px;
+	gap: 8px;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--aa-ui-control) 52%, transparent);
+	box-shadow: inset 0 1px color-mix(in srgb, var(--aa-ui-text) 5%, transparent), var(--aa-ui-edge-shadow-soft);
+}
+
+.aa-value-profiles__bar > .aa-ui-select,
+.aa-value-profiles__bar > select {
+	min-width: 0;
+	min-height: 34px;
+	flex: 1;
+	background: transparent;
+	box-shadow: none;
+	font-size: 12px;
+	font-weight: 650;
+}
+
+.aa-value-profiles__bar-actions {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 2px;
+}
+
+.aa-value-profile-rules {
+	display: flex;
+	min-height: 0;
+	max-height: none;
+	flex: 1;
+	flex-direction: column;
+	gap: 7px;
+	padding: 3px 5px 10px 3px;
+	overflow-y: auto;
+}
+
+.aa-value-profile-rule {
+	position: relative;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(148px, .72fr);
+	align-items: center;
+	gap: 10px 16px;
+	padding: 11px 12px;
+	border: 0;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--aa-ui-control) 46%, transparent);
+	box-shadow: inset 0 1px color-mix(in srgb, var(--aa-ui-text) 4%, transparent), var(--aa-ui-edge-shadow-soft);
+	transition: translate 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.aa-value-profile-rule:hover {
+	translate: 0 -1px;
+	background: color-mix(in srgb, var(--aa-ui-control) 62%, transparent);
+	box-shadow: inset 0 1px color-mix(in srgb, var(--aa-ui-text) 6%, transparent), var(--aa-ui-edge-shadow);
+}
+
+.aa-value-profile-rule.is-unmatched {
+	opacity: 1;
+	background: color-mix(in srgb, var(--aa-ui-warning, var(--p-orange-500, var(--aa-ui-accent))) 7%, var(--aa-ui-control) 42%);
+}
+
+.aa-value-profile-rule__head {
+	display: grid;
+	grid-template-columns: minmax(90px, auto) minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.aa-value-profile-rule__copy {
+	display: block;
+	min-width: 0;
+}
+
+.aa-value-profile-rule__copy strong {
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--aa-ui-text);
+	font-size: 12px;
+	font-weight: 670;
+	line-height: 1.35;
+}
+
+.aa-value-profile-rule__meta {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 5px;
+	overflow: hidden;
+}
+
+.aa-value-profile-rule__meta .aa-ui-badge {
+	min-width: 0;
+	max-width: 132px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 10px;
+}
+
+.aa-value-profile-rule__host { color: var(--aa-ui-text); }
+.aa-value-profile-rule__page { color: var(--aa-ui-accent); }
+.aa-value-profile-rule__linked { color: var(--aa-ui-muted); }
+.aa-value-profile-rule__actions { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; }
+
+.aa-value-profile-rule__control {
+	min-width: 0;
+}
+
+.aa-value-profile-rule__control > :is(.aa-ui-input, .aa-ui-select, select) {
+	width: 100%;
+	min-height: 36px;
+	font-size: 11px;
+}
+
+.aa-value-profile-rule__value {
+	display: flex;
+	min-height: 36px;
+	align-items: center;
+	padding: 0 10px;
+	border-radius: 9px;
+	background: color-mix(in srgb, var(--aa-ui-surface) 48%, transparent);
+	color: var(--aa-ui-text);
+	font-size: 11px;
+	line-height: 1.45;
+}
+
+.aa-value-profile-rule__editor {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	gap: 7px;
+}
+
+.aa-value-profile-rule__editor .aa-ui-input,
+.aa-value-profile-rule__editor .aa-ui-select {
+	min-height: 36px;
+	font-size: 11px;
+}
+
+.aa-value-profile-rule__editor .aa-ui-input { min-width: 0; flex: 1; }
+.aa-value-profile-rule__editor .aa-ui-select { flex: 0 0 auto; width: auto; min-width: 116px; }
+
+.aa-ui-button.aa-value-profiles__add {
+	width: 100%;
+	min-height: 40px;
+	flex: 0 0 auto;
+	justify-content: center;
+	gap: 8px;
+	border: 0;
+	border-radius: 11px;
+	background: color-mix(in srgb, var(--aa-ui-control) 30%, transparent);
+	color: var(--aa-ui-muted);
+	box-shadow: inset 0 1px color-mix(in srgb, var(--aa-ui-text) 4%, transparent);
+	font-size: 11px;
+}
+
+.aa-ui-button.aa-value-profiles__add:hover {
+	background: color-mix(in srgb, var(--aa-ui-control) 54%, transparent);
+	color: var(--aa-ui-text);
+	box-shadow: var(--aa-ui-edge-shadow-soft);
+}
+
+.aa-ui-button.aa-value-profiles__add .aa-ui-icon { width: 13px; height: 13px; }
+
+.aa-value-profiles__picker {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	flex-direction: column;
+	padding: 12px;
+	gap: 10px;
+	border: 0;
+	border-radius: 13px;
+	background: color-mix(in srgb, var(--aa-ui-control) 38%, transparent);
+	box-shadow: inset 0 1px color-mix(in srgb, var(--aa-ui-text) 5%, transparent), var(--aa-ui-edge-shadow-soft);
+}
+
+.aa-value-profiles__picker-head { display: flex; min-height: 32px; align-items: center; justify-content: space-between; gap: 8px; }
+.aa-value-profiles__picker-title { color: var(--aa-ui-text); font-size: 12px; font-weight: 670; }
+.aa-value-profiles__picker > .aa-searchable-select { min-height: 0; flex: 1; }
+.aa-value-profiles__picker-empty { margin: 0; padding: 9px 11px; border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-surface) 44%, transparent); color: var(--aa-ui-muted); font-size: 11px; line-height: 1.5; }
+
+@container (max-width: 540px) {
+	.aa-value-profile-rule { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+	.aa-value-profile-rule__head { grid-template-columns: minmax(0, 1fr) auto; }
+	.aa-value-profile-rule__meta { grid-column: 1 / -1; grid-row: 2; }
+	.aa-value-profile-rule__actions { grid-column: 2; grid-row: 1; }
+}
+
+@container (max-width: 360px) {
+	.aa-value-profiles__bar { padding-left: 7px; }
+	.aa-value-profile-rule { padding: 10px; }
+	.aa-value-profile-rule__meta .aa-ui-badge { max-width: 96px; }
+	.aa-value-profile-rule__editor { align-items: stretch; flex-direction: column; }
+	.aa-value-profile-rule__editor .aa-ui-select { width: 100%; min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.aa-value-profile-rule { transition: none; }
+}

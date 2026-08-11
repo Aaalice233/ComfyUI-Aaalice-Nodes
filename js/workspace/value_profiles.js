@@ -206,8 +206,8 @@ export function openValueProfiles() {
 	let state = loadValueProfiles();
 	let selectedId = state.profiles[0]?.id || null;
 	let addPanelOpen = false;
-	// 面板重建（添加规则等 persist 触发 render）后保留搜索词与列表滚动，不打断连续操作。
 	let pickerSearch = "";
+	let rulesScrollTop = 0;
 	const closeAddPanel = () => { addPanelOpen = false; pickerSearch = ""; };
 
 	const body = el("div", { className: "aa-value-profiles" });
@@ -237,13 +237,14 @@ export function openValueProfiles() {
 			container.append(emptyState({
 				iconName: "sliders",
 				description: t("aaalice.workspace.valueProfiles.emptyRules", "No rules yet. Add a control below and its current value becomes the target."),
-				actions: [button({ label: t("aaalice.workspace.valueProfiles.addRule", "Add rule"), iconName: "add", variant: "ghost", onClick: () => { addPanelOpen = true; render(); } })],
 			}));
 			return;
 		}
 		for (const match of matches) {
 			const { rule } = match;
 			const statusBadge = match.status === "ready" ? null : badge(match.status === "ambiguous" ? t("aaalice.workspace.valueProfiles.issue.ambiguous", "Ambiguous") : t("aaalice.workspace.valueProfiles.issue.missing", "Not on sidebar"), { className: "is-warning" });
+			const hostLabel = match.candidate?.hostLabel || rule.hostLabel;
+			const hostBadge = hostLabel ? badge(hostLabel, { className: "aa-value-profile-rule__host" }) : null;
 			const pageBadge = match.candidate?.pageName ? badge(match.candidate.pageName, { className: "aa-value-profile-rule__page" }) : null;
 			const linkedBadge = match.candidate?.linkedCount ? badge(linkedLabel(match.candidate.linkedCount), { className: "aa-value-profile-rule__linked" }) : null;
 			const updateButton = match.status === "ready" ? iconButton({
@@ -261,32 +262,29 @@ export function openValueProfiles() {
 				className: `aa-value-profile-rule${match.status === "ready" ? "" : " is-unmatched"}`,
 				children: [
 					el("div", { className: "aa-value-profile-rule__head", children: [
-						el("div", { className: "aa-value-profile-rule__copy", children: [
-							el("strong", null, match.candidate?.label || rule.label || rule.key),
-							(match.candidate?.hostLabel || rule.hostLabel) ? el("small", null, match.candidate?.hostLabel || rule.hostLabel) : null,
+						el("div", { className: "aa-value-profile-rule__copy", children: [el("strong", null, match.candidate?.label || rule.label || rule.key)] }),
+						el("div", { className: "aa-value-profile-rule__meta", children: [hostBadge, pageBadge, linkedBadge, statusBadge].filter(Boolean) }),
+						el("div", { className: "aa-value-profile-rule__actions", children: [
+							updateButton,
+							iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: () => persist((current) => removeValueProfileRule(current, profile.id, rule.key)) }),
 						].filter(Boolean) }),
-						pageBadge,
-						linkedBadge,
-						statusBadge,
-						updateButton,
-						iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: () => persist((current) => removeValueProfileRule(current, profile.id, rule.key)) }),
-					].filter(Boolean) }),
-					buildValueEditor(rule, match, (payload) => persist((current) => upsertValueProfileRule(current, profile.id, { ...rule, payload }))),
+					] }),
+					el("div", { className: "aa-value-profile-rule__control", children: [buildValueEditor(rule, match, (payload) => persist((current) => upsertValueProfileRule(current, profile.id, { ...rule, payload })))] }),
 				],
 			}));
 		}
 	};
 
 	const render = () => {
-		const rulesScroll = body.querySelector(".aa-value-profile-rules")?.scrollTop ?? null;
+		const currentRules = body.querySelector(".aa-value-profile-rules");
+		if (currentRules) rulesScrollTop = currentRules.scrollTop;
 		body.replaceChildren();
 		footer.replaceChildren();
 		const profile = selectedProfile() || state.profiles[0] || null;
 		selectedId = profile?.id || null;
 		const restoreRulesScroll = () => {
-			if (rulesScroll == null) return;
 			const list = body.querySelector(".aa-value-profile-rules");
-			if (list) list.scrollTop = rulesScroll;
+			if (list) list.scrollTop = rulesScrollTop;
 		};
 		if (!profile) {
 			body.append(emptyState({
@@ -303,26 +301,26 @@ export function openValueProfiles() {
 			options: state.profiles.map((entry) => ({ value: entry.id, label: entry.name })),
 			value: profile.id,
 			ariaLabel: t("aaalice.workspace.valueProfiles.select", "Adjustment profile"),
-			onChange: (value) => { selectedId = value; closeAddPanel(); render(); },
+			onChange: (value) => { selectedId = value; rulesScrollTop = 0; closeAddPanel(); render(); },
 		});
 		body.append(el("div", { className: "aa-value-profiles__bar", children: [
 			profileSelect,
-			iconButton({ iconName: "add", label: t("aaalice.workspace.valueProfiles.create", "New profile"), variant: "ghost", onClick: createProfile }),
-			iconButton({ iconName: "edit", label: t("aaalice.workspace.valueProfiles.rename", "Rename profile"), variant: "ghost", onClick: () => {
-				runtime.askText(t("aaalice.workspace.valueProfiles.rename", "Rename profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), profile.name, (name) => persist((current) => renameValueProfile(current, profile.id, name)));
-			} }),
-			iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: async () => {
-				if (!await confirmAction(t("aaalice.workspace.valueProfiles.deleteConfirm", "Delete adjustment profile “{name}”?").replace("{name}", profile.name), { title: t("aaalice.common.delete", "Delete"), confirmLabel: t("aaalice.common.delete", "Delete"), danger: true })) return;
-				persist((current) => {
-					const next = removeValueProfile(current, profile.id);
-					selectedId = next.profiles[0]?.id || null;
-					return next;
-				});
-			} }),
+			el("div", { className: "aa-value-profiles__bar-actions", children: [
+				iconButton({ iconName: "add", label: t("aaalice.workspace.valueProfiles.create", "New profile"), variant: "ghost", onClick: createProfile }),
+				iconButton({ iconName: "edit", label: t("aaalice.workspace.valueProfiles.rename", "Rename profile"), variant: "ghost", onClick: () => {
+					runtime.askText(t("aaalice.workspace.valueProfiles.rename", "Rename profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), profile.name, (name) => persist((current) => renameValueProfile(current, profile.id, name)));
+				} }),
+				iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", onClick: async () => {
+					if (!await confirmAction(t("aaalice.workspace.valueProfiles.deleteConfirm", "Delete adjustment profile “{name}”?").replace("{name}", profile.name), { title: t("aaalice.common.delete", "Delete"), confirmLabel: t("aaalice.common.delete", "Delete"), danger: true })) return;
+					rulesScrollTop = 0;
+					persist((current) => {
+						const next = removeValueProfile(current, profile.id);
+						selectedId = next.profiles[0]?.id || null;
+						return next;
+					});
+				} }),
+			] }),
 		] }));
-		const rulesContainer = el("div", { className: "aa-value-profile-rules" });
-		renderRules(profile, rulesContainer);
-		body.append(rulesContainer);
 		if (addPanelOpen) {
 			const candidates = collectCandidates();
 			const taken = new Set(profile.rules.map((rule) => rule.key));
@@ -358,7 +356,9 @@ export function openValueProfiles() {
 				pickerControl,
 			] }));
 		} else {
-			body.append(button({
+			const rulesContainer = el("div", { className: "aa-value-profile-rules" });
+			renderRules(profile, rulesContainer);
+			body.append(rulesContainer, button({
 				label: t("aaalice.workspace.valueProfiles.addRule", "Add rule"),
 				iconName: "add",
 				variant: "ghost",
@@ -374,11 +374,14 @@ export function openValueProfiles() {
 	};
 
 	const createProfile = () => {
-		runtime.askText(t("aaalice.workspace.valueProfiles.create", "New profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), "", (name) => persist((current) => {
-			const next = createValueProfile(current, name);
-			selectedId = next.profiles[next.profiles.length - 1].id;
-			return next;
-		}));
+		runtime.askText(t("aaalice.workspace.valueProfiles.create", "New profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), "", (name) => {
+			rulesScrollTop = 0;
+			persist((current) => {
+				const next = createValueProfile(current, name);
+				selectedId = next.profiles[next.profiles.length - 1].id;
+				return next;
+			});
+		});
 	};
 
 	render();

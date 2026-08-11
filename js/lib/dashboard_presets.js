@@ -253,3 +253,19 @@ export function parseDashboardPreset(raw) {
 	const snapshot = normalizeDashboardSnapshot(raw);
 	return raw.name == null ? snapshot : { ...snapshot, name: normalizeName(raw.name) };
 }
+
+export function parseDashboardPresetForImport(raw) {
+	if (raw?.format !== DASHBOARD_PRESET_FILE_FORMAT || raw?.version !== DASHBOARD_PRESET_FILE_VERSION) throw new DashboardPresetError("Unsupported sidebar preset backup", "unsupported-preset-file");
+	const rawValues = raw.values ?? {};
+	if (!rawValues || typeof rawValues !== "object" || Array.isArray(rawValues)) throw new DashboardPresetError("Preset values must be an object", "invalid-preset-values");
+	const values = {}; const issues = [];
+	for (const [key, entry] of Object.entries(rawValues)) {
+		try { Object.assign(values, normalizeDashboardPresetValues({ [key]: entry })); }
+		catch (error) { issues.push({ key, status: "invalid", reason: error?.code || "invalid-preset-value" }); }
+	}
+	const snapshot = normalizeDashboardSnapshot({ dashboard: raw.dashboard, values });
+	return {
+		snapshot: raw.name == null ? snapshot : { ...snapshot, name: normalizeName(raw.name) },
+		issues,
+	};
+}

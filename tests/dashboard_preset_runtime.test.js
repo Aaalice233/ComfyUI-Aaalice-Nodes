@@ -97,6 +97,19 @@ test("capture respects runtime availability and preserves unavailable saved valu
 	});
 });
 
+test("capture rejects non-finite live values without breaking the remaining preset", () => {
+	const invalid = binding("invalid"); const valid = binding("valid");
+	const captured = captureDashboardValues(dashboard(invalid, valid), (candidate) => ({ status: "ok", value: candidate.controlId === "invalid" ? Number.NaN : 12 }));
+	assert.deepEqual(captured.values, { [bindingKey(valid)]: { valueType: "number", payload: 12 } });
+	assert.deepEqual(captured.bindings.map(({ status }) => status), ["invalid", "ok"]);
+	assert.match(captured.bindings[0].reason, /finite numbers/);
+	const previous = { [bindingKey(invalid)]: { valueType: "number", payload: 7 } };
+	assert.deepEqual(mergeCapturedPresetValues(captured, previous), {
+		[bindingKey(invalid)]: { valueType: "number", payload: 7 },
+		[bindingKey(valid)]: { valueType: "number", payload: 12 },
+	});
+});
+
 test("application planning separates ready, absent, incompatible and invalid values", () => {
 	const steps = binding("steps"); const cfg = binding("cfg"); const mode = binding("mode", "string");
 	const preset = snapshot(dashboard(steps, cfg, mode), {
@@ -142,8 +155,126 @@ test("value overwrite uses the target dashboard and preserves its layout and unm
 		[bindingKey(added)]: { valueType: "number", payload: 99 },
 		[bindingKey(old)]: { valueType: "number", payload: 7 },
 	});
-	assert.deepEqual(plan.summary, { overwritten: 2, preserved: 1, unmatched: 1, needsReview: 0 });
+	assert.deepEqual(plan.summary, { overwritten: 2, exact: 2, recovered: 0, preserved: 1, unmatched: 1, needsReview: 0 });
 	assert.deepEqual(mergeDashboardPresetValues(source, target, [bindingKey(steps)]).dashboard, targetDashboard);
+});
+
+test("value overwrite safely recovers a uniquely identified card after workflow binding IDs change", () => {
+	const sourceBinding = { provider: "generic-widget", adapterId: "legacy", hostId: "old-host", controlId: "steps", valueType: "number" };
+	const targetBinding = { provider: "generic-widget", adapterId: "current", hostId: "new-host", controlId: "steps", valueType: "number" };
+	const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetBinding);
+	sourceLayout.pages[0].items[0].id = "old-item"; sourceLayout.pages[0].items[0].label = "Sampling Steps";
+	targetLayout.pages[0].items[0].id = "new-item"; targetLayout.pages[0].items[0].label = "Sampling Steps v2";
+	const source = snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 36 } });
+	const target = snapshot(targetLayout, { [bindingKey(targetBinding)]: { valueType: "number", payload: 18 } });
+	const resolved = [];
+	const plan = planDashboardPresetValueOverwrite(source, target, (candidate) => {
+		resolved.push(candidate);
+		return { status: "ok", validatePresetValue: () => true };
+	});
+	assert.deepEqual(resolved, [targetBinding]);
+	assert.deepEqual(plan.merged.dashboard, targetLayout);
+	assert.equal(plan.merged.values[bindingKey(targetBinding)].payload, 36);
+	assert.equal(plan.entries[0].match, "recovered");
+	assert.equal(plan.entries[0].sourceKey, bindingKey(sourceBinding));
+	assert.deepEqual(plan.summary, { overwritten: 1, exact: 0, recovered: 1, preserved: 0, unmatched: 0, needsReview: 0 });
+});
+
+test("recovery tiers remain stable across card, host, context, and label drift", () => {
+	for (const recovery of ["card", "host", "context", "label"]) {
+		const sourceBinding = { provider: "generic-widget", adapterId: "source-adapter", hostId: "source-host", controlId: "cfg", valueType: "number" };
+		const targetBinding = { ...sourceBinding, adapterId: "target-adapter", hostId: recovery === "host" ? sourceBinding.hostId : "target-host" };
+		const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetBinding);
+		sourceLayout.pages[1].items = []; targetLayout.pages[1].items = [];
+		const sourceItem = sourceLayout.pages[0].items[0]; const targetItem = targetLayout.pages[0].items[0];
+		sourceItem.id = "source-card"; sourceItem.label = "Source label";
+		targetItem.id = recovery === "card" ? sourceItem.id : "target-card";
+		targetItem.label = recovery === "label" ? "ＳＯＵＲＣＥ　ＬＡＢＥＬ" : "Target label";
+		if (recovery !== "context") targetLayout.pages[0].name = "Changed page";
+		const source = snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 27 } });
+		const target = snapshot(targetLayout, { [bindingKey(targetBinding)]: { valueType: "number", payload: 9 } });
+		const plan = planDashboardPresetValueOverwrite(source, target, () => ({ status: "ok", validatePresetValue: () => true }));
+		assert.equal(plan.ready.length, 1, recovery);
+		assert.equal(plan.ready[0].match, "recovered", recovery);
+		assert.equal(plan.merged.values[bindingKey(targetBinding)].payload, 27, recovery);
+	}
+});
+
+test("recovered card values fan out to the updated card binding set", () => {
+	const sourceBinding = { provider: "generic-widget", hostId: "old-host", controlId: "guidance", valueType: "number" };
+	const targetPrimary = { provider: "generic-widget", hostId: "new-host", controlId: "guidance", valueType: "number" };
+	const targetLinked = { provider: "generic-widget", hostId: "linked-host", controlId: "guidance", valueType: "number" };
+	const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetPrimary);
+	sourceLayout.pages[0].items[0].id = "old-guidance"; sourceLayout.pages[0].items[0].label = "Guidance";
+	targetLayout.pages[0].items[0].id = "new-guidance"; targetLayout.pages[0].items[0].label = "Guidance";
+	targetLayout.pages[0].items[0].linkedBindings = [targetLinked];
+	const source = snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 4.5 } });
+	const target = snapshot(targetLayout, {
+		[bindingKey(targetPrimary)]: { valueType: "number", payload: 3 },
+		[bindingKey(targetLinked)]: { valueType: "number", payload: 3 },
+	});
+	const plan = planDashboardPresetValueOverwrite(source, target, () => ({ status: "ok", validatePresetValue: () => true }));
+	assert.deepEqual(plan.ready.map(({ binding: entry, match }) => [entry.hostId, match]), [["new-host", "recovered"], ["linked-host", "recovered"]]);
+	assert.equal(plan.merged.values[bindingKey(targetPrimary)].payload, 4.5);
+	assert.equal(plan.merged.values[bindingKey(targetLinked)].payload, 4.5);
+	assert.deepEqual(plan.summary, { overwritten: 2, exact: 0, recovered: 2, preserved: 0, unmatched: 0, needsReview: 0 });
+});
+
+test("binding anchors do not fan out values from an incompatible source card", () => {
+	const sourcePrimary = { provider: "generic-widget", hostId: "old-cfg", controlId: "cfg", valueType: "number" };
+	const anchor = { provider: "generic-widget", hostId: "shared-steps", controlId: "steps", valueType: "number" };
+	const targetLinked = { provider: "generic-widget", hostId: "new-steps", controlId: "steps", valueType: "number" };
+	const sourceLayout = dashboard(sourcePrimary); sourceLayout.pages[0].items[0].linkedBindings = [anchor];
+	const targetLayout = dashboard(anchor); targetLayout.pages[0].items[0].linkedBindings = [targetLinked];
+	const source = snapshot(sourceLayout, {
+		[bindingKey(sourcePrimary)]: { valueType: "number", payload: 6 },
+		[bindingKey(anchor)]: { valueType: "number", payload: 28 },
+	});
+	const target = snapshot(targetLayout, {
+		[bindingKey(anchor)]: { valueType: "number", payload: 20 },
+		[bindingKey(targetLinked)]: { valueType: "number", payload: 20 },
+	});
+	const plan = planDashboardPresetValueOverwrite(source, target, () => ({ status: "ok", validatePresetValue: () => true }));
+	assert.equal(plan.merged.values[bindingKey(anchor)].payload, 28);
+	assert.equal(plan.merged.values[bindingKey(targetLinked)].payload, 20);
+	assert.equal(plan.entries.find((entry) => entry.key === bindingKey(targetLinked)).status, "preserved");
+});
+
+test("semantic recovery refuses ambiguous cards instead of pairing by order", () => {
+	const sourceA = { provider: "generic-widget", hostId: "old-a", controlId: "strength", valueType: "number" };
+	const sourceB = { provider: "generic-widget", hostId: "old-b", controlId: "strength", valueType: "number" };
+	const targetBinding = { provider: "generic-widget", hostId: "new-host", controlId: "strength", valueType: "number" };
+	const sourceLayout = dashboard(sourceA, sourceB); const targetLayout = dashboard(targetBinding);
+	for (const [index, item] of sourceLayout.pages[0].items.entries()) { item.id = `old-${index}`; item.label = "Strength"; }
+	targetLayout.pages[0].items[0].id = "new-target"; targetLayout.pages[0].items[0].label = "Strength";
+	const source = snapshot(sourceLayout, {
+		[bindingKey(sourceA)]: { valueType: "number", payload: 0.2 },
+		[bindingKey(sourceB)]: { valueType: "number", payload: 0.8 },
+	});
+	const target = snapshot(targetLayout, { [bindingKey(targetBinding)]: { valueType: "number", payload: 0.5 } });
+	const plan = planDashboardPresetValueOverwrite(source, target, () => { throw new Error("ambiguous values must not resolve"); });
+	assert.equal(plan.ready.length, 0);
+	assert.equal(plan.entries.find((entry) => entry.key === bindingKey(targetBinding)).status, "ambiguous");
+	assert.equal(plan.merged.values[bindingKey(targetBinding)].payload, 0.5);
+	assert.deepEqual(plan.summary, { overwritten: 0, exact: 0, recovered: 0, preserved: 0, unmatched: 2, needsReview: 1 });
+});
+
+test("semantic recovery also refuses one source that could fit multiple targets", () => {
+	const sourceBinding = { provider: "generic-widget", hostId: "old-host", controlId: "strength", valueType: "number" };
+	const targetA = { provider: "generic-widget", hostId: "new-a", controlId: "strength", valueType: "number" };
+	const targetB = { provider: "generic-widget", hostId: "new-b", controlId: "strength", valueType: "number" };
+	const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetA, targetB);
+	sourceLayout.pages[0].items[0].id = "old"; sourceLayout.pages[0].items[0].label = "Strength";
+	for (const [index, item] of targetLayout.pages[0].items.entries()) { item.id = `new-${index}`; item.label = "Strength"; }
+	const plan = planDashboardPresetValueOverwrite(
+		snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 0.8 } }),
+		snapshot(targetLayout, { [bindingKey(targetA)]: { valueType: "number", payload: 0.2 }, [bindingKey(targetB)]: { valueType: "number", payload: 0.4 } }),
+		() => { throw new Error("one-to-many recovery must not resolve"); },
+	);
+	assert.equal(plan.ready.length, 0);
+	assert.deepEqual(plan.entries.filter((entry) => entry.status === "ambiguous").map((entry) => entry.key).sort(), [bindingKey(targetA), bindingKey(targetB)].sort());
+	assert.equal(plan.merged.values[bindingKey(targetA)].payload, 0.2);
+	assert.equal(plan.merged.values[bindingKey(targetB)].payload, 0.4);
 });
 
 test("value overwrite reports incompatible, unavailable and invalid source values without changing target values", () => {
@@ -318,4 +449,21 @@ test("explicit codec rejection rolls back earlier targets and the Dashboard layo
 	assert.throws(() => applyDashboardSnapshotPlan(plan, { readDashboard: () => currentDashboard, writeDashboard: (next) => { currentDashboard = next; } }), /manager conflict/);
 	assert.deepEqual(state, { first: 1, second: 2 });
 	assert.equal(currentDashboard.pages[0].items[0].binding.controlId, "old");
+});
+
+test("persistence commit failures roll back values, layout, and external preset state", () => {
+	const target = binding("target"); let currentValue = 1; let currentDashboard = dashboard(binding("old")); let presetState = "before";
+	const plan = planDashboardPresetApplication(snapshot(dashboard(target), { [bindingKey(target)]: { valueType: "number", payload: 9 } }), () => ({
+		status: "ok", readPresetValue: () => currentValue, validatePresetValue: () => true,
+		applyPresetValue(entry) { currentValue = entry.payload; },
+	}));
+	assert.throws(() => applyDashboardSnapshotPlan(plan, {
+		readDashboard: () => currentDashboard,
+		writeDashboard: (next) => { currentDashboard = next; },
+		commit: () => { presetState = "partial"; throw new Error("commit failed"); },
+		rollbackCommit: () => { presetState = "before"; },
+	}), /commit failed/);
+	assert.equal(currentValue, 1);
+	assert.equal(currentDashboard.pages[0].items[0].binding.controlId, "old");
+	assert.equal(presetState, "before");
 });

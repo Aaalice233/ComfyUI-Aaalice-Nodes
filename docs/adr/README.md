@@ -17,5 +17,6 @@ ADR 只记录难逆、令人意外且存在真实方案取舍的当前或已发�
 | [0011：Krita Bridge 使用短请求快照与显式失败](0011-krita-bridge-execution-snapshots.md) | ComfyUI 与 Krita 通过请求关联的本机临时文件交换执行快照，外部状态异常时整体失败。 |
 | [0012：Dashboard 来源组使用可扩展作用域身份](0012-dashboard-source-scoped-groups.md) | Provider 定义可选来源作用域，Dashboard 保持领域无关。 |
 | [0013：Dashboard 使用主控件与多目标绑定集](0013-dashboard-multi-target-binding-sets.md) | 一张卡片保留一个展示主控件，并通过原子 Binding Set 安全写入多个兼容目标。 |
+| [0014：侧边栏仅数值导入使用唯一语义恢复](0014-dashboard-value-import-recovery.md) | 仅数值迁移以新版布局为权威，精确匹配失败后只恢复互为唯一的语义卡片。 |
 
 未发布的开发中间态在删除后不保留 ADR。
