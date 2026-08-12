@@ -68,8 +68,14 @@ function isNativeValueControl(widget) {
 	return widgetType(widget) === "combo" && widget?.options?.serialize === false && widget?.options?.canvasOnly === true
 		&& ["fixed", "increment", "decrement", "randomize"].every((mode) => values.includes(mode));
 }
+// ComfyUI injects non-parameter $$ preview widgets after execution; they must not change whether the host's real controls support fallback.
+function isCanvasOnlyPseudoWidget(widget) {
+	const name = widget?.name;
+	if (typeof name !== "string" || !name.startsWith("$$")) return false;
+	return widget.serialize === false || widget.options?.serialize === false || widget.options?.canvasOnly === true;
+}
 function isInactiveNativeWidget(node, widget) {
-	if (INACTIVE_NATIVE_WIDGET_TYPES.has(widgetType(widget)) || isLinkedWidget(widget)) return true;
+	if (INACTIVE_NATIVE_WIDGET_TYPES.has(widgetType(widget)) || isLinkedWidget(widget) || isCanvasOnlyPseudoWidget(widget)) return true;
 	return isNativeValueControl(widget) && (node?.widgets || []).some((owner) => owner !== widget && owner?.linkedWidgets?.includes(widget));
 }
 function simpleNativeWidgetDefinition(widget, { promoted = false } = {}) {
