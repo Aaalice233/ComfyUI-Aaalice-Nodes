@@ -41,8 +41,10 @@ export function loadValueProfiles() {
 
 export function saveValueProfiles(state) {
 	try {
-		globalThis.localStorage?.setItem(VALUE_PROFILES_STORAGE_KEY, JSON.stringify(normalizeValueProfileState(state)));
+		if (!globalThis.localStorage) throw new Error("Browser local storage is unavailable.");
+		globalThis.localStorage.setItem(VALUE_PROFILES_STORAGE_KEY, JSON.stringify(normalizeValueProfileState(state)));
 	} catch (error) {
 		console.warn("[Aaalice] Unable to save the value adjustment profiles", error);
+		throw error;
 	}
 }

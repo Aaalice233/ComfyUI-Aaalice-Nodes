@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { bindingKey } from "../js/lib/dashboard_model.js";
 import { applyDashboardPresetPlan, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
 import { createValueProfile, emptyValueProfileState, matchValueProfileRules, normalizeValueProfileState, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule, ValueProfileError } from "../js/lib/value_profiles.js";
+import { saveValueProfiles } from "../js/workspace/sidebar_preferences.js";
 
 const binding = (controlId, valueType = "number", hostId = "host-a") => ({ provider: "generic-widget", hostId, controlId, valueType });
 const candidate = (controlId, { valueType = "number", hostId = "host-a", label = controlId, hostLabel = "Host A" } = {}) => ({
@@ -17,6 +18,21 @@ test("normalize tolerates null and rejects unsupported versions", () => {
 	assert.deepEqual(normalizeValueProfileState(null), { version: 1, profiles: [] });
 	assert.throws(() => normalizeValueProfileState({ version: 2, profiles: [] }), (error) => error instanceof ValueProfileError && error.code === "unsupported-value-profiles");
 	assert.throws(() => normalizeValueProfileState({ version: 1, profiles: {} }), ValueProfileError);
+});
+
+test("local profile persistence exposes storage failures to the dialog", () => {
+	const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+	const originalWarn = console.warn;
+	const failure = new Error("storage quota exceeded");
+	Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { setItem() { throw failure; } } });
+	console.warn = () => {};
+	try {
+		assert.throws(() => saveValueProfiles(emptyValueProfileState()), (error) => error === failure);
+	} finally {
+		console.warn = originalWarn;
+		if (descriptor) Object.defineProperty(globalThis, "localStorage", descriptor);
+		else delete globalThis.localStorage;
+	}
 });
 
 test("profile names are trimmed and unique case-insensitively", () => {

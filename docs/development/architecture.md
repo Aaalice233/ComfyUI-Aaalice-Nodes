@@ -176,7 +176,7 @@
 12. 画布绑定高亮由 `js/lib/canvas_control_binding_highlight.js` 维护；Classic 对 native/promoted widget 安装绘制包装，标记集合新增、替换或移除后必须调用 ComfyUI `LGraphCanvas.setDirty(true, true)`，因为安装包装不会自动重绘已经保留的画布帧。含 `PreviewAny` / `PreviewImage` 的子图首次恢复也遵守该契约，进入/退出子图触发的重绘不能作为修复手段。高亮解析只依赖绑定的 node/widget 身份，与控件实时值无关，因此按（Dashboard 模型引用 + 图结构签名）备忘解析结果，结构未变时同步只重放 DOM/标记差异；备忘录不按当前图过滤，图导航后重新过滤，`beforeConfigureGraph` 必须调 `invalidateCanvasControlBindingResolution()` 防止同签名重载后命中旧节点对象。Nodes 2.0 的行映射候选列表读取新协议投影 widget 的响应式 store 访问器，只能在真实重解析时刷新，DOM mutation 触发的行重映射必须复用缓存。
 13. Dashboard 搜索只匹配参数组件的实时显示标题，搜索索引覆盖全部页面，不把页面名、布局组名或其它上下文元数据加入匹配；打开搜索后结果按页面分组挂载真实 Control View，查询输入只切换已有结果的可见性，不销毁搜索输入或控件 DOM；搜索结果与正常页面通过现有 value channel、Provider 写回和 controlView().update() 共享真实值，允许连续批量修改，并保留卡片菜单、联动、数值范围、图像上传、Seed 行为和可用性错误态。搜索会话不进入工作流持久化，搜索滚动独立于各页面 Scroll Surface，关闭后恢复当前页面原位置。
 14. Dashboard 布局交互状态只存在于 `dashboard_interactions.js`：选择集合由工作区持有，完整命中的 Layout Group 规范化为根级单元；拖拽按选区规范占位生成前缘插入标记，并用与 `dashboard_layout.insertEntries()` 相同的稳定顺序预演碰撞链下推。自动滚动使用单一 `requestAnimationFrame` 循环，在同一指针坐标下重算框选和落点；取消或提交清理预览、临时 transform 和组接收态，只有松手或键盘微调进入一次 Dashboard 命令。控件卡片的高矮宽窄适配完全由 `theme-dashboard-layout.css` 的尺寸 Container Query 派生：不读取 Provider、不安装每卡 ResizeObserver、不重建 Control View，也不写回规范网格几何。唯一的视口投影例外是页面仅含一个未分组 Gallery 时，由该侧栏根的 Dashboard body ResizeObserver 把卡片临时投影到可用高度；普通模式与布局模式共用这一投影，模式切换不改变持久 `rowSpan`。
-15. Dashboard 参数调整档案 Dialog 只编排本机档案状态与现有规则 codec：规则列表和候选选择面互斥挂载，切换时保留规则滚动位置；视觉层由 `theme-value-profiles.css` 负责无边框表面、元数据胶囊和响应式规则行，不改变 `localStorage` schema、匹配策略或事务化应用边界。
+15. Dashboard 参数调整档案 Dialog 只编排本机档案状态与现有规则 codec：规则列表和候选选择面互斥挂载，切换时保留规则滚动位置；规则按真实宿主来源分组并用稳定 Control Tone 着色，同名规则只增加组内序号，不把来源标题或页面写进持久身份；规则搜索只切换既有组/行的可见性。视觉与响应式布局由 `theme-value-profiles.css` 负责，不改变 `localStorage` schema、匹配策略或事务化应用边界。
 
 #### 第三方节点适配
 
