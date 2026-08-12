@@ -75,7 +75,7 @@ function createSearchControl(node, { defaultOpen = false, onOpenChange = null } 
 		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});
 	setOpen(defaultOpen, { focus: false, notifyChange: false });
-	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
+	return { root, input, toggle, setOpen, addTag, getValue: () => input.value, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
 }
 
 function openGalleryErrorDialog(error, onRetry) {

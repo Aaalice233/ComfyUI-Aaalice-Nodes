@@ -43,6 +43,34 @@ test("gallery presets capture the complete interactive component state", () => {
 	assert.equal(preset.state.selections.length, 2);
 });
 
+test("gallery presets capture the live Dashboard search draft before blur", () => {
+	const state = defaultGalleryState();
+	state.query = "committed query";
+	state.filters.feed = "ranking";
+	state.filters.period = "day";
+	state.navigation.page = 8;
+	const preset = createBooruGalleryPreset(state, {}, { queryDraft: "  live draft  " });
+
+	assert.equal(state.query, "committed query", "capturing a draft must not execute or mutate the node");
+	assert.equal(preset.state.query, "live draft");
+	assert.equal(preset.state.filters.feed, "search");
+	assert.equal(preset.state.filters.period, "");
+	assert.equal(preset.state.navigation.page, 1);
+});
+
+test("capturing an unchanged live search draft preserves its current feed and page", () => {
+	const state = defaultGalleryState();
+	state.query = "same query";
+	state.filters.feed = "ranking";
+	state.filters.period = "week";
+	state.navigation.page = 5;
+	const preset = createBooruGalleryPreset(state, {}, { queryDraft: "same query" });
+
+	assert.equal(preset.state.filters.feed, "ranking");
+	assert.equal(preset.state.filters.period, "week");
+	assert.equal(preset.state.navigation.page, 5);
+});
+
 test("gallery preset decoding validates and normalizes saved component state", () => {
 	const state = defaultGalleryState();
 	state.selectionMode = "multi";

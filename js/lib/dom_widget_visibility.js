@@ -13,7 +13,7 @@ export function observeDOMWidgetVisibility(element, { onChange, rootMargin = "80
 		return { destroy() {} };
 	}
 
-	let active = true;
+	let active = null;
 	const observer = new IntersectionObserver((entries) => {
 		const entry = entries.find(Boolean);
 		if (!entry) return;
