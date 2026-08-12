@@ -218,19 +218,23 @@ registerWidgetControlAdapter({
 		return !promoted && booruGalleryWidget(node, widget);
 	},
 	describe({ node, widget }) {
+		const runtime = node._aaGalleryRuntime;
 		return {
+			control: runtime,
 			controlId: widget.name,
 			label: "Booru Gallery",
 			labelPolicy: "node-title",
 			kind: "booru-gallery",
 			valueType: "booru-gallery",
 			getValue: () => node.properties?.booruGalleryState || null,
-			presettable: false,
 			columnSpan: 12,
 			rowSpan: 90,
 			minRowSpan: 50,
-			options: { createSidebarControl: () => node._aaGalleryRuntime.createSidebarControl() },
-			setValue: () => false,
+			options: { createSidebarControl: () => runtime.createSidebarControl() },
+			readPresetValue: () => runtime.getPresetValue(),
+			validatePresetValue: (entry) => entry?.valueType === "booru-gallery" ? runtime.validatePresetValue(entry.payload) : "type-mismatch",
+			applyPresetValue: (entry) => runtime.applyPresetValue(entry.payload),
+			setValue: (next) => runtime.applyPresetValue(next),
 		};
 	},
 });

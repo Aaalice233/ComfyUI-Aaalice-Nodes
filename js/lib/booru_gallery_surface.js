@@ -64,7 +64,10 @@ export function createGallerySurfaceFactory(dependencies) {
 		const filter = button({ className: "aa-gallery-toolbar-action is-filter", iconName: "filter", label: label("filter.title", "Filters"), title: label("filter.title", "Filters"), variant: "ghost", size: "sm", onClick: () => openFilter(node, filter) });
 		const prompt = button({ className: "aa-gallery-toolbar-action is-prompt", iconName: "tag", label: label("prompt.short", "Prompt"), title: label("prompt.title", "Prompt processing"), variant: "ghost", size: "sm", onClick: () => openPromptOptions(node, prompt) });
 		const pageControl = createPageControl(node);
-		const searchControl = createSearchControl(node, { defaultOpen: placement !== "dashboard" });
+		const searchControl = createSearchControl(node, {
+			defaultOpen: placement === "dashboard" ? stateFor(node).dashboard.searchOpen : true,
+			onOpenChange: placement === "dashboard" ? (open) => node._aaGalleryRuntime?.setDashboardSearchOpen(open) : null,
+		});
 		let refreshing = false;
 		const randomMode = button({ className: "aa-gallery-toolbar-text-action aa-gallery-random-mode", iconName: "shuffle", label: label("random.off", "Random"), title: label("random.enable", "Enable random mode"), variant: "ghost", size: "sm", onClick: async () => {
 			const active = !stateFor(node).randomMode;
@@ -156,7 +159,9 @@ export function createGallerySurfaceFactory(dependencies) {
 		let destroyed = false;
 		surface.syncNodeMode = syncNodeModePresentation;
 		surface.syncState = () => {
-			const state = stateFor(node); root.dataset.source = state.source; source.setValue(state.source); searchControl.sync(); collection.setOptions(collectionOptions(state.source), collectionValue(state)); pageControl.setPage(state.navigation.page); syncRandomModePresentation(state.randomMode); surface.mode = state.view; root.dataset.mode = state.view; tabs.setValue(state.view); selectionMode.setValue(state.selectionMode); surface.syncNodeMode();
+			const state = stateFor(node); root.dataset.source = state.source; source.setValue(state.source); searchControl.sync();
+			if (placement === "dashboard") searchControl.setOpen(state.dashboard.searchOpen, { focus: false, submitChanges: false, notifyChange: false });
+			collection.setOptions(collectionOptions(state.source), collectionValue(state)); pageControl.setPage(state.navigation.page); syncRandomModePresentation(state.randomMode); surface.mode = state.view; root.dataset.mode = state.view; tabs.setValue(state.view); selectionMode.setValue(state.selectionMode); surface.syncNodeMode();
 		};
 		surface.destroy = () => { if (destroyed) return; destroyed = true; clearTimeout(scrollSettleTimer); removeCardMotion?.(); visibility.destroy(); selectedDropIndicator.remove(); surface.masonryController.destroy(); surface.selectedList.destroy(); root.remove(); };
 		surface.syncState();

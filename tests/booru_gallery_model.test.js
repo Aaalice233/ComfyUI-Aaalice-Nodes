@@ -22,9 +22,13 @@ test("saved node ratings survive normalization independently from defaults", () 
 	assert.deepEqual(state.filters.ratings, ["general", "questionable", "explicit"]);
 });
 
-test("gallery view is workflow state while legacy workflows default to browsing", () => {
-	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", view: "selected", prompt: {}, filters: {}, selections: [] }).view, "selected");
-	assert.equal(normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [] }).view, "browse");
+test("gallery view and Dashboard projection are workflow state while legacy workflows use defaults", () => {
+	const restored = normalizeGalleryState({ version: 1, source: "danbooru", view: "selected", dashboard: { searchOpen: true }, prompt: {}, filters: {}, selections: [] });
+	assert.equal(restored.view, "selected");
+	assert.equal(restored.dashboard.searchOpen, true);
+	const legacy = normalizeGalleryState({ version: 1, source: "danbooru", prompt: {}, filters: {}, selections: [] });
+	assert.equal(legacy.view, "browse");
+	assert.equal(legacy.dashboard.searchOpen, false);
 });
 
 test("random mode persists in workflow state without entering execution payloads", () => {

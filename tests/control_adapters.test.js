@@ -86,12 +86,19 @@ test("composite and LoRA widgets expose stable sidebar controls", () => {
 			validatePresetValue: () => true, setValue: () => {},
 		},
 	};
-	const galleryState = { version: 2, source: "danbooru" };
+	const galleryState = { version: 1, source: "danbooru" };
+	const galleryPreset = { version: 1, state: galleryState };
+	let appliedGalleryPreset = null;
 	const galleryNode = {
 		comfyClass: "BooruGalleryNode",
 		properties: { booruGalleryState: galleryState },
 		widgets: [{ name: "aaalice_booru_gallery", type: "custom", value: "", serialize: false }],
-		_aaGalleryRuntime: { createSidebarControl: () => ({}) },
+		_aaGalleryRuntime: {
+			createSidebarControl: () => ({}),
+			getPresetValue: () => galleryPreset,
+			validatePresetValue: (value) => value?.version === 1 || "invalid-gallery-preset",
+			applyPresetValue: (value) => { appliedGalleryPreset = value; },
+		},
 	};
 	const loraListWidget = { name: "loras", type: "custom", value: [{ name: "style.safetensors", strength: 0.8, clipStrength: 0.7, active: false, selected: true }], getValue() { return this.value; }, setValue(next) { this.value = next; } };
 	const loraTextWidget = { name: "text", type: "AUTOCOMPLETE_TEXT_LORAS", label: "text", value: "<lora:style.safetensors:0.8>" };
@@ -102,10 +109,13 @@ test("composite and LoRA widgets expose stable sidebar controls", () => {
 	const lora = loraControls[0];
 	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan, resolution.rowSpan, resolution.minRowSpan], ["aaalice-resolution-preset", "resolution", 6, 13, 13]);
 	assert.deepEqual([prompt.adapterId, prompt.kind, prompt.rowSpan], ["aaalice-prompt-selector", "prompt-selector", 64]);
-	assert.deepEqual([gallery.adapterId, gallery.kind, gallery.columnSpan, gallery.rowSpan, gallery.minRowSpan, gallery.presettable, gallery.linkable], ["aaalice-booru-gallery", "booru-gallery", 12, 90, 50, false, false]);
+	assert.deepEqual([gallery.adapterId, gallery.kind, gallery.columnSpan, gallery.rowSpan, gallery.minRowSpan, gallery.presettable, gallery.linkable], ["aaalice-booru-gallery", "booru-gallery", 12, 90, 50, true, false]);
 	assert.equal(typeof gallery.options.createSidebarControl, "function");
 	assert.equal(gallery.value, galleryState);
-	assert.equal(gallery.setValue(null), false);
+	assert.deepEqual(gallery.readPresetValue(), galleryPreset);
+	assert.equal(gallery.validatePresetValue({ valueType: "booru-gallery", payload: galleryPreset }), true);
+	gallery.applyPresetValue({ valueType: "booru-gallery", payload: galleryPreset });
+	assert.equal(appliedGalleryPreset, galleryPreset);
 	assert.deepEqual([lora.adapterId, lora.kind, lora.valueType, lora.rowSpan, lora.minRowSpan, lora.label], ["lora-manager-list", "lora-list", "lora-list", 36, 28, "LoRA prompt"]);
 	assert.deepEqual(lora.value, [{ name: "style.safetensors", strength: 0.8, clipStrength: 0.7, active: false }]);
 	assert.equal(loraControls.length, 1);

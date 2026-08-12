@@ -42,6 +42,7 @@ export function defaultGalleryState(settings = {}) {
 			version: GALLERY_STATE_VERSION, source, query: "", view: "browse", selectionMode: "single", randomMode: false,
 		filters: { ratings: defaultGalleryRatings(source), sort: source === "aitag" ? "new" : "latest", feed: "search", period: "" },
 		navigation: { page: 1 },
+		dashboard: { searchOpen: false },
 		prompt: {
 			categories: strings(defaults.categories || DEFAULT_PROMPT_CATEGORIES).filter((item) => GALLERY_CATEGORIES.includes(item)),
 			replaceUnderscores: Boolean(defaults.replaceUnderscores), escapeParentheses: Boolean(defaults.escapeParentheses),
@@ -72,6 +73,7 @@ export function normalizeGalleryState(value, settings = {}) {
 		filters: { ratings, sort: legacyMonthly || legacyRandom ? (source === "aitag" ? "new" : "latest") : String(value.filters?.sort || "latest"), feed,
 			period: feed === "ranking" ? String(value.filters?.period || "month") : "" },
 		navigation: { page: Math.max(1, Math.floor(Number(value.navigation?.page) || 1)) },
+		dashboard: { searchOpen: Boolean(value.dashboard?.searchOpen) },
 		prompt: { categories, replaceUnderscores: Boolean(value.prompt?.replaceUnderscores),
 			escapeParentheses: Boolean(value.prompt?.escapeParentheses) },
 		selections: selectionMode === "single" ? selections.slice(0, 1) : selections,

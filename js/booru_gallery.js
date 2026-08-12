@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, currentLocale, t } from "./i18n.js";
 import { defaultGalleryRatings, finalPrompt, galleryPayload, GALLERY_CATEGORIES, normalizeGalleryState, normalizeTagGroups, selectionFromDetail, selectionKey } from "./lib/booru_gallery_model.js";
+import { createBooruGalleryPreset, decodeBooruGalleryPreset, validateBooruGalleryPreset } from "./lib/booru_gallery_preset.js";
 import { streamTagTranslations } from "./lib/tag_translation.js";
 import { parseTagListValue } from "./lib/taglist_value.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
@@ -399,6 +400,21 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const controller = buildController(node, surfaces);
 	const runtime = { controller, surfaces, nodeSurface: null, accent: null, modeObserver: null };
 	node._aaGalleryRuntime = runtime; node._aaGalleryController = controller;
+	runtime.getPresetValue = () => createBooruGalleryPreset(stateFor(node), settings || {});
+	runtime.setDashboardSearchOpen = (value) => {
+		const searchOpen = Boolean(value);
+		if (stateFor(node).dashboard.searchOpen === searchOpen) return;
+		transact(node, (state) => { state.dashboard.searchOpen = searchOpen; });
+		controller.syncState();
+	};
+	runtime.validatePresetValue = (value) => validateBooruGalleryPreset(value, settings || {});
+	runtime.applyPresetValue = (value) => {
+		const decoded = decodeBooruGalleryPreset(value, settings || {});
+		node.properties[PROPERTY] = decoded.state;
+		const state = stateFor(node);
+		controller.syncState(); runtime.accent?.sync?.();
+		void controller.search({ reset: true, page: state.navigation.page });
+	};
 	runtime.createSidebarControl = () => {
 		const surface = createGallerySurface(node, controller, { placement: "dashboard" });
 		controller.attachSurface(surface); runtime.accent?.sync?.();
