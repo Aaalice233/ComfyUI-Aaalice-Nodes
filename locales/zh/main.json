@@ -269,6 +269,7 @@
       "tab": { "label": "画廊视图", "browse": "浏览", "selected": "已选" },
       "selectionMode": { "label": "选择模式", "single": "单选", "multiple": "多选", "changeTitle": "切换为单选", "changeConfirm": "切换后只保留第一张已选图片，是否继续？", "changeAction": "保留第一张" },
       "nodeMode": { "label": "画廊节点执行模式", "active": "启用", "mute": "静音", "bypass": "绕过" },
+      "projectionPaused": { "title": "画廊正在侧边栏中显示", "body": "为了保持画布流畅，浏览侧边栏画廊时会暂停此节点的图片渲染；关闭或切换侧边栏后将自动恢复。" },
       "search": { "label": "搜索帖子", "placeholder": "搜索标签…", "close": "收起搜索", "limitTitle": "已达到搜索上限", "tagLimit": "当前来源每次最多搜索 {count} 个标签。" },
       "filter": { "title": "筛选", "rating": "分级", "apply": "应用", "noRating": "当前来源不提供分级筛选。" },
       "rating": { "general": "全龄", "safe": "安全", "sensitive": "敏感", "questionable": "暗示", "explicit": "露骨", "unknown": "未知" },

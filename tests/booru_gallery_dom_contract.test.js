@@ -46,19 +46,20 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(source, /input\.className = "aa-gallery-search__input aa-ui-search-input"/);
 	assert.match(source, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
 	assert.match(source, /input\.hasAttribute\("data-autocomplete-plus-open"\)/);
-	assert.match(source, /toggle\.setSearchValue\(input\.value/);
+	assert.match(source, /toggle\.setSearchValue\(draft\)/);
 	assert.match(source, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
 	assert.match(source, /toggle\.hidden = open/);
-	assert.match(source, /if \(!open && submitChanges && input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\)/);
+	assert.match(source, /if \(!open && submitChanges && draft\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\)/);
 	assert.match(source, /const setOpen = \(next, \{ focus = true, submitChanges = true, notifyChange = true \} = \{\}\) =>/);
 	assert.match(source, /setOpen\(defaultOpen, \{ focus: false, notifyChange: false \}\)/);
 	assert.match(source, /defaultOpen: placement === "dashboard" \? stateFor\(node\)\.dashboard\.searchOpen : true/);
 	assert.match(source, /node\._aaGalleryRuntime\?\.setDashboardSearchOpen\(open\)/);
 	assert.match(source, /runtime\.setDashboardSearchOpen = \(value\) =>/);
 	assert.match(source, /node\.graph\?\.change\?\.\(\)/);
-	assert.match(source, /if \(!composing && !input\.value\.trim\(\) && searchQuery\(stateFor\(node\)\)\) submit\(\)/);
+	assert.match(source, /if \(!composing && !draft\.trim\(\) && searchQuery\(stateFor\(node\)\)\) submit\(\)/);
 	assert.match(source, /input\.addEventListener\("blur", commitOnBlur\)/);
-	assert.match(source, /const commitIfChanged = \(\) => \{ if \(input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\); \};/);
+	assert.match(source, /const commitIfChanged = \(\) => \{ if \(draft\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\); \};/);
+	assert.match(source, /if \(!dirty\) \{ draft = searchQuery\(stateFor\(node\)\); input\.value = draft; \}/);
 	assert.match(source, /if \(composing\) return;/);
 	assert.match(source, /new MutationObserver\(\(\) => \{/);
 	assert.match(source, /attributeFilter: \["data-autocomplete-plus-open"\]/);
@@ -73,6 +74,19 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button \{[^}]*width: 22px;[^}]*height: 22px;[^}]*border-radius: 50%;[^}]*transform: none;/s);
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button:hover:not\(:disabled\) \{[^}]*background: color-mix\([^}]*transform: none;/s);
 	assert.match(theme, /\.aa-gallery-search \{[^}]*padding: 3px 3px 3px 9px;[^}]*overflow: hidden;/s);
+});
+
+test("suspended canvas projection explains that the Gallery is active in the sidebar", () => {
+	assert.match(surfaceSource, /placement === "node" \? el\("div", \{ className: "aa-gallery-projection-notice"/);
+	assert.match(surfaceSource, /label\("projectionPaused\.title", "Gallery active in sidebar"\)/);
+	assert.match(surfaceSource, /root\.classList\.toggle\("is-projection-suspended", !surface\.projectionEnabled\)/);
+	assert.match(surfaceSource, /if \(projectionNotice\) projectionNotice\.hidden = surface\.projectionEnabled/);
+	assert.match(theme, /\.aa-gallery--node\.is-projection-suspended > :is\(\.aa-gallery-browser, \.aa-gallery-selected\) \{ visibility: hidden; \}/);
+	assert.match(theme, /\.aa-gallery-projection-notice \{[^}]*grid-area: 2 \/ 1;[^}]*place-items: center;[^}]*pointer-events: none;/s);
+	assert.match(theme, /\.aa-gallery-projection-notice__surface \{[^}]*width: min\(390px, 86%\);[^}]*min-height: 160px;[^}]*border-radius: 20px;/s);
+	assert.equal(enLocale.aaalice.gallery.projectionPaused.title, "Gallery active in sidebar");
+	assert.equal(zhLocale.aaalice.gallery.projectionPaused.title, "画廊正在侧边栏中显示");
+	assert.match(zhLocale.aaalice.gallery.projectionPaused.body, /保持画布流畅/);
 });
 
 test("gallery presets own browsing, selection, and dashboard projection state", () => {

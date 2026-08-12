@@ -94,7 +94,7 @@
 1. LiteGraph 在拖拽和平移期间会逐帧调用尺寸、排列和绘制回调。QuickGroupManager 的可见组快照只在事件驱动的 `render()` 中生成，逐帧高度回调只读取缓存；GroupLogicProbe 的规范化状态按原始对象身份复用。节点位置和无关高度变化不使这些缓存失效。
 2. Dashboard 控件值通过已挂载 `controlView().update()` 定向更新，不替换 DOM、不重算布局；结构变化才重建控件并刷新依赖链。
 3. 所有顶层节点 DOM widget 使用宿主 `hideOnZoom` 低质量变换路径，画布平移或缩放期间临时绘制占位，稳定后仍用同一持久状态恢复。
-4. Booru Gallery 和 PromptSelector 的宿主 widget 保持注册，插件内部富内容由 `dom_widget_visibility` 以有限视口预热范围切换 active；离屏时虚拟列表/瀑布流释放条目 DOM 和图片源，只保留模型与 spacer 布局，返回视口后按同一 controller 恢复。Gallery 的 Dashboard Surface 进入预热视口时还会暂停同节点的画布 Surface，Dashboard Surface 离开预热视口或卸载后再恢复，避免两个富媒体投影同时挂载卡片和图片。该机制不修改 ComfyUI 核心、其它插件或工作流持久状态。
+4. Booru Gallery 和 PromptSelector 的宿主 widget 保持注册，插件内部富内容由 `dom_widget_visibility` 以有限视口预热范围切换 active；离屏时虚拟列表/瀑布流释放条目 DOM 和图片源，只保留模型与 spacer 布局，返回视口后按同一 controller 恢复。Gallery 的 Dashboard Surface 进入预热视口时还会暂停同节点的画布 Surface，并在画布内容区显示不参与指针命中的本地化暂停说明；Dashboard Surface 离开预热视口或卸载后同步恢复画布 Surface 并移除说明，避免两个富媒体投影同时挂载卡片和图片，也不留下无原因的空白节点。该机制不修改 ComfyUI 核心、其它插件或工作流持久状态。
 5. Workspace 图签名只读取 widget/options 的静态 own data property；accessor-backed 动态选项由 `CONTROL_HOST_INVALIDATED_EVENT` 失效，加载、撤销和重做由 `afterConfigureGraph` 强制恢复，不在签名阶段执行第三方 getter。
 6. KJ Set/Get 的虚拟连线绘制属于 KJNodes 自身：其 Show links、单节点 `drawConnection` 和 Performance 设置可能独立增加每帧图扫描与连线绘制。本包只通过公开 Set/Get API 做事件驱动的结构同步，不改写 KJNodes 的 canvas renderer。
 7. Dashboard 参数值按稳定 Binding Key 进入进程内 value channel，直接调用现有 Control View 的 `update()` 同步同卡片、重复卡片与多根投影；普通值提交不调用 `renderWorkspace()`，也不重新解析 Provider。Subgraph Provider 按稳定 Control Id 缓存“绑定到哪个 promoted widget”的结构索引，值仍逐次实时读取；嵌套定义 owner 只在图结构或 Control Host 明确失效时清空。自定义 Sidebar 的重复 render 回调在仍拥有原 DOM 树时为 no-op，结构重绘在连续手势期间延后到提交后执行一次。
@@ -158,7 +158,7 @@
 5. capability 控制 Rating、排行榜、直接跳页、认证、原图下载和收藏按钮。排行榜走适配器独立入口；逻辑页码统一从 1 开始，远端 `page` / `pid` 转换不进入前端。Gelbooru 的搜索、详情和标签分类必须使用官方 User ID / API Key；设置边界接受账户页复制的 `&api_key=…&user_id=…` 凭据片段并规范化保存，不能改动其它来源凭据。其 Rating 使用站点当前的 General、Sensitive、Questionable、Explicit；单选分级发送远端 metatag，多选分级因远端不支持同类 metatag OR 而在真实分页结果上本地过滤。Gelbooru 不写收藏。Safebooru 与 AI TAG 不显示账户收藏；AI TAG 直接使用公开搜索、月榜与作品详情 API，并从公开图片元数据生成 Prompt，不把它伪装成传统 Booru Rating/标签分类。AI TAG 列表只提供推导缩略图时保留资源目录大小写；若首图并非 `_p0`，卡片仅在图片失败时按需请求详情恢复真实首图，不把逐帖详情请求恢复到搜索主路径。所有来源都不使用 Cookie、HTML 会话或验证码兼容层。
 6. Gallery 的搜索、过滤列表和本地标签编辑通过 Autocomplete-Plus 的 `raw-tag` 外部输入模式接入补全；站点原始标签身份在插件边界保持不变，面向生成提示词的空格替换、括号转义、画师前缀和自动分隔符不得进入搜索与精确匹配路径。
 7. 随机模式只把开关写入 `booruGalleryState`；已见 `source + postId` 集合由单个前端节点会话拥有，并以来源、查询、频道、周期和 Rating 组成作用域，退出模式或作用域变化时释放。随机 API 不接收顺序 cursor、不写搜索结果缓存，前端请求同时使用 `cache: "no-store"`：Danbooru 搜索使用官方 `random:<limit>` 抽样元标签而不执行 `order:random` 全量排序，Gelbooru / Safebooru 搜索使用来源原生随机排序，AI TAG 以只缓存总数的随机页采样覆盖全集，前端再用 Web Crypto 拒绝采样驱动 Fisher–Yates 洗牌并做稳定身份去重。适配器继续先执行本机黑名单过滤，客户端只把实际展示项记入已见集合；唯一结果耗尽采用有限空批次预算，不以无限翻页维持表面成功。
-8. Gallery 的 Control Spec 整体可预设但不可联动：`booru_gallery_preset.js` 负责版本校验、规范化与深拷贝，捕获包含 Dashboard 搜索框展开状态在内的完整 `booruGalleryState`。捕获时从已挂载 Dashboard Surface 读取尚未提交的搜索输入，仅覆盖新快照中的查询上下文，不提前执行搜索或修改节点状态；应用时先替换节点状态，再定向同步所有节点 / Dashboard Surface 并按恢复页重置搜索。预设从不保存 Summary、滚动位置、浮层、请求状态或随机已见集合。
+8. Gallery 的 Control Spec 整体可预设但不可联动：`booru_gallery_preset.js` 负责版本校验、规范化与深拷贝，捕获包含 Dashboard 搜索框展开状态在内的完整 `booruGalleryState`。搜索控件独立持有尚未提交的草稿和 dirty 状态，控制器同步只在无草稿时采用节点查询，避免收起搜索所触发的同步在提交前回写旧值；收起、失焦或 Enter 再把草稿提交到节点状态。捕获时从已挂载 Dashboard Surface 读取该搜索草稿，仅覆盖新快照中的查询上下文，不提前执行搜索或修改节点状态；应用时先替换节点状态，再定向同步所有节点 / Dashboard Surface 并按恢复页重置搜索。预设从不保存 Summary、滚动位置、浮层、请求状态或随机已见集合。
 
 ### DIY 左侧工作区
 

@@ -14,17 +14,19 @@ function createSearchControl(node, { defaultOpen = false, onOpenChange = null } 
 	const close = iconButton({ iconName: "arrowRight", label: label("search.close", "Close search"), className: "aa-ui-search-collapse", variant: "ghost", onClick: () => setOpen(false) });
 	root.append(icon("search"), input, close);
 	const toggle = searchToggleButton({ label: label("search.label", "Search posts"), onClick: () => setOpen(true) });
-	let open = false; let composing = false;
+	let open = false; let composing = false; let draft = searchQuery(stateFor(node)); let dirty = false;
+	input.value = draft;
 	const submit = () => {
-		transact(node, (state) => { state.query = input.value.trim(); state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; });
-		toggle.setSearchValue(input.value.trim());
+		const query = draft.trim();
+		transact(node, (state) => { state.query = query; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; });
+		dirty = false; draft = query; input.value = query; toggle.setSearchValue(query);
 		node._aaGalleryController?.syncState();
 		node._aaGalleryController?.search({ reset: true, page: 1 });
 	};
 	const setOpen = (next, { focus = true, submitChanges = true, notifyChange = true } = {}) => {
 		const changed = open !== Boolean(next);
 		open = Boolean(next);
-		if (!open && submitChanges && input.value.trim() !== searchQuery(stateFor(node))) submit();
+		if (!open && submitChanges && draft.trim() !== searchQuery(stateFor(node))) submit();
 		root.classList.toggle("is-open", open); toggle.hidden = open; toggle.setSearchOpen(open);
 		if (changed && notifyChange) onOpenChange?.(open);
 		if (open && focus) queueMicrotask(() => { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); });
@@ -33,26 +35,26 @@ function createSearchControl(node, { defaultOpen = false, onOpenChange = null } 
 		const value = String(tag || "").trim();
 		if (!value) return false;
 		setOpen(true);
-		const terms = input.value.trim().match(/"[^"]+"|'[^']+'|\S+/g) || [];
+		const terms = draft.trim().match(/"[^"]+"|'[^']+'|\S+/g) || [];
 		if (terms.some((term) => term.replace(/^(["'])|(["'])$/g, "").toLocaleLowerCase() === value.toLocaleLowerCase())) return true;
 		if (Number.isInteger(maxTags) && terms.length >= maxTags) {
 			app.extensionManager.toast.add({ severity: "warning", summary: label("search.limitTitle", "Search limit"), detail: label("search.tagLimit", "This source supports up to {count} tags per search.").replace("{count}", String(maxTags)), life: 4000 });
 			return false;
 		}
-		input.value = [...terms, value].join(" ");
+		draft = [...terms, value].join(" "); input.value = draft; dirty = true;
 		submit();
 		return true;
 	};
 	const syncInput = () => {
-		toggle.setSearchValue(input.value);
-		if (!composing && !input.value.trim() && searchQuery(stateFor(node))) submit();
+		draft = input.value; dirty = draft.trim() !== searchQuery(stateFor(node)); toggle.setSearchValue(draft);
+		if (!composing && !draft.trim() && searchQuery(stateFor(node))) submit();
 	};
 	input.addEventListener("input", syncInput);
 	input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; syncInput(); });
 	// 失焦即确认：未提交的查询在焦点离开输入框时自动执行；IME 组合中的失焦让位给 compositionend。
 	// 补全面板打开期间的失焦（如点击画布）先等插件关闭面板、写入最终文本，再按结果提交。
 	let pendingBlurCommit = null;
-	const commitIfChanged = () => { if (input.value.trim() !== searchQuery(stateFor(node))) submit(); };
+	const commitIfChanged = () => { if (draft.trim() !== searchQuery(stateFor(node))) submit(); };
 	const commitOnBlur = () => {
 		if (composing) return;
 		if (!input.hasAttribute("data-autocomplete-plus-open")) { commitIfChanged(); return; }
@@ -75,7 +77,10 @@ function createSearchControl(node, { defaultOpen = false, onOpenChange = null } 
 		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});
 	setOpen(defaultOpen, { focus: false, notifyChange: false });
-	return { root, input, toggle, setOpen, addTag, getValue: () => input.value, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
+	return { root, input, toggle, setOpen, addTag, getValue: () => draft, sync: () => {
+		if (!dirty) { draft = searchQuery(stateFor(node)); input.value = draft; }
+		toggle.setSearchValue(draft);
+	} };
 }
 
 function openGalleryErrorDialog(error, onRetry) {

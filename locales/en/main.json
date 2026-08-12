@@ -269,6 +269,7 @@
       "tab": { "label": "Gallery view", "browse": "Browse", "selected": "Selected" },
       "selectionMode": { "label": "Selection mode", "single": "Single", "multiple": "Multiple", "changeTitle": "Switch to single selection", "changeConfirm": "Only the first selected image will remain. Continue?", "changeAction": "Keep first image" },
       "nodeMode": { "label": "Gallery node execution mode", "active": "Active", "mute": "Mute", "bypass": "Bypass" },
+      "projectionPaused": { "title": "Gallery active in sidebar", "body": "To keep the canvas responsive, image rendering is paused here while you browse the sidebar. It resumes automatically when the sidebar view closes." },
       "search": { "label": "Search posts", "placeholder": "Search tags…", "close": "Close search", "limitTitle": "Search limit", "tagLimit": "This source supports up to {count} tags per search." },
       "filter": { "title": "Filters", "rating": "Rating", "apply": "Apply", "noRating": "This source does not expose Rating filters." },
       "rating": { "general": "General", "safe": "Safe", "sensitive": "Sensitive", "questionable": "Questionable", "explicit": "Explicit", "unknown": "Unknown" },
