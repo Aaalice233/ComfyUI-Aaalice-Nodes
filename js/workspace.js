@@ -62,6 +62,7 @@ const autoCloseCanvases = new WeakSet();
 const bindingNavigationCanvases = new WeakSet();
 const bindingModeSettings = new WeakSet();
 const dashboardPageRails = new WeakMap();
+const dashboardPresetViews = new WeakMap();
 const workspaceOwnedTrees = new WeakMap();
 const workspaceOwnershipObservers = new Map();
 const workspaceParentObservers = new Map();
@@ -75,6 +76,7 @@ let activePageId = null;
 let editMode = false;
 let dashboardModelError = null;
 let renderFrame = 0;
+let dashboardPresetSyncFrame = 0;
 let deferredWorkspaceRender = false;
 let dashboardCacheSource = null;
 let dashboardCacheValue = null;
@@ -243,6 +245,14 @@ function flushDeferredWorkspaceRender() {
 	scheduleRender();
 }
 
+function scheduleDashboardPresetViewSync() {
+	if (dashboardPresetSyncFrame) return;
+	dashboardPresetSyncFrame = requestAnimationFrame(() => {
+		dashboardPresetSyncFrame = 0;
+		for (const root of mounted) if (isWorkspaceRootInteractive(root)) dashboardPresetViews.get(root)?.();
+	});
+}
+
 let canvasBindingSyncFrame = 0;
 function scheduleCanvasControlBindingSync({ force = false } = {}) {
 	if (canvasBindingSyncFrame) return;
@@ -254,10 +264,10 @@ function scheduleCanvasControlBindingSync({ force = false } = {}) {
 	});
 }
 
-// 结构相同的工作流（如同一工作流的多个版本）可能携带不同看板与预设；签名必须覆盖，否则切换标签页时选择器显示陈旧状态
+// 看板布局参与结构签名；预设快照只定向刷新选择器，不能让普通值保存重建整棵控件树。
 function graphSyncSignature(nodes = graphNodes()) {
 	const extra = app.graph?.extra;
-	return createGraphSyncSignature(nodes, extra, { hostIdProperty: HOST_ID_PROPERTY, dashboardKey: EXTRA_KEY, dashboardPresetsKey: DASHBOARD_PRESETS_EXTRA_KEY });
+	return createGraphSyncSignature(nodes, extra, { hostIdProperty: HOST_ID_PROPERTY, dashboardKey: EXTRA_KEY });
 }
 
 let graphSyncFrame = 0;
@@ -277,6 +287,7 @@ function scheduleGraphSync(forceRender = false) {
 		const signature = graphSyncSignature(nodes);
 		const scheduleGraphViewRender = shouldForceRender ? scheduleStructuralRender : scheduleRender;
 		if (shouldForceRender || signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleCanvasControlBindingSync(); scheduleGraphViewRender("dashboard"); }
+		else scheduleDashboardPresetViewSync();
 		scheduleGraphViewRender("groups");
 	});
 }
@@ -417,6 +428,7 @@ function suspendWorkspaceRoot(element) {
 
 function destroyWorkspaceRoot(element) {
 	const ownedTree = workspaceOwnedTrees.get(element);
+	dashboardPresetViews.delete(element);
 	dashboardViewportObservers.get(element)?.disconnect(); dashboardViewportObservers.delete(element);
 	workspaceWidthObservers.get(element)?.disconnect(); workspaceWidthObservers.delete(element);
 	workspaceOwnershipObservers.get(element)?.disconnect(); workspaceOwnershipObservers.delete(element);
@@ -437,6 +449,7 @@ function destroyWorkspaceSidebar() {
 }
 
 function renderWorkspace(root) {
+	dashboardPresetViews.delete(root);
 	dashboardViewportObservers.get(root)?.disconnect(); dashboardViewportObservers.delete(root);
 	for (const candidate of workspaceOwnershipObservers.keys()) if (candidate !== root && !isWorkspaceRootInteractive(candidate)) closeWorkspaceTransientSurfaces(candidate);
 	rememberDashboardScroll(root);
@@ -537,7 +550,7 @@ configureDashboardPresets({
 	dashboard,
 	resolve,
 	graphNodes,
-	scheduleRender,
+	syncDashboardPresetViews: scheduleDashboardPresetViewSync,
 	scheduleStructuralRender,
 	remindWorkflowSave,
 	workspaceLabels,
@@ -598,6 +611,7 @@ configureDashboardView({
 	mounted,
 	captureDashboardPageSnapshots,
 	dashboardPageRails,
+	registerDashboardPresetView: (host, update) => dashboardPresetViews.set(host, update),
 	workspaceLabels,
 	openDashboardExport,
 	importDashboardPreset,

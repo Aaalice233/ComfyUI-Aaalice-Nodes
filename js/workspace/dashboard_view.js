@@ -25,11 +25,11 @@ export function renderDashboard(container, host) {
 	const {
 		dashboard, currentPage, sourceGroupViewState, resolveGroupTitle, resolvePageControls, dashboardModelError,
 		isWorkspaceRootInteractive, scheduleRender, scheduleStructuralRender, askText, updateDashboard, removePage, syncCurrentPageSourceGroups,
-		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetModelError, dashboardPresetLabels,
+		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetLabels,
 		applyDashboardPreset, createCurrentDashboardPreset, updateCurrentDashboardPreset, duplicateCurrentDashboardPreset,
 		openValueProfiles,
 		renameCurrentDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
-		dashboardPageRails, workspaceLabels, openDashboardExport, importDashboardPreset, openEditGroup,
+		dashboardPageRails, registerDashboardPresetView, workspaceLabels, openDashboardExport, importDashboardPreset, openEditGroup,
 		openComponentNoteEditor, numericRangeForControl, flushDeferredWorkspaceRender, notifyWorkspaceImageUpload,
 		notifyControlBindingError, openManageLinkedBindings, openRebind, controlTitle, openCardActions, openMoveControl,
 		openAssignGroup, resolve, syncDashboardSourceGroup, dashboardColumnsForWorkspaceWidth, dashboardScrollState,
@@ -127,23 +127,48 @@ export function renderDashboard(container, host) {
 			{ label: t("aaalice.workspace.page.delete", "Delete page"), iconName: "delete", danger: true, onSelect: () => removePage(page) },
 		] });
 	};
-	const presetState = dashboardPresetState();
-	const baselinePreset = presetState.presets.find((item) => item.id === presetState.baselinePresetId) || null;
-	let currentPresetSnapshot = null;
-	let presetComparison = null;
-	let presetSnapshotError = null;
-	try {
-		currentPresetSnapshot = currentDashboardPresetSnapshot(model);
-		presetComparison = baselinePreset ? compareDashboardPreset(baselinePreset, currentPresetSnapshot) : null;
-	} catch (error) {
-		presetSnapshotError = error;
-	}
-	const presetPicker = createDashboardPresetPicker({
-		presets: presetState.presets, baselineId: baselinePreset?.id || null, comparison: presetComparison, error: dashboardPresetModelError || presetSnapshotError, labels: dashboardPresetLabels(),
-		attentionReview: presetComparison?.attention ? { count: brokenDashboardBindingEntries(model).length, onReview: () => openBindingHealthDialog(null) } : null,
-		onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
-		onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
-	});
+	const readPresetPickerState = () => {
+		const currentModel = dashboard();
+		const presetState = dashboardPresetState();
+		const baselinePreset = presetState.presets.find((item) => item.id === presetState.baselinePresetId) || null;
+		let currentPresetSnapshot = null;
+		let comparison = null;
+		let snapshotError = null;
+		try {
+			currentPresetSnapshot = currentDashboardPresetSnapshot(currentModel);
+			comparison = baselinePreset ? compareDashboardPreset(baselinePreset, currentPresetSnapshot) : null;
+		} catch (error) {
+			snapshotError = error;
+		}
+		const error = runtime.dashboardPresetModelError || snapshotError;
+		const attentionCount = comparison?.attention ? brokenDashboardBindingEntries(currentModel).length : 0;
+		const signature = JSON.stringify([
+			presetState.baselinePresetId,
+			presetState.presets.map((preset) => [preset.id, preset.name, preset.dashboard?.pages?.length || 0, Object.keys(preset.values || {}).length]),
+			comparison ? [comparison.modified, comparison.layoutChanges, comparison.valueChanges, comparison.attention] : null,
+			attentionCount,
+			String(error?.message || error || ""),
+		]);
+		return { presetState, baselinePreset, comparison, error, attentionCount, signature };
+	};
+	let presetSlot = null;
+	let mountedPresetSignature = "";
+	let pendingPresetState = null;
+	const mountPresetPicker = (state) => {
+		mountedPresetSignature = state.signature;
+		pendingPresetState = null;
+		presetSlot.replaceChildren(createDashboardPresetPicker({
+			presets: state.presetState.presets, baselineId: state.baselinePreset?.id || null, comparison: state.comparison, error: state.error, labels: dashboardPresetLabels(),
+			attentionReview: state.comparison?.attention ? { count: state.attentionCount, onReview: () => openBindingHealthDialog(null) } : null,
+			onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
+			onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
+			onClose: () => {
+				if (!pendingPresetState) return;
+				const pending = pendingPresetState;
+				queueMicrotask(() => { if (presetSlot?.isConnected && pendingPresetState === pending) mountPresetPicker(pending); });
+			},
+		}));
+	};
 	const dashboardComponentOptions = [
 		{ id: "separator", iconName: "subtract", label: t("aaalice.workspace.layout.separatorItem", "Separator") },
 	];
@@ -230,7 +255,15 @@ export function renderDashboard(container, host) {
 		iconName: "settings", label: t("aaalice.workspace.page.settings", "Page settings"), variant: "ghost", className: "aa-dashboard-page-settings",
 		onClick: (event) => { const rect = event.currentTarget.getBoundingClientRect(); openPageMenu(rect.right, rect.bottom); },
 	}) : null;
-	const presetSlot = el("div", { className: "aa-dashboard-toolbar__preset-slot", children: [presetPicker] });
+	presetSlot = el("div", { className: "aa-dashboard-toolbar__preset-slot" });
+	mountPresetPicker(readPresetPickerState());
+	registerDashboardPresetView(host, () => {
+		if (!presetSlot.isConnected) return;
+		const next = readPresetPickerState();
+		if (next.signature === mountedPresetSignature) return;
+		if (presetSlot.querySelector('.aa-value-preset-trigger[aria-expanded="true"]')) pendingPresetState = next;
+		else mountPresetPicker(next);
+	});
 	const toolbarContext = el("div", { className: "aa-dashboard-toolbar__row aa-dashboard-toolbar__row--context", children: [pageHeading, presetSlot, pageSettingsButton].filter(Boolean) });
 	const toolbarActions = el("div", {
 		className: "aa-dashboard-toolbar__row aa-dashboard-toolbar__row--actions",

@@ -222,7 +222,7 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 	});
 }
 
-export function createDashboardPresetPicker({ presets = [], baselineId = null, comparison = null, error = null, labels = {}, attentionReview = null, onSelect, onCreate, onUpdate, onDuplicate, onRename, onDelete, onRestore } = {}) {
+export function createDashboardPresetPicker({ presets = [], baselineId = null, comparison = null, error = null, labels = {}, attentionReview = null, onSelect, onCreate, onUpdate, onDuplicate, onRename, onDelete, onRestore, onClose } = {}) {
 	const hasError = Boolean(error);
 	const availablePresets = hasError ? [] : presets;
 	const selected = availablePresets.find((preset) => preset.id === baselineId) || null;
@@ -251,7 +251,7 @@ export function createDashboardPresetPicker({ presets = [], baselineId = null, c
 		trigger.setAttribute("aria-expanded", "true"); root.classList.add("is-open");
 		popover = createAnchoredPopover({
 			anchor: trigger, ariaLabel: labels.title || "Sidebar presets", className: "aa-value-preset-popover", width: 340,
-			onClose: () => { popover = null; trigger.setAttribute("aria-expanded", "false"); root.classList.remove("is-open"); },
+			onClose: () => { popover = null; trigger.setAttribute("aria-expanded", "false"); root.classList.remove("is-open"); onClose?.(); },
 		});
 		const heading = el("header", { className: "aa-value-preset-popover__header", children: [
 			el("strong", null, labels.title || "Sidebar presets"),

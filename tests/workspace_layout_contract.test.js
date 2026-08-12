@@ -228,7 +228,8 @@ test("adding controls reminds the user to save the workflow", () => {
 
 test("complete sidebar presets track layout and values as a custom working copy", () => {
 	assert.match(workspace, /const DASHBOARD_PRESETS_EXTRA_KEY = "aaaliceSidebarPresets"/);
-	assert.match(workspace, /graphSyncSignature[\s\S]*DASHBOARD_PRESETS_EXTRA_KEY/);
+	assert.match(workspace, /createGraphSyncSignature\(nodes, extra, \{ hostIdProperty: HOST_ID_PROPERTY, dashboardKey: EXTRA_KEY \}\)/);
+	assert.match(workspace, /syncDashboardPresetViews: scheduleDashboardPresetViewSync/);
 	assert.match(workspace, /createDashboardPresetPicker\(\{/);
 	assert.doesNotMatch(workspace, /!editMode \? createDashboardPresetPicker/);
 	assert.match(workspace, /currentDashboardPresetSnapshot/);
@@ -237,7 +238,7 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(workspace, /applyDashboardSnapshotPlan/);
 	assert.match(workspace, /dashboardPreset\.saveWorkflowReminder/);
 	assert.match(workspace, /notifyDashboardPresetSuccess["\s\S]*severity: "success"/);
-	assert.match(workspace, /commitDashboardPresetChange["\s\S]*updateDashboardPresetState\(callback, null,/);
+	assert.match(workspace, /commitDashboardPresetChange["\s\S]*updateDashboardPresetState\(callback\)/);
 	assert.match(workspace, /dashboardPreset\.(created|updated|duplicated|renamed|deleted)/);
 	assert.match(workspace, /deleteCurrentDashboardPreset[\s\S]*confirmAction\(message, \{ title: dashboardPresetLabels\(\)\.delete, confirmLabel: dashboardPresetLabels\(\)\.delete, danger: true \}\)[\s\S]*removeDashboardPreset/);
 	assert.match(workspace, /commitDeletedActiveDashboardPreset[\s\S]*planDashboardPresetApplication/);
@@ -247,9 +248,10 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(zhLocale, /deleteSwitchConfirm/);
 	assert.match(zhLocale, /deleteLastConfirm/);
 	assert.match(components, /export function createDashboardPresetPicker/);
+	assert.match(components, /onClose: \(\) => \{[^}]*onClose\?\.\(\)/);
 	assert.match(components, /error = null/);
 	assert.match(components, /aa-value-preset-empty is-error/);
-	assert.match(workspace, /error: dashboardPresetModelError/);
+	assert.match(workspace, /const error = runtime\.dashboardPresetModelError \|\| snapshotError/);
 	assert.match(components, /selected \? `\$\{selected\.name\}\$\{modified \? "\*" : ""\}` : labels\.placeholder/);
 	assert.match(workspace, /placeholder: t\("aaalice\.workspace\.dashboardPreset\.placeholder", "Select preset"\)/);
 	assert.match(enLocale, /"placeholder": "Select preset"/);
@@ -292,8 +294,8 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(components, /aa-value-preset-attention/);
 	assert.match(components, /labels\.attentionBindings/);
 	assert.match(components, /labels\.attentionStale/);
-	assert.match(workspace, /attentionReview: presetComparison\?\.attention/);
-	assert.match(workspace, /brokenDashboardBindingEntries\(model\)\.length/);
+	assert.match(workspace, /attentionReview: state\.comparison\?\.attention/);
+	assert.match(workspace, /brokenDashboardBindingEntries\(currentModel\)\.length/);
 	assert.match(workspace, /export function brokenDashboardBindingEntries/);
 	assert.match(workspace, /export function openBindingHealthDialog/);
 	assert.match(workspace, /openManageLinkedBindings\(entry\.item\.id/);
@@ -326,6 +328,7 @@ test("sidebar preset auto-save is enabled by default and lives beside the pin co
 	assert.match(workspace, /function loadSidebarPresetAutoSave\(\) \{ return loadBooleanPreference\(SIDEBAR_AUTO_SAVE_STORAGE_KEY, true/);
 	assert.match(workspace, /function autoSaveActiveDashboardPreset\(\)/);
 	assert.match(workspace, /scheduleActiveDashboardPresetAutoSave\(\)/);
+	assert.match(workspace, /if \(runtime\.isAutoSaveEnabled\(\)\) autoSaveActiveDashboardPreset\(\);[\s\S]*else syncDashboardPresetViews\(\)/);
 	assert.match(workspace, /autoSaveControl/);
 	assert.match(workspace, /footerActions: \[autoSaveControl, pinButton\]/);
 	assert.match(workspace, /attachDescriptionTooltip\(autoSaveControl, autoSaveDescription\)/);

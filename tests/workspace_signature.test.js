@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { widgetOptionSignature, widgetStructureSignature } from "../js/workspace/graph_signature.js";
+import { graphSyncSignature, widgetOptionSignature, widgetStructureSignature } from "../js/workspace/graph_signature.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
@@ -56,9 +56,20 @@ test("workspace signatures keep stable own data-property option arrays", () => {
 	assert.deepEqual(widgetOptionSignature({ options: { options: ["fallback"] } }), ["fallback"]);
 });
 
+test("preset snapshot writes do not masquerade as dashboard structure changes", () => {
+	const nodes = [{ id: 1, type: "Example", properties: { host: "host-1" }, widgets: [] }];
+	const options = { hostIdProperty: "host", dashboardKey: "dashboard" };
+	const initial = graphSyncSignature(nodes, { dashboard: { version: 4 }, presets: { revision: 1 } }, options);
+	const presetOnly = graphSyncSignature(nodes, { dashboard: { version: 4 }, presets: { revision: 2 } }, options);
+	const layoutChange = graphSyncSignature(nodes, { dashboard: { version: 4, pages: [{}] }, presets: { revision: 2 } }, options);
+	assert.equal(presetOnly, initial);
+	assert.notEqual(layoutChange, initial);
+});
+
 test("dynamic options refresh by invalidation while graph restores force a sync", () => {
 	assert.match(workspace, /window\.addEventListener\(CONTROL_HOST_INVALIDATED_EVENT, \(event\) => \{[\s\S]*invalidateWidgetControlAdapterCache\(node\);[\s\S]*if \(!dashboardUsesHost\(node\)\) return;[\s\S]*scheduleRender\("dashboard"\)/);
 	assert.match(workspace, /function scheduleGraphSync\(forceRender = false\)/);
+	assert.match(workspace, /signature !== previousGraphStructure[\s\S]*else scheduleDashboardPresetViewSync\(\)/);
 	assert.match(workspace, /graphSyncForceRender \|\|= forceRender/);
 	assert.match(workspace, /if \(shouldForceRender \|\| signature !== previousGraphStructure\)/);
 	assert.match(workspace, /afterConfigureGraph\(\) \{ invalidateWidgetControlAdapterCache\(\); scheduleGraphSync\(true\); \}/);

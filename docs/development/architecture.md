@@ -92,7 +92,7 @@
 ### Canvas 性能边界
 
 1. LiteGraph 在拖拽和平移期间会逐帧调用尺寸、排列和绘制回调。QuickGroupManager 的可见组快照只在事件驱动的 `render()` 中生成，逐帧高度回调只读取缓存；GroupLogicProbe 的规范化状态按原始对象身份复用。节点位置和无关高度变化不使这些缓存失效。
-2. Dashboard 控件值通过已挂载 `controlView().update()` 定向更新，不替换 DOM、不重算布局；结构变化才重建控件并刷新依赖链。
+2. Dashboard 控件值通过已挂载 `controlView().update()` 定向更新，不替换 DOM、不重算布局；结构变化才重建控件并刷新依赖链。侧边栏预设快照写入不属于图结构变化，不进入 Workspace 图签名；自动保存、手动保存或“已修改”状态变化只在动画帧内定向同步预设选择器。选择器浮层打开时延后替换自身内容直到关闭，不能因此重建 Dashboard 控件树或 Gallery Surface。
 3. 所有顶层节点 DOM widget 使用宿主 `hideOnZoom` 低质量变换路径，画布平移或缩放期间临时绘制占位，稳定后仍用同一持久状态恢复。
 4. Booru Gallery 和 PromptSelector 的宿主 widget 保持注册，插件内部富内容由 `dom_widget_visibility` 以有限视口预热范围切换 active；离屏时虚拟列表/瀑布流释放条目 DOM 和图片源，只保留模型与 spacer 布局，返回视口后按同一 controller 恢复。Gallery 的 Dashboard Surface 进入预热视口时还会暂停同节点的画布 Surface，并在画布内容区显示不参与指针命中的本地化暂停说明；Dashboard Surface 离开预热视口或卸载后同步恢复画布 Surface 并移除说明，避免两个富媒体投影同时挂载卡片和图片，也不留下无原因的空白节点。该机制不修改 ComfyUI 核心、其它插件或工作流持久状态。
 5. Workspace 图签名只读取 widget/options 的静态 own data property；accessor-backed 动态选项由 `CONTROL_HOST_INVALIDATED_EVENT` 失效，加载、撤销和重做由 `afterConfigureGraph` 强制恢复，不在签名阶段执行第三方 getter。

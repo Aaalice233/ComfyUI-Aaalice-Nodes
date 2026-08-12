@@ -17,7 +17,7 @@ export function getDashboardPresetModelError() { return dashboardPresetModelErro
 const dashboard = () => runtime.dashboard();
 const resolve = (binding) => runtime.resolve(binding);
 const graphNodes = () => runtime.graphNodes();
-const scheduleRender = (view = null) => runtime.scheduleRender(view);
+const syncDashboardPresetViews = () => runtime.syncDashboardPresetViews();
 const scheduleStructuralRender = (view = null) => runtime.scheduleStructuralRender(view);
 const remindWorkflowSave = (detail) => runtime.remindWorkflowSave(detail);
 const workspaceLabels = () => runtime.workspaceLabels();
@@ -35,15 +35,14 @@ export function dashboardPresetState() {
 	} catch (error) { dashboardPresetModelError = error; return emptyDashboardPresetState(); }
 }
 
-export function updateDashboardPresetState(callback, detail = null, { structural = false } = {}) {
+export function updateDashboardPresetState(callback, detail = null) {
 	if (dashboardPresetModelError) throw dashboardPresetModelError;
 	const graph = app.graph; graph?.beforeChange?.();
 	try {
 		graph.extra ||= {};
 		graph.extra[runtime.presetsExtraKey] = normalizeDashboardPresetState(callback(dashboardPresetState()) || dashboardPresetState());
 	} finally {
-		graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true);
-		(structural ? scheduleStructuralRender : scheduleRender)("dashboard");
+		graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); syncDashboardPresetViews();
 	}
 	if (detail) remindWorkflowSave(detail);
 }
@@ -91,7 +90,7 @@ export function currentDashboardPresetSnapshot(model = dashboard(), previousValu
 }
 
 function autoSaveActiveDashboardPreset() {
-	if (!runtime.isAutoSaveEnabled() || dashboardPresetAutoSaveRunning) return;
+	if (dashboardPresetAutoSaveRunning) return;
 	try {
 		const state = dashboardPresetState();
 		const baseline = state.presets.find((preset) => preset.id === state.baselinePresetId);
@@ -108,15 +107,16 @@ function autoSaveActiveDashboardPreset() {
 }
 
 export function scheduleActiveDashboardPresetAutoSave() {
-	if (!runtime.isAutoSaveEnabled() || dashboardPresetAutoSaveFrame) return;
+	if (dashboardPresetAutoSaveFrame) return;
 	dashboardPresetAutoSaveFrame = requestAnimationFrame(() => {
 		dashboardPresetAutoSaveFrame = 0;
-		autoSaveActiveDashboardPreset();
+		if (runtime.isAutoSaveEnabled()) autoSaveActiveDashboardPreset();
+		else syncDashboardPresetViews();
 	});
 }
 
 function commitDashboardPresetChange(callback, detail = t("aaalice.workspace.dashboardPreset.saveWorkflowReminder", "Save the workflow to keep these sidebar presets.")) {
-	try { updateDashboardPresetState(callback, null, { structural: true }); if (detail) notifyDashboardPresetSuccess(dashboardPresetLabels().title, detail); return true; }
+	try { updateDashboardPresetState(callback); if (detail) notifyDashboardPresetSuccess(dashboardPresetLabels().title, detail); return true; }
 	catch (error) { notifyDashboardPresetError(error); return false; }
 }
 

@@ -36,6 +36,6 @@ export function graphStructureSignature(nodes, hostIdProperty) {
 	])).join("|");
 }
 
-export function graphSyncSignature(nodes, extra, { hostIdProperty, dashboardKey, dashboardPresetsKey }) {
-	return `${graphStructureSignature(nodes, hostIdProperty)}|${JSON.stringify([extra?.[dashboardKey] ?? null, extra?.[dashboardPresetsKey] ?? null])}`;
+export function graphSyncSignature(nodes, extra, { hostIdProperty, dashboardKey }) {
+	return `${graphStructureSignature(nodes, hostIdProperty)}|${JSON.stringify(extra?.[dashboardKey] ?? null)}`;
 }
