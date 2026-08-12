@@ -249,7 +249,7 @@ const widgetProvider = (id, promoted) => ({
 		if (currentType !== binding.valueType) return { status: "incompatible", node, currentType };
 		return {
 			status: "ok", family: "comfy", kind: adapted.kind, numericDomain: adapted.numericDomain, controlId: adapted.controlId, node, widget: adapted.widget, control: adapted.control, label: adapted.label, value: adapted.value, options: adapted.options, availability: adapted.availability,
-			presettable: adapted.presettable, minRowSpan: adapted.minRowSpan, linkable: adapted.linkable, supportsSeedBehavior: adapted.supportsSeedBehavior, seedBehaviors: adapted.seedBehaviors, hasCustomPresetCodec: adapted.hasCustomPresetCodec,
+			presettable: adapted.presettable, columnSpan: adapted.columnSpan, rowSpan: adapted.rowSpan, minRowSpan: adapted.minRowSpan, linkable: adapted.linkable, supportsSeedBehavior: adapted.supportsSeedBehavior, seedBehaviors: adapted.seedBehaviors, hasCustomPresetCodec: adapted.hasCustomPresetCodec,
 			readPresetValue() { return structuredClone(adapted.readPresetValue ? adapted.readPresetValue() : adapted.value); },
 			subscribeValueChange(listener) { return adapted.subscribeValueChange?.(listener) || (() => {}); },
 			validatePresetValue(entry) {

@@ -9,12 +9,10 @@ import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } 
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
-import { mountVirtualList } from "./lib/virtual_list.js";
-import { mountVirtualMasonry } from "./lib/virtual_masonry.js";
-import { observeDOMWidgetVisibility } from "./lib/dom_widget_visibility.js";
-import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, isolate, listboxControl, multiSelectControl, searchToggleButton, segmentedControl } from "./lib/ui.js";
+import { createGallerySurfaceFactory, observeGalleryNodeMode } from "./lib/booru_gallery_surface.js";
+import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, listboxControl, multiSelectControl, searchToggleButton, segmentedControl } from "./lib/ui.js";
 import { createTagPillList } from "./lib/controls/tag_pills.js";
-import { createGalleryCards, installMasonryCardMotion } from "./lib/booru_gallery_cards.js";
+import { createGalleryCards } from "./lib/booru_gallery_cards.js";
 import { createGalleryControllerFactory } from "./lib/booru_gallery_controller.js";
 import { createGalleryDialogs } from "./lib/booru_gallery_dialogs.js";
 import { createGallerySettings } from "./lib/booru_gallery_settings.js";
@@ -310,7 +308,7 @@ function openFilter(node, anchor) {
 		ariaLabel: label("filter.rating", "Rating"),
 		onChange: (values) => { selectedRatings = values; transact(node, (current) => { current.filters.ratings = values; }); },
 	});
-	const apply = button({ label: label("filter.apply", "Apply"), iconName: "statusCheck", variant: "primary", onClick: () => { transact(node, (current) => { current.filters.ratings = selectedRatings; current.navigation.page = 1; }); node._aaGalleryCollection?.setValue(collectionValue(stateFor(node))); node._aaGalleryPage?.setPage(1); popover.close(); node._aaGalleryController.search({ reset: true, page: 1 }); } });
+	const apply = button({ label: label("filter.apply", "Apply"), iconName: "statusCheck", variant: "primary", onClick: () => { transact(node, (current) => { current.filters.ratings = selectedRatings; current.navigation.page = 1; }); node._aaGalleryController.syncState(); popover.close(); node._aaGalleryController.search({ reset: true, page: 1 }); } });
 	const header = el("header", { className: "aa-gallery-filter-popover__header", children: [
 		el("span", { className: "aa-gallery-filter-popover__icon", children: [icon("filter")] }),
 		el("strong", null, label("filter.rating", "Rating")),
@@ -386,239 +384,60 @@ function openPromptOptions(node, anchor) {
 	showPanel("categories"); popover.root.append(header, tabs, body); popover.reposition();
 }
 
+const createGallerySurface = createGallerySurfaceFactory({
+	capability, collectionOptions, collectionValue, createGalleryCard, createPageControl,
+	createSearchControl, createSelectedRow, defaultGalleryRatings,
+	getCapabilities: () => capabilities, hasSourceCredentials, icon, label,
+	openClearSelectionDialog, openFilter, openGalleryErrorDialog, openGallerySettings,
+	openPromptOptions, stateFor, transact,
+});
+
 function setupNode(node, { initializeSize = false } = {}) {
-	if (!isGallery(node) || node._aaGalleryMounted) return; node._aaGalleryMounted = true; stateFor(node);
-	const root = isolate(el("div", { className: "aa-gallery", attrs: { "data-mode": stateFor(node).view, "data-capture-wheel": "true" } }));
-	// Nodes 2.0 宿主在捕获阶段先处理 wheel，滚动区必须在 pointerenter 提前拿到焦点；
-	// 已在画廊内的焦点和外部文本编辑控件的焦点都不得抢夺。
-	const focusScrollableOnPointerEnter = (target) => target.addEventListener("pointerenter", () => {
-		const active = document.activeElement;
-		if (active && root.contains(active)) return;
-		if (active instanceof HTMLElement && active.matches('input, textarea, select, [contenteditable="true"]')) return;
-		target.focus({ preventScroll: true });
-	});
-	root.dataset.source = stateFor(node).source;
-	let collection = null;
-	const source = listboxControl({ className: "aa-gallery-source-select", options: capabilities.map((item) => ({ value: item.source, label: item.displayName, iconName: "globe" })), value: stateFor(node).source, ariaLabel: label("source", "Source"), onChange: (value) => { transact(node, (state) => { state.source = value; state.filters.ratings = defaultGalleryRatings(value); state.filters.sort = capability(value)?.sortValues?.[0] || "latest"; state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; }); root.dataset.source = value; pageControl?.setPage(1); collection?.setOptions(collectionOptions(value), collectionValue(stateFor(node))); controller.search({ reset: true, page: 1 }); } });
-	collection = listboxControl({ className: "aa-gallery-collection-select", options: collectionOptions(stateFor(node).source), value: collectionValue(stateFor(node)), ariaLabel: label("collection.label", "Gallery collection"), onChange: (value) => { transact(node, (state) => { if (value === "favorites") { state.filters.feed = "favorites"; state.filters.period = ""; } else if (value.startsWith("ranking:")) { state.filters.feed = "ranking"; state.filters.period = value.slice("ranking:".length); } else { state.filters.feed = "search"; state.filters.period = ""; state.filters.sort = value.slice("sort:".length); } state.navigation.page = 1; }); pageControl?.setPage(1); controller.search({ reset: true, page: 1 }); } });
-	const tabs = segmentedControl({ className: "aa-gallery-view-switcher", value: stateFor(node).view, options: [{ value: "browse", label: label("tab.browse", "Browse"), iconName: "layout" }, { value: "selected", label: label("tab.selected", "Selected"), iconName: "statusCheck" }], ariaLabel: label("tab.label", "Gallery view"), onChange: (value) => controller.setMode(value) });
-	const selectedCount = el("span", { className: "aa-gallery-view-switcher__count", attrs: { "aria-label": label("selected.outputHint", "{count} outputs").replace("{count}", "0") }, text: "0" });
-	tabs.querySelector('[data-value="selected"]')?.append(selectedCount);
-	const selectionMode = segmentedControl({
-		className: "aa-gallery-selection-switcher",
-		value: stateFor(node).selectionMode,
-		options: [
-			{ value: "single", label: label("selectionMode.single", "Single"), iconName: "selectionSingle" },
-			{ value: "multi", label: label("selectionMode.multiple", "Multiple"), iconName: "selectionMultiple" },
-		],
-		ariaLabel: label("selectionMode.label", "Selection mode"),
-		onChange: (value) => controller.setSelectionMode(value),
-	});
-	const clear = button({
-		className: "aa-gallery-toolbar-text-action aa-gallery-selected__clear",
-		label: label("selected.clear", "Clear"),
-		iconName: "delete",
-		title: label("selected.clear", "Clear"),
-		variant: "ghost",
-		size: "sm",
-		onClick: () => openClearSelectionDialog(node, controller),
-	});
-	const filter = button({ className: "aa-gallery-toolbar-action is-filter", iconName: "filter", label: label("filter.title", "Filters"), title: label("filter.title", "Filters"), variant: "ghost", size: "sm", onClick: () => openFilter(node, filter) });
-	const prompt = button({ className: "aa-gallery-toolbar-action is-prompt", iconName: "tag", label: label("prompt.short", "Prompt"), title: label("prompt.title", "Prompt processing"), variant: "ghost", size: "sm", onClick: () => openPromptOptions(node, prompt) });
-	const pageControl = createPageControl(node);
-	const searchControl = createSearchControl(node, { defaultOpen: true });
-	let refreshing = false;
-	const randomMode = button({ className: "aa-gallery-toolbar-text-action aa-gallery-random-mode", iconName: "shuffle", label: label("random.off", "Random"), title: label("random.enable", "Enable random mode"), variant: "ghost", size: "sm", onClick: async () => {
-		const active = !stateFor(node).randomMode;
-		transact(node, (state) => { state.randomMode = active; });
-		syncRandomModePresentation(active);
-		await controller.search({ reset: true, page: 1 });
-	} });
-	randomMode.setAttribute("role", "switch");
-	randomMode.append(el("span", { className: "aa-gallery-random-mode__switch", attrs: { "aria-hidden": "true" }, children: [el("span", "aa-gallery-random-mode__thumb")] }));
-	const refresh = button({ className: "aa-gallery-toolbar-text-action aa-gallery-refresh", iconName: "refresh", label: label("refresh", "Refresh"), ariaLabel: label("reload", "Reload search"), title: label("reload", "Reload search"), variant: "ghost", size: "sm", onClick: async () => {
-		if (refreshing) return;
-		refreshing = true; refresh.disabled = true; refresh.classList.add("is-refreshing");
-		updateRefreshPresentation(stateFor(node).randomMode ? label("random.drawing", "Drawing…") : label("refreshing", "Refreshing…"), undefined, "loading");
-		try { await controller.search({ reset: true, page: 1 }); }
-		finally { refreshing = false; refresh.disabled = false; refresh.classList.remove("is-refreshing"); updateRefreshIdlePresentation(); }
-	} });
-	let refreshIcon = refresh.querySelector(".aa-ui-icon");
-	function updateRefreshPresentation(visibleText, accessibleText = visibleText, iconName = "refresh") {
-		refresh.querySelector(".aa-ui-button__label").textContent = visibleText;
-		const nextIcon = icon(iconName); refreshIcon.replaceWith(nextIcon); refreshIcon = nextIcon;
-		refresh.setAttribute("aria-label", accessibleText);
-		refresh.title = accessibleText;
-	}
-	function updateRefreshIdlePresentation() {
-		if (stateFor(node).randomMode) updateRefreshPresentation(label("random.draw", "Draw again"), label("random.drawHint", "Draw another unseen batch"), "shuffle");
-		else updateRefreshPresentation(label("refresh", "Refresh"), label("reload", "Reload search"), "refresh");
-	}
-	function syncRandomModePresentation(active) {
-		active = Boolean(active);
-		root.dataset.randomMode = active ? "active" : "off";
-		randomMode.setAttribute("aria-checked", String(active));
-		randomMode.classList.toggle("is-active", active);
-		randomMode.querySelector(".aa-ui-button__label").textContent = active ? label("random.on", "Random on") : label("random.off", "Random");
-		const accessibleLabel = active ? label("random.disable", "Disable random mode") : label("random.enable", "Enable random mode");
-		randomMode.setAttribute("aria-label", accessibleLabel); randomMode.title = accessibleLabel;
-		pageControl.hidden = active;
-		if (!refreshing) updateRefreshIdlePresentation();
-	}
-	const openSettings = button({ className: "aa-gallery-toolbar-text-action aa-gallery-open-settings", iconName: "settings", label: label("settings.short", "Settings"), title: label("settings.open", "Configure Gallery…"), variant: "ghost", size: "sm", onClick: openGallerySettings });
-	const browseNavigation = el("div", { className: "aa-gallery-toolbar__navigation", children: [collection, pageControl] });
-	const browseTools = el("div", { className: "aa-gallery-toolbar__tools", children: [filter, prompt] });
-	const pageActions = el("div", { className: "aa-gallery-toolbar__page-actions", attrs: { role: "group", "aria-label": label("toolbarActions", "Browse tools") }, children: [browseNavigation, browseTools] });
-	const selectedSummaryText = el("span", null, "");
-	const selectedSummary = el("div", { className: "aa-gallery-toolbar__selected-summary", attrs: { role: "status" }, children: [icon("statusCheck"), selectedSummaryText] });
-	const searchActions = el("div", { className: "aa-gallery-toolbar__search", children: [searchControl.root, searchControl.toggle] });
-	const utilityActions = el("div", { className: "aa-gallery-toolbar__utilities", children: [randomMode, refresh, clear, openSettings] });
-	const primaryRow = el("div", { className: "aa-gallery-toolbar__row aa-gallery-toolbar__primary", children: [source, tabs, selectionMode, el("span", "aa-gallery-toolbar__spacer"), searchActions] });
-	const contextRow = el("div", { className: "aa-gallery-toolbar__row aa-gallery-toolbar__context", children: [pageActions, selectedSummary, el("span", "aa-gallery-toolbar__spacer"), utilityActions] });
-	const toolbar = el("header", { className: "aa-gallery-toolbar", attrs: { role: "toolbar", "aria-label": label("toolbar", "Booru Gallery") }, children: [primaryRow, contextRow] });
-	const masonry = el("div", { className: "aa-gallery-masonry", attrs: { tabindex: 0 } });
-	focusScrollableOnPointerEnter(masonry);
-	const loading = el("div", { className: "aa-gallery-status is-loading", attrs: { role: "status", "aria-live": "polite" }, children: [icon("refresh"), el("span", null, label("loading", "Loading…"))] }); loading.hidden = true;
-	const errorLabel = el("span");
-	const error = el("button", { className: "aa-gallery-status is-error", attrs: { type: "button", "aria-live": "assertive" }, children: [icon("statusWarning"), errorLabel] }); error.hidden = true;
-	const endLabel = el("span", null, label("end", "End of results"));
-	const end = el("div", { className: "aa-gallery-status is-end", attrs: { role: "status" }, children: [icon("statusCheck"), endLabel] }); end.hidden = true;
-	const continueResults = el("button", { className: "aa-gallery-status is-filtered", attrs: { type: "button" }, children: [icon("search"), el("span", null, label("continueFiltered", "Blocked posts were skipped. Continue searching"))] }); continueResults.hidden = true;
-	const emptyResults = el("div", { className: "aa-gallery-status is-empty", attrs: { role: "status" }, children: [icon("search"), el("span", null, label("emptyResults", "No posts match this search. Try widening the rating filter or reducing blocked tags."))] }); emptyResults.hidden = true;
-	const selected = el("div", "aa-gallery-selected"); const selectedListRoot = el("div", { className: "aa-gallery-selected__list", attrs: { tabindex: 0 } });
-	focusScrollableOnPointerEnter(selectedListRoot);
-	const selectedDropIndicator = el("div", {
-		className: "aa-gallery-selected-drop-indicator",
-		attrs: {
-			hidden: true,
-			"aria-hidden": "true",
-		},
-		children: [
-			el("span", "aa-gallery-selected-drop-indicator__cap"),
-			el("span", "aa-gallery-selected-drop-indicator__line"),
-			el("span", "aa-gallery-selected-drop-indicator__cap"),
-		],
-	});
-	const emptySelected = el("div", { className: "aa-gallery-selected__empty", children: [el("span", { className: "aa-gallery-selected__empty-icon", children: [icon("statusCheck")] }), el("strong", null, label("selected.emptyTitle", "Build your output set")), el("p", null, label("selected.empty", "Select posts from the waterfall to build an ordered output."))] });
-	selected.append(selectedListRoot, emptySelected);
-	document.body.append(selectedDropIndicator);
-	root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end, continueResults, emptyResults] }), selected);
-	syncRandomModePresentation(stateFor(node).randomMode);
-	let controller = null;
-	const elements = {
-		root,
-		masonry,
-		loading,
-		error,
-		errorLabel,
-		end,
-		endLabel,
-		randomMode,
-		continueResults,
-		emptyResults,
-		tabs,
-		selectionMode,
-		selectedCount,
-		selectedSummary: selectedSummaryText,
-		selectedClear: clear,
-		selectedList: null,
-		selectedListRoot,
-		selectedDropIndicator,
-		emptySelected,
-		mode: stateFor(node).view,
-		pageControl,
-		searchControl,
-		masonryController: null,
+	if (!isGallery(node) || node._aaGalleryMounted) return;
+	node._aaGalleryMounted = true; stateFor(node);
+	const surfaces = new Set();
+	const controller = buildController(node, surfaces);
+	const runtime = { controller, surfaces, nodeSurface: null, accent: null, modeObserver: null };
+	node._aaGalleryRuntime = runtime; node._aaGalleryController = controller;
+	runtime.createSidebarControl = () => {
+		const surface = createGallerySurface(node, controller, { placement: "dashboard" });
+		controller.attachSurface(surface); runtime.accent?.sync?.();
+		let destroyed = false;
+		return {
+			root: surface.root,
+			update() { if (!destroyed) { controller.syncState(); runtime.accent?.sync?.(); } },
+			destroy() { if (destroyed) return; destroyed = true; controller.detachSurface(surface); },
+		};
 	};
-	elements.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index, masonry.classList.contains("is-scrolling")), onNearEnd: () => controller?.search(), onVisibleIndexChange: (index) => controller?.visibleIndexChanged(index), onVisibleItemsChange: (items) => controller?.prefetchVisible(items), minCardWidth: 144, gap: 6, maxColumns: 5 });
-	elements.selectedList = mountVirtualList(selectedListRoot, {
-		rowHeight: 96,
-		gap: 7,
-		overscan: 5,
-		onBeforeRender: () => controller?.tooltip?.hide(),
-		renderItem: (item, index) => createSelectedRow(node, controller, item, index),
-	});
-	selectedListRoot.addEventListener("scroll", () => {
-		controller?.tooltip?.hide();
-		// Keep the drag session; only hide the stale fixed marker until the next dragover.
-		if (controller?.selectedDragFrom != null) controller.handleSelectedDragLeave({ relatedTarget: null });
-	}, { passive: true });
-	selectedListRoot.addEventListener("dragover", (event) => controller?.handleSelectedDragOver(event));
-	selectedListRoot.addEventListener("drop", (event) => controller?.handleSelectedDrop(event));
-	selectedListRoot.addEventListener("dragleave", (event) => controller?.handleSelectedDragLeave(event));
-	// 滚动活跃期：新挂载卡片只显示占位、暂停 sample 预取与 shimmer 动画，
-	// 滚动停止后再统一补挂图片 src，把快速滚动帧里的网络/解码压力移到停止后。
-	let scrollSettleTimer = 0;
-	const settleScroll = () => {
-		scrollSettleTimer = 0;
-		masonry.classList.remove("is-scrolling");
-		masonry.querySelectorAll('img[data-deferred="1"]').forEach((image) => {
-			image.removeAttribute("data-deferred");
-			image.src = image.dataset.src;
-			image.removeAttribute("data-src");
-		});
-	};
-	const markScrolling = () => {
-		masonry.classList.add("is-scrolling");
-		clearTimeout(scrollSettleTimer);
-		scrollSettleTimer = setTimeout(settleScroll, 150);
-	};
-	masonry.addEventListener("scroll", markScrolling, { passive: true });
-	controller = buildController(node, elements); node._aaGalleryController = controller; node._aaGalleryRoot = root; node._aaGallerySource = source; node._aaGallerySearch = searchControl; node._aaGalleryCollection = collection; node._aaGalleryPage = pageControl; node._aaGalleryRandomMode = { setActive: syncRandomModePresentation }; node._aaGallerySelectionMode = selectionMode; node._aaGalleryAccent = bindNodeAccent(node, [root, selectedDropIndicator]);
-	node._aaGalleryCardMotion = installMasonryCardMotion(masonry);
-	node._aaGalleryVisibility = observeDOMWidgetVisibility(root, { onChange: (active) => { elements.masonryController?.setActive(active); elements.selectedList?.setActive(active); } });
-	error.addEventListener("click", () => {
-		const sourceName = stateFor(node).source;
-		const feed = stateFor(node).filters.feed;
-		const cap = capability(sourceName);
-		if ((cap?.authRequired || (feed === "favorites" && cap?.favoriteRead)) && !hasSourceCredentials(sourceName)) openGallerySettings();
-		else {
-			const currentError = controller.getLastError();
-			if (currentError) openGalleryErrorDialog(currentError, () => controller.search());
-			else controller.search();
-		}
-	});
-	continueResults.addEventListener("click", () => { continueResults.hidden = true; controller.search(); });
-	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} }); installDomWidgetResizePassthrough(node, root);
+	const surface = createGallerySurface(node, controller);
+	runtime.nodeSurface = surface; controller.attachSurface(surface);
+	node._aaGalleryRoot = surface.root; node._aaGallerySource = surface.source; node._aaGallerySearch = surface.searchControl;
+	node._aaGalleryCollection = surface.collection; node._aaGalleryPage = surface.pageControl;
+	node._aaGalleryRandomMode = { setActive: (value) => { stateFor(node).randomMode = Boolean(value); controller.syncState(); } };
+	node._aaGallerySelectionMode = surface.selectionMode;
+	runtime.accent = bindNodeAccent(node, () => [...surfaces].flatMap((view) => [view.root, view.selectedDropIndicator]));
+	runtime.modeObserver = observeGalleryNodeMode(node, () => { for (const view of surfaces) view.syncNodeMode(); });
+	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", surface.root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} });
+	installDomWidgetResizePassthrough(node, surface.root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
-	const previousResize = node.onResize; node.onResize = function (size) {
-		clampGallerySize(size);
-		clampGallerySize(this.size);
-		return previousResize?.apply(this, arguments);
-	};
+	const previousResize = node.onResize; node.onResize = function (size) { clampGallerySize(size); clampGallerySize(this.size); return previousResize?.apply(this, arguments); };
 	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); restoreNode(this); return result; };
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
 	const previousRemoved = node.onRemoved; node.onRemoved = function () {
-		controller.destroy();
-		clearTimeout(scrollSettleTimer); scrollSettleTimer = 0;
-		this._aaGalleryCardMotion?.();
-		this._aaGalleryCardMotion = null;
-		this._aaGalleryVisibility?.destroy?.();
-		this._aaGalleryVisibility = null;
-		selectedDropIndicator.remove();
-		cleanupDomWidgetResizePassthrough(this);
-		this._aaGalleryAccent?.dispose?.();
-		root.remove();
+		controller.destroy(); cleanupDomWidgetResizePassthrough(this); runtime.accent?.dispose?.(); runtime.modeObserver?.dispose?.();
+		this._aaGalleryRuntime = null; this._aaGalleryController = null;
 		return previousRemoved?.apply(this, arguments);
 	};
-	controller.renderSelected(); controller.search({ reset: true, page: stateFor(node).navigation.page }); applyInitialGallerySize(node, initializeSize);
+	controller.search({ reset: true, page: stateFor(node).navigation.page }); applyInitialGallerySize(node, initializeSize);
 }
 
 function restoreNode(node) {
-	if (!node?._aaGalleryMounted || !node._aaGalleryController) return;
+	if (!node?._aaGalleryMounted || !node._aaGalleryRuntime) return;
 	node.properties[PROPERTY] = normalizeGalleryState(node.properties?.[PROPERTY], settings || {});
 	const state = stateFor(node);
-	node._aaGalleryRoot.dataset.source = state.source;
-	node._aaGallerySource.setValue(state.source);
-	node._aaGallerySearch.sync();
-	node._aaGalleryCollection.setOptions(collectionOptions(state.source), collectionValue(state));
-	node._aaGalleryPage.setPage(state.navigation.page);
-	node._aaGalleryRandomMode.setActive(state.randomMode);
-	node._aaGalleryController.setMode(state.view, { persist: false });
-	node._aaGalleryController.setSelectionMode(state.selectionMode, { persist: false });
-	node._aaGalleryController.renderSelected();
+	node._aaGalleryController.syncState();
 	void node._aaGalleryController.search({ reset: true, page: state.navigation.page });
-	node._aaGalleryAccent?.sync?.();
+	node._aaGalleryRuntime.accent?.sync?.();
 }
 
 function setupNodeSafely(node, options) {

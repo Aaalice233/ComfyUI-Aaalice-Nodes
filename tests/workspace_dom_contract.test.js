@@ -301,6 +301,13 @@ test("projects QuickGroupManager as one presettable sidebar control instead of a
 	assert.match(workspace, /normalizeDashboardRowSpan\(resolved\.layoutProjection\.rowSpan, \{ minimum \}\)/);
 	assert.match(workspace, /sizeProjections\.set\(item\.id, projection\)/);
 	assert.match(workspace, /createDashboardGrid\(\{ page: resolvedPage, sizeProjections/);
+	assert.match(workspace, /function observeDashboardViewport\(host, body, grid, page, controls\)/);
+	assert.match(workspace, /const item = page\.items\.length === 1 && page\.groups\.length === 0 \? page\.items\[0\] : null/);
+	assert.doesNotMatch(workspace, /!editMode && page\.items\.length === 1/);
+	assert.match(workspace, /controls\.get\(item\.id\)\?\.kind === "booru-gallery"/);
+	assert.match(workspace, /dashboardContentRowSpan\(body\.clientHeight\)/);
+	assert.match(workspace, /dashboardViewportObservers\.get\(host\)\?\.disconnect\(\)/);
+	assert.match(workspace, /observeDashboardViewport\(host, body, grid, resolvedPage, resolvedControls\)/);
 	assert.doesNotMatch(workspace, /projectContentSizedControls|reflowContentSizedScope|liveControlRowSpan/);
 	assert.doesNotMatch(enLocale, /"quickGroups"/);
 	assert.doesNotMatch(zhLocale, /"quickGroups"/);

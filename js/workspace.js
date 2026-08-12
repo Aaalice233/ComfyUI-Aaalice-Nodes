@@ -9,7 +9,7 @@ import {
 	controlItemBindings, bindingKey, createPage, emptyDashboard, linkedBindingCount, normalizeDashboard,
 } from "./lib/dashboard_model.js";
 import { resolveControlBindingSet } from "./lib/control_binding_set.js";
-import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardColumnsForWidth, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
+import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, dashboardColumnsForWidth, dashboardContentRowSpan, normalizeDashboardColumnSpan, normalizeDashboardRowSpan } from "./lib/dashboard_sizing.js";
 import { promptLibraryStore } from "./lib/library_store.js";
 import { button, closeAnchoredPopoversWithin, closeContextMenuWithin, closeTooltipWithin, createDialog, createTooltip, el, field, guardClipboardEvents, hasAnchoredPopoverWithin, hasContextMenuWithin, icon, iconButton, onContextMenuClose, toggleSwitch } from "./lib/ui.js";
 import { attachDescriptionTooltip } from "./lib/description_tooltip.js";
@@ -298,6 +298,20 @@ function dashboardColumnsForWorkspaceWidth(width) {
 	return dashboardColumnsForWidth(width - DASHBOARD_PAGE_RAIL_WIDTH);
 }
 
+function observeDashboardViewport(host, body, grid, page, controls) {
+	dashboardViewportObservers.get(host)?.disconnect(); dashboardViewportObservers.delete(host);
+	const item = page.items.length === 1 && page.groups.length === 0 ? page.items[0] : null;
+	const card = item?.kind === "control" && controls.get(item.id)?.kind === "booru-gallery" ? grid.querySelector("[data-dashboard-item-id]") : null;
+	if (!card) return;
+	const sync = () => {
+		if (!body.clientHeight) return;
+		card.style.setProperty("--aa-dashboard-row", "1");
+		card.style.setProperty("--aa-dashboard-row-span", String(dashboardContentRowSpan(body.clientHeight)));
+		card.dataset.dashboardAutoRowSpan = "true";
+	};
+	const observer = new ResizeObserver(sync); dashboardViewportObservers.set(host, observer); observer.observe(body); sync();
+}
+
 function addPage() {
 	askText(t("aaalice.workspace.page.add", "Add page"), t("aaalice.workspace.page.name", "Page name"), "", (name) => { updateDashboard((model) => {
 		const page = createPage(name); model.pages.push(page); activePageId = page.id; return model;
@@ -378,6 +392,7 @@ function resolveGroupTitle(group) {
 
 const renderedWorkspaceTabs = new WeakSet();
 const workspaceWidthObservers = new Map();
+const dashboardViewportObservers = new WeakMap();
 
 function destroyDashboardPageRailForRoot(element) {
 	const rail = dashboardPageRails.get(element);
@@ -393,6 +408,7 @@ function closeWorkspaceTransientSurfaces(element, { closeDialogs = true } = {}) 
 }
 
 function suspendWorkspaceRoot(element) {
+	dashboardViewportObservers.get(element)?.disconnect(); dashboardViewportObservers.delete(element);
 	closeWorkspaceTransientSurfaces(element);
 	const ownedTree = workspaceOwnedTrees.get(element);
 	if (ownedTree) { destroyVirtualLists(ownedTree); destroySharedControls(ownedTree); }
@@ -401,6 +417,7 @@ function suspendWorkspaceRoot(element) {
 
 function destroyWorkspaceRoot(element) {
 	const ownedTree = workspaceOwnedTrees.get(element);
+	dashboardViewportObservers.get(element)?.disconnect(); dashboardViewportObservers.delete(element);
 	workspaceWidthObservers.get(element)?.disconnect(); workspaceWidthObservers.delete(element);
 	workspaceOwnershipObservers.get(element)?.disconnect(); workspaceOwnershipObservers.delete(element);
 	workspaceParentObservers.get(element)?.disconnect(); workspaceParentObservers.delete(element); renderedWorkspaceTabs.delete(element);
@@ -420,6 +437,7 @@ function destroyWorkspaceSidebar() {
 }
 
 function renderWorkspace(root) {
+	dashboardViewportObservers.get(root)?.disconnect(); dashboardViewportObservers.delete(root);
 	for (const candidate of workspaceOwnershipObservers.keys()) if (candidate !== root && !isWorkspaceRootInteractive(candidate)) closeWorkspaceTransientSurfaces(candidate);
 	rememberDashboardScroll(root);
 	closeWorkspaceTransientSurfaces(root, { closeDialogs: false }); destroyVirtualLists(root);
@@ -602,6 +620,7 @@ configureDashboardView({
 	dashboardScrollState,
 	setScrollTopImmediately,
 	dashboardScrollTop,
+	observeDashboardViewport,
 	viewState: workspaceViewState.dashboard,
 	getEditMode: () => editMode,
 	setEditMode: (value) => { editMode = value; },

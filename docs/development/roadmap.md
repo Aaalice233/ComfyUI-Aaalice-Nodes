@@ -19,7 +19,7 @@
 | 11 | `PromptSelector` | prompt | 从独立词库跨分类选择、排序并加权输出提示词。 |
 | 17 | `GroupIsEnabled` | control | 队列提交时快照可视组成员模式，报告是否被完全禁用。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
-| 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索或无重复随机抽取自然比例瀑布流，保存有序选择并输出对应图片与 Prompt。 |
+| 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索或无重复随机抽取自然比例瀑布流；节点与 Dashboard 共享完整多视图运行时，保存有序选择并输出对应图片与 Prompt。 |
 | 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
 | 27 | `GroupLogicProbe` | control | 多条组启用/禁用条件按 AND/OR 组合，队列提交时快照求值并输出单个布尔用于懒执行分支。 |
 | 28 | `ConditionalSaveImage` | tools | 仅在启用时复用现有保存实现，关闭时透明透传图像。 |
@@ -50,7 +50,7 @@
 
 | 前端扩展 | 职责 |
 |---|---|
-| Sidebar Workspace Presets | 以版本化快照保存全部侧边栏页面、布局、稳定绑定和控件值，并提供已修改状态、保存修改、放弃修改、另存为及事务化导入；仅数值导入可安全恢复工作流更新后仍互为唯一的语义卡片，完整布局导入会预警失效绑定；预设随工作流 extra 分发。 |
+| Sidebar Workspace Presets | 以版本化快照保存全部侧边栏页面、布局、稳定绑定和控件值，并提供已修改状态、保存修改、放弃修改、另存为及事务化导入；导入默认仅数值并复制基础预设后套用、切换到新副本，完整模式也额外创建命名预设且预警失效绑定，任何模式都不覆盖已有预设；预设随工作流 extra 分发。 |
 | Dashboard Layout Editor | 以统一选区真源支持框选、跨组批量移动、明确插入/碰撞链预览、边缘连续滚动和键盘微调；控件卡片按实际宽高切换响应式内部布局。 |
 | Quick Group Navigation | 在 QuickGroupManager 行中直接定位，并在 Aaalice Workspace 维护手动添加的组导航清单；支持版本 3 工作流持久化、反引号键（`Backquote`，Tab 上方）为默认按住式组跳转轮盘激活键，可在工作流中改为其它单个按键、鼠标/键盘即时选择、分页和缺失组提示，不再占用画布悬浮入口。 |
 

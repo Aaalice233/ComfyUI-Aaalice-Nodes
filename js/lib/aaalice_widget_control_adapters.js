@@ -6,6 +6,7 @@ import { registerWidgetControlAdapter } from "./widget_control_adapters.js";
 
 const RESOLUTION_NODE = "ResolutionPreset";
 const PROMPT_SELECTOR_NODE = "PromptSelector";
+const BOORU_GALLERY_NODE = "BooruGalleryNode";
 const LORA_TEXT_WIDGET = "autocomplete_text_loras";
 const LORA_LIST_WIDGET = "loras";
 const LORA_LIST_WIDGET_TYPE = "loras";
@@ -22,6 +23,10 @@ function resolutionWidget(node, widget) {
 
 function promptSelectorWidget(node, widget) {
 	return nodeType(node) === PROMPT_SELECTOR_NODE && widget?.name === "aaalice_prompt_selector" && Boolean(node?._aaalicePromptSelectorControl);
+}
+
+function booruGalleryWidget(node, widget) {
+	return nodeType(node) === BOORU_GALLERY_NODE && widget?.name === "aaalice_booru_gallery" && Boolean(node?._aaGalleryRuntime?.createSidebarControl);
 }
 
 function loraInputElement(widget) {
@@ -202,6 +207,30 @@ registerWidgetControlAdapter({
 			validatePresetValue: (entry) => control.validatePresetValue(entry),
 			applyPresetValue: (entry) => control.setValue(entry.payload),
 			setValue: (next) => control.setValue(next),
+		};
+	},
+});
+
+registerWidgetControlAdapter({
+	id: "aaalice-booru-gallery",
+	priority: 900,
+	matches({ node, widget, promoted }) {
+		return !promoted && booruGalleryWidget(node, widget);
+	},
+	describe({ node, widget }) {
+		return {
+			controlId: widget.name,
+			label: "Booru Gallery",
+			labelPolicy: "node-title",
+			kind: "booru-gallery",
+			valueType: "booru-gallery",
+			getValue: () => node.properties?.booruGalleryState || null,
+			presettable: false,
+			columnSpan: 12,
+			rowSpan: 90,
+			minRowSpan: 50,
+			options: { createSidebarControl: () => node._aaGalleryRuntime.createSidebarControl() },
+			setValue: () => false,
 		};
 	},
 });

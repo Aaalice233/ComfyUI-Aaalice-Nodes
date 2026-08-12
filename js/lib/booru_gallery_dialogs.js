@@ -18,8 +18,7 @@ function createSearchControl(node, { defaultOpen = false } = {}) {
 	const submit = () => {
 		transact(node, (state) => { state.query = input.value.trim(); state.filters.feed = "search"; state.filters.period = ""; state.navigation.page = 1; });
 		toggle.setSearchValue(input.value.trim());
-		node._aaGalleryCollection?.setValue(`sort:${stateFor(node).filters.sort}`);
-		node._aaGalleryPage?.setPage(1);
+		node._aaGalleryController?.syncState();
 		node._aaGalleryController?.search({ reset: true, page: 1 });
 	};
 	const setOpen = (next, { focus = true } = {}) => {

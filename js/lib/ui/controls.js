@@ -38,9 +38,10 @@ export function searchToggleButton({ label, value = "", open = false, disabled =
 	return control;
 }
 
-export function segmentedControl({ value, options = [], ariaLabel, onChange = null, className = "", thumbClassName = "", dataAttribute = "value" } = {}) {
-	const root = el("div", { className: `aa-ui-segmented${className ? ` ${className}` : ""}`, attrs: { role: "radiogroup", "aria-label": ariaLabel } });
+export function segmentedControl({ value, options = [], ariaLabel, onChange = null, className = "", thumbClassName = "", dataAttribute = "value", activeLabelOnly = false } = {}) {
+	const root = el("div", { className: `aa-ui-segmented${activeLabelOnly ? " aa-ui-segmented--active-label" : ""}${className ? ` ${className}` : ""}`, attrs: { role: "radiogroup", "aria-label": ariaLabel } });
 	root.style.setProperty("--aa-ui-segment-count", String(Math.max(1, options.length)));
+	if (activeLabelOnly) root.style.setProperty("--aa-ui-segment-inactive-total", `${Math.max(0, options.length - 1) * 30}px`);
 	root.append(el("span", { className: `aa-ui-segmented__thumb${thumbClassName ? ` ${thumbClassName}` : ""}`, attrs: { "aria-hidden": "true" } }));
 	const choices = [];
 	let disabled = false;
@@ -51,6 +52,7 @@ export function segmentedControl({ value, options = [], ariaLabel, onChange = nu
 		root.dataset.value = value || "";
 		root.dataset.index = String(activeIndex);
 		root.style.setProperty("--aa-ui-segment-index", String(activeIndex));
+		if (activeLabelOnly) root.style.gridTemplateColumns = options.map((_, index) => index === activeIndex ? "minmax(0, 1fr)" : "var(--aa-ui-segment-compact-size)").join(" ");
 		for (const choice of choices) {
 			const active = choice.dataset[dataAttribute] === value;
 			choice.classList.toggle("is-active", active);

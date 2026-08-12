@@ -41,7 +41,7 @@ test("rich widget virtualization has an explicit inactive path and lifecycle wir
 	const root = new URL("../", import.meta.url);
 	const list = readFileSync(new URL("js/lib/virtual_list.js", root), "utf8");
 	const masonry = readFileSync(new URL("js/lib/virtual_masonry.js", root), "utf8");
-	const booru = readFileSync(new URL("js/booru_gallery.js", root), "utf8");
+	const booru = ["js/booru_gallery.js", "js/lib/booru_gallery_surface.js"].map((path) => readFileSync(new URL(path, root), "utf8")).join("\n");
 	const prompt = readFileSync(new URL("js/prompt_selector.js", root), "utf8");
 	const theme = readStyleEntry(new URL("js/lib/theme.css", root));
 
@@ -50,8 +50,8 @@ test("rich widget virtualization has an explicit inactive path and lifecycle wir
 	assert.match(masonry, /setActive\(nextActive\)/);
 	assert.match(masonry, /if \(!active\) \{ clearMounted\(\); return; \}/);
 	assert.match(booru, /observeDOMWidgetVisibility\(root/);
-	assert.match(booru, /masonryController\?\.setActive\(active\)/);
-	assert.match(booru, /_aaGalleryVisibility\?\.destroy/);
+	assert.match(booru, /surface\.masonryController\.setActive\(active\)/);
+	assert.match(booru, /visibility\.destroy\(\)/);
 	assert.match(prompt, /observeDOMWidgetVisibility\(root/);
 	assert.match(prompt, /_aaalicePromptSelectorVirtualList\?\.setActive/);
 	assert.match(prompt, /_aaalicePromptSelectorVisibility\?\.destroy/);

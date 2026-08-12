@@ -200,27 +200,29 @@
 .aa-transfer-dialog-body.aa-ui-dialog__body { display: flex; min-height: 280px; flex-direction: column; gap: 14px; padding: 18px 20px 22px; background: color-mix(in srgb, var(--aa-ui-surface) 94%, var(--aa-ui-canvas)); }
 .aa-transfer-dialog > .aa-ui-dialog__footer { padding-inline: 20px; background: var(--aa-ui-surface); box-shadow: 0 -12px 24px -24px color-mix(in srgb, var(--aa-ui-text) 46%, transparent); }
 .aa-transfer-footer-note { min-width: 0; margin-right: auto; overflow: hidden; color: var(--aa-ui-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.aa-dashboard-import-mode-block { gap: 7px; }
-.aa-dashboard-import-mode { --aa-import-new-tone: var(--p-blue-400, var(--aa-ui-accent)); --aa-import-values-tone: var(--p-amber-400, var(--aa-ui-warning)); --aa-import-mode-tone: var(--aa-import-new-tone); width: 100%; height: 40px; border-color: transparent; background: var(--aa-ui-control); box-shadow: var(--aa-transfer-inset-shadow); }
-.aa-dashboard-import-mode[data-value="values"] { --aa-import-mode-tone: var(--aa-import-values-tone); }
+.aa-dashboard-preset-transfer { gap: 12px; }
+.aa-dashboard-preset-transfer-source { display: grid; min-height: 58px; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--aa-ui-accent) 7%, var(--aa-ui-surface-raised)); box-shadow: var(--aa-transfer-surface-shadow), var(--aa-transfer-inset-shadow); }
+.aa-dashboard-preset-transfer-source__icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--aa-ui-accent) 14%, var(--aa-ui-control)); color: var(--aa-ui-accent); }
+.aa-dashboard-preset-transfer-source > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.aa-dashboard-preset-transfer-source strong, .aa-dashboard-preset-transfer-source span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aa-dashboard-preset-transfer-source strong { font-size: 12px; }
+.aa-dashboard-preset-transfer-source > div > span { color: var(--aa-ui-muted); font-size: 10px; }
+.aa-dashboard-preset-transfer-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; padding: 12px; border-radius: 10px; background: color-mix(in srgb, var(--aa-ui-control) 56%, transparent); box-shadow: var(--aa-transfer-inset-shadow); }
+.aa-dashboard-import-mode-field { grid-column: 1 / -1; }
+.aa-dashboard-import-name-field:has(+ .aa-transfer-inline-error) { min-width: 0; }
+.aa-dashboard-import-mode { --aa-import-new-tone: var(--p-blue-400, var(--aa-ui-accent)); --aa-import-values-tone: var(--p-amber-400, var(--aa-ui-warning)); --aa-import-mode-tone: var(--aa-import-values-tone); width: 100%; height: 40px; border-color: transparent; background: var(--aa-ui-control); box-shadow: var(--aa-transfer-inset-shadow); }
+.aa-dashboard-import-mode[data-value="new"] { --aa-import-mode-tone: var(--aa-import-new-tone); }
 .aa-dashboard-import-mode .aa-ui-segmented__thumb { border-color: transparent; background: color-mix(in srgb, var(--aa-import-mode-tone) 16%, var(--aa-ui-surface-raised)); box-shadow: 0 6px 18px color-mix(in srgb, var(--aa-import-mode-tone) 18%, rgb(0 0 0 / .18)), 0 2px 7px rgb(0 0 0 / .16); }
 .aa-dashboard-import-mode button { min-height: 34px; gap: 7px; padding-inline: 9px; font-size: 11px; }
 .aa-dashboard-import-mode button[data-value="new"] .aa-ui-icon { width: 13px; height: 13px; color: var(--aa-import-new-tone); }
 .aa-dashboard-import-mode button[data-value="values"] .aa-ui-icon { width: 13px; height: 13px; color: var(--aa-import-values-tone); }
 .aa-dashboard-import-mode button.is-active { color: color-mix(in srgb, var(--aa-import-mode-tone) 78%, var(--aa-ui-text)); }
 .aa-dashboard-import-mode button:disabled { cursor: not-allowed; opacity: .42; }
-.aa-transfer-mode-hint { margin: 0; color: var(--aa-ui-muted); font-size: 10.5px; line-height: 1.5; }
-.aa-dashboard-import-target-field, .aa-dashboard-import-name-field { margin-top: 1px; }
 .aa-dashboard-import-target .aa-ui-select__native { min-height: 38px; padding-left: 11px; border-color: transparent; border-radius: 9px; background: var(--aa-ui-control); box-shadow: var(--aa-transfer-inset-shadow); font-size: 11px; font-weight: 620; }
 .aa-transfer-dialog input:not([type]), .aa-transfer-dialog input[type="text"], .aa-transfer-dialog select, .aa-transfer-dialog textarea { border-color: transparent; box-shadow: var(--aa-transfer-inset-shadow); }
 .aa-transfer-dialog input:hover:not(:disabled), .aa-transfer-dialog select:hover:not(:disabled), .aa-transfer-dialog textarea:hover:not(:disabled) { border-color: transparent; box-shadow: var(--aa-transfer-surface-shadow); }
 .aa-transfer-dialog input:focus, .aa-transfer-dialog select:focus, .aa-transfer-dialog textarea:focus { border-color: transparent; box-shadow: var(--aa-ui-edge-shadow-active); }
 .aa-dashboard-import-preview { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
-.aa-dashboard-import-recommendation { display: grid; min-height: 70px; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid transparent; border-radius: 10px; background: color-mix(in srgb, var(--aa-ui-warning) 10%, var(--aa-ui-surface-raised)); box-shadow: var(--aa-transfer-surface-shadow), inset 0 1px 0 color-mix(in srgb, var(--aa-ui-warning) 22%, transparent); color: var(--aa-ui-warning); }
-.aa-dashboard-import-recommendation > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.aa-dashboard-import-recommendation strong { color: color-mix(in srgb, var(--aa-ui-warning) 72%, var(--aa-ui-text)); font-size: 11px; }
-.aa-dashboard-import-recommendation p { margin: 0; color: var(--aa-ui-muted); font-size: 10px; line-height: 1.5; }
-.aa-dashboard-import-recommendation > .aa-ui-button { white-space: nowrap; }
 .aa-dashboard-import-risk-confirm { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 12px; padding: 14px; border-radius: 10px; background: color-mix(in srgb, var(--aa-ui-warning) 9%, var(--aa-ui-surface-raised)); box-shadow: var(--aa-ui-edge-shadow-soft), inset 0 1px 0 color-mix(in srgb, var(--aa-ui-warning) 20%, transparent); color: var(--aa-ui-warning); }
 .aa-dashboard-import-risk-confirm p { margin: 0; color: var(--aa-ui-muted); font-size: 11px; line-height: 1.55; }
 .aa-dashboard-import-risk-actions { display: flex; width: 100%; align-items: center; justify-content: flex-end; gap: 8px; }
@@ -336,8 +338,8 @@
 	.aa-transfer-hero__icon { width: 38px; height: 38px; }
 	.aa-transfer-file { grid-column: 1 / -1; min-width: 0; max-width: none; align-items: flex-start; padding: 9px 0 0; box-shadow: 0 -10px 18px -24px color-mix(in srgb, var(--aa-ui-text) 46%, transparent); text-align: left; }
 	.aa-transfer-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-	.aa-dashboard-import-recommendation { grid-template-columns: 18px minmax(0, 1fr); }
-	.aa-dashboard-import-recommendation > .aa-ui-button { grid-column: 1 / -1; justify-self: stretch; }
+	.aa-dashboard-preset-transfer-form { grid-template-columns: minmax(0, 1fr); }
+	.aa-dashboard-import-mode-field { grid-column: auto; }
 	.aa-dashboard-import-risk-actions { align-items: stretch; flex-direction: column-reverse; }
 	.aa-dashboard-import-risk-actions > .aa-ui-button { width: 100%; }
 	.aa-transfer-conflict-row, .aa-transfer-entry-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }

@@ -33,7 +33,7 @@ export function renderDashboard(container, host) {
 		openComponentNoteEditor, numericRangeForControl, flushDeferredWorkspaceRender, notifyWorkspaceImageUpload,
 		notifyControlBindingError, openManageLinkedBindings, openRebind, controlTitle, openCardActions, openMoveControl,
 		openAssignGroup, resolve, syncDashboardSourceGroup, dashboardColumnsForWorkspaceWidth, dashboardScrollState,
-		setScrollTopImmediately, dashboardScrollTop,
+		setScrollTopImmediately, dashboardScrollTop, observeDashboardViewport,
 	} = runtime;
 	let editMode = runtime.getEditMode();
 	const viewState = runtime.viewState;
@@ -222,8 +222,8 @@ export function renderDashboard(container, host) {
 	].filter(Boolean) : [];
 	const utilityActions = editMode ? [] : [
 		iconButton({ iconName: "sliders", label: t("aaalice.workspace.valueProfiles.open", "Adjustment profiles"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action aa-dashboard-value-profiles", onClick: () => openValueProfiles() }),
-		button({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export layout"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => openDashboardExport(model) }),
-		button({ iconName: "download", label: t("aaalice.workspace.preset.import", "Import layout"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
+		button({ iconName: "upload", label: t("aaalice.workspace.preset.export", "Export preset"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => openDashboardExport(model) }),
+		button({ iconName: "download", label: t("aaalice.workspace.preset.import", "Import preset"), variant: "ghost", size: "sm", className: "aa-dashboard-toolbar-action", onClick: () => pickFile(".json,application/json", importDashboardPreset) }),
 		search.toggle,
 	];
 	const pageSettingsButton = page ? iconButton({
@@ -435,6 +435,7 @@ export function renderDashboard(container, host) {
 	}
 	const pageStage = el("div", { className: "aa-dashboard-page-stage", children: [...(pageSnapshot ? [pageSnapshot] : []), scroll] });
 	const body = el("div", { className: "aa-dashboard-body", children: [pageStage, pageRail, selectionBar.root] }); container.append(body);
+	observeDashboardViewport(host, body, grid, resolvedPage, resolvedControls);
 	scroll.addEventListener("scroll", () => {
 		const scrollState = dashboardScrollState(host);
 		if (searchOpen) scrollState.searchTop = scroll.scrollTop;

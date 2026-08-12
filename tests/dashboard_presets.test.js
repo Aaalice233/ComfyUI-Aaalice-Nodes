@@ -40,6 +40,19 @@ test("sidebar presets own complete layout and value snapshots", () => {
 	assert.deepEqual(created.presets[0].values, values());
 });
 
+test("creating an imported preset selects the new copy without mutating the base", () => {
+	let state = createDashboardPreset(emptyDashboardPresetState(), "Base", snapshot());
+	const baselineId = state.baselinePresetId; const baseBefore = structuredClone(state.presets[0]);
+	state = createDashboardPreset(state, "Imported values", snapshot(32, 6));
+	assert.equal(state.presets.length, 2);
+	assert.notEqual(state.baselinePresetId, baselineId);
+	assert.deepEqual(state.presets[0], baseBefore);
+	assert.equal(state.presets[1].id, state.baselinePresetId);
+	assert.equal(state.presets[1].name, "Imported values");
+	assert.equal(state.presets[1].values[KEY].payload, 32);
+	assert.equal(state.presets[1].dashboard.pages[0].items[0].layout.column, 6);
+});
+
 test("preset management preserves identity and does not apply duplicates", () => {
 	let state = createDashboardPreset(emptyDashboardPresetState(), "Portrait", snapshot());
 	const originalId = state.presets[0].id;

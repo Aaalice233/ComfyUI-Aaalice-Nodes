@@ -20,6 +20,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const registrySource = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const comfySource = readFileSync(join(ROOT, "js", "lib", "controls", "comfy.js"), "utf8");
 const loraRendererSource = readFileSync(join(ROOT, "js", "lib", "controls", "lora_list.js"), "utf8");
+const booruGalleryRendererSource = readFileSync(join(ROOT, "js", "lib", "controls", "booru_gallery.js"), "utf8");
 const loraActionsSource = readFileSync(join(ROOT, "js", "lib", "lora_actions.js"), "utf8");
 const loraPreviewSource = readFileSync(join(ROOT, "js", "lib", "lora_preview.js"), "utf8");
 const imagePreviewSource = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
@@ -36,7 +37,10 @@ test("ComfyUI control specs normalize kinds and preserve explicit families", () 
 
 test("built-in ComfyUI renderer families expose their supported kinds", () => {
 	assert.match(registrySource, /\["comfy", new Map\(Object\.entries\(COMFY_CONTROL_RENDERERS\)\)\]/);
-	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare", "resolution", "prompt-selector", "lora-list"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
+	for (const kind of ["numeric", "seed", "boolean", "choice", "text", "image-compare", "resolution", "prompt-selector", "lora-list", "booru-gallery"]) assert.match(comfySource, new RegExp(`${kind.includes("-") ? `"${kind}"` : `\\b${kind}`}:`));
+	assert.match(booruGalleryRendererSource, /controlView\(\{/);
+	assert.match(booruGalleryRendererSource, /kind: "booru-gallery"/);
+	assert.match(booruGalleryRendererSource, /createSidebarControl/);
 });
 test("LoRA list renderer keeps active state and delegates row actions to context menus", () => {
 	assert.match(loraRendererSource, /data-capture-wheel/);
@@ -82,14 +86,26 @@ test("composite and LoRA widgets expose stable sidebar controls", () => {
 			validatePresetValue: () => true, setValue: () => {},
 		},
 	};
+	const galleryState = { version: 2, source: "danbooru" };
+	const galleryNode = {
+		comfyClass: "BooruGalleryNode",
+		properties: { booruGalleryState: galleryState },
+		widgets: [{ name: "aaalice_booru_gallery", type: "custom", value: "", serialize: false }],
+		_aaGalleryRuntime: { createSidebarControl: () => ({}) },
+	};
 	const loraListWidget = { name: "loras", type: "custom", value: [{ name: "style.safetensors", strength: 0.8, clipStrength: 0.7, active: false, selected: true }], getValue() { return this.value; }, setValue(next) { this.value = next; } };
 	const loraTextWidget = { name: "text", type: "AUTOCOMPLETE_TEXT_LORAS", label: "text", value: "<lora:style.safetensors:0.8>" };
 	const resolution = listAdaptedWidgetControls(resolutionNode)[0];
 	const prompt = listAdaptedWidgetControls(promptNode)[0];
+	const gallery = listAdaptedWidgetControls(galleryNode)[0];
 	const loraControls = listAdaptedWidgetControls({ title: "LoRA prompt", getTitle: () => "LoRA prompt", widgets: [loraListWidget, loraTextWidget] });
 	const lora = loraControls[0];
 	assert.deepEqual([resolution.adapterId, resolution.kind, resolution.columnSpan, resolution.rowSpan, resolution.minRowSpan], ["aaalice-resolution-preset", "resolution", 6, 13, 13]);
 	assert.deepEqual([prompt.adapterId, prompt.kind, prompt.rowSpan], ["aaalice-prompt-selector", "prompt-selector", 64]);
+	assert.deepEqual([gallery.adapterId, gallery.kind, gallery.columnSpan, gallery.rowSpan, gallery.minRowSpan, gallery.presettable, gallery.linkable], ["aaalice-booru-gallery", "booru-gallery", 12, 90, 50, false, false]);
+	assert.equal(typeof gallery.options.createSidebarControl, "function");
+	assert.equal(gallery.value, galleryState);
+	assert.equal(gallery.setValue(null), false);
 	assert.deepEqual([lora.adapterId, lora.kind, lora.valueType, lora.rowSpan, lora.minRowSpan, lora.label], ["lora-manager-list", "lora-list", "lora-list", 36, 28, "LoRA prompt"]);
 	assert.deepEqual(lora.value, [{ name: "style.safetensors", strength: 0.8, clipStrength: 0.7, active: false }]);
 	assert.equal(loraControls.length, 1);
@@ -567,9 +583,10 @@ test("native numeric widgets expose real ComfyUI number slider and knob domains"
 	assert.equal(strength.numericDomain, "float");
 });
 
-test("provider wrappers preserve adapter failure and async return contracts", () => {
+test("provider wrappers preserve adapter failure, sizing, and async return contracts", () => {
 	assert.match(providerSource, /const result = adapted\.setValue\(next\);[\s\S]*?return result;/);
 	assert.match(providerSource, /const result = adapted\.setSeedBehavior\(behavior\);[\s\S]*?return result;/);
+	assert.match(providerSource, /columnSpan: adapted\.columnSpan, rowSpan: adapted\.rowSpan, minRowSpan: adapted\.minRowSpan/);
 	assert.match(providerSource, /if \(workspaceRedraw\) node\.setDirtyCanvas/);
 });
 

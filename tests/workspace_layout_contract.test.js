@@ -317,8 +317,8 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(widgetAdapters, /applyPresetValue/);
 	assert.match(enLocale, /"title": "Sidebar presets"/);
 	assert.match(zhLocale, /"title": "侧边栏预设"/);
-	assert.match(enLocale, /"preset": \{ "title": "Layout backup"/);
-	assert.match(zhLocale, /"preset": \{ "title": "布局备份"/);
+	assert.match(enLocale, /"preset": \{ "title": "Preset backup"/);
+	assert.match(zhLocale, /"preset": \{ "title": "预设备份"/);
 });
 
 test("sidebar preset auto-save is enabled by default and lives beside the pin control", () => {
@@ -490,7 +490,7 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 	const transferEnd = theme.indexOf("@media (max-width: 720px)", transferStart);
 	const transferTheme = theme.slice(transferStart, transferEnd > transferStart ? transferEnd : theme.length);
 	assert.doesNotMatch(transferTheme, /(?:linear|radial)-gradient/);
-	assert.match(transferTheme, /\.aa-dashboard-import-mode\[data-value="values"\]/);
+	assert.match(transferTheme, /\.aa-dashboard-import-mode \{[^}]*--aa-import-mode-tone: var\(--aa-import-values-tone\)/);
 	assert.match(transferTheme, /button\[data-value="new"\] \.aa-ui-icon/);
 	assert.match(transferTheme, /button\[data-value="values"\] \.aa-ui-icon/);
 	assert.match(transferTheme, /\.aa-transfer-hero \{[^}]*border: 1px solid transparent[^}]*box-shadow:/);

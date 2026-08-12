@@ -120,7 +120,7 @@
         "origin": "此前绑定到 {name}", "noMatch": "未找到可信匹配", "exactBadge": "精确", "suggestedBadge": "建议", "unmatchedBadge": "未匹配", "manualBadge": "手动",
         "change": "更改…", "collapse": "收起", "skip": "跳过", "include": "恢复", "done": "已重新绑定", "doneDetail": "已在页面“{page}”上重新绑定 {count} 个组件。"
       },
-      "preset": { "title": "布局备份", "export": "导出布局", "import": "导入布局", "missingConfirm": "个绑定已失效或类型不兼容。是否仍导入布局并跳过不兼容的值？" },
+      "preset": { "title": "预设备份", "export": "导出预设", "import": "导入预设", "missingConfirm": "个绑定已失效或类型不兼容。是否仍导入预设并跳过不兼容的值？" },
       "dashboardPreset": {
           "title": "侧边栏预设", "open": "打开侧边栏预设", "placeholder": "选择预设", "attention": "需要处理", "attentionBindings": "{count} 个绑定需要处理", "attentionStale": "预设包含已移除组件的数值", "healthTitle": "绑定状态", "healthLinked": "联动", "healthClearLinked": "一键清除失效联动 · {count}", "healthCleared": "已清除 {count} 条失效联动绑定。", "healthEmpty": "当前所有绑定都能正常解析。该标记通常是因为预设保存了已移除组件的数值，保存预设即可清除。",
           "empty": "还没有预设", "emptyHint": "保存当前所有页面、布局和参数值，之后可一键切换；预设随工作流一起保存和分享。", "emptyAction": "创建第一个预设", "name": "预设名称", "defaultName": "预设 {count}", "copyName": "{name} 副本",
@@ -152,10 +152,10 @@
         "issue": { "missing": "不在侧边栏", "ambiguous": "存在歧义", "incompatible": "类型不兼容", "invalid": "值无效", "unset": "无可用值", "unavailable": "暂时不可用", "empty": "无可选项" }
       },
       "transfer": {
-		"backup": "便携备份", "layoutPreset": "布局备份", "preflight": "安全检查", "review": "导入预览",
-		"zipArchive": "ZIP 压缩包", "jsonPreset": "JSON 布局备份", "legacyJson": "旧版 JSON", "untitled": "未命名词条",
+		"backup": "便携备份", "layoutPreset": "预设备份", "preflight": "安全检查", "review": "导入预览",
+		"zipArchive": "ZIP 压缩包", "jsonPreset": "JSON 预设", "legacyJson": "旧版 JSON", "untitled": "未命名词条",
 		"readingFile": "正在读取备份…", "readingFileHint": "正在检查压缩包结构、词条和预览资源，确认前不会写入任何内容。",
-		"readingPreset": "正在读取布局备份…", "readingPresetHint": "正在检查布局结构、稳定绑定身份和保存值类型。", "preflighting": "正在生成导入预览…", "importMode": "导入方式", "importAsNew": "布局和数值", "overwriteValues": "仅导入数值", "importAsNewHint": "完整恢复文件中的预设：布局、绑定和兼容的参数值。", "overwriteValuesHint": "只把文件作为数值来源，所选预设的布局保持不变。", "chooseImportMode": "请选择恢复完整布局，还是只把数值写入已有预设。",
+		"readingPreset": "正在读取预设…", "readingPresetHint": "正在检查预设结构、稳定绑定身份和保存值类型。", "preflighting": "正在准备导入…", "importMode": "导入方式", "importAsNew": "布局和数值", "overwriteValues": "仅导入数值", "importAsNewHint": "用文件中的布局、绑定和兼容数值创建新预设。", "overwriteValuesHint": "先复制一个已有预设，再把文件中匹配的数值套用到新副本。", "chooseImportMode": "选择新预设的创建方式。",
 		"readyToImport": "可以安全导入", "readyToImportHint": "备份已通过校验。确认摘要后，将在一个事务中完成导入。",
 		"resolveConflicts": "请选择冲突处理方式", "resolveConflictsHint": "确认前不会修改任何内容。每项默认采用最安全的“保留本地”。",
 		"cannotImport": "这个备份需要处理", "invalidBlocksImport": "源备份中存在无效词条，修复后才能导入。",
@@ -171,8 +171,8 @@
 		"currentFilter": "当前筛选结果", "currentFilterHint": "仅导出符合当前分类和收藏夹筛选的词条。",
 		"selectedEntries": "已选词条", "selectedEntriesHint": "仅导出当前手动选中的词条。", "exportScope": "导出范围",
 		"exportLibraryTitle": "导出提示词库", "exportLibraryHint": "选择导出范围，相关分类、收藏夹、标签和预览图会自动打包。",
-		"currentPreset": "当前预设", "currentLayout": "当前布局", "targetPreset": "目标预设", "targetPresetHint": "目标预设的页面、卡片、布局组、尺寸和绑定都会保持不变。", "noTargetPreset": "请先保存一个目标侧边栏预设，再使用仅导入数值。", "chooseTarget": "请选择目标预设", "noValuesMatched": "没有匹配到目标预设中的兼容数值。",
-		"exportPresetTitle": "导出侧边栏布局", "exportPresetHint": "导出当前选中的“{name}”预设，包含页面、布局组、参数绑定和可兼容的当前值。",
+		"currentPreset": "当前预设", "currentLayout": "当前布局", "targetPreset": "基础预设", "targetPresetHint": "会先复制它，所选预设本身不会改变。", "noTargetPreset": "请先创建一个侧边栏预设，再使用仅导入数值。", "chooseTarget": "请选择基础预设", "noValuesMatched": "没有匹配到基础预设中的兼容数值。",
+		"exportPresetTitle": "导出侧边栏预设", "exportPresetHint": "下载当前侧边栏预设，包含布局、绑定和兼容数值。",
 		"exporting": "正在导出…", "exportComplete": "导出已就绪", "exportCompleteHint": "ZIP 备份已下载，可以在另一套 ComfyUI 中导入。", "exportFailed": "导出失败",
 		"presetIdentityHint": "预设名称与下载文件名保持一致。导入默认使用所选文件名；确认时如有重名会自动追加后缀。",
 		"presetExportCompleteHint": "预设“{name}”已导出为 {file}。",
@@ -181,8 +181,8 @@
 		"presetReadyHint": "所有参数绑定均与当前工作流匹配，布局和兼容值将一起恢复。",
 		"unresolvedBindings": "未解析的绑定", "unresolvedBindingsHint": "导入后仍保留在布局中，等待手动重新绑定。",
 		"compatibleValues": "个兼容的保存值将被恢复，超出当前范围的值会安全跳过。",
-		"presetImportComplete": "布局导入完成", "presetImportCompleteHint": "预设“{name}”已创建并应用，页面、布局组、绑定和兼容的保存值均已恢复。", "overwriteAndApply": "覆盖数值并应用", "willOverwrite": "将覆盖", "willKeep": "将保留", "unmatched": "未匹配", "needsReview": "需处理", "valuesReady": "个数值可写入", "valuesReadySummary": "{count} 个数值可写入 · {recovered} 个安全恢复", "exactMatches": "精确匹配", "recoveredMatches": "安全恢复", "ambiguousMatch": "匹配有歧义", "recoveredMatch": "已安全恢复", "valueNeedsReview": "需要处理的数值", "valueNeedsReviewHint": "这些源文件数值会跳过，目标预设原值保持不变。", "sourceValuesSkippedHint": "这些无效源数值会跳过，其余有效布局和数值仍可导入。", "valuesNotOnTarget": "目标预设中不存在", "valuesNotOnTargetHint": "不会使用旧布局创建卡片，也不会向所选目标之外的节点写值。", "targetLayoutKept": "目标预设“{name}”将保留当前页面、卡片、布局组、尺寸和绑定（{meta}）。", "valueImportHint": "优先使用稳定 Binding Key 精确匹配；ID 变化时，只恢复 Provider、数值类型、控件名和卡片上下文均唯一对应的参数。歧义或不兼容值会跳过，新版新增参数保留原值。", "recoveredValues": "工作流更新后安全恢复", "recoveredValuesHint": "这些卡片的稳定 ID 已变化，但 Provider、数值类型、控件名和保存的卡片上下文仍能一一对应。", "valueImportCompleteHint": "预设“{name}”已更新并应用。布局保持不变，已写入 {count} 个兼容数值。{skippedHint}", "valuesSkipped": "个源数值被跳过", "valuesImported": "数值已导入", "valuesOverwritten": "个数值已覆盖",
-		"layoutBreakWarningTitle": "这个布局包含失效绑定", "layoutBreakWarningHint": "导入布局会保留 {count} 个失效绑定。建议改用仅导入数值，保留新版布局。", "layoutBreakConfirmHint": "继续导入会保留 {count} 个失效绑定。仅导入数值会保留新版布局，并只迁移能唯一确认的数值。", "useValueOnly": "改用仅导入数值", "importLayoutAnyway": "仍然导入布局",
+		"presetImportComplete": "预设导入完成", "presetImportCompleteHint": "预设“{name}”已创建并应用，布局、绑定和兼容数值均已恢复。", "importPreset": "导入预设", "newPresetWillBeCreated": "将额外创建一个新预设", "overwriteAndApply": "创建副本并套用", "willOverwrite": "将导入", "willKeep": "将保留", "unmatched": "未匹配", "needsReview": "需处理", "valuesReady": "可导入数值", "valuesReadySummary": "{count} 个数值可导入 · {recovered} 个安全恢复", "exactMatches": "精确匹配", "recoveredMatches": "安全恢复", "ambiguousMatch": "匹配有歧义", "recoveredMatch": "已安全恢复", "valueNeedsReview": "已跳过数值", "valueNeedsReviewHint": "这些源文件数值会跳过，基础预设不会改变。", "sourceValuesSkippedHint": "这些无效源数值会跳过，其余有效布局和数值仍可导入。", "valuesNotOnTarget": "基础预设中不存在", "valuesNotOnTargetHint": "在基础预设中找不到唯一兼容目标的数值会跳过。", "targetLayoutKept": "基础预设“{name}”会连同页面、卡片、布局组、尺寸和绑定一起复制（{meta}）。", "valueImportHint": "优先使用稳定 Binding Key 精确匹配；ID 变化时仅恢复唯一兼容的卡片。", "valueCopyHint": "会把“{name}”复制为新预设，再把匹配数值套用到副本；所选预设本身不会改变。", "fullPresetReadyHint": "将用文件中的布局、绑定和兼容数值创建一个新预设。", "fullPresetReviewHint": "仍会额外创建完整预设；请检查被跳过的数值和需要修复的绑定。", "recoveredValues": "工作流更新后安全恢复", "recoveredValuesHint": "这些卡片的稳定 ID 已变化，但仍能唯一兼容匹配。", "valueImportCompleteHint": "预设“{name}”已从“{source}”复制并应用；原预设未改变，已导入 {count} 个兼容数值。{skippedHint}", "valuesSkipped": "个源数值被跳过", "valuesImported": "预设导入完成", "valuesOverwritten": "个数值已导入",
+		"layoutBreakWarningTitle": "这个预设包含失效绑定", "layoutBreakWarningHint": "完整预设会保留 {count} 个失效绑定。", "layoutBreakConfirmHint": "新预设会保留 {count} 个失效绑定。仅导入数值会复制已有预设，并只迁移能唯一确认的数值。", "useValueOnly": "改用仅导入数值", "importLayoutAnyway": "仍导入完整预设",
 		"presetImportPartialHint": "预设“{name}”已创建并应用；未解析的卡片已保留，可继续手动重绑，无效源数值已跳过。",
 		"bindingsNeedAttention": "项需要处理", "allBindingsMatched": "所有绑定均已匹配"
 	  },
@@ -266,6 +266,7 @@
       "page": { "current": "第 {page} 页", "open": "跳转页面", "title": "页面导航", "input": "页码", "unit": "页", "previous": "上一页", "next": "下一页", "go": "前往" },
       "tab": { "label": "画廊视图", "browse": "浏览", "selected": "已选" },
       "selectionMode": { "label": "选择模式", "single": "单选", "multiple": "多选", "changeTitle": "切换为单选", "changeConfirm": "切换后只保留第一张已选图片，是否继续？", "changeAction": "保留第一张" },
+      "nodeMode": { "label": "画廊节点执行模式", "active": "启用", "mute": "静音", "bypass": "绕过" },
       "search": { "label": "搜索帖子", "placeholder": "搜索标签…", "close": "收起搜索", "limitTitle": "已达到搜索上限", "tagLimit": "当前来源每次最多搜索 {count} 个标签。" },
       "filter": { "title": "筛选", "rating": "分级", "apply": "应用", "noRating": "当前来源不提供分级筛选。" },
       "rating": { "general": "全龄", "safe": "安全", "sensitive": "敏感", "questionable": "暗示", "explicit": "露骨", "unknown": "未知" },

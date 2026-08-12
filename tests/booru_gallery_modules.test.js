@@ -10,8 +10,11 @@ import { createGalleryDialogs } from "../js/lib/booru_gallery_dialogs.js";
 
 const sources = Object.fromEntries([
 	["entry", "../js/booru_gallery.js"],
+	["surface", "../js/lib/booru_gallery_surface.js"],
+	["control", "../js/lib/controls/booru_gallery.js"],
 	["media", "../js/lib/booru_gallery_media.js"],
 	["cards", "../js/lib/booru_gallery_cards.js"],
+	["hover", "../js/lib/booru_gallery_hover.js"],
 	["controller", "../js/lib/booru_gallery_controller.js"],
 	["random", "../js/lib/booru_gallery_random.js"],
 	["dialogs", "../js/lib/booru_gallery_dialogs.js"],
@@ -21,8 +24,11 @@ const sources = Object.fromEntries([
 test("every gallery module parses as a real ES module", () => {
 	for (const [name, modulePath] of [
 		["entry", "../js/booru_gallery.js"],
+		["surface", "../js/lib/booru_gallery_surface.js"],
+		["control", "../js/lib/controls/booru_gallery.js"],
 		["media", "../js/lib/booru_gallery_media.js"],
 		["cards", "../js/lib/booru_gallery_cards.js"],
+		["hover", "../js/lib/booru_gallery_hover.js"],
 		["controller", "../js/lib/booru_gallery_controller.js"],
 		["random", "../js/lib/booru_gallery_random.js"],
 		["dialogs", "../js/lib/booru_gallery_dialogs.js"],
@@ -62,13 +68,18 @@ test("pointer card actions return focus to masonry so wheel capture stays active
 	}
 });
 
-test("gallery entry delegates cohesive media, card, controller, dialog, and settings modules", () => {
+test("gallery entry delegates cohesive surface, media, card, controller, dialog, and settings modules", () => {
 	for (const name of ["Media", "Cards", "ControllerFactory", "Dialogs", "Settings"]) {
 		assert.match(sources.entry, new RegExp(`import \\{ createGallery${name}(?:, [^}]+)? \\}`));
 	}
+	assert.match(sources.entry, /import \{ createGallerySurfaceFactory, observeGalleryNodeMode \}/);
+	assert.match(sources.surface, /export function createGallerySurfaceFactory/);
+	assert.match(sources.control, /export function renderBooruGalleryControl/);
 	assert.match(sources.media, /export function createGalleryMedia/);
 	assert.match(sources.cards, /export function createGalleryCards/);
+	assert.match(sources.hover, /export function createGalleryHover/);
 	assert.match(sources.controller, /export function createGalleryControllerFactory/);
+	assert.match(sources.controller, /import \{ createGalleryHover \} from "\.\/booru_gallery_hover\.js"/);
 	assert.match(sources.dialogs, /export function createGalleryDialogs/);
 	assert.match(sources.settings, /export function createGallerySettings/);
 	for (const [name, contents] of Object.entries(sources)) {

@@ -5,8 +5,10 @@ import test from "node:test";
 
 const sourcePaths = [
 	"../js/booru_gallery.js",
+	"../js/lib/booru_gallery_surface.js",
 	"../js/lib/booru_gallery_media.js",
 	"../js/lib/booru_gallery_cards.js",
+	"../js/lib/booru_gallery_hover.js",
 	"../js/lib/booru_gallery_controller.js",
 	"../js/lib/booru_gallery_dialogs.js",
 	"../js/lib/booru_gallery_settings.js",
@@ -32,6 +34,33 @@ test("post detail uses layered surfaces instead of line-based separators", () =>
 	assert.match(theme, /\.aa-gallery-detail__tag-group \.aa-gallery-tag-pill \{[^}]*border: 0;[^}]*background: color-mix\(in srgb, var\(--aa-gallery-category-tone\) 10%/);
 	assert.match(theme, /\.aa-gallery-detail__tag-group \.aa-gallery-section-heading strong::before/);
 	assert.match(theme, /\.aa-gallery-detail__action\.is-selection \{[^}]*order: 10/);
+});
+
+test("hover preview keeps its media geometry stable while detail and larger media load", () => {
+	const hoverSource = source.slice(source.indexOf("const showHover ="), source.indexOf("const openDetail ="));
+	assert.match(hoverSource, /const anchorImage = anchor\.matches\?\.\("img"\) \? anchor : anchor\.querySelector\?\.\("img"\);/);
+	assert.match(hoverSource, /const previewWidth = Number\(anchorImage\?\.naturalWidth\); const previewHeight = Number\(anchorImage\?\.naturalHeight\);/);
+	assert.match(hoverSource, /const width = previewWidth > 0 && previewHeight > 0 \? previewWidth : postWidth;/);
+	assert.match(hoverSource, /const hoverWidth = Math\.min\(320, Math\.max\(0, window\.innerWidth - 20\)\);/);
+	assert.match(hoverSource, /const imageHeight = width > 0 && height > 0 \? Math\.max\(150, Math\.round\(hoverWidth \* height \/ width\)\) : 320;/);
+	assert.match(hoverSource, /const maxInfoHeight = Math\.min\(240, Math\.max\(40, Math\.floor\(window\.innerHeight \* 0\.35\)\)\);/);
+	assert.match(hoverSource, /const infoHeight = Math\.min\(maxInfoHeight, Math\.max\(40, Math\.ceil\(info\.scrollHeight\)\)\);/);
+	assert.match(hoverSource, /content\.style\.setProperty\("--aa-gallery-hover-image-height", `\$\{imageHeight\}px`\)/);
+	assert.match(hoverSource, /content\.style\.setProperty\("--aa-gallery-hover-info-height", `\$\{infoHeight\}px`\)/);
+	assert.match(hoverSource, /content\.classList\.toggle\("is-tall-crop", imageHeight > Math\.max\(0, window\.innerHeight - 20 - infoHeight\)\)/);
+	assert.doesNotMatch(hoverSource, /style: \{ "--aa-gallery-hover-image-height"/);
+	assert.doesNotMatch(hoverSource, /applyHoverImageSize|transitionend[^\n]*tooltip\.reposition/);
+	assert.match(theme, /\.aa-gallery-hover \{[^}]*grid-template-rows:/);
+	assert.match(theme, /\.aa-gallery-hover__media > img \{[^}]*object-fit: contain/);
+	assert.match(theme, /\.aa-gallery-hover\.is-tall-crop \.aa-gallery-hover__media \{[^}]*place-items: start center/);
+	assert.match(theme, /\.aa-gallery-hover\.is-tall-crop \.aa-gallery-hover__media > img \{[^}]*height: auto/);
+	assert.match(theme, /\.aa-gallery-hover \{[^}]*grid-template-rows:[^}]*var\(--aa-gallery-hover-info-height, 40px\)/);
+	assert.doesNotMatch(theme, /\.aa-gallery-hover \{[^}]*grid-template-rows:[^}]*96px/);
+	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*min-height: 0;[^}]*overflow-y: auto/);
+	assert.match(hoverSource, /window\.addEventListener\("resize", syncViewportGeometry\)/);
+	assert.match(hoverSource, /geometryCleanup = \(\) => window\.removeEventListener\("resize", syncViewportGeometry\)/);
+	assert.match(hoverSource, /syncGeometry\(\);\s*tooltip\.reposition\(\);\s*if \(currentLocale\(\) === "zh"/);
+	assert.doesNotMatch(theme, /\.aa-gallery-hover__media \{[^}]*transition: height/);
 });
 
 test("post detail image viewer supports zoom, pan, reset, and keyboard control", () => {
@@ -71,9 +100,14 @@ test("selected count and clear action live in the main toolbar", () => {
 	assert.match(toolbarSource, /className: "aa-gallery-view-switcher__count"/);
 	assert.match(toolbarSource, /tabs\.querySelector\('\[data-value="selected"\]'\)\?\.append\(selectedCount\)/);
 	assert.match(toolbarSource, /children: \[source, tabs, selectionMode,/);
-	assert.match(toolbarSource, /children: \[randomMode, refresh, clear, openSettings\]/);
-	assert.match(source, /elements\.selectedCount\.textContent = String\(count\)/);
+	assert.match(toolbarSource, /children: \[nodeMode, randomMode, refresh, clear, openSettings\]/);
+	assert.match(source, /view\.selectedCount\.textContent = String\(count\)/);
 	assert.match(theme, /\.aa-gallery-view-switcher__count \{[^}]*min-width: 18px;[^}]*border: 0;[^}]*font-size: 10px;[^}]*font-weight: 800/);
+	assert.match(theme, /\.aa-gallery-node-mode\[data-value="mute"\]/);
+	assert.match(theme, /\.aa-gallery-node-mode\[data-value="bypass"\]/);
+	assert.match(theme, /\.aa-gallery-node-mode \{[^}]*pointer-events: none/);
+	assert.match(theme, /\.aa-gallery-node-mode__label/);
+	assert.match(theme, /\.aa-gallery--dashboard :is\(\.aa-gallery-toolbar-action, \.aa-gallery-toolbar-text-action\)\.aa-ui-button > \.aa-ui-button__label, \.aa-gallery--dashboard \.aa-gallery-random-mode__switch \{ display: none; \}/);
 	const countStyle = theme.match(/\.aa-gallery-view-switcher__count \{([^}]*)\}/)?.[1] || "";
 	assert.doesNotMatch(countStyle, /0 0 0 1px/);
 	assert.match(theme, /\.aa-gallery\[data-mode="browse"\] \.aa-gallery-toolbar__selected-summary, \.aa-gallery\[data-mode="browse"\] \.aa-gallery-selected__clear \{ display: none; \}/);
@@ -153,7 +187,7 @@ test("gallery tag pills keep clean capsules and route operations through context
 });
 
 test("gallery scroll areas follow the focused wheel-capture protocol", () => {
-	assert.match(source, /className: "aa-gallery", attrs: \{ "data-mode": stateFor\(node\)\.view, "data-capture-wheel": "true" \}/);
+	assert.match(source, /className: `aa-gallery aa-gallery--\$\{placement\}`[^\n]*"data-mode": stateFor\(node\)\.view, "data-capture-wheel": "true"/);
 	assert.match(source, /const masonry = el\("div", \{ className: "aa-gallery-masonry", attrs: \{ tabindex: 0 \} \}\);/);
 	assert.match(source, /focusScrollableOnPointerEnter\(masonry\)/);
 	assert.match(source, /className: "aa-gallery-selected__list", attrs: \{ tabindex: 0 \}/);

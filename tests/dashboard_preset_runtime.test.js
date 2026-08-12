@@ -442,6 +442,35 @@ test("third-party codec failures stay visible in preflight without breaking capt
 	assert.equal(plan.issues[0].reason, "codec rejected");
 });
 
+test("value-only preset copy applies its dashboard and values without mutating the base snapshot", () => {
+	const steps = binding("steps"); const targetLayout = dashboard(steps); const baseBefore = structuredClone(targetLayout); let currentLayout = dashboard(binding("current"));
+	const writes = []; const plan = planDashboardPresetApplication(snapshot(targetLayout, { [bindingKey(steps)]: { valueType: "number", payload: 31 } }), () => ({
+		status: "ok", value: 12, validatePresetValue: () => true, applyPresetValue: (saved) => writes.push(saved.payload),
+	}));
+	let committed = false;
+	applyDashboardSnapshotPlan(plan, { readDashboard: () => currentLayout, writeDashboard: (next) => { currentLayout = next; }, commit: () => { committed = true; } });
+	assert.deepEqual(writes, [31]);
+	assert.equal(committed, true);
+	assert.deepEqual(currentLayout, targetLayout);
+	assert.deepEqual(targetLayout, baseBefore);
+});
+
+test("value-only preset copy rolls back values and current dashboard when persistence fails", () => {
+	const steps = binding("steps"); let value = 12; let rolledBack = false; const originalLayout = dashboard(binding("current")); let currentLayout = originalLayout;
+	const plan = planDashboardPresetApplication(snapshot(dashboard(steps), { [bindingKey(steps)]: { valueType: "number", payload: 31 } }), () => ({
+		status: "ok", value, validatePresetValue: () => true, applyPresetValue: (saved) => { value = saved.payload; },
+	}));
+	assert.throws(() => applyDashboardSnapshotPlan(plan, {
+		readDashboard: () => currentLayout,
+		writeDashboard: (next) => { currentLayout = next; },
+		commit: () => { throw new Error("preset state failed"); },
+		rollbackCommit: () => { rolledBack = true; },
+	}), /preset state failed/);
+	assert.equal(value, 12);
+	assert.deepEqual(currentLayout, originalLayout);
+	assert.equal(rolledBack, true);
+});
+
 test("layout and values roll back together when a preset write fails", () => {
 	const target = binding("target"); let currentValue = 1; let currentDashboard = dashboard(binding("old"));
 	const plan = planDashboardPresetApplication(snapshot(dashboard(target), { [bindingKey(target)]: { valueType: "number", payload: 9 } }), () => ({
