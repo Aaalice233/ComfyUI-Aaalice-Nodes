@@ -83,7 +83,9 @@ test("suspended canvas projection explains that the Gallery is active in the sid
 	assert.match(surfaceSource, /if \(projectionNotice\) projectionNotice\.hidden = surface\.projectionEnabled/);
 	assert.match(theme, /\.aa-gallery--node\.is-projection-suspended > :is\(\.aa-gallery-browser, \.aa-gallery-selected\) \{ visibility: hidden; \}/);
 	assert.match(theme, /\.aa-gallery-projection-notice \{[^}]*grid-area: 2 \/ 1;[^}]*place-items: center;[^}]*pointer-events: none;/s);
-	assert.match(theme, /\.aa-gallery-projection-notice__surface \{[^}]*width: min\(390px, 86%\);[^}]*min-height: 160px;[^}]*border-radius: 20px;/s);
+	assert.match(theme, /\.aa-gallery-projection-notice__surface \{[^}]*width: min\(390px, 86%\);[^}]*min-height: 160px;[^}]*border-radius: 20px;[^}]*background: var\(--aa-ui-surface-raised\);[^}]*box-shadow: 0 2px 5px rgb\(0 0 0 \/ \.2\), 0 14px 34px rgb\(0 0 0 \/ \.18\);/s);
+	assert.doesNotMatch(theme, /\.aa-gallery-projection-notice(?:__surface)? \{[^}]*(?:gradient|inset)/s);
+	assert.doesNotMatch(theme, /\.aa-gallery-projection-notice__surface::before/);
 	assert.equal(enLocale.aaalice.gallery.projectionPaused.title, "Gallery active in sidebar");
 	assert.equal(zhLocale.aaalice.gallery.projectionPaused.title, "画廊正在侧边栏中显示");
 	assert.match(zhLocale.aaalice.gallery.projectionPaused.body, /保持画布流畅/);
