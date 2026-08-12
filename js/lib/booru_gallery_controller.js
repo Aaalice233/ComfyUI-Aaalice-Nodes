@@ -27,6 +27,10 @@ export function createGalleryControllerFactory(dependencies) {
 	const eachView = (callback) => surfaces.forEach(callback);
 	const eachElement = (name, callback) => eachView((view) => { if (view[name]) callback(view[name], view); });
 	const masonryControllers = () => views().map((view) => view.masonryController).filter(Boolean);
+	const syncProjectionActivity = () => {
+		const dashboardActive = views().some((view) => view.placement === "dashboard" && view.viewportActive);
+		eachView((view) => view.setProjectionEnabled?.(view.placement !== "node" || !dashboardActive));
+	};
 	const randomSession = createRandomGallerySession(); let randomMisses = 0;
 	const MAX_AUTOMATIC_REFILL_PAGES = 4;
 	const detailCache = new Map(); const previewCache = new Map(); let previewGeneration = 0; let previewPrefetchActive = 0; const previewPrefetchQueue = []; const previewPrefetchPending = new Set(); const prefetchedPreviewSources = new Map();
@@ -650,9 +654,10 @@ export function createGalleryControllerFactory(dependencies) {
 		showError,
 		getLastError() { return lastError; },
 		syncState() { eachView((view) => view.syncState()); renderSelected(); },
+		syncProjectionActivity,
 		attachSurface(view) {
 			if (destroyed) throw new Error("Cannot attach a Gallery surface after its node was removed");
-			surfaces.add(view); view.syncState();
+			surfaces.add(view); syncProjectionActivity(); view.syncState();
 			view.masonryController.setItems(posts, { preserveScroll: false });
 			view.loading.hidden = !loading; view.pageControl?.setBusy?.(loading); if (view.randomMode) view.randomMode.disabled = loading;
 			const noResults = ended && !posts.length;
@@ -662,7 +667,7 @@ export function createGalleryControllerFactory(dependencies) {
 			if (lastError) { view.errorLabel.textContent = lastError.summary; view.error.hidden = false; view.error.classList.toggle("is-top", !posts.length); }
 			renderSelected();
 		},
-		detachSurface(view) { if (surfaces.delete(view)) view.destroy(); },
+		detachSurface(view) { if (surfaces.delete(view)) { view.destroy(); syncProjectionActivity(); } },
 		updateSize(post, width, height) { for (const masonry of masonryControllers()) masonry.updateItemSize(`${post.source}:${post.postId}`, width, height); },
 		destroy() {
 			destroyed = true; generation += 1; detailDialogGeneration += 1;

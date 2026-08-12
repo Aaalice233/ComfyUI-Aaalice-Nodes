@@ -196,6 +196,44 @@ test("gallery controller exposes a persistent TLS summary without dropping raw d
 	}
 });
 
+test("attaching the Dashboard projection suspends the duplicate node projection", () => {
+	const activity = [];
+	const makeSurface = (placement) => ({
+		placement,
+		root: { isConnected: true },
+		setProjectionEnabled(enabled) { activity.push([placement, enabled]); },
+		syncState() {},
+		masonryController: { setItems() {}, destroy() {} },
+		selectedList: { setItems() {}, destroy() {} },
+		selectedDropIndicator: null,
+		loading: { hidden: true },
+		pageControl: { setBusy() {} },
+		end: { hidden: true }, endLabel: { textContent: "" },
+		emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) },
+		continueResults: { hidden: true },
+		error: { hidden: true, classList: { toggle() {} } }, errorLabel: { textContent: "" },
+		tabs: { setValue() {} }, selectionMode: { setValue() {} }, selectedCount: { textContent: "", setAttribute() {} },
+		selectedSummary: { textContent: "" }, selectedClear: { disabled: false }, emptySelected: { hidden: true },
+		mode: "browse", destroy() { activity.push([placement, "destroy"]); },
+	});
+	const nodeSurface = makeSurface("node");
+	const dashboardSurface = makeSurface("dashboard");
+	dashboardSurface.viewportActive = true;
+	const controller = createGalleryControllerFactory({
+		createTooltip: () => ({ hide() {}, destroy() {} }), label: (_key, fallback) => fallback,
+		stateFor: () => ({ selections: [], selectionMode: "multi" }),
+	})({}, nodeSurface);
+
+	controller.attachSurface(dashboardSurface);
+	assert.deepEqual(activity.slice(-2), [["node", false], ["dashboard", true]]);
+	dashboardSurface.viewportActive = false;
+	controller.syncProjectionActivity();
+	assert.deepEqual(activity.slice(-2), [["node", true], ["dashboard", true]], "a hidden Dashboard page must release the canvas projection");
+	controller.detachSurface(dashboardSurface);
+	assert.deepEqual(activity.slice(-2), [["dashboard", "destroy"], ["node", true]]);
+	controller.destroy();
+});
+
 test("random browse requests omit cursors and keep source-scoped posts unseen across draws", async () => {
 	const state = { source: "danbooru", query: "blue hair", randomMode: true, filters: { feed: "search", sort: "latest", period: "", ratings: [] }, navigation: { page: 7 } };
 	const urls = []; const requestOptions = []; const appended = [];

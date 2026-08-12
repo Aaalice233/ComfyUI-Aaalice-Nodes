@@ -19,6 +19,7 @@ const source = sourcePaths.map((path) => fs.readFileSync(new URL(path, import.me
 const tagPillsSource = fs.readFileSync(new URL("../js/lib/controls/tag_pills.js", import.meta.url), "utf8");
 const extensionSource = fs.readFileSync(new URL("../js/extension.js", import.meta.url), "utf8");
 const presetSource = fs.readFileSync(new URL("../js/lib/booru_gallery_preset.js", import.meta.url), "utf8");
+const surfaceSource = fs.readFileSync(new URL("../js/lib/booru_gallery_surface.js", import.meta.url), "utf8");
 const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 const uiStyles = fs.readFileSync(new URL("../js/lib/ui.css", import.meta.url), "utf8");
 const uiControls = fs.readFileSync(new URL("../js/lib/ui/controls.js", import.meta.url), "utf8");
@@ -75,7 +76,14 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 });
 
 test("gallery presets own browsing, selection, and dashboard projection state", () => {
-	assert.match(source, /runtime\.getPresetValue = \(\) => createBooruGalleryPreset\(stateFor\(node\), settings \|\| \{\}\)/);
+	assert.match(source, /runtime\.getPresetValue = \(\) => \{/);
+	assert.match(source, /dashboardSurface\?\.readPresetProjection\?\.\(\)/);
+	assert.match(source, /createBooruGalleryPreset\(stateFor\(node\), settings \|\| \{\}, dashboardSurface/);
+	assert.match(surfaceSource, /readPresetProjection = \(\) => \(\{ queryDraft: searchControl\.getValue\(\) \}\)/);
+	assert.match(surfaceSource, /masonryController\.setActive\(false\); surface\.selectedList\.setActive\(false\)/);
+	assert.match(source, /syncProjectionActivity\(\)/);
+	assert.match(source, /dashboardActive = views\(\)\.some\(\(view\) => view\.placement === "dashboard" && view\.viewportActive\)/);
+	assert.match(source, /view\.setProjectionEnabled\?\.\(view\.placement !== "node" \|\| !dashboardActive\)/);
 	assert.match(source, /runtime\.applyPresetValue = \(value\) =>/);
 	assert.match(source, /node\.properties\[PROPERTY\] = decoded\.state/);
 	assert.doesNotMatch(source, /runtime\.componentState/);

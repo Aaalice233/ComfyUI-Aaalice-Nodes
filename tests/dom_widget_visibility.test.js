@@ -12,7 +12,7 @@ test("viewport visibility accepts intersecting entries and rejects zero-ratio en
 	assert.equal(isDOMWidgetViewportVisible(null), false);
 });
 
-test("viewport observer emits only real active-state changes and disconnects", () => {
+test("viewport observer reports the initial inactive state, then only real changes, and disconnects", () => {
 	const previousObserver = globalThis.IntersectionObserver;
 	let callback = null;
 	let disconnected = false;

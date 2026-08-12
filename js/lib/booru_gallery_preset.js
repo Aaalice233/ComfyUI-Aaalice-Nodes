@@ -33,10 +33,15 @@ function validGalleryState(value) {
 }
 
 export function createBooruGalleryPreset(state, settings = {}, componentState = null) {
-	return {
-		version: BOORU_GALLERY_PRESET_VERSION,
-		state: snapshotWithLegacyComponent(state, componentState, settings),
-	};
+	const snapshot = snapshotWithLegacyComponent(state, componentState, settings);
+	const queryDraft = typeof componentState?.queryDraft === "string" ? componentState.queryDraft.trim() : null;
+	if (queryDraft != null && queryDraft !== snapshot.query) {
+		snapshot.query = queryDraft;
+		snapshot.filters.feed = "search";
+		snapshot.filters.period = "";
+		snapshot.navigation.page = 1;
+	}
+	return { version: BOORU_GALLERY_PRESET_VERSION, state: snapshot };
 }
 
 export function validateBooruGalleryPreset(value, settings = {}) {

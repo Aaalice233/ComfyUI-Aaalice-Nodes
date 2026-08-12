@@ -400,7 +400,11 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const controller = buildController(node, surfaces);
 	const runtime = { controller, surfaces, nodeSurface: null, accent: null, modeObserver: null };
 	node._aaGalleryRuntime = runtime; node._aaGalleryController = controller;
-	runtime.getPresetValue = () => createBooruGalleryPreset(stateFor(node), settings || {});
+	runtime.getPresetValue = () => {
+		const dashboardSurface = [...surfaces].find((view) => view.placement === "dashboard" && view.root.isConnected)
+			|| [...surfaces].find((view) => view.placement === "dashboard");
+		return createBooruGalleryPreset(stateFor(node), settings || {}, dashboardSurface?.readPresetProjection?.());
+	};
 	runtime.setDashboardSearchOpen = (value) => {
 		const searchOpen = Boolean(value);
 		if (stateFor(node).dashboard.searchOpen === searchOpen) return;

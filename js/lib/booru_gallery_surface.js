@@ -144,20 +144,28 @@ export function createGallerySurfaceFactory(dependencies) {
 		const emptySelected = el("div", { className: "aa-gallery-selected__empty", children: [el("span", { className: "aa-gallery-selected__empty-icon", children: [icon("statusCheck")] }), el("strong", null, label("selected.emptyTitle", "Build your output set")), el("p", null, label("selected.empty", "Select posts from the waterfall to build an ordered output."))] });
 		selected.append(selectedListRoot, emptySelected); document.body.append(selectedDropIndicator);
 		root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end, continueResults, emptyResults] }), selected);
-		const surface = { root, source, collection, masonry, loading, error, errorLabel, end, endLabel, randomMode, continueResults, emptyResults, tabs, selectionMode, selectedCount, selectedSummary: selectedSummaryText, selectedClear: clear, selectedList: null, selectedListRoot, selectedDropIndicator, emptySelected, mode: stateFor(node).view, pageControl, searchControl, masonryController: null, active: true };
+		const surface = { root, placement, source, collection, masonry, loading, error, errorLabel, end, endLabel, randomMode, continueResults, emptyResults, tabs, selectionMode, selectedCount, selectedSummary: selectedSummaryText, selectedClear: clear, selectedList: null, selectedListRoot, selectedDropIndicator, emptySelected, mode: stateFor(node).view, pageControl, searchControl, masonryController: null, active: false, viewportActive: false, projectionEnabled: true };
 		surface.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index, masonry.classList.contains("is-scrolling")), onNearEnd: () => controller.search(), onVisibleIndexChange: (index) => controller.visibleIndexChanged(index), onVisibleItemsChange: (items) => controller.prefetchVisible(items), minCardWidth: placement === "dashboard" ? 108 : 144, gap: placement === "dashboard" ? 5 : 6, maxColumns: placement === "dashboard" ? 6 : 5 });
 		surface.selectedList = mountVirtualList(selectedListRoot, { rowHeight: 96, gap: 7, overscan: 5, onBeforeRender: () => controller.tooltip.hide(), renderItem: (item, index) => createSelectedRow(node, controller, item, index) });
+		const syncActive = () => {
+			const active = surface.viewportActive && surface.projectionEnabled;
+			if (active === surface.active) return;
+			surface.active = active; surface.masonryController.setActive(active); surface.selectedList.setActive(active);
+		};
+		surface.masonryController.setActive(false); surface.selectedList.setActive(false);
+		surface.setProjectionEnabled = (enabled) => { surface.projectionEnabled = Boolean(enabled); syncActive(); };
 		selectedListRoot.addEventListener("scroll", () => { controller.tooltip.hide(); if (controller.selectedDragFrom != null) controller.handleSelectedDragLeave({ currentTarget: selectedListRoot, relatedTarget: null }); }, { passive: true });
 		selectedListRoot.addEventListener("dragover", (event) => controller.handleSelectedDragOver(event)); selectedListRoot.addEventListener("drop", (event) => controller.handleSelectedDrop(event)); selectedListRoot.addEventListener("dragleave", (event) => controller.handleSelectedDragLeave(event));
 		let scrollSettleTimer = 0;
 		const settleScroll = () => { scrollSettleTimer = 0; masonry.classList.remove("is-scrolling"); masonry.querySelectorAll('img[data-deferred="1"]').forEach((image) => { image.removeAttribute("data-deferred"); image.src = image.dataset.src; image.removeAttribute("data-src"); }); };
 		masonry.addEventListener("scroll", () => { masonry.classList.add("is-scrolling"); clearTimeout(scrollSettleTimer); scrollSettleTimer = setTimeout(settleScroll, 150); }, { passive: true });
 		const removeCardMotion = installMasonryCardMotion(masonry);
-		const visibility = observeDOMWidgetVisibility(root, { onChange: (active) => { surface.active = active; surface.masonryController.setActive(active); surface.selectedList.setActive(active); } });
+		const visibility = observeDOMWidgetVisibility(root, { onChange: (active) => { surface.viewportActive = active; syncActive(); controller.syncProjectionActivity?.(); } });
 		error.addEventListener("click", () => { const state = stateFor(node); const cap = capability(state.source); if ((cap?.authRequired || (state.filters.feed === "favorites" && cap?.favoriteRead)) && !hasSourceCredentials(state.source)) openGallerySettings(); else { const currentError = controller.getLastError(); if (currentError) openGalleryErrorDialog(currentError, () => controller.search()); else controller.search(); } });
 		continueResults.addEventListener("click", () => { continueResults.hidden = true; void controller.search(); });
 		let destroyed = false;
 		surface.syncNodeMode = syncNodeModePresentation;
+		surface.readPresetProjection = () => ({ queryDraft: searchControl.getValue() });
 		surface.syncState = () => {
 			const state = stateFor(node); root.dataset.source = state.source; source.setValue(state.source); searchControl.sync();
 			if (placement === "dashboard") searchControl.setOpen(state.dashboard.searchOpen, { focus: false, submitChanges: false, notifyChange: false });
