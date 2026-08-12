@@ -438,6 +438,42 @@ test("simple ComfyUI nodes expose only built-in primitive widget families", () =
 	controls[4].setValue("edited"); assert.equal(node.widgets[4].value, "edited");
 });
 
+test("execution-injected canvas pseudo widgets do not disable native fallback", () => {
+	const node = { widgets: [
+		{ name: "sampler_name", type: "COMBO", value: "euler", options: { values: ["euler", "dpmpp_2m"] } },
+		{ name: "scheduler", type: "COMBO", value: "normal", options: { values: ["normal", "karras"] } },
+	] };
+	assert.deepEqual(listAdaptedWidgetControls(node).map((control) => control.controlId), ["sampler_name", "scheduler"]);
+
+	const preview = {
+		name: "$$canvas-image-preview", type: "custom", value: "", serialize: false,
+		options: { serialize: false, canvasOnly: true },
+	};
+	node.widgets.push(preview);
+	const controls = listAdaptedWidgetControls(node);
+	assert.deepEqual(controls.map((control) => control.controlId), ["sampler_name", "scheduler"]);
+	assert.equal(controls.some((control) => control.widget === preview), false);
+});
+
+test("canvas pseudo widgets require both the reserved name and an inactive marker", () => {
+	for (const marker of [
+		{ serialize: false, options: {} },
+		{ options: { serialize: false } },
+		{ options: { canvasOnly: true } },
+	]) {
+		const node = { widgets: [
+			{ name: "steps", type: "INT", value: 20, options: {} },
+			{ name: "$$preview", type: "custom", value: "", ...marker },
+		] };
+		assert.deepEqual(listAdaptedWidgetControls(node).map((control) => control.controlId), ["steps"]);
+	}
+	const serializablePseudo = { widgets: [
+		{ name: "steps", type: "INT", value: 20, options: {} },
+		{ name: "$$extension-state", type: "custom", value: "state", serialize: true, options: { serialize: true } },
+	] };
+	assert.deepEqual(listAdaptedWidgetControls(serializablePseudo), []);
+});
+
 test("markdown note widgets adapt as read-only markdown controls", () => {
 	const node = { title: "Markdown Note", widgets: [{ name: "text", type: "MARKDOWN", value: "# Hello", options: {} }] };
 	const [control] = listAdaptedWidgetControls(node);
