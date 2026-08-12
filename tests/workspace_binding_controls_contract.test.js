@@ -150,25 +150,35 @@ test("workspace UI stops clipboard events before ComfyUI canvas handlers see the
 	assert.match(domWidgetLifecycle, /guardClipboardEvents\(element\)/);
 });
 
-test("adjustment profiles use card-level candidates and drop the page scope", () => {
+test("adjustment profiles use source-grouped card rules and one stable scroll surface", () => {
 	assert.doesNotMatch(workspace, /setValueProfilePageScope|classifyValueProfileMatches|aa-value-profiles__scope/);
 	assert.match(workspace, /item\.kind !== "control" \|\| !item\.binding/);
 	assert.match(workspace, /bindingKey\(item\.binding\)/);
 	assert.match(workspace, /linkedCount: Math\.max\(0, controlItemBindings\(item\)\.length - 1\)/);
 	assert.match(workspace, /controlItemBindings\(match\.candidate\.item\)/);
 	assert.match(workspace, /available = candidates\.filter\(\(candidate\) => !taken\.has\(candidate\.key\)\)/);
+	assert.match(workspace, /const groupMatches = \(matches\) =>/);
+	assert.match(workspace, /aa-value-profile-group__header/);
+	assert.match(workspace, /duplicateOrdinal/);
+	assert.match(workspace, /data-search-text/);
+	assert.match(workspace, /queryInput\.addEventListener\("input", filterRules\)/);
+	assert.match(workspace, /removeRuleConfirm/);
+	assert.match(workspace, /const nextState = mutator\(state\);[\s\S]*?saveValueProfiles\(nextState\);[\s\S]*?state = nextState/);
+	assert.match(workspace, /applyCount/);
+	assert.match(workspace, /resolved\.kind === "text" && typeof rule\.payload === "string"/);
 	assert.match(theme, /\.aa-value-profile-rule__linked/);
-	assert.match(theme, /\.aa-value-profile-rule__editor \.aa-ui-select \{ flex: 0 0 auto;/);
+	assert.match(theme, /\.aa-value-profiles__surface \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\)/);
+	assert.match(theme, /\.aa-value-profile-rules \{[\s\S]*?overflow-y: auto;/);
+	assert.match(theme, /\.aa-value-profile-group \{[\s\S]*?--aa-value-profile-tone:/);
+	assert.match(theme, /\.aa-value-profile-rule \{[\s\S]*?grid-template-columns: minmax\(150px, 1fr\) minmax\(210px, \.76fr\) 68px;/);
+	assert.match(theme, /@container \(max-width: 700px\)[\s\S]*?\.aa-value-profile-rule \{/);
 	assert.match(workspace, /initialQuery: pickerSearch/);
 	assert.match(workspace, /onSearchChange: \(query\) => \{ pickerSearch = query; \}/);
 	assert.match(workspace, /let rulesScrollTop = 0/);
+	assert.match(workspace, /const resetRulesScroll = \(\) => \{[\s\S]*?if \(list\) list\.scrollTop = 0/);
 	assert.match(workspace, /if \(currentRules\) rulesScrollTop = currentRules\.scrollTop/);
 	assert.match(workspace, /if \(list\) list\.scrollTop = rulesScrollTop/);
-	assert.match(workspace, /selectedId = value; rulesScrollTop = 0; closeAddPanel\(\); render\(\)/);
 	assert.match(workspace, /if \(addPanelOpen\)[\s\S]*?aa-value-profiles__picker[\s\S]*?else \{[\s\S]*?aa-value-profile-rules/);
-	assert.match(theme, /\.aa-value-profiles__bar[\s\S]*?box-shadow:/);
-	assert.match(theme, /\.aa-value-profile-rule \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) minmax\(148px, \.72fr\)[\s\S]*?border: 0;[\s\S]*?box-shadow:/);
-	assert.match(theme, /@container \(max-width: 540px\)[\s\S]*?\.aa-value-profile-rule \{ grid-template-columns: minmax\(0, 1fr\)/);
 });
 
 test("searchable select can restore and report the search query across host rebuilds", () => {
