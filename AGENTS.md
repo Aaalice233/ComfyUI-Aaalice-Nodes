@@ -110,7 +110,7 @@ ComfyUI-Aaalice-Nodes/
 - 文本输入期间必须保留输入元素的 DOM identity、焦点、光标/选区和 IME composition；实时搜索或筛选只更新结果区域，禁止在每次 `input` 事件中重建包含输入框的根视图。
 - Dialog 挂载失败时清理部分状态、记录原始错误并显示可见错误。
 - `graph.onTrigger`、`onNodeAdded`、`onNodeRemoved` 等图级回调是 ComfyUI 前端管理器会安装、链式调用并在重建时恢复的单一插槽，不得由业务节点长期占用或自行覆盖来监听属性变化。优先使用官方图事件、节点生命周期或保留原描述符语义的节点级观察；任何包装都必须幂等、可卸载，且不能截断 Nodes 2.0 的事件链。
-- 侧边栏绑定画布高亮由 `js/lib/canvas_control_binding_highlight.js` 统一维护：Classic 的标记变化必须调用 `LGraphCanvas.setDirty(true, true)`；Nodes 2.0 的候选 widget 必须遵循 ComfyUI `useProcessedWidgets` / `shouldRenderAsVue` 的可见性、去重和 `canvasOnly` 规则，`sourceWidgetName`（旧协议）或宿主 widget 名（新协议，widgetId 投影）以 `$$` 开头的 promoted canvas-only pseudo widget 不参与 DOM 行映射。含 `preview_text` 与 canvas image preview 的根图首次加载必须直接高亮，不得依赖进入/退出子图触发补同步。
+- 侧边栏绑定画布高亮由 `js/lib/canvas_control_binding_highlight.js` 统一维护：Classic 的标记变化必须调用 `LGraphCanvas.setDirty(true, true)`；Nodes 2.0 的候选 widget 必须遵循 ComfyUI `useProcessedWidgets` / `shouldRenderAsVue` 的可见性、去重和 `canvasOnly` 规则，`sourceWidgetName`（旧协议）或宿主 widget 名（新协议，widgetId 投影）以 `$$` 开头的 promoted canvas-only pseudo widget 不参与 DOM 行映射；同类不可序列化 / canvas-only pseudo widget 也不参与普通节点的原生 fallback 支持判定，但可序列化的 `$$` 自定义 widget 仍必须阻断猜测。含 `preview_text` 与 canvas image preview 的根图首次加载必须直接高亮，不得依赖进入/退出子图触发补同步。
 ### 4.2 性能优化硬规则
 
 - 性能问题必须先按“本包、ComfyUI 前端、第三方插件、浏览器/环境”分层归因，再在责任边界内修复根因。不得为掩盖本包的全量重建、图遍历或 DOM 抖动而修改 ComfyUI 内核或其它插件，也不得用节流、延迟、轮询、静默降级或限制数量制造表面流畅。
