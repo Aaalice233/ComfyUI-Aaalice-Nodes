@@ -193,7 +193,7 @@ The toolbar's **Adjustment profiles** button opens value-override profiles store
 
 ### 🧭 Groups navigation
 
-**Groups** replaces a floating canvas shortcut with a curated navigation list. Add only the visual groups you want to navigate, then optionally assign each a `Ctrl`, `Alt`, or `Command` key combination, a target offset, and a target zoom from 10% to 300%. Click a row or press its shortcut to animate to that group's view. Entries and view settings are saved with the workflow.
+**Groups** replaces a floating canvas shortcut with a curated navigation list. Add only the visual groups you want to navigate, then assign each an optional target offset and zoom from 10% to 300%. Click a group row to jump directly. Hold the default backquote key (`Backquote`, above Tab) to open the navigation wheel near the canvas pointer, aim at a target, and release to jump; scroll to change wheel pages. The wheel activation key can be changed to any other single key. Entries, the wheel key, and target view settings are saved with the workflow.
 
 ### 📚 Prompt library
 
