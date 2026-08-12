@@ -90,7 +90,7 @@ export function createGallerySurfaceFactory(dependencies) {
 			refresh.setAttribute("aria-label", accessibleText); refresh.title = accessibleText;
 		}
 		function updateRefreshIdlePresentation() {
-			if (stateFor(node).randomMode) updateRefreshPresentation(label("random.draw", "Draw again"), label("random.drawHint", "Draw another unseen batch"), "dice");
+			if (stateFor(node).randomMode) updateRefreshPresentation(label("random.draw", "Draw again"), label("random.drawHint", "Draw another unseen batch"), "sparkles");
 			else updateRefreshPresentation(label("refresh", "Refresh"), label("reload", "Reload search"), "refresh");
 		}
 		function syncRandomModePresentation(active) {

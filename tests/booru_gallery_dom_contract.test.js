@@ -198,7 +198,8 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 
 test("random draw mode is an explicit persistent switch with no redundant bottom banner", () => {
 	assert.match(source, /className: "aa-gallery-toolbar-text-action aa-gallery-random-mode", iconName: "shuffle"/);
-	assert.match(source, /label\("random\.drawHint", "Draw another unseen batch"\), "dice"/);
+	assert.match(source, /label\("random\.drawHint", "Draw another unseen batch"\), "sparkles"/);
+	assert.doesNotMatch(source, /label\("random\.drawHint", "Draw another unseen batch"\), "dice"/);
 	assert.match(source, /randomMode\.setAttribute\("role", "switch"\)/);
 	assert.match(source, /className: "aa-gallery-random-mode__switch"[^\n]*"aria-hidden": "true"/);
 	assert.match(source, /transact\(node, \(state\) => \{ state\.randomMode = active; \}\)/);
