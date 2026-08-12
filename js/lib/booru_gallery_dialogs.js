@@ -5,7 +5,7 @@ export function createGalleryDialogs(dependencies) {
 		searchToggleButton, stateFor, t, transact,
 	} = dependencies;
 
-function createSearchControl(node, { defaultOpen = false } = {}) {
+function createSearchControl(node, { defaultOpen = false, onOpenChange = null } = {}) {
 	const root = el("div", "aa-gallery-search");
 	const input = document.createElement("input"); input.type = "search"; input.className = "aa-gallery-search__input aa-ui-search-input";
 	input.setAttribute("data-autocomplete-plus", "");
@@ -21,10 +21,12 @@ function createSearchControl(node, { defaultOpen = false } = {}) {
 		node._aaGalleryController?.syncState();
 		node._aaGalleryController?.search({ reset: true, page: 1 });
 	};
-	const setOpen = (next, { focus = true } = {}) => {
+	const setOpen = (next, { focus = true, submitChanges = true, notifyChange = true } = {}) => {
+		const changed = open !== Boolean(next);
 		open = Boolean(next);
-		if (!open && input.value.trim() !== searchQuery(stateFor(node))) submit();
+		if (!open && submitChanges && input.value.trim() !== searchQuery(stateFor(node))) submit();
 		root.classList.toggle("is-open", open); toggle.hidden = open; toggle.setSearchOpen(open);
+		if (changed && notifyChange) onOpenChange?.(open);
 		if (open && focus) queueMicrotask(() => { input.focus({ preventScroll: true }); input.setSelectionRange(input.value.length, input.value.length); });
 	};
 	const addTag = (tag, maxTags = null) => {
@@ -72,7 +74,7 @@ function createSearchControl(node, { defaultOpen = false } = {}) {
 		if (event.key === "Escape") { event.preventDefault(); setOpen(false); }
 		else if (event.key === "Enter" && !composing && !event.isComposing) { event.preventDefault(); submit(); }
 	});
-	setOpen(defaultOpen, { focus: false });
+	setOpen(defaultOpen, { focus: false, notifyChange: false });
 	return { root, input, toggle, setOpen, addTag, sync: () => { if (document.activeElement !== input) input.value = stateFor(node).query; toggle.setSearchValue(input.value); } };
 }
 

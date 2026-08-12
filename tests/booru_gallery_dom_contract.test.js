@@ -18,6 +18,7 @@ const sourcePaths = [
 const source = sourcePaths.map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
 const tagPillsSource = fs.readFileSync(new URL("../js/lib/controls/tag_pills.js", import.meta.url), "utf8");
 const extensionSource = fs.readFileSync(new URL("../js/extension.js", import.meta.url), "utf8");
+const presetSource = fs.readFileSync(new URL("../js/lib/booru_gallery_preset.js", import.meta.url), "utf8");
 const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
 const uiStyles = fs.readFileSync(new URL("../js/lib/ui.css", import.meta.url), "utf8");
 const uiControls = fs.readFileSync(new URL("../js/lib/ui/controls.js", import.meta.url), "utf8");
@@ -39,7 +40,7 @@ test("gallery settings link each credential form to its site account page", () =
 
 test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.equal((source.match(/className: "aa-gallery-toolbar"/g) || []).length, 1);
-	assert.match(source, /function createSearchControl\(node, \{ defaultOpen = false \} = \{\}\)/); assert.match(source, /input\.type = "search"/); assert.match(source, /classList\.toggle\("is-open"/);
+	assert.match(source, /function createSearchControl\(node, \{ defaultOpen = false, onOpenChange = null \} = \{\}\)/); assert.match(source, /input\.type = "search"/); assert.match(source, /classList\.toggle\("is-open"/);
 	assert.match(source, /searchToggleButton\(\{ label: label\("search\.label"/);
 	assert.match(source, /input\.className = "aa-gallery-search__input aa-ui-search-input"/);
 	assert.match(source, /input\.setAttribute\("data-autocomplete-plus", ""\)/);
@@ -47,10 +48,13 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(source, /toggle\.setSearchValue\(input\.value/);
 	assert.match(source, /iconName: "arrowRight"[^}]*className: "aa-ui-search-collapse"/);
 	assert.match(source, /toggle\.hidden = open/);
-	assert.match(source, /if \(!open && input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\)/);
-	assert.match(source, /const setOpen = \(next, \{ focus = true \} = \{\}\) =>/);
-	assert.match(source, /setOpen\(defaultOpen, \{ focus: false \}\)/);
-	assert.match(source, /createSearchControl\(node, \{ defaultOpen: placement !== "dashboard" \}\)/);
+	assert.match(source, /if \(!open && submitChanges && input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\)/);
+	assert.match(source, /const setOpen = \(next, \{ focus = true, submitChanges = true, notifyChange = true \} = \{\}\) =>/);
+	assert.match(source, /setOpen\(defaultOpen, \{ focus: false, notifyChange: false \}\)/);
+	assert.match(source, /defaultOpen: placement === "dashboard" \? stateFor\(node\)\.dashboard\.searchOpen : true/);
+	assert.match(source, /node\._aaGalleryRuntime\?\.setDashboardSearchOpen\(open\)/);
+	assert.match(source, /runtime\.setDashboardSearchOpen = \(value\) =>/);
+	assert.match(source, /node\.graph\?\.change\?\.\(\)/);
 	assert.match(source, /if \(!composing && !input\.value\.trim\(\) && searchQuery\(stateFor\(node\)\)\) submit\(\)/);
 	assert.match(source, /input\.addEventListener\("blur", commitOnBlur\)/);
 	assert.match(source, /const commitIfChanged = \(\) => \{ if \(input\.value\.trim\(\) !== searchQuery\(stateFor\(node\)\)\) submit\(\); \};/);
@@ -68,6 +72,16 @@ test("gallery has one toolbar with an in-place persistent search input", () => {
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button \{[^}]*width: 22px;[^}]*height: 22px;[^}]*border-radius: 50%;[^}]*transform: none;/s);
 	assert.match(theme, /\.aa-gallery-search > \.aa-ui-button:hover:not\(:disabled\) \{[^}]*background: color-mix\([^}]*transform: none;/s);
 	assert.match(theme, /\.aa-gallery-search \{[^}]*padding: 3px 3px 3px 9px;[^}]*overflow: hidden;/s);
+});
+
+test("gallery presets own browsing, selection, and dashboard projection state", () => {
+	assert.match(source, /runtime\.getPresetValue = \(\) => createBooruGalleryPreset\(stateFor\(node\), settings \|\| \{\}\)/);
+	assert.match(source, /runtime\.applyPresetValue = \(value\) =>/);
+	assert.match(source, /node\.properties\[PROPERTY\] = decoded\.state/);
+	assert.doesNotMatch(source, /runtime\.componentState/);
+	assert.match(source, /void controller\.search\(\{ reset: true, page: state\.navigation\.page \}\)/);
+	assert.match(presetSource, /structuredClone\(normalizeGalleryState\(state, settings\)\)/);
+	assert.match(presetSource, /snapshot\.dashboard\.searchOpen = Boolean\(componentState\.searchOpen\)/);
 });
 
 test("gallery restores every workflow-owned browsing state after configuration", () => {
