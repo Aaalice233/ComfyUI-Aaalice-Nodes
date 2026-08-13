@@ -270,6 +270,7 @@ Tooltip、Hover Card、已选摘要浮层等多实体信息预览**不得**落�
 - `PublisherId=aaalice`，包名 `comfyui-aaalice-nodes`；`pyproject.toml` packages 覆盖全部已实现域。
 - 发布前同步版本、双语 README、locale、`.comfyignore`、节点清单和内部路线图。
 - 发布只按 [`release.md`](docs/development/release.md) 执行。
+- 用命令行更新 `REGISTRY_ACCESS_TOKEN` 时，必须让 `gh secret set` 直接从 stdin 读取，例如 `printf '%s' "$TOKEN" | gh secret set REGISTRY_ACCESS_TOKEN --repo OWNER/REPO`；禁止写 `--body -`，该参数会把字面量 `-` 保存为 Secret，导致发布工作流报 `Invalid personal access token`。命令和日志不得回显真实密钥。
 - GitHub Actions 上传成功且 Registry 已生成对应版本记录即可结束；`NodeVersionStatusPending` 属于待审核，不等待变为 `Active`。
 
 ## 10. 完成检查
