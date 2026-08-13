@@ -1,6 +1,6 @@
 /** Runtime bridge between sidebar preset snapshots and live control providers. */
 
-import { bindingControlIdLabel } from "./dashboard_binding_identity.js";
+import { bindingControlIdLabel, isModelResourceBinding } from "./dashboard_binding_identity.js";
 import { bindingKey, controlItemBindings } from "./dashboard_model.js";
 import { normalizeDashboardPresetValues, normalizeDashboardSnapshot } from "./dashboard_presets.js";
 
@@ -37,6 +37,49 @@ function writePresetEntry(entry, value) {
 		? entry.resolved.applyPresetValue(value, { transaction: false, workspaceRedraw: false })
 		: entry.resolved.setValue(value.payload, { transaction: false, workspaceRedraw: false });
 	successful(result, "write", entry.key);
+}
+
+function choiceValue(choice) {
+	if (choice && typeof choice === "object") return String(choice.value ?? choice.label ?? "");
+	return String(choice ?? "");
+}
+
+function normalizedModelPath(value) {
+	return String(value || "").normalize("NFKC").trim().replaceAll("\\", "/").replace(/^\.\//, "").toLowerCase();
+}
+
+function modelFileName(value) {
+	return normalizedModelPath(value).split("/").pop() || "";
+}
+
+function modelOptionValues(resolved) {
+	const optionSource = resolved?.options?.values ?? resolved?.options?.options;
+	return Array.isArray(optionSource) ? optionSource.map(choiceValue).filter(Boolean) : [];
+}
+
+function modelOptionMatches(savedValue, options) {
+	const expectedPath = normalizedModelPath(savedValue); const expectedFile = modelFileName(savedValue);
+	const exact = [...new Set(options.filter((value) => normalizedModelPath(value) === expectedPath))];
+	return exact.length ? exact : [...new Set(options.filter((value) => modelFileName(value) === expectedFile))];
+}
+
+export function resolveDashboardPresetModelValue(binding, saved, resolved, validation) {
+	if (validation !== "missing-option" || saved?.valueType !== "string" || typeof saved.payload !== "string"
+		|| !isModelResourceBinding(binding, saved.payload, resolved?.label)) return null;
+	const matches = modelOptionMatches(saved.payload, modelOptionValues(resolved));
+	if (matches.length === 1) return {
+		status: "model-path-match", reason: "model-path-match", applySaved: true,
+		value: { ...structuredClone(saved), payload: matches[0] }, presetValue: structuredClone(saved), detectedModelPath: matches[0], candidates: matches,
+	};
+	return {
+		status: matches.length ? "ambiguous-model" : "missing-model",
+		reason: matches.length ? "ambiguous-model-option" : "missing-model-option",
+		applySaved: true, value: structuredClone(saved), presetValue: structuredClone(saved), candidates: matches,
+	};
+}
+
+function applicablePresetEntries(entries) {
+	return entries.filter((entry) => entry.status === "ready" || entry.applySaved === true);
 }
 
 function uniqueBindings(dashboard) {
@@ -167,7 +210,7 @@ function sourceCardValue(card, sourceValues) {
 
 function mergeMatchedPresetValues(target, ready) {
 	const values = structuredClone(target.values);
-	for (const entry of ready) values[entry.key] = structuredClone(entry.imported);
+	for (const entry of ready) values[entry.key] = structuredClone(entry.presetImported || entry.imported);
 	return normalizeDashboardSnapshot({ dashboard: target.dashboard, values });
 }
 
@@ -189,7 +232,7 @@ export function captureDashboardValues(dashboard, resolveBinding) {
 		if (typeof payload === "undefined") { captured.push({ key, binding, status: "unset" }); continue; }
 		try { values[key] = normalizeDashboardPresetValues({ [key]: { valueType: binding.valueType, payload } })[key]; }
 		catch (error) { captured.push({ key, binding, status: "invalid", reason: error.message, error }); continue; }
-		captured.push({ key, binding, status: "ok" });
+		captured.push({ key, binding, status: "ok", modelOptions: modelOptionValues(resolved) });
 	}
 	return { values, bindings: captured };
 }
@@ -197,8 +240,16 @@ export function captureDashboardValues(dashboard, resolveBinding) {
 export function mergeCapturedPresetValues(snapshot, previousValues = {}) {
 	const values = structuredClone(snapshot?.values || {});
 	for (const binding of snapshot?.bindings || []) {
-		if (binding.status === "ok" || binding.status === "layout-only" || !Object.prototype.hasOwnProperty.call(previousValues, binding.key)) continue;
-		values[binding.key] = structuredClone(previousValues[binding.key]);
+		if (!Object.prototype.hasOwnProperty.call(previousValues, binding.key)) continue;
+		const previous = previousValues[binding.key]; const captured = values[binding.key];
+		if (binding.status === "ok" && previous?.valueType === "string" && captured?.valueType === "string"
+			&& isModelResourceBinding(binding.binding, previous.payload) && modelFileName(previous.payload) === modelFileName(captured.payload)
+			&& modelOptionMatches(previous.payload, binding.modelOptions || []).length === 1) {
+			values[binding.key] = structuredClone(previous);
+			continue;
+		}
+		if (binding.status === "ok" || binding.status === "layout-only") continue;
+		values[binding.key] = structuredClone(previous);
 	}
 	return values;
 }
@@ -257,20 +308,28 @@ export function planDashboardPresetValueOverwrite(sourceSnapshot, targetPreset, 
 		}
 		const availability = runtimeAvailability(resolved);
 		if (availability) {
-			entries.push({ ...common, resolved, status: availability });
+			const modelResolution = availability === "empty" ? resolveDashboardPresetModelValue(binding, imported, resolved, "missing-option") : null;
+			if (modelResolution) entries.push({ ...common, resolved, imported: modelResolution.value, presetImported: modelResolution.presetValue, ...modelResolution });
+			else entries.push({ ...common, resolved, status: availability });
 			continue;
 		}
 		let validation;
 		try { validation = synchronous(resolved.validatePresetValue?.(imported), "validation", key); }
 		catch (error) { entries.push({ ...common, resolved, status: "invalid", reason: error.message, error }); continue; }
 		if (validation === false || validation?.ok === false || typeof validation === "string") {
-			entries.push({ ...common, resolved, status: "invalid", reason: typeof validation === "string" ? validation : "invalid-value" });
+			const reason = typeof validation === "string" ? validation : "invalid-value";
+			const modelResolution = resolveDashboardPresetModelValue(binding, imported, resolved, reason);
+			if (modelResolution) {
+				entries.push({ ...common, resolved, imported: modelResolution.value, presetImported: modelResolution.presetValue, ...modelResolution });
+				continue;
+			}
+			entries.push({ ...common, resolved, status: "invalid", reason });
 			continue;
 		}
 		entries.push({ ...common, resolved, status: "ready" });
 	}
 	for (const [key, imported] of Object.entries(source.values)) if (!consumedSourceKeys.has(key) && !targetBindings.has(key)) entries.push({ key, imported, status: "unused" });
-	const ready = entries.filter((entry) => entry.status === "ready");
+	const ready = applicablePresetEntries(entries);
 	const issues = entries.filter((entry) => !["ready", "preserved"].includes(entry.status));
 	return {
 		source,
@@ -301,23 +360,34 @@ export function planDashboardPresetApplication(snapshot, resolveBinding) {
 		if (resolved?.status !== "ok") { entries.push({ key, binding, saved, resolved, status: resolved?.status || "missing" }); continue; }
 		if (resolved.presettable === false) { entries.push({ key, binding, saved, resolved, status: "layout-only" }); continue; }
 		const availability = runtimeAvailability(resolved);
-		if (availability) { entries.push({ key, binding, saved, resolved, status: availability }); continue; }
+		if (availability) {
+			const modelResolution = availability === "empty" ? resolveDashboardPresetModelValue(binding, saved, resolved, "missing-option") : null;
+			if (!modelResolution) { entries.push({ key, binding, saved, resolved, status: availability }); continue; }
+			let previousPayload;
+			try { previousPayload = readCurrentPayload(resolved, key); }
+			catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
+			entries.push({ key, binding, saved: modelResolution.value, presetSaved: modelResolution.presetValue, resolved, previous: { valueType: binding.valueType, payload: previousPayload }, ...modelResolution });
+			continue;
+		}
 		if (!saved) { entries.push({ key, binding, resolved, status: "unset" }); continue; }
 		if (saved.valueType !== binding.valueType) { entries.push({ key, binding, saved, resolved, status: "incompatible" }); continue; }
 		let validation;
 		try { validation = synchronous(resolved.validatePresetValue?.(saved), "validation", key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
-		if (validation === false || validation?.ok === false || typeof validation === "string") { entries.push({ key, binding, saved, resolved, status: "invalid", reason: typeof validation === "string" ? validation : "invalid-value" }); continue; }
+		const reason = validation === false || validation?.ok === false || typeof validation === "string" ? (typeof validation === "string" ? validation : "invalid-value") : null;
+		const modelResolution = reason ? resolveDashboardPresetModelValue(binding, saved, resolved, reason) : null;
+		if (reason && !modelResolution) { entries.push({ key, binding, saved, resolved, status: "invalid", reason }); continue; }
 		let previousPayload;
 		try { previousPayload = readCurrentPayload(resolved, key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
-		entries.push({ key, binding, saved, resolved, previous: { valueType: binding.valueType, payload: previousPayload }, status: "ready" });
+		const common = { key, binding, saved: modelResolution?.value || saved, resolved, previous: { valueType: binding.valueType, payload: previousPayload } };
+		entries.push(modelResolution ? { ...common, presetSaved: modelResolution.presetValue, ...modelResolution, saved: modelResolution.value } : { ...common, status: "ready" });
 	}
 	for (const [key, saved] of Object.entries(normalized.values)) if (!dashboardBindings.has(key)) entries.push({ key, saved, status: "unused" });
 	return {
 		dashboard: normalized.dashboard,
 		entries,
-		ready: entries.filter((entry) => entry.status === "ready"),
+		ready: applicablePresetEntries(entries),
 		issues: entries.filter((entry) => !["ready", "layout-only"].includes(entry.status)),
 	};
 }
@@ -368,5 +438,5 @@ export function applyDashboardPresetPlan(plan) {
 		throw error;
 	}
 	for (const node of touchedNodes) node.setDirtyCanvas?.(true, true);
-	return { applied: plan.ready.length, skipped: plan.issues.length };
+	return { applied: plan.ready.length, skipped: plan.issues.filter((entry) => entry.applySaved !== true).length };
 }

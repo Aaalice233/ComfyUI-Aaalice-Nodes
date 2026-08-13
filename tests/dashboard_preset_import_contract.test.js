@@ -66,7 +66,9 @@ test("dashboard toolbar and dialogs call the files presets instead of layouts", 
 test("preset compatibility dialog names sidebar components instead of exposing binding ids", () => {
 	assert.match(runtime, /export function dashboardPresetIssueLocations/);
 	assert.match(importUi, /dashboardPresetIssueLocations\(dashboard, entry\)/);
-	assert.match(importUi, /isModelResourceBinding\(entry\.binding, entry\.saved\?\.payload/);
+	assert.match(importUi, /isModelResourceBinding\(entry\.binding, \(entry\.presetSaved \|\| entry\.saved\)\?\.payload/);
+	assert.match(importUi, /latestPlan\.issues\.filter\(\(entry\) => entry\.applySaved === true\)/);
+	assert.match(importUi, /confirmPartialDashboardPreset\(\{ \.\.\.latestPlan, issues: modelIssues \}/);
 	assert.doesNotMatch(importUi, /entry\.binding\?\.controlId \|\| entry\.key/);
 	assert.doesNotMatch(importUi, /reasons\[entry\.reason\] \|\| entry\.reason/);
 	assert.doesNotMatch(importUi, /labels\[entry\.status\] \|\| entry\.status/);
@@ -75,6 +77,11 @@ test("preset compatibility dialog names sidebar components instead of exposing b
 		assert.match(locale, /"reasonMissingOption"/);
 		assert.match(locale, /"reasonMissingModelOption"/);
 		assert.match(locale, /"modelUnavailable"/);
+		assert.match(locale, /"modelPathFound"/);
+		assert.match(locale, /"modelPathAmbiguous"/);
+		assert.match(locale, /"reasonAmbiguousModelOption"/);
+		assert.match(locale, /"reasonModelPathMatch"/);
+		assert.match(locale, /"applyPresetModels"/);
 		assert.match(locale, /"locationPage"/);
 		assert.match(locale, /"attention"/);
 		assert.match(locale, /"removedComponent"/);
