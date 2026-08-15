@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+	classicFocusMarkerCanvasRect,
 	hasClassicFocusMarker,
 	mountClassicFocusMarker,
 	unmountClassicFocusMarker,
@@ -62,6 +63,18 @@ test("Classic focus markers use the native title-button lifecycle without touchi
 	assert.equal(hasClassicFocusMarker(node), false);
 	assert.deepEqual(node.title_buttons, [other]);
 	assert.equal(Object.hasOwn(node, "onTitleButtonClick"), false);
+});
+
+test("Classic focus marker settings use rendered title geometry with a fresh-node fallback", () => {
+	const { node } = nodeFixture();
+	node.pos = [10, 40];
+	node.size = [200, 120];
+	const marker = mountClassicFocusMarker(node, () => {});
+	const canvas = { convertOffsetToCanvas: ([x, y]) => [x * 2, y * 2] };
+
+	assert.deepEqual(classicFocusMarkerCanvasRect(node, canvas), { left: 380, top: 20, width: 40, height: 40 });
+	marker._last_area = [170, -28, 18, 20];
+	assert.deepEqual(classicFocusMarkerCanvasRect(node, canvas), { left: 360, top: 24, width: 36, height: 40 });
 });
 
 test("Classic focus marker cleanup restores own handlers but preserves later replacements", () => {

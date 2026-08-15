@@ -3,6 +3,7 @@
 import { app } from "../../scripts/app.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import {
+	classicFocusMarkerCanvasRect,
 	hasClassicFocusMarker,
 	mountClassicFocusMarker,
 	unmountClassicFocusMarker,
@@ -33,6 +34,7 @@ let vueFrame = 0;
 let focusSettingsPopover = null;
 let focusSettingsNode = null;
 let focusSettingsFrame = 0;
+let focusSettingsVirtualAnchor = null;
 const focusScheduler = createFocusOnOpenScheduler({
 	schedule: (callback) => requestAnimationFrame(callback),
 	cancel: (handle) => cancelAnimationFrame(handle),
@@ -258,9 +260,35 @@ function updateFocusOnOpenSettings(node, settings) {
 	return result;
 }
 
+function removeFocusSettingsVirtualAnchor() {
+	focusSettingsVirtualAnchor?.remove();
+	focusSettingsVirtualAnchor = null;
+}
+
+function classicFocusSettingsAnchor(node) {
+	const canvas = app.canvas;
+	const canvasElement = canvas?.canvas;
+	if (!hasClassicFocusMarker(node) || canvas?.graph !== node.graph || !(canvasElement instanceof HTMLElement)) return null;
+	const markerRect = classicFocusMarkerCanvasRect(node, canvas, globalThis.LiteGraph?.NODE_TITLE_HEIGHT);
+	if (!markerRect) return null;
+	const canvasRect = canvasElement.getBoundingClientRect();
+	const anchor = el("span", { attrs: { "aria-hidden": "true" } });
+	Object.assign(anchor.style, {
+		position: "fixed",
+		left: `${canvasRect.left + markerRect.left}px`,
+		top: `${canvasRect.top + markerRect.top}px`,
+		width: `${Math.max(1, markerRect.width)}px`,
+		height: `${Math.max(1, markerRect.height)}px`,
+		pointerEvents: "none",
+		opacity: "0",
+	});
+	document.body.append(anchor);
+	focusSettingsVirtualAnchor = anchor;
+	return anchor;
+}
+
 function focusSettingsAnchor(node) {
-	const classicButton = CLASSIC_WIDGETS.get(node)?.button;
-	if (classicButton?.isConnected) return classicButton;
+	if (!isNodes2Mode()) return classicFocusSettingsAnchor(node);
 	if (vueMount?.node === node && vueMount.buttonView.button.isConnected) return vueMount.buttonView.button;
 	return nodeElement(node);
 }
@@ -273,13 +301,14 @@ function closeFocusSettingsPopover() {
 	focusSettingsPopover?.close();
 	focusSettingsPopover = null;
 	focusSettingsNode = null;
+	removeFocusSettingsVirtualAnchor();
 }
 
 function openFocusOnOpenSettings(node) {
-	if (!isFocusOnOpenMarked(node)) return;
-	const anchor = focusSettingsAnchor(node);
-	if (!anchor) return;
+	if (!isFocusOnOpenMarked(node)) return false;
 	closeFocusSettingsPopover();
+	const anchor = focusSettingsAnchor(node);
+	if (!anchor) return false;
 	const settings = focusOnOpenSettings(node);
 	const offsetX = el("input", { attrs: { type: "number", min: "-100000", max: "100000", step: "50", value: settings.offset.x, "aria-label": t("aaalice.focusOnOpen.settings.offsetX", "X offset") } });
 	const offsetY = el("input", { attrs: { type: "number", min: "-100000", max: "100000", step: "50", value: settings.offset.y, "aria-label": t("aaalice.focusOnOpen.settings.offsetY", "Y offset") } });
@@ -305,6 +334,7 @@ function openFocusOnOpenSettings(node) {
 		className: "aa-focus-on-open-settings-popover",
 		width: 310,
 		onClose: () => {
+			if (focusSettingsVirtualAnchor === anchor) removeFocusSettingsVirtualAnchor();
 			if (focusSettingsPopover !== popup) return;
 			focusSettingsPopover = null;
 			focusSettingsNode = null;
@@ -321,6 +351,7 @@ function openFocusOnOpenSettings(node) {
 	const footer = el("footer", { className: "aa-focus-on-open-settings__footer", children: [cancel, save] });
 	popup.root.append(header, fields, error, footer);
 	popup.reposition();
+	return true;
 }
 
 function scheduleFocusOnOpenSettings(node, attempt = 0) {
@@ -328,10 +359,7 @@ function scheduleFocusOnOpenSettings(node, attempt = 0) {
 	const open = () => {
 		focusSettingsFrame = 0;
 		if (!isFocusOnOpenMarked(node)) return;
-		if (focusSettingsAnchor(node)) {
-			openFocusOnOpenSettings(node);
-			return;
-		}
+		if (openFocusOnOpenSettings(node)) return;
 		if (attempt < 3) scheduleFocusOnOpenSettings(node, attempt + 1);
 	};
 	if (typeof requestAnimationFrame === "function") focusSettingsFrame = requestAnimationFrame(open);
@@ -381,7 +409,6 @@ function scheduleFocus(root, target) {
 }
 
 function refreshMarkerLabels() {
-	for (const entry of CLASSIC_WIDGETS.values()) updateMarkerLabel(entry.button);
 	if (vueMount) updateMarkerLabel(vueMount.buttonView.button);
 }
 

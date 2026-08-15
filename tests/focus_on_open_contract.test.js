@@ -46,6 +46,9 @@ test("load focus is one animation-frame action with official subgraph navigation
 
 test("the marker uses a native Classic title button and a separate Nodes 2.0 DOM mount", () => {
 	assert.match(implementation, /mountClassicFocusMarker/);
+	assert.match(implementation, /classicFocusMarkerCanvasRect/);
+	assert.match(implementation, /focusSettingsVirtualAnchor/);
+	assert.doesNotMatch(implementation, /CLASSIC_WIDGETS/);
 	assert.match(classicMarker, /node\.addTitleButton/);
 	assert.match(classicMarker, /text: "🎯"/);
 	assert.doesNotMatch(`${implementation}\n${classicMarker}`, /addLifecycleDOMWidget|computedHeight/);
