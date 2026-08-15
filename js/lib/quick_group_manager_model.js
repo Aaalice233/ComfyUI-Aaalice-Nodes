@@ -133,6 +133,8 @@ export function validateLinkageRules(rules, scopedIds, knownIds) {
 	const scope = new Set([...scopedIds].map(String));
 	const known = new Set([...knownIds].map(String));
 	for (const [sourceId, phases] of Object.entries(normalized)) {
+		// Stale source rules are preserved for Id restoration but cannot participate until that source returns.
+		if (!known.has(sourceId)) continue;
 		for (const phase of ["enable", "disable"]) {
 			for (const targetId of Object.keys(phases[phase])) {
 				if (sourceId === targetId) return { ok: false, code: "self", groupId: sourceId };
@@ -157,6 +159,7 @@ export function validateLinkageRules(rules, scopedIds, knownIds) {
 		return { ok: true };
 	};
 	for (const sourceId of Object.keys(normalized)) {
+		if (!known.has(sourceId)) continue;
 		for (const action of ["enable", "disable"]) {
 			const cycle = visit(sourceId, action);
 			if (!cycle.ok) return cycle;

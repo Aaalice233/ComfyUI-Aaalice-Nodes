@@ -83,6 +83,14 @@ test("rejects self links, cycles, missing targets and conflicting paths", () => 
 	assert.equal(conflict.code, "conflict");
 });
 
+test("ignores linkage rules owned by groups that no longer exist", () => {
+	const result = validateLinkageRules({
+		1: { enable: { 2: "disable" }, disable: {} },
+		9: { enable: { 8: "enable" }, disable: {} },
+	}, new Set(["1", "2"]), new Set(["1", "2"]));
+	assert.equal(result.ok, true);
+});
+
 test("preflights empty groups and overlapping node conflicts", () => {
 	const shared = { id: 10, mode: 0 };
 	const groups = new Map([
