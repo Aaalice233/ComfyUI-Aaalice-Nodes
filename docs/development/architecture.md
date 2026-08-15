@@ -27,7 +27,7 @@
 - `nodes/tools/resolution_preset.py` 没有可见输入，只接受前端注入的版本化 `resolution_json`，校验 ComfyUI 尺寸范围与基础 8 px 对齐后输出两个具名 INT。个人预设 Store 位于当前用户目录，使用线程锁、临时文件和原子替换；专用 HTTP 路由只负责 CRUD 和明确错误映射。
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
-- `ConditionalSaveImage` 关闭时透明透传 IMAGE 且不写盘；开启时优先委托已安装的 LoraManager `Save Image` 实现，缺失时只回退 ComfyUI 核心 PNG 保存，LoraManager 专属格式或配方选项显式失败。
+- `ConditionalSaveImage` 关闭时透明透传 IMAGE 且不写盘；开启时优先委托已安装的 LoraManager `Save Image` 实现，缺失时只回退 ComfyUI 核心 PNG 保存，LoraManager 专属格式或配方选项显式失败。可选 `METADATA` 输入只建立 `Metadata Overwrite (LoraManager)` 到保存节点的执行依赖；覆盖值仍由 LoraManager 自己的 metadata collector 应用，不在本包复制或改写。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。`nodes/_lib/prompt_library.py` 拥有 SQLite 词库领域服务，`prompt_library_archive.py` 独立负责 ZIP 导入导出与图片归档，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
 - `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability（Summary 携带 Sample / Large Preview 地址供前端直接预取），路由只处理 JSON、流式媒体和错误映射；确定性的 TLS 证书校验失败不进入瞬时重试，保留完整底层异常并映射为 `tls_certificate_error`，HTTPS 校验始终开启。媒体代理（`nodes/gallery/media.py`）复用共享连接池，按 URL 磁盘缓存并去重并发请求，瞬时失败退避重试、客户端断开不中断共享下载，逐次复核 HTTPS 白名单、Content-Type 和大小，并使用适配器声明的站点请求头处理媒体源约束（Gelbooru 必须携带站点 Referer，否则上游会把图片重定向到 HTML 帖子页）。缓存与执行原图统一受 `cacheBudgetMiB` 预算修剪。
 - `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
@@ -123,9 +123,10 @@
 ### ResolutionPreset
 
 1. `node.properties.resolutionPresetState` 保存版本、精确宽高、alignment、画布范围与可失效的显示提示 `presetId`；每次恢复都重新规范化和匹配。
-2. 指针与连续键盘操作各自只建立一个图历史边界；拖拽中只预览，取消时恢复快照，完成后才按需要升高画布范围。
-3. 个人预设异步请求使用 AbortController 与 generation 淘汰迟到结果。服务错误只禁用个人预设操作，不影响本地尺寸编辑和执行。
-4. `graphToPrompt` 只注入版本化 width / height；后端再次校验并直接返回两个 INT，使尺寸变化进入 ComfyUI 执行缓存键。
+2. 内置预设优先保留当前 alignment；仅当预设尺寸不能被该 alignment 整除时，切换到预设声明的 8 px alignment，确保 `1080×1920` 等尺寸不会被静默取整。个人预设始终恢复自身 alignment。
+3. 指针与连续键盘操作各自只建立一个图历史边界；拖拽中只预览，取消时恢复快照，完成后才按需要升高画布范围。
+4. 个人预设异步请求使用 AbortController 与 generation 淘汰迟到结果。服务错误只禁用个人预设操作，不影响本地尺寸编辑和执行。
+5. `graphToPrompt` 只注入版本化 width / height；后端再次校验并直接返回两个 INT，使尺寸变化进入 ComfyUI 执行缓存键。
 
 ### QuickGroupManager
 
@@ -194,7 +195,8 @@
 - 适配器使用稳定英文 `id` 和显式 `priority`。Dashboard Binding 保存 Adapter ID，重载后不会因新增适配器或优先级变化而漂移到另一实现。
 - 已有 `numeric`、`boolean`、`choice`、`text` 使用 ComfyUI 控件族。特殊类型可再用 `registerControlRenderer("comfy", kind, renderer)` 注册渲染器；renderer 只消费 Control Spec / Port，并必须通过 `controlView()` 返回完整的 `root`、`headerAccessories`、匹配 spec 的 `kind`、`update` 和 `destroy`，不得持有工作流状态。渲染器注册或卸载会触发工作区结构刷新，使热加载和第三方扩展卸载不会留下旧控件视图。
 - `ResolutionPreset` 与 `PromptSelector` 的侧边栏卡片复用节点自身的状态控制器和完整交互表面；`LoraManager` 优先显式适配其 LoRA 列表 widget，侧边栏以列表项和真实 `active` 状态为控制值，不再把同一节点的文本 widget 作为绑定面。没有列表 widget 的兼容节点仍可保留 LoRA 文本适配。LoRA 列表可由 descriptor 的运行时 `previewResolver` 提供异步预览地址；当前 LoraManager 解析本机 `/lm/loras/preview-url`，侧边栏通过共享 `bindAsyncImagePreview()` 延迟加载、有限 LRU 缓存、悬浮/焦点生命周期和迟到请求淘汰显示状态。预览地址、加载状态和失败状态都不进入节点值或 Dashboard 预设，列表重建/控件销毁会释放预览监听器；没有预览服务时只显示明确的不可用状态，不阻断 LoRA 值绑定。复合控件通过独立 renderer 工厂挂载，预设 codec 仍由节点属性与 Provider 负责。
-- LoraManager 的 `lora-list` renderer 是节点列表的侧边栏投影：每项保留 `active`、顺序、模型/CLIP 强度与 `expanded` 状态，支持拖拽/键盘排序、展开独立 CLIP 强度、预览和共享右键菜单。菜单中的 Civitai、备注、触发词、配方操作只通过 LoraManager 已有的本机 `/lm` / `/api/lm` 路由执行；“添加 LoRA”是显式用户操作，只打开 LoraManager 页面，不把外部 URL、预览或临时菜单状态写入节点值或 Dashboard 预设。
+- LoraManager 的 `lora-list` renderer 是节点列表的侧边栏投影：每项保留 `active`、顺序与强度，支持拖拽/键盘排序、异步预览和共享右键菜单；列表或任一条目的菜单都可原子提交空列表。菜单中的 Civitai、备注、触发词、配方操作只通过 LoraManager 已有的本机 `/lm` / `/api/lm` 路由执行；“添加 LoRA”是显式用户操作，只打开 LoraManager 页面，不把外部 URL、预览或临时菜单状态写入节点值或 Dashboard 预设。
+- 图像参数的资产选择器由 `image_asset_control.js` 编排输入/输出来源、搜索、排序与视图切换，`virtual_grid.js` 只负责固定几何的网格/列表窗口化。滚动容器拥有明确可收缩高度，DOM 与缩略图请求数量只随可见行和固定 overscan 增长，不随 input/history 资产总数增长；切换视图和容器宽度变化按首个可见条目恢复锚点。
 - 删除当前侧边栏预设时，纯预设模型优先选择删除位置的后继预设，末尾才选择前一个预设；工作区入口在同一个图事务中应用该快照并删除旧基准。删除最后一个预设则同时写入 `emptyDashboard()` 并清空活动页面，只有确实没有预设时才显示无预设/空画布；删除非当前预设不改变当前工作副本。
 - Provider 负责图事务、节点 dirty 和绑定解析；适配器不得直接操作侧边栏 DOM，渲染器不得发现节点。适配器卸载函数应在第三方扩展销毁时调用。
 ```js

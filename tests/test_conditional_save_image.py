@@ -52,15 +52,17 @@ class ConditionalSaveImageNodeTests(unittest.TestCase):
         self.assertEqual(schema.node_id, "ConditionalSaveImage")
         self.assertEqual(schema.category, "Aaalice/tools")
         self.assertEqual([item.id for item in schema.inputs], [
-            "images", "enabled", "filename_prefix", "file_format", "lossless_webp",
-            "quality", "webp_method", "jpeg_subsampling", "embed_workflow",
-            "save_with_metadata", "add_loras_to_prompt", "add_counter_to_filename",
-            "save_as_recipe",
+            "images", "metadata", "enabled", "filename_prefix", "file_format",
+            "lossless_webp", "quality", "webp_method", "jpeg_subsampling",
+            "embed_workflow", "save_with_metadata", "add_loras_to_prompt",
+            "add_counter_to_filename", "save_as_recipe",
         ])
         self.assertFalse(schema.is_output_node)
         self.assertTrue(schema.not_idempotent)
-        self.assertIs(schema.inputs[1].default, True)
-        self.assertIs(schema.inputs[10].default, True)  # add_loras_to_prompt 默认开启
+        self.assertTrue(schema.inputs[1].optional)
+        self.assertEqual(schema.inputs[1].io_type, "METADATA")
+        self.assertIs(schema.inputs[2].default, True)
+        self.assertIs(schema.inputs[11].default, True)  # add_loras_to_prompt 默认开启
         self.assertEqual([h.value for h in schema.hidden], ["PROMPT", "EXTRA_PNGINFO", "UNIQUE_ID"])
         # 与原版 Save Image (LoraManager) 一致的布局：全部选项直接可见，不进高级区
         self.assertTrue(all(not item.advanced for item in schema.inputs))
@@ -82,8 +84,10 @@ class ConditionalSaveImageNodeTests(unittest.TestCase):
     def test_enabled_delegates_to_loramanager_and_keeps_original_batch(self):
         self._install_fake_loramanager()
         images = object()
+        metadata = {"steps": 24}
         output = ConditionalSaveImage.execute(
             images,
+            metadata=metadata,
             filename_prefix="%seed%_底图",
             file_format="webp",
             quality=90,
@@ -97,6 +101,7 @@ class ConditionalSaveImageNodeTests(unittest.TestCase):
         self.assertEqual(kwargs["filename_prefix"], "%seed%_底图")
         self.assertEqual(kwargs["file_format"], "webp")
         self.assertEqual(kwargs["quality"], 90)
+        self.assertNotIn("metadata", kwargs)
 
     def test_fallback_rejects_non_png_formats(self):
         with self.assertRaises(ValueError):

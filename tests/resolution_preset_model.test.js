@@ -6,10 +6,14 @@ import {
 	requiredCanvasMax, resolutionPayload, resolutionSummary, selectPreset, selectionFractions, updateDimensions,
 } from "../js/lib/resolution_preset_model.js";
 
-test("ships nine stable model-agnostic built-in presets", () => {
-	assert.equal(BUILTIN_PRESETS.length, 9);
-	assert.equal(new Set(BUILTIN_PRESETS.map((item) => item.id)).size, 9);
-	assert.ok(BUILTIN_PRESETS.every((item) => item.width % 64 === 0 && item.height % 64 === 0));
+test("ships eleven stable model-agnostic built-in presets", () => {
+	assert.equal(BUILTIN_PRESETS.length, 11);
+	assert.equal(new Set(BUILTIN_PRESETS.map((item) => item.id)).size, 11);
+	assert.ok(BUILTIN_PRESETS.every((item) => item.width % 8 === 0 && item.height % 8 === 0));
+	assert.deepEqual(
+		BUILTIN_PRESETS.filter((item) => item.id.endsWith("1080x1920") || item.id.endsWith("1920x1080")).map((item) => [item.group, item.width, item.height]),
+		[["portrait", 1080, 1920], ["landscape", 1920, 1080]],
+	);
 });
 
 test("normalizes workflow state to aligned dimensions and a fitting range", () => {
@@ -39,6 +43,10 @@ test("preset selection restores dimensions and alignment while manual edits clea
 	const selected = selectPreset(state, BUILTIN_PRESETS[2]);
 	assert.equal(selected.presetId, BUILTIN_PRESETS[2].id);
 	assert.equal(selected.alignment, 64);
+	const fullHdPortrait = BUILTIN_PRESETS.find((preset) => preset.id === "builtin:portrait-1080x1920");
+	assert.deepEqual(selectPreset(state, fullHdPortrait), {
+		version: 1, width: 1080, height: 1920, alignment: 8, canvasMax: 2048, presetId: fullHdPortrait.id,
+	});
 	const edited = updateDimensions(selected, { width: 896 });
 	assert.equal(edited.presetId, null);
 	assert.equal(edited.width, 896);

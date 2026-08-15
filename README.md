@@ -98,7 +98,7 @@ QuickGroupManager 不参与工作流执行，也没有输入输出引脚。它�
 <details>
 <summary><strong>ResolutionPreset — 精确对齐尺寸</strong></summary>
 
-从九个模型无关的内置尺寸中选择、保存个人预设、直接输入宽高，或在画布上拖动宽高及四角手柄。对齐可设为 8、16、32 或 64 像素；节点输出精确的 `INT` 宽高值。个人预设保留各自对齐，保存在当前 ComfyUI 用户目录。
+从十一个模型无关的内置尺寸中选择（包含 `1080×1920` 与 `1920×1080`）、保存个人预设、直接输入宽高，或在画布上拖动宽高及四角手柄。对齐可设为 8、16、32 或 64 像素；选择无法满足当前对齐的内置尺寸时会采用该预设的 8 px 对齐，确保输出尺寸精确。节点输出精确的 `INT` 宽高值，个人预设保留各自对齐并保存在当前 ComfyUI 用户目录。
 
 该节点不按百万像素推算目标尺寸、不推荐模型，也不执行任何图像操作。需要按比例加像素量级计算时，请使用 ComfyUI 的 `ResolutionSelector`。
 
@@ -114,7 +114,7 @@ QuickGroupManager 不参与工作流执行，也没有输入输出引脚。它�
 <details>
 <summary><strong>ConditionalSaveImage — 可开关的图像保存</strong></summary>
 
-与 `Save Image (LoraManager)` 相同的保存能力与选项（`%seed%` 等文件名变量、png/jpeg/webp、元数据、工作流嵌入、配方），但多了一个 **启用** 开关：关闭时不写盘、图像原样透传，保存相关控件随之灰化。安装 ComfyUI-Lora-Manager 时保存逻辑完全由其原版实现承担；未安装时回退为核心 PNG 保存，jpeg/webp 与配方等专属能力会明确报错提示。
+与 `Save Image (LoraManager)` 相同的保存能力与选项（`%seed%` 等文件名变量、png/jpeg/webp、元数据、工作流嵌入、配方），但多了一个 **启用** 开关：关闭时不写盘、图像原样透传，保存相关控件随之灰化。可选的 `metadata` 引脚可连接 LoraManager 的 `Metadata Overwrite` 输出，确保手动覆盖参数先执行再保存。安装 ComfyUI-Lora-Manager 时保存逻辑完全由其原版实现承担；未安装时回退为核心 PNG 保存，jpeg/webp 与配方等专属能力会明确报错提示。
 
 所有保存节点都是输出节点，会被执行器无条件运行，因此“在开关节点上游串一个保存节点”无法阻止写盘；本节点把开关做进保存节点内部，是唯一不需要手动静音节点（`Ctrl+M`）的方案。
 

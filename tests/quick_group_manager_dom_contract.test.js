@@ -65,8 +65,8 @@ test("keeps the compact header single-line without redundant visible labels", ()
 	assert.match(source, /getMaxHeight:\s*\(\)\s*=>\s*0/);
 	assert.match(styles, /\.aaalice-qgm-toolbar[\s\S]*white-space:\s*nowrap/);
 	assert.match(source, /aaalice-qgm-utilities/);
-	assert.match(styles, /\.aaalice-qgm-actions[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
-	assert.match(styles, /\.aaalice-qgm-actions > \.aaalice-qgm-segmented[\s\S]*grid-column:\s*2[\s\S]*justify-self:\s*center/);
+	assert.match(styles, /\.aaalice-qgm-actions[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) auto auto[\s\S]*column-gap:\s*4px/);
+	assert.match(styles, /\.aaalice-qgm-actions > \.aaalice-qgm-segmented[\s\S]*grid-column:\s*2[\s\S]*justify-self:\s*end/);
 	assert.match(styles, /\.aaalice-qgm-utilities[\s\S]*grid-column:\s*3[\s\S]*justify-self:\s*end/);
 	assert.doesNotMatch(source, /aaalice-qgm-title/);
 	assert.doesNotMatch(source, /关闭方式|颜色过滤/);

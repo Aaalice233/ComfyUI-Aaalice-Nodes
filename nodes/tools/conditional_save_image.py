@@ -52,6 +52,11 @@ class ConditionalSaveImage(io.ComfyNode):
             ),
             inputs=[
                 io.Image.Input("images", tooltip="Images to save (passed through unchanged)."),
+                io.Custom("METADATA").Input(
+                    "metadata",
+                    optional=True,
+                    tooltip="Optional Metadata Overwrite (LoraManager) output; establishes execution order before saving.",
+                ),
                 io.Boolean.Input(
                     "enabled",
                     default=True,
@@ -90,6 +95,7 @@ class ConditionalSaveImage(io.ComfyNode):
     def execute(
         cls,
         images: Any,
+        metadata: Any = None,
         enabled: bool = True,
         filename_prefix: str = "ComfyUI",
         file_format: str = "png",
@@ -103,6 +109,9 @@ class ConditionalSaveImage(io.ComfyNode):
         add_counter_to_filename: bool = True,
         save_as_recipe: bool = False,
     ) -> io.NodeOutput:
+        # LoraManager applies the overwrite through its collector; the socket makes
+        # that node execute before this save node without replacing collector data.
+        _ = metadata
         if not enabled:
             return io.NodeOutput(images, ui={"images": []})
 

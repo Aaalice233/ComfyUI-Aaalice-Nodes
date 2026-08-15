@@ -62,6 +62,7 @@ const libraryStore = readFileSync(join(ROOT, "js", "lib", "library_store.js"), "
 const imagePreview = readFileSync(join(ROOT, "js", "lib", "image_preview.js"), "utf8");
 const imageAssetControl = readFileSync(join(ROOT, "js", "lib", "image_asset_control.js"), "utf8");
 const imageAssets = readFileSync(join(ROOT, "js", "lib", "image_assets.js"), "utf8");
+const virtualGrid = readFileSync(join(ROOT, "js", "lib", "virtual_grid.js"), "utf8");
 const promptEntryDetails = readFileSync(join(ROOT, "js", "lib", "prompt_entry_details.js"), "utf8");
 const categoryColor = readFileSync(join(ROOT, "js", "lib", "category_color.js"), "utf8");
 const ui = uiSource;
@@ -431,6 +432,12 @@ test("image inputs share a native-shaped asset browser and separate upload actio
 	assert.match(imageAssetControl, /className: "aa-image-asset-control__select"/);
 	assert.match(imageAssetControl, /iconName: "folderSearch"/);
 	assert.match(imageAssetControl, /createAssetBrowser/);
+	assert.match(imageAssetControl, /mountVirtualGrid/);
+	assert.match(imageAssetControl, /virtualGrid\.setItems\(visible/);
+	assert.match(virtualGrid, /virtualGridRange/);
+	assert.match(virtualGrid, /ResizeObserver/);
+	assert.match(theme, /\.aa-image-assets \{[^}]*height: min\(620px, calc\(100vh - 16px\)\)[^}]*overflow: hidden/);
+	assert.match(theme, /\.aa-image-assets__results \{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*scrollbar-gutter: stable/);
 	assert.match(imageAssetControl, /segmentedControl/);
 	assert.match(imageAssetControl, /value: "all"/);
 	assert.match(imageAssetControl, /value: "inputs"/);
@@ -453,8 +460,8 @@ test("image inputs share a native-shaped asset browser and separate upload actio
 	assert.match(workspaceControls, /const imageLabels =/);
 	assert.match(workspaceControls, /"image-choice": imageLabels/);
 	assert.match(workspaceControls, /image: imageLabels/);
-	assert.match(theme, /\.aa-image-assets__results\.is-grid/);
-	assert.match(theme, /\.aa-image-assets__results\.is-list/);
+	assert.match(theme, /\.aa-virtual-grid__item/);
+	assert.match(theme, /\.aa-image-assets__results\.is-list \.aa-image-assets__item/);
 	assert.match(theme, /\.aa-image-asset-control\s*\{[^}]*gap:\s*0/s);
 	assert.match(theme, /\.aa-image-asset-control__select\s*\{[^}]*border-radius:\s*8px 0 0 8px/s);
 	assert.match(theme, /\.aa-image-asset-control__upload\.aa-ui-button\s*\{[^}]*border-radius:\s*0 8px 8px 0/s);

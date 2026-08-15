@@ -19,7 +19,7 @@
       "title": "LoRA list", "activeSummary": "{active}/{total} enabled",
       "enableAll": "Enable all", "disableAll": "Disable all", "toggle": "Toggle {name}", "model": "Model",
       "empty": "No LoRAs in this list.", "previewLoading": "Loading preview…", "previewUnavailable": "Preview unavailable",
-      "menu": "LoRA actions", "add": "Add LoRA", "viewOnCivitai": "View on Civitai", "delete": "Delete",
+      "menu": "LoRA actions", "add": "Add LoRA", "viewOnCivitai": "View on Civitai", "delete": "Delete", "clearAll": "Clear list",
       "moveUp": "Move up", "moveDown": "Move down", "moveTop": "Move to top", "moveBottom": "Move to bottom",
       "copyNotes": "Copy notes", "copyTriggerWords": "Copy trigger words", "saveRecipe": "Save recipe",
       "reorder": "Reorder {name}",

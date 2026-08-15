@@ -7,6 +7,7 @@ import { imageAssetKey } from "./image_asset_model.js";
 import { imageReferenceViewPath, normalizeImageReference } from "./image_reference.js";
 import { bindImageDropTarget, uploadImageFile } from "./image_upload.js";
 import { createAnchoredPopover, el, emptyState, icon, iconButton, segmentedControl } from "./ui.js";
+import { mountVirtualGrid } from "./virtual_grid.js";
 
 function assetSource(reference) {
 	const path = imageReferenceViewPath(reference);
@@ -14,13 +15,18 @@ function assetSource(reference) {
 }
 
 function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaultType, onSelect, onClose }) {
+	let virtualGrid = null;
 	const popover = createAnchoredPopover({
 		anchor,
 		ariaLabel,
 		className: "aa-image-assets",
 		width: 420,
 		focusOnOpen: false,
-		onClose,
+		onClose: () => {
+			virtualGrid?.destroy();
+			virtualGrid = null;
+			onClose?.();
+		},
 	});
 	let assets = [];
 	let tab = "all";
@@ -90,7 +96,35 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 		}
 	}
 
-	function renderResults() {
+	const currentKey = imageAssetKey(current);
+	const renderAsset = (asset) => {
+		const selected = imageAssetKey(asset.reference) === currentKey;
+		const thumbnail = document.createElement("img");
+		thumbnail.src = assetSource(asset.reference);
+		thumbnail.alt = "";
+		thumbnail.loading = "lazy";
+		thumbnail.decoding = "async";
+		const option = el("button", {
+			className: `aa-image-assets__item${selected ? " is-selected" : ""}`,
+			attrs: { type: "button", role: "option", "aria-selected": String(selected), title: asset.label },
+			children: [
+				el("span", { className: "aa-image-assets__media", children: [thumbnail] }),
+				el("span", "aa-image-assets__name", asset.label),
+				el("span", `aa-image-assets__source is-${asset.source}`, asset.source === "inputs" ? labels.imported || "Imported" : labels.generated || "Generated"),
+			],
+		});
+		option.addEventListener("click", () => { onSelect(asset.reference); popover.close(); });
+		return option;
+	};
+	virtualGrid = mountVirtualGrid(results, {
+		mode: view,
+		renderItem: renderAsset,
+		keyForItem: (asset) => imageAssetKey(asset.reference),
+		empty: () => emptyState({ iconName: "image", description: labels.empty || "No images found", className: "aa-image-assets__empty" }),
+		options: { gridMinWidth: 88, gridExtraHeight: 38, listHeight: 48, gap: 7, overscanRows: 2 },
+	});
+
+	function renderResults({ preserveScroll = false, revealCurrent = false } = {}) {
 		const lowered = query.trim().toLocaleLowerCase();
 		let visible = assets
 			.filter((asset) => tab === "all" || asset.source === tab)
@@ -98,30 +132,9 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 		if (sortMode === "alphabetical") visible = [...visible].sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true }));
 		results.classList.toggle("is-grid", view === "grid");
 		results.classList.toggle("is-list", view === "list");
-		results.replaceChildren();
-		if (!visible.length) {
-			results.append(emptyState({ iconName: "image", description: labels.empty || "No images found", className: "aa-image-assets__empty" }));
-			return;
-		}
-		for (const asset of visible) {
-			const selected = imageAssetKey(asset.reference) === imageAssetKey(current);
-			const thumbnail = document.createElement("img");
-			thumbnail.src = assetSource(asset.reference);
-			thumbnail.alt = "";
-			thumbnail.loading = "lazy";
-			thumbnail.decoding = "async";
-			const option = el("button", {
-				className: `aa-image-assets__item${selected ? " is-selected" : ""}`,
-				attrs: { type: "button", role: "option", "aria-selected": String(selected), title: asset.label },
-				children: [
-					el("span", { className: "aa-image-assets__media", children: [thumbnail] }),
-					el("span", "aa-image-assets__name", asset.label),
-					el("span", `aa-image-assets__source is-${asset.source}`, asset.source === "inputs" ? labels.imported || "Imported" : labels.generated || "Generated"),
-				],
-			});
-			option.addEventListener("click", () => { onSelect(asset.reference); popover.close(); });
-			results.append(option);
-		}
+		virtualGrid.setMode(view);
+		virtualGrid.setItems(visible, { preserveScroll });
+		if (revealCurrent && currentKey) virtualGrid.scrollToIndex(visible.findIndex((asset) => imageAssetKey(asset.reference) === currentKey));
 	}
 
 	searchInput.addEventListener("input", () => { query = searchInput.value; renderResults(); });
@@ -146,13 +159,14 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 		sortMenu.append(button);
 	}
 	sort.addEventListener("click", () => setSortMenuOpen(sortMenu.hidden));
-	listView.addEventListener("click", () => { view = "list"; syncView(); renderResults(); });
-	gridView.addEventListener("click", () => { view = "grid"; syncView(); renderResults(); });
+	listView.addEventListener("click", () => { view = "list"; syncView(); renderResults({ preserveScroll: true }); });
+	gridView.addEventListener("click", () => { view = "grid"; syncView(); renderResults({ preserveScroll: true }); });
 	const toolbar = el("div", { className: "aa-image-assets__toolbar", children: [search, sort, viewSwitch] });
 	popover.root.addEventListener("pointerdown", (event) => {
 		if (!sortMenu.hidden && !sortMenu.contains(event.target) && !sort.contains(event.target)) setSortMenuOpen(false);
 	});
 	popover.root.append(tabs, toolbar, sortMenu, status, results);
+	virtualGrid.refresh();
 	syncSort();
 	syncView();
 	void loadImageAssets({ values, current, defaultType }).then(({ assets: loaded, errors }) => {
@@ -161,7 +175,7 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 		status.hidden = !errors.length;
 		status.textContent = errors.length ? labels.loadFailed || "Some images could not be loaded." : "";
 		status.classList.toggle("is-error", Boolean(errors.length));
-		renderResults();
+		renderResults({ revealCurrent: true });
 		popover.reposition();
 	}).catch((error) => {
 		if (!popover.root.isConnected) return;

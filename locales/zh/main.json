@@ -19,7 +19,7 @@
       "title": "LoRA 列表", "activeSummary": "{active}/{total} 已启用",
       "enableAll": "全部启用", "disableAll": "全部停用", "toggle": "切换 {name}", "model": "模型",
       "empty": "列表中没有 LoRA。", "previewLoading": "正在加载预览…", "previewUnavailable": "暂无预览",
-      "menu": "LoRA 操作", "add": "添加 LoRA", "viewOnCivitai": "在 Civitai 查看", "delete": "删除",
+      "menu": "LoRA 操作", "add": "添加 LoRA", "viewOnCivitai": "在 Civitai 查看", "delete": "删除", "clearAll": "清空列表",
       "moveUp": "上移", "moveDown": "下移", "moveTop": "移到顶部", "moveBottom": "移到底部",
       "copyNotes": "复制备注", "copyTriggerWords": "复制触发词", "saveRecipe": "保存配方",
       "reorder": "调整 {name} 顺序",

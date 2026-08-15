@@ -55,6 +55,11 @@ test("LoRA list renderer keeps active state and delegates row actions to context
 	assert.match(themeControlsSource, /\.aa-control-lora-list__strength-input \{[^}]*min-width: 52px[^}]*flex: 0 0 52px/);
 	assert.match(loraRendererSource, /previewResolver/);
 	assert.match(loraRendererSource, /createContextMenu/);
+	assert.match(loraRendererSource, /function clearList\(\)/);
+	assert.match(loraRendererSource, /labels\.clearAll/);
+	assert.match(loraRendererSource, /list\.classList\.toggle\("is-empty", current\.length === 0\)/);
+	assert.match(loraRendererSource, /emptyStateMounted = current\.length > 0 \|\| Boolean\(list\.querySelector/);
+	assert.match(themeControlsSource, /\.aa-control-lora-list__items\.is-empty \{[^}]*grid-template-rows: minmax\(0, 1fr\)[^}]*align-content: stretch/);
 	assert.match(loraRendererSource, /input, textarea, select/);
 	for (const action of ["openLoraCivitai", "copyLoraNotes", "copyLoraTriggerWords", "saveLoraRecipe", "openLoraManager"]) assert.match(loraRendererSource, new RegExp(action));
 	for (const menuAction of ["moveUp", "moveDown", "moveTop", "moveBottom", "copyNotes", "copyTriggerWords", "saveRecipe"]) assert.match(loraRendererSource, new RegExp(`labels\\.${menuAction}`));

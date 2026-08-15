@@ -98,7 +98,7 @@ Build a list of group conditions, each pairing a visual group with an expected s
 <details>
 <summary><strong>ResolutionPreset — exact aligned dimensions</strong></summary>
 
-Choose one of nine model-neutral built-in sizes, save personal presets, enter width and height directly, or drag the width, height, and corner handles on the canvas. Alignment can be set to 8, 16, 32, or 64 pixels; the node outputs exact `INT` width and height values. Personal presets retain their own alignment and are stored in the current ComfyUI user directory.
+Choose one of eleven model-neutral built-in sizes (including `1080×1920` and `1920×1080`), save personal presets, enter width and height directly, or drag the width, height, and corner handles on the canvas. Alignment can be set to 8, 16, 32, or 64 pixels; selecting a built-in size that is incompatible with the current alignment uses that preset's 8 px alignment so its dimensions remain exact. The node outputs exact `INT` width and height values, while personal presets retain their own alignment and are stored in the current ComfyUI user directory.
 
 This node does not calculate a target size from megapixels, recommend models, or perform any image operations. Use ComfyUI's `ResolutionSelector` when ratio-plus-megapixel calculation is the desired workflow.
 
@@ -114,7 +114,7 @@ Connect any value to receive one alert when execution reaches the node, then con
 <details>
 <summary><strong>ConditionalSaveImage — toggleable image saving</strong></summary>
 
-The same saving capabilities and options as `Save Image (LoraManager)` (`%seed%` filename patterns, png/jpeg/webp, metadata, workflow embedding, recipes), plus an **Enabled** toggle: when off, nothing is written, the images pass through unchanged, and the save-related widgets are dimmed. With ComfyUI-Lora-Manager installed, all saving is performed by its original implementation; without it, the node falls back to the core PNG save and clearly errors on LoraManager-only capabilities such as jpeg/webp or recipes.
+The same saving capabilities and options as `Save Image (LoraManager)` (`%seed%` filename patterns, png/jpeg/webp, metadata, workflow embedding, recipes), plus an **Enabled** toggle: when off, nothing is written, the images pass through unchanged, and the save-related widgets are dimmed. The optional `metadata` socket accepts LoraManager's `Metadata Overwrite` output so manual overrides execute before saving. With ComfyUI-Lora-Manager installed, all saving is performed by its original implementation; without it, the node falls back to the core PNG save and clearly errors on LoraManager-only capabilities such as jpeg/webp or recipes.
 
 Every save node is an output node that the executor runs unconditionally, so placing a save node upstream of a switch cannot prevent writes. Building the toggle into the save node itself is the only option that does not require manually muting the node (`Ctrl+M`).
 

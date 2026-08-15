@@ -25,6 +25,7 @@
     "description": "Save images only while enabled; otherwise pass them through unchanged. Uses LoraManager's save implementation when installed, otherwise the core PNG save.",
     "inputs": {
       "images": { "name": "Images", "tooltip": "Images to save; always passed through unchanged." },
+      "metadata": { "name": "Metadata", "tooltip": "Optionally connect LoraManager's manual metadata override output so its values execute before saving." },
       "enabled": { "name": "Enabled", "tooltip": "When off, nothing is saved and the images pass through unchanged." },
       "filename_prefix": { "name": "Filename Prefix", "tooltip": "Base filename. With LoraManager installed, patterns like %seed% or %date:...% are supported." },
       "file_format": { "name": "File Format", "tooltip": "png/jpeg/webp. jpeg and webp require ComfyUI-Lora-Manager." },

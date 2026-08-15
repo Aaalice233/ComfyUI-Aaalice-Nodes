@@ -46,12 +46,13 @@
 	display: grid;
 	width: 100%;
 	min-width: 0;
-	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr) auto auto;
 	align-items: center;
+	column-gap: 4px;
 	background: transparent;
 	pointer-events: none;
 }
-.aaalice-qgm-actions > .aaalice-qgm-segmented { grid-column: 2; justify-self: center; pointer-events: auto; }
+.aaalice-qgm-actions > .aaalice-qgm-segmented { grid-column: 2; justify-self: end; pointer-events: auto; }
 .aaalice-qgm-utilities {
 	display: flex;
 	grid-column: 3;

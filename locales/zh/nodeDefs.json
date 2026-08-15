@@ -25,6 +25,7 @@
     "description": "仅在启用时保存图像，关闭时原样透传。安装 LoraManager 时使用其保存实现，否则回退到核心 PNG 保存。",
     "inputs": {
       "images": { "name": "图像", "tooltip": "待保存的图像；始终原样透传到输出。" },
+      "metadata": { "name": "元数据", "tooltip": "可选连接 LoraManager 的手动覆盖元数据输出，确保覆盖参数在保存前执行。" },
       "enabled": { "name": "启用", "tooltip": "关闭时不保存任何文件，图像原样透传。" },
       "filename_prefix": { "name": "文件名前缀", "tooltip": "基础文件名。安装 LoraManager 后支持 %seed%、%date:...% 等变量。" },
       "file_format": { "name": "文件格式", "tooltip": "png/jpeg/webp。jpeg 与 webp 需要安装 ComfyUI-Lora-Manager。" },

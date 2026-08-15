@@ -11,10 +11,12 @@ export const BUILTIN_PRESETS = Object.freeze([
 	{ id: "builtin:portrait-832x1216", group: "portrait", name: "832×1216", width: 832, height: 1216, alignment: 8 },
 	{ id: "builtin:portrait-768x1344", group: "portrait", name: "768×1344", width: 768, height: 1344, alignment: 8 },
 	{ id: "builtin:portrait-1024x1536", group: "portrait", name: "1024×1536", width: 1024, height: 1536, alignment: 8 },
+	{ id: "builtin:portrait-1080x1920", group: "portrait", name: "1080×1920", width: 1080, height: 1920, alignment: 8 },
 	{ id: "builtin:landscape-1024x768", group: "landscape", name: "1024×768", width: 1024, height: 768, alignment: 8 },
 	{ id: "builtin:landscape-1216x832", group: "landscape", name: "1216×832", width: 1216, height: 832, alignment: 8 },
 	{ id: "builtin:landscape-1344x768", group: "landscape", name: "1344×768", width: 1344, height: 768, alignment: 8 },
 	{ id: "builtin:landscape-1536x1024", group: "landscape", name: "1536×1024", width: 1536, height: 1024, alignment: 8 },
+	{ id: "builtin:landscape-1920x1080", group: "landscape", name: "1920×1080", width: 1920, height: 1080, alignment: 8 },
 ]);
 
 function integer(value, fallback) {
@@ -90,7 +92,9 @@ export function updateDimensions(state, changes, personal = [], { expandCanvas =
 }
 
 export function selectPreset(state, preset) {
-	const alignment = preset?.group === "personal" && ALIGNMENTS.includes(Number(preset?.alignment)) ? Number(preset.alignment) : state.alignment;
+	const presetAlignment = ALIGNMENTS.includes(Number(preset?.alignment)) ? Number(preset.alignment) : 8;
+	const currentAlignmentFits = Number(preset?.width) % state.alignment === 0 && Number(preset?.height) % state.alignment === 0;
+	const alignment = preset?.group === "personal" || !currentAlignmentFits ? presetAlignment : state.alignment;
 	const width = alignDimension(preset?.width, alignment);
 	const height = alignDimension(preset?.height, alignment);
 	return { version: 1, width, height, alignment, canvasMax: Math.max(state.canvasMax, requiredCanvasMax(width, height)), presetId: preset?.id || null };

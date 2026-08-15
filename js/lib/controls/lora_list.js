@@ -75,6 +75,7 @@ export function renderLoraListControl(spec, port) {
 		labels.add = localized("add", "Add LoRA");
 		labels.viewOnCivitai = localized("viewOnCivitai", "View on Civitai");
 		labels.delete = localized("delete", "Delete");
+		labels.clearAll = localized("clearAll", "Clear list");
 		labels.moveUp = localized("moveUp", "Move up");
 		labels.moveDown = localized("moveDown", "Move down");
 		labels.moveTop = localized("moveTop", "Move to top");
@@ -126,6 +127,10 @@ export function renderLoraListControl(spec, port) {
 		commitList(current.filter((entry, index) => entryName(entry, index) !== name));
 	}
 
+	function clearList() {
+		if (current.length) commitList([]);
+	}
+
 	function updateEntry(name, updater) {
 		const index = current.findIndex((entry, entryIndex) => entryName(entry, entryIndex) === name);
 		if (index < 0) return;
@@ -173,6 +178,7 @@ export function renderLoraListControl(spec, port) {
 			x, y, ownerElement, ariaLabel: `${name} · ${labels.menu || "LoRA actions"}`,
 			items: [
 				{ label: labels.add, iconName: "add", onSelect: openLoraManager },
+				{ label: labels.clearAll, iconName: "delete", danger: true, onSelect: clearList },
 				{ separator: true },
 				{ label: labels.viewOnCivitai, iconName: "globe", onSelect: () => openLoraCivitai(name) },
 				{ label: labels.delete, iconName: "delete", danger: true, onSelect: () => deleteEntry(name) },
@@ -196,8 +202,9 @@ export function renderLoraListControl(spec, port) {
 			x, y, ownerElement: root, ariaLabel: labels.menu || "LoRA actions",
 			items: [
 				{ label: labels.add, iconName: "add", onSelect: openLoraManager },
-				{ separator: true },
 				{ label: allActive ? labels.disableAll : labels.enableAll, iconName: "statusCheck", disabled: current.length === 0, onSelect: () => setAllActive(!allActive) },
+				{ separator: true },
+				{ label: labels.clearAll, iconName: "delete", danger: true, disabled: current.length === 0, onSelect: clearList },
 			],
 		});
 	}
@@ -209,6 +216,13 @@ export function renderLoraListControl(spec, port) {
 		const row = event.target.closest?.(".aa-control-lora-list__row");
 		if (row?.dataset.loraName) openActions(row.dataset.loraName, event.clientX, event.clientY, row);
 		else openListActions(event.clientX, event.clientY);
+	});
+	root.addEventListener("keydown", (event) => {
+		if (event.defaultPrevented || (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10"))) return;
+		if (event.target.closest?.("input, textarea, select, [contenteditable=\"true\"]")) return;
+		event.preventDefault();
+		const rect = root.getBoundingClientRect();
+		openListActions(rect.left + 12, rect.top + 12);
 	});
 
 	function createRow(entry, index) {
@@ -320,9 +334,11 @@ export function renderLoraListControl(spec, port) {
 
 	function renderList(nextValue) {
 		current = cloneList(nextValue);
+		list.classList.toggle("is-empty", current.length === 0);
 		const nextKeys = current.map(entryName);
 		const sameShape = nextKeys.length === rowKeys.length && nextKeys.every((key, index) => key === rowKeys[index]);
-		if (sameShape && rows.size === current.length) {
+		const emptyStateMounted = current.length > 0 || Boolean(list.querySelector(".aa-control-lora-list__empty"));
+		if (sameShape && rows.size === current.length && emptyStateMounted) {
 			for (let index = 0; index < current.length; index += 1) rows.get(nextKeys[index])?._sync(current[index], index);
 		} else {
 			for (const row of rows.values()) row._dispose?.();
