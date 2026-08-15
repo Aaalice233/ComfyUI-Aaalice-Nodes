@@ -4,8 +4,9 @@ import test from "node:test";
 
 const extension = readFileSync(new URL("../js/extension.js", import.meta.url), "utf8");
 const implementation = readFileSync(new URL("../js/focus_on_open.js", import.meta.url), "utf8");
+const classicMarker = readFileSync(new URL("../js/lib/focus_on_open_classic_marker.js", import.meta.url), "utf8");
 const model = readFileSync(new URL("../js/lib/focus_on_open_model.js", import.meta.url), "utf8");
-const classicAndVueTheme = readFileSync(new URL("../js/lib/theme-focus-on-open.css", import.meta.url), "utf8");
+const nodes2Theme = readFileSync(new URL("../js/lib/theme-focus-on-open.css", import.meta.url), "utf8");
 
 function locale(language) {
 	return JSON.parse(readFileSync(new URL(`../locales/${language}/main.json`, import.meta.url), "utf8"));
@@ -43,19 +44,19 @@ test("load focus is one animation-frame action with official subgraph navigation
 	assert.match(implementation, /data-node-id/);
 });
 
-test("the marker has both Classic and Nodes 2.0 mount contracts without a layout row", () => {
-	assert.match(implementation, /canvasOnly: true/);
-	assert.match(implementation, /addLifecycleDOMWidget/);
+test("the marker uses a native Classic title button and a separate Nodes 2.0 DOM mount", () => {
+	assert.match(implementation, /mountClassicFocusMarker/);
+	assert.match(classicMarker, /node\.addTitleButton/);
+	assert.match(classicMarker, /text: "🎯"/);
+	assert.doesNotMatch(`${implementation}\n${classicMarker}`, /addLifecycleDOMWidget|computedHeight/);
 	assert.match(implementation, /targetElement\.append\(root\)/);
 	assert.match(implementation, /isolate\(buttonView\.button\)/);
-	assert.match(classicAndVueTheme, /aa-focus-on-open__classic-root/);
-	assert.doesNotMatch(classicAndVueTheme, /aa-focus-on-open__vue-root/);
-	assert.match(classicAndVueTheme, /pointer-events: none/);
-	assert.match(classicAndVueTheme, /\.lg-node:has\(\[data-testid="node-pin-indicator"\]\) > \.aa-focus-on-open__button \{\s*right: 36px;/);
+	assert.doesNotMatch(nodes2Theme, /aa-focus-on-open__classic-root/);
+	assert.match(nodes2Theme, /\.lg-node:has\(\[data-testid="node-pin-indicator"\]\) > \.aa-focus-on-open__button \{\s*right: 36px;/);
 	assert.match(implementation, /text: "🎯"/);
 	assert.match(implementation, /text: "🚫"/);
 	assert.doesNotMatch(implementation, /icon\("eye(?:Off)?"/);
-	assert.match(classicAndVueTheme, /font-size: 18px/);
+	assert.match(nodes2Theme, /font-size: 18px/);
 });
 
 test("focus-on-open localization keeps the English and Simplified Chinese menu labels aligned", () => {
