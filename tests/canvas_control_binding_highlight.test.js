@@ -7,6 +7,7 @@ import { readStyleEntry } from "./helpers/style_source.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const highlight = readFileSync(join(ROOT, "js", "lib", "canvas_control_binding_highlight.js"), "utf8");
+const marker = readFileSync(join(ROOT, "js", "lib", "canvas_widget_marker.js"), "utf8");
 const rowMapping = readFileSync(join(ROOT, "js", "lib", "canvas_widget_row_mapping.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const workspace = readFileSync(join(ROOT, "js", "workspace.js"), "utf8");
@@ -16,12 +17,13 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 	assert.match(providers, /node, widget: adapted\.widget, control: adapted\.control/);
 	assert.match(highlight, /\["generic-widget", "subgraph-widget"\]/);
 	assert.match(highlight, /resolved\.widget \|\|/);
-	assert.match(highlight, /getOutlineColor/);
+	assert.match(marker, /getOutlineColor/);
 	assert.match(highlight, /CANVAS_BINDING_COLOR = \"#a855f7\"/);
 	assert.doesNotMatch(highlight, /WIDGET_PROMOTED_OUTLINE_COLOR/);
-	assert.match(highlight, /if \(!installed && typeof widget\.draw === \"function\"\)/);
-	assert.match(highlight, /const intact = existing\.properties\.length > 0/);
-	assert.match(highlight, /uninstallWidgetMarker\(widget\)/);
+	assert.match(marker, /if \(typeof widget\.draw === \"function\"\)/);
+	assert.match(marker, /Legacy\/custom widgets own their draw path and may ignore getOutlineColor/);
+	assert.match(marker, /const intact = existing\.properties\.length > 0/);
+	assert.match(highlight, /canvasWidgetMarkers\.sync\(nextWidgets\)/);
 	assert.match(highlight, /node\.graph === app\.canvas\?\.graph/);
 	assert.match(highlight, /lastResolution\?\.key === structureToken && lastResolution\.model === model/);
 	assert.match(highlight, /export function invalidateCanvasControlBindingResolution\(\) \{\s*lastResolution = null;/);

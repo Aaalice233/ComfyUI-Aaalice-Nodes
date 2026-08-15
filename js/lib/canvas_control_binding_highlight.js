@@ -1,114 +1,15 @@
 import { app } from "../../../scripts/app.js";
 import { controlItemBindings } from "./dashboard_model.js";
 import { mapCanvasWidgetRows } from "./canvas_widget_row_mapping.js";
+import { createCanvasWidgetMarkerManager } from "./canvas_widget_marker.js";
 
 const DOM_BOUND_CLASS = "aaalice-sidebar-bound-widget";
-const widgetMarkers = new WeakMap();
-const activeWidgets = new Set();
 const domStates = new Map();
 const pendingDomStates = new Map();
 let mountObserver = null;
 let mountRefreshFrame = 0;
 const CANVAS_BINDING_COLOR = "#a855f7";
-
-function restoreProperty(object, name, descriptor) {
-	try {
-		if (descriptor) Object.defineProperty(object, name, descriptor);
-		else delete object[name];
-	} catch {
-		// An extension may replace the widget method while it is marked. Do not
-		// overwrite that replacement during cleanup.
-	}
-}
-
-function installProperty(object, name, value, state) {
-	const descriptor = Object.getOwnPropertyDescriptor(object, name);
-	try {
-		Object.defineProperty(object, name, {
-			configurable: true,
-			enumerable: descriptor?.enumerable ?? false,
-			writable: true,
-			value,
-		});
-		state.properties.push({ name, descriptor, value });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function drawFallbackOutline(ctx, width, y, height) {
-	if (!ctx || !Number.isFinite(width) || !Number.isFinite(y) || !Number.isFinite(height) || height <= 0) return;
-	const margin = 15;
-	const outlineWidth = Math.max(0, width - margin * 2);
-	ctx.save();
-	ctx.strokeStyle = CANVAS_BINDING_COLOR;
-	ctx.lineWidth = 1.5;
-	ctx.beginPath();
-	if (typeof ctx.roundRect === "function") ctx.roundRect(margin, y, outlineWidth, height, Math.min(6, height / 2));
-	else ctx.rect(margin, y, outlineWidth, height);
-	ctx.stroke();
-	ctx.restore();
-}
-
-function installWidgetMarker(widget) {
-	if (!widget || (typeof widget !== "object" && typeof widget !== "function")) return false;
-	const existing = widgetMarkers.get(widget);
-	if (existing) {
-		const intact = existing.properties.length > 0 && existing.properties.every((entry) => widget[entry.name] === entry.value);
-		if (intact) return true;
-		uninstallWidgetMarker(widget);
-	}
-	const state = { properties: [] };
-	let installed = false;
-
-	if (typeof widget.getOutlineColor === "function") {
-		const wrapper = function () { return CANVAS_BINDING_COLOR; };
-		installed = installProperty(widget, "getOutlineColor", wrapper, state) || installed;
-	}
-
-	if (!installed && typeof widget.draw === "function") {
-		const original = widget.draw;
-		const wrapper = function (...args) {
-			const result = original.apply(this, args);
-			drawFallbackOutline(args[0], Number(args[2]), Number(args[3]), Number(args[4]));
-			return result;
-		};
-		if (installProperty(widget, "draw", wrapper, state)) {
-			installed = true;
-		}
-	} else if (!installed && typeof widget.drawWidget === "function") {
-		const original = widget.drawWidget;
-		const wrapper = function (ctx, options = {}) {
-			const result = original.apply(this, arguments);
-			drawFallbackOutline(ctx, Number(options.width), Number(widget.y), Number(widget.computedHeight ?? widget.height));
-			return result;
-		};
-		if (installProperty(widget, "drawWidget", wrapper, state)) {
-			installed = true;
-		}
-	}
-
-	if (!installed && "outline_color" in widget) {
-		const value = CANVAS_BINDING_COLOR;
-		if (installProperty(widget, "outline_color", value, state)) installed = true;
-	}
-	if (!installed) return false;
-	widgetMarkers.set(widget, state);
-	activeWidgets.add(widget);
-	return true;
-}
-
-function uninstallWidgetMarker(widget) {
-	const state = widgetMarkers.get(widget);
-	if (!state) return;
-	for (let index = state.properties.length - 1; index >= 0; index--) {
-		const entry = state.properties[index];
-		if (widget[entry.name] === entry.value) restoreProperty(widget, entry.name, entry.descriptor);
-	}
-	widgetMarkers.delete(widget);
-	activeWidgets.delete(widget);
-}
+const canvasWidgetMarkers = createCanvasWidgetMarkerManager(CANVAS_BINDING_COLOR);
 
 function sameWidgetSet(left, right) {
 	if (left.size !== right.size) return false;
@@ -380,26 +281,14 @@ export function syncCanvasControlBindings(model, resolve, { structureToken = nul
 		}
 		lastResolution = structureToken == null ? null : { key: structureToken, model, allTargets, nextWidgets };
 	}
-	let canvasNeedsRedraw = false;
-	for (const widget of activeWidgets) {
-		if (!nextWidgets.has(widget)) {
-			uninstallWidgetMarker(widget);
-			canvasNeedsRedraw = true;
-		}
-	}
-	for (const widget of nextWidgets) {
-		const previousMarker = widgetMarkers.get(widget);
-		installWidgetMarker(widget);
-		if (widgetMarkers.get(widget) !== previousMarker) canvasNeedsRedraw = true;
-	}
+	const canvasNeedsRedraw = canvasWidgetMarkers.sync(nextWidgets);
 	syncDomTargets(targetsByNode, { refreshCandidates: !fresh });
 	if (canvasNeedsRedraw) app.canvas?.setDirty?.(true, true);
 }
 
 export function resetCanvasControlBindingHighlight() {
 	lastResolution = null;
-	const hadMarkers = activeWidgets.size > 0;
-	for (const widget of [...activeWidgets]) uninstallWidgetMarker(widget);
+	const hadMarkers = canvasWidgetMarkers.reset();
 	syncDomTargets(new Map());
 	if (hadMarkers) app.canvas?.setDirty?.(true, true);
 }
