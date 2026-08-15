@@ -242,20 +242,19 @@ export function invalidateCanvasControlBindingResolution() {
 }
 
 export function syncCanvasControlBindings(model, resolve, { structureToken = null } = {}) {
+	let allTargets;
 	let targetsByNode;
-	let nextWidgets;
 	const fresh = structureToken != null && lastResolution?.key === structureToken && lastResolution.model === model;
 	if (fresh) {
 		// 备忘录保存未按当前图过滤的全量目标；图导航后按当前图重新过滤，避免命中旧图节点。
+		allTargets = lastResolution.allTargets;
 		targetsByNode = new Map();
-		for (const [node, widgets] of lastResolution.allTargets) {
+		for (const [node, widgets] of allTargets) {
 			if (node.graph === app.canvas?.graph) targetsByNode.set(node, widgets);
 		}
-		nextWidgets = lastResolution.nextWidgets;
 	} else {
-		const allTargets = new Map();
+		allTargets = new Map();
 		targetsByNode = new Map();
-		nextWidgets = new Set();
 		for (const page of model?.pages || []) {
 			for (const item of page?.items || []) {
 				if (item?.kind !== "control") continue;
@@ -272,16 +271,15 @@ export function syncCanvasControlBindings(model, resolve, { structureToken = nul
 					let widgets = allTargets.get(resolved.node);
 					if (!widgets) { widgets = new Set(); allTargets.set(resolved.node, widgets); }
 					widgets.add(widget);
-					nextWidgets.add(widget);
 				}
 			}
 		}
 		for (const [node, widgets] of allTargets) {
 			if (node.graph === app.canvas?.graph) targetsByNode.set(node, widgets);
 		}
-		lastResolution = structureToken == null ? null : { key: structureToken, model, allTargets, nextWidgets };
+		lastResolution = structureToken == null ? null : { key: structureToken, model, allTargets };
 	}
-	const canvasNeedsRedraw = canvasWidgetMarkers.sync(nextWidgets);
+	const canvasNeedsRedraw = canvasWidgetMarkers.sync(allTargets);
 	syncDomTargets(targetsByNode, { refreshCandidates: !fresh });
 	if (canvasNeedsRedraw) app.canvas?.setDirty?.(true, true);
 }

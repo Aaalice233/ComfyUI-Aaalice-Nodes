@@ -22,8 +22,10 @@ test("sidebar bindings highlight the exact native or promoted canvas widget", ()
 	assert.doesNotMatch(highlight, /WIDGET_PROMOTED_OUTLINE_COLOR/);
 	assert.match(marker, /if \(typeof widget\.draw === \"function\"\)/);
 	assert.match(marker, /Legacy\/custom widgets own their draw path and may ignore getOutlineColor/);
-	assert.match(marker, /const intact = existing\.properties\.length > 0/);
-	assert.match(highlight, /canvasWidgetMarkers\.sync\(nextWidgets\)/);
+	assert.match(marker, /markerIntact\(widget, existing\)/);
+	assert.match(marker, /drawProjectedWidgets\(args\[0\], this, state\.widgets\)/);
+	assert.match(marker, /const isLayoutBacked = Number\.isFinite\(widgetMargin\)/);
+	assert.match(highlight, /canvasWidgetMarkers\.sync\(allTargets\)/);
 	assert.match(highlight, /node\.graph === app\.canvas\?\.graph/);
 	assert.match(highlight, /lastResolution\?\.key === structureToken && lastResolution\.model === model/);
 	assert.match(highlight, /export function invalidateCanvasControlBindingResolution\(\) \{\s*lastResolution = null;/);

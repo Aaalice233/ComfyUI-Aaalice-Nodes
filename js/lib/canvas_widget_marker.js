@@ -3,7 +3,7 @@ function restoreProperty(object, name, descriptor) {
 		if (descriptor) Object.defineProperty(object, name, descriptor);
 		else delete object[name];
 	} catch {
-		// Another extension may replace the widget method while it is marked.
+		// Another extension may replace the marked method before the next structure sync.
 	}
 }
 
@@ -23,42 +23,64 @@ function installProperty(object, name, value, state) {
 	}
 }
 
-function drawFallbackOutline(ctx, width, y, height, color) {
+function positiveNumber(value, fallback) {
+	const number = Number(value);
+	return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function drawFallbackOutline(ctx, widget, width, y, height, color) {
 	if (!ctx || !Number.isFinite(width) || !Number.isFinite(y) || !Number.isFinite(height) || height <= 0) return;
-	const margin = 15;
+	const widgetMargin = Number(widget?.margin);
+	const isLayoutBacked = Number.isFinite(widgetMargin) && widgetMargin >= 0;
+	const margin = isLayoutBacked ? widgetMargin : 15;
+	const layoutHeight = isLayoutBacked ? positiveNumber(widget.computedHeight, height) : height;
+	const outlineY = isLayoutBacked ? y + margin : y;
 	const outlineWidth = Math.max(0, width - margin * 2);
+	const outlineHeight = Math.max(0, layoutHeight - (isLayoutBacked ? margin * 2 : 0));
+	if (outlineWidth <= 0 || outlineHeight <= 0) return;
 	ctx.save();
 	ctx.strokeStyle = color;
 	ctx.lineWidth = 1.5;
 	ctx.beginPath();
-	if (typeof ctx.roundRect === "function") ctx.roundRect(margin, y, outlineWidth, height, Math.min(6, height / 2));
-	else ctx.rect(margin, y, outlineWidth, height);
+	if (typeof ctx.roundRect === "function") ctx.roundRect(margin, outlineY, outlineWidth, outlineHeight, Math.min(6, outlineHeight / 2));
+	else ctx.rect(margin, outlineY, outlineWidth, outlineHeight);
 	ctx.stroke();
 	ctx.restore();
 }
 
-export function createCanvasWidgetMarkerManager(color) {
-	const markers = new WeakMap();
-	const activeWidgets = new Set();
+function sameWidgetSet(left, right) {
+	if (left.size !== right.size) return false;
+	for (const widget of left) if (!right.has(widget)) return false;
+	return true;
+}
 
-	function uninstall(widget) {
-		const state = markers.get(widget);
+function markerIntact(object, state) {
+	return state.properties.length > 0 && state.properties.every((entry) => object[entry.name] === entry.value);
+}
+
+export function createCanvasWidgetMarkerManager(color) {
+	const widgetMarkers = new WeakMap();
+	const activeWidgets = new Set();
+	const nodeMarkers = new WeakMap();
+	const activeNodes = new Set();
+
+	function uninstallWidget(widget) {
+		const state = widgetMarkers.get(widget);
 		if (!state) return;
 		for (let index = state.properties.length - 1; index >= 0; index--) {
 			const entry = state.properties[index];
 			if (widget[entry.name] === entry.value) restoreProperty(widget, entry.name, entry.descriptor);
 		}
-		markers.delete(widget);
+		widgetMarkers.delete(widget);
 		activeWidgets.delete(widget);
 	}
 
-	function install(widget) {
+	function installWidget(widget) {
 		if (!widget || (typeof widget !== "object" && typeof widget !== "function")) return false;
-		const existing = markers.get(widget);
+		const existing = widgetMarkers.get(widget);
 		if (existing) {
-			const intact = existing.properties.length > 0 && existing.properties.every((entry) => widget[entry.name] === entry.value);
-			if (intact) return false;
-			uninstall(widget);
+			if (markerIntact(widget, existing)) return false;
+			uninstallWidget(widget);
 		}
 
 		const state = { properties: [] };
@@ -73,7 +95,7 @@ export function createCanvasWidgetMarkerManager(color) {
 			const original = widget.draw;
 			const wrapper = function (...args) {
 				const result = original.apply(this, args);
-				drawFallbackOutline(args[0], Number(args[2]), Number(args[3]), Number(args[4]), color);
+				drawFallbackOutline(args[0], widget, Number(args[2]), Number(args[3]), Number(args[4]), color);
 				return result;
 			};
 			installed = installProperty(widget, "draw", wrapper, state) || installed;
@@ -81,7 +103,7 @@ export function createCanvasWidgetMarkerManager(color) {
 			const original = widget.drawWidget;
 			const wrapper = function (ctx, options = {}) {
 				const result = original.apply(this, arguments);
-				drawFallbackOutline(ctx, Number(options.width), Number(widget.y), Number(widget.computedHeight ?? widget.height), color);
+				drawFallbackOutline(ctx, widget, Number(options.width), Number(widget.y), Number(widget.height), color);
 				return result;
 			};
 			installed = installProperty(widget, "drawWidget", wrapper, state) || installed;
@@ -91,26 +113,96 @@ export function createCanvasWidgetMarkerManager(color) {
 			installed = installProperty(widget, "outline_color", color, state) || installed;
 		}
 		if (!installed) return false;
-		markers.set(widget, state);
+		widgetMarkers.set(widget, state);
 		activeWidgets.add(widget);
 		return true;
 	}
 
+	function drawProjectedWidgets(ctx, node, widgets) {
+		const fallbackHeight = positiveNumber(globalThis.LiteGraph?.NODE_WIDGET_HEIGHT, 20);
+		for (const widget of widgets) {
+			if (typeof node.isWidgetVisible === "function" && !node.isWidgetVisible(widget)) continue;
+			const width = positiveNumber(widget.width, positiveNumber(node.size?.[0], 0));
+			const height = positiveNumber(widget.height, fallbackHeight);
+			drawFallbackOutline(ctx, widget, width, Number(widget.y), height, color);
+		}
+	}
+
+	function uninstallNode(node) {
+		const state = nodeMarkers.get(node);
+		if (!state) return;
+		for (let index = state.properties.length - 1; index >= 0; index--) {
+			const entry = state.properties[index];
+			if (node[entry.name] === entry.value) restoreProperty(node, entry.name, entry.descriptor);
+		}
+		nodeMarkers.delete(node);
+		activeNodes.delete(node);
+	}
+
+	function installNode(node, widgets) {
+		const existing = nodeMarkers.get(node);
+		if (existing) {
+			if (markerIntact(node, existing)) {
+				if (sameWidgetSet(existing.widgets, widgets)) return false;
+				existing.widgets = new Set(widgets);
+				return true;
+			}
+			uninstallNode(node);
+		}
+		if (typeof node?.drawWidgets !== "function") return false;
+		const original = node.drawWidgets;
+		const state = { properties: [], widgets: new Set(widgets) };
+		const wrapper = function (...args) {
+			const result = original.apply(this, args);
+			drawProjectedWidgets(args[0], this, state.widgets);
+			return result;
+		};
+		if (!installProperty(node, "drawWidgets", wrapper, state)) return false;
+		nodeMarkers.set(node, state);
+		activeNodes.add(node);
+		return true;
+	}
+
 	return {
-		sync(widgets) {
+		sync(targetsByNode) {
 			let changed = false;
+			const nextWidgets = new Set();
+			for (const widgets of targetsByNode.values()) {
+				for (const widget of widgets) nextWidgets.add(widget);
+			}
 			for (const widget of activeWidgets) {
-				if (!widgets.has(widget)) {
-					uninstall(widget);
+				if (!nextWidgets.has(widget)) {
+					uninstallWidget(widget);
 					changed = true;
 				}
 			}
-			for (const widget of widgets) changed = install(widget) || changed;
+			for (const widget of nextWidgets) changed = installWidget(widget) || changed;
+
+			const fallbackTargets = new Map();
+			for (const [node, widgets] of targetsByNode) {
+				for (const widget of widgets) {
+					if (widgetMarkers.has(widget)) continue;
+					let targets = fallbackTargets.get(node);
+					if (!targets) {
+						targets = new Set();
+						fallbackTargets.set(node, targets);
+					}
+					targets.add(widget);
+				}
+			}
+			for (const node of activeNodes) {
+				if (!fallbackTargets.has(node)) {
+					uninstallNode(node);
+					changed = true;
+				}
+			}
+			for (const [node, widgets] of fallbackTargets) changed = installNode(node, widgets) || changed;
 			return changed;
 		},
 		reset() {
-			const changed = activeWidgets.size > 0;
-			for (const widget of [...activeWidgets]) uninstall(widget);
+			const changed = activeWidgets.size > 0 || activeNodes.size > 0;
+			for (const widget of [...activeWidgets]) uninstallWidget(widget);
+			for (const node of [...activeNodes]) uninstallNode(node);
 			return changed;
 		},
 	};
