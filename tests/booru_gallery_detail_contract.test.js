@@ -106,6 +106,8 @@ test("selected count and clear action live in the main toolbar", () => {
 	assert.match(theme, /\.aa-gallery-node-mode\[data-value="mute"\]/);
 	assert.match(theme, /\.aa-gallery-node-mode\[data-value="bypass"\]/);
 	assert.match(theme, /\.aa-gallery-node-mode \{[^}]*pointer-events: none/);
+	const nodeModeStyle = theme.match(/\.aa-gallery-node-mode \{([^}]*)\}/)?.[1] || "";
+	assert.doesNotMatch(nodeModeStyle, /border-radius|background|box-shadow/);
 	assert.match(theme, /\.aa-gallery-node-mode__label/);
 	assert.match(theme, /\.aa-gallery--dashboard :is\(\.aa-gallery-toolbar-action, \.aa-gallery-toolbar-text-action\)\.aa-ui-button > \.aa-ui-button__label, \.aa-gallery--dashboard \.aa-gallery-random-mode__switch \{ display: none; \}/);
 	const countStyle = theme.match(/\.aa-gallery-view-switcher__count \{([^}]*)\}/)?.[1] || "";

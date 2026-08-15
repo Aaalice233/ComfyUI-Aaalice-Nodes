@@ -187,7 +187,7 @@ test("gallery toolbar gives each action one clear visual responsibility", () => 
 	assert.match(theme, /\.aa-gallery--dashboard \.aa-gallery-toolbar-action\.aa-ui-button, \.aa-gallery--dashboard \.aa-gallery-toolbar-text-action\.aa-ui-button \{[^}]*width: 28px;[^}]*justify-content: center;/);
 	assert.match(theme, /\.aa-gallery--dashboard :is\(\.aa-gallery-toolbar-action, \.aa-gallery-toolbar-text-action\)\.aa-ui-button > \.aa-ui-button__label, \.aa-gallery--dashboard \.aa-gallery-random-mode__switch \{ display: none; \}/);
 	assert.match(source, /minCardWidth: placement === "dashboard" \? 108 : 144, gap: placement === "dashboard" \? 5 : 6, maxColumns: placement === "dashboard" \? 6 : 5/);
-	assert.match(theme, /@container aa-dashboard-card \(max-width: 430px\) \{[\s\S]*\.aa-gallery--dashboard \.aa-gallery-node-mode__label \{ display: none; \}/);
+	assert.match(theme, /@container aa-dashboard-card \(max-width: 430px\) \{[\s\S]*\.aa-gallery--dashboard \.aa-gallery-node-mode \{ width: 14px; padding: 0; justify-content: center; \}[\s\S]*\.aa-gallery--dashboard \.aa-gallery-node-mode__label \{ display: none; \}/);
 	assert.match(theme, /\.aa-gallery-toolbar-text-action\.aa-ui-button \{[^}]*min-height: 26px;[^}]*padding: 4px 8px;[^}]*font-size: 11px;/);
 	assert.match(theme, /@container \(max-width: 580px\) \{[^\n]*\.aa-gallery--node \.aa-gallery-toolbar-text-action \.aa-ui-button__label \{ display: none; \}/);
 	assert.equal(enLocale.aaalice.gallery.refresh, "Refresh");
