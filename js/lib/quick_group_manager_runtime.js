@@ -141,7 +141,12 @@ function commitGraph(node, mutate, { transaction = true } = {}) {
 }
 
 export function refreshQuickGroupManagerControls(node) {
-	for (const refresh of node?._aaaliceQuickGroupControlRefreshes || []) refresh();
+	const graph = node?.graph;
+	const graphNodes = iterableItems(graph?.nodes);
+	const managers = new Set([node, ...(graphNodes.length ? graphNodes : iterableItems(graph?._nodes)).filter(isQuickGroupManager)]);
+	for (const manager of managers) {
+		for (const refresh of manager?._aaaliceQuickGroupControlRefreshes || []) refresh();
+	}
 }
 
 function nodeIdentity(node) {

@@ -87,6 +87,24 @@ test("applies a linkage cascade in one graph transaction", () => {
 	assert.equal(managerGraph.dirtyCount, 1);
 });
 
+test("refreshes every mounted manager control in the graph after a linked action", () => {
+	const first = group("first", "First", [node()]);
+	const second = group("second", "Second", [node()]);
+	const managerGraph = graph("root", [first, second]);
+	const source = manager(managerGraph, 1, { rules: { first: { disable: { second: "disable" } } } });
+	const sibling = manager(managerGraph, 2);
+	let sourceRefreshes = 0;
+	let siblingRefreshes = 0;
+	source._aaaliceQuickGroupControlRefreshes = new Set([() => { sourceRefreshes++; }]);
+	sibling._aaaliceQuickGroupControlRefreshes = new Set([() => { siblingRefreshes++; }]);
+	managerGraph._nodes = [source, sibling];
+
+	assert.equal(applyQuickGroupManagerAction(source, "first", "disable").ok, true);
+	assert.equal(second.nodes[0].mode, GROUP_MODE.NEVER);
+	assert.equal(sourceRefreshes, 1);
+	assert.equal(siblingRefreshes, 1);
+});
+
 test("updates the off mode without a second transaction when unchanged", () => {
 	const disabled = group("disabled", "Disabled", [node(GROUP_MODE.NEVER)]);
 	const managerGraph = graph("root", [disabled]);
