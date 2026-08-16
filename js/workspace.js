@@ -31,7 +31,7 @@ import { workspaceLabels } from "./workspace/labels.js";
 import {
 	configureDashboardBindings, installLinkedSeedQueueHook, notifyControlBindingError,
 	notifyWorkspaceImageUpload, openAssignGroup, openCardActions, openComponentNoteEditor,
-	openEditGroup, openManageLinkedBindings, openRebind, openMoveControl, patchNodeMenu, getNodeMenuItems as buildNodeMenuItems, controlTitle,
+	openEditGroup, openManageLinkedBindings, openRebind, openMoveControl, getNodeMenuItems as buildNodeMenuItems, controlTitle,
 } from "./workspace/dashboard_bindings.js";
 import { closeWorkspaceDialogs } from "./workspace/dialogs.js";
 import {
@@ -283,7 +283,6 @@ function scheduleGraphSync(forceRender = false) {
 		graphSyncForceRender = false;
 		const nodes = graphNodes();
 		repairDuplicateHostIds(nodes);
-		for (const node of nodes) patchNodeMenu(node);
 		const signature = graphSyncSignature(nodes);
 		const scheduleGraphViewRender = shouldForceRender ? scheduleStructuralRender : scheduleRender;
 		if (shouldForceRender || signature !== previousGraphStructure) { previousGraphStructure = signature; scheduleCanvasControlBindingSync(); scheduleGraphViewRender("dashboard"); }
@@ -650,8 +649,6 @@ app.registerExtension({
 		try { await promptLibraryStore.refresh(); }
 		catch (error) { app.extensionManager.toast.add({ severity: "error", summary: t("aaalice.workspace.library", "Prompt library"), detail: error.message }); }
 	},
-	beforeRegisterNodeDef(nodeType) { const previous = nodeType.prototype.onNodeCreated; nodeType.prototype.onNodeCreated = function () { const result = previous?.apply(this, arguments); patchNodeMenu(this); return result; }; },
-	nodeCreated(node) { patchNodeMenu(node); }, loadedGraphNode(node) { patchNodeMenu(node); },
 	beforeConfigureGraph() { clearGroupNavigationCanvasPointer(); closeGroupNavigationWheel(); closeWorkspaceDialogs(); workspaceViewState.dashboard.pageTransition = null; resetDashboardScrollStates(); invalidateCanvasControlBindingResolution(); },
 	afterConfigureGraph() { invalidateWidgetControlAdapterCache(); scheduleGraphSync(true); },
 	setup() {
@@ -696,7 +693,7 @@ app.registerExtension({
 		installWorkspaceCanvasAutoClose();
 		installCanvasBindingNavigationSync();
 		installCanvasBindingModeSync();
-		const nodes = graphNodes(); repairDuplicateHostIds(nodes); for (const node of nodes) patchNodeMenu(node); previousGraphStructure = graphSyncSignature(nodes); scheduleCanvasControlBindingSync();
+		const nodes = graphNodes(); repairDuplicateHostIds(nodes); previousGraphStructure = graphSyncSignature(nodes); scheduleCanvasControlBindingSync();
 		api.addEventListener("graphChanged", () => { invalidateWidgetControlAdapterCache(); scheduleGraphSync(); scheduleActiveDashboardPresetAutoSave(); });
 		// 捕获阶段先于前端快捷键分发执行；保存序列化在之后进行，刚冲刷的预设会被一并写入。
 		window.addEventListener("keydown", (event) => {

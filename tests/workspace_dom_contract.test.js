@@ -25,7 +25,6 @@ const workspace = [
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
-const nodeControlMenu = readFileSync(join(ROOT, "js", "lib", "node_control_menu.js"), "utf8");
 const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
 const imageCompareControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_compare.js"), "utf8");
 const numericControl = readFileSync(join(ROOT, "js", "lib", "controls", "numeric.js"), "utf8");
@@ -208,14 +207,14 @@ test("shared dialogs mount immediately without obsolete open calls", () => {
 	assert.match(workspace, /function openCardActions[\s\S]*?dialog = createDialog/);
 });
 
-test("node context-menu add is independent from layout edit mode", () => {
-	assert.match(workspace, /function patchNodeMenu/);
+test("node context-menu add uses the official extension API exactly once and ignores layout edit mode", () => {
+	assert.match(workspace, /getNodeMenuItems\(node\) \{ return buildNodeMenuItems\(node\); \}/);
+	assert.equal((workspace.match(/getNodeMenuItems\(node\) \{ return buildNodeMenuItems\(node\); \}/g) || []).length, 1);
 	assert.match(workspace, /📌 Add controls to sidebar/);
 	assert.match(workspace, /const fallbackPageId = page\?\.id \|\| model\.pages\[0\]\?\.id \|\| ""[\s\S]*preferredDashboardPage\(model\.pages, dashboardPageMatchLabels\(node\), fallbackPageId\)/);
-	const menuBody = workspace.match(/function patchNodeMenu[\s\S]*?\n}/)?.[0] || "";
+	const menuBody = workspace.match(/function nodeMenuItems[\s\S]*?export function getNodeMenuItems/)?.[0] || "";
 	assert.doesNotMatch(menuBody, /editMode/);
-	assert.match(menuBody, /installNodeControlMenu/);
-	assert.match(nodeControlMenu, /listControls\(this\)/);
+	assert.doesNotMatch(workspace, /patchNodeMenu|installNodeControlMenu|getExtraMenuOptions/);
 	assert.match(workspace, /editMode \?[^\n]*Done/);
 });
 

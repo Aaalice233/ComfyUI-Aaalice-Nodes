@@ -22,10 +22,11 @@ test("sidebar binding menus remain available for root and nested graph nodes", (
 	assert.doesNotMatch(dashboardBindings, /function openAddControls\(node, ownerElement = null\) \{\s*if \(node\?\.graph !== app\.graph\) return;/);
 	assert.match(dashboardBindings, /export function controlTitle\(item, resolved\)/);
 	assert.match(workspace, /getNodeMenuItems as buildNodeMenuItems, controlTitle/);
-	const menuBody = dashboardBindings.match(/function patchNodeMenu[\s\S]*?\n}/)?.[0] || "";
+	const menuBody = dashboardBindings.match(/function nodeMenuItems[\s\S]*?export function getNodeMenuItems/)?.[0] || "";
 	assert.match(menuBody, /linkableControlSources\(controls\)\.length > 0/);
-	assert.match(menuBody, /Boolean\(candidate\?\.graph\)/);
-	assert.doesNotMatch(menuBody, /when: [^\n]*candidate\?\.graph === app\.graph/);
+	assert.match(menuBody, /if \(node\?\.graph\)/);
+	assert.doesNotMatch(menuBody, /node\?\.graph === app\.graph/);
+	assert.doesNotMatch(workspace, /patchNodeMenu|installNodeControlMenu|getExtraMenuOptions/);
 });
 
 test("all queue-time payload injectors address root and nested execution ids", () => {

@@ -29,7 +29,6 @@ const workspace = [
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
-const nodeControlMenu = readFileSync(join(ROOT, "js", "lib", "node_control_menu.js"), "utf8");
 const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
 const imageCompareControl = readFileSync(join(ROOT, "js", "lib", "controls", "image_compare.js"), "utf8");
 const numericControl = readFileSync(join(ROOT, "js", "lib", "controls", "numeric.js"), "utf8");

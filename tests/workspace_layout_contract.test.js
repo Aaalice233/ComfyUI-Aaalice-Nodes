@@ -28,7 +28,6 @@ const workspace = [
 const selector = readFileSync(join(ROOT, "js", "prompt_selector.js"), "utf8");
 const providers = readFileSync(join(ROOT, "js", "lib", "control_providers.js"), "utf8");
 const widgetAdapters = readFileSync(join(ROOT, "js", "lib", "widget_control_adapters.js"), "utf8");
-const nodeControlMenu = readFileSync(join(ROOT, "js", "lib", "node_control_menu.js"), "utf8");
 const workspaceControls = readFileSync(join(ROOT, "js", "lib", "workspace_controls.js"), "utf8");
 const bindingIdentity = readFileSync(join(ROOT, "js", "lib", "dashboard_binding_identity.js"), "utf8");
 const dashboardUnbinding = readFileSync(join(ROOT, "js", "workspace", "dashboard_unbinding.js"), "utf8");

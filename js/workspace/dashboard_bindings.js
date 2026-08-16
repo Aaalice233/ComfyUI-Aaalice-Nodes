@@ -1,7 +1,6 @@
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { controlProviders, repairDuplicateHostIds } from "../lib/control_providers.js";
-import { installNodeControlMenu } from "../lib/node_control_menu.js";
 import { bindingKey, controlItemBindings, createPage, linkedBindingCount, normalizeDashboard } from "../lib/dashboard_model.js";
 import { createControlBindingMatcher, bindingControlIdLabel, sameBindingTarget } from "../lib/dashboard_binding_identity.js";
 import { dashboardPageMatchLabels, preferredDashboardPage } from "../lib/dashboard_page_matching.js";
@@ -433,15 +432,4 @@ function nodeMenuItems(node, ownerElement = app.canvas?.canvas || null) {
 
 export function getNodeMenuItems(node) {
 	return nodeMenuItems(node);
-}
-
-export function patchNodeMenu(node) {
-	installNodeControlMenu(node, {
-		listControls: listNodeMenuControls,
-		entries: [
-			{ label: t("aaalice.workspace.binding.linkMenu", "🔗 Link to an existing sidebar parameter…"), when: (_candidate, controls) => linkableControlSources(controls).length > 0, open: (candidate, controls, canvas) => openLinkControls(candidate, controls, canvas?.canvas || canvas || null) },
-			{ label: t("aaalice.workspace.binding.menu", "📌 Add controls to sidebar…"), when: (candidate) => Boolean(candidate?.graph), open: (candidate, _controls, canvas) => openAddControls(candidate, canvas?.canvas || canvas || null) },
-			{ label: t("aaalice.workspace.binding.unbindMenu", "🔓 Unbind from sidebar…"), when: (candidate, controls) => boundNodeControlEntries(candidate, controls).length > 0, open: (candidate, controls, canvas) => openUnbindControls(candidate, controls, canvas?.canvas || canvas || null) },
-		],
-	});
 }
