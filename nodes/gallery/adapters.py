@@ -7,6 +7,7 @@ import json
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
+from datetime import date, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -362,9 +363,11 @@ class DanbooruAdapter(BooruAdapter):
             raise ValueError(f"danbooru does not support {period} rankings")
         page = max(1, _int(cursor) or 1)
         size = min(max(1, limit), self.capabilities.max_page_size)
-        raw = await self._get_json(session, f"{self.base}/explore/posts/popular.json", params={
-            "scale": period, "page": page, "limit": size, **self.auth_params(credentials),
-        })
+        params = {"scale": period, "page": page, "limit": size, **self.auth_params(credentials)}
+        if period == "day":
+            # Danbooru leaves the current daily period empty until it closes.
+            params["date"] = (date.today() - timedelta(days=1)).isoformat()
+        raw = await self._get_json(session, f"{self.base}/explore/posts/popular.json", params=params)
         if not isinstance(raw, list):
             raise RuntimeError("danbooru ranking response must be a list")
         blocked = _normalize_blacklist(blacklist)
