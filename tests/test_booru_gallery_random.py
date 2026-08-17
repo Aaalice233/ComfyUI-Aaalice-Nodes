@@ -52,6 +52,8 @@ class GalleryRandomSamplingTests(unittest.IsolatedAsyncioTestCase):
             "login": "member",
             "api_key": "secret",
         })
+        adapter._get_json.return_value = {"counts": {"posts": None}}
+        self.assertIsNone(await adapter.search_count(None, "original fantasy", ["general"], credentials))
         for invalid in ({"counts": {}}, {"counts": {"posts": "invalid"}}, {"counts": {"posts": -1}}):
             with self.subTest(invalid=invalid):
                 adapter._get_json.return_value = invalid
@@ -87,6 +89,36 @@ class GalleryRandomSamplingTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(adapter.search.await_count, 2)
                 self.assertEqual(adapter.search.await_args.args[1:5], ("original fantasy", ["general"], "latest", "3"))
                 self.assertEqual(adapter.search.await_args.args[6:], (credentials, ("blocked",)))
+
+    async def test_danbooru_null_count_samples_indexed_window_and_caches_timeout(self):
+        adapter = DanbooruAdapter()
+        adapter.search_count = AsyncMock(return_value=None)
+        sampled = GalleryPage((SimpleNamespace(post_id="7"),), None, True)
+        adapter.search = AsyncMock(return_value=sampled)
+        cache = TTLCache(8, 300)
+
+        with patch("nodes.gallery.random_sampling.secrets.randbelow", return_value=999):
+            first = await sample_search(adapter, None, "original fantasy", ["general"], 60, {}, (), cache)
+            second = await sample_search(adapter, None, "original fantasy", ["general"], 60, {}, (), cache)
+
+        self.assertIs(first, sampled)
+        self.assertIs(second, sampled)
+        self.assertEqual(adapter.search_count.await_count, 1)
+        self.assertEqual(adapter.search.await_count, 2)
+        self.assertTrue(all(call.args[4] == "1000" for call in adapter.search.await_args_list))
+
+    async def test_danbooru_null_count_falls_back_from_empty_indexed_page(self):
+        adapter = DanbooruAdapter()
+        adapter.search_count = AsyncMock(return_value=None)
+        empty = GalleryPage((), None, True)
+        first_page = GalleryPage((SimpleNamespace(post_id="7"),), "2", False)
+        adapter.search = AsyncMock(side_effect=(empty, first_page))
+
+        with patch("nodes.gallery.random_sampling.secrets.randbelow", return_value=999):
+            result = await sample_search(adapter, None, "original fantasy", ["general"], 60, {}, (), TTLCache(8, 300))
+
+        self.assertIs(result, first_page)
+        self.assertEqual([call.args[4] for call in adapter.search.await_args_list], ["1000", "1"])
 
     async def test_danbooru_count_cache_isolated_by_rating_page_size_and_account(self):
         adapter = DanbooruAdapter()

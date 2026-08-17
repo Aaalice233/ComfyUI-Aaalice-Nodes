@@ -12,6 +12,10 @@ from .adapters import BooruAdapter, GalleryPage
 from .danbooru_query import danbooru_query_tag_count
 
 
+DANBOORU_MAX_INDEXED_PAGE = 1000
+_DANBOORU_UNKNOWN_COUNT = -1
+
+
 async def _sample_paginated(
     cache: Any,
     cache_key: tuple[Any, ...],
@@ -51,13 +55,27 @@ async def _sample_danbooru_pages(
     normalized_query = normalize_tag_query(query)
     rating_key = tuple(sorted(set(ratings)))
     key = repr((adapter.source, "search", normalized_query, rating_key, limit, _danbooru_account_identity(credentials)))
-    total = count_cache.get(key)
-    if total is None:
+    cached_total = count_cache.get(key)
+    if cached_total is None:
         total = await adapter.search_count(session, normalized_query, list(rating_key), credentials)
-        count_cache.put(key, total)
+        count_cache.put(key, _DANBOORU_UNKNOWN_COUNT if total is None else total)
+    else:
+        total = None if cached_total == _DANBOORU_UNKNOWN_COUNT else cached_total
+
+    if total is None:
+        # Danbooru returns counts.posts=null when an exact count exceeds its
+        # execution budget. The result query is still valid, so sample within
+        # the server's indexed-page window instead of treating that timeout as
+        # malformed data. An out-of-range draw falls back to the first page.
+        page = secrets.randbelow(DANBOORU_MAX_INDEXED_PAGE) + 1
+        result = await adapter.search(session, normalized_query, list(rating_key), "latest", str(page), limit, credentials, blacklist)
+        if page > 1 and result.ended and not result.posts:
+            return await adapter.search(session, normalized_query, list(rating_key), "latest", "1", limit, credentials, blacklist)
+        return result
+
     # Danbooru rejects indexed pages above 1000, so generated page numbers must
     # stay within that server boundary.
-    page_count = min(1000, max(1, math.ceil(max(0, total) / limit)))
+    page_count = min(DANBOORU_MAX_INDEXED_PAGE, max(1, math.ceil(max(0, total) / limit)))
     page = secrets.randbelow(page_count) + 1
     return await adapter.search(session, normalized_query, list(rating_key), "latest", str(page), limit, credentials, blacklist)
 

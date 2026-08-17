@@ -34,9 +34,13 @@ def build_danbooru_search_tags(
     return tags
 
 
-def parse_danbooru_post_count(raw: Any, url: str, tags: str) -> int:
+def parse_danbooru_post_count(raw: Any, url: str, tags: str) -> int | None:
     counts = raw.get("counts") if isinstance(raw, dict) else None
-    value = counts.get("posts") if isinstance(counts, dict) else None
+    if not isinstance(counts, dict) or "posts" not in counts:
+        raise RuntimeError(f"danbooru GET {url} returned invalid counts.posts for tags={tags!r}")
+    value = counts["posts"]
+    if value is None:
+        return None
     try:
         total = int(value) if not isinstance(value, bool) else -1
     except (TypeError, ValueError):
