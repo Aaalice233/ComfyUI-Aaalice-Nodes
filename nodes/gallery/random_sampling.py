@@ -7,7 +7,9 @@ import secrets
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from .._lib.booru_query import normalize_tag_query
 from .adapters import BooruAdapter, GalleryPage
+from .danbooru_query import danbooru_query_tag_count
 
 
 async def _sample_paginated(
@@ -30,6 +32,36 @@ async def _sample_paginated(
     return await fetch(page)
 
 
+def _danbooru_account_identity(credentials: dict[str, str]) -> tuple[str, str]:
+    username = str(credentials.get("username", "")).strip()
+    api_key = str(credentials.get("apiKey", "")).strip()
+    return ("authenticated", username.casefold()) if username and api_key else ("anonymous", "")
+
+
+async def _sample_danbooru_pages(
+    adapter: BooruAdapter,
+    session: Any,
+    query: str,
+    ratings: list[str],
+    limit: int,
+    credentials: dict[str, str],
+    blacklist: tuple[str, ...],
+    count_cache: Any,
+) -> GalleryPage:
+    normalized_query = normalize_tag_query(query)
+    rating_key = tuple(sorted(set(ratings)))
+    key = repr((adapter.source, "search", normalized_query, rating_key, limit, _danbooru_account_identity(credentials)))
+    total = count_cache.get(key)
+    if total is None:
+        total = await adapter.search_count(session, normalized_query, list(rating_key), credentials)
+        count_cache.put(key, total)
+    # Danbooru rejects indexed pages above 1000, so generated page numbers must
+    # stay within that server boundary.
+    page_count = min(1000, max(1, math.ceil(max(0, total) / limit)))
+    page = secrets.randbelow(page_count) + 1
+    return await adapter.search(session, normalized_query, list(rating_key), "latest", str(page), limit, credentials, blacklist)
+
+
 async def sample_search(
     adapter: BooruAdapter,
     session: Any,
@@ -49,6 +81,11 @@ async def sample_search(
             page_size,
             lambda page: adapter.search(session, query, ratings, "new", str(page), limit, credentials, blacklist),
         )
+    tag_limit = adapter.capabilities.max_search_tags
+    if adapter.source == "danbooru" and tag_limit is not None and danbooru_query_tag_count(query) == tag_limit:
+        # Danbooru counts random:<limit> as a tag. Sample an exact-query page when
+        # both public search slots are already occupied.
+        return await _sample_danbooru_pages(adapter, session, query, ratings, limit, credentials, blacklist, count_cache)
     return await adapter.search(session, query, ratings, "random", None, limit, credentials, blacklist)
 
 

@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 import aiohttp
 
 from .._lib.booru_query import join_candidates, repair_spaced_tags, tokenize_tag_query
+from .danbooru_query import build_danbooru_search_tags, parse_danbooru_post_count
 
 TAG_CATEGORIES = ("artist", "copyright", "character", "general", "meta")
 STATIC_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "webp", "gif"})
@@ -334,17 +335,18 @@ class DanbooruAdapter(BooruAdapter):
                                   post.get("is_favorited"), str(post.get("large_file_url") or ""),
                                   _int(post.get("score")), _int(post.get("fav_count")))
 
+    async def search_count(self, session, query, ratings, credentials):
+        url = f"{self.base}/counts/posts.json"
+        tags = build_danbooru_search_tags(query, ratings, "latest", 1, self.capabilities.max_search_tags)
+        raw = await self._get_json(session, url, params={"tags": tags, **self.auth_params(credentials)})
+        return parse_danbooru_post_count(raw, url, tags)
+
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
         page = max(1, _int(cursor) or 1)
         size = min(max(1, limit), self.capabilities.max_page_size)
-        tags = query.strip()
-        if ratings:
-            tags = f"{tags} rating:{','.join(ratings)}".strip()
-        if sort == "random":
-            tags = f"{tags} random:{size}".strip()
-        elif sort and sort != "latest":
-            tags = f"{tags} order:{sort}".strip()
-        raw = await self._get_json(session, f"{self.base}/posts.json", params={"tags": tags, "page": page, "limit": size, **self.auth_params(credentials)})
+        auth = self.auth_params(credentials)
+        tags = build_danbooru_search_tags(query, ratings, sort, size, self.capabilities.max_search_tags)
+        raw = await self._get_json(session, f"{self.base}/posts.json", params={"tags": tags, "page": page, "limit": size, **auth})
         if not isinstance(raw, list):
             raise RuntimeError("danbooru search response must be a list")
         blocked = _normalize_blacklist(blacklist)

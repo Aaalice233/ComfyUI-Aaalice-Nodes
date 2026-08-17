@@ -324,12 +324,25 @@ test("random browse requests omit cursors and keep source-scoped posts unseen ac
 	assert.equal(requestOptions[0].cache, "no-store", "random draws must bypass the browser HTTP cache");
 	assert.equal(appended[0].length, 1);
 	assert.equal(appended[1].length, 0, "a new draw must not replay a post already seen in this random session");
+	const scopeChanges = [
+		() => { state.query = "fantasy"; },
+		() => { state.filters.ratings = ["general"]; },
+		() => { state.filters.feed = "ranking"; },
+		() => { state.filters.period = "week"; },
+		() => { state.source = "gelbooru"; state.filters.feed = "search"; },
+	];
+	for (const changeScope of scopeChanges) {
+		changeScope();
+		await controller.search({ reset: true, page: 7 });
+		assert.equal(appended.at(-1).length, 1, "changing random scope must clear its transient seen set");
+	}
 	state.randomMode = false;
 	await controller.search({ reset: true, page: 7 });
-	assert.match(urls[2], /page=7/);
-	assert.doesNotMatch(urls[2], /random=1/);
-	assert.equal(requestOptions[2].cache, undefined);
-	assert.equal(appended[2].length, 1, "leaving random mode clears its transient seen set");
+	const sequentialIndex = urls.length - 1;
+	assert.match(urls[sequentialIndex], /page=7/);
+	assert.doesNotMatch(urls[sequentialIndex], /random=1/);
+	assert.equal(requestOptions[sequentialIndex].cache, undefined);
+	assert.equal(appended.at(-1).length, 1, "leaving random mode clears its transient seen set");
 	controller.destroy();
 });
 
