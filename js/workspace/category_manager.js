@@ -231,12 +231,18 @@ function categoryManager({ list, tools, footerInput, footerAdd, setSummary, isAc
 			const hidden = needle ? !visible.has(record.id) : hiddenByCollapse.has(record.id);
 			if (editingId === record.id) { if (!hidden) { visibleRows += 1; drawEditor(record.category, record.depth); } continue; }
 			const expanded = needle ? true : !collapsed.has(record.id);
+			const toggleExpanded = () => {
+				if (!record.hasChildren || controlsLocked() || needle) return;
+				if (expanded) collapsed.add(record.id); else collapsed.delete(record.id);
+				focusId = record.id;
+				draw();
+			};
 			const row = applyCategoryColor(el("div", {
-				className: "aa-category-tree-row",
+				className: `aa-category-tree-row${record.hasChildren ? " has-children" : ""}`,
 				attrs: { role: "treeitem", tabindex: "0", "aria-level": String(record.depth + 1), ...(record.hasChildren ? { "aria-expanded": String(expanded) } : {}), title: record.pathLabel },
 			}), record.category);
 			row.dataset.categoryId = record.id; row.hidden = hidden; row.style.setProperty("--aa-category-depth", String(Math.min(record.depth, 6))); rowById.set(record.id, row); if (!hidden) visibleRows += 1;
-			const toggle = iconButton({ iconName: "moveDown", label: expanded ? t("aaalice.workspace.libraryUi.collapseCategory", "Collapse category") : t("aaalice.workspace.libraryUi.expandCategory", "Expand category"), className: `aa-category-tree-row__toggle${expanded ? " is-expanded" : ""}`, variant: "ghost", disabled: !record.hasChildren || controlsLocked() || Boolean(needle), onClick: () => { if (expanded) collapsed.add(record.id); else collapsed.delete(record.id); draw(); } });
+			const toggle = iconButton({ iconName: "moveDown", label: expanded ? t("aaalice.workspace.libraryUi.collapseCategory", "Collapse category") : t("aaalice.workspace.libraryUi.expandCategory", "Expand category"), className: `aa-category-tree-row__toggle${expanded ? " is-expanded" : ""}`, variant: "ghost", disabled: !record.hasChildren || controlsLocked() || Boolean(needle), onClick: toggleExpanded });
 			const handle = iconButton({ iconName: "move", label: t("aaalice.workspace.libraryUi.dragCategory", "Drag to move category"), className: "aa-category-tree-row__handle", variant: "ghost", disabled: controlsLocked() }); handle.draggable = !controlsLocked();
 			handle.addEventListener("dragstart", (event) => { dragId = record.id; activeId = record.id; row.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", record.id); });
 			handle.addEventListener("dragend", () => { dragId = null; list.classList.remove("is-root-drop-target"); clearExpandTimer(); draw(); });
@@ -247,7 +253,11 @@ function categoryManager({ list, tools, footerInput, footerAdd, setSummary, isAc
 			] });
 			row.append(toggle, handle, el("span", "aa-category-tree-row__swatch"), el("span", { className: "aa-category-tree-row__copy", children: [el("strong", null, record.category.name)] }), el("em", { className: "aa-category-tree-row__count", text: String(currentTree.aggregateCount.get(record.id) || 0) }), actions);
 			row.addEventListener("focus", () => { activeId = record.id; for (const item of rowById.values()) item.tabIndex = item === row ? 0 : -1; });
-			row.addEventListener("keydown", (event) => { keyboardMove(event, record, currentTree); keyboardNavigate(event, record, currentTree); });
+			row.addEventListener("click", (event) => { if (!event.target.closest("button, input, select, textarea, a, [contenteditable='true']")) toggleExpanded(); });
+			row.addEventListener("keydown", (event) => {
+				if (!event.altKey && (event.key === "Enter" || event.key === " ") && record.hasChildren && !needle) { event.preventDefault(); toggleExpanded(); return; }
+				keyboardMove(event, record, currentTree); keyboardNavigate(event, record, currentTree);
+			});
 			row.addEventListener("dragover", (event) => { const plan = dropPlan(event, record, currentTree); if (!plan) return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; row.dataset.dropZone = plan.zone; if (plan.zone === "inside" && !needle && collapsed.has(record.id) && !expandTimer) expandTimer = setTimeout(() => { collapsed.delete(record.id); expandTimer = 0; row.setAttribute("aria-expanded", "true"); toggle.classList.add("is-expanded"); toggle.setAttribute("aria-label", t("aaalice.workspace.libraryUi.collapseCategory", "Collapse category")); syncCollapsedRows(); }, EXPAND_DELAY); else if (plan.zone !== "inside") clearExpandTimer(); });
 			row.addEventListener("dragleave", (event) => { if (!row.contains(event.relatedTarget)) { delete row.dataset.dropZone; clearExpandTimer(); } });
 			row.addEventListener("drop", (event) => { const plan = dropPlan(event, record, currentTree); if (!plan) return; event.preventDefault(); clearExpandTimer(); if (plan.zone === "inside") collapsed.delete(record.id); void move(dragId, plan.parentId, plan.index); dragId = null; });

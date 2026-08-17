@@ -24,6 +24,17 @@ export function categoryPicker({
 	let currentValue = String(value || "");
 	let popover = null;
 	let redrawPopover = null;
+	let collapseInitialized = false;
+	const collapsed = new Set();
+	const revealCurrentAncestors = () => {
+		for (const category of categoryTree?.ancestors(currentValue) || []) collapsed.delete(category.id);
+	};
+	const initializeCollapsed = () => {
+		if (collapseInitialized) return;
+		for (const record of categoryTree?.flat || []) if (record.hasChildren) collapsed.add(record.id);
+		revealCurrentAncestors();
+		collapseInitialized = true;
+	};
 	const root = el("div", `aa-category-picker${className ? ` ${className}` : ""}`);
 	const swatch = el("span", { className: "aa-category-picker__swatch", attrs: { "aria-hidden": "true" } });
 	const label = el("span", "aa-category-picker__label");
@@ -53,6 +64,7 @@ export function categoryPicker({
 	};
 	const open = () => {
 		if (popover || trigger.disabled) return;
+		initializeCollapsed();
 		trigger.setAttribute("aria-expanded", "true");
 		root.classList.add("is-open");
 		popover = createAnchoredPopover({
@@ -77,6 +89,10 @@ export function categoryPicker({
 			const rows = [...list.querySelectorAll('[role="option"]:not(:disabled)')];
 			rows[Math.max(0, Math.min(rows.length - 1, offset))]?.focus();
 		};
+		const redrawAndFocus = (categoryId) => {
+			draw();
+			list.querySelector(`[data-category-id="${CSS.escape(categoryId)}"]`)?.focus({ preventScroll: true });
+		};
 		const draw = () => {
 			const needle = normalized(search.value);
 			const visibleIds = new Set();
@@ -88,12 +104,13 @@ export function categoryPicker({
 					if (visibleIds.has(record.id) && record.parentId) visibleIds.add(record.parentId);
 				}
 			}
+			const hiddenByCollapse = new Set();
 			const rows = [];
 			const emptyActive = !currentValue;
 			const empty = el("button", {
 				className: `aa-category-picker__option is-empty${emptyActive ? " is-selected" : ""}`,
 				attrs: { type: "button", role: "option", "aria-selected": String(emptyActive) },
-				children: [el("span", "aa-category-picker__option-marker"), el("span", "aa-category-picker__option-copy", emptyLabel), icon("statusCheck")],
+				children: [el("span", "aa-category-picker__option-expander"), el("span", "aa-category-picker__option-marker"), el("span", "aa-category-picker__option-copy", emptyLabel), icon("statusCheck")],
 			});
 			empty.addEventListener("click", () => choose(""));
 			rows.push(empty);
@@ -101,28 +118,45 @@ export function categoryPicker({
 				const active = currentValue === UNCATEGORIZED_CATEGORY_ID;
 				const count = countValues?.get(UNCATEGORIZED_CATEGORY_ID) ?? countValues?.get(null) ?? categoryTree?.uncategorizedCount ?? 0;
 				const uncategorized = el("button", {
-					className: `aa-category-picker__option is-uncategorized${active ? " is-selected" : ""}`,
+					className: `aa-category-picker__option is-uncategorized${showCounts ? " has-count" : ""}${active ? " is-selected" : ""}`,
 					attrs: { type: "button", role: "option", "aria-selected": String(active) },
-					children: [el("span", "aa-category-picker__option-marker"), el("span", "aa-category-picker__option-copy", uncategorizedLabel), ...(showCounts ? [el("em", null, String(count))] : []), icon("statusCheck")],
+					children: [el("span", "aa-category-picker__option-expander"), el("span", "aa-category-picker__option-marker"), el("span", "aa-category-picker__option-copy", uncategorizedLabel), ...(showCounts ? [el("em", null, String(count))] : []), icon("statusCheck")],
 				});
 				uncategorized.addEventListener("click", () => choose(UNCATEGORIZED_CATEGORY_ID));
 				rows.push(uncategorized);
 			}
 			for (const record of categoryTree?.flat || []) {
-				if (needle && !visibleIds.has(record.id)) continue;
+				if (!needle && record.parentId && (hiddenByCollapse.has(record.parentId) || collapsed.has(record.parentId))) hiddenByCollapse.add(record.id);
+				if ((needle && !visibleIds.has(record.id)) || (!needle && hiddenByCollapse.has(record.id))) continue;
 				const active = record.id === currentValue;
+				const expanded = needle ? true : !collapsed.has(record.id);
+				const expander = el("span", {
+					className: `aa-category-picker__option-expander${record.hasChildren ? " has-children" : ""}${expanded ? " is-expanded" : ""}`,
+					attrs: { "aria-hidden": "true" },
+					children: record.hasChildren ? [icon("moveDown")] : [],
+				});
 				const option = applyCategoryColor(el("button", {
-					className: `aa-category-picker__option${active ? " is-selected" : ""}`,
-					attrs: { type: "button", role: "option", "aria-selected": String(active), title: record.pathLabel },
+					className: `aa-category-picker__option${showCounts ? " has-count" : ""}${active ? " is-selected" : ""}`,
+					attrs: { type: "button", role: "option", "aria-selected": String(active), ...(record.hasChildren ? { "aria-expanded": String(expanded) } : {}), title: record.pathLabel },
 					children: [
+						expander,
 						el("span", "aa-category-picker__option-marker"),
 						el("span", { className: "aa-category-picker__option-copy", children: [el("strong", null, record.pathLabel)] }),
 						...(showCounts ? [el("em", null, String((countValues || categoryTree.aggregateCount).get(record.id) || 0))] : []),
 						icon("statusCheck"),
 					],
 				}), record.category);
+				option.dataset.categoryId = record.id;
 				option.style.setProperty("--aa-category-depth", String(Math.min(record.depth, 6)));
-				option.addEventListener("click", () => choose(record.id));
+				option.addEventListener("click", (event) => {
+					if (record.hasChildren && event.target.closest(".aa-category-picker__option-expander")) {
+						event.preventDefault();
+						if (expanded) collapsed.add(record.id); else collapsed.delete(record.id);
+						redrawAndFocus(record.id);
+						return;
+					}
+					choose(record.id);
+				});
 				rows.push(option);
 			}
 			list.replaceChildren(...rows);
@@ -130,12 +164,21 @@ export function categoryPicker({
 				if (event.isComposing) return;
 				const enabled = [...list.querySelectorAll('[role="option"]:not(:disabled)')];
 				const index = enabled.indexOf(option);
+				const record = categoryTree?.record(option.dataset.categoryId);
 				if (event.key === "ArrowDown" || event.key === "ArrowUp") {
 					event.preventDefault();
 					enabled[(index + (event.key === "ArrowDown" ? 1 : -1) + enabled.length) % enabled.length]?.focus();
 				} else if (event.key === "Home" || event.key === "End") {
 					event.preventDefault();
 					enabled[event.key === "Home" ? 0 : enabled.length - 1]?.focus();
+				} else if (!needle && event.key === "ArrowRight" && record?.hasChildren) {
+					event.preventDefault();
+					if (collapsed.delete(record.id)) redrawAndFocus(record.id);
+					else list.querySelector(`[data-category-id="${CSS.escape(categoryTree.children(record.id)[0]?.id || "")}"]`)?.focus({ preventScroll: true });
+				} else if (!needle && event.key === "ArrowLeft" && record) {
+					event.preventDefault();
+					if (record.hasChildren && !collapsed.has(record.id)) { collapsed.add(record.id); redrawAndFocus(record.id); }
+					else if (record.parentId) list.querySelector(`[data-category-id="${CSS.escape(record.parentId)}"]`)?.focus({ preventScroll: true });
 				} else if (event.key === "Escape") {
 					event.preventDefault(); close(); trigger.focus();
 				}
@@ -164,11 +207,18 @@ export function categoryPicker({
 	root.control = trigger;
 	root.setTree = (nextTree, nextValue = currentValue) => {
 		const structureChanged = categoryTree !== nextTree;
-		categoryTree = nextTree; currentValue = String(nextValue || ""); sync();
+		const previousIds = new Set(categoryTree?.flat?.map((record) => record.id) || []);
+		categoryTree = nextTree; currentValue = String(nextValue || "");
+		if (collapseInitialized) {
+			for (const categoryId of collapsed) if (!categoryTree?.record(categoryId)?.hasChildren) collapsed.delete(categoryId);
+			for (const record of categoryTree?.flat || []) if (record.hasChildren && !previousIds.has(record.id)) collapsed.add(record.id);
+			revealCurrentAncestors();
+		}
+		sync();
 		if (structureChanged) close(); else redrawPopover?.();
 	};
 	root.setCounts = (nextCounts) => { countValues = nextCounts; redrawPopover?.(); };
-	root.setValue = (next) => { currentValue = String(next || ""); sync(); redrawPopover?.(); };
+	root.setValue = (next) => { currentValue = String(next || ""); revealCurrentAncestors(); sync(); redrawPopover?.(); };
 	root.setDisabled = (next) => { trigger.disabled = Boolean(next); if (trigger.disabled) close(); };
 	root.destroy = close;
 	Object.defineProperty(root, "value", { get: () => currentValue, set: (next) => root.setValue(next) });

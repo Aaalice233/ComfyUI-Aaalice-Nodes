@@ -503,8 +503,13 @@ test("category filters reuse the shared searchable tree picker", () => {
 	assert.match(categoryPicker, /applyCategoryColor/);
 	assert.match(categoryPicker, /--aa-category-depth/);
 	assert.match(categoryPicker, /visibleIds\.add\(record\.parentId\)/);
+	assert.match(categoryPicker, /const collapsed = new Set\(\)/);
+	assert.match(categoryPicker, /if \(record\.hasChildren\) collapsed\.add\(record\.id\)/);
+	assert.match(categoryPicker, /hiddenByCollapse\.has\(record\.parentId\)/);
+	assert.match(categoryPicker, /aa-category-picker__option-expander/);
+	assert.match(categoryPicker, /"aria-expanded": String\(expanded\)/);
 	assert.match(categoryPicker, /event\.isComposing/);
-	assert.match(categoryPicker, /event\.key === "ArrowDown"/);
+	for (const key of ["ArrowDown", "ArrowLeft", "ArrowRight"]) assert.match(categoryPicker, new RegExp(`event\\.key === "${key}"`));
 	assert.match(categoryPicker, /UNCATEGORIZED_CATEGORY_ID/);
 	assert.match(selector, /uncategorizedLabel/);
 	assert.match(selector, /categoryPicker\(\{/);
@@ -529,6 +534,10 @@ test("category manager locks accessible tree editing, movement, and rollback con
 	assert.match(categoryManager, /event\.altKey/);
 	for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) assert.match(categoryManager, new RegExp(`"${key}"`));
 	assert.match(categoryManager, /collapsed\.clear\(\)/);
+	assert.match(categoryManager, /row\.addEventListener\("click", \(event\) => \{ if \(!event\.target\.closest\("button, input, select, textarea, a, \[contenteditable='true'\]"\)\) toggleExpanded\(\); \}\)/);
+	assert.match(categoryManager, /event\.key === "Enter" \|\| event\.key === " "/);
+	assert.match(theme, /\.aa-category-tree-row\.has-children \{ cursor: pointer; \}/);
+	assert.match(theme, /\.aa-category-picker__option-expander \{[^}]*width: 26px;[^}]*height: 32px;/);
 	assert.match(categoryManager, /deleteDescendants/);
 	assert.match(categoryManager, /localCategories = optimistic/);
 	assert.match(categoryManager, /finally \{[\s\S]*localCategories = null; localTree = null/);
