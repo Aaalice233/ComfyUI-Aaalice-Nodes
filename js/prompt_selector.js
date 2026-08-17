@@ -6,6 +6,7 @@ import { ensureI18nReady, t } from "./i18n.js";
 import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { applyCategoryColor } from "./lib/category_color.js";
+import { categoryPicker } from "./lib/category_picker.js";
 import { collectionDisplayName, collectionSelectOption, DEFAULT_COLLECTION_ID } from "./lib/collection.js";
 import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { closeImagePreviewWithin, createImagePreview } from "./lib/image_preview.js";
@@ -101,10 +102,10 @@ function categorySelectionSummary(state) {
 		counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
 	}
 	const knownCategoryIds = new Set(promptLibraryStore.snapshot.categories.map((category) => category.id));
-	const rows = promptLibraryStore.snapshot.categories.filter((category) => counts.has(category.id)).map((category) => applyCategoryColor(el("div", { className: "aa-prompt-selection-category", children: [
-		el("span", null, category.name),
-		el("em", null, String(counts.get(category.id))),
-	] }), category));
+	const rows = promptLibraryStore.categoryRecords().filter((record) => counts.has(record.id)).map((record) => applyCategoryColor(el("div", { className: "aa-prompt-selection-category", children: [
+		el("span", null, record.pathLabel),
+		el("em", null, String(counts.get(record.id))),
+	] }), record.category));
 	const uncategorized = [...counts].reduce((total, [categoryId, count]) => total + (!categoryId || !knownCategoryIds.has(categoryId) ? count : 0), 0);
 	if (uncategorized) rows.push(el("div", { className: "aa-prompt-selection-category", children: [
 		el("span", null, t("aaalice.promptSelector.uncategorized", "Uncategorized")),
@@ -231,7 +232,7 @@ function mountPromptEntries(node, list, view, entries) {
 		preview.addEventListener("dblclick", (event) => { event.preventDefault(); event.stopPropagation(); closePromptSurfaces(node); void openPromptLibraryEntryEditor(entry.id); });
 		const category = promptLibraryStore.category(entry.categoryId);
 		const copy = el("button", { className: "aa-prompt-selector-copy", attrs: { type: "button", "aria-label": entry.title, "aria-pressed": String(isSelected) }, children: [
-			el("span", { className: "aa-prompt-selector-title", children: [el("strong", null, entry.title), ...(category ? [applyCategoryColor(el("em", null, category.name), category)] : [])] }),
+			el("span", { className: "aa-prompt-selector-title", children: [el("strong", null, entry.title), ...(category ? [applyCategoryColor(el("em", { attrs: { title: promptLibraryStore.categoryPath(category.id) }, text: promptLibraryStore.categoryPath(category.id) }), category)] : [])] }),
 			el("small", null, entry.text),
 		] });
 		copy.addEventListener("click", () => mutate(node, (current) => togglePromptSelection(current, entry.id, !isSelected)));
@@ -263,11 +264,11 @@ function updatePromptSelectorView(node, view, state, { resetScroll = false } = {
 	closePromptSurfaces(node);
 	view.virtualList.setState?.(state);
 	const selectedOnly = Boolean(node._aaalicePromptSelectedOnly);
-	const selectedCategoryCounts = countPromptSelectionsByCategory(state, promptLibraryStore.snapshot.entries);
-	if (view.categoryFilter) view.categoryFilter.setOptions(promptFilterOptions({
-		label: t("aaalice.promptSelector.allCategories", "All categories"), options: promptLibraryStore.snapshot.categories,
-		selectedCounts: selectedCategoryCounts, totalSelected: state.selections.length,
-	}), node._aaalicePromptCategory);
+	const selectedCategoryCounts = promptLibraryStore.index.categoryTree.aggregateCounts(countPromptSelectionsByCategory(state, promptLibraryStore.snapshot.entries));
+	if (view.categoryFilter) {
+		view.categoryFilter.setTree(promptLibraryStore.index.categoryTree, node._aaalicePromptCategory);
+		view.categoryFilter.setCounts(selectedCategoryCounts);
+	}
 	if (view.collectionFilter) view.collectionFilter.setOptions(promptFilterOptions({
 		label: t("aaalice.promptSelector.allCollections", "All favorite folders"),
 		options: promptLibraryStore.snapshot.collections.map((item) => ({ ...item, name: favoriteFolderName(item) })),
@@ -323,7 +324,7 @@ function render(node, { syncHost = false } = {}) {
 	closePromptSurfaces(node); destroyVirtualLists(root);
 	root.replaceChildren();
 	const visibleEntries = filteredEntries(node, state);
-	const selectedCategoryCounts = countPromptSelectionsByCategory(state, promptLibraryStore.snapshot.entries);
+	const selectedCategoryCounts = promptLibraryStore.index.categoryTree.aggregateCounts(countPromptSelectionsByCategory(state, promptLibraryStore.snapshot.entries));
 	const list = el("div", { className: "aa-prompt-selector-list", attrs: { tabindex: "0" } });
 	const view = { root, searchOpen, state, list };
 	list.addEventListener("pointerenter", () => {
@@ -366,7 +367,7 @@ function render(node, { syncHost = false } = {}) {
 		const searchButton = searchToggleButton({ label: t("aaalice.promptSelector.search", "Search prompt library"), value: query, className: "aa-prompt-selector-search-toggle", onClick: () => { node._aaalicePromptSearchOpen = true; node._aaalicePromptSearchShouldFocus = true; render(node); } });
 		view.searchToggle = searchButton;
 		searchButton.setAttribute("aria-pressed", String(Boolean(query)));
-		const categoryFilter = promptFilterSelect({ label: t("aaalice.promptSelector.allCategories", "All categories"), value: node._aaalicePromptCategory, options: promptLibraryStore.snapshot.categories, selectedCounts: selectedCategoryCounts, totalSelected: state.selections.length, onChange: (value) => { node._aaalicePromptCategory = value; node._aaalicePromptResetScroll = true; render(node); } });
+		const categoryFilter = categoryPicker({ tree: promptLibraryStore.index.categoryTree, value: node._aaalicePromptCategory, counts: selectedCategoryCounts, ariaLabel: t("aaalice.promptSelector.allCategories", "All categories"), emptyLabel: t("aaalice.promptSelector.allCategories", "All categories"), uncategorizedLabel: t("aaalice.promptSelector.uncategorized", "Uncategorized"), searchPlaceholder: t("aaalice.workspace.libraryUi.searchCategories", "Search categories"), className: "aa-prompt-selector-filter", onChange: (value) => { node._aaalicePromptCategory = value; node._aaalicePromptResetScroll = true; render(node); } });
 		view.categoryFilter = categoryFilter;
 		bindSelectionSummary(categoryFilter.control, () => categorySelectionSummary(stateFor(node)));
 		const recentFirst = node._aaalicePromptRecentFirst !== false;

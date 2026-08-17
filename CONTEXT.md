@@ -8,7 +8,7 @@
 
 - **Prompt Library（词库）**：由用户独立维护、可被多个工作流引用的 Prompt Entry 集合。它不属于任何单个 PromptSelector 或工作流。避免使用 Node List、Workflow Prompts。
 
-- **Category（分类）**：Prompt Entry 唯一归属的扁平主分类，拥有可编辑的识别色；颜色用于跨界面识别，不属于分类身份。避免使用 Folder、Collection。
+- **Category（分类）**：Prompt Entry 唯一归属的可嵌套主分类树节点，使用稳定 ID、单一可空父级、同级顺序和可编辑识别色；词条可直接归属任意层级。颜色与完整路径用于跨界面识别，但都不属于分类身份。避免使用 Folder、Collection。
 
 - **Collection（收藏夹）**：对 Prompt Entry 进行多对多收藏并保留夹内顺序的人工集合；`Collection` 是备份与 API 中保持稳定的协议名。避免使用 Category、Tag Folder。
 

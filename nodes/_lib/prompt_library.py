@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .prompt_library_archive import PromptLibraryArchive
+from .prompt_library_categories import CATEGORY_COLOR_PALETTE, PromptCategoryMixin, category_color as _category_color
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMPORT_BYTES = 2 * 1024 * 1024 * 1024
 MAX_EXPORT_BYTES = 2 * 1024 * 1024 * 1024
@@ -24,12 +25,6 @@ MAX_ARCHIVE_FILES = 100_000
 IMPORT_STAGE_TTL_SECONDS = 60 * 60
 DEFAULT_COLLECTION_ID = "00000000-0000-5000-8000-000000000001"
 DEFAULT_COLLECTION_NAME = "Favorites"
-CATEGORY_COLOR_PALETTE = (
-    "#7C3AED", "#2563EB", "#0891B2", "#0D9488",
-    "#059669", "#65A30D", "#CA8A04", "#D97706",
-    "#EA580C", "#DC2626", "#E11D48", "#DB2777",
-    "#C026D3", "#9333EA", "#4F46E5", "#0284C7",
-)
 
 
 def _archive_configuration() -> dict[str, Any]:
@@ -56,18 +51,6 @@ def _text(value: Any, field: str, *, empty: bool = True) -> str:
     return value
 
 
-def _category_color(value: Any, fallback: str | None = None) -> str:
-    if value is None or value == "":
-        if fallback is not None:
-            return fallback
-        raise ValueError("category color is required")
-    if not isinstance(value, str) or len(value) != 7 or value[0] != "#" or any(
-        character not in "0123456789abcdefABCDEF" for character in value[1:]
-    ):
-        raise ValueError("category color must use #RRGGBB format")
-    return value.upper()
-
-
 def detect_image(data: bytes) -> tuple[str, str]:
     if len(data) > MAX_IMAGE_BYTES:
         raise ValueError(f"preview image exceeds {MAX_IMAGE_BYTES} bytes")
@@ -82,7 +65,7 @@ def detect_image(data: bytes) -> tuple[str, str]:
     raise ValueError("preview image must be PNG, JPEG, GIF, or WebP")
 
 
-class PromptLibrary:
+class PromptLibrary(PromptCategoryMixin):
     def __init__(self, root: str | os.PathLike[str]):
         self.root = Path(root)
         self.db_path = self.root / "prompt-library.sqlite3"
@@ -115,9 +98,11 @@ class PromptLibrary:
         with self.connection() as db:
             db.executescript(
                 """
+                BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS categories (
                     id TEXT PRIMARY KEY, name TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0,
-                    color TEXT NOT NULL DEFAULT ''
+                    color TEXT NOT NULL DEFAULT '',
+                    parent_id TEXT REFERENCES categories(id)
                 );
                 CREATE TABLE IF NOT EXISTS assets (
                     hash TEXT PRIMARY KEY, mime TEXT NOT NULL, extension TEXT NOT NULL, size INTEGER NOT NULL
@@ -151,10 +136,14 @@ class PromptLibrary:
             columns = {row["name"] for row in db.execute("PRAGMA table_info(categories)")}
             if "color" not in columns:
                 db.execute("ALTER TABLE categories ADD COLUMN color TEXT NOT NULL DEFAULT ''")
+            if "parent_id" not in columns:
+                db.execute("ALTER TABLE categories ADD COLUMN parent_id TEXT REFERENCES categories(id)")
+            db.execute("CREATE INDEX IF NOT EXISTS categories_parent_position ON categories(parent_id, position)")
             entry_columns = {row["name"] for row in db.execute("PRAGMA table_info(entries)")}
             if "last_used_at" not in entry_columns:
                 db.execute("ALTER TABLE entries ADD COLUMN last_used_at INTEGER NOT NULL DEFAULT 0")
-            category_rows = db.execute("SELECT id, color FROM categories ORDER BY position, name, id").fetchall()
+            category_rows = db.execute("SELECT id, color, parent_id, position FROM categories ORDER BY position, name, id").fetchall()
+            self._validate_category_rows(category_rows)
             for index, row in enumerate(category_rows):
                 fallback = CATEGORY_COLOR_PALETTE[index % len(CATEGORY_COLOR_PALETTE)]
                 try:
@@ -208,9 +197,25 @@ class PromptLibrary:
                 entry["lastUsedAt"] = entry.pop("last_used_at")
                 entry["tagIds"] = entry_tags.get(entry["id"], [])
                 entry["collections"] = memberships.get(entry["id"], [])
+            categories = self._rows(db, "SELECT * FROM categories")
+            by_parent: dict[str | None, list[dict[str, Any]]] = {}
+            for category in categories:
+                by_parent.setdefault(category["parent_id"], []).append(category)
+            for siblings in by_parent.values():
+                siblings.sort(key=lambda item: (item["position"], item["name"], item["id"]))
+            ordered_categories: list[dict[str, Any]] = []
+            pending = list(reversed(by_parent.get(None, [])))
+            while pending:
+                category = pending.pop()
+                ordered_categories.append(category)
+                pending.extend(reversed(by_parent.get(category["id"], [])))
+            if len(ordered_categories) != len(categories):
+                raise ValueError("category tree cannot be serialized")
+            for category in ordered_categories:
+                category["parentId"] = category.pop("parent_id")
             return {
                 "version": SCHEMA_VERSION,
-                "categories": self._rows(db, "SELECT * FROM categories ORDER BY position, name, id"),
+                "categories": ordered_categories,
                 "collections": self._rows(db, "SELECT * FROM collections ORDER BY position, name, id"),
                 "tags": tags,
                 "entries": entries,
@@ -218,29 +223,6 @@ class PromptLibrary:
 
     def _next_position(self, db: sqlite3.Connection, table: str) -> int:
         return int(db.execute(f"SELECT COALESCE(MAX(position), -1) + 1 FROM {table}").fetchone()[0])
-
-    @staticmethod
-    def _next_category_color(db: sqlite3.Connection, position: int) -> str:
-        used = {row[0].upper() for row in db.execute("SELECT color FROM categories") if row[0]}
-        return next(
-            (color for color in CATEGORY_COLOR_PALETTE if color not in used),
-            CATEGORY_COLOR_PALETTE[position % len(CATEGORY_COLOR_PALETTE)],
-        )
-
-    def create_category(self, data: dict[str, Any]) -> dict[str, Any]:
-        category_id = _id(data.get("id"))
-        with self.transaction() as db:
-            position = int(data.get("position", self._next_position(db, "categories")))
-            color = _category_color(data.get("color"), self._next_category_color(db, position))
-            db.execute("INSERT INTO categories(id, name, position, color) VALUES (?, ?, ?, ?)",
-                       (category_id, _text(data.get("name"), "category name", empty=False), position, color))
-        return next(item for item in self.snapshot()["categories"] if item["id"] == category_id)
-
-    def update_category(self, category_id: str, data: dict[str, Any]) -> None:
-        self._update_named("categories", category_id, data)
-
-    def delete_category(self, category_id: str) -> None:
-        self._delete("categories", category_id)
 
     def create_collection(self, data: dict[str, Any]) -> dict[str, Any]:
         collection_id = _id(data.get("id"))
@@ -267,9 +249,6 @@ class PromptLibrary:
         if "position" in data:
             fields.append("position = ?")
             values.append(int(data["position"]))
-        if table == "categories" and "color" in data:
-            fields.append("color = ?")
-            values.append(_category_color(data["color"]))
         if not fields:
             return
         with self.transaction() as db:
@@ -451,6 +430,19 @@ class PromptLibrary:
                 return
             if not table:
                 raise ValueError(f"unsupported reorder kind: {kind}")
+            if kind == "categories":
+                by_parent: dict[str | None, list[str]] = {}
+                for item_id in ordered_ids:
+                    row = db.execute("SELECT parent_id FROM categories WHERE id = ?", (item_id,)).fetchone()
+                    if not row:
+                        raise KeyError(f"categories item not found: {item_id}")
+                    by_parent.setdefault(row["parent_id"], []).append(item_id)
+                for parent_id, category_ids in by_parent.items():
+                    current = self._category_siblings(db, parent_id)
+                    if set(category_ids) != set(current):
+                        raise ValueError("category reorder must contain every sibling in the affected parent")
+                    self._write_category_order(db, parent_id, category_ids)
+                return
             for position, item_id in enumerate(ordered_ids):
                 cursor = db.execute(f"UPDATE {table} SET position = ? WHERE id = ?", (position, item_id))
                 if not cursor.rowcount:

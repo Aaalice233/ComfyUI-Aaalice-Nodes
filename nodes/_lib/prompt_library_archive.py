@@ -13,6 +13,12 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
+from .prompt_library_archive_categories import (
+    archive_categories_parent_first,
+    migrate_v1_archive_categories,
+    validate_archive_category_tree,
+)
+
 
 class PromptLibraryArchive:
     """Owns archive staging, validation, migration, and transactional import."""
@@ -35,19 +41,62 @@ class PromptLibraryArchive:
             return configuration[name]
         return getattr(self.library, name)
 
+    @staticmethod
+    def _category_scope(categories: list[dict[str, Any]], category_id: str) -> set[str]:
+        by_parent: dict[str | None, list[str]] = {}
+        for category in categories:
+            by_parent.setdefault(category.get("parentId"), []).append(category["id"])
+        if not any(category["id"] == category_id for category in categories):
+            raise KeyError(f"category not found: {category_id}")
+        scope: set[str] = set()
+        pending = [category_id]
+        while pending:
+            current = pending.pop()
+            if current in scope:
+                raise ValueError(f"category tree contains a cycle at {current}")
+            scope.add(current)
+            pending.extend(by_parent.get(current, []))
+        return scope
+
+    @staticmethod
+    def _with_category_ancestors(categories: list[dict[str, Any]], category_ids: set[str]) -> set[str]:
+        by_id = {category["id"]: category for category in categories}
+        result = set(category_ids)
+        for category_id in tuple(category_ids):
+            current = category_id
+            seen: set[str] = set()
+            while current in by_id:
+                if current in seen:
+                    raise ValueError(f"category tree contains a cycle at {current}")
+                seen.add(current)
+                result.add(current)
+                parent_id = by_id[current].get("parentId")
+                if parent_id is None:
+                    break
+                current = parent_id
+        return result
+
     def export_archive_to_path(self, *, entry_ids: list[str] | None = None, category_id: str | None = None,
                                collection_id: str | None = None) -> Path:
         snapshot = self.snapshot()
         selected = snapshot["entries"]
+        complete_export = entry_ids is None and category_id is None and collection_id is None
         if entry_ids is not None:
             wanted = set(entry_ids)
             selected = [entry for entry in selected if entry["id"] in wanted]
+        category_scope: set[str] | None = None
         if category_id:
-            selected = [entry for entry in selected if entry["categoryId"] == category_id]
+            category_scope = self._category_scope(snapshot["categories"], category_id)
+            selected = [entry for entry in selected if entry["categoryId"] in category_scope]
         if collection_id:
             selected = [entry for entry in selected if any(item["collectionId"] == collection_id for item in entry["collections"])]
         selected_ids = {entry["id"] for entry in selected}
         category_ids = {entry["categoryId"] for entry in selected if entry["categoryId"]}
+        if complete_export:
+            category_ids = {category["id"] for category in snapshot["categories"]}
+        elif category_scope is not None:
+            category_ids.update(category_scope)
+        category_ids = self._with_category_ancestors(snapshot["categories"], category_ids)
         collection_ids = {item["collectionId"] for entry in selected for item in entry["collections"]}
         tag_ids = {tag for entry in selected for tag in entry["tagIds"]}
         manifest = {
@@ -171,7 +220,7 @@ class PromptLibraryArchive:
                 if manifest_info.file_size > self.MAX_MANIFEST_BYTES:
                     raise ValueError(f"manifest.json exceeds {self.MAX_MANIFEST_BYTES // (1024 * 1024)} MiB limit")
                 try:
-                    manifest = json.loads(archive.read("manifest.json"))
+                    manifest = self._migrate_manifest(json.loads(archive.read("manifest.json")))
                 except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                     raise ValueError("archive has no valid manifest.json") from exc
                 for info in infos:
@@ -217,10 +266,23 @@ class PromptLibraryArchive:
         assets = {path.stem: path for path in (stage / "assets").iterdir() if path.is_file()}
         return manifest, assets
 
+    def _migrate_manifest(self, manifest: Any) -> Any:
+        if not isinstance(manifest, dict) or manifest.get("format") != "aaalice-prompt-library":
+            return manifest
+        version = manifest.get("version")
+        if version == self.SCHEMA_VERSION:
+            return manifest
+        if version != 1:
+            return manifest
+        migrated = dict(manifest)
+        migrated["version"] = self.SCHEMA_VERSION
+        migrated["categories"] = migrate_v1_archive_categories(manifest.get("categories", []))
+        return migrated
+
     def _validate_manifest(self, manifest: Any) -> None:
         if not isinstance(manifest, dict) or manifest.get("format") != "aaalice-prompt-library":
             raise ValueError("unsupported prompt-library manifest")
-        if manifest.get("version") != self.SCHEMA_VERSION:
+        if manifest.get("version") not in {1, self.SCHEMA_VERSION}:
             raise ValueError(f"unsupported prompt-library version: {manifest.get('version')!r}")
         for field in ("categories", "collections", "tags", "entries"):
             if not isinstance(manifest.get(field), list):
@@ -234,7 +296,10 @@ class PromptLibraryArchive:
                     raise ValueError(f"manifest {field} contains duplicate id: {item['id']}")
                 if not isinstance(item.get("name"), str) or not item["name"].strip():
                     raise ValueError(f"manifest {field}[{index}] has no valid name")
-                if "position" in item and (not isinstance(item["position"], int) or isinstance(item["position"], bool)):
+                if "position" in item and (
+                    not isinstance(item["position"], int) or isinstance(item["position"], bool)
+                    or (field == "categories" and item["position"] < 0)
+                ):
                     raise ValueError(f"manifest {field}[{index}] has an invalid position")
                 if field == "categories" and "color" in item:
                     try:
@@ -242,6 +307,13 @@ class PromptLibraryArchive:
                     except ValueError as exc:
                         raise ValueError(f"manifest categories[{index}] has an invalid color") from exc
                 seen.add(item["id"])
+        categories = manifest["categories"]
+        for index, item in enumerate(categories):
+            parent_id = item.get("parentId") if manifest.get("version") != 1 else None
+            if parent_id is not None and (not isinstance(parent_id, str) or not parent_id):
+                raise ValueError(f"manifest categories[{index}] has an invalid parentId")
+        category_tree = migrate_v1_archive_categories(categories) if manifest.get("version") == 1 else categories
+        validate_archive_category_tree(category_tree, (item["id"] for item in self.snapshot()["categories"]))
 
     def _entry_problem(self, raw: Any, manifest: dict[str, Any]) -> str | None:
         if not isinstance(raw, dict) or not isinstance(raw.get("id"), str) or not raw["id"]:
@@ -281,8 +353,9 @@ class PromptLibraryArchive:
         asset_sink: Any = None,
     ) -> dict[str, Any]:
         if isinstance(raw, dict) and raw.get("format") == "aaalice-prompt-library":
-            self._validate_manifest(raw)
-            return raw
+            migrated = self._migrate_manifest(raw)
+            self._validate_manifest(migrated)
+            return migrated
         entries: list[dict[str, Any]] = []
         categories: list[dict[str, Any]] = []
         tags: list[dict[str, str]] = []
@@ -299,7 +372,8 @@ class PromptLibraryArchive:
         for category_position, (category_name, values) in enumerate(iterable):
             category_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"aaalice:legacy-category:{category_name}"))
             categories.append({"id": category_id, "name": str(category_name), "position": category_position,
-                               "color": self.CATEGORY_COLOR_PALETTE[category_position % len(self.CATEGORY_COLOR_PALETTE)]})
+                               "color": self.CATEGORY_COLOR_PALETTE[category_position % len(self.CATEGORY_COLOR_PALETTE)],
+                               "parentId": None})
             if isinstance(values, dict):
                 values = values.get("prompts", values.get("items", []))
             if not isinstance(values, list):
@@ -353,6 +427,7 @@ class PromptLibraryArchive:
                 "collections": [], "tags": tags, "entries": entries}
 
     def preflight_import(self, manifest: dict[str, Any]) -> dict[str, Any]:
+        manifest = self._migrate_manifest(manifest)
         self._validate_manifest(manifest)
         local = {entry["id"]: entry for entry in self.snapshot()["entries"]}
         result = {"new": [], "update": [], "duplicate": [], "conflict": [], "invalid": []}
@@ -383,6 +458,7 @@ class PromptLibraryArchive:
         assets: dict[str, Path],
         resolutions: dict[str, str] | None = None,
     ) -> dict[str, Any]:
+        manifest = self._migrate_manifest(manifest)
         self._validate_manifest(manifest)
         invalid = self.preflight_import(manifest)["invalid"]
         if invalid:
@@ -418,13 +494,23 @@ class PromptLibraryArchive:
                         "INSERT OR IGNORE INTO assets(hash,mime,extension,size) VALUES (?,?,?,?)",
                         (digest, mime, extension, size),
                     )
-                for item in manifest["categories"]:
-                    position = int(item.get("position", 0))
-                    color = self.category_color(item.get("color"), self.CATEGORY_COLOR_PALETTE[position % len(self.CATEGORY_COLOR_PALETTE)])
-                    db.execute(
-                        "INSERT OR IGNORE INTO categories(id,name,position,color) VALUES (?,?,?,?)",
-                        (item["id"], item["name"], position, color),
+                local_category_ids = (row["id"] for row in db.execute("SELECT id FROM categories"))
+                for item in archive_categories_parent_first(manifest["categories"], local_category_ids):
+                    if db.execute("SELECT 1 FROM categories WHERE id = ?", (item["id"],)).fetchone():
+                        continue
+                    parent_id = item.get("parentId")
+                    siblings = self.library._category_siblings(db, parent_id)
+                    position = len(siblings)
+                    color = self.category_color(
+                        item.get("color"),
+                        self.CATEGORY_COLOR_PALETTE[position % len(self.CATEGORY_COLOR_PALETTE)],
                     )
+                    db.execute(
+                        "INSERT INTO categories(id,name,position,color,parent_id) VALUES (?,?,?,?,?)",
+                        (item["id"], item["name"], position, color, parent_id),
+                    )
+                    siblings.append(item["id"])
+                    self.library._write_category_order(db, parent_id, siblings)
                 for item in manifest["collections"]:
                     db.execute(
                         "INSERT OR IGNORE INTO collections(id,name,position) VALUES (?,?,?)",

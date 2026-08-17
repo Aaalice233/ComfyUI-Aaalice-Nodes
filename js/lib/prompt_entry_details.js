@@ -26,7 +26,7 @@ function detailsContent(entry) {
 		.map((collection) => collectionDisplayName(collection, defaultFavoritesLabel()));
 	const tags = promptLibraryStore.tagNames(entry.tagIds || []);
 	return el("article", { className: "aa-prompt-entry-details", children: [
-		el("header", { children: [el("strong", null, entry.title), ...(category ? [applyCategoryColor(el("span", null, category.name), category)] : [])] }),
+		el("header", { children: [el("strong", null, entry.title), ...(category ? [applyCategoryColor(el("span", null, promptLibraryStore.categoryPath(category.id)), category)] : [])] }),
 		el("section", { className: "aa-prompt-entry-details-prompt", children: [
 			el("span", null, t("aaalice.workspace.libraryUi.prompt", "Prompt")), el("p", null, entry.text),
 		] }),

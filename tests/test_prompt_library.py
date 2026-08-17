@@ -50,6 +50,7 @@ class PromptLibraryTests(unittest.TestCase):
     def test_crud_relations_order_and_cleanup(self):
         category, collection, entry = self.seed()
         snapshot = self.library.snapshot()
+        self.assertEqual(snapshot["version"], 2)
         self.assertEqual(snapshot["entries"][0]["categoryId"], category["id"])
         self.assertEqual(snapshot["entries"][0]["collections"][0]["collectionId"], collection["id"])
         self.assertEqual(len(snapshot["entries"][0]["tagIds"]), 2)
@@ -113,11 +114,138 @@ class PromptLibraryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as target:
             db = sqlite3.connect(Path(target) / "prompt-library.sqlite3")
             db.execute("CREATE TABLE categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0)")
-            db.execute("INSERT INTO categories(id,name,position) VALUES ('legacy','Legacy',0)")
+            db.execute("INSERT INTO categories(id,name,position) VALUES ('second','Second',1),('legacy','Legacy',0)")
+            db.execute(
+                "CREATE TABLE entries (id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL, "
+                "note TEXT NOT NULL DEFAULT '', category_id TEXT, preview_hash TEXT, "
+                "position INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+            )
+            db.execute("INSERT INTO entries(id,title,text,category_id) VALUES ('entry','Entry','text','legacy')")
             db.commit()
             db.close()
             migrated = PromptLibrary(target)
-            self.assertEqual(migrated.snapshot()["categories"][0]["color"], prompt_library_module.CATEGORY_COLOR_PALETTE[0])
+            snapshot = migrated.snapshot()
+            category = snapshot["categories"][0]
+            self.assertEqual([item["id"] for item in snapshot["categories"]], ["legacy", "second"])
+            self.assertEqual(category["id"], "legacy")
+            self.assertEqual(category["position"], 0)
+            self.assertIsNone(category["parentId"])
+            self.assertEqual(category["color"], prompt_library_module.CATEGORY_COLOR_PALETTE[0])
+            self.assertEqual(snapshot["entries"][0]["categoryId"], "legacy")
+            with migrated.connection() as migrated_db:
+                columns = {row["name"] for row in migrated_db.execute("PRAGMA table_info(categories)")}
+            self.assertIn("parent_id", columns)
+
+    def test_parent_migration_preserves_existing_category_identity_color_order_and_entry_links(self):
+        with tempfile.TemporaryDirectory() as target:
+            db = sqlite3.connect(Path(target) / "prompt-library.sqlite3")
+            db.execute("CREATE TABLE categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0)")
+            db.execute("INSERT INTO categories(id,name,color,position) VALUES ('first','First','#123456',0),('second','Second','#ABCDEF',1)")
+            db.execute(
+                "CREATE TABLE entries (id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL, "
+                "note TEXT NOT NULL DEFAULT '', category_id TEXT, preview_hash TEXT, "
+                "position INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+            )
+            db.execute("INSERT INTO entries(id,title,text,category_id) VALUES ('entry','Entry','text','second')")
+            db.commit()
+            db.close()
+            migrated = PromptLibrary(target).snapshot()
+        self.assertEqual(
+            [(item["id"], item["name"], item["color"], item["position"], item["parentId"]) for item in migrated["categories"]],
+            [("first", "First", "#123456", 0, None), ("second", "Second", "#ABCDEF", 1, None)],
+        )
+        self.assertEqual(migrated["entries"][0]["categoryId"], "second")
+
+    def test_parent_migration_rolls_back_when_existing_tree_data_is_invalid(self):
+        with tempfile.TemporaryDirectory() as target:
+            path = Path(target) / "prompt-library.sqlite3"
+            db = sqlite3.connect(path)
+            db.execute("CREATE TABLE categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0)")
+            db.execute("INSERT INTO categories(id,name,color,position) VALUES ('invalid','Invalid','#123456',-1)")
+            db.commit()
+            db.close()
+            with self.assertRaisesRegex(ValueError, "invalid position"):
+                PromptLibrary(target)
+            db = sqlite3.connect(path)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(categories)")}
+            db.close()
+        self.assertNotIn("parent_id", columns)
+
+    def test_nested_categories_move_atomically_and_reject_invalid_targets(self):
+        people = self.library.create_category({"name": "People"})
+        female = self.library.create_category({"name": "Female", "parentId": people["id"]})
+        hair = self.library.create_category({"name": "Hair", "parentId": female["id"]})
+        male = self.library.create_category({"name": "Male", "parentId": people["id"]})
+        self.library.move_category(hair["id"], people["id"], 1)
+        categories = {item["id"]: item for item in self.library.snapshot()["categories"]}
+        self.assertEqual(categories[hair["id"]]["parentId"], people["id"])
+        siblings = sorted(
+            (item for item in categories.values() if item["parentId"] == people["id"]),
+            key=lambda item: item["position"],
+        )
+        self.assertEqual([item["id"] for item in siblings], [female["id"], hair["id"], male["id"]])
+        with self.assertRaisesRegex(ValueError, "own descendant"):
+            self.library.move_category(people["id"], female["id"], 0)
+        with self.assertRaisesRegex(ValueError, "own parent"):
+            self.library.move_category(female["id"], female["id"], 0)
+        with self.assertRaisesRegex(KeyError, "parent category"):
+            self.library.move_category(female["id"], "missing", 0)
+        with self.assertRaisesRegex(KeyError, "parent category"):
+            self.library.create_category({"name": "Orphan", "parentId": "missing"})
+        with self.assertRaisesRegex(ValueError, "outside"):
+            self.library.move_category(female["id"], people["id"], 99)
+        with self.assertRaisesRegex(ValueError, "integer"):
+            self.library.move_category(female["id"], people["id"], True)
+        self.assertIsNone(next(item for item in self.library.snapshot()["categories"] if item["id"] == people["id"])["parentId"])
+
+        other_root = self.library.create_category({"name": "Other root"})
+        self.library.move_category(male["id"], None, 1)
+        root_ids = [item["id"] for item in sorted(
+            (item for item in self.library.snapshot()["categories"] if item["parentId"] is None),
+            key=lambda item: item["position"],
+        )]
+        self.assertEqual(root_ids, [people["id"], male["id"], other_root["id"]])
+
+        original_write = self.library._write_category_order
+        writes = 0
+
+        def fail_after_writes(db, parent_id, category_ids):
+            nonlocal writes
+            writes += 1
+            original_write(db, parent_id, category_ids)
+            if writes == 2:
+                raise RuntimeError("rollback move")
+
+        with patch.object(self.library, "_write_category_order", side_effect=fail_after_writes):
+            with self.assertRaisesRegex(RuntimeError, "rollback move"):
+                self.library.move_category(female["id"], None, 1)
+        category_after_rollback = next(item for item in self.library.snapshot()["categories"] if item["id"] == female["id"])
+        self.assertEqual(category_after_rollback["parentId"], people["id"])
+
+    def test_category_delete_promotes_children_or_removes_branch_without_deleting_entries(self):
+        root = self.library.create_category({"name": "Root"})
+        before = self.library.create_category({"name": "Before", "parentId": root["id"]})
+        branch = self.library.create_category({"name": "Branch", "parentId": root["id"]})
+        child = self.library.create_category({"name": "Child", "parentId": branch["id"]})
+        after = self.library.create_category({"name": "After", "parentId": root["id"]})
+        direct_entry = self.library.create_entry({"title": "Direct", "text": "direct", "categoryId": branch["id"]})
+        child_entry = self.library.create_entry({"title": "Child", "text": "child", "categoryId": child["id"]})
+        self.library.delete_category(branch["id"])
+        categories = self.library.snapshot()["categories"]
+        siblings = sorted((item for item in categories if item["parentId"] == root["id"]), key=lambda item: item["position"])
+        self.assertEqual([item["id"] for item in siblings], [before["id"], child["id"], after["id"]])
+        self.assertIsNone(self.library.get_entry(direct_entry["id"])["categoryId"])
+        self.assertEqual(self.library.get_entry(child_entry["id"])["categoryId"], child["id"])
+
+        grandchild = self.library.create_category({"name": "Grandchild", "parentId": child["id"]})
+        grandchild_entry = self.library.create_entry({"title": "Grandchild", "text": "grandchild", "categoryId": grandchild["id"]})
+        self.library.delete_category(child["id"], delete_descendants=True)
+        remaining = {item["id"] for item in self.library.snapshot()["categories"]}
+        self.assertNotIn(child["id"], remaining)
+        self.assertNotIn(grandchild["id"], remaining)
+        self.assertIsNone(self.library.get_entry(child_entry["id"])["categoryId"])
+        self.assertIsNone(self.library.get_entry(grandchild_entry["id"])["categoryId"])
+        self.assertEqual(len(self.library.snapshot()["entries"]), 3)
 
     def test_existing_database_entries_receive_usage_history(self):
         self.library.create_entry({"title": "Legacy", "text": "legacy"})
@@ -164,6 +292,75 @@ class PromptLibraryTests(unittest.TestCase):
                 db.execute("INSERT INTO categories(id,name,position) VALUES ('rollback','Rollback',99)")
                 raise RuntimeError("rollback")
         self.assertNotIn("rollback", {item["id"] for item in self.library.snapshot()["categories"]})
+
+    def test_category_tree_archive_v2_round_trip_and_v1_migration(self):
+        root = self.library.create_category({"name": "People"})
+        child = self.library.create_category({"name": "Hair", "parentId": root["id"]})
+        empty = self.library.create_category({"name": "Empty", "parentId": root["id"]})
+        other_empty = self.library.create_category({"name": "Other empty root"})
+        entry = self.library.create_entry({"title": "Red hair", "text": "red hair", "categoryId": child["id"]})
+        archive = self.library.export_archive_to_path(category_id=root["id"])
+        with zipfile.ZipFile(archive) as package:
+            manifest = json.loads(package.read("manifest.json"))
+        self.assertEqual(manifest["version"], 2)
+        self.assertEqual({item["id"] for item in manifest["categories"]}, {root["id"], child["id"], empty["id"]})
+        self.assertEqual(next(item for item in manifest["categories"] if item["id"] == child["id"])["parentId"], root["id"])
+        full_archive = self.library.export_archive_to_path()
+        with zipfile.ZipFile(full_archive) as package:
+            full_manifest = json.loads(package.read("manifest.json"))
+        self.assertEqual({item["id"] for item in full_manifest["categories"]}, {root["id"], child["id"], empty["id"], other_empty["id"]})
+        selected_archive = self.library.export_archive_to_path(entry_ids=[entry["id"]])
+        with zipfile.ZipFile(selected_archive) as package:
+            selected_manifest = json.loads(package.read("manifest.json"))
+        self.assertEqual({item["id"] for item in selected_manifest["categories"]}, {root["id"], child["id"]})
+        with tempfile.TemporaryDirectory() as target:
+            imported = PromptLibrary(target)
+            imported.create_category({"id": root["id"], "name": "Local People", "color": "#123ABC"})
+            local_parent = imported.create_category({"name": "Local parent"})
+            imported.create_category({"id": child["id"], "name": "Local Hair", "parentId": local_parent["id"], "color": "#456DEF"})
+            imported.apply_import(manifest, {}, {entry["id"]: "import"})
+            imported_categories = {item["id"]: item for item in imported.snapshot()["categories"]}
+            self.assertEqual(imported_categories[root["id"]]["name"], "Local People")
+            self.assertEqual(imported_categories[root["id"]]["color"], "#123ABC")
+            self.assertEqual(imported_categories[child["id"]]["name"], "Local Hair")
+            self.assertEqual(imported_categories[child["id"]]["parentId"], local_parent["id"])
+            self.assertIn(empty["id"], imported_categories)
+            attached_manifest = {
+                "format": "aaalice-prompt-library", "version": 2, "collections": [], "tags": [], "entries": [],
+                "categories": [{"id": "attached", "name": "Attached", "position": 0, "parentId": local_parent["id"]}],
+            }
+            imported.preflight_import(attached_manifest)
+            imported.apply_import(attached_manifest, {})
+            attached = next(item for item in imported.snapshot()["categories"] if item["id"] == "attached")
+            self.assertEqual(attached["parentId"], local_parent["id"])
+        v1 = {**manifest, "version": 1, "categories": [
+            {key: value for key, value in item.items() if key != "parentId"} for item in manifest["categories"]
+        ]}
+        v1_stream = io.BytesIO()
+        with zipfile.ZipFile(v1_stream, "w") as package:
+            package.writestr("manifest.json", json.dumps(v1))
+        _token, migrated, _assets = self.prepare_bytes(v1_stream.getvalue(), "v1.zip")
+        self.assertEqual(migrated["version"], 2)
+        self.assertTrue(all(item["parentId"] is None for item in migrated["categories"]))
+        archive.unlink()
+        full_archive.unlink()
+        selected_archive.unlink()
+
+    def test_manifest_rejects_missing_parent_and_cycles_before_import(self):
+        base = {"format": "aaalice-prompt-library", "version": 2, "collections": [], "tags": [], "entries": []}
+        with self.assertRaisesRegex(ValueError, "missing parent"):
+            self.library.preflight_import({**base, "categories": [
+                {"id": "child", "name": "Child", "position": 0, "parentId": "missing"},
+            ]})
+        with self.assertRaisesRegex(ValueError, "cycle"):
+            self.library.preflight_import({**base, "categories": [
+                {"id": "a", "name": "A", "position": 0, "parentId": "b"},
+                {"id": "b", "name": "B", "position": 0, "parentId": "a"},
+            ]})
+        with self.assertRaisesRegex(ValueError, "own parent"):
+            self.library.preflight_import({**base, "categories": [
+                {"id": "self", "name": "Self", "position": 0, "parentId": "self"},
+            ]})
 
     def test_full_and_partial_archive_round_trip(self):
         category, collection, entry = self.seed()

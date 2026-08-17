@@ -4,12 +4,15 @@ import { t } from "../i18n.js";
 import { promptLibraryStore } from "../lib/library_store.js";
 import { createSelectableImagePreview } from "../lib/image_preview.js";
 import { bindPromptEntryDetails } from "../lib/prompt_entry_details.js";
-import { applyCategoryColor, categorySelectOption, nativeCategoryOption } from "../lib/category_color.js";
-import { collectionDisplayName, isDefaultCollection } from "../lib/collection.js";
-import { badge, button, closeTooltipWithin, createDialog, el, emptyState, field, icon, iconButton, listboxControl, multiSelectControl, segmentedControl, selectControl } from "../lib/ui.js";
+import { applyCategoryColor } from "../lib/category_color.js";
+import { categoryPicker } from "../lib/category_picker.js";
+import { UNCATEGORIZED_CATEGORY_ID } from "../lib/category_tree.js";
+import { collectionDisplayName } from "../lib/collection.js";
+import { badge, button, closeTooltipWithin, createDialog, el, emptyState, field, icon, iconButton, multiSelectControl, selectControl } from "../lib/ui.js";
 import { mountVirtualList } from "../lib/virtual_list.js";
 import { copyEntryPromptText, flashCopied } from "../lib/prompt_copy.js";
 import { createCollapsibleSearch, createListRow, createTransferHero, createTransferResult, createTransferSection, createTransferStats, createWorkspaceToolbar, formatFileSize } from "../lib/workspace_components.js";
+import { openTaxonomyManager } from "./category_manager.js";
 import { confirmAction, downloadUrl, pickFile, setActionBusy, setDialogFooter } from "./dom_utils.js";
 
 let runtime = null;
@@ -37,8 +40,22 @@ function libraryEntriesForScope(scope, { selected, categoryId, collectionId }) {
 
 function libraryExportPayload(scope, { selected, categoryId, collectionId }) {
 	if (scope === "selected") return { entryIds: [...selected] };
-	if (scope === "filtered") return { ...(categoryId ? { categoryId } : {}), ...(collectionId ? { collectionId } : {}) };
+	if (scope === "filtered" && categoryId === UNCATEGORIZED_CATEGORY_ID) return { entryIds: libraryEntriesForScope(scope, { selected, categoryId, collectionId }).map((entry) => entry.id) };
+	if (scope === "filtered") return { ...(promptLibraryStore.index.categoryTree.has(categoryId) ? { categoryId } : {}), ...(collectionId ? { collectionId } : {}) };
 	return {};
+}
+
+function libraryExportCategories(scope, context, entries) {
+	const tree = promptLibraryStore.index.categoryTree;
+	if (scope === "all") return tree.flat;
+	if (scope === "filtered" && tree.has(context.categoryId)) {
+		const ids = tree.subtreeIds(context.categoryId);
+		for (const category of tree.ancestors(context.categoryId)) ids.add(category.id);
+		return tree.flat.filter((record) => ids.has(record.id));
+	}
+	const ids = new Set();
+	for (const entry of entries) for (const category of tree.ancestors(entry.categoryId, { includeSelf: true })) ids.add(category.id);
+	return tree.flat.filter((record) => ids.has(record.id));
 }
 
 export function openLibraryEntryEditor(entry = null) {
@@ -47,13 +64,12 @@ export function openLibraryEntryEditor(entry = null) {
 	// 词条正文是提示词文本：opt-in Autocomplete-Plus，未安装时属性完全惰性。
 	text.setAttribute("data-autocomplete-plus", "");
 	const note = document.createElement("textarea"); note.value = entry?.note || "";
-	const category = listboxControl({
+	const category = categoryPicker({
+		tree: promptLibraryStore.index.categoryTree,
 		ariaLabel: t("aaalice.workspace.libraryUi.category", "Category"),
 		value: entry?.categoryId || "",
-		options: [
-			{ label: t("aaalice.workspace.libraryUi.noCategory", "No category"), value: "" },
-			...promptLibraryStore.snapshot.categories.map(categorySelectOption),
-		],
+		emptyLabel: t("aaalice.workspace.libraryUi.noCategory", "No category"),
+		searchPlaceholder: t("aaalice.workspace.libraryUi.searchCategories", "Search categories"),
 	});
 	const collections = multiSelectControl({
 		ariaLabel: t("aaalice.workspace.libraryUi.collections", "Favorite folders"),
@@ -127,9 +143,15 @@ export function openLibraryEntryEditor(entry = null) {
 		el("div", { className: "aa-library-entry-preview-card", children: [previewPicker, previewFooter] }),
 	] });
 	const body = el("div", { className: "aa-library-entry-form", children: [contentSection, el("div", { className: "aa-library-entry-lower", children: [organizeSection, previewSection] })] });
+	const syncCategory = () => {
+		const nextTree = promptLibraryStore.index.categoryTree;
+		category.setTree(nextTree, category.value && !nextTree.has(category.value) ? "" : category.value);
+	};
+	promptLibraryStore.addEventListener("change", syncCategory);
 	const footer = el("div"); const dialog = createDialog({
 		title: entry ? t("aaalice.workspace.libraryUi.editEntry", "Edit prompt entry") : t("aaalice.workspace.libraryUi.addEntry", "Add prompt entry"),
 		body, footer, size: "md", className: "aa-library-entry-dialog", onRequestClose: () => { releaseSelectedPreview(); return true; },
+		onClose: () => { promptLibraryStore.removeEventListener("change", syncCategory); category.destroy(); releaseSelectedPreview(); },
 	});
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => { releaseSelectedPreview(); dialog.close(); } }), button({ label: t("aaalice.common.save", "Save"), iconName: "statusCheck", onClick: async () => {
 		const data = { title: title.value.trim(), text: text.value, note: note.value, categoryId: category.value || null, collectionIds: collections.values(), tags: tags.value.split(",").map((item) => item.trim()).filter(Boolean) };
@@ -142,112 +164,32 @@ export function openLibraryEntryEditor(entry = null) {
 	} }));
 }
 
-function openTaxonomyManager() {
-	let kind = "categories"; let editingId = null; let dialog;
-	const list = el("div", "aa-taxonomy-list");
-	const summary = el("div", "aa-taxonomy-summary");
-	const addInput = document.createElement("input"); addInput.type = "text";
-	const addButton = button({ label: t("aaalice.workspace.libraryUi.add", "Add"), iconName: "add", onClick: () => addItem() });
-	const tabs = segmentedControl({
-		value: kind, ariaLabel: t("aaalice.workspace.libraryUi.manage", "Manage categories and favorite folders"), className: "aa-taxonomy-tabs",
-		options: [
-			{ value: "categories", label: t("aaalice.workspace.libraryUi.categories", "Categories"), iconName: "layout" },
-			{ value: "collections", label: t("aaalice.workspace.libraryUi.collections", "Favorite folders"), iconName: "favorite" },
-		],
-		onChange: (value) => { kind = value; editingId = null; draw(); },
-	});
-	const showError = (error) => app.extensionManager.toast.add({ severity: "error", summary: t("aaalice.workspace.libraryUi.manage", "Manage categories and favorite folders"), detail: error.message });
-	const usageCount = (item) => promptLibraryStore.usage(kind, item.id);
-	const reorder = async (items, index, offset) => {
-		const target = index + offset; if (target < 0 || target >= items.length) return;
-		const ids = items.map((item) => item.id); [ids[index], ids[target]] = [ids[target], ids[index]];
-		try { await promptLibraryStore.reorder({ kind, orderedIds: ids }); draw(); } catch (error) { showError(error); }
-	};
-	const saveItem = async (item, input, colorInput = null, isCategory = false) => {
-		const name = input.value.trim(); if (!name) return;
-		try {
-			if (isCategory) await promptLibraryStore.updateCategory(item.id, { name, color: colorInput.value }); else await promptLibraryStore.updateCollection(item.id, { name });
-			editingId = null; draw();
-		} catch (error) { showError(error); }
-	};
-	const remove = async (item, isCategory) => {
-		const title = isCategory ? t("aaalice.workspace.libraryUi.deleteCategoryTitle", "Delete category") : t("aaalice.workspace.libraryUi.deleteCollectionTitle", "Delete favorite folder");
-		const consequence = isCategory ? t("aaalice.workspace.libraryUi.deleteCategoryHint", "Entries in this category will become uncategorized. This cannot be undone.") : t("aaalice.workspace.libraryUi.deleteCollectionHint", "This favorite membership will be removed from its entries. This cannot be undone.");
-		if (!await confirmAction(`${isCategory ? item.name : favoriteFolderName(item)}\n\n${consequence}`, { title, confirmLabel: t("aaalice.common.delete", "Delete"), danger: true })) return;
-		try {
-			if (isCategory) await promptLibraryStore.deleteCategory(item.id); else await promptLibraryStore.deleteCollection(item.id);
-			draw();
-		} catch (error) { showError(error); }
-	};
-	const draw = () => {
-		const isCategory = kind === "categories"; const items = promptLibraryStore.snapshot[kind];
-		const noun = isCategory ? t("aaalice.workspace.libraryUi.categories", "Categories") : t("aaalice.workspace.libraryUi.collections", "Favorite folders");
-		const hint = isCategory ? t("aaalice.workspace.libraryUi.categoriesHint", "Each entry belongs to one category for its primary organization.") : t("aaalice.workspace.libraryUi.collectionsHint", "Favorite folders group entries across categories for flexible reuse.");
-		summary.replaceChildren(el("div", { children: [el("strong", null, noun), el("p", null, hint)] }), badge(String(items.length), { className: "aa-taxonomy-count" }));
-		addInput.placeholder = isCategory ? t("aaalice.workspace.libraryUi.newCategory", "New category name") : t("aaalice.workspace.libraryUi.newCollection", "New favorite-folder name");
-		addInput.setAttribute("aria-label", addInput.placeholder);
-		list.replaceChildren();
-		if (!items.length) list.append(emptyState({ iconName: isCategory ? "layout" : "favorite", className: "aa-taxonomy-empty", title: isCategory ? t("aaalice.workspace.libraryUi.noCategories", "No categories yet") : t("aaalice.workspace.libraryUi.noCollections", "No favorite folders yet"), description: t("aaalice.workspace.libraryUi.taxonomyEmptyHint", "Create one below to start organizing your prompt entries.") }));
-		items.forEach((item, index) => {
-			if (editingId === item.id) {
-				const input = document.createElement("input"); input.type = "text"; input.value = item.name; input.setAttribute("aria-label", t("aaalice.workspace.libraryUi.name", "Name"));
-				const colorInput = isCategory ? document.createElement("input") : null;
-				if (colorInput) { colorInput.type = "color"; colorInput.value = item.color || "#7C3AED"; colorInput.setAttribute("aria-label", t("aaalice.workspace.libraryUi.categoryColor", "Category color")); }
-				const row = el("div", { className: `aa-taxonomy-row is-editing${isCategory ? " is-category" : ""}`, children: [input, ...(colorInput ? [colorInput] : []), el("div", { className: "aa-taxonomy-row-actions", children: [
-					button({ label: t("aaalice.common.save", "Save"), iconName: "statusCheck", size: "sm", className: "aa-taxonomy-save-action", onClick: () => saveItem(item, input, colorInput, isCategory) }),
-					iconButton({ iconName: "close", label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => { editingId = null; draw(); } }),
-				] })] });
-				input.addEventListener("keydown", (event) => { if (event.key === "Enter") saveItem(item, input, colorInput, isCategory); else if (event.key === "Escape") { editingId = null; draw(); } });
-				list.append(row); queueMicrotask(() => { input.focus(); input.select(); }); return;
-			}
-			const defaultFavorite = !isCategory && isDefaultCollection(item);
-			const actions = el("div", { className: "aa-taxonomy-row-actions", children: [
-				iconButton({ iconName: "moveDown", label: t("aaalice.workspace.libraryUi.moveUp", "Move up"), className: "aa-taxonomy-move-up", variant: "ghost", disabled: index === 0, onClick: () => reorder(items, index, -1) }),
-				iconButton({ iconName: "moveDown", label: t("aaalice.workspace.libraryUi.moveDown", "Move down"), variant: "ghost", disabled: index === items.length - 1, onClick: () => reorder(items, index, 1) }),
-				button({ label: isCategory ? t("aaalice.workspace.libraryUi.editCategory", "Edit category") : t("aaalice.workspace.libraryUi.rename", "Rename"), iconName: "settings", size: "sm", className: "aa-taxonomy-edit-action", variant: "ghost", onClick: () => { editingId = item.id; draw(); } }),
-				iconButton({ iconName: "delete", label: defaultFavorite ? t("aaalice.workspace.libraryUi.defaultFavoriteCannotDelete", "The default favorite folder cannot be deleted") : t("aaalice.common.delete", "Delete"), className: "aa-taxonomy-delete-action", variant: "ghost", disabled: defaultFavorite, onClick: () => remove(item, isCategory) }),
-			] });
-			const leading = isCategory ? applyCategoryColor(el("span", { className: "aa-taxonomy-color-swatch", attrs: { "aria-hidden": "true" } }), item) : null;
-			const count = usageCount(item); list.append(createListRow({ title: isCategory ? item.name : favoriteFolderName(item), description: `${count} ${t("aaalice.workspace.libraryUi.entriesCount", "entries")}`, leading, actions: [actions] }));
-		});
-	};
-	const addItem = async () => {
-		const name = addInput.value.trim(); if (!name || addButton.disabled) return;
-		addButton.disabled = true;
-		try {
-			if (kind === "categories") await promptLibraryStore.createCategory({ name }); else await promptLibraryStore.createCollection({ name });
-			addInput.value = ""; draw(); addInput.focus();
-		} catch (error) { showError(error); }
-		finally { addButton.disabled = false; }
-	};
-	const body = el("div", { className: "aa-taxonomy-manager", children: [tabs, summary, list] });
-	const footer = el("div", { className: "aa-taxonomy-footer", children: [addInput, addButton, button({ label: t("aaalice.workspace.done", "Done"), variant: "secondary", onClick: () => dialog.close() })] });
-	addInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); addItem(); } });
-	dialog = createDialog({ title: t("aaalice.workspace.libraryUi.manage", "Manage categories and favorite folders"), body, footer, size: "md", className: "aa-taxonomy-dialog" });
-	draw();
-}
-
 function openMoveSelected(selected) {
 	const entryIds = [...selected];
 	if (!entryIds.length) return;
-	const target = document.createElement("select");
-	target.add(new Option(t("aaalice.workspace.libraryUi.chooseTargetCategory", "Choose a target category"), "__choose__", true, true));
-	target.options[0].disabled = true;
-	target.add(new Option(t("aaalice.workspace.libraryUi.noCategory", "No category"), "__none__"));
-	for (const category of promptLibraryStore.snapshot.categories) target.add(nativeCategoryOption(category));
+	let confirm;
+	const target = categoryPicker({
+		tree: promptLibraryStore.index.categoryTree,
+		value: "__choose__",
+		ariaLabel: t("aaalice.workspace.libraryUi.targetCategory", "Target category"),
+		emptyLabel: t("aaalice.workspace.libraryUi.noCategory", "No category"),
+		placeholderLabel: t("aaalice.workspace.libraryUi.chooseTargetCategory", "Choose a target category"),
+		searchPlaceholder: t("aaalice.workspace.libraryUi.searchCategories", "Search categories"),
+		onChange: () => { confirm.disabled = false; },
+	});
 	const body = el("div", { className: "aa-library-move-dialog", children: [
 		el("p", null, `${entryIds.length} ${t("aaalice.workspace.libraryUi.entriesSelectedForMove", "entries will be moved together.")}`),
 		field({ label: t("aaalice.workspace.libraryUi.targetCategory", "Target category"), control: target }),
 	] });
 	const footer = el("div");
 	let dialog;
-	const confirm = button({
+	confirm = button({
 		label: t("aaalice.workspace.libraryUi.moveConfirm", "Move"), iconName: "move", disabled: true,
 		onClick: async () => {
-			if (target.value === "__choose__" || confirm.disabled) return;
+			if (confirm.disabled) return;
 			confirm.disabled = true;
 			try {
-				await promptLibraryStore.batchEntries({ entryIds, categoryId: target.value === "__none__" ? null : target.value });
+				await promptLibraryStore.batchEntries({ entryIds, categoryId: target.value || null });
 				dialog.close();
 			} catch (error) {
 				confirm.disabled = false;
@@ -255,14 +197,21 @@ function openMoveSelected(selected) {
 			}
 		},
 	});
-	target.addEventListener("change", () => { confirm.disabled = target.value === "__choose__"; });
+	const syncCategory = () => {
+		const nextTree = promptLibraryStore.index.categoryTree;
+		const nextValue = target.value !== "__choose__" && target.value && !nextTree.has(target.value) ? "__choose__" : target.value;
+		target.setTree(nextTree, nextValue);
+		if (nextValue === "__choose__") confirm.disabled = true;
+	};
+	promptLibraryStore.addEventListener("change", syncCategory);
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), confirm);
-	dialog = createDialog({ title: t("aaalice.workspace.libraryUi.moveSelected", "Move selected entries"), body, footer, size: "sm", className: "aa-library-move-dialog-shell" });
+	dialog = createDialog({ title: t("aaalice.workspace.libraryUi.moveSelected", "Move selected entries"), body, footer, size: "sm", className: "aa-library-move-dialog-shell", onClose: () => { promptLibraryStore.removeEventListener("change", syncCategory); target.destroy(); } });
 }
 
 function openLibraryExport(context) {
 	const hasSelection = context.selected.size > 0;
-	const hasFilters = Boolean(context.categoryId || context.collectionId);
+	const validCategoryFilter = context.categoryId === UNCATEGORIZED_CATEGORY_ID || promptLibraryStore.index.categoryTree.has(context.categoryId);
+	const hasFilters = Boolean(validCategoryFilter || context.collectionId);
 	let scope = hasSelection ? "selected" : hasFilters ? "filtered" : "all";
 	const body = el("div", "aa-transfer-dialog-body");
 	const footer = el("div");
@@ -293,12 +242,14 @@ function openLibraryExport(context) {
 			scopeList.append(el("label", { className: `aa-transfer-scope${scope === option.value ? " is-selected" : ""}`, children: [input, el("span", "aa-transfer-scope__indicator"), el("div", { children: [el("strong", null, option.label), el("small", null, option.description)] })] }));
 		}
 		const entries = libraryEntriesForScope(scope, context);
-		const categoryIds = new Set(entries.map((entry) => entry.categoryId).filter(Boolean));
+		const categories = libraryExportCategories(scope, context, entries);
 		const collectionIds = new Set(entries.flatMap((entry) => entry.collections.map((item) => item.collectionId)));
 		const previewCount = entries.filter((entry) => entry.previewHash).length;
+		const categoryPaths = categories.map((record) => record.pathLabel).join(", ");
+		summary.title = categoryPaths; summary.setAttribute("aria-label", `${t("aaalice.workspace.libraryUi.categories", "Categories")}: ${categoryPaths || "0"}`);
 		summary.replaceChildren(createTransferStats([
 			{ value: entries.length, label: t("aaalice.workspace.transfer.entries", "Entries"), tone: "primary" },
-			{ value: categoryIds.size, label: t("aaalice.workspace.libraryUi.categories", "Categories") },
+			{ value: categories.length, label: t("aaalice.workspace.libraryUi.categories", "Categories") },
 			{ value: collectionIds.size, label: t("aaalice.workspace.libraryUi.collections", "Favorite folders") },
 			{ value: previewCount, label: t("aaalice.workspace.transfer.previews", "Previews") },
 		]));
@@ -327,7 +278,7 @@ export function renderLibrary(container, host) {
 		onToggle: (open) => { viewState.searchOpen = open; viewState.focusSearch = open; viewState.focusHost = open ? host : null; runtime.scheduleRender(); },
 		onInput: (value) => { query = value; viewState.query = value; drawEntries(); },
 	});
-	const category = selectControl({ ariaLabel: t("aaalice.promptSelector.allCategories", "All categories"), value: categoryId, className: "aa-library-filter-select", options: [{ label: t("aaalice.promptSelector.allCategories", "All categories"), value: "" }, ...promptLibraryStore.snapshot.categories.map(categorySelectOption)], onChange: (value) => { viewState.categoryId = value; runtime.scheduleStructuralRender(); } });
+	const category = categoryPicker({ tree: promptLibraryStore.index.categoryTree, ariaLabel: t("aaalice.promptSelector.allCategories", "All categories"), value: categoryId, className: "aa-library-filter-select", emptyLabel: t("aaalice.promptSelector.allCategories", "All categories"), uncategorizedLabel: t("aaalice.promptSelector.uncategorized", "Uncategorized"), searchPlaceholder: t("aaalice.workspace.libraryUi.searchCategories", "Search categories"), onChange: (value) => { viewState.categoryId = value; runtime.scheduleStructuralRender(); } });
 	const collection = selectControl({ ariaLabel: t("aaalice.promptSelector.allCollections", "All favorite folders"), value: collectionId, className: "aa-library-filter-select", options: [{ label: t("aaalice.promptSelector.allCollections", "All favorite folders"), value: "" }, ...promptLibraryStore.snapshot.collections.map((item) => ({ label: favoriteFolderName(item), value: item.id }))], onChange: (value) => { viewState.collectionId = value; runtime.scheduleStructuralRender(); } });
 	const libraryActions = [
 		button({ label: t("aaalice.workspace.libraryUi.addEntry", "Add entry"), iconName: "add", size: "sm", onClick: () => openLibraryEntryEditor() }),
@@ -393,7 +344,7 @@ export function renderLibrary(container, host) {
 		const entryCategory = promptLibraryStore.category(entry.categoryId);
 		const tagNames = promptLibraryStore.tagNames(entry.tagIds || []).slice(0, 3);
 		const meta = el("div", "aa-library-entry-meta");
-		if (entryCategory) meta.append(applyCategoryColor(el("span", "aa-library-chip is-category", entryCategory.name), entryCategory));
+		if (entryCategory) meta.append(applyCategoryColor(el("span", { className: "aa-library-chip is-category", attrs: { title: promptLibraryStore.categoryPath(entryCategory.id) }, text: promptLibraryStore.categoryPath(entryCategory.id) }), entryCategory));
 		for (const name of tagNames) meta.append(el("span", "aa-library-chip", name));
 		const copy = el("label", { className: "aa-library-entry-copy", attrs: {
 			for: inputId,

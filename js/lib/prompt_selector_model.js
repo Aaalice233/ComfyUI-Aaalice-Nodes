@@ -37,8 +37,9 @@ export function countPromptSelectionsByCategory(state, entries) {
 	const selectedIds = new Set(normalizePromptSelectorState(state).selections.map((item) => item.entryId));
 	const counts = new Map();
 	for (const entry of entries || []) {
-		if (!selectedIds.has(entry.id) || !entry.categoryId) continue;
-		counts.set(entry.categoryId, (counts.get(entry.categoryId) || 0) + 1);
+		if (!selectedIds.has(entry.id)) continue;
+		const categoryId = entry.categoryId ?? null;
+		counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
 	}
 	return counts;
 }

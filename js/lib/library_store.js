@@ -15,7 +15,7 @@ async function checked(response) {
 export class PromptLibraryStore extends EventTarget {
 	constructor() {
 		super();
-		this.snapshot = { version: 1, categories: [], collections: [], tags: [], entries: [] };
+		this.snapshot = { version: 2, categories: [], collections: [], tags: [], entries: [] };
 		this.index = new LibraryIndex(this.snapshot);
 		this.loading = false;
 		this.loaded = false;
@@ -29,8 +29,10 @@ export class PromptLibraryStore extends EventTarget {
 		this.loading = true;
 		this.loadPromise = (async () => {
 			const response = await checked(await api.fetchApi(`${ENDPOINT}/snapshot`));
-			this.snapshot = await response.json();
-			this.index = new LibraryIndex(this.snapshot);
+			const snapshot = await response.json();
+			const categoryTree = this.index.categoryTree;
+			this.snapshot = snapshot;
+			this.index = new LibraryIndex(snapshot, categoryTree);
 			this.loaded = true;
 			this.dispatchEvent(new CustomEvent("change", { detail: this.snapshot }));
 			return this.snapshot;
@@ -41,6 +43,9 @@ export class PromptLibraryStore extends EventTarget {
 	filterEntries(filters = {}) { return this.index.filter(filters); }
 	category(id) { return this.index.category(id); }
 	categoryName(id) { return this.index.categoryName(id); }
+	categoryPath(id) { return this.index.categoryPath(id); }
+	categoryRecords() { return this.index.categoryRecords(); }
+	categoryDirectCount(id) { return this.index.categoryDirectCount(id); }
 	collectionItems(memberships) { return this.index.collectionItems(memberships); }
 	collectionNames(memberships) { return this.index.collectionNames(memberships); }
 	tagNames(ids) { return this.index.tagNames(ids); }
@@ -64,7 +69,11 @@ export class PromptLibraryStore extends EventTarget {
 	reorder(data) { return this.json("/reorder", { body: data }); }
 	createCategory(data) { return this.json("/categories", { body: data }); }
 	updateCategory(id, data) { return this.json(`/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }
-	deleteCategory(id) { return this.json(`/categories/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+	moveCategory(id, { parentId = null, index } = {}) { return this.json(`/categories/${encodeURIComponent(id)}/move`, { body: { parentId, index } }); }
+	deleteCategory(id, { deleteDescendants = false } = {}) {
+		const query = deleteDescendants ? "?deleteDescendants=true" : "";
+		return this.json(`/categories/${encodeURIComponent(id)}${query}`, { method: "DELETE" });
+	}
 	createCollection(data) { return this.json("/collections", { body: data }); }
 	updateCollection(id, data) { return this.json(`/collections/${encodeURIComponent(id)}`, { method: "PATCH", body: data }); }
 	deleteCollection(id) { return this.json(`/collections/${encodeURIComponent(id)}`, { method: "DELETE" }); }

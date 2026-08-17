@@ -42,11 +42,11 @@
 | 分辨率预设 | `js/resolution_preset.js`、`js/lib/resolution_preset_model.js` | 状态规范化、预设匹配、二维映射、DOM 交互、个人预设请求和 width / height payload 注入 |
 | 组管理与导航 | `js/quick_group_manager.js`、`js/workspace/{group_navigation,group_navigation_wheel}.js`、`js/lib/{quick_group_manager_runtime,quick_group_manager_popovers,group_navigation,group_navigation_model,group_navigation_wheel_model}.js` | 节点生命周期与紧凑 DOM、独立颜色/联动浮层、原子模式事务、共享组边界导航、版本化手工清单与轮盘几何模型；轮盘 DOM 生命周期由工作区入口装配并按 owner 清理 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
-| 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库索引与事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
+| 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,category_tree,category_picker,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库与分类树索引、共享分类选择器、词库事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_{model,cards,controller,dialogs,hover,media,settings,surface},virtual_masonry}.js`、`js/lib/controls/booru_gallery.js` | 入口装配、选择快照注入与 Dashboard Provider；单个控制器拥有请求和结果并向节点 / Dashboard 多投影定向同步，Surface、卡片、悬浮预览、弹窗、媒体、设置和自然比例虚拟瀑布流按职责分离 |
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
 | Discord 分享 | `js/discord_share.js`、`js/lib/discord_share_{capture,client,model,picker,image_viewer,prompt_file,target_picker}.js` | 入口与发送流程装配；执行快照、网络客户端、纯模型、选择器、图像查看、提示词附件和 Target 选择按职责分离 |
-| DIY 左侧工作区 | `js/workspace.js`、`js/workspace/*.js`、`js/lib/{dashboard_*,control_binding_set,control_providers,native_output_controls,control_host_events,workspace_controls,widget_control_adapters,image_preview,lora_preview}.js` | `workspace.js` 只装配生命周期；视图、滚动、绑定、预设、来源组、图签名、组导航、词库、注释、数值范围和侧栏偏好位于 `js/workspace/`，纯模型、布局命令、Provider、事件和第三方 widget 适配位于 `js/lib/` |
+| DIY 左侧工作区 | `js/workspace.js`、`js/workspace/*.js`、`js/lib/{dashboard_*,control_binding_set,control_providers,native_output_controls,control_host_events,workspace_controls,widget_control_adapters,image_preview,lora_preview}.js` | `workspace.js` 只装配生命周期；视图、滚动、绑定、预设、来源组、图签名、组导航、词库、分类树管理器、注释、数值范围和侧栏偏好位于 `js/workspace/`，纯模型、布局命令、Provider、事件和第三方 widget 适配位于 `js/lib/` |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,comfy,quick_group_manager,booru_gallery,numeric,boolean,choice,text,taglist,tag_pills,image_choice,image_compare,image_output,markdown,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、ComfyUI 控件策略、QuickGroupManager 与 Gallery 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 节点缩放 | `js/node_resize.js`、`js/lib/{native_widget_resize,dom_widget_resize}.js` | 精确 node type 的原生 widget 角区让渡、全尺寸 DOM 缩放期失效和生命周期清理 |
@@ -145,15 +145,16 @@
 
 ### PromptSelector 与词库
 
-1. Library Store 通过 HTTP 快照和服务端变更事件维护当前词库，不轮询。
+1. Library Store 通过 HTTP v2 扁平快照和服务端变更事件维护当前词库，不轮询；Category 记录以稳定 ID、可空 `parentId` 和同级 `position` 表达单父级树。
 2. 节点只保存有序词条 ID、权重与分隔符；词库编辑不会复制状态到节点。
 3. `graphToPrompt` 按 ID 注入当前正文，使正文变化进入执行缓存键；缺失正文由后端校验明确阻止执行。
-4. ZIP 只上传一次到有时效的磁盘暂存区，完成结构、路径、大小、图片和哈希预检后返回 token，再以 SQLite 事务应用冲突策略；导出先生成有时效文件并由浏览器原生流式下载。
-5. Library View 与 PromptSelector 共享快照派生索引、定高虚拟列表和单例图片浮层，条目数量增长不会线性增加常驻 DOM、重复检索或预览监听器容器。
-6. Category 识别色由 SQLite 持久化；新分类优先分配未使用的稳定色板项，旧库与旧版导入自动补色。前端共享适配器只消费颜色，不另建配色真源。
-7. Collection 保持备份与 API 的稳定协议名，产品界面统一称为“收藏夹”；后端保证稳定身份的默认收藏夹存在并拒绝删除，节点收藏按钮只从词库快照派生状态和提交关系变更。
-8. 多选移动、收藏关系更新和删除都进入词库领域事务；批量删除先校验全部稳定词条 ID，再统一删除关系并按最后引用清理预览资源，不允许前端逐条请求形成部分成功。
-9. PromptSelector 排队后按实际 payload 批量写入词条最近使用时间；列表默认以该用户级元数据降序显示，同批与未使用词条继续保持词库顺序。最近使用时间不进入工作流状态或词库导出。
+4. SQLite 启动迁移通过列检查为旧 `categories` 增加 `parent_id`，旧分类原样成为根。创建、跨层移动、安全提升删除和整分支删除都在单一领域事务中校验父级、循环与目标索引，并连续归一化受影响兄弟顺序；词条在任何删除模式下只会变为未分类。
+5. ZIP 只上传一次到有时效的磁盘暂存区，完成结构、分类树、路径、大小、图片和哈希预检后返回 token，再以 SQLite 事务应用冲突策略；应用失败时数据库回滚且暂存 token 保留到重试、显式放弃或到期，成功后才清理。归档 v2 保存 `parentId`，v1 ZIP 与旧 JSON 自动迁移为根分类，导出先生成有时效文件并由浏览器原生流式下载。
+6. Library View 与 PromptSelector 共享 `category_tree` 和词库派生索引、定高虚拟列表和单例图片浮层。分类快照变化时一次 O(categories + entries) 建立父子索引、稳定树序、深度、路径、祖先/后代与聚合计数；普通搜索、选择和预览不重复遍历整树。
+7. Category 识别色由 SQLite 持久化；新分类优先分配未使用的稳定色板项，旧库与旧版导入自动补色。前端共享适配器只消费颜色，不另建配色真源。
+8. Collection 保持备份与 API 的稳定协议名，产品界面统一称为“收藏夹”；后端保证稳定身份的默认收藏夹存在并拒绝删除，节点收藏按钮只从词库快照派生状态和提交关系变更。
+9. 多选移动、收藏关系更新和删除都进入词库领域事务；批量删除先校验全部稳定词条 ID，再统一删除关系并按最后引用清理预览资源，不允许前端逐条请求形成部分成功。
+10. PromptSelector 排队后按实际 payload 批量写入词条最近使用时间；列表默认以该用户级元数据降序显示，同批与未使用词条继续保持词库顺序。最近使用时间不进入工作流状态或词库导出。
 
 ### BooruGalleryNode
 

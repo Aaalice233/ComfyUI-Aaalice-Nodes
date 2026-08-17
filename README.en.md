@@ -123,7 +123,7 @@ Every save node is an output node that the executor runs unconditionally, so pla
 <details>
 <summary><strong>PromptSelector — ordered prompt-library selection</strong></summary>
 
-Search and filter library entries by category or favorite folder, then select any number of them; the list can surface prompts used in the most recently queued workflows first. Selection order determines output order. Hover a selected entry to adjust its weight (0–20) with the wheel or arrow keys. The optional `prefix_prompt` input is emitted first, and the node menu can change the separator (default `, `). With ComfyUI-Autocomplete-Aaalice installed, the search box also offers its tag and Chinese completion.
+Search and filter library entries through the nested category tree or by favorite folder, then select any number of them. Selecting a parent includes every descendant, and full paths disambiguate same-named subcategories. The list can surface prompts used in the most recently queued workflows first. Selection order determines output order. Hover a selected entry to adjust its weight (0–20) with the wheel or arrow keys. The optional `prefix_prompt` input is emitted first, and the node menu can change the separator (default `, `). With ComfyUI-Autocomplete-Aaalice installed, the search box also offers its tag and Chinese completion.
 
 PromptSelector stores stable entry references instead of copied text: editing a library entry updates every referencing node, and deleting a referenced entry leaves a visible missing reference that blocks execution until resolved.
 
@@ -197,7 +197,7 @@ The toolbar's **Adjustment profiles** button opens value-override profiles store
 
 ### 📚 Prompt library
 
-The **Library** view manages entries, flat categories, multi-membership favorite folders, tags, and one preview image per entry. Selected entries can be moved, exported, or deleted in one transaction, and each entry's full prompt can be copied with one click. The library exports the whole collection or the current filter as a ZIP with hashed assets, and imports current archives plus legacy `data.json + preview/` exports, with preflight review and per-entry conflict choices. Transfers are limited to 2 GiB and streamed instead of loaded into memory.
+The **Library** view manages entries, an arbitrarily deep category tree, multi-membership favorite folders, tags, and one preview image per entry. Categories support search, collapse, pointer drag, and keyboard hierarchy moves. Safe deletion promotes children and uncategorizes direct entries; explicitly deleting a whole branch still never deletes entries. Selected entries can be moved, exported, or deleted in one transaction, and each entry's full prompt can be copied with one click. The library exports the whole collection or current filter as a v2 ZIP with hashed assets. Existing flat SQLite libraries, v1 ZIP files, and legacy `data.json + preview/` exports upgrade automatically without manual conversion. Transfers are limited to 2 GiB and streamed instead of loaded into memory.
 
 ## ⚠️ Compatibility and limitations
 

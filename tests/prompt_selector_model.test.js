@@ -31,12 +31,12 @@ test("clear selection removes every node-local choice", () => {
 	assert.deepEqual(state, { version: 1, selections: [], separator: " | " });
 });
 
-test("category selection counts ignore missing and uncategorized entries", () => {
+test("category selection counts retain uncategorized entries and ignore missing entries", () => {
 	const state = normalizePromptSelectorState({ selections: [
 		{ entryId: "a", weight: 1 }, { entryId: "b", weight: 1 }, { entryId: "missing", weight: 1 },
 	] });
 	const counts = countPromptSelectionsByCategory(state, [
 		{ id: "a", categoryId: "people" }, { id: "b", categoryId: null }, { id: "c", categoryId: "people" },
 	]);
-	assert.deepEqual([...counts], [["people", 1]]);
+	assert.deepEqual([...counts], [["people", 1], [null, 1]]);
 });

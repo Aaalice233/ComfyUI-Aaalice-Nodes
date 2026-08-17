@@ -97,10 +97,22 @@ def _update_named(kind: str):
 def _delete_named(kind: str):
     async def operation(request: web.Request):
         method = getattr(get_library(), f"delete_{kind}")
-        method(request.match_info["id"])
+        if kind == "category":
+            delete_descendants = str(request.query.get("deleteDescendants", "")).lower() in {"1", "true", "yes"}
+            method(request.match_info["id"], delete_descendants=delete_descendants)
+        else:
+            method(request.match_info["id"])
         return {"ok": True}
 
     return operation
+
+
+async def move_category(request: web.Request):
+    data = await _json(request)
+    if "parentId" not in data or "index" not in data:
+        raise ValueError("parentId and index are required")
+    get_library().move_category(request.match_info["id"], data["parentId"], data["index"])
+    return {"ok": True}
 
 
 async def create_entry(request: web.Request):
@@ -249,14 +261,18 @@ async def import_apply(request: web.Request):
     resolutions = data.get("resolutions", {})
     if not isinstance(token, str) or not isinstance(resolutions, dict):
         raise ValueError("token and resolutions are required")
+    manifest, assets = get_library().staged_import(token)
+    result = await asyncio.to_thread(
+        get_library().apply_import,
+        manifest,
+        assets,
+        {str(key): str(value) for key, value in resolutions.items()},
+    )
     try:
-        manifest, assets = get_library().staged_import(token)
-        return await asyncio.to_thread(get_library().apply_import, manifest, assets, {str(key): str(value) for key, value in resolutions.items()})
-    finally:
-        try:
-            get_library().discard_import(token)
-        except KeyError:
-            pass
+        get_library().discard_import(token)
+    except KeyError:
+        pass
+    return result
 
 
 async def import_discard(request: web.Request):
@@ -280,6 +296,7 @@ def register_prompt_library_routes() -> None:
         routes.post(f"{API}/{plural}")(_handler(_create_named(kind), action=f"{kind}.created"))
         routes.patch(f"{API}/{plural}/{{id}}")(_handler(_update_named(kind), action=f"{kind}.updated"))
         routes.delete(f"{API}/{plural}/{{id}}")(_handler(_delete_named(kind), action=f"{kind}.deleted"))
+    routes.post(f"{API}/categories/{{id}}/move")(_handler(move_category, action="category.moved"))
     routes.post(f"{API}/entries")(_handler(create_entry, action="entry.created"))
     routes.patch(f"{API}/entries/{{id}}")(_handler(update_entry, action="entry.updated"))
     routes.delete(f"{API}/entries/{{id}}")(_handler(delete_entry, action="entry.deleted"))

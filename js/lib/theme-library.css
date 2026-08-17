@@ -161,7 +161,7 @@
 
 /* Prompt-library taxonomy manager */
 .aa-taxonomy-dialog { width: min(680px, 96vw); min-height: min(540px, 88vh); }
-.aa-taxonomy-manager.aa-ui-dialog__body { display: grid; min-height: 0; overflow: hidden; grid-template-rows: auto auto minmax(0, 1fr); gap: 14px; padding: 16px 18px 18px; background: color-mix(in srgb, var(--aa-ui-canvas) 28%, var(--aa-ui-surface)); }
+.aa-taxonomy-manager.aa-ui-dialog__body { display: grid; min-height: 0; overflow: hidden; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 14px; padding: 16px 18px 18px; background: color-mix(in srgb, var(--aa-ui-canvas) 28%, var(--aa-ui-surface)); }
 .aa-taxonomy-tabs { --aa-taxonomy-tab-color: var(--p-blue-400, var(--aa-ui-accent)); width: min(360px, 100%); height: 36px; margin-inline: auto; }
 .aa-taxonomy-tabs[data-value="collections"] { --aa-taxonomy-tab-color: var(--p-purple-400, var(--aa-workspace-library-accent)); }
 .aa-taxonomy-tabs .aa-ui-segmented__thumb { border-color: color-mix(in srgb, var(--aa-taxonomy-tab-color) 66%, var(--aa-ui-border)); background: color-mix(in srgb, var(--aa-taxonomy-tab-color) 18%, var(--aa-ui-surface-raised)); box-shadow: 0 1px 5px rgb(0 0 0 / .18); }

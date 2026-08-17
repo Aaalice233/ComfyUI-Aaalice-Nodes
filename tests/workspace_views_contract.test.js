@@ -18,6 +18,7 @@ const workspace = [
 	"workspace/dialogs.js",
 	"workspace/group_navigation.js",
 	"workspace/library.js",
+	"workspace/category_manager.js",
 	"workspace/dom_utils.js",
 	"workspace/graph_signature.js",
 	"workspace/labels.js",
@@ -66,6 +67,8 @@ const imageAssetControl = readFileSync(join(ROOT, "js", "lib", "image_asset_cont
 const imageAssets = readFileSync(join(ROOT, "js", "lib", "image_assets.js"), "utf8");
 const promptEntryDetails = readFileSync(join(ROOT, "js", "lib", "prompt_entry_details.js"), "utf8");
 const categoryColor = readFileSync(join(ROOT, "js", "lib", "category_color.js"), "utf8");
+const categoryPicker = readFileSync(join(ROOT, "js", "lib", "category_picker.js"), "utf8");
+const categoryManager = readFileSync(join(ROOT, "js", "workspace", "category_manager.js"), "utf8");
 const ui = uiSource;
 const uiStyles = readFileSync(join(ROOT, "js", "lib", "ui.css"), "utf8");
 const theme = readStyleEntry(new URL("../js/lib/theme.css", import.meta.url));
@@ -492,21 +495,43 @@ test("PromptSelector uses the spacious reference size as its default and resize 
 	assert.doesNotMatch(theme, /\.lg-node:has\(\.aa-prompt-selector\):not\(\[data-collapsed\]\) \{[^}]*min-width:/);
 });
 
-test("filter dropdowns reuse the shared animated select control", () => {
-	assert.match(ui, /export function selectControl/);
-	assert.match(ui, /aria-expanded/);
-	assert.match(ui, /icon\("moveDown"/);
-	assert.match(ui, /Object\.defineProperty\(root, "value", \{\s*get: \(\) => control\.value/);
+test("category filters reuse the shared searchable tree picker", () => {
+	assert.match(categoryPicker, /export function categoryPicker/);
+	assert.match(categoryPicker, /createAnchoredPopover/);
+	assert.match(categoryPicker, /role: "listbox"/);
+	assert.match(categoryPicker, /record\.pathLabel/);
+	assert.match(categoryPicker, /applyCategoryColor/);
+	assert.match(categoryPicker, /--aa-category-depth/);
+	assert.match(categoryPicker, /visibleIds\.add\(record\.parentId\)/);
+	assert.match(categoryPicker, /event\.isComposing/);
+	assert.match(categoryPicker, /event\.key === "ArrowDown"/);
+	assert.match(categoryPicker, /UNCATEGORIZED_CATEGORY_ID/);
+	assert.match(selector, /uncategorizedLabel/);
+	assert.match(selector, /categoryPicker\(\{/);
+	assert.match(workspace, /categoryPicker\(\{/);
 	assert.match(selector, /promptFilterSelect/);
 	assert.match(selector, /selectControl\(\{/);
 	assert.match(workspace, /className: "aa-library-filter-select"/);
-	assert.match(uiStyles, /\.aa-ui-select\.is-open \.aa-ui-select__arrow/);
-	assert.match(uiStyles, /padding-right: 38px/);
-	assert.match(ui, /syncOptionColor/);
-	assert.match(ui, /--aa-ui-select-option-color/);
-	assert.match(categoryColor, /export function categorySelectOption/);
-	assert.match(selector, /value: option\.id, color: option\.color/);
-	assert.match(workspace, /categories\.map\(categorySelectOption\)/);
+	assert.match(categoryColor, /export function applyCategoryColor/);
+});
+
+test("category manager locks accessible tree editing, movement, and rollback contracts", () => {
+	assert.match(categoryManager, /role: "treeitem"/);
+	assert.match(categoryManager, /"aria-level": String\(record\.depth \+ 1\)/);
+	assert.match(categoryManager, /"aria-expanded": String\(expanded\)/);
+	assert.match(categoryManager, /createCategory\(\{ name, parentId: draftParentId \}\)/);
+	assert.match(categoryManager, /compositionstart/);
+	assert.match(categoryManager, /compositionend/);
+	assert.match(categoryManager, /const EXPAND_DELAY = 450/);
+	assert.match(categoryManager, /zone: "before"/);
+	assert.match(categoryManager, /zone: "after"/);
+	assert.match(categoryManager, /zone: "inside"/);
+	assert.match(categoryManager, /event\.altKey/);
+	for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) assert.match(categoryManager, new RegExp(`"${key}"`));
+	assert.match(categoryManager, /collapsed\.clear\(\)/);
+	assert.match(categoryManager, /deleteDescendants/);
+	assert.match(categoryManager, /localCategories = optimistic/);
+	assert.match(categoryManager, /finally \{[\s\S]*localCategories = null; localTree = null/);
 });
 
 test("workspace empty states and compact action bars keep narrow sidebars deliberate", () => {

@@ -16,6 +16,7 @@ const workspace = [
 	"workspace/dialogs.js",
 	"workspace/group_navigation.js",
 	"workspace/library.js",
+	"workspace/category_manager.js",
 	"workspace/dom_utils.js",
 	"workspace/graph_signature.js",
 	"workspace/labels.js",
@@ -380,7 +381,7 @@ test("library selection actions operate on model data instead of rendered rows",
 	assert.match(theme, /\.aa-library-selection-toggle\.is-clear:hover:not\(:disabled\)/);
 	assert.match(workspace, /function openMoveSelected\(selected\)/);
 	assert.match(workspace, /const entryIds = \[\.\.\.selected\]/);
-	assert.match(workspace, /batchEntries\(\{ entryIds, categoryId: target\.value === "__none__" \? null : target\.value \}\)/);
+	assert.match(workspace, /batchEntries\(\{ entryIds, categoryId: target\.value \|\| null \}\)/);
 	assert.match(workspace, /className: "aa-library-move-selected"/);
 	assert.match(workspace, /moveSelected\.disabled = selected\.size === 0/);
 	assert.match(theme, /\.aa-library-move-selected:hover:not\(:disabled\)/);
@@ -397,7 +398,7 @@ test("prompt entry editor prioritizes prompt content and uses shared themed cont
 	assert.match(workspace, /size: "md"/);
 	assert.match(workspace, /className: "aa-library-entry-section is-content"/);
 	assert.match(workspace, /className: "aa-library-entry-lower"/);
-	assert.match(workspace, /listboxControl\(\{/);
+	assert.match(workspace, /categoryPicker\(\{/);
 	assert.match(workspace, /multiSelectControl\(\{/);
 	assert.match(workspace, /collectionIds: collections\.values\(\)/);
 	assert.match(workspace, /className: "aa-library-entry-preview-card"/);
@@ -427,38 +428,29 @@ test("prompt entry editor prioritizes prompt content and uses shared themed cont
 	assert.match(theme, /@media \(max-width: 720px\)[\s\S]*\.aa-library-entry-lower \{ grid-template-columns: 1fr;/);
 });
 
-test("taxonomy management is a complete single-dialog workspace", () => {
-	assert.match(workspace, /function openTaxonomyManager/);
-	assert.doesNotMatch(workspace, /function openTaxonomyChooser|function manageTaxonomy/);
+test("taxonomy management is a complete accessible category-tree dialog", () => {
+	assert.match(workspace, /export function openTaxonomyManager/);
 	assert.match(workspace, /segmentedControl\(\{/);
-	assert.match(workspace, /aa-taxonomy-list/);
-	assert.match(workspace, /editingId === item\.id/);
-	assert.match(workspace, /aa-taxonomy-footer/);
-	assert.match(workspace, /usageCount\(item\)/);
+	assert.match(workspace, /setAttribute\("role", "tree"\)/);
+	assert.match(workspace, /role: "treeitem"/);
+	assert.match(workspace, /"aria-level"/);
+	assert.match(workspace, /"aria-expanded"/);
+	assert.match(workspace, /event\.isComposing/);
+	assert.match(workspace, /syncEditingControls/);
+	assert.match(workspace, /setTimeout\(\(\) =>/);
+	assert.match(workspace, /450/);
+	assert.match(workspace, /event\.altKey/);
+	assert.match(workspace, /moveCategory/);
+	assert.match(workspace, /localCategories = optimistic/);
+	assert.match(workspace, /deleteDescendants/);
+	assert.match(workspace, /aa-category-delete__stats/);
+	assert.match(workspace, /addSubcategory/);
 	assert.match(theme, /\.aa-taxonomy-dialog/);
-	assert.match(theme, /\.aa-taxonomy-tabs \{[^}]*margin-inline: auto/);
-	assert.match(theme, /\.aa-taxonomy-tabs\[data-value="collections"\]/);
-	assert.match(theme, /--aa-taxonomy-tab-color/);
-	assert.match(theme, /\.aa-taxonomy-row\.is-editing/);
-	assert.match(workspace, /colorInput\.type = "color"/);
-	assert.match(workspace, /updateCategory\(item\.id, \{ name, color: colorInput\.value \}\)/);
-	assert.match(workspace, /aa-taxonomy-color-swatch/);
+	assert.match(theme, /\.aa-category-tree-row\[data-drop-zone="inside"\]/);
+	assert.match(theme, /prefers-reduced-motion/);
 	assert.match(components, /leading = null/);
 	assert.match(categoryColor, /export function applyCategoryColor/);
-	assert.match(theme, /\.aa-taxonomy-color-swatch/);
-	assert.match(theme, /\.is-category-colored/);
-	assert.match(workspace, /className: "aa-taxonomy-edit-action"/);
-	assert.match(workspace, /className: "aa-taxonomy-delete-action"/);
-	assert.match(workspace, /deleteCategoryTitle/);
-	assert.match(workspace, /confirmLabel: t\("aaalice\.common\.delete"/);
-	assert.match(workspace, /variant: "danger"/);
 	assert.match(uiStyles, /\.aa-ui-button--danger/);
-	const saveBody = workspace.match(/const saveItem = async[\s\S]*?\n\t};/)?.[0] || "";
-	assert.match(saveBody, /updateCategory/);
-	assert.doesNotMatch(saveBody, /deleteCategory|deleteCollection/);
-	const removeBody = workspace.match(/const remove = async[\s\S]*?\n\t};/)?.[0] || "";
-	assert.match(removeBody, /deleteCategory/);
-	assert.match(removeBody, /danger: true/);
 });
 
 test("import and export use one reusable review flow with explicit outcomes", () => {

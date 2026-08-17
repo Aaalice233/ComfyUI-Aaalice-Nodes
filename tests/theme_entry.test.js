@@ -8,6 +8,7 @@ const EXPECTED_IMPORTS = [
 	"theme-controls.css",
 	"theme-quick-group-manager.css",
 	"theme-prompt-selector.css",
+	"theme-category-tree.css",
 	"theme-workspace.css",
 	"theme-dashboard-layout.css",
 	"theme-value-profiles.css",
