@@ -338,7 +338,10 @@ class DanbooruAdapter(BooruAdapter):
     async def search_count(self, session, query, ratings, credentials):
         url = f"{self.base}/counts/posts.json"
         tags = build_danbooru_search_tags(query, ratings, "latest", 1, self.capabilities.max_search_tags)
-        raw = await self._get_json(session, url, params={"tags": tags, **self.auth_params(credentials)})
+        try:
+            raw = await self._get_json(session, url, params={"tags": tags, **self.auth_params(credentials)})
+        except GalleryUpstreamTimeoutError:
+            return None
         return parse_danbooru_post_count(raw, url, tags)
 
     async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):

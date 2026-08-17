@@ -11,7 +11,7 @@ from multidict import MultiDict
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from nodes.gallery.adapters import AITagAdapter, DanbooruAdapter, GalleryPage, GelbooruAdapter
+from nodes.gallery.adapters import AITagAdapter, DanbooruAdapter, GalleryPage, GalleryUpstreamTimeoutError, GelbooruAdapter
 from nodes.gallery import routes
 from nodes.gallery.random_sampling import sample_favorites, sample_ranking, sample_search
 from nodes.gallery.service import GalleryService, TTLCache
@@ -54,6 +54,9 @@ class GalleryRandomSamplingTests(unittest.IsolatedAsyncioTestCase):
         })
         adapter._get_json.return_value = {"counts": {"posts": None}}
         self.assertIsNone(await adapter.search_count(None, "original fantasy", ["general"], credentials))
+        adapter._get_json.side_effect = GalleryUpstreamTimeoutError("count timed out")
+        self.assertIsNone(await adapter.search_count(None, "original fantasy", ["general"], credentials))
+        adapter._get_json.side_effect = None
         for invalid in ({"counts": {}}, {"counts": {"posts": "invalid"}}, {"counts": {"posts": -1}}):
             with self.subTest(invalid=invalid):
                 adapter._get_json.return_value = invalid
