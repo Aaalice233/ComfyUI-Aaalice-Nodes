@@ -649,6 +649,8 @@ test("gallery keeps both native bottom resize corners free and can shrink after 
 	assert.match(source, /function clampGallerySize\(size\)[\s\S]*size\[0\] = Math\.max\(MIN_SIZE\[0\][\s\S]*size\[1\] = Math\.max\(MIN_SIZE\[1\]/);
 	assert.match(source, /node\.onResize = function \(size\)[\s\S]*clampGallerySize\(size\)[\s\S]*clampGallerySize\(this\.size\)/);
 	assert.match(source, /applyInitialGallerySize\(node, initializeSize\)/);
+	assert.match(source, /const galleryWidget = addLifecycleDOMWidget\(/);
+	assert.match(source, /bindDomWidgetWidthToNode\(node, galleryWidget\)/);
 	assert.doesNotMatch(source, /root\.(?:scrollHeight|clientHeight)/);
 	assert.match(theme, /\.dom-widget:has\(> \.aa-gallery\) \{ pointer-events: none !important; \}/);
 	assert.match(theme, /\.aa-gallery\.is-resizing, \.aa-gallery\.is-resizing \* \{ pointer-events: none !important;/);

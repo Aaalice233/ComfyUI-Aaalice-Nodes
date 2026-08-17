@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
-import { addLifecycleDOMWidget } from "../js/lib/dom_widget_lifecycle.js";
+import { addLifecycleDOMWidget, bindDomWidgetWidthToNode } from "../js/lib/dom_widget_lifecycle.js";
 
 test("gives reconstructed DOM widgets distinct Nodes 2.0 renderer keys", () => {
 	const calls = [];
@@ -26,6 +26,25 @@ test("gives reconstructed DOM widgets distinct Nodes 2.0 renderer keys", () => {
 	assert.equal(first.element, elementA);
 	assert.equal(restored.element, elementB);
 	assert.equal(calls[0].options, options);
+});
+
+test("keeps a Classic DOM widget aligned with its current node width", () => {
+	const node = {
+		size: [620, 300],
+		get width() { return this.size[0]; },
+	};
+	const element = { style: { width: "" } };
+	const widget = { width: 480, element };
+
+	bindDomWidgetWidthToNode(node, widget);
+	assert.equal(widget.width, 620);
+
+	node.size[0] = 980;
+	assert.equal(widget.width, 980);
+
+	widget.width = 480;
+	assert.equal(widget.width, 980);
+	assert.equal(element.style.width, "");
 });
 
 test("routes every top-level custom node DOM mount through the lifecycle helper", () => {

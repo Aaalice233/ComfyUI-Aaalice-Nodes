@@ -7,7 +7,7 @@ import { createBooruGalleryPreset, decodeBooruGalleryPreset, validateBooruGaller
 import { streamTagTranslations } from "./lib/tag_translation.js";
 import { parseTagListValue } from "./lib/taglist_value.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
-import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
+import { addLifecycleDOMWidget, bindDomWidgetWidthToNode } from "./lib/dom_widget_lifecycle.js";
 import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { createGallerySurfaceFactory, observeGalleryNodeMode } from "./lib/booru_gallery_surface.js";
@@ -437,7 +437,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaGallerySelectionMode = surface.selectionMode;
 	runtime.accent = bindNodeAccent(node, () => [...surfaces].flatMap((view) => [view.root, view.selectedDropIndicator]));
 	runtime.modeObserver = observeGalleryNodeMode(node, () => { for (const view of surfaces) view.syncNodeMode(); });
-	addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", surface.root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} });
+	const galleryWidget = addLifecycleDOMWidget(node, "aaalice_booru_gallery", "custom", surface.root, { serialize: false, hideOnZoom: true, margin: 0, getMinHeight: () => MIN_SIZE[1], getValue: () => "", setValue: () => {} });
+	bindDomWidgetWidthToNode(node, galleryWidget);
 	installDomWidgetResizePassthrough(node, surface.root);
 	const previousComputeSize = node.computeSize; node.computeSize = function () { const size = previousComputeSize?.apply(this, arguments) || DEFAULT_SIZE; return [Math.max(MIN_SIZE[0], Number(size[0]) || 0), MIN_SIZE[1]]; };
 	const previousResize = node.onResize; node.onResize = function (size) { clampGallerySize(size); clampGallerySize(this.size); return previousResize?.apply(this, arguments); };

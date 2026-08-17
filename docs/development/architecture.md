@@ -51,7 +51,7 @@
 | 纯模型 | `js/lib/{quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
 | 节点缩放 | `js/node_resize.js`、`js/lib/{native_widget_resize,dom_widget_resize}.js` | 精确 node type 的原生 widget 角区让渡、全尺寸 DOM 缩放期失效和生命周期清理 |
 | 打开时聚焦 | `js/focus_on_open.js`、`js/lib/{focus_on_open_model,focus_on_open_classic_marker}.js`、`js/lib/theme-focus-on-open.css` | 通用节点右键菜单、唯一工作流标记、目标视图设置、加载代际、静默子图导航和双模式标记图标；Classic 使用宿主 `addTitleButton()` 原生标题按钮，不进入 widget 布局，设置 Popover 通过按钮画布矩形创建随浮层销毁的临时 DOM 锚点，Nodes 2.0 使用节点 DOM 标记；撤销/重做触发的图重载（`loadGraphData` 以 `clean === false && restore_view === false` 调用）只同步标记视觉，不执行自动聚焦 |
-| DOM 与媒体辅助 | `js/lib/{node_accent,image_reference,image_upload,safe_markdown,markdown_editor,simple_notify_runtime,dom_widget_visibility}.js`、`js/vendor/` | 节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM 渲染与编辑变换、富 DOM 视口降载、固定版本前端依赖和提醒运行时 |
+| DOM 与媒体辅助 | `js/lib/{node_accent,image_reference,image_upload,safe_markdown,markdown_editor,simple_notify_runtime,dom_widget_lifecycle,dom_widget_visibility}.js`、`js/vendor/` | 节点强调色同步、图像引用与共享上传/拖放、安全 CommonMark/GFM 渲染与编辑变换、DOM widget 重建身份与节点宽度绑定、富 DOM 视口降载、固定版本前端依赖和提醒运行时 |
 | 共享 UI | `js/lib/ui.js`、`js/lib/ui/{primitives,transient_surfaces,overlays,controls}.js`、`js/lib/ui.css`、`js/lib/theme.css`、`js/lib/theme-*.css` | `ui.js` 保持稳定公开入口；内部按基础 DOM/图标、Tooltip/滚动手势、Popover/Dialog、表单控件的单向依赖拆分。`theme.css` 是唯一功能样式入口并按稳定级联顺序导入控件、工作区和各领域样式分片 |
 
 共享 `js/lib` 模块不得自行注册扩展或拥有工作流状态。业务入口负责生命周期和画布事务，纯模型保持无 DOM、无 ComfyUI 运行时依赖。
@@ -230,6 +230,7 @@ const unregister = registerWidgetControlAdapter({
 - Canvas/native 层负责真实 slot、连线和静态布局；DOM overlay 负责交互、焦点、键盘、tooltip 与 aria。
 - 动态槽变化由共享提交器原子发布：先更新所属图的公开 slot 数组，再刷新 LiteGraph concrete snapshot，并在节点所属 `graph` 发布官方槽标签事件；布局模块不得直接维护私有 concrete 数组或劫持 `_setConcreteSlots()`。不得恢复隐藏槽数组。
 - DOM widget 通过 `getMinHeight()` 声明与当前几何无关的稳定内容下限。Classic 只有内容本身定义最小高度且界面不要求再次缩短时才可走 LiteGraph grow-only 路径；可手动缩放的列表节点使用固定下限和内部滚动。Nodes 2.0 尺寸继续由原生 DOM 测量持有。
+- Gallery 的全尺寸 DOM widget 通过 `dom_widget_lifecycle.js` 让 `widget.width` 始终读取当前宿主节点宽度，拒绝宿主在模式切换或交互后写回的过期固定测量；该绑定只作用于节点拥有的 widget，不设置业务 DOM 宽度、不轮询，也不改变 Nodes 2.0 的原生内容布局。
 - `computeSize()`、`getMinHeight()` 和布局刷新不得读取当前 `node.size`、已拉伸 wrapper 或 `scrollHeight` 后再作为最小值，否则会形成只增不减的尺寸反馈环。
 - Classic 的 `LGraphCanvas` 先解析 `getWidgetOnPos()`，再检查 `findResizeDirection()`；底部原生控件即使没有自绘 DOM 也会压缩或吞掉角区。`js/node_resize.js` 只在 `beforeRegisterNodeDef` 对 `SimpleNotify`、`GroupIsEnabled` 与 `SimpleStringSplit` 的精确 `nodeType` 安装 `native_widget_resize.js`，不注册全局实例生命周期、不扫描图、不用名称 fallback，也不修改宿主缩放能力。全尺寸 DOM 节点仍由各自业务入口安装 `dom_widget_resize.js`。
 - 两类 `getWidgetOnPos()` 包装都只是纯命中查询：角区返回未命中，其余位置原样委托；查询期间不读取全局指针状态、不切换 DOM、不挂 document 监听器。DOM 失效只在 `onResize` 确认当前节点为宿主 `resizing_node` 后开始，避免其它拖拽经过节点时触发跨节点副作用。

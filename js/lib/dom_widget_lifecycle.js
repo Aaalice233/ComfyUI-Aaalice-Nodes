@@ -7,6 +7,17 @@ function instanceWidgetType(type) {
 	return `${type}__aa_instance_${nextDomWidgetInstance.toString(36)}`;
 }
 
+export function bindDomWidgetWidthToNode(node, widget) {
+	Object.defineProperty(widget, "width", {
+		configurable: true,
+		enumerable: true,
+		get: () => node.width,
+		// ComfyUI frontend #12443 can write a stale Vue measurement here even in Classic.
+		set(_width) {},
+	});
+	return widget;
+}
+
 export function addLifecycleDOMWidget(node, name, type, element, options = {}) {
 	if (typeof node?.addDOMWidget !== "function") {
 		throw new Error("[Aaalice] node requires addDOMWidget");
