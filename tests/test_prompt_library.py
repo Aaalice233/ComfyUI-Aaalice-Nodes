@@ -136,6 +136,47 @@ class PromptLibraryTests(unittest.TestCase):
                 columns = {row["name"] for row in migrated_db.execute("PRAGMA table_info(categories)")}
             self.assertIn("parent_id", columns)
 
+    def test_legacy_slash_category_names_become_a_tree_once_without_changing_leaf_identity(self):
+        with tempfile.TemporaryDirectory() as target:
+            db = sqlite3.connect(Path(target) / "prompt-library.sqlite3")
+            db.execute("CREATE TABLE categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0)")
+            db.executemany(
+                "INSERT INTO categories(id,name,color,position) VALUES (?,?,?,?)",
+                [
+                    ("other", "默认/其他", "#A855F7", 0),
+                    ("artist", "默认/画师", "#3B82F6", 1),
+                    ("test", "默认/测试", "#14B8A6", 2),
+                    ("test2", "默认/测试/测试2", "#10B981", 3),
+                    ("test3", "默认/测试/测试3", "#84CC16", 4),
+                ],
+            )
+            db.execute(
+                "CREATE TABLE entries (id TEXT PRIMARY KEY, title TEXT NOT NULL, text TEXT NOT NULL, "
+                "note TEXT NOT NULL DEFAULT '', category_id TEXT, preview_hash TEXT, "
+                "position INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+            )
+            db.execute("INSERT INTO entries(id,title,text,category_id) VALUES ('entry','Entry','text','test2')")
+            db.commit()
+            db.close()
+
+            library = PromptLibrary(target)
+            categories = {item["id"]: item for item in library.snapshot()["categories"]}
+            root = next(item for item in categories.values() if item["name"] == "默认" and item["parentId"] is None)
+            self.assertNotIn(root["id"], {"other", "artist", "test", "test2", "test3"})
+            self.assertEqual(root["color"], "#A855F7")
+            self.assertEqual(
+                [(categories[item_id]["name"], categories[item_id]["parentId"], categories[item_id]["position"]) for item_id in ("other", "artist", "test")],
+                [("其他", root["id"], 0), ("画师", root["id"], 1), ("测试", root["id"], 2)],
+            )
+            self.assertEqual((categories["test2"]["name"], categories["test2"]["parentId"]), ("测试2", "test"))
+            self.assertEqual((categories["test3"]["name"], categories["test3"]["parentId"]), ("测试3", "test"))
+            self.assertEqual(library.get_entry("entry")["categoryId"], "test2")
+
+            literal = library.create_category({"name": "Literal/Slash"})
+            reopened = PromptLibrary(target)
+            literal_after_restart = next(item for item in reopened.snapshot()["categories"] if item["id"] == literal["id"])
+            self.assertEqual((literal_after_restart["name"], literal_after_restart["parentId"]), ("Literal/Slash", None))
+
     def test_parent_migration_preserves_existing_category_identity_color_order_and_entry_links(self):
         with tempfile.TemporaryDirectory() as target:
             db = sqlite3.connect(Path(target) / "prompt-library.sqlite3")
@@ -342,6 +383,29 @@ class PromptLibraryTests(unittest.TestCase):
         _token, migrated, _assets = self.prepare_bytes(v1_stream.getvalue(), "v1.zip")
         self.assertEqual(migrated["version"], 2)
         self.assertTrue(all(item["parentId"] is None for item in migrated["categories"]))
+
+        slash_v1 = {
+            "format": "aaalice-prompt-library", "version": 1, "collections": [], "tags": [],
+            "categories": [
+                {"id": "legacy-root", "name": "默认", "position": 0},
+                {"id": "legacy-other", "name": "默认/其他", "position": 1},
+                {"id": "legacy-child", "name": "默认/测试/测试2", "position": 2},
+            ],
+            "entries": [{"id": "legacy-entry", "title": "Legacy", "text": "legacy", "categoryId": "legacy-child", "position": 0, "tagIds": [], "collections": []}],
+        }
+        slash_stream = io.BytesIO()
+        with zipfile.ZipFile(slash_stream, "w") as package:
+            package.writestr("manifest.json", json.dumps(slash_v1))
+        _slash_token, slash_manifest, _slash_assets = self.prepare_bytes(slash_stream.getvalue(), "slash-v1.zip")
+        slash_categories = {item["id"]: item for item in slash_manifest["categories"]}
+        slash_root = next(item for item in slash_categories.values() if item["name"] == "默认")
+        slash_branch = next(item for item in slash_categories.values() if item["name"] == "测试")
+        self.assertEqual(slash_root["id"], "legacy-root")
+        self.assertEqual((slash_categories["legacy-other"]["name"], slash_categories["legacy-other"]["parentId"]), ("其他", slash_root["id"]))
+        self.assertEqual(slash_branch["parentId"], slash_root["id"])
+        self.assertEqual((slash_categories["legacy-child"]["name"], slash_categories["legacy-child"]["parentId"]), ("测试2", slash_branch["id"]))
+        self.library.apply_import(slash_manifest, {})
+        self.assertEqual(self.library.get_entry("legacy-entry")["categoryId"], "legacy-child")
         archive.unlink()
         full_archive.unlink()
         selected_archive.unlink()
@@ -410,13 +474,17 @@ class PromptLibraryTests(unittest.TestCase):
 
     def test_legacy_json_and_conflict_policies(self):
         raw = json.dumps({"version": "1.6", "categories": [
-            {"name": "People", "prompts": [{"id": "old-smile", "alias": "Smile", "prompt": "smile",
-                                               "description": "Friendly expression", "tags": ["face", "happy"]}]},
+            {"name": "People/Faces", "prompts": [{"id": "old-smile", "alias": "Smile", "prompt": "smile",
+                                                     "description": "Friendly expression", "tags": ["face", "happy"]}]},
         ]}).encode()
         token, manifest, assets = self.prepare_bytes(raw, "legacy.json")
         self.assertEqual(manifest["entries"][0]["text"], "smile")
         self.assertEqual(manifest["entries"][0]["note"], "Friendly expression")
-        self.assertEqual(manifest["categories"][0]["color"], prompt_library_module.CATEGORY_COLOR_PALETTE[0])
+        categories = {item["id"]: item for item in manifest["categories"]}
+        root = next(item for item in categories.values() if item["name"] == "People")
+        leaf = categories[manifest["entries"][0]["categoryId"]]
+        self.assertEqual((leaf["name"], leaf["parentId"]), ("Faces", root["id"]))
+        self.assertEqual(leaf["color"], prompt_library_module.CATEGORY_COLOR_PALETTE[0])
         self.assertEqual({item["name"] for item in manifest["tags"]}, {"face", "happy"})
         self.assertEqual(len(manifest["entries"][0]["tagIds"]), 2)
         first = self.library.apply_import(manifest, assets)
@@ -441,13 +509,16 @@ class PromptLibraryTests(unittest.TestCase):
     def test_legacy_export_zip_imports_data_json_and_preview(self):
         stream = io.BytesIO()
         legacy = {"version": "1.6", "categories": [
-            {"name": "People", "prompts": [{"id": "old-smile", "alias": "Smile", "prompt": "smile", "image": "smile.png"}]},
+            {"name": "People/Faces", "prompts": [{"id": "old-smile", "alias": "Smile", "prompt": "smile", "image": "smile.png"}]},
         ]}
         with zipfile.ZipFile(stream, "w") as archive:
             archive.writestr("data.json", json.dumps(legacy))
             archive.writestr("preview/smile.png", PNG)
         token, manifest, assets = self.prepare_bytes(stream.getvalue(), "prompt_library.zip")
         self.assertEqual(manifest["entries"][0]["title"], "Smile")
+        category = next(item for item in manifest["categories"] if item["id"] == manifest["entries"][0]["categoryId"])
+        self.assertEqual(category["name"], "Faces")
+        self.assertTrue(any(item["id"] == category["parentId"] and item["name"] == "People" for item in manifest["categories"]))
         self.assertEqual(len(assets), 1)
         self.assertIn(manifest["entries"][0]["previewHash"], assets)
         self.library.discard_import(token)

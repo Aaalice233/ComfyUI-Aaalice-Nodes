@@ -14,6 +14,7 @@ from typing import Any, Iterable
 
 from .prompt_library_archive import PromptLibraryArchive
 from .prompt_library_categories import CATEGORY_COLOR_PALETTE, PromptCategoryMixin, category_color as _category_color
+from .prompt_library_category_migration import migrate_legacy_category_paths_in_db
 
 SCHEMA_VERSION = 2
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
@@ -104,6 +105,9 @@ class PromptLibrary(PromptCategoryMixin):
                     color TEXT NOT NULL DEFAULT '',
                     parent_id TEXT REFERENCES categories(id)
                 );
+                CREATE TABLE IF NOT EXISTS library_metadata (
+                    key TEXT PRIMARY KEY, value TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS assets (
                     hash TEXT PRIMARY KEY, mime TEXT NOT NULL, extension TEXT NOT NULL, size INTEGER NOT NULL
                 );
@@ -152,6 +156,9 @@ class PromptLibrary(PromptCategoryMixin):
                     color = fallback
                 if row["color"] != color:
                     db.execute("UPDATE categories SET color = ? WHERE id = ?", (color, row["id"]))
+            migrate_legacy_category_paths_in_db(db)
+            migrated_rows = db.execute("SELECT id, color, parent_id, position FROM categories").fetchall()
+            self._validate_category_rows(migrated_rows)
             default_position = int(db.execute("SELECT COALESCE(MIN(position), 1) - 1 FROM collections").fetchone()[0])
             db.execute(
                 "INSERT OR IGNORE INTO collections(id, name, position) VALUES (?, ?, ?)",

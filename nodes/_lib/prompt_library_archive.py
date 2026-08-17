@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from .prompt_library_archive_categories import (
     archive_categories_parent_first,
+    migrate_legacy_category_paths,
     migrate_v1_archive_categories,
     validate_archive_category_tree,
 )
@@ -423,7 +424,8 @@ class PromptLibraryArchive:
                 entries.append({"id": entry_id, "title": str(title), "text": str(text), "note": note,
                                 "categoryId": category_id, "position": position, "tagIds": entry_tag_ids, "collections": [],
                                 "previewHash": preview_hash})
-        return {"format": "aaalice-prompt-library", "version": self.SCHEMA_VERSION, "categories": categories,
+        return {"format": "aaalice-prompt-library", "version": self.SCHEMA_VERSION,
+                "categories": migrate_legacy_category_paths(categories),
                 "collections": [], "tags": tags, "entries": entries}
 
     def preflight_import(self, manifest: dict[str, Any]) -> dict[str, Any]:
