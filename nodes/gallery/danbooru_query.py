@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from .._lib.booru_query import normalize_tag_query, tokenize_tag_query
 
 
@@ -34,20 +32,4 @@ def build_danbooru_search_tags(
     return tags
 
 
-def parse_danbooru_post_count(raw: Any, url: str, tags: str) -> int | None:
-    counts = raw.get("counts") if isinstance(raw, dict) else None
-    if not isinstance(counts, dict) or "posts" not in counts:
-        raise RuntimeError(f"danbooru GET {url} returned invalid counts.posts for tags={tags!r}")
-    value = counts["posts"]
-    if value is None:
-        return None
-    try:
-        total = int(value) if not isinstance(value, bool) else -1
-    except (TypeError, ValueError):
-        total = -1
-    if total < 0:
-        raise RuntimeError(f"danbooru GET {url} returned invalid counts.posts for tags={tags!r}")
-    return total
-
-
-__all__ = ["build_danbooru_search_tags", "danbooru_query_tag_count", "parse_danbooru_post_count"]
+__all__ = ["build_danbooru_search_tags", "danbooru_query_tag_count"]

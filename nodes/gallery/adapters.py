@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlparse
 import aiohttp
 
 from .._lib.booru_query import join_candidates, repair_spaced_tags, tokenize_tag_query
-from .danbooru_query import build_danbooru_search_tags, parse_danbooru_post_count
+from .danbooru_query import build_danbooru_search_tags
 
 TAG_CATEGORIES = ("artist", "copyright", "character", "general", "meta")
 STATIC_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "webp", "gif"})
@@ -335,17 +335,7 @@ class DanbooruAdapter(BooruAdapter):
                                   post.get("is_favorited"), str(post.get("large_file_url") or ""),
                                   _int(post.get("score")), _int(post.get("fav_count")))
 
-    async def search_count(self, session, query, ratings, credentials):
-        url = f"{self.base}/counts/posts.json"
-        tags = build_danbooru_search_tags(query, ratings, "latest", 1, self.capabilities.max_search_tags)
-        try:
-            raw = await self._get_json(session, url, params={"tags": tags, **self.auth_params(credentials)})
-        except GalleryUpstreamTimeoutError:
-            return None
-        return parse_danbooru_post_count(raw, url, tags)
-
-    async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
-        page = max(1, _int(cursor) or 1)
+    async def _search_page(self, session, query, ratings, sort, page, page_number, limit, credentials, blacklist):
         size = min(max(1, limit), self.capabilities.max_page_size)
         auth = self.auth_params(credentials)
         tags = build_danbooru_search_tags(query, ratings, sort, size, self.capabilities.max_search_tags)
@@ -357,11 +347,22 @@ class DanbooruAdapter(BooruAdapter):
         visible = tuple(item for item in candidates if not _is_blacklisted(item, blocked))
         posts = tuple(post for item in visible for post in (self._summary(item),) if rating_matches(self.source, post.rating, ratings))
         warnings = ("local-blacklist-filtered",) if len(visible) < len(candidates) else ()
+        display_page = page_number or 1
         if _restricted_media_hidden(posts):
             # 受限内容（loli/shota 等）对 Member 级及以下账户整页隐藏媒体地址；继续翻页只会得到
             # 同样的空页，直接结束并给出明确信号，由前端提示配置账户。
-            return GalleryPage((), None, True, warnings + ("restricted-media-hidden",), page=page)
-        return GalleryPage(posts, str(page + 1) if len(raw) == size else None, len(raw) < size, warnings, page)
+            return GalleryPage((), None, True, warnings + ("restricted-media-hidden",), page=display_page)
+        next_cursor = str(page_number + 1) if page_number is not None and len(raw) == size else None
+        return GalleryPage(posts, next_cursor, len(raw) < size, warnings, display_page)
+
+    async def search(self, session, query, ratings, sort, cursor, limit, credentials, blacklist=()):
+        page = max(1, _int(cursor) or 1)
+        return await self._search_page(session, query, ratings, sort, page, page, limit, credentials, blacklist)
+
+    async def search_id_cursor(self, session, query, ratings, cursor, limit, credentials, blacklist=()):
+        if not re.fullmatch(r"[ab](?:0|[1-9][0-9]*)", cursor):
+            raise ValueError("danbooru post id cursor is invalid")
+        return await self._search_page(session, query, ratings, "latest", cursor, None, limit, credentials, blacklist)
 
     async def ranking(self, session, period, cursor, limit, credentials, blacklist=()):
         if period not in self.capabilities.ranking_periods:

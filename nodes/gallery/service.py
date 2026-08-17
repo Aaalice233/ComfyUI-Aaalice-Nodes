@@ -102,7 +102,7 @@ class GalleryService:
         self.cache_dir = cache_dir
         self.search_cache: TTLCache[Any] = TTLCache(64, 300)
         self.normalized_query_cache: TTLCache[str] = TTLCache(64, 300)
-        self.random_count_cache: TTLCache[int] = TTLCache(64, 300)
+        self.random_sampling_cache: TTLCache[Any] = TTLCache(64, 300)
         self.detail_cache: TTLCache[GalleryPostDetail] = TTLCache(512, 86400)
         self.tag_cache = TagCategoryCache(cache_dir / "tag_categories.sqlite3")
         self._media = MediaProxy(cache_dir)
@@ -138,7 +138,7 @@ class GalleryService:
             normalized = await adapter.normalize_tag_query(session, query, credentials)
             self.normalized_query_cache.put(normalized_key, normalized)
         if random_mode:
-            result = await sample_search(adapter, session, normalized, ratings, limit, credentials, blacklist, self.random_count_cache)
+            result = await sample_search(adapter, session, normalized, ratings, limit, credentials, blacklist, self.random_sampling_cache)
             return result.json()
         key = repr((source, normalized, tuple(ratings), sort, cursor, limit, blacklist))
         cached = self.search_cache.get(key)
@@ -166,7 +166,7 @@ class GalleryService:
         session = self._media.session()
         credentials = self._credentials(source)
         if random_mode:
-            result = await sample_ranking(adapter, session, period, ratings, limit, credentials, blacklist, self.random_count_cache)
+            result = await sample_ranking(adapter, session, period, ratings, limit, credentials, blacklist, self.random_sampling_cache)
         else:
             cached = self.search_cache.get(key)
             if cached is not None:
@@ -284,7 +284,7 @@ class GalleryService:
     def clear_caches(self) -> None:
         self.search_cache.clear()
         self.normalized_query_cache.clear()
-        self.random_count_cache.clear()
+        self.random_sampling_cache.clear()
         self.detail_cache.clear()
         self.tag_cache.clear()
         self._media.clear()

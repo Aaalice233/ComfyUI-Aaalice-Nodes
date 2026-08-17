@@ -8,12 +8,11 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from .._lib.booru_query import normalize_tag_query
-from .adapters import BooruAdapter, GalleryPage
+from .adapters import BooruAdapter, DanbooruAdapter, GalleryPage
 from .danbooru_query import danbooru_query_tag_count
 
 
-DANBOORU_MAX_INDEXED_PAGE = 1000
-_DANBOORU_UNKNOWN_COUNT = -1
+DANBOORU_BOUND_PROBE_SIZE = 60
 
 
 async def _sample_paginated(
@@ -42,42 +41,57 @@ def _danbooru_account_identity(credentials: dict[str, str]) -> tuple[str, str]:
     return ("authenticated", username.casefold()) if username and api_key else ("anonymous", "")
 
 
-async def _sample_danbooru_pages(
-    adapter: BooruAdapter,
+async def _danbooru_id_bounds(
+    adapter: DanbooruAdapter,
+    session: Any,
+    query: str,
+    ratings: list[str],
+    credentials: dict[str, str],
+    cache: Any,
+) -> tuple[tuple[int, int] | None, GalleryPage | None]:
+    key = repr((adapter.source, "id-bounds", query, tuple(ratings), _danbooru_account_identity(credentials)))
+    cached = cache.get(key)
+    if cached is not None:
+        return cached, None
+
+    latest = await adapter.search(session, query, ratings, "latest", "1", DANBOORU_BOUND_PROBE_SIZE, credentials, ())
+    latest_ids = [int(post.post_id) for post in latest.posts if str(post.post_id).isdigit()]
+    if not latest_ids:
+        return None, latest
+    oldest = await adapter.search_id_cursor(session, query, ratings, "a0", DANBOORU_BOUND_PROBE_SIZE, credentials, ())
+    oldest_ids = [int(post.post_id) for post in oldest.posts if str(post.post_id).isdigit()]
+    if not oldest_ids:
+        return None, oldest if oldest.warnings else latest
+    bounds = (min(oldest_ids), max(latest_ids))
+    cache.put(key, bounds)
+    return bounds, latest
+
+
+async def _sample_danbooru_ids(
+    adapter: DanbooruAdapter,
     session: Any,
     query: str,
     ratings: list[str],
     limit: int,
     credentials: dict[str, str],
     blacklist: tuple[str, ...],
-    count_cache: Any,
+    cache: Any,
 ) -> GalleryPage:
     normalized_query = normalize_tag_query(query)
-    rating_key = tuple(sorted(set(ratings)))
-    key = repr((adapter.source, "search", normalized_query, rating_key, limit, _danbooru_account_identity(credentials)))
-    cached_total = count_cache.get(key)
-    if cached_total is None:
-        total = await adapter.search_count(session, normalized_query, list(rating_key), credentials)
-        count_cache.put(key, _DANBOORU_UNKNOWN_COUNT if total is None else total)
-    else:
-        total = None if cached_total == _DANBOORU_UNKNOWN_COUNT else cached_total
-
-    if total is None:
-        # Danbooru returns counts.posts=null when an exact count exceeds its
-        # execution budget. The result query is still valid, so sample within
-        # the server's indexed-page window instead of treating that timeout as
-        # malformed data. An out-of-range draw falls back to the first page.
-        page = secrets.randbelow(DANBOORU_MAX_INDEXED_PAGE) + 1
-        result = await adapter.search(session, normalized_query, list(rating_key), "latest", str(page), limit, credentials, blacklist)
-        if page > 1 and result.ended and not result.posts:
-            return await adapter.search(session, normalized_query, list(rating_key), "latest", "1", limit, credentials, blacklist)
+    rating_key = list(sorted(set(ratings)))
+    bounds, latest = await _danbooru_id_bounds(adapter, session, normalized_query, rating_key, credentials, cache)
+    if bounds is None:
+        if not blacklist:
+            return latest
+        return await adapter.search(session, normalized_query, rating_key, "latest", "1", limit, credentials, blacklist)
+    oldest_id, latest_id = bounds
+    before_id = oldest_id + secrets.randbelow(latest_id - oldest_id + 1) + 1
+    result = await adapter.search_id_cursor(session, normalized_query, rating_key, f"b{before_id}", limit, credentials, blacklist)
+    if result.posts or result.warnings:
         return result
-
-    # Danbooru rejects indexed pages above 1000, so generated page numbers must
-    # stay within that server boundary.
-    page_count = min(DANBOORU_MAX_INDEXED_PAGE, max(1, math.ceil(max(0, total) / limit)))
-    page = secrets.randbelow(page_count) + 1
-    return await adapter.search(session, normalized_query, list(rating_key), "latest", str(page), limit, credentials, blacklist)
+    if latest is not None and not blacklist:
+        return latest
+    return await adapter.search(session, normalized_query, rating_key, "latest", "1", limit, credentials, blacklist)
 
 
 async def sample_search(
@@ -88,22 +102,22 @@ async def sample_search(
     limit: int,
     credentials: dict[str, str],
     blacklist: tuple[str, ...],
-    count_cache: Any,
+    cache: Any,
 ) -> GalleryPage:
     if adapter.source == "aitag":
         # AI TAG validates page_size >= 60, so the adapter always uses its maximum page size.
         page_size = adapter.capabilities.max_page_size
         return await _sample_paginated(
-            count_cache,
+            cache,
             (adapter.source, "search", query),
             page_size,
             lambda page: adapter.search(session, query, ratings, "new", str(page), limit, credentials, blacklist),
         )
     tag_limit = adapter.capabilities.max_search_tags
-    if adapter.source == "danbooru" and tag_limit is not None and danbooru_query_tag_count(query) == tag_limit:
-        # Danbooru counts random:<limit> as a tag. Sample an exact-query page when
-        # both public search slots are already occupied.
-        return await _sample_danbooru_pages(adapter, session, query, ratings, limit, credentials, blacklist, count_cache)
+    if isinstance(adapter, DanbooruAdapter) and tag_limit is not None and danbooru_query_tag_count(query) == tag_limit:
+        # Numeric deep pages force expensive OFFSET scans on broad intersections.
+        # ID cursors preserve the exact two-tag query while using Danbooru's indexed pagination.
+        return await _sample_danbooru_ids(adapter, session, query, ratings, limit, credentials, blacklist, cache)
     return await adapter.search(session, query, ratings, "random", None, limit, credentials, blacklist)
 
 
