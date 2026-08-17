@@ -130,6 +130,20 @@ class GalleryAdapterTests(unittest.TestCase):
                 await adapter._get_json(session, "https://gelbooru.com/index.php")
             self.assertNotIn("secret", str(ctx.exception))
             self.assertNotIn("user_id", str(ctx.exception))
+            self.assertEqual(session.get.call_args.kwargs["headers"], {"Accept": "application/json", "User-Agent": "Aaalice-Nodes/1.0"})
+        import asyncio
+        asyncio.run(run())
+
+    def test_danbooru_favorite_request_identifies_gallery_client(self):
+        async def run():
+            adapter = DanbooruAdapter()
+            response = MagicMock(status=201)
+            response.text = AsyncMock(return_value="")
+            session = MagicMock()
+            session.post.return_value.__aenter__ = AsyncMock(return_value=response)
+            session.post.return_value.__aexit__ = AsyncMock(return_value=False)
+            await adapter.set_favorite(session, "7", True, {"username": "alice", "apiKey": "secret"})
+            self.assertEqual(session.post.call_args.kwargs["headers"], {"Accept": "application/json", "User-Agent": "Aaalice-Nodes/1.0"})
         import asyncio
         asyncio.run(run())
 
@@ -347,9 +361,10 @@ class GalleryAdapterTests(unittest.TestCase):
         for url in ("http://cdn.donmai.us/a.jpg", "https://127.0.0.1/a.jpg", "https://cdn.donmai.us.evil.test/a.jpg"):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 adapter.validate_media_url(url)
+        self.assertEqual(adapter.media_request_headers(), {"User-Agent": "Aaalice-Nodes/1.0"})
         gelbooru = adapter_for("gelbooru")
         gelbooru.validate_media_url("https://img4.gelbooru.com/samples/a.jpg")
-        self.assertEqual(gelbooru.media_request_headers(), {"Referer": "https://gelbooru.com/"})
+        self.assertEqual(gelbooru.media_request_headers(), {"User-Agent": "Aaalice-Nodes/1.0", "Referer": "https://gelbooru.com/"})
 
     def test_safebooru_tag_index_parses_xml_despite_json_param(self):
         async def run():
@@ -646,7 +661,7 @@ class GalleryServiceTests(unittest.IsolatedAsyncioTestCase):
             service = GalleryService(Path(directory))
             service._media.fetch_media = AsyncMock(return_value=(b"image", "image/jpeg", "https://img4.gelbooru.com/a.jpg"))
             await service.fetch_media("gelbooru", "https://img4.gelbooru.com/a.jpg")
-            self.assertEqual(service._media.fetch_media.await_args.args[3], {"Referer": "https://gelbooru.com/"})
+            self.assertEqual(service._media.fetch_media.await_args.args[3], {"User-Agent": "Aaalice-Nodes/1.0", "Referer": "https://gelbooru.com/"})
 
     @patch("nodes.gallery.service.MediaProxy")
     async def test_ranking_applies_ratings_and_separates_cache_entries(self, _media_cls):

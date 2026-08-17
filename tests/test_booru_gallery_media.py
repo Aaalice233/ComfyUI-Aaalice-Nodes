@@ -180,6 +180,7 @@ class GalleryMediaProxyTests(unittest.IsolatedAsyncioTestCase):
             with patch("nodes.gallery.media.get_gallery_settings_store", return_value=store), patch("nodes.gallery.media.SESSION_RETIRE_SECONDS", 0):
                 first = proxy.session()
                 self.assertIs(proxy.session(), first)
+                self.assertTrue(first.trust_env)
                 store.load.return_value = {"timeout": 60}
                 second = proxy.session()
                 self.assertIsNot(second, first)

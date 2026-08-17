@@ -16,6 +16,12 @@ from .._lib.booru_query import join_candidates, repair_spaced_tags, tokenize_tag
 
 TAG_CATEGORIES = ("artist", "copyright", "character", "general", "meta")
 STATIC_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "webp", "gif"})
+GALLERY_USER_AGENT = "Aaalice-Nodes/1.0"
+
+
+def _api_headers(accept: str) -> dict[str, str]:
+    # Danbooru challenges aiohttp's generic Python identity; identify the real client instead.
+    return {"Accept": accept, "User-Agent": GALLERY_USER_AGENT}
 
 
 class GalleryUpstreamTimeoutError(RuntimeError):
@@ -153,7 +159,7 @@ class BooruAdapter:
         async with self._semaphore:
             for attempt in range(3):
                 try:
-                    async with session.get(url, params=params, headers={"Accept": "application/json"}, allow_redirects=True) as response:
+                    async with session.get(url, params=params, headers=_api_headers("application/json"), allow_redirects=True) as response:
                         text = await response.text()
                         if _is_upstream_query_timeout(response.status, text):
                             raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
@@ -225,7 +231,7 @@ class BooruAdapter:
             raise ValueError(f"{self.source} media URL is not allowed: {url}")
 
     def media_request_headers(self) -> dict[str, str]:
-        return {}
+        return {"User-Agent": GALLERY_USER_AGENT}
 
     async def test_credentials(self, session: aiohttp.ClientSession, credentials: dict[str, str]) -> dict[str, Any]:
         await self.search(session, "", [], "", None, 1, credentials)
@@ -422,7 +428,7 @@ class DanbooruAdapter(BooruAdapter):
         url = f"{self.base}/favorites" + (f"/{post_id}.json" if not favorite else ".json")
         async with self._semaphore:
             method = session.post if favorite else session.delete
-            kwargs = {"params": params}
+            kwargs = {"params": params, "headers": _api_headers("application/json")}
             if favorite:
                 kwargs["json"] = {"post_id": post_id}
             async with method(url, **kwargs) as response:
@@ -443,7 +449,7 @@ class GelbooruAdapter(BooruAdapter):
 
     def media_request_headers(self) -> dict[str, str]:
         # Gelbooru redirects media requests without a site Referer to the HTML post page.
-        return {"Referer": "https://gelbooru.com/"}
+        return {**super().media_request_headers(), "Referer": "https://gelbooru.com/"}
 
     def auth_params(self, credentials):
         user = str(credentials.get("userId") or "").strip()
@@ -574,7 +580,7 @@ class SafebooruAdapter(GelbooruAdapter):
         async with self._tag_semaphore:
             async with session.get(self.base, params={"page": "dapi", "s": "tag", "q": "index",
                                                       "name": name, "limit": 1},
-                                   headers={"Accept": "application/xml"}, allow_redirects=True) as response:
+                                   headers=_api_headers("application/xml"), allow_redirects=True) as response:
                 if _is_upstream_query_timeout(response.status, await response.text()):
                     raise GalleryUpstreamTimeoutError(f"{self.source} aborted the query: the result set exceeded its execution budget")
                 if response.status >= 400:
