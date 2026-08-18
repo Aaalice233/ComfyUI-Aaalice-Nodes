@@ -19,6 +19,7 @@ from .prompt_library_archive_categories import (
     migrate_v1_archive_categories,
     validate_archive_category_tree,
 )
+from .prompt_library_images import normalize_preview_image
 
 
 class PromptLibraryArchive:
@@ -224,17 +225,23 @@ class PromptLibraryArchive:
                     manifest = self._migrate_manifest(json.loads(archive.read("manifest.json")))
                 except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                     raise ValueError("archive has no valid manifest.json") from exc
+                normalized_hashes: dict[str, str] = {}
                 for info in infos:
                     if not info.filename.startswith("assets/") or info.is_dir():
                         continue
-                    if info.file_size > self.MAX_IMAGE_BYTES:
-                        raise ValueError(f"preview image exceeds {self.MAX_IMAGE_BYTES} bytes")
+                    if info.file_size > self.MAX_PREVIEW_SOURCE_BYTES:
+                        raise ValueError(f"preview image source exceeds {self.MAX_PREVIEW_SOURCE_BYTES // (1024 * 1024)} MiB safety limit")
                     content = archive.read(info)
-                    digest = PurePosixPath(info.filename).stem
-                    if hashlib.sha256(content).hexdigest() != digest:
+                    source_digest = PurePosixPath(info.filename).stem
+                    if hashlib.sha256(content).hexdigest() != source_digest:
                         raise ValueError(f"asset hash mismatch: {info.filename}")
-                    self.detect_image(content)
-                    (asset_root / f"{digest}.{self.detect_image(content)[1]}").write_bytes(content)
+                    content, _mime, extension = normalize_preview_image(content)
+                    digest = hashlib.sha256(content).hexdigest()
+                    normalized_hashes[source_digest] = digest
+                    (asset_root / f"{digest}.{extension}").write_bytes(content)
+                for entry in manifest.get("entries", []) if isinstance(manifest, dict) else []:
+                    if isinstance(entry, dict) and entry.get("previewHash") in normalized_hashes:
+                        entry["previewHash"] = normalized_hashes[entry["previewHash"]]
             elif "data.json" in names:
                 if archive.getinfo("data.json").file_size > self.MAX_MANIFEST_BYTES:
                     raise ValueError(f"data.json exceeds {self.MAX_MANIFEST_BYTES // (1024 * 1024)} MiB limit")
@@ -247,8 +254,8 @@ class PromptLibraryArchive:
                     info = legacy_infos.get(name)
                     if info is None:
                         return None
-                    if info.file_size > self.MAX_IMAGE_BYTES:
-                        raise ValueError(f"preview image exceeds {self.MAX_IMAGE_BYTES} bytes")
+                    if info.file_size > self.MAX_PREVIEW_SOURCE_BYTES:
+                        raise ValueError(f"preview image source exceeds {self.MAX_PREVIEW_SOURCE_BYTES // (1024 * 1024)} MiB safety limit")
                     return archive.read(info)
 
                 def store_legacy(digest: str, content: bytes, extension: str) -> None:
@@ -414,7 +421,7 @@ class PromptLibraryArchive:
                         candidates = (normalized_name, f"preview/{PurePosixPath(normalized_name).name}")
                         content = next((content for name in candidates if (content := legacy_loader(name)) is not None), None)
                         if content is not None:
-                            _mime, extension = self.detect_image(content)
+                            content, _mime, extension = normalize_preview_image(content)
                             preview_hash = hashlib.sha256(content).hexdigest()
                             asset_sink(preview_hash, content, extension)
                 else:

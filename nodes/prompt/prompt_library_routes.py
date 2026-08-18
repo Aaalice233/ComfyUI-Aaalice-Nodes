@@ -15,6 +15,7 @@ from typing import Any, Callable
 from aiohttp import web
 
 from .._lib.prompt_library import MAX_IMPORT_BYTES, PromptLibrary
+from .._lib.prompt_library_images import MAX_PREVIEW_SOURCE_BYTES
 
 logger = logging.getLogger(__name__)
 
@@ -177,10 +178,10 @@ async def set_preview(request: web.Request):
     size = 0
     while chunk := await field.read_chunk():
         size += len(chunk)
-        if size > 8 * 1024 * 1024:
-            raise ValueError("preview image is too large")
+        if size > MAX_PREVIEW_SOURCE_BYTES:
+            raise ValueError(f"preview image source exceeds {MAX_PREVIEW_SOURCE_BYTES // (1024 * 1024)} MiB safety limit")
         chunks.append(chunk)
-    return get_library().set_preview(request.match_info["id"], b"".join(chunks))
+    return await asyncio.to_thread(get_library().set_preview, request.match_info["id"], b"".join(chunks))
 
 
 async def delete_preview(request: web.Request):

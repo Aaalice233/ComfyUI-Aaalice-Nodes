@@ -10,11 +10,19 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+from PIL import Image
+
 from nodes._lib import prompt_library as prompt_library_module
 from nodes._lib.prompt_library import DEFAULT_COLLECTION_ID, DEFAULT_COLLECTION_NAME, PromptLibrary
 from nodes._lib.prompt_library_archive import PromptLibraryArchive
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"test-image"
+def png_bytes(color: str = "white") -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (2, 2), color).save(output, format="PNG")
+    return output.getvalue()
+
+
+PNG = png_bytes()
 
 
 class PromptLibraryTests(unittest.TestCase):
@@ -458,7 +466,7 @@ class PromptLibraryTests(unittest.TestCase):
         _category, _collection, entry = self.seed()
         old_asset = self.library.set_preview(entry["id"], PNG)
         old_path, _mime = self.library.asset(old_asset["hash"])
-        replacement = b"\x89PNG\r\n\x1a\nreplacement"
+        replacement = png_bytes("black")
         replacement_hash = hashlib.sha256(replacement).hexdigest()
         manifest = {
             "format": "aaalice-prompt-library", "version": 1, "categories": [], "collections": [], "tags": [],

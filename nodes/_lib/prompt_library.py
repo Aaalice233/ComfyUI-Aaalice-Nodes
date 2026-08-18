@@ -15,9 +15,9 @@ from typing import Any, Iterable
 from .prompt_library_archive import PromptLibraryArchive
 from .prompt_library_categories import CATEGORY_COLOR_PALETTE, PromptCategoryMixin, category_color as _category_color
 from .prompt_library_category_migration import migrate_legacy_category_paths_in_db
+from .prompt_library_images import MAX_PREVIEW_SOURCE_BYTES, detect_image, normalize_preview_image
 
 SCHEMA_VERSION = 2
-MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMPORT_BYTES = 2 * 1024 * 1024 * 1024
 MAX_EXPORT_BYTES = 2 * 1024 * 1024 * 1024
 MAX_EXPANDED_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
@@ -31,7 +31,7 @@ DEFAULT_COLLECTION_NAME = "Favorites"
 def _archive_configuration() -> dict[str, Any]:
     return {
         "SCHEMA_VERSION": SCHEMA_VERSION,
-        "MAX_IMAGE_BYTES": MAX_IMAGE_BYTES,
+        "MAX_PREVIEW_SOURCE_BYTES": MAX_PREVIEW_SOURCE_BYTES,
         "MAX_IMPORT_BYTES": MAX_IMPORT_BYTES,
         "MAX_EXPORT_BYTES": MAX_EXPORT_BYTES,
         "MAX_EXPANDED_ARCHIVE_BYTES": MAX_EXPANDED_ARCHIVE_BYTES,
@@ -50,20 +50,6 @@ def _text(value: Any, field: str, *, empty: bool = True) -> str:
     if not isinstance(value, str) or (not empty and not value.strip()):
         raise ValueError(f"{field} must be a string" + ("" if empty else " and cannot be empty"))
     return value
-
-
-def detect_image(data: bytes) -> tuple[str, str]:
-    if len(data) > MAX_IMAGE_BYTES:
-        raise ValueError(f"preview image exceeds {MAX_IMAGE_BYTES} bytes")
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png", "png"
-    if data.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg", "jpg"
-    if data.startswith((b"GIF87a", b"GIF89a")):
-        return "image/gif", "gif"
-    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp", "webp"
-    raise ValueError("preview image must be PNG, JPEG, GIF, or WebP")
 
 
 class PromptLibrary(PromptCategoryMixin):
@@ -456,7 +442,7 @@ class PromptLibrary(PromptCategoryMixin):
                     raise KeyError(f"{kind} item not found: {item_id}")
 
     def set_preview(self, entry_id: str, data: bytes) -> dict[str, Any]:
-        mime, extension = detect_image(data)
+        data, mime, extension = normalize_preview_image(data)
         digest = hashlib.sha256(data).hexdigest()
         asset_path = self.asset_root / f"{digest}.{extension}"
         temporary: Path | None = None
