@@ -71,9 +71,21 @@ class GalleryRandomSamplingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([post.post_id for post in page.posts], ["7"])
         self.assertIn("local-blacklist-filtered", page.warnings)
 
+    async def test_danbooru_two_tag_count_page_sampling(self):
+        page_14 = GalleryPage(tuple(SimpleNamespace(post_id=str(i)) for i in range(60)), None, False, page=14)
+        adapter = DanbooruAdapter()
+        adapter._get_json = AsyncMock(return_value={"counts": {"posts": 2854}})
+        adapter.search = AsyncMock(return_value=page_14)
+        cache = TTLCache(8, 300)
+        with patch("nodes.gallery.random_sampling.secrets.randbelow", return_value=13):
+            result = await sample_search(adapter, None, "grey_theme weapon", ["general"], 60, {}, ("blocked",), cache)
+        self.assertIs(result, page_14)
+        adapter._get_json.assert_awaited_once_with(None, f"{adapter.base}/counts/posts.json", params={"tags": "grey_theme weapon rating:general"})
+        adapter.search.assert_awaited_once_with(None, "grey_theme weapon", ["general"], "latest", "14", 60, {}, ("blocked",))
+
     async def test_danbooru_two_tag_random_search_uses_cached_id_bounds(self):
-        latest = GalleryPage((SimpleNamespace(post_id="1000"),), None, True)
-        oldest = GalleryPage((SimpleNamespace(post_id="100"),), None, True)
+        latest = GalleryPage(tuple(SimpleNamespace(post_id=str(1000 - i)) for i in range(60)), None, False)
+        oldest = GalleryPage(tuple(SimpleNamespace(post_id=str(100 + i)) for i in range(60)), None, False)
         sampled = GalleryPage((SimpleNamespace(post_id="500"),), None, True)
         for credentials in ({}, {"username": "member", "apiKey": "secret"}):
             with self.subTest(credentials=credentials):
@@ -86,14 +98,26 @@ class GalleryRandomSamplingTests(unittest.IsolatedAsyncioTestCase):
                     second = await sample_search(adapter, None, "original fantasy", ["general"], 30, credentials, ("blocked",), cache)
                 self.assertIs(first, sampled)
                 self.assertIs(second, sampled)
-                adapter.search.assert_awaited_once_with(None, "original fantasy", ["general"], "latest", "1", 60, credentials, ())
-                self.assertEqual([call.args[3] for call in adapter.search_id_cursor.await_args_list], ["a0", "b500", "b500"])
-                self.assertEqual(adapter.search_id_cursor.await_args_list[0].args[4:], (60, credentials, ()))
-                self.assertEqual(adapter.search_id_cursor.await_args_list[-1].args[4:], (30, credentials, ("blocked",)))
+                adapter.search.assert_awaited_once_with(None, "original fantasy", ["general"], "latest", "1", 60, credentials, ("blocked",))
+                self.assertEqual(adapter.search_id_cursor.await_args_list[0].args[3:], ("a0", 60, credentials, ("blocked",)))
+                self.assertIn(adapter.search_id_cursor.await_args_list[1].args[3], ("b499", "a499"))
+                self.assertEqual(adapter.search_id_cursor.await_args_list[1].args[4:], (30, credentials, ("blocked",)))
+
+    async def test_danbooru_two_tag_small_set_samples_directly_from_probe_results(self):
+        # When latest page has fewer than 60 posts, all posts are in latest
+        small_latest = GalleryPage((SimpleNamespace(post_id="10"), SimpleNamespace(post_id="20")), None, True)
+        adapter = DanbooruAdapter()
+        adapter.search = AsyncMock(return_value=small_latest)
+        adapter.search_id_cursor = AsyncMock()
+        cache = TTLCache(8, 300)
+        result = await sample_search(adapter, None, "grey_theme weapon", [], 60, {}, (), cache)
+        self.assertEqual(set(p.post_id for p in result.posts), {"10", "20"})
+        self.assertTrue(result.ended)
+        adapter.search_id_cursor.assert_not_awaited()
 
     async def test_danbooru_id_bounds_are_isolated_by_rating_and_account(self):
-        latest = GalleryPage((SimpleNamespace(post_id="1000"),), None, True)
-        oldest = GalleryPage((SimpleNamespace(post_id="100"),), None, True)
+        latest = GalleryPage(tuple(SimpleNamespace(post_id=str(1000 - i)) for i in range(60)), None, False)
+        oldest = GalleryPage(tuple(SimpleNamespace(post_id=str(100 + i)) for i in range(60)), None, False)
         sampled = GalleryPage((SimpleNamespace(post_id="500"),), None, True)
         adapter = DanbooruAdapter()
         adapter.search = AsyncMock(return_value=latest)
@@ -114,19 +138,17 @@ class GalleryRandomSamplingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([call.args[3] for call in adapter.search_id_cursor.await_args_list].count("a0"), 3)
 
     async def test_danbooru_empty_cursor_result_falls_back_to_filtered_latest_page(self):
-        latest_probe = GalleryPage((SimpleNamespace(post_id="1000"),), None, True)
-        filtered_latest = GalleryPage((SimpleNamespace(post_id="999"),), None, True)
-        oldest = GalleryPage((SimpleNamespace(post_id="100"),), None, True)
+        latest_probe = GalleryPage(tuple(SimpleNamespace(post_id=str(1000 - i)) for i in range(60)), None, False)
+        oldest = GalleryPage(tuple(SimpleNamespace(post_id=str(100 + i)) for i in range(60)), None, False)
+        empty_cursor = GalleryPage((), None, True)
         adapter = DanbooruAdapter()
-        adapter.search = AsyncMock(side_effect=(latest_probe, filtered_latest))
-        adapter.search_id_cursor = AsyncMock(side_effect=(oldest, GalleryPage((), None, True)))
+        adapter.search = AsyncMock(return_value=latest_probe)
+        adapter.search_id_cursor = AsyncMock(side_effect=[oldest, empty_cursor, empty_cursor, empty_cursor, empty_cursor, empty_cursor, empty_cursor])
         with patch("nodes.gallery.random_sampling.secrets.randbelow", return_value=399):
             result = await sample_search(
                 adapter, None, "original fantasy", ["general"], 60, {}, ("blocked",), TTLCache(8, 300),
             )
-        self.assertIs(result, filtered_latest)
-        self.assertEqual(adapter.search.await_args_list[0].args[-1], ())
-        self.assertEqual(adapter.search.await_args_list[1].args[-1], ("blocked",))
+        self.assertIs(result, latest_probe)
 
     async def test_danbooru_rejects_queries_above_the_public_tag_limit(self):
         adapter = DanbooruAdapter()
@@ -168,7 +190,7 @@ class GalleryRandomSamplingTests(unittest.IsolatedAsyncioTestCase):
         favorite_adapter.search = AsyncMock(return_value=GalleryPage((), None, True))
         await sample_favorites(favorite_adapter, None, 60, {"username": "alice"}, ("blocked",))
         args = favorite_adapter.search.await_args.args
-        self.assertEqual((args[1], args[3], args[4]), ("ordfav:alice", "random", None))
+        self.assertEqual((args[1], args[3], args[4]), ("fav:alice", "random", None))
         self.assertEqual(args[-1], ("blocked",))
 
     async def test_gelbooru_random_sort_uses_its_native_random_metatag(self):

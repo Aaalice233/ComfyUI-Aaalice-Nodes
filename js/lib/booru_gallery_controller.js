@@ -245,13 +245,13 @@ export function createGalleryControllerFactory(dependencies) {
 		if (!automaticRefill) { automaticRefillPages = 0; manualContinuation = false; eachElement("continueResults", (element) => { element.hidden = true; }); }
 		const state = stateFor(node); const randomMode = Boolean(state.randomMode);
 		const randomScope = JSON.stringify([state.source, state.filters.feed, state.filters.period, searchQuery(state), state.filters.ratings]);
-		randomSession.sync(randomMode, randomScope);
+		randomSession.sync(randomMode, randomScope, { reset });
 		const requestedPage = reset && !randomMode ? Math.max(1, Math.floor(Number(page ?? state.navigation.page) || 1)) : null;
 		// Mark the request active before clearing the masonry. setItems() draws synchronously
 		// and may report near-end; that callback must not start a competing first-page request.
 		setLoading(true);
 		if (reset) {
-			requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; randomMisses = 0;
+			requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; randomMisses = 0; randomSession.reset();
 			for (const masonry of masonryControllers()) masonry.setItems([], { preserveScroll: false });
 			eachElement("end", (element) => { element.hidden = true; }); eachElement("emptyResults", (element) => { element.hidden = true; });
 			clearError(); if (!randomMode) rememberPage(requestedPage);

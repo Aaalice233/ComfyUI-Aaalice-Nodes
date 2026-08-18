@@ -14,7 +14,7 @@ test("secure shuffle uses unbiased rejection sampling and does not mutate its in
 	assert.equal(randomValues.length, 0, "the out-of-range uint32 must be rejected");
 });
 
-test("random sessions deduplicate draw and near-end batches until mode or scope changes", () => {
+test("random sessions deduplicate draw and near-end batches until mode, scope or reset changes", () => {
 	const session = createRandomGallerySession();
 	const first = [post("danbooru", 1), post("danbooru", 2), post("gelbooru", 1)];
 	assert.equal(session.sync(true, "scope-a"), true);
@@ -24,6 +24,12 @@ test("random sessions deduplicate draw and near-end batches until mode or scope 
 	assert.deepEqual(session.take([post("danbooru", 2), post("danbooru", 3)]).map(randomPostKey), ["danbooru:3"], "near-end batches keep only unseen posts");
 	assert.equal(session.sync(true, "scope-a"), false);
 	assert.deepEqual(session.take([post("danbooru", 2)]), []);
+	// reset allows drawing a fresh batch without changing scope
+	assert.equal(session.sync(true, "scope-a", { reset: true }), true);
+	assert.equal(session.seenCount, 0);
+	assert.deepEqual(new Set(session.take(first).map(randomPostKey)), new Set(["danbooru:1", "danbooru:2", "gelbooru:1"]));
+	session.reset();
+	assert.equal(session.seenCount, 0);
 	assert.equal(session.sync(true, "scope-b"), true);
 	assert.deepEqual(session.take([post("danbooru", 2)]).map(randomPostKey), ["danbooru:2"]);
 	assert.equal(session.sync(false, "scope-b"), true);

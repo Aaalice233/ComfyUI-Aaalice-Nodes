@@ -318,12 +318,12 @@ test("random browse requests omit cursors and keep source-scoped posts unseen ac
 		label: (_key, fallback) => fallback, searchQuery: () => state.query, stateFor: () => state,
 	})({ graph: { change() {} } }, elements);
 	await controller.search({ reset: true, page: 7 });
-	await controller.search({ reset: true, page: 7 });
+	await controller.search({ reset: false, page: 7 });
 	assert.match(urls[0], /random=1/);
 	assert.doesNotMatch(urls[0], /(?:page|cursor)=/);
 	assert.equal(requestOptions[0].cache, "no-store", "random draws must bypass the browser HTTP cache");
 	assert.equal(appended[0].length, 1);
-	assert.equal(appended[1].length, 0, "a new draw must not replay a post already seen in this random session");
+	assert.equal(appended[1].length, 0, "a continuous near-end batch must not replay a post already seen in this random session");
 	const scopeChanges = [
 		() => { state.query = "fantasy"; },
 		() => { state.filters.ratings = ["general"]; },

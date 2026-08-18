@@ -33,14 +33,23 @@ export function createRandomGallerySession() {
 	let scope = "";
 	const seen = new Set();
 	return {
-		sync(nextActive, nextScope) {
+		sync(nextActive, nextScope, { reset = false } = {}) {
 			const normalizedActive = Boolean(nextActive);
 			const normalizedScope = normalizedActive ? String(nextScope || "") : "";
+			if (reset) {
+				active = normalizedActive;
+				scope = normalizedScope;
+				seen.clear();
+				return true;
+			}
 			if (normalizedActive === active && normalizedScope === scope) return false;
 			active = normalizedActive;
 			scope = normalizedScope;
 			seen.clear();
 			return true;
+		},
+		reset() {
+			seen.clear();
 		},
 		take(posts) {
 			if (!active) return posts;
