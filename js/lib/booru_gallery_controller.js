@@ -23,6 +23,7 @@ export function createGalleryControllerFactory(dependencies) {
 	return function buildController(node, surfaces) {
 	if (!(surfaces instanceof Set)) surfaces = new Set(surfaces ? [surfaces] : []);
 	let posts = []; let knownPostKeys = new Set(); let pageSegments = []; let nextCursor = null; let ended = false; let loading = false; let manualContinuation = false; let endMessage = ""; let emptyMessage = ""; let requestController = null; let generation = 0; let automaticRefillPages = 0; let detailDialogGeneration = 0; let destroyed = false; let activeDetailDialog = null; const sessionEdits = new Map();
+	let selectionIntentRevision = 0; let selectionModeRevision = 0; let multipleSelectionTail = Promise.resolve(); const selectionKeyRevisions = new Map();
 	const views = () => [...surfaces];
 	const eachView = (callback) => surfaces.forEach(callback);
 	const eachElement = (name, callback) => eachView((view) => { if (view[name]) callback(view[name], view); });
@@ -222,12 +223,14 @@ export function createGalleryControllerFactory(dependencies) {
 		if (mode === "single" && stateFor(node).selections.length > 1) {
 			eachElement("selectionMode", (control) => control.setValue(current));
 			openSingleSelectionDialog(() => {
+				selectionModeRevision += 1; multipleSelectionTail = Promise.resolve();
 				transact(node, (state) => { state.selectionMode = "single"; state.selections = state.selections.slice(0, 1); });
 				renderSelected();
 				refreshCards();
 			});
 			return;
 		}
+		selectionModeRevision += 1; multipleSelectionTail = Promise.resolve();
 		transact(node, (state) => { state.selectionMode = mode; });
 		renderSelected();
 	};
@@ -395,29 +398,47 @@ export function createGalleryControllerFactory(dependencies) {
 			drainPreviewPrefetch();
 		}, 150);
 	};
-	const recoverPreview = async (post, image) => {
-		if (post.source !== "aitag" || image.dataset.previewRecovery) return;
-		image.dataset.previewRecovery = "pending";
+	const recoverPreview = async (post) => {
+		if (post.source !== "aitag") return null;
 		try {
 			const detail = await getDetail(post);
-			if (!detail.previewUrl || detail.previewUrl === post.previewUrl) return;
-			post.previewUrl = detail.previewUrl;
-			post.width = detail.width;
-			post.height = detail.height;
-			image.dataset.previewRecovery = "done";
-			image.parentElement?.classList.add("is-loading");
-			image.parentElement?.classList.remove("is-error");
-			image.src = proxyUrl(detail.source, detail.previewUrl);
+			return detail.previewUrl ? detail : null;
 		} catch (error) {
-			image.dataset.previewRecovery = "failed";
 			console.error(`[Aaalice] AI TAG preview recovery failed for ${post.postId}:`, error);
+			return null;
 		}
 	};
 	const toggleSelection = async (post) => {
-		const key = `${post.source}:${post.postId}`; const index = stateFor(node).selections.findIndex((item) => selectionKey(item) === key);
-		if (index >= 0) transact(node, (state) => state.selections.splice(index, 1));
-		else { const detail = await getDetail(post); const selection = selectionFromDetail(detail, sessionEdits.get(key)); if (!selection) throw new Error(label("error.incomplete", "The post detail is incomplete.")); transact(node, (state) => { state.selections = state.selectionMode === "single" ? [selection] : [...state.selections, selection]; }); }
-		renderSelected(); refreshCards();
+		const key = `${post.source}:${post.postId}`; const state = stateFor(node); const index = state.selections.findIndex((item) => selectionKey(item) === key);
+		const intentRevision = ++selectionIntentRevision; const keyRevision = (selectionKeyRevisions.get(key) || 0) + 1; selectionKeyRevisions.set(key, keyRevision);
+		const mode = state.selectionMode; const modeRevision = selectionModeRevision;
+		if (index >= 0) {
+			transact(node, (current) => { const currentIndex = current.selections.findIndex((item) => selectionKey(item) === key); if (currentIndex >= 0) current.selections.splice(currentIndex, 1); });
+			renderSelected(); refreshCards(); return;
+		}
+		const commitDetail = (detail, latestOnly) => {
+			if (destroyed || selectionModeRevision !== modeRevision || stateFor(node).selectionMode !== mode || selectionKeyRevisions.get(key) !== keyRevision || (latestOnly && selectionIntentRevision !== intentRevision)) return false;
+			const selection = selectionFromDetail(detail, sessionEdits.get(key));
+			if (!selection) throw new Error(label("error.incomplete", "The post detail is incomplete."));
+			if (stateFor(node).selections.some((item) => selectionKey(item) === key)) return false;
+			let changed = false;
+			transact(node, (current) => {
+				if (current.selectionMode !== mode || current.selections.some((item) => selectionKey(item) === key)) return;
+				current.selections = mode === "single" ? [selection] : [...current.selections, selection]; changed = true;
+			});
+			return changed;
+		};
+		let changed;
+		if (mode === "single") changed = commitDetail(await getDetail(post), true);
+		else {
+			const detailResult = getDetail(post).then((detail) => ({ detail }), (error) => ({ error }));
+			const commit = multipleSelectionTail.then(async () => {
+				const result = await detailResult; if (result.error) throw result.error;
+				return commitDetail(result.detail, false);
+			});
+			multipleSelectionTail = commit.catch(() => false); changed = await commit;
+		}
+		if (changed) { renderSelected(); refreshCards(); }
 	};
 	const toggleFavorite = async (post) => {
 		const previous = Boolean(post.favorite); const response = await jsonRequest(`${API}/favorite`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: post.source, postId: post.postId, favorite: !previous }) });
@@ -437,24 +458,17 @@ export function createGalleryControllerFactory(dependencies) {
 		app.extensionManager.toast.add({ severity: "success", summary: label("card.copyPrompt", "Copy prompt"), detail: label("card.promptCopied", "Prompt copied to clipboard"), life: 3200 });
 		return true;
 	};
-	const interrogatePost = async (post, card, control) => {
-		card.classList.add("is-interrogating");
-		if (control) control.disabled = true;
-		try {
-			const detail = await getDetail(post);
-			const mediaSrc = detail.mediaUrl || detail.sampleUrl || detail.previewUrl;
-			if (!mediaSrc) throw new Error(label("error.incomplete", "The post detail is incomplete."));
-			const imageData = await blobToDataUrl(await fetchMediaBlob(proxyUrl(detail.source, mediaSrc)));
-			const base = promptAssistantApi?.();
-			if (!base) throw new Error(label("interrogate.failed", "Interrogation failed."));
-			const result = await jsonRequest(`${base}/vlm/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageData, request_id: crypto.randomUUID() }) });
-			if (!result?.success) throw new Error(result?.error || label("interrogate.failed", "Interrogation failed."));
-			if (destroyed) return;
-			openInterrogateResultDialog(detail, String(result.data?.description || ""));
-		} finally {
-			card.classList.remove("is-interrogating");
-			if (control) control.disabled = false;
-		}
+	const interrogatePost = async (post) => {
+		const detail = await getDetail(post);
+		const mediaSrc = detail.mediaUrl || detail.sampleUrl || detail.previewUrl;
+		if (!mediaSrc) throw new Error(label("error.incomplete", "The post detail is incomplete."));
+		const imageData = await blobToDataUrl(await fetchMediaBlob(proxyUrl(detail.source, mediaSrc)));
+		const base = promptAssistantApi?.();
+		if (!base) throw new Error(label("interrogate.failed", "Interrogation failed."));
+		const result = await jsonRequest(`${base}/vlm/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageData, request_id: crypto.randomUUID() }) });
+		if (!result?.success) throw new Error(result?.error || label("interrogate.failed", "Interrogation failed."));
+		if (destroyed) return;
+		openInterrogateResultDialog(detail, String(result.data?.description || ""));
 	};
 	const { tooltip, showHover } = createGalleryHover({
 		cacheImage, capability, createTooltip, currentLocale, dimensions, el, getDetail, icon, label,
@@ -670,7 +684,7 @@ export function createGalleryControllerFactory(dependencies) {
 		detachSurface(view) { if (surfaces.delete(view)) { view.destroy(); syncProjectionActivity(); } },
 		updateSize(post, width, height) { for (const masonry of masonryControllers()) masonry.updateItemSize(`${post.source}:${post.postId}`, width, height); },
 		destroy() {
-			destroyed = true; generation += 1; detailDialogGeneration += 1;
+			destroyed = true; generation += 1; detailDialogGeneration += 1; selectionIntentRevision += 1; selectionModeRevision += 1; selectionKeyRevisions.clear(); multipleSelectionTail = Promise.resolve();
 			clearTimeout(errorTimer); errorTimer = 0; clearTimeout(pageCommitTimer); pageCommitTimer = 0; clearTimeout(prefetchTimer); prefetchTimer = 0;
 			requestController?.abort(); activeDetailDialog?.close(); activeDetailDialog = null;
 			endSelectedDrag(); tooltip.destroy();

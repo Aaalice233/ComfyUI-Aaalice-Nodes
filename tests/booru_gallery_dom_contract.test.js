@@ -224,7 +224,7 @@ test("selection mode switcher persists workflow state and enforces single select
 	assert.match(source, /value: "multi", label: label\("selectionMode\.multiple", "Multiple"\), iconName: "selectionMultiple"/);
 	assert.match(source, /state\.selectionMode = mode/);
 	assert.match(source, /node\.graph\?\.change\?\.\(\)/);
-	assert.match(source, /state\.selectionMode === "single" \? \[selection\] : \[\.\.\.state\.selections, selection\]/);
+	assert.match(source, /current\.selections = mode === "single" \? \[selection\] : \[\.\.\.current\.selections, selection\]/);
 	assert.match(source, /state\.selections = state\.selections\.slice\(0, 1\)/);
 	assert.match(source, /openSingleSelectionDialog/);
 	assert.match(theme, /\.aa-gallery-selection-switcher\[data-value="single"\]/);
@@ -309,8 +309,9 @@ test("favorite entry stays visible before login and explains unavailable writes"
 	assert.match(source, /if \(!cap\?\.favoriteWrite\) \{[\s\S]*?showFavoriteNotice\(source, "readOnly"\);[\s\S]*?return false;/);
 	assert.match(source, /function notifyFavorite\(source, targetFavorite, error = null\)/);
 	assert.match(source, /app\.extensionManager\?\.toast\?\.add\?\.\(/);
-	assert.match(source, /notifyFavorite\(post\.source, targetFavorite\)/);
-	assert.match(source, /notifyFavorite\(post\.source, targetFavorite, error\)/);
+	assert.match(source, /notifyFavorite\(binding\.post\.source, targetFavorite\)/);
+	assert.match(source, /binding\.controller\.refreshCards\(\)/);
+	assert.match(source, /notifyFavorite\(binding\.post\.source, targetFavorite, error\)/);
 	assert.match(source, /notifyFavorite\(detail\.source, targetFavorite\)/);
 	assert.match(source, /notifyFavorite\(detail\.source, targetFavorite, error\)/);
 	for (const locale of [enLocale, zhLocale]) {
@@ -409,12 +410,41 @@ test("gallery cards omit visible post identity and keep only useful hover metada
 test("AI TAG cards recover an exact preview lazily and never render an empty rating pill", () => {
 	assert.match(source, /image\.addEventListener\("error", \(\) => \{/);
 	assert.match(source, /surface\.classList\.add\("is-error"\)/);
-	assert.match(source, /markFailedPreview\(src\)/);
-	assert.match(source, /void controller\.recoverPreview\(post, image\)/);
+	assert.match(source, /markFailedPreview\(view\.currentSrc\)/);
+	assert.match(source, /void view\.recoverImage\(view\.post, image\)/);
+	assert.match(source, /const recovery = \{ controller: view\.controller, post, image, failedSrc: view\.currentSrc \}/);
+	assert.match(source, /const detail = await recovery\.controller\.recoverPreview\(post\)/);
+	assert.match(source, /if \(!isCurrentGalleryCardImage\(view, recovery\)\) return/);
 	assert.match(source, /failedAt && failedAt > Date\.now\(\)/);
 	assert.match(source, /if \(post\.source !== "aitag" \|\| image\.dataset\.previewRecovery\) return/);
+	assert.match(source, /view\.currentSrc = src/);
+	assert.match(source, /delete image\.dataset\.previewRecovery/);
+	assert.doesNotMatch(source, /const boundSrc = image/);
+	assert.match(source, /event\.stopPropagation\(\)/);
+	assert.match(source, /if \(event\.target !== card \|\| \(event\.key !== "Enter" && event\.key !== " "\)\) return/);
 	assert.match(source, /post\.previewUrl = detail\.previewUrl/);
 	assert.match(source, /detail\.rating && cap\?\.ratings\?\.length/);
+});
+
+test("recycled gallery cards invalidate pending action feedback", () => {
+	assert.match(source, /bindingRevision: 0/);
+	assert.match(source, /export async function runGalleryCardBindingAction/);
+	assert.match(source, /if \(isCurrentGalleryCardBinding\(view, binding\)\) callbacks\.onCurrentSuccess/);
+	assert.match(source, /if \(isCurrentGalleryCardBinding\(view, binding\)\) callbacks\.onCurrentSettled/);
+	assert.match(source, /runGalleryCardBindingAction\(view, binding, \(\) => binding\.controller\.toggleSelection\(binding\.post\)/);
+	assert.match(source, /onCurrentSettled: \(\) => \{ view\.selectionPending = false/);
+	assert.match(source, /view\.bindingRevision \+= 1/);
+});
+
+test("gallery card recycling shares the decoded-preview pixel budget", () => {
+	assert.match(source, /MAX_PREVIEW_POOL_PIXELS = 32 \* 1024 \* 1024/);
+	assert.match(source, /const remembered = loadedSrc && isCacheableDecodedPreview\(loadedSrc\)[^]*&& rememberPreviewImage\(loadedSrc, image, image\.naturalWidth, image\.naturalHeight\)/);
+	assert.match(source, /if \(!remembered\) image\.removeAttribute\("src"\)/);
+	const disposeStart = source.indexOf("card._aaVirtualMasonryDispose = () => {");
+	const disposeEnd = source.indexOf("return view;", disposeStart);
+	const dispose = source.slice(disposeStart, disposeEnd);
+	assert.match(dispose, /if \(view\.image\) \{[^}]*releaseCardImage\(view, view\.image\); view\.image = null; \}/);
+	assert.ok(dispose.indexOf("releaseCardImage(view, view.image)") < dispose.indexOf("cardViewPool.push(view)"), "decoded images must enter the budgeted pool before their card view is retained");
 });
 
 test("credential-required sources route the empty state to Gallery settings", () => {

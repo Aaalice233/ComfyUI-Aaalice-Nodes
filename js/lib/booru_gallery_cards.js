@@ -1,3 +1,5 @@
+import { createDecodedImagePool, isCacheableDecodedPreview } from "./booru_gallery_image_pool.js";
+
 /** Gallery card, selection-row, and drag-order view helpers. */
 
 // 卡片倾斜与径向高光由瀑布流容器统一委托：一个 pointermove/pointerleave 监听
@@ -62,6 +64,52 @@ export function restoreGalleryScrollFocus(card, focusedElement, event) {
 	return true;
 }
 
+function isCurrentGalleryCardImage(view, recovery) {
+	return view.previewRecovery === recovery
+		&& view.controller === recovery.controller
+		&& view.post === recovery.post
+		&& view.image === recovery.image;
+}
+
+export function isCurrentGalleryCardBinding(view, binding) {
+	return view.bindingRevision === binding.revision && view.controller === binding.controller && view.post === binding.post;
+}
+
+export async function runGalleryCardBindingAction(view, binding, action, callbacks = {}) {
+	try {
+		const result = await action(binding);
+		callbacks.onSuccess?.(binding, result);
+		if (isCurrentGalleryCardBinding(view, binding)) callbacks.onCurrentSuccess?.(binding, result);
+		return result;
+	} catch (error) {
+		if (callbacks.onError) callbacks.onError(binding, error);
+		else throw error;
+	} finally {
+		if (isCurrentGalleryCardBinding(view, binding)) callbacks.onCurrentSettled?.(binding);
+	}
+}
+
+export async function recoverGalleryCardImage(view, post, image, { proxyUrl, surface }) {
+	if (post.source !== "aitag" || image.dataset.previewRecovery) return;
+	const recovery = { controller: view.controller, post, image, failedSrc: view.currentSrc };
+	view.previewRecovery = recovery;
+	image.dataset.previewRecovery = "pending";
+	const detail = await recovery.controller.recoverPreview(post);
+	if (!isCurrentGalleryCardImage(view, recovery)) return;
+	view.previewRecovery = null;
+	if (!detail) { image.dataset.previewRecovery = "failed"; return; }
+	const src = proxyUrl(detail.source, detail.previewUrl);
+	if (src === recovery.failedSrc) { image.dataset.previewRecovery = "failed"; return; }
+	post.previewUrl = detail.previewUrl;
+	post.width = detail.width;
+	post.height = detail.height;
+	view.currentSrc = src;
+	image.dataset.previewRecovery = "done";
+	surface.classList.add("is-loading");
+	surface.classList.remove("is-error");
+	image.src = src;
+}
+
 export function createGalleryCards(dependencies) {
 	const {
 		GALLERY_CATEGORIES, canWriteFavorite, capability, createSelectionStamp, createTagPillList,
@@ -85,36 +133,14 @@ function galleryCardActionLayout(width, height, count) {
 // immediately instead of flashing a placeholder or re-decoding from cache.
 // Bounded by both entry count and decoded pixels so AI TAG's full-size
 // previews (megabytes each) cannot balloon the pool.
-const previewImagePool = new Map();
 const MAX_PREVIEW_IMAGE_POOL = 96;
 const MAX_PREVIEW_POOL_PIXELS = 32 * 1024 * 1024; // ~128MB of decoded RGBA
-let previewPoolPixels = 0;
+const previewImagePool = createDecodedImagePool({ maxEntries: MAX_PREVIEW_IMAGE_POOL, maxPixels: MAX_PREVIEW_POOL_PIXELS });
 function rememberPreviewImage(src, image, width, height) {
-	const pixels = Math.max(1, Number(width) || 1) * Math.max(1, Number(height) || 1);
-	if (pixels > MAX_PREVIEW_POOL_PIXELS) return false;
-	const previous = previewImagePool.get(src);
-	if (previous) {
-		previous.image.removeAttribute("src");
-		previewPoolPixels -= previous.pixels;
-	}
-	previewImagePool.delete(src);
-	previewImagePool.set(src, { image, width, height, pixels });
-	previewPoolPixels += pixels;
-	while (previewImagePool.size > MAX_PREVIEW_IMAGE_POOL || previewPoolPixels > MAX_PREVIEW_POOL_PIXELS) {
-		const stale = previewImagePool.keys().next().value;
-		const entry = previewImagePool.get(stale);
-		entry.image.removeAttribute("src");
-		previewImagePool.delete(stale);
-		previewPoolPixels -= entry.pixels;
-	}
-	return true;
+	return previewImagePool.remember(src, image, width, height);
 }
 function takePreviewImage(src) {
-	const entry = previewImagePool.get(src);
-	if (!entry) return null;
-	previewImagePool.delete(src);
-	previewPoolPixels -= entry.pixels;
-	return entry;
+	return previewImagePool.take(src);
 }
 
 // URLs that failed to load recently: re-mounting a card must not re-request a
@@ -143,16 +169,22 @@ function createCardImage() {
 	// 图片元素会在卡片池与预览池之间迁移，事件委托给当前持有者，迁移时无需拆装监听。
 	image.addEventListener("load", () => image._aaCardView?.handleImageLoad(image));
 	image.addEventListener("error", () => image._aaCardView?.handleImageError(image));
-	// 图片生命周期由卡片池接管，瀑布流卸载时不剥离 src， decoded 位图随卡片保留。
+	// 图片生命周期由共享预算池接管，瀑布流只负责卸载卡片，不直接剥离 src。
 	image._aaVirtualMasonryRelease = () => true;
 	return image;
 }
 
 function releaseCardImage(view, image) {
+	if (view.previewRecovery?.image === image) view.previewRecovery = null;
+	delete image.dataset.previewRecovery;
 	image._aaCardView = null;
 	const loadedSrc = image.dataset.deferred === "1" ? null : image.getAttribute("src");
-	if (loadedSrc && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) rememberPreviewImage(loadedSrc, image, image.naturalWidth, image.naturalHeight);
-	else image.removeAttribute("src");
+	delete image.dataset.deferred;
+	delete image.dataset.src;
+	const remembered = loadedSrc && isCacheableDecodedPreview(loadedSrc)
+		&& image.complete && image.naturalWidth > 0 && image.naturalHeight > 0
+		&& rememberPreviewImage(loadedSrc, image, image.naturalWidth, image.naturalHeight);
+	if (!remembered) image.removeAttribute("src");
 	image.remove();
 }
 
@@ -171,8 +203,9 @@ function buildGalleryCardView() {
 	const rating = el("span", { className: "aa-gallery-card__rating", attrs: { hidden: true } });
 	const actions = el("div", { className: "aa-gallery-card__actions", attrs: { role: "group", "aria-label": label("card.actions", "Image actions") } });
 	const view = {
-		root: card, node: null, controller: null, post: null, image: null, currentSrc: "", hoverTimer: 0, selectionPending: false, visibleActions: 0,
+		root: card, node: null, controller: null, post: null, image: null, currentSrc: "", previewRecovery: null, hoverTimer: 0, selectionPending: false, visibleActions: 0, bindingRevision: 0,
 	};
+	const bindingSnapshot = () => ({ controller: view.controller, post: view.post, revision: view.bindingRevision });
 	const actionButton = (iconName, action, actionIndex, onClick) => {
 		const control = iconButton({ iconName, label: "", variant: "ghost", className: `aa-gallery-card-action is-${action}`, onClick: (event) => { event?.stopPropagation?.(); restoreGalleryScrollFocus(card, control, event); onClick(event); } });
 		control.style.setProperty("--aa-gallery-action-delay", `${actionIndex * 34}ms`);
@@ -180,20 +213,31 @@ function buildGalleryCardView() {
 	};
 	const editAction = actionButton("edit", "edit", 0, () => view.controller.openEditor(view.post).catch(view.controller.showError));
 	editAction.setAttribute("aria-label", label("card.edit", "Edit image tags")); editAction.title = label("card.edit", "Edit image tags");
-	const favoriteAction = actionButton("favorite", "favorite", 1, async () => {
-		const post = view.post; const targetFavorite = !Boolean(post.favorite);
-		if (!canWriteFavorite(post.source, targetFavorite)) return;
-		try { await view.controller.toggleFavorite(post); card._aaGalleryUpdate?.(); favoriteAction.classList.add("is-acknowledged"); notifyFavorite(post.source, targetFavorite); }
-		catch (error) { notifyFavorite(post.source, targetFavorite, error); view.controller.showError(error); }
+	const favoriteAction = actionButton("favorite", "favorite", 1, () => {
+		const binding = bindingSnapshot(); const targetFavorite = !Boolean(binding.post.favorite);
+		if (!canWriteFavorite(binding.post.source, targetFavorite)) return;
+		void runGalleryCardBindingAction(view, binding, () => binding.controller.toggleFavorite(binding.post), {
+			onSuccess: () => { notifyFavorite(binding.post.source, targetFavorite); binding.controller.refreshCards(); },
+			onCurrentSuccess: () => favoriteAction.classList.add("is-acknowledged"),
+			onError: (_binding, error) => { notifyFavorite(binding.post.source, targetFavorite, error); binding.controller.showError(error); },
+		});
 	});
-	const copyPromptAction = actionButton("copy", "copyPrompt", 2, async () => {
-		try { if (await view.controller.copyPostPrompt(view.post)) copyPromptAction.classList.add("is-acknowledged"); }
-		catch (error) { view.controller.showError(error); }
+	const copyPromptAction = actionButton("copy", "copyPrompt", 2, () => {
+		const binding = bindingSnapshot();
+		void runGalleryCardBindingAction(view, binding, () => binding.controller.copyPostPrompt(binding.post), {
+			onCurrentSuccess: (_binding, copied) => { if (copied) copyPromptAction.classList.add("is-acknowledged"); },
+			onError: (_binding, error) => binding.controller.showError(error),
+		});
 	});
 	copyPromptAction.setAttribute("aria-label", label("card.copyPrompt", "Copy prompt")); copyPromptAction.title = label("card.copyPrompt", "Copy prompt");
-	const interrogateAction = actionButton("scan", "interrogate", 3, async () => {
-		try { await view.controller.interrogatePost(view.post, card, interrogateAction); interrogateAction.classList.add("is-acknowledged"); }
-		catch (error) { view.controller.showError(error); }
+	const interrogateAction = actionButton("scan", "interrogate", 3, () => {
+		const binding = bindingSnapshot();
+		interrogateAction.disabled = true; card.classList.add("is-interrogating");
+		void runGalleryCardBindingAction(view, binding, () => binding.controller.interrogatePost(binding.post), {
+			onCurrentSuccess: () => interrogateAction.classList.add("is-acknowledged"),
+			onError: (_binding, error) => binding.controller.showError(error),
+			onCurrentSettled: () => { interrogateAction.disabled = false; card.classList.remove("is-interrogating"); },
+		});
 	});
 	interrogateAction.setAttribute("aria-label", label("card.interrogate", "Interrogate prompt")); interrogateAction.title = label("card.interrogate", "Interrogate prompt");
 	const downloadAction = actionButton("download", "download", 4, () => view.controller.downloadOriginal(view.post, downloadAction).catch(view.controller.showError));
@@ -211,54 +255,62 @@ function buildGalleryCardView() {
 		failedPreviewSources.delete(view.currentSrc);
 		if (image.naturalWidth > 0 && image.naturalHeight > 0) view.controller.updateSize(view.post, image.naturalWidth, image.naturalHeight);
 	};
+	view.recoverImage = (post, image) => recoverGalleryCardImage(view, post, image, { proxyUrl, surface });
 	view.handleImageError = (image) => {
 		if (image !== view.image || !view.post) return;
 		surface.classList.remove("is-loading");
 		surface.classList.add("is-error");
 		markFailedPreview(view.currentSrc);
-		void view.controller.recoverPreview(view.post, image);
+		void view.recoverImage(view.post, image);
 	};
 
 	view.bind = (node, controller, post, deferImage = false) => {
+		view.bindingRevision += 1;
+		view.previewRecovery = null;
+		view.selectionPending = false;
 		view.node = node; view.controller = controller; view.post = post;
+		card.classList.remove("is-selection-pending", "is-interrogating", "is-selection-feedback");
+		delete card.dataset.selected;
+		favoriteAction.classList.remove("is-acknowledged");
+		copyPromptAction.classList.remove("is-acknowledged");
+		interrogateAction.classList.remove("is-acknowledged");
+		interrogateAction.disabled = false;
 		downloadAction._aaGalleryDownloadOperation = null;
 		downloadAction.disabled = false;
 		downloadAction.classList.remove("is-downloading");
 		downloadAction.querySelector(".aa-ui-icon")?.replaceWith(icon("download"));
 		const src = proxyUrl(post.source, post.previewUrl);
 		view.currentSrc = src;
-		let image = view.image;
-		const boundSrc = image ? (image.dataset.deferred === "1" ? image.dataset.src : image.getAttribute("src")) : null;
-		if (image && boundSrc !== src) { releaseCardImage(view, image); image = null; }
-		if (!image) {
-			const pooled = takePreviewImage(src);
-			if (pooled) {
-				// 池只持有已解码图片，取出后所有权转给当前卡片。
-				image = pooled.image; image._aaCardView = view;
-				controller.updateSize(post, pooled.width, pooled.height);
-				surface.classList.remove("is-loading", "is-error");
+		let image;
+		let recoverFailedPreview = false;
+		const pooled = takePreviewImage(src);
+		if (pooled) {
+			// 池只持有已解码图片，取出后所有权转给当前卡片。
+			image = pooled.image; image._aaCardView = view;
+			controller.updateSize(post, pooled.width, pooled.height);
+			surface.classList.remove("is-loading", "is-error");
+		} else {
+			image = createCardImage(); image._aaCardView = view;
+			image.width = Math.max(1, Number(post.width) || 1); image.height = Math.max(1, Number(post.height) || 1);
+			const failedAt = failedPreviewSources.get(src);
+			if (failedAt && failedAt > Date.now()) {
+				// 已知失败：不重复请求注定失败的 URL，直接走恢复链路换真实来源。
+				surface.classList.remove("is-loading");
+				surface.classList.add("is-error");
+				recoverFailedPreview = true;
 			} else {
-				image = createCardImage(); image._aaCardView = view;
-				image.width = Math.max(1, Number(post.width) || 1); image.height = Math.max(1, Number(post.height) || 1);
-				const failedAt = failedPreviewSources.get(src);
-				if (failedAt && failedAt > Date.now()) {
-					// 已知失败：不重复请求注定失败的 URL，直接走恢复链路换真实来源。
-					surface.classList.remove("is-loading");
-					surface.classList.add("is-error");
-					void controller.recoverPreview(post, image);
-				} else {
-					surface.classList.remove("is-error");
-					surface.classList.add("is-loading");
-					if (deferImage) {
-						// 滚动活跃期挂载的卡片只占位，滚动停止后由入口统一补挂 src。
-						image.dataset.deferred = "1";
-						image.dataset.src = src;
-					} else image.src = src;
-				}
+				surface.classList.remove("is-error");
+				surface.classList.add("is-loading");
+				if (deferImage) {
+					// 滚动活跃期挂载的卡片只占位，滚动停止后由入口统一补挂 src。
+					image.dataset.deferred = "1";
+					image.dataset.src = src;
+				} else image.src = src;
 			}
-			surface.insertBefore(image, selectedLayer);
-			view.image = image;
 		}
+		surface.insertBefore(image, selectedLayer);
+		view.image = image;
+		if (recoverFailedPreview) void view.recoverImage(post, image);
 		const favoriteCapability = capability(post.source);
 		const favoriteVisible = Boolean(favoriteCapability?.favoriteRead || favoriteCapability?.favoriteWrite);
 		// .aa-ui-button 的 display 声明会覆盖 hidden 属性，显隐必须走 inline style。
@@ -287,18 +339,23 @@ function buildGalleryCardView() {
 	card._aaGalleryUpdate = () => view.update();
 	card._aaVirtualMasonryLayout = (width, height) => { card.dataset.actionsLayout = galleryCardActionLayout(width, height, view.visibleActions); };
 
-	const runSelection = async (event = null) => {
+	const runSelection = (event = null) => {
 		if (view.selectionPending || !view.post) return;
-		view.controller.tooltip.hide();
+		const binding = bindingSnapshot();
+		binding.controller.tooltip.hide();
 		if (event?.type === "click") restoreGalleryScrollFocus(card, card, event);
 		view.selectionPending = true; card.classList.add("is-selection-pending");
-		try { await view.controller.toggleSelection(view.post); }
-		catch (error) { view.controller.showError(error); }
-		finally { view.selectionPending = false; card.classList.remove("is-selection-pending"); }
+		void runGalleryCardBindingAction(view, binding, () => binding.controller.toggleSelection(binding.post), {
+			onError: (_binding, error) => binding.controller.showError(error),
+			onCurrentSettled: () => { view.selectionPending = false; card.classList.remove("is-selection-pending"); },
+		});
 	};
-	errorLayer.addEventListener("click", () => {
+	errorLayer.addEventListener("click", (event) => {
+		event.stopPropagation();
 		const image = view.image; const src = view.currentSrc;
 		if (!image || !src) return;
+		view.previewRecovery = null;
+		delete image.dataset.previewRecovery;
 		surface.classList.remove("is-error");
 		surface.classList.add("is-loading");
 		failedPreviewSources.delete(src);
@@ -310,15 +367,22 @@ function buildGalleryCardView() {
 		if (event.animationName === "aa-gallery-favorite-feedback") event.target.classList?.remove("is-acknowledged");
 	});
 	card.addEventListener("click", (event) => runSelection(event));
-	card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); runSelection(); } });
+	card.addEventListener("keydown", (event) => {
+		if (event.target !== card || (event.key !== "Enter" && event.key !== " ")) return;
+		event.preventDefault();
+		runSelection();
+	});
 	card.addEventListener("mouseenter", () => { if (!getSettings()?.tooltip || !view.controller) return; view.hoverTimer = setTimeout(() => view.controller?.showHover(card, view.post), 280); });
 	card.addEventListener("mouseleave", () => { clearTimeout(view.hoverTimer); view.hoverTimer = 0; view.controller?.tooltip.hide(); });
 	card._aaVirtualMasonryDispose = () => {
 		clearTimeout(view.hoverTimer); view.hoverTimer = 0;
+		view.bindingRevision += 1;
+		view.previewRecovery = null;
+		if (view.image) { delete view.image.dataset.previewRecovery; releaseCardImage(view, view.image); view.image = null; }
 		view.node = null; view.controller = null; view.post = null; view.selectionPending = false;
+		interrogateAction.disabled = false;
 		card.classList.remove("is-selection-pending", "is-interrogating", "is-selection-feedback");
 		if (cardViewPool.length < MAX_POOLED_CARD_VIEWS) cardViewPool.push(view);
-		else if (view.image) { releaseCardImage(view, view.image); view.image = null; }
 	};
 	return view;
 }
