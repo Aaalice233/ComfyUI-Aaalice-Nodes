@@ -77,6 +77,7 @@ test("header-only controls use a separate title row and value row", () => {
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-title \{[^}]*grid-column: 1;[^}]*grid-row: 1;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-numeric-value \{[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*grid-column: 1;[^}]*grid-row: 2;/);
 	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-boolean \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+	assert.match(theme, /\.aa-control-card\.is-header-only \.aa-control-card-header > \.aa-workspace-control-input \{[^}]*margin-top:\s*0;/);
 	assert.match(theme, /\.aa-control-boolean \{[^}]*width: 100%;[^}]*height: 32px;/);
 	assert.doesNotMatch(theme, /\.aa-control-card-header \.aa-control-boolean-status \{\s*display: none;/);
 	assert.doesNotMatch(theme, /aaalice-pcp-node-root/);
