@@ -80,7 +80,7 @@ export function createGallerySurfaceFactory(dependencies) {
 			if (refreshing) return;
 			refreshing = true; refresh.disabled = true; refresh.classList.add("is-refreshing");
 			updateRefreshPresentation(stateFor(node).randomMode ? label("random.drawing", "Drawing…") : label("refreshing", "Refreshing…"), undefined, "loading");
-			try { await controller.search({ reset: true, page: 1 }); }
+			try { await controller.search({ reset: true, page: stateFor(node).navigation.page }); }
 			finally { refreshing = false; refresh.disabled = false; refresh.classList.remove("is-refreshing"); updateRefreshIdlePresentation(); }
 		} });
 		let refreshIcon = refresh.querySelector(".aa-ui-icon");
@@ -154,12 +154,12 @@ export function createGallerySurfaceFactory(dependencies) {
 		root.append(toolbar, el("main", { className: "aa-gallery-browser", children: [masonry, loading, error, end, continueResults, emptyResults] }), selected);
 		if (projectionNotice) root.append(projectionNotice);
 		const surface = { root, placement, source, collection, masonry, loading, error, errorLabel, end, endLabel, randomMode, continueResults, emptyResults, tabs, selectionMode, selectedCount, selectedSummary: selectedSummaryText, selectedClear: clear, selectedList: null, selectedListRoot, selectedDropIndicator, emptySelected, projectionNotice, mode: stateFor(node).view, pageControl, searchControl, masonryController: null, active: false, viewportActive: false, projectionEnabled: true };
-		surface.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index, masonry.classList.contains("is-scrolling")), onNearEnd: () => controller.search(), onVisibleIndexChange: (index) => controller.visibleIndexChanged(index), onVisibleItemsChange: (items) => controller.prefetchVisible(items), minCardWidth: placement === "dashboard" ? 108 : 144, gap: placement === "dashboard" ? 5 : 6, maxColumns: placement === "dashboard" ? 6 : 5 });
+		surface.masonryController = mountVirtualMasonry(masonry, { renderItem: (post, index) => createGalleryCard(node, controller, post, index, masonry.classList.contains("is-scrolling")), onNearEnd: () => controller.search(), onVisibleIndexChange: (index) => controller.visibleIndexChanged(index, surface), onVisibleItemsChange: (items) => controller.prefetchVisible(items), minCardWidth: placement === "dashboard" ? 108 : 144, gap: placement === "dashboard" ? 5 : 6, maxColumns: placement === "dashboard" ? 6 : 5 });
 		surface.selectedList = mountVirtualList(selectedListRoot, { rowHeight: 96, gap: 7, overscan: 5, onBeforeRender: () => controller.tooltip.hide(), renderItem: (item, index) => createSelectedRow(node, controller, item, index) });
 		const syncActive = () => {
 			const active = surface.viewportActive && surface.projectionEnabled;
 			if (active === surface.active) return;
-			surface.active = active; surface.masonryController.setActive(active); surface.selectedList.setActive(active);
+			surface.active = active; controller.setSurfaceActive(surface, active); surface.selectedList.setActive(active);
 		};
 		surface.masonryController.setActive(false); surface.selectedList.setActive(false);
 		surface.setProjectionEnabled = (enabled) => {
@@ -172,6 +172,10 @@ export function createGallerySurfaceFactory(dependencies) {
 		selectedListRoot.addEventListener("dragover", (event) => controller.handleSelectedDragOver(event)); selectedListRoot.addEventListener("drop", (event) => controller.handleSelectedDrop(event)); selectedListRoot.addEventListener("dragleave", (event) => controller.handleSelectedDragLeave(event));
 		let scrollSettleTimer = 0;
 		const settleScroll = () => { scrollSettleTimer = 0; masonry.classList.remove("is-scrolling"); masonry.querySelectorAll('img[data-deferred="1"]').forEach((image) => { image.removeAttribute("data-deferred"); image.src = image.dataset.src; image.removeAttribute("data-src"); }); };
+		const claimSurface = () => controller.claimSurface(surface);
+		masonry.addEventListener("pointerdown", claimSurface, { passive: true });
+		masonry.addEventListener("wheel", (event) => { if (!event.ctrlKey && !event.metaKey) claimSurface(); }, { passive: true });
+		masonry.addEventListener("keydown", (event) => { if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) claimSurface(); });
 		masonry.addEventListener("scroll", () => { masonry.classList.add("is-scrolling"); clearTimeout(scrollSettleTimer); scrollSettleTimer = setTimeout(settleScroll, 150); }, { passive: true });
 		const removeCardMotion = installMasonryCardMotion(masonry);
 		const visibility = observeDOMWidgetVisibility(root, { onChange: (active) => { surface.viewportActive = active; syncActive(); controller.syncProjectionActivity?.(); } });

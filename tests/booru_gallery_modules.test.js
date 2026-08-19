@@ -453,6 +453,123 @@ test("attaching the Dashboard projection suspends the duplicate node projection"
 	controller.destroy();
 });
 
+test("Gallery projections restore the active card anchor after switching and remounting", () => {
+	const restored = []; const setItemsOptions = [];
+	const makeSurface = (placement, initialAnchor) => {
+		let anchor = initialAnchor;
+		return {
+			placement, active: false, root: { isConnected: true }, setProjectionEnabled() {}, syncState() {},
+			masonryController: {
+				setItems(_posts, options) { setItemsOptions.push([placement, options]); },
+				setActive() {},
+				getViewportAnchor() { return anchor; },
+				restoreViewportAnchor(value) { anchor = value; restored.push([placement, value]); return true; },
+				destroy() {},
+			},
+			setAnchor(value) { anchor = value; },
+			selectedList: { setItems() {}, destroy() {} }, selectedDropIndicator: null,
+			loading: { hidden: true }, pageControl: { setBusy() {} }, end: { hidden: true }, endLabel: { textContent: "" },
+			emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) }, continueResults: { hidden: true },
+			error: { hidden: true, classList: { toggle() {} } }, errorLabel: { textContent: "" },
+			tabs: { setValue() {} }, selectionMode: { setValue() {} }, selectedCount: { textContent: "", setAttribute() {} },
+			selectedSummary: { textContent: "" }, selectedClear: { disabled: false }, emptySelected: { hidden: true }, mode: "browse", destroy() {},
+		};
+	};
+	const pageFiveAnchor = { key: "danbooru:page-5-card", offset: 37 };
+	const laterAnchor = { key: "danbooru:later-card", offset: -12 };
+	const nodeSurface = makeSurface("node", pageFiveAnchor);
+	const dashboardSurface = makeSurface("dashboard", null);
+	const controller = createGalleryControllerFactory({
+		createTooltip: () => ({ hide() {}, destroy() {} }), label: (_key, fallback) => fallback,
+		stateFor: () => ({ selections: [], selectionMode: "multi" }),
+	})({}, new Set());
+
+	controller.attachSurface(nodeSurface); nodeSurface.active = true; controller.setSurfaceActive(nodeSurface, true);
+	controller.attachSurface(dashboardSurface); dashboardSurface.active = true; controller.setSurfaceActive(dashboardSurface, true);
+	assert.deepEqual(restored.at(-1), ["dashboard", pageFiveAnchor], "switching projections keeps the same card and viewport offset");
+	nodeSurface.active = false; controller.setSurfaceActive(nodeSurface, false);
+
+	dashboardSurface.setAnchor(laterAnchor); controller.claimSurface(dashboardSurface);
+	dashboardSurface.active = false; controller.setSurfaceActive(dashboardSurface, false); controller.detachSurface(dashboardSurface);
+	const replacement = makeSurface("dashboard", null); controller.attachSurface(replacement);
+	assert.deepEqual(setItemsOptions.at(-1), ["dashboard", { preserveScroll: false, restoreAnchor: laterAnchor }], "a replacement surface receives the last active anchor before its first draw");
+	replacement.active = true; controller.setSurfaceActive(replacement, true);
+	assert.deepEqual(restored.at(-1), ["dashboard", laterAnchor]);
+	const mirror = makeSurface("dashboard", null); controller.attachSurface(mirror); mirror.active = true; controller.setSurfaceActive(mirror, true);
+	const restorationsBeforeOwnerRemoval = restored.length;
+	controller.detachSurface(replacement);
+	assert.equal(restored.length, restorationsBeforeOwnerRemoval + 1, "removing the viewport owner transfers its anchor to another active projection");
+	assert.deepEqual(restored.at(-1), ["dashboard", laterAnchor]);
+	controller.destroy();
+});
+
+test("a remounted Gallery without a prior anchor falls back to the current logical page", async () => {
+	const state = { source: "danbooru", query: "", randomMode: false, filters: { feed: "search", sort: "latest", period: "", ratings: [] }, navigation: { page: 5 }, selections: [], selectionMode: "multi" };
+	const setItemsOptions = [];
+	const makeSurface = (placement) => ({
+		placement, active: false, root: { isConnected: true }, setProjectionEnabled() {}, syncState() {},
+		masonryController: {
+			setItems(_posts, options) { setItemsOptions.push([placement, options]); }, append() {}, setActive() {},
+			needsMore() { return false; }, recheckNearEnd() {}, updateItemSize() {}, getViewportAnchor() { return null; }, restoreViewportAnchor() { return false; }, destroy() {},
+		},
+		selectedList: { setItems() {}, destroy() {} }, selectedDropIndicator: null,
+		loading: { hidden: true }, randomMode: { disabled: false }, pageControl: { setBusy() {}, setPage() {} }, end: { hidden: true }, endLabel: { textContent: "" },
+		emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) }, continueResults: { hidden: true },
+		error: { hidden: true, classList: { toggle() {} } }, errorLabel: { textContent: "" },
+		tabs: { setValue() {} }, selectionMode: { setValue() {} }, selectedCount: { textContent: "", setAttribute() {} },
+		selectedSummary: { textContent: "" }, selectedClear: { disabled: false }, emptySelected: { hidden: true }, mode: "browse", destroy() {},
+	});
+	const controller = createGalleryControllerFactory({
+		API: "/gallery", capability: () => ({ authRequired: false }), createTooltip: () => ({ hide() {}, destroy() {} }), hasSourceCredentials: () => true,
+		jsonRequest: async () => ({ page: 5, posts: [{ source: "danbooru", postId: "500", previewUrl: "https://example.test/500.jpg", width: 1, height: 1 }], nextCursor: null, ended: true, warnings: [] }),
+		label: (_key, fallback) => fallback, searchQuery: () => "", stateFor: () => state,
+	})({ graph: { change() {} } }, makeSurface("node"));
+	await controller.search({ reset: true, page: 5 });
+	controller.attachSurface(makeSurface("dashboard"));
+	assert.deepEqual(setItemsOptions.at(-1), ["dashboard", { preserveScroll: false, restoreAnchor: { key: "danbooru:500", offset: 0 } }]);
+	assert.equal(state.navigation.page, 5);
+	controller.destroy();
+});
+
+test("only the user-owned Gallery projection can commit the shared logical page", async () => {
+	const state = { source: "danbooru", query: "", randomMode: false, filters: { feed: "search", sort: "latest", period: "", ratings: [] }, navigation: { page: 1 }, selections: [], selectionMode: "multi" };
+	let request = 0;
+	const makeSurface = (placement) => {
+		let visibleIndex = 0;
+		return {
+			placement, active: false, root: { isConnected: true }, setProjectionEnabled() {}, syncState() {}, setVisibleIndex(index) { visibleIndex = index; },
+			masonryController: {
+				setItems() {}, append() {}, setActive() {}, needsMore() { return false; }, recheckNearEnd() {}, updateItemSize() {},
+				getViewportAnchor() { return { key: visibleIndex ? "danbooru:500" : "danbooru:100", offset: 0 }; },
+				getVisibleIndex() { return visibleIndex; }, restoreViewportAnchor() { return true; }, destroy() {},
+			},
+			selectedList: { setItems() {}, destroy() {} }, selectedDropIndicator: null,
+			loading: { hidden: true }, randomMode: { disabled: false }, pageControl: { setBusy() {}, setPage() {} }, end: { hidden: true }, endLabel: { textContent: "" },
+			emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) }, continueResults: { hidden: true },
+			error: { hidden: true, classList: { toggle() {} } }, errorLabel: { textContent: "" },
+			tabs: { setValue() {} }, selectionMode: { setValue() {} }, selectedCount: { textContent: "", setAttribute() {} },
+			selectedSummary: { textContent: "" }, selectedClear: { disabled: false }, emptySelected: { hidden: true }, mode: "browse", destroy() {},
+		};
+	};
+	const owner = makeSurface("node");
+	const controller = createGalleryControllerFactory({
+		API: "/gallery", capability: () => ({ authRequired: false }), createTooltip: () => ({ hide() {}, destroy() {} }), hasSourceCredentials: () => true,
+		jsonRequest: async () => (++request === 1
+			? { page: 1, posts: [{ source: "danbooru", postId: "100", previewUrl: "https://example.test/100.jpg", width: 1, height: 1 }], nextCursor: "next", ended: false, warnings: [] }
+			: { page: 5, posts: [{ source: "danbooru", postId: "500", previewUrl: "https://example.test/500.jpg", width: 1, height: 1 }], nextCursor: null, ended: true, warnings: [] }),
+		label: (_key, fallback) => fallback, searchQuery: () => "", stateFor: () => state,
+	})({ graph: { change() {} } }, owner);
+	await controller.search({ reset: true, page: 1 }); await controller.search();
+	owner.active = true; controller.setSurfaceActive(owner, true); owner.setVisibleIndex(1); controller.visibleIndexChanged(1, owner);
+	assert.equal(state.navigation.page, 5);
+	const observer = makeSurface("dashboard"); controller.attachSurface(observer); observer.active = true; controller.setSurfaceActive(observer, true);
+	controller.visibleIndexChanged(0, observer);
+	assert.equal(state.navigation.page, 5, "an active non-owner projection cannot overwrite the owner's page");
+	observer.setVisibleIndex(0); controller.claimSurface(observer);
+	assert.equal(state.navigation.page, 1, "explicit interaction transfers both viewport and page ownership");
+	controller.destroy();
+});
+
 test("random browse requests omit cursors and keep source-scoped posts unseen across draws", async () => {
 	const state = { source: "danbooru", query: "blue hair", randomMode: true, filters: { feed: "search", sort: "latest", period: "", ratings: [] }, navigation: { page: 7 } };
 	const urls = []; const requestOptions = []; const appended = [];

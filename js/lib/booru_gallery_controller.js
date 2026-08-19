@@ -28,6 +28,46 @@ export function createGalleryControllerFactory(dependencies) {
 	const eachView = (callback) => surfaces.forEach(callback);
 	const eachElement = (name, callback) => eachView((view) => { if (view[name]) callback(view[name], view); });
 	const masonryControllers = () => views().map((view) => view.masonryController).filter(Boolean);
+	let activeSurface = null; let viewportAnchor = null;
+	const fallbackViewportAnchor = () => {
+		const page = Math.max(1, Number(stateFor(node)?.navigation?.page) || 1);
+		const exact = pageSegments.find((segment) => segment.page === page && segment.end > segment.start);
+		const segment = exact || pageSegments.find((candidate) => candidate.page > page && candidate.end > candidate.start) || pageSegments.findLast((candidate) => candidate.page < page && candidate.end > candidate.start);
+		const post = segment ? posts[segment.start] : null;
+		return post ? { key: `${post.source}:${post.postId}`, offset: 0 } : null;
+	};
+	const currentViewportAnchor = () => {
+		if (viewportAnchor) return viewportAnchor;
+		viewportAnchor = fallbackViewportAnchor(); return viewportAnchor;
+	};
+	const captureViewport = (view) => {
+		const anchor = view?.masonryController?.getViewportAnchor?.();
+		if (anchor) viewportAnchor = anchor;
+		return anchor;
+	};
+	const setSurfaceActive = (view, active) => {
+		const next = Boolean(active);
+		if (next) {
+			if (activeSurface && activeSurface !== view) captureViewport(activeSurface);
+			const anchor = currentViewportAnchor();
+			if (activeSurface !== view && anchor) view.masonryController?.restoreViewportAnchor?.(anchor);
+			if (!activeSurface) activeSurface = view;
+		} else if (activeSurface === view) {
+			captureViewport(view); activeSurface = null;
+			const replacement = views().find((candidate) => candidate !== view && candidate.active);
+			if (replacement) {
+				const anchor = currentViewportAnchor();
+				if (anchor) replacement.masonryController?.restoreViewportAnchor?.(anchor);
+				activeSurface = replacement;
+			}
+		}
+		view.masonryController?.setActive?.(next);
+	};
+	const claimSurface = (view) => {
+		if (!view?.active) return;
+		captureViewport(view); activeSurface = view;
+		visibleIndexChanged(view.masonryController?.getVisibleIndex?.() ?? -1, view);
+	};
 	const syncProjectionActivity = () => {
 		const dashboardActive = views().some((view) => view.placement === "dashboard" && view.viewportActive);
 		eachView((view) => view.setProjectionEnabled?.(view.placement !== "node" || !dashboardActive));
@@ -254,7 +294,7 @@ export function createGalleryControllerFactory(dependencies) {
 		// and may report near-end; that callback must not start a competing first-page request.
 		setLoading(true);
 		if (reset) {
-			requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; nextCursor = null; ended = false; randomMisses = 0; randomSession.reset();
+			requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; viewportAnchor = null; nextCursor = null; ended = false; randomMisses = 0; randomSession.reset();
 			for (const masonry of masonryControllers()) masonry.setItems([], { preserveScroll: false });
 			eachElement("end", (element) => { element.hidden = true; }); eachElement("emptyResults", (element) => { element.hidden = true; });
 			clearError(); if (!randomMode) rememberPage(requestedPage);
@@ -320,7 +360,8 @@ export function createGalleryControllerFactory(dependencies) {
 			else if (pageLoaded && !ended && !manualContinuation && !destroyed) for (const masonry of masonryControllers()) masonry.recheckNearEnd();
 		}
 	};
-	const visibleIndexChanged = (index) => {
+	const visibleIndexChanged = (index, view = null) => {
+		if (view && view !== activeSurface) return;
 		// 页段按起始下标有序排列；滚动定位在页码数量增长后仍保持对数查找。
 		let low = 0; let high = pageSegments.length;
 		while (low < high) {
@@ -656,10 +697,12 @@ export function createGalleryControllerFactory(dependencies) {
 		getLastError() { return lastError; },
 		syncState() { eachView((view) => view.syncState()); renderSelected(); },
 		syncProjectionActivity,
+		setSurfaceActive,
+		claimSurface,
 		attachSurface(view) {
 			if (destroyed) throw new Error("Cannot attach a Gallery surface after its node was removed");
 			surfaces.add(view); syncProjectionActivity(); view.syncState();
-			view.masonryController.setItems(posts, { preserveScroll: false });
+			view.masonryController.setItems(posts, { preserveScroll: false, restoreAnchor: currentViewportAnchor() });
 			view.loading.hidden = !loading; view.pageControl?.setBusy?.(loading); if (view.randomMode) view.randomMode.disabled = loading;
 			const noResults = ended && !posts.length;
 			view.endLabel.textContent = endMessage || label("end", "End of results"); view.end.hidden = !ended || noResults;
@@ -668,10 +711,22 @@ export function createGalleryControllerFactory(dependencies) {
 			if (lastError) { view.errorLabel.textContent = lastError.summary; view.error.hidden = false; view.error.classList.toggle("is-top", !posts.length); }
 			renderSelected();
 		},
-		detachSurface(view) { if (surfaces.delete(view)) { view.destroy(); syncProjectionActivity(); } },
+		detachSurface(view) {
+			if (!surfaces.delete(view)) return;
+			const ownedViewport = activeSurface === view || (!activeSurface && view.active);
+			if (ownedViewport) captureViewport(view);
+			if (activeSurface === view) activeSurface = null;
+			const replacement = ownedViewport ? views().find((candidate) => candidate.active) : null;
+			if (replacement) {
+				const anchor = currentViewportAnchor();
+				if (anchor) replacement.masonryController?.restoreViewportAnchor?.(anchor);
+				activeSurface = replacement;
+			}
+			view.destroy(); syncProjectionActivity();
+		},
 		updateSize(post, width, height) { for (const masonry of masonryControllers()) masonry.updateItemSize(`${post.source}:${post.postId}`, width, height); },
 		destroy() {
-			destroyed = true; generation += 1; detailDialogGeneration += 1; selectionIntentRevision += 1; selectionModeRevision += 1; selectionKeyRevisions.clear(); multipleSelectionTail = Promise.resolve();
+			destroyed = true; generation += 1; detailDialogGeneration += 1; selectionIntentRevision += 1; selectionModeRevision += 1; selectionKeyRevisions.clear(); multipleSelectionTail = Promise.resolve(); activeSurface = null; viewportAnchor = null;
 			clearTimeout(errorTimer); errorTimer = 0; clearTimeout(pageCommitTimer); pageCommitTimer = 0; clearTimeout(prefetchTimer); prefetchTimer = 0;
 			requestController?.abort(); activeDetailDialog?.close(); activeDetailDialog = null;
 			endSelectedDrag(); tooltip.destroy();

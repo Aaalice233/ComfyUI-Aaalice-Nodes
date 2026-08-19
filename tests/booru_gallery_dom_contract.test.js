@@ -98,6 +98,8 @@ test("gallery presets own browsing, selection, and dashboard projection state", 
 	assert.match(source, /createBooruGalleryPreset\(stateFor\(node\), settings \|\| \{\}, dashboardSurface/);
 	assert.match(surfaceSource, /readPresetProjection = \(\) => \(\{ queryDraft: searchControl\.getValue\(\) \}\)/);
 	assert.match(surfaceSource, /masonryController\.setActive\(false\); surface\.selectedList\.setActive\(false\)/);
+	assert.match(surfaceSource, /controller\.setSurfaceActive\(surface, active\)/);
+	assert.match(surfaceSource, /controller\.claimSurface\(surface\)/);
 	assert.match(source, /syncProjectionActivity\(\)/);
 	assert.match(source, /dashboardActive = views\(\)\.some\(\(view\) => view\.placement === "dashboard" && view\.viewportActive\)/);
 	assert.match(source, /view\.setProjectionEnabled\?\.\(view\.placement !== "node" \|\| !dashboardActive\)/);
@@ -257,7 +259,7 @@ test("gallery refresh and settings utilities expose their real state and destina
 	assert.match(source, /refresh\.classList\.add\("is-refreshing"\)/);
 	assert.match(source, /updateRefreshPresentation\(stateFor\(node\)\.randomMode \? label\("random\.drawing", "Drawing…"\) : label\("refreshing", "Refreshing…"\), undefined, "loading"\)/);
 	assert.match(source, /refresh\.querySelector\("\.aa-ui-button__label"\)\.textContent = visibleText/);
-	assert.match(source, /await controller\.search\(\{ reset: true, page: 1 \}\)/);
+	assert.match(source, /await controller\.search\(\{ reset: true, page: stateFor\(node\)\.navigation\.page \}\)/);
 	assert.match(source, /finally \{ refreshing = false; refresh\.disabled = false; refresh\.classList\.remove\("is-refreshing"\); updateRefreshIdlePresentation\(\); \}/);
 	assert.match(theme, /\.aa-gallery-refresh\.is-refreshing \.aa-ui-icon \{ animation: aa-gallery-status-spin \.72s linear infinite; \}/);
 	assert.match(source, /function openGallerySettings\(\) \{[^]*openSettingsDialog\(\)/);

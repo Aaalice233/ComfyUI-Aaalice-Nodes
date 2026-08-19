@@ -50,7 +50,7 @@ test("rich widget virtualization has an explicit inactive path and lifecycle wir
 	assert.match(masonry, /setActive\(nextActive\)/);
 	assert.match(masonry, /if \(!active\) \{ clearMounted\(\); return; \}/);
 	assert.match(booru, /observeDOMWidgetVisibility\(root/);
-	assert.match(booru, /surface\.masonryController\.setActive\(active\)/);
+	assert.match(booru, /controller\.setSurfaceActive\(surface, active\)/);
 	assert.match(booru, /visibility\.destroy\(\)/);
 	assert.match(prompt, /observeDOMWidgetVisibility\(root/);
 	assert.match(prompt, /_aaalicePromptSelectorVirtualList\?\.setActive/);

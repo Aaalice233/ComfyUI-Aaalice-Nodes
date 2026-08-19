@@ -12,7 +12,7 @@ export function masonryColumnCount(width, { minCardWidth = 144, gap = 6, maxColu
 
 export class VirtualMasonryLayout {
 	constructor({ width = 1, minCardWidth = 144, gap = 6, maxColumns = 5 } = {}) {
-		this.options = { minCardWidth, gap, maxColumns }; this.items = []; this.placements = []; this.columns = []; this.keys = new Set(); this.itemsByKey = new Map(); this.revision = 0;
+		this.options = { minCardWidth, gap, maxColumns }; this.items = []; this.placements = []; this.placementsByKey = new Map(); this.columns = []; this.keys = new Set(); this.itemsByKey = new Map(); this.sizesByKey = new Map(); this.revision = 0;
 		this.configure(width);
 	}
 
@@ -29,27 +29,28 @@ export class VirtualMasonryLayout {
 		return this;
 	}
 
-	setItems(items) { this.items = []; this.placements = []; this.columns = Array.from({ length: this.columnCount }, () => []); this.heights = Array(this.columnCount).fill(0); this.keys = new Set(); this.itemsByKey = new Map(); this.append(items); this.revision += 1; return this; }
+	setItems(items) { this.items = []; this.placements = []; this.placementsByKey = new Map(); this.columns = Array.from({ length: this.columnCount }, () => []); this.heights = Array(this.columnCount).fill(0); this.keys = new Set(); this.itemsByKey = new Map(); this.sizesByKey = new Map(); this.append(items); this.revision += 1; return this; }
 
-	reflow() { const items = [...(this.items || [])]; this.items = []; this.placements = []; this.columns = Array.from({ length: this.columnCount }, () => []); this.heights = Array(this.columnCount).fill(0); this.keys = new Set(); this.itemsByKey = new Map(); this.append(items); this.revision += 1; return this; }
+	reflow() { const items = [...(this.items || [])]; this.items = []; this.placements = []; this.placementsByKey = new Map(); this.columns = Array.from({ length: this.columnCount }, () => []); this.heights = Array(this.columnCount).fill(0); this.keys = new Set(); this.itemsByKey = new Map(); this.sizesByKey = new Map(); this.append(items); this.revision += 1; return this; }
 
 	_place(item, index) {
 		if (!this.columns.length) this.reflow();
-		const key = `${item?.source}:${item?.postId}`; if (this.keys.has(key)) return; this.keys.add(key); this.itemsByKey.set(key, item);
+		const key = `${item?.source}:${item?.postId}`; if (this.keys.has(key)) return; this.keys.add(key); this.itemsByKey.set(key, item); this.sizesByKey.set(key, { width: item?.width, height: item?.height });
 		let column = 0;
 		for (let current = 1; current < this.columnCount; current += 1) if (this.heights[current] < this.heights[column]) column = current;
 		const width = Math.max(1, Number(item?.width) || 1); const height = Math.max(1, Number(item?.height) || 1);
 		const displayHeight = this.cardWidth * height / width; const y = this.heights[column]; const x = column * (this.cardWidth + this.options.gap);
 		const placement = { index, item, key, column, x, y, width: this.cardWidth, height: displayHeight, bottom: y + displayHeight };
-		this.items.push(item); this.placements.push(placement); this.columns[column].push(placement); this.heights[column] = placement.bottom + this.options.gap;
+		this.items.push(item); this.placements.push(placement); this.placementsByKey.set(key, placement); this.columns[column].push(placement); this.heights[column] = placement.bottom + this.options.gap;
 	}
 
 	// Applies a natural-size correction to one item; returns whether the layout
 	// became stale so the caller can schedule the required reflow.
 	updateItemSize(key, width, height) {
-		const item = this.itemsByKey.get(key);
-		if (!item || !(width > 0) || !(height > 0) || (item.width === width && item.height === height)) return false;
-		item.width = width; item.height = height; return true;
+		const item = this.itemsByKey.get(key); const placement = this.placementsByKey.get(key); const current = this.sizesByKey.get(key);
+		if (!item || !placement || !(width > 0) || !(height > 0) || (current?.width === width && current?.height === height)) return false;
+		this.sizesByKey.set(key, { width, height }); item.width = width; item.height = height;
+		return Math.abs(placement.height - this.cardWidth * height / width) > 1e-6;
 	}
 
 	get totalHeight() { return Math.max(0, ...(this.heights || [0])) - (this.items.length ? this.options.gap : 0); }
@@ -62,6 +63,27 @@ export class VirtualMasonryLayout {
 			while (index < column.length && column[index].y <= bottom) result.push(column[index++]);
 		}
 		return result.sort((left, right) => left.index - right.index);
+	}
+
+	viewportAnchor(scrollTop) {
+		const top = Math.max(0, Number(scrollTop) || 0); let anchor = null; let distance = Infinity;
+		const consider = (candidate) => {
+			if (!candidate) return;
+			const candidateDistance = Math.abs(candidate.y - top);
+			if (candidateDistance < distance || (candidateDistance === distance && candidate.index < anchor.index)) { anchor = candidate; distance = candidateDistance; }
+		};
+		for (const column of this.columns) {
+			const index = lowerBound(column, top, (placement) => placement.y);
+			consider(column[index]); consider(column[index - 1]);
+		}
+		return anchor ? { key: anchor.key, offset: top - anchor.y, index: anchor.index } : null;
+	}
+
+	scrollTopForAnchor(anchor, viewportHeight = 0) {
+		const placement = this.placementsByKey.get(String(anchor?.key || "")); const offset = Number(anchor?.offset);
+		if (!placement || !Number.isFinite(offset)) return null;
+		const maximum = Math.max(0, this.totalHeight - Math.max(0, Number(viewportHeight) || 0));
+		return Math.min(maximum, Math.max(0, placement.y + offset));
 	}
 }
 
@@ -85,8 +107,8 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 		const totalHeight = Math.ceil(layout.totalHeight);
 		if (spacer.style.height !== `${totalHeight}px`) spacer.style.height = `${totalHeight}px`;
 		if (!active) { clearMounted(); return; }
-		// 单次可见区间计算同时驱动差量挂载、首项索引与预取上报；滚动本身不改变
-		// placement 几何，只有 setItems/reflow 会抬升 revision 触发全量样式重写。
+		// Overscan 区间只驱动差量挂载与预取；逻辑页使用顶部锚点，不能被缓冲区
+		// 中更早的帖子反向覆盖。placement 几何只在 setItems/reflow 时改变。
 		const visible = layout.visible(container.scrollTop, container.clientHeight || 1, overscanRatio);
 		const layoutChanged = layoutRevision !== layout.revision;
 		layoutRevision = layout.revision;
@@ -101,7 +123,7 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 				element._aaVirtualMasonryLayout?.(placement.width, placement.height);
 			}
 		}
-		const firstVisible = visible[0]?.index ?? -1;
+		const firstVisible = layout.viewportAnchor(container.scrollTop)?.index ?? -1;
 		if (firstVisible !== visibleIndex) { visibleIndex = firstVisible; onVisibleIndexChange?.(firstVisible); }
 		const signature = visible.length ? `${visible[0].key}:${visible[visible.length - 1].key}:${visible.length}` : "";
 		if (signature !== visibleSignature) { visibleSignature = signature; onVisibleItemsChange?.(visible.map((placement) => placement.item)); }
@@ -109,22 +131,27 @@ export function mountVirtualMasonry(container, { renderItem, onNearEnd, onVisibl
 		if (remaining <= nearEndDistance && nearEndArmed) { nearEndArmed = false; onNearEnd?.(); }
 		else if (remaining > nearEndDistance * 1.5) nearEndArmed = true;
 	};
-	const reflowPreservingAnchor = () => {
-		const anchor = layout.visible(container.scrollTop, 1, 0)[0]; const offset = anchor ? anchor.y - container.scrollTop : 0;
-		layout.reflow(); if (anchor) container.scrollTop = Math.max(0, layout.placements[anchor.index].y - offset);
+	const restoreAnchor = (anchor) => {
+		const scrollTop = layout.scrollTopForAnchor(anchor, container.clientHeight);
+		if (scrollTop == null) return false;
+		container.scrollTop = scrollTop; return true;
 	};
+	const reflowPreservingAnchor = () => { const anchor = layout.viewportAnchor(container.scrollTop); layout.reflow(); restoreAnchor(anchor); };
 	const schedule = () => { if (frame || destroyed) return; frame = requestAnimationFrame(() => { frame = 0; if (sizesDirty) { sizesDirty = false; reflowPreservingAnchor(); } draw(); }); };
 	const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(() => {
-		const anchor = layout.visible(container.scrollTop, 1, 0)[0]; const offset = anchor ? anchor.y - container.scrollTop : 0;
-		if (layout.configure(container.clientWidth || 1) && anchor) { const replacement = layout.placements[anchor.index]; container.scrollTop = Math.max(0, replacement.y - offset); }
+		const anchor = layout.viewportAnchor(container.scrollTop);
+		if (layout.configure(container.clientWidth || 1)) restoreAnchor(anchor);
 		draw(true);
 	}) : null;
 	container.addEventListener("scroll", schedule, { passive: true }); resizeObserver?.observe(container);
 	const controller = {
-		setItems(next, { preserveScroll = true } = {}) { if (!preserveScroll) container.scrollTop = 0; layout.setItems(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); if (sizesDirty) schedule(); },
-		append(next) { layout.append(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); if (sizesDirty) schedule(); },
-		updateItemSize(key, width, height) { if (layout.updateItemSize(key, width, height)) { sizesDirty = true; schedule(); } },
-		setActive(nextActive) { const next = Boolean(nextActive); if (next === active) return; active = next; if (!active) { if (frame) cancelAnimationFrame(frame); frame = 0; clearMounted(); return; } draw(true); schedule(); },
+		setItems(next, { preserveScroll = true, restoreAnchor: anchor = null } = {}) { if (!preserveScroll) container.scrollTop = 0; sizesDirty = false; layout.setItems(Array.isArray(next) ? next : []); if (anchor) restoreAnchor(anchor); nearEndArmed = true; draw(true); if (sizesDirty && active) schedule(); },
+		append(next) { layout.append(Array.isArray(next) ? next : []); nearEndArmed = true; draw(true); if (sizesDirty && active) schedule(); },
+		updateItemSize(key, width, height) { if (layout.updateItemSize(key, width, height)) { sizesDirty = true; if (active) schedule(); } },
+		getViewportAnchor() { const anchor = layout.viewportAnchor(container.scrollTop); return anchor ? { key: anchor.key, offset: anchor.offset } : null; },
+		getVisibleIndex() { return layout.viewportAnchor(container.scrollTop)?.index ?? -1; },
+		restoreViewportAnchor(anchor) { return restoreAnchor(anchor); },
+		setActive(nextActive) { const next = Boolean(nextActive); if (next === active) return; active = next; if (!active) { if (frame) cancelAnimationFrame(frame); frame = 0; clearMounted(); return; } if (sizesDirty) { sizesDirty = false; reflowPreservingAnchor(); } draw(true); schedule(); },
 		refresh() { draw(true); },
 		recheckNearEnd() { nearEndArmed = true; draw(); },
 		needsMore() { return active && layout.totalHeight - container.scrollTop - container.clientHeight <= nearEndDistance; },
