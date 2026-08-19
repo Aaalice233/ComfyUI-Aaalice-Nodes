@@ -21,6 +21,12 @@ export function imageReferenceViewPath(value) {
 	return `/view?${new URLSearchParams(reference).toString()}`;
 }
 
+export function imageReferenceThumbnailPath(value) {
+	const reference = normalizeImageReference(value);
+	if (!reference || /\.svg$/i.test(reference.filename)) return imageReferenceViewPath(reference);
+	return `/aaalice/image-thumbnail?${new URLSearchParams(reference).toString()}`;
+}
+
 /** Convert a ComfyUI image combo value into the real /view reference. */
 export function imageComboReference(value, defaultType = "input") {
 	const source = String(value ?? "").trim();

@@ -20,6 +20,13 @@ test("image assets merge imported and generated sources without duplicates", () 
 	]);
 });
 
+test("image assets retain ComfyUI image Asset hashes", () => {
+	const hash = `blake3:${"a".repeat(64)}`;
+	const assets = collectImageAssetCandidates({ values: [hash], current: hash });
+	assert.equal(assets.length, 1);
+	assert.equal(assets[0].reference.filename, hash);
+});
+
 test("image assets keep a stale current selection and ignore non-images", () => {
 	const assets = collectImageAssetCandidates({
 		inputFiles: ["notes.txt"],

@@ -380,7 +380,7 @@ test("library rows keep a stable thumbnail column and distinguish entry actions"
 	assert.match(theme, /\.aa-image-preview-caption\s*\{[^}]*position:\s*absolute[^}]*background:\s*color-mix\([^}]*transparent\)/s);
 	assert.match(theme, /\.aa-image-preview-caption > small/);
 	assert.match(imagePreview, /IMAGE_PREVIEW_HOVER_DELAY = 600/);
-	assert.match(imagePreview, /media\.addEventListener\(video \? "loadeddata" : "load", reposition/);
+	assert.match(imagePreview, /media\.addEventListener\(video \? "loadeddata" : "load", \(\) => \{ releaseSource\(\); reposition\(\); \}/);
 });
 
 test("library selection actions operate on model data instead of rendered rows", () => {

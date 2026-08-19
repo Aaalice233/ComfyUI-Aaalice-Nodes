@@ -63,6 +63,7 @@ export function mountVirtualGrid(container, {
 	mode = "grid",
 	renderItem,
 	keyForItem = (_item, index) => index,
+	disposeItem = null,
 	empty = null,
 	options = {},
 } = {}) {
@@ -78,6 +79,7 @@ export function mountVirtualGrid(container, {
 	let destroyed = false;
 
 	function release(element) {
+		disposeItem?.(element);
 		for (const image of element.querySelectorAll("img")) image.removeAttribute("src");
 		element.remove();
 	}

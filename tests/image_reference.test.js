@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { imageComboReference, imageReferenceComboValue, imageReferenceViewPath, normalizeImageReference } from "../js/lib/image_reference.js";
+import { imageComboReference, imageReferenceComboValue, imageReferenceThumbnailPath, imageReferenceViewPath, normalizeImageReference } from "../js/lib/image_reference.js";
 
 test("normalizes the upload endpoint name into a saved filename", () => {
 	assert.deepEqual(normalizeImageReference({ name: "cat image.png", subfolder: "refs", type: "input" }), {
@@ -18,9 +18,25 @@ test("builds an encoded ComfyUI view path", () => {
 	);
 });
 
+test("builds a bounded thumbnail path and leaves SVG rendering to ComfyUI", () => {
+	assert.equal(
+		imageReferenceThumbnailPath({ filename: "cat image.png", subfolder: "my refs", type: "input" }),
+		"/aaalice/image-thumbnail?filename=cat+image.png&subfolder=my+refs&type=input",
+	);
+	assert.equal(
+		imageReferenceThumbnailPath({ filename: "vector.svg", subfolder: "", type: "input" }),
+		"/view?filename=vector.svg&subfolder=&type=input",
+	);
+	assert.equal(
+		imageReferenceThumbnailPath({ filename: "blake3:abc", subfolder: "", type: "input" }),
+		"/aaalice/image-thumbnail?filename=blake3%3Aabc&subfolder=&type=input",
+	);
+});
+
 test("rejects image references without a filename", () => {
 	assert.equal(normalizeImageReference({ subfolder: "refs", type: "input" }), null);
 	assert.equal(imageReferenceViewPath(null), "");
+	assert.equal(imageReferenceThumbnailPath(null), "");
 });
 
 test("image combo references preserve output folders and explicit type markers", () => {

@@ -65,9 +65,17 @@ function createPreviewContent(value, { title = "", hint = "", loading = false, f
 			}),
 		],
 	});
+	const release = typeof resolved.release === "function" ? resolved.release : null;
+	let released = false;
+	const releaseSource = () => {
+		if (released) return;
+		released = true;
+		release?.();
+	};
 	const reposition = () => previewTooltip.reposition();
-	media.addEventListener(video ? "loadeddata" : "load", reposition, { once: true });
+	media.addEventListener(video ? "loadeddata" : "load", () => { releaseSource(); reposition(); }, { once: true });
 	media.addEventListener("error", () => {
+		releaseSource();
 		if (!media.isConnected) return;
 		media.replaceWith(el("span", "aa-image-preview-quick-hint", failureHint || resolvedHint || "Preview unavailable"));
 		reposition();
@@ -144,11 +152,13 @@ export function bindAsyncImagePreview(trigger, resolve, {
 	failureHint = unavailableHint,
 	placement = "side",
 	className = "",
+	delay = ASYNC_IMAGE_PREVIEW_HOVER_DELAY,
 } = {}) {
 	if (!trigger || typeof resolve !== "function") return () => {};
 	let active = false;
 	let generation = 0;
 	let hoverTimer = null;
+	let requestController = null;
 
 	const clearHoverTimer = () => {
 		clearTimeout(hoverTimer);
@@ -166,6 +176,9 @@ export function bindAsyncImagePreview(trigger, resolve, {
 			return;
 		}
 		const requestGeneration = ++generation;
+		requestController?.abort();
+		const controller = new AbortController();
+		requestController = controller;
 		showPreview(trigger, { hint: readLabel(loadingHint, "Loading preview…") }, {
 			title,
 			loading: true,
@@ -173,8 +186,12 @@ export function bindAsyncImagePreview(trigger, resolve, {
 			placement,
 			className,
 		});
-		Promise.resolve().then(() => resolve()).then((resolved) => {
-			if (!isCurrent(requestGeneration)) return;
+		Promise.resolve().then(() => resolve({ signal: controller.signal })).then((resolved) => {
+			if (requestController === controller) requestController = null;
+			if (!isCurrent(requestGeneration)) {
+				resolved?.release?.();
+				return;
+			}
 			const normalized = normalizePreview(resolved);
 			const preview = normalized.source || normalized.hint
 				? normalized
@@ -186,8 +203,9 @@ export function bindAsyncImagePreview(trigger, resolve, {
 				placement,
 				className,
 			});
-		}).catch(() => {
-			if (!isCurrent(requestGeneration)) return;
+		}).catch((error) => {
+			if (requestController === controller) requestController = null;
+			if (error?.name === "AbortError" || !isCurrent(requestGeneration)) return;
 			showPreview(trigger, { hint: readLabel(unavailableHint, "Preview unavailable") }, {
 				title,
 				immediate: true,
@@ -199,6 +217,8 @@ export function bindAsyncImagePreview(trigger, resolve, {
 	const stop = () => {
 		active = false;
 		generation += 1;
+		requestController?.abort();
+		requestController = null;
 		clearHoverTimer();
 		previewTooltip.scheduleHide();
 	};
@@ -209,7 +229,7 @@ export function bindAsyncImagePreview(trigger, resolve, {
 			previewTooltip.cancelScheduledHide();
 			return;
 		}
-		hoverTimer = setTimeout(show, ASYNC_IMAGE_PREVIEW_HOVER_DELAY);
+		hoverTimer = setTimeout(show, Math.max(0, delay));
 	};
 	const onMouseLeave = stop;
 	const onFocusIn = () => {

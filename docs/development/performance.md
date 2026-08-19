@@ -20,6 +20,7 @@
 ## 3. 虚拟列表与虚拟瀑布流
 
 - 虚拟列表只挂载视口加固定 overscan 范围内的行；虚拟瀑布流只挂载可见 placement。布局数组可以保留，但卡片 DOM、事件闭包和媒体 `src` 必须有界。
+- 本地图像选择器的栅格卡片和紧凑字段必须使用服务端缩放的有界缩略图，不能把 `/view` 原尺寸资源交给 CSS 缩小；原图只在用户打开完整预览时请求，SVG 除外。Pillow 必须先原地缩小再处理 EXIF 方向，避免复制完整解码位图；缩略图缓存按源文件 stat 失效，同源并发请求去重，后台完整解码并发必须有界。`blake3:` Asset 使用认证请求与及时撤销的 Blob URL，不能把工作流状态或原图内容复制进前端持久状态。
 - controller 必须提供 `setActive(boolean)`。切换为 inactive 时取消待处理 frame，释放已挂载条目和图片引用，同时保留足以计算滚动范围的 spacer；切换回 active 时强制一次完整可见范围绘制。
 - `setItems()`、`append()`、尺寸变化和刷新在 inactive 时只能更新布局与模型，不得触发 `renderItem`、`onVisibleItemsChange`、`onNearEnd` 或预取。
 - 可见范围变化使用 `requestAnimationFrame` 合并；不得在 `computeSize()`、`getMinHeight()`、`onDrawForeground()` 或 `onDrawBackground()` 中查询 DOM、遍历图或重建数组。

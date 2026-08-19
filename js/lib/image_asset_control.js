@@ -2,20 +2,85 @@
 
 import { api } from "../../../scripts/api.js";
 import { loadImageAssets } from "./image_assets.js";
-import { bindImagePreview, closeImagePreview, closeImagePreviewWithin } from "./image_preview.js";
+import { bindAsyncImagePreview, closeImagePreview, closeImagePreviewWithin } from "./image_preview.js";
 import { imageAssetKey } from "./image_asset_model.js";
-import { imageReferenceViewPath, normalizeImageReference } from "./image_reference.js";
+import { imageReferenceThumbnailPath, imageReferenceViewPath, normalizeImageReference } from "./image_reference.js";
 import { bindImageDropTarget, uploadImageFile } from "./image_upload.js";
 import { createAnchoredPopover, el, emptyState, icon, iconButton, segmentedControl } from "./ui.js";
 import { mountVirtualGrid } from "./virtual_grid.js";
 
-function assetSource(reference) {
-	const path = imageReferenceViewPath(reference);
-	return path ? api.apiURL(path) : "";
+const imageSourceState = new WeakMap();
+
+function releaseImageSource(image) {
+	const state = imageSourceState.get(image);
+	state?.controller?.abort();
+	if (state?.objectUrl) URL.revokeObjectURL(state.objectUrl);
+	imageSourceState.delete(image);
+	image.removeAttribute("src");
+}
+
+async function resolveImagePreviewSource(reference, { signal = null } = {}) {
+	const normalized = normalizeImageReference(reference);
+	if (!normalized) return null;
+	const route = imageReferenceViewPath(normalized);
+	if (!normalized.filename.startsWith("blake3:")) return { source: api.apiURL(route) };
+	const response = await api.fetchApi(route, { signal });
+	if (!response.ok) throw new Error(`Image request failed (${response.status})`);
+	const objectUrl = URL.createObjectURL(await response.blob());
+	if (signal?.aborted) {
+		URL.revokeObjectURL(objectUrl);
+		const error = new Error("Image request aborted");
+		error.name = "AbortError";
+		throw error;
+	}
+	let active = true;
+	return {
+		source: objectUrl,
+		release: () => {
+			if (!active) return;
+			active = false;
+			URL.revokeObjectURL(objectUrl);
+		},
+	};
+}
+
+function assignImageSource(image, reference, { thumbnail = false, onError = null } = {}) {
+	releaseImageSource(image);
+	const normalized = normalizeImageReference(reference);
+	if (!normalized) return;
+	const route = thumbnail ? imageReferenceThumbnailPath(normalized) : imageReferenceViewPath(normalized);
+	if (!normalized.filename.startsWith("blake3:")) {
+		image.src = api.apiURL(route);
+		return;
+	}
+	const controller = new AbortController();
+	const state = { controller, objectUrl: null };
+	imageSourceState.set(image, state);
+	void api.fetchApi(route, { signal: controller.signal }).then(async (response) => {
+		if (!response.ok) throw new Error(`Image request failed (${response.status})`);
+		const objectUrl = URL.createObjectURL(await response.blob());
+		if (controller.signal.aborted || imageSourceState.get(image) !== state || !image.isConnected) {
+			URL.revokeObjectURL(objectUrl);
+			return;
+		}
+		state.controller = null;
+		state.objectUrl = objectUrl;
+		const releaseObjectUrl = () => {
+			if (imageSourceState.get(image)?.objectUrl !== objectUrl) return;
+			URL.revokeObjectURL(objectUrl);
+			state.objectUrl = null;
+		};
+		image.addEventListener("load", releaseObjectUrl, { once: true });
+		image.addEventListener("error", releaseObjectUrl, { once: true });
+		image.src = objectUrl;
+	}).catch((error) => {
+		if (error?.name !== "AbortError" && imageSourceState.get(image) === state) onError?.(error);
+	});
 }
 
 function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaultType, onSelect, onClose }) {
 	let virtualGrid = null;
+	let scrollIdle = 0;
 	const popover = createAnchoredPopover({
 		anchor,
 		ariaLabel,
@@ -23,6 +88,7 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 		width: 420,
 		focusOnOpen: false,
 		onClose: () => {
+			clearTimeout(scrollIdle);
 			virtualGrid?.destroy();
 			virtualGrid = null;
 			onClose?.();
@@ -63,6 +129,33 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 	const sortMenu = el("div", { className: "aa-image-assets__sort-menu", attrs: { role: "menu", "aria-label": labels.sort || "Sort images", hidden: true } });
 	const results = el("div", { className: "aa-image-assets__results is-grid", attrs: { role: "listbox", "aria-label": ariaLabel } });
 	const status = el("div", { className: "aa-image-assets__status", text: labels.loading || "Loading images…", attrs: { role: "status", "aria-live": "polite" } });
+	let scrolling = false;
+	const thumbnailReferences = new WeakMap();
+	const loadThumbnail = (image) => {
+		const reference = thumbnailReferences.get(image);
+		if (!reference || !image.dataset.src) return;
+		delete image.dataset.src;
+		assignImageSource(image, reference, {
+			thumbnail: true,
+			onError: () => {
+				image.classList.add("is-error");
+				status.hidden = false;
+				status.textContent = labels.loadFailed || "Some images could not be loaded.";
+				status.classList.add("is-error");
+			},
+		});
+	};
+	const loadPendingThumbnails = () => {
+		for (const image of results.querySelectorAll("img[data-src]")) loadThumbnail(image);
+	};
+	results.addEventListener("scroll", () => {
+		scrolling = true;
+		clearTimeout(scrollIdle);
+		scrollIdle = setTimeout(() => {
+			scrolling = false;
+			loadPendingThumbnails();
+		}, 120);
+	}, { passive: true });
 
 	function setSortMenuOpen(open) {
 		sortMenu.hidden = !open;
@@ -100,10 +193,13 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 	const renderAsset = (asset) => {
 		const selected = imageAssetKey(asset.reference) === currentKey;
 		const thumbnail = document.createElement("img");
-		thumbnail.src = assetSource(asset.reference);
+		thumbnail.dataset.src = "pending";
+		thumbnailReferences.set(thumbnail, asset.reference);
+		if (!scrolling) loadThumbnail(thumbnail);
 		thumbnail.alt = "";
 		thumbnail.loading = "lazy";
 		thumbnail.decoding = "async";
+		thumbnail.fetchPriority = "low";
 		const option = el("button", {
 			className: `aa-image-assets__item${selected ? " is-selected" : ""}`,
 			attrs: { type: "button", role: "option", "aria-selected": String(selected), title: asset.label },
@@ -120,6 +216,9 @@ function createAssetBrowser({ anchor, ariaLabel, labels, values, current, defaul
 		mode: view,
 		renderItem: renderAsset,
 		keyForItem: (asset) => imageAssetKey(asset.reference),
+		disposeItem: (element) => {
+			for (const image of element.querySelectorAll("img")) releaseImageSource(image);
+		},
 		empty: () => emptyState({ iconName: "image", description: labels.empty || "No images found", className: "aa-image-assets__empty" }),
 		options: { gridMinWidth: 88, gridExtraHeight: 38, listHeight: 48, gap: 7, overscanRows: 2 },
 	});
@@ -210,6 +309,7 @@ export function createImageAssetControl({
 	thumbnail.alt = "";
 	thumbnail.loading = "lazy";
 	thumbnail.decoding = "async";
+	thumbnail.fetchPriority = "low";
 	const name = el("span", "aa-image-asset-control__name");
 	const select = el("button", {
 		className: "aa-image-asset-control__select",
@@ -236,14 +336,25 @@ export function createImageAssetControl({
 			onChange?.(null, { source: "clear" });
 		},
 	});
-	const viewSource = () => reference ? { source: assetSource(reference), title: `${label} · ${reference.filename}` } : null;
+	const viewSource = async ({ signal } = {}) => {
+		const current = reference;
+		if (!current) return null;
+		const preview = await resolveImagePreviewSource(current, { signal });
+		if (imageAssetKey(current) !== imageAssetKey(reference)) {
+			preview?.release?.();
+			return null;
+		}
+		return { ...preview, title: `${label} · ${current.filename}` };
+	};
 	const sync = (next) => {
-		reference = normalizeImageReference(next);
+		const nextReference = normalizeImageReference(next);
+		if (imageAssetKey(nextReference) !== imageAssetKey(reference)) closeImagePreviewWithin(root);
+		reference = nextReference;
 		name.textContent = reference?.filename || labels.none || "Choose image";
 		select.classList.toggle("has-image", Boolean(reference));
 		clear.hidden = !reference;
-		if (reference) thumbnail.src = assetSource(reference);
-		else thumbnail.removeAttribute("src");
+		if (reference) assignImageSource(thumbnail, reference, { thumbnail: true, onError });
+		else releaseImageSource(thumbnail);
 	};
 	const setUploading = (next) => {
 		uploading = next;
@@ -286,7 +397,7 @@ export function createImageAssetControl({
 		});
 	};
 	sync(reference);
-	bindImagePreview(select, "", "", { immediate: true, resolve: viewSource });
+	const unbindPreview = bindAsyncImagePreview(select, viewSource, { delay: 0 });
 	select.addEventListener("click", openBrowser);
 	picker.addEventListener("change", () => { const file = picker.files?.[0]; if (file) void uploadFile(file); });
 	bindImageDropTarget(root, {
@@ -301,6 +412,6 @@ export function createImageAssetControl({
 	return {
 		root,
 		update(next) { sync(next?.reference ?? next); },
-		destroy() { popover?.close(); closeImagePreviewWithin(root); },
+		destroy() { popover?.close(); unbindPreview(); closeImagePreviewWithin(root); releaseImageSource(thumbnail); },
 	};
 }

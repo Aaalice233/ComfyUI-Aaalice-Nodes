@@ -45,7 +45,7 @@ export function collectImageAssetCandidates({
 	const assets = new Map();
 	const add = (value, fallbackType, source) => {
 		const reference = imageReference(value, fallbackType);
-		if (!reference?.filename || !IMAGE_EXTENSION.test(reference.filename)) return;
+		if (!reference?.filename || (!IMAGE_EXTENSION.test(reference.filename) && !reference.filename.startsWith("blake3:"))) return;
 		reference.type = normalizedType(reference.type, fallbackType);
 		const key = imageAssetKey(reference);
 		if (!key || assets.has(key)) return;
