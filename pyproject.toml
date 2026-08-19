@@ -7,7 +7,7 @@ license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [{ name = "Aaalice233" }]
 # 仅列 ComfyUI 未自带的依赖；与 requirements.txt 保持同步
-dependencies = []
+dependencies = ["certifi>=2025.1.31"]
 classifiers = [
     "Operating System :: OS Independent",
 ]

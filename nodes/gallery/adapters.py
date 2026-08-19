@@ -15,6 +15,7 @@ import aiohttp
 
 from .._lib.booru_query import join_candidates, repair_spaced_tags, tokenize_tag_query
 from .danbooru_query import build_danbooru_search_tags
+from .errors import GalleryTLSCertificateError
 
 TAG_CATEGORIES = ("artist", "copyright", "character", "general", "meta")
 STATIC_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "webp", "gif"})
@@ -30,12 +31,6 @@ class GalleryUpstreamTimeoutError(RuntimeError):
     """The remote server killed the query for exceeding its execution budget."""
 
     code = "upstream_timeout"
-
-
-class GalleryTLSCertificateError(RuntimeError):
-    """TLS peer verification failed and must not be bypassed or retried."""
-
-    code = "tls_certificate_error"
 
 
 def _is_upstream_query_timeout(status: int, body: str) -> bool:

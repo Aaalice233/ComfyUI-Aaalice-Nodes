@@ -6,7 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
@@ -171,6 +171,31 @@ class GalleryMediaProxyTests(unittest.IsolatedAsyncioTestCase):
                 data, _content_type, _final = await proxy.fetch_media("danbooru", "https://cdn.test/big.jpg", lambda _url: None)
             self.assertEqual(len(data), 64)
             self.assertFalse((Path(directory) / "media").exists())
+
+    async def test_session_preserves_default_roots_and_adds_certifi_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proxy = MediaProxy(Path(directory))
+            store = MagicMock()
+            store.load.return_value = {"timeout": 30}
+            ssl_context = MagicMock()
+            connector = MagicMock()
+            session = MagicMock()
+            with (
+                patch("nodes.gallery.media.get_gallery_settings_store", return_value=store),
+                patch("nodes.gallery.media.ssl.create_default_context", return_value=ssl_context) as create_context,
+                patch("nodes.gallery.media.certifi.where", return_value="certifi.pem"),
+                patch("nodes.gallery.media.aiohttp.TCPConnector", return_value=connector) as connector_class,
+                patch("nodes.gallery.media.aiohttp.ClientSession", return_value=session) as session_class,
+            ):
+                self.assertIs(proxy.session(), session)
+            create_context.assert_called_once_with()
+            ssl_context.load_verify_locations.assert_called_once_with(cafile="certifi.pem")
+            connector_class.assert_called_once_with(ssl=ssl_context, ttl_dns_cache=300, keepalive_timeout=45)
+            session_class.assert_called_once_with(
+                connector=connector,
+                timeout=ANY,
+                trust_env=True,
+            )
 
     async def test_session_is_shared_until_timeout_changes(self):
         with tempfile.TemporaryDirectory() as directory:

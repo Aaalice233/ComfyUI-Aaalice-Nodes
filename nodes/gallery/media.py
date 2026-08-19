@@ -14,12 +14,15 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import ssl
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urljoin
 
 import aiohttp
+import certifi
 
+from .errors import GalleryTLSCertificateError
 from .settings import get_gallery_settings_store
 
 STATIC_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -68,7 +71,9 @@ class MediaProxy:
         timeout = get_gallery_settings_store().load()["timeout"]
         current = state.session
         if current is None or state.session_timeout != timeout:
-            connector = aiohttp.TCPConnector(ttl_dns_cache=300, keepalive_timeout=45)
+            ssl_context = ssl.create_default_context()
+            ssl_context.load_verify_locations(cafile=certifi.where())
+            connector = aiohttp.TCPConnector(ssl=ssl_context, ttl_dns_cache=300, keepalive_timeout=45)
             state.session = aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=timeout), trust_env=True)
             state.session_timeout = timeout
             if current is not None:
@@ -121,6 +126,8 @@ class MediaProxy:
         for attempt in range(3):
             try:
                 return await self._fetch_once(state, source, url, validate_url, request_headers)
+            except aiohttp.ClientConnectorCertificateError as exc:
+                raise GalleryTLSCertificateError(f"{source} media TLS certificate verification failed for {url}: {exc}") from exc
             except (aiohttp.ClientError, TimeoutError, _MediaUpstreamError) as exc:
                 if attempt >= 2:
                     raise RuntimeError(f"{source} media GET {url} failed after {attempt + 1} attempts: {exc}") from exc
