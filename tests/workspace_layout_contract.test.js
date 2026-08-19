@@ -299,7 +299,10 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(theme, /\.aa-value-preset-popover\.aa-ui-popover/);
 	assert.match(theme, /\.aa-value-preset-option-row:hover \.aa-value-preset-option-actions, \.aa-value-preset-option-row:focus-within \.aa-value-preset-option-actions/);
 	assert.match(theme, /\.aa-value-preset-option-actions \.aa-ui-button\.is-danger:hover/);
-	assert.match(theme, /\.aa-value-preset-reorder-handle\.aa-ui-button/);
+	assert.match(theme, /\.aa-value-preset-reorder-handle\.aa-ui-button \{[^}]*background: color-mix[^}]*box-shadow:[^}]*opacity: 1;[^}]*cursor: grab;/);
+	assert.match(theme, /\.aa-value-preset-reorder-handle:focus-visible \{[^}]*0 0 0 2px var\(--aa-ui-accent-soft\)/);
+	assert.match(theme, /\.aa-value-preset-reorder-handle:active \{[^}]*cursor: grabbing;[^}]*transform: scale\(\.96\)/);
+	assert.match(theme, /\.aa-value-preset-option-row\.is-dragging \.aa-value-preset-reorder-handle/);
 	assert.match(theme, /\.aa-value-preset-option-row\.is-drop-before::before/);
 	assert.match(theme, /\.aa-value-preset-list\.is-empty/);
 	assert.match(components, /attentionReview = null/);
