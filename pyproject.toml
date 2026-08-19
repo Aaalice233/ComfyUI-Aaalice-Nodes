@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-aaalice-nodes"
-version = "0.18.2"
+version = "0.18.3"
 description = "Compact parameter controls and workflow utilities for ComfyUI"
 readme = "README.md"
 license = { file = "LICENSE" }
