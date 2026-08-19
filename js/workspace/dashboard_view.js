@@ -28,7 +28,7 @@ export function renderDashboard(container, host) {
 		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetLabels,
 		applyDashboardPreset, createCurrentDashboardPreset, updateCurrentDashboardPreset, duplicateCurrentDashboardPreset,
 		openValueProfiles,
-		renameCurrentDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
+		renameCurrentDashboardPreset, reorderDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
 		dashboardPageRails, registerDashboardPresetView, workspaceLabels, openDashboardExport, importDashboardPreset, openEditGroup,
 		openComponentNoteEditor, numericRangeForControl, flushDeferredWorkspaceRender, notifyWorkspaceImageUpload,
 		notifyControlBindingError, openManageLinkedBindings, openRebind, controlTitle, openCardActions, openMoveControl,
@@ -161,7 +161,7 @@ export function renderDashboard(container, host) {
 			presets: state.presetState.presets, baselineId: state.baselinePreset?.id || null, comparison: state.comparison, error: state.error, labels: dashboardPresetLabels(),
 			attentionReview: state.comparison?.attention ? { count: state.attentionCount, onReview: () => openBindingHealthDialog(null) } : null,
 			onSelect: (presetId) => applyDashboardPreset(presetId), onCreate: () => createCurrentDashboardPreset(), onUpdate: (presetId) => updateCurrentDashboardPreset(presetId),
-			onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset,
+			onRestore: (presetId) => applyDashboardPreset(presetId, { restore: true }), onDuplicate: duplicateCurrentDashboardPreset, onRename: renameCurrentDashboardPreset, onDelete: deleteCurrentDashboardPreset, onReorder: reorderDashboardPreset,
 			onClose: () => {
 				if (!pendingPresetState) return;
 				const pending = pendingPresetState;

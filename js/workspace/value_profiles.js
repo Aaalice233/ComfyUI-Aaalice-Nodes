@@ -8,7 +8,7 @@ import { stableToneIndexes } from "../lib/control_tones.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES } from "../lib/seed_preset.js";
 import { badge, button, createDialog, el, emptyState, icon, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
 import { createSearchableSelect } from "../lib/searchable_select.js";
-import { createValueProfile, matchValueProfileRules, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule } from "../lib/value_profiles.js";
+import { availableValueProfileName, createValueProfile, duplicateValueProfile, matchValueProfileRules, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule } from "../lib/value_profiles.js";
 import { loadValueProfiles, saveValueProfiles } from "./sidebar_preferences.js";
 import { confirmAction } from "./dom_utils.js";
 
@@ -416,6 +416,7 @@ export function openValueProfiles() {
 			].filter(Boolean) }),
 			el("div", { className: "aa-value-profiles__bar-actions", children: [
 				iconButton({ iconName: "add", label: t("aaalice.workspace.valueProfiles.create", "New profile"), variant: "ghost", onClick: createProfile }),
+				iconButton({ iconName: "copy", label: t("aaalice.workspace.valueProfiles.duplicate", "Copy as new profile"), variant: "ghost", onClick: () => duplicateProfile(profile) }),
 				iconButton({ iconName: "edit", label: t("aaalice.workspace.valueProfiles.rename", "Rename profile"), variant: "ghost", onClick: () => {
 					runtime.askText(t("aaalice.workspace.valueProfiles.rename", "Rename profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), profile.name, (name) => persist((current) => renameValueProfile(current, profile.id, name)));
 				} }),
@@ -535,6 +536,21 @@ export function openValueProfiles() {
 			] }),
 		);
 		restoreRulesScroll();
+	};
+
+	const duplicateProfile = (profile) => {
+		const suffix = t("aaalice.workspace.valueProfiles.copySuffix", "Copy");
+		const proposedName = availableValueProfileName(`${profile.name} ${suffix}`, state);
+		runtime.askText(t("aaalice.workspace.valueProfiles.duplicate", "Copy as new profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), proposedName, (name) => {
+			resetRulesScroll();
+			ruleSearch = "";
+			closeAddPanel();
+			persist((current) => {
+				const next = duplicateValueProfile(current, profile.id, name);
+				selectedId = next.profiles[next.profiles.length - 1].id;
+				return next;
+			});
+		});
 	};
 
 	const createProfile = () => {

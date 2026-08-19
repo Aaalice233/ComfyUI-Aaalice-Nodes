@@ -164,6 +164,10 @@ test("adjustment profiles use source-grouped card rules and one stable scroll su
 	assert.match(workspace, /data-search-text/);
 	assert.match(workspace, /queryInput\.addEventListener\("input", filterRules\)/);
 	assert.match(workspace, /removeRuleConfirm/);
+	assert.match(workspace, /iconButton\(\{ iconName: "copy", label: t\("aaalice\.workspace\.valueProfiles\.duplicate"/);
+	assert.match(workspace, /availableValueProfileName\(`\$\{profile\.name\} \$\{suffix\}`, state\)/);
+	assert.match(workspace, /duplicateValueProfile\(current, profile\.id, name\)/);
+	assert.match(workspace, /selectedId = next\.profiles\[next\.profiles\.length - 1\]\.id/);
 	assert.match(workspace, /const nextState = mutator\(state\);[\s\S]*?saveValueProfiles\(nextState\);[\s\S]*?state = nextState/);
 	assert.match(workspace, /applyCount/);
 	assert.match(workspace, /resolved\.kind === "text" && typeof rule\.payload === "string"/);
@@ -173,6 +177,7 @@ test("adjustment profiles use source-grouped card rules and one stable scroll su
 	assert.match(theme, /\.aa-value-profile-group \{[\s\S]*?--aa-value-profile-tone:/);
 	assert.match(theme, /\.aa-value-profile-rule \{[\s\S]*?grid-template-columns: minmax\(150px, 1fr\) minmax\(210px, \.76fr\) 68px;/);
 	assert.match(theme, /@container \(max-width: 700px\)[\s\S]*?\.aa-value-profile-rule \{/);
+	assert.match(theme, /@container \(max-width: 560px\)[\s\S]*?\.aa-value-profiles__profile \{[\s\S]*?padding-right: 142px;/);
 	assert.match(workspace, /initialQuery: pickerSearch/);
 	assert.match(workspace, /onSearchChange: \(query\) => \{ pickerSearch = query; \}/);
 	assert.match(workspace, /let rulesScrollTop = 0/);

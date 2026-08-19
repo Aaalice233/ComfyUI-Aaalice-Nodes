@@ -38,7 +38,7 @@ import {
 	applyDashboardPreset, configureDashboardPresets, createCurrentDashboardPreset, currentDashboardPresetSnapshot,
 	dashboardPresetLabels, dashboardPresetState, deleteCurrentDashboardPreset, duplicateCurrentDashboardPreset,
 	flushActiveDashboardPresetOnSave, getDashboardPresetModelError, importDashboardPreset, openDashboardExport,
-	renameCurrentDashboardPreset, scheduleActiveDashboardPresetAutoSave, updateCurrentDashboardPreset,
+	renameCurrentDashboardPreset, reorderDashboardPreset, scheduleActiveDashboardPresetAutoSave, updateCurrentDashboardPreset,
 } from "./workspace/dashboard_presets.js";
 import { numericRangeForControl } from "./workspace/numeric_range.js";
 import {
@@ -606,6 +606,7 @@ configureDashboardView({
 	duplicateCurrentDashboardPreset,
 	openValueProfiles,
 	renameCurrentDashboardPreset,
+	reorderDashboardPreset,
 	deleteCurrentDashboardPreset,
 	mounted,
 	captureDashboardPageSnapshots,

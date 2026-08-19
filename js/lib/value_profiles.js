@@ -23,6 +23,16 @@ function normalizeName(value) {
 
 function nameKey(value) { return normalizeName(value).toLocaleLowerCase(); }
 
+export function availableValueProfileName(sourceName, state) {
+	const source = normalizeName(sourceName);
+	const names = new Set((state?.profiles || []).map((profile) => nameKey(profile.name)));
+	for (let count = 1; ; count++) {
+		const suffix = count === 1 ? "" : ` ${count}`;
+		const candidate = `${source.slice(0, Math.max(1, VALUE_PROFILE_NAME_LIMIT - suffix.length)).trim()}${suffix}`;
+		if (!names.has(nameKey(candidate))) return candidate;
+	}
+}
+
 function normalizeRule(source) {
 	const key = String(source?.key || "");
 	const valueType = String(source?.valueType || "");
@@ -79,6 +89,13 @@ function assertUniqueName(state, name, ignoredId = null) {
 export function createValueProfile(state, name) {
 	const next = copy(state);
 	next.profiles.push({ id: stableProfileId(), name: assertUniqueName(next, name), rules: [] });
+	return next;
+}
+
+export function duplicateValueProfile(state, profileId, name) {
+	const next = copy(state);
+	const source = findProfile(next, profileId);
+	next.profiles.push({ ...structuredClone(source), id: stableProfileId(), name: assertUniqueName(next, name) });
 	return next;
 }
 

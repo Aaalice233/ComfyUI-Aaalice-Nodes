@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
 import { applyDashboardPresetPlan, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
-import { createValueProfile, emptyValueProfileState, matchValueProfileRules, normalizeValueProfileState, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule, ValueProfileError } from "../js/lib/value_profiles.js";
+import { availableValueProfileName, createValueProfile, duplicateValueProfile, emptyValueProfileState, matchValueProfileRules, normalizeValueProfileState, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule, ValueProfileError } from "../js/lib/value_profiles.js";
 import { saveValueProfiles } from "../js/workspace/sidebar_preferences.js";
 
 const binding = (controlId, valueType = "number", hostId = "host-a") => ({ provider: "generic-widget", hostId, controlId, valueType });
@@ -42,6 +42,27 @@ test("profile names are trimmed and unique case-insensitively", () => {
 	assert.throws(() => renameValueProfile(state, state.profiles[0].id, "  "), (error) => error.code === "invalid-profile-name");
 	state = renameValueProfile(state, state.profiles[0].id, "beast");
 	assert.equal(state.profiles[0].name, "beast");
+});
+
+test("duplicating a profile creates an independent named copy with every rule", () => {
+	let state = createValueProfile(emptyValueProfileState(), "animal");
+	const sourceId = state.profiles[0].id;
+	state = upsertValueProfileRule(state, sourceId, rule("seed", { valueType: "integer", payload: { value: 7, control_after_generate: "fixed" } }));
+	const original = structuredClone(state);
+	const copyName = availableValueProfileName("animal Copy", state);
+	const duplicated = duplicateValueProfile(state, sourceId, copyName);
+	assert.equal(copyName, "animal Copy");
+	assert.deepEqual(state, original);
+	assert.deepEqual(duplicated.profiles.map((profile) => profile.name), ["animal", "animal Copy"]);
+	assert.notEqual(duplicated.profiles[1].id, sourceId);
+	assert.deepEqual(duplicated.profiles[1].rules, duplicated.profiles[0].rules);
+	assert.notEqual(duplicated.profiles[1].rules[0], duplicated.profiles[0].rules[0]);
+	assert.notEqual(duplicated.profiles[1].rules[0].payload, duplicated.profiles[0].rules[0].payload);
+	duplicated.profiles[1].rules[0].payload.value = 99;
+	assert.equal(duplicated.profiles[0].rules[0].payload.value, 7);
+	assert.equal(availableValueProfileName("animal Copy", duplicated), "animal Copy 2");
+	assert.throws(() => duplicateValueProfile(state, "missing", "copy"), (error) => error.code === "missing-profile");
+	assert.throws(() => duplicateValueProfile(state, sourceId, "Animal"), (error) => error.code === "duplicate-profile-name");
 });
 
 test("rules upsert and remove by binding key, payloads are validated and cloned", () => {

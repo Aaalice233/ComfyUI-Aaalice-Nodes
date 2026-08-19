@@ -124,7 +124,7 @@
       "dashboardPreset": {
           "title": "侧边栏预设", "open": "打开侧边栏预设", "placeholder": "选择预设", "attention": "需要处理", "attentionBindings": "{count} 个绑定需要处理", "attentionStale": "预设包含已移除组件的数值", "healthTitle": "绑定状态", "healthLinked": "联动", "healthClearLinked": "一键清除失效联动 · {count}", "healthCleared": "已清除 {count} 条失效联动绑定。", "healthEmpty": "当前所有绑定都能正常解析。该标记通常是因为预设保存了已移除组件的数值，保存预设即可清除。",
           "empty": "还没有预设", "emptyHint": "保存当前所有页面、布局和参数值，之后可一键切换；预设随工作流一起保存和分享。", "emptyAction": "创建第一个预设", "name": "预设名称", "defaultName": "预设 {count}", "copyName": "{name} 副本",
-		  "presetCount": "{count} 个预设", "presetSummary": "{pages} 个页面 · {values} 个参数", "add": "新增", "create": "新增预设", "manage": "管理预设", "modified": "当前有修改", "update": "保存修改", "saveCurrent": "保存为预设", "restore": "放弃修改", "duplicate": "复制", "rename": "重命名", "delete": "删除", "deleteConfirm": "确定删除侧边栏预设“{name}”吗？当前侧边栏不会改变。", "deleteSwitchConfirm": "确定删除侧边栏预设“{name}”吗？侧边栏将自动切换到“{fallback}”。", "deleteLastConfirm": "确定删除侧边栏预设“{name}”吗？删除后将清空侧边栏，因为已经没有其它预设。",
+		  "presetCount": "{count} 个预设", "presetSummary": "{pages} 个页面 · {values} 个参数", "add": "新增", "create": "新增预设", "manage": "管理预设", "modified": "当前有修改", "update": "保存修改", "saveCurrent": "保存为预设", "restore": "放弃修改", "duplicate": "复制", "rename": "重命名", "delete": "删除", "reorderHint": "拖动调整顺序；也可使用 Alt+方向键", "reorderItem": "调整预设“{name}”顺序，当前位置 {position}/{count}", "reordered": "已将“{name}”移动到第 {position} 位，共 {count} 项", "deleteConfirm": "确定删除侧边栏预设“{name}”吗？当前侧边栏不会改变。", "deleteSwitchConfirm": "确定删除侧边栏预设“{name}”吗？侧边栏将自动切换到“{fallback}”。", "deleteLastConfirm": "确定删除侧边栏预设“{name}”吗？删除后将清空侧边栏，因为已经没有其它预设。",
 		  "changeSummary": "布局 {layout} 处 · 参数 {values} 处", "dataError": "预设数据异常", "dataErrorHint": "无法读取工作流中保存的侧边栏预设数据。",
         "error": "侧边栏预设错误", "noContent": "当前没有可以保存的侧边栏布局。", "invalid": "值无效", "ambiguous": "需要确认", "unused": "侧边栏中不存在", "layoutOnly": "仅布局组件", "optionUnavailable": "选项不可用", "modelUnavailable": "模型未列出", "modelPathFound": "已找到嵌套路径", "modelPathAmbiguous": "存在同名模型", "attention": "需要处理", "removedComponent": "已移除的侧边栏组件",
         "locationPage": "页面“{page}”", "locationGroup": "布局组“{group}”", "locationParameter": "参数“{parameter}”", "locationMore": "另有 {count} 处",
@@ -137,7 +137,7 @@
       },
       "valueProfiles": {
         "open": "调整档案", "title": "参数调整档案", "select": "调整档案", "name": "档案名称",
-        "create": "新建档案", "rename": "重命名档案", "deleteConfirm": "删除调整档案“{name}”？",
+        "create": "新建档案", "duplicate": "复制为新档案", "copySuffix": "副本", "rename": "重命名档案", "deleteConfirm": "删除调整档案“{name}”？",
         "emptyTitle": "还没有调整档案", "emptyHint": "创建档案，为每次都要调整的控件添加规则，之后一键套用。",
         "emptyRules": "还没有规则。使用“添加规则”捕获侧边栏控件的当前值。",
         "rulesTitle": "调整规则", "ruleCount": "{count} 条规则", "profileSummary": "{rules} 条规则 · {sources} 个来源", "issueCount": "{count} 条需处理",

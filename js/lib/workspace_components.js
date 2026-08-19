@@ -4,6 +4,7 @@ import { bindScrollInteractionGuard, button, checkboxControl, createAnchoredPopo
 import { attachDescriptionTooltip } from "./description_tooltip.js";
 import { DASHBOARD_DEFAULT_CONTROL_ROW_SPAN, DASHBOARD_MIN_HEADER_CONTROL_ROW_SPAN } from "./dashboard_sizing.js";
 import { dashboardToneCssValue, normalizeDashboardTone } from "./dashboard_color_system.js";
+import { bindDashboardPresetReorder } from "./dashboard_preset_reorder.js";
 
 const PAGE_RAIL_DOT_HEIGHT = 20;
 const PAGE_RAIL_COLLAPSED_GAP = 4;
@@ -222,7 +223,7 @@ export function createDashboardPageHeading({ page, pages = [], index = 0, labels
 	});
 }
 
-export function createDashboardPresetPicker({ presets = [], baselineId = null, comparison = null, error = null, labels = {}, attentionReview = null, onSelect, onCreate, onUpdate, onDuplicate, onRename, onDelete, onRestore, onClose } = {}) {
+export function createDashboardPresetPicker({ presets = [], baselineId = null, comparison = null, error = null, labels = {}, attentionReview = null, onSelect, onCreate, onUpdate, onDuplicate, onRename, onDelete, onRestore, onReorder, onClose } = {}) {
 	const hasError = Boolean(error);
 	const availablePresets = hasError ? [] : presets;
 	const selected = availablePresets.find((preset) => preset.id === baselineId) || null;
@@ -286,6 +287,7 @@ export function createDashboardPresetPicker({ presets = [], baselineId = null, c
 			el("small", null, labels.emptyHint || "Save the current layout and values for quick switching later."),
 			button({ label: labels.emptyAction || "Save current sidebar", iconName: "add", variant: "primary", size: "sm", onClick: () => invoke(onCreate) }),
 		] }));
+		const reorderEntries = [];
 		for (const preset of availablePresets) {
 			const active = preset.id === baselineId;
 			const action = el("button", {
@@ -302,9 +304,13 @@ export function createDashboardPresetPicker({ presets = [], baselineId = null, c
 					iconButton({ iconName: "delete", label: labels.delete || "Delete", variant: "ghost", className: "is-danger", onClick: () => invoke(onDelete, preset.id) }),
 				],
 			});
+			const handle = availablePresets.length > 1 ? iconButton({ iconName: "drag", label: labels.reorderHint || "Drag to reorder", title: labels.reorderHint || "Drag to reorder; Alt+Arrow keys also work", variant: "ghost", className: "aa-value-preset-reorder-handle" }) : null;
+			const row = el("div", { className: `aa-value-preset-option-row${handle ? " is-reorderable" : ""}`, children: [...(handle ? [handle] : []), action, manage] });
 			action.addEventListener("click", () => { if (!active) invoke(onSelect, preset.id); });
-			list.append(el("div", { className: "aa-value-preset-option-row", children: [action, manage] }));
+			list.append(row);
+			if (handle) reorderEntries.push({ id: preset.id, name: preset.name, row, option: action, handle });
 		}
+		if (reorderEntries.length) bindDashboardPresetReorder({ list, entries: reorderEntries, labels, onReorder });
 		const currentActions = !hasError && dirty && availablePresets.length ? el("div", { className: "aa-value-preset-current-actions", children: [
 			...(selected ? [el("div", { className: "aa-value-preset-current-context", children: [
 				el("span", null, labels.modified || "Unsaved changes"),

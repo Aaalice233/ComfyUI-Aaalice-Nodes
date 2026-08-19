@@ -11,6 +11,7 @@ import {
 	dashboardPresetStateNeedsMigration,
 	duplicateDashboardPreset,
 	emptyDashboardPresetState,
+	moveDashboardPreset,
 	normalizeDashboardPresetState,
 	parseDashboardPreset,
 	parseDashboardPresetForImport,
@@ -68,6 +69,22 @@ test("preset management preserves identity and does not apply duplicates", () =>
 	state = removeDashboardPreset(state, originalId);
 	assert.equal(state.baselinePresetId, state.presets[0].id);
 	assert.deepEqual(state.presets.map((preset) => preset.name), ["Portrait XL copy"]);
+});
+
+test("preset order can be moved without changing the baseline or source state", () => {
+	let state = createDashboardPreset(emptyDashboardPresetState(), "One", snapshot(20));
+	state = createDashboardPreset(state, "Two", snapshot(21));
+	state = createDashboardPreset(state, "Three", snapshot(22));
+	const ids = state.presets.map((preset) => preset.id);
+	const original = structuredClone(state);
+	const moved = moveDashboardPreset(state, ids[2], 0);
+	assert.deepEqual(moved.presets.map((preset) => preset.name), ["Three", "One", "Two"]);
+	assert.equal(moved.baselinePresetId, original.baselinePresetId);
+	assert.deepEqual(state, original);
+	assert.deepEqual(normalizeDashboardPresetState(JSON.parse(JSON.stringify(moved))).presets.map((preset) => preset.name), ["Three", "One", "Two"]);
+	assert.deepEqual(moveDashboardPreset(moved, ids[2], 8).presets.map((preset) => preset.name), ["One", "Two", "Three"]);
+	assert.throws(() => moveDashboardPreset(state, "missing", 0), (error) => error instanceof DashboardPresetError && error.code === "missing-preset");
+	assert.throws(() => moveDashboardPreset(state, ids[0], 1.5), (error) => error instanceof DashboardPresetError && error.code === "invalid-preset-position");
 });
 
 test("deleting the active preset selects the next preset, then the previous one at the end", () => {

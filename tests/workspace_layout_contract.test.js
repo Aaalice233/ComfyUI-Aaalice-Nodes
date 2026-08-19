@@ -48,6 +48,7 @@ const quickGroupControl = readFileSync(join(ROOT, "js", "lib", "controls", "quic
 const runtime = readFileSync(join(ROOT, "js", "lib", "quick_group_manager_runtime.js"), "utf8");
 const controlRegistry = readFileSync(join(ROOT, "js", "lib", "controls", "registry.js"), "utf8");
 const components = readFileSync(join(ROOT, "js", "lib", "workspace_components.js"), "utf8");
+const presetReorder = readFileSync(join(ROOT, "js", "lib", "dashboard_preset_reorder.js"), "utf8");
 const uiSource = ["ui.js", "ui/primitives.js", "ui/transient_surfaces.js", "ui/overlays.js", "ui/controls.js"]
 	.map((path) => readFileSync(join(ROOT, "js", "lib", ...path.split("/")), "utf8")).join("\n");
 const dashboardModel = readFileSync(join(ROOT, "js", "lib", "dashboard_model.js"), "utf8");
@@ -272,6 +273,15 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.doesNotMatch(components, /aa-value-preset-popover__footer/);
 	assert.match(components, /role: "toolbar", "aria-label": labels\.manage/);
 	assert.match(components, /iconName: "edit", label: labels\.rename[\s\S]*iconName: "copy", label: labels\.duplicate[\s\S]*iconName: "delete", label: labels\.delete/);
+	assert.match(components, /bindDashboardPresetReorder\(\{ list, entries: reorderEntries, labels, onReorder \}\)/);
+	assert.match(presetReorder, /PRESET_DRAG_TYPE = "application\/x-aaalice-dashboard-preset"/);
+	assert.match(presetReorder, /aria-keyshortcuts", "Alt\+ArrowUp Alt\+ArrowDown"/);
+	assert.match(presetReorder, /onReorder\?\.\(id, nextIndex\) === false/);
+	assert.match(presetReorder, /entry\.handle\.focus\(\{ preventScroll: true \}\)/);
+	assert.match(workspace, /export function reorderDashboardPreset\(presetId, targetIndex\)/);
+	assert.match(workspace, /onReorder: reorderDashboardPreset/);
+	assert.match(enLocale, /"reorderHint": "Drag to reorder; Alt\+Arrow keys also work"/);
+	assert.match(zhLocale, /"reorderHint": "拖动调整顺序；也可使用 Alt\+方向键"/);
 	assert.match(components, /labels\.modified/);
 	assert.match(components, /labels\.saveCurrent/);
 	assert.doesNotMatch(components, /labels\.saveAs/);
@@ -289,6 +299,8 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(theme, /\.aa-value-preset-popover\.aa-ui-popover/);
 	assert.match(theme, /\.aa-value-preset-option-row:hover \.aa-value-preset-option-actions, \.aa-value-preset-option-row:focus-within \.aa-value-preset-option-actions/);
 	assert.match(theme, /\.aa-value-preset-option-actions \.aa-ui-button\.is-danger:hover/);
+	assert.match(theme, /\.aa-value-preset-reorder-handle\.aa-ui-button/);
+	assert.match(theme, /\.aa-value-preset-option-row\.is-drop-before::before/);
 	assert.match(theme, /\.aa-value-preset-list\.is-empty/);
 	assert.match(components, /attentionReview = null/);
 	assert.match(components, /aa-value-preset-attention/);

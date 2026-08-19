@@ -177,6 +177,18 @@ export function renameDashboardPreset(state, presetId, name) {
 	preset.name = assertUniqueName(next, name, preset.id); return next;
 }
 
+export function moveDashboardPreset(state, presetId, targetIndex) {
+	const next = copy(state);
+	const sourceIndex = next.presets.findIndex((item) => item.id === presetId);
+	if (sourceIndex < 0) throw new DashboardPresetError("Sidebar preset is missing", "missing-preset");
+	if (!Number.isInteger(targetIndex)) throw new DashboardPresetError("Sidebar preset position must be an integer", "invalid-preset-position");
+	const nextIndex = Math.max(0, Math.min(next.presets.length - 1, targetIndex));
+	if (sourceIndex === nextIndex) return next;
+	const [preset] = next.presets.splice(sourceIndex, 1);
+	next.presets.splice(nextIndex, 0, preset);
+	return next;
+}
+
 export function duplicateDashboardPreset(state, presetId, name) {
 	const next = copy(state); const source = next.presets.find((item) => item.id === presetId);
 	if (!source) throw new DashboardPresetError("Sidebar preset is missing", "missing-preset");

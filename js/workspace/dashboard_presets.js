@@ -2,7 +2,7 @@ import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { bindingControlIdLabel, isModelResourceBinding } from "../lib/dashboard_binding_identity.js";
 import { bindingKey, controlItemBindings, emptyDashboard, normalizeDashboard } from "../lib/dashboard_model.js";
-import { availableDashboardPresetName, compareDashboardPreset, createDashboardPreset, dashboardPresetFileName, dashboardPresetNameFromFile, dashboardPresetStateNeedsMigration, duplicateDashboardPreset, emptyDashboardPresetState, normalizeDashboardPresetState, parseDashboardPresetForImport, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
+import { availableDashboardPresetName, compareDashboardPreset, createDashboardPreset, dashboardPresetFileName, dashboardPresetNameFromFile, dashboardPresetStateNeedsMigration, duplicateDashboardPreset, emptyDashboardPresetState, moveDashboardPreset, normalizeDashboardPresetState, parseDashboardPresetForImport, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
 import { applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssueLocations, mergeCapturedPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../lib/dashboard_preset_runtime.js";
 import { badge, button, createDialog, el, field, icon, segmentedControl, selectControl } from "../lib/ui.js";
 import { createTransferResult, createTransferSection, createTransferStats, formatFileSize } from "../lib/workspace_components.js";
@@ -67,6 +67,7 @@ export function dashboardPresetLabels() {
 		title: t("aaalice.workspace.dashboardPreset.title", "Sidebar presets"), open: t("aaalice.workspace.dashboardPreset.open", "Open sidebar presets"), placeholder: t("aaalice.workspace.dashboardPreset.placeholder", "Select preset"), attention: t("aaalice.workspace.dashboardPreset.attention", "Needs attention"),
 		empty: t("aaalice.workspace.dashboardPreset.empty", "No presets yet"), emptyHint: t("aaalice.workspace.dashboardPreset.emptyHint", "Save the current sidebar layout and values for quick switching later."), emptyAction: t("aaalice.workspace.dashboardPreset.emptyAction", "Save current sidebar"),
 		presetCount: t("aaalice.workspace.dashboardPreset.presetCount", "{count} presets"), presetSummary: t("aaalice.workspace.dashboardPreset.presetSummary", "{pages} pages · {values} values"), add: t("aaalice.workspace.dashboardPreset.add", "New"), create: t("aaalice.workspace.dashboardPreset.create", "New preset"), manage: t("aaalice.workspace.dashboardPreset.manage", "Manage preset"), modified: t("aaalice.workspace.dashboardPreset.modified", "Unsaved changes"), update: t("aaalice.workspace.dashboardPreset.update", "Save changes"), saveCurrent: t("aaalice.workspace.dashboardPreset.saveCurrent", "Save as preset"), restore: t("aaalice.workspace.dashboardPreset.restore", "Discard changes"), duplicate: t("aaalice.workspace.dashboardPreset.duplicate", "Duplicate"), rename: t("aaalice.workspace.dashboardPreset.rename", "Rename"), delete: t("aaalice.workspace.dashboardPreset.delete", "Delete"),
+		reorderHint: t("aaalice.workspace.dashboardPreset.reorderHint", "Drag to reorder; Alt+Arrow keys also work"), reorderItem: t("aaalice.workspace.dashboardPreset.reorderItem", "Reorder {name}, position {position} of {count}"), reordered: t("aaalice.workspace.dashboardPreset.reordered", "{name} moved to position {position} of {count}"),
 		changeSummary: t("aaalice.workspace.dashboardPreset.changeSummary", "{layout} layout · {values} values"), dataError: t("aaalice.workspace.dashboardPreset.dataError", "Preset data error"), dataErrorHint: t("aaalice.workspace.dashboardPreset.dataErrorHint", "The saved sidebar preset data could not be read."),
 		attentionBindings: t("aaalice.workspace.dashboardPreset.attentionBindings", "{count} bindings need attention"), attentionStale: t("aaalice.workspace.dashboardPreset.attentionStale", "The preset holds values of removed components"),
 	};
@@ -151,6 +152,16 @@ export async function duplicateCurrentDashboardPreset(presetId) {
 	const name = t("aaalice.workspace.dashboardPreset.copyName", "{name} copy").replace("{name}", preset.name);
 	const nextName = await askTextValue(dashboardPresetLabels().duplicate, t("aaalice.workspace.dashboardPreset.name", "Preset name"), name);
 	if (nextName) commitDashboardPresetChange((current) => duplicateDashboardPreset(current, presetId, nextName), t("aaalice.workspace.dashboardPreset.duplicated", "Sidebar preset duplicated. Save the workflow to keep it."));
+}
+
+export function reorderDashboardPreset(presetId, targetIndex) {
+	try {
+		updateDashboardPresetState((current) => moveDashboardPreset(current, presetId, targetIndex));
+		return true;
+	} catch (error) {
+		notifyDashboardPresetError(error);
+		return false;
+	}
 }
 
 export async function renameCurrentDashboardPreset(presetId) {
