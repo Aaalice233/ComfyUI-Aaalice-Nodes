@@ -200,35 +200,22 @@ test("gallery scroll areas follow the focused wheel-capture protocol", () => {
 	assert.doesNotMatch(source, /new WheelEvent|wheel[\s\S]{0,80}stopPropagation/);
 });
 
-test("gallery cards offer prompt copy and prompt-assistant interrogation", () => {
-	assert.match(source, /const PROMPT_ASSISTANT_API_CANDIDATES = \["\/prompt-assistant\/api", "\/ComfyUI-Prompt-Assistant\/api"\]/);
-	assert.match(source, /\$\{base\}\/config\/llm\/masked/);
-	assert.match(source, /promptAssistantAvailable = Boolean\(assistantApi\)/);
+test("gallery cards offer prompt copy without image interrogation", () => {
 	assert.match(source, /actionButton\("copy", "copyPrompt", 2, \(\) =>/);
 	assert.match(source, /runGalleryCardBindingAction\(view, binding, \(\) => binding\.controller\.copyPostPrompt\(binding\.post\)/);
 	assert.match(source, /copyPromptAction\.setAttribute\("aria-label", label\("card\.copyPrompt", "Copy prompt"\)\)/);
-	assert.match(source, /interrogateAction\.style\.display = isPromptAssistantAvailable\(\) \? "" : "none"/);
 	assert.match(source, /const copyPostPrompt = async \(post\) =>/);
 	assert.match(source, /navigator\.clipboard\.writeText\(text\)/);
 	assert.match(source, /label\("card\.promptCopied", "Prompt copied to clipboard"\)/);
 	assert.match(source, /label\("selected\.noPrompt"/);
-	assert.match(source, /const interrogatePost = async \(post\) =>/);
-	assert.match(source, /interrogateAction\.disabled = true; card\.classList\.add\("is-interrogating"\)/);
-	assert.match(source, /onCurrentSettled: \(\) => \{ interrogateAction\.disabled = false/);
-	assert.match(source, /\$\{base\}\/vlm\/analyze/);
-	assert.match(source, /request_id: crypto\.randomUUID\(\)/);
-	assert.match(source, /openInterrogateResultDialog\(detail, String\(result\.data\?\.description/);
-	assert.match(source, /className: "aa-gallery-card__scan"/);
-	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__scan \{[^}]*animation: aa-gallery-card-scan/);
-	assert.match(theme, /\.aa-gallery-card\.is-interrogating \.aa-gallery-card__surface \{[^}]*translate3d\(0, -4px, 12px\)[^}]*animation: aa-gallery-card-scan-glow/);
-	assert.match(source, /actionControls = \[editAction, favoriteAction, copyPromptAction, interrogateAction, downloadAction, detailAction\]/);
+	assert.match(source, /\{ control: copyPromptAction, iconName: "copy", action: "copyPrompt" \}, \{ control: downloadAction, iconName: "download", action: "download" \}/);
+	assert.doesNotMatch(source, /prompt-assistant|PromptAssistant|promptAssistant|interrogate|Interrogate|vlm\/analyze|card__scan|is-interrogating/);
+	assert.doesNotMatch(theme, /interrogate|card__scan|is-interrogating/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.equal(typeof locale.aaalice.gallery.card.copyPrompt, "string");
 		assert.equal(typeof locale.aaalice.gallery.card.promptCopied, "string");
-		assert.equal(typeof locale.aaalice.gallery.card.interrogate, "string");
-		assert.equal(typeof locale.aaalice.gallery.interrogate.title, "string");
-		assert.equal(typeof locale.aaalice.gallery.interrogate.copied, "string");
-		assert.equal(typeof locale.aaalice.gallery.interrogate.failed, "string");
+		assert.equal(locale.aaalice.gallery.card.interrogate, undefined);
+		assert.equal(locale.aaalice.gallery.interrogate, undefined);
 		assert.equal(typeof locale.aaalice.gallery.error.media, "string");
 	}
 	assert.match(source, /code === "credentials_required" \|\| code === "tls_certificate_error"/);
@@ -241,7 +228,7 @@ test("gallery cards offer prompt copy and prompt-assistant interrogation", () =>
 test("gallery cards and post details download originals with distinct open and download icons", () => {
 	const cardSource = source.slice(source.indexOf("function buildGalleryCardView"), source.indexOf("function createSelectedRow"));
 	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
-	assert.match(cardSource, /actionButton\("download", "download", 4/);
+	assert.match(cardSource, /actionButton\("download", "download", 3/);
 	assert.match(cardSource, /label\("card\.download", "Download original"\)/);
 	assert.match(cardSource, /downloadAction\.style\.display = favoriteCapability\?\.download \? "" : "none"/);
 	assert.match(detailSource, /className: "aa-gallery-detail__action is-original"[\s\S]*iconName: "externalLink"/);
@@ -252,7 +239,7 @@ test("gallery cards and post details download originals with distinct open and d
 	assert.match(source, /document\.body\.append\(anchor\);[\s\S]*anchor\.click\(\);[\s\S]*anchor\.remove\(\)/);
 	assert.match(source, /control\?\._aaGalleryDownloadOperation === operation/);
 	assert.match(cardSource, /downloadAction\._aaGalleryDownloadOperation = null;[\s\S]*downloadAction\.classList\.remove\("is-downloading"\)/);
-	assert.match(theme, /\.aa-gallery-card-action\.is-download \{[^}]*--aa-gallery-action-tone/);
+	assert.match(theme, /\.is-download \{[^}]*--aa-gallery-action-tone/);
 	assert.match(theme, /\.aa-gallery-detail__action\.is-download \{[^}]*--aa-gallery-detail-action-tone/);
 	for (const locale of [enLocale, zhLocale]) {
 		assert.equal(typeof locale.aaalice.gallery.card.download, "string");

@@ -35,6 +35,7 @@ const sources = Object.fromEntries([
 	["control", "../js/lib/controls/booru_gallery.js"],
 	["media", "../js/lib/booru_gallery_media.js"],
 	["cards", "../js/lib/booru_gallery_cards.js"],
+	["cardLayout", "../js/lib/booru_gallery_card_layout.js"],
 	["imagePool", "../js/lib/booru_gallery_image_pool.js"],
 	["hover", "../js/lib/booru_gallery_hover.js"],
 	["controller", "../js/lib/booru_gallery_controller.js"],
@@ -50,6 +51,7 @@ test("every gallery module parses as a real ES module", () => {
 		["control", "../js/lib/controls/booru_gallery.js"],
 		["media", "../js/lib/booru_gallery_media.js"],
 		["cards", "../js/lib/booru_gallery_cards.js"],
+		["cardLayout", "../js/lib/booru_gallery_card_layout.js"],
 		["imagePool", "../js/lib/booru_gallery_image_pool.js"],
 		["hover", "../js/lib/booru_gallery_hover.js"],
 		["controller", "../js/lib/booru_gallery_controller.js"],
@@ -251,6 +253,8 @@ test("gallery entry delegates cohesive surface, media, card, controller, dialog,
 	assert.match(sources.control, /export function renderBooruGalleryControl/);
 	assert.match(sources.media, /export function createGalleryMedia/);
 	assert.match(sources.cards, /export function createGalleryCards/);
+	assert.match(sources.cards, /import \{ galleryCardActionLayout \} from "\.\/booru_gallery_card_layout\.js"/);
+	assert.match(sources.cardLayout, /export function galleryCardActionLayout/);
 	assert.match(sources.imagePool, /export function createDecodedImagePool/);
 	assert.match(sources.hover, /export function createGalleryHover/);
 	assert.match(sources.controller, /export function createGalleryControllerFactory/);
@@ -267,7 +271,6 @@ function galleryDialogHarness() {
 	const dialogs = [];
 	const toastCalls = [];
 	const translations = [];
-	const proxiedUrls = [];
 	const dependencies = {
 		app: { extensionManager: { toast: { add: (options) => toastCalls.push(options) } } },
 		button: (options) => { buttons.push(options); return { ...options }; },
@@ -280,14 +283,13 @@ function galleryDialogHarness() {
 		icon: (name) => ({ name }),
 		iconButton: (options) => ({ ...options }),
 		label: (_key, fallback) => fallback,
-		proxyUrl: (source, url) => { proxiedUrls.push([source, url]); return `proxy:${source}:${url}`; },
 		searchQuery: () => "",
 		searchToggleButton: () => ({}),
 		stateFor: () => ({ selections: [] }),
 		t: (key, fallback) => { translations.push(key); return fallback; },
 		transact() {},
 	};
-	return { buttons, dependencies, dialogs, proxiedUrls, toastCalls, translations };
+	return { buttons, dependencies, dialogs, toastCalls, translations };
 }
 
 function searchControlHarness(query = "") {
@@ -359,27 +361,6 @@ test("gallery dialog factory invokes single-selection dialog with its explicit i
 	assert.doesNotThrow(() => dialogs.openSingleSelectionDialog(() => {}));
 	assert.equal(harness.dialogs.length, 1);
 	assert.ok(harness.translations.includes("aaalice.common.cancel"));
-});
-
-test("gallery interrogation dialog uses explicit proxy and app dependencies at runtime", async () => {
-	const harness = galleryDialogHarness();
-	const dialogs = createGalleryDialogs(harness.dependencies);
-	const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-	let copied = "";
-	Object.defineProperty(globalThis, "navigator", {
-		configurable: true,
-		value: { clipboard: { writeText: async (value) => { copied = value; } } },
-	});
-	try {
-		dialogs.openInterrogateResultDialog({ source: "danbooru", previewUrl: "https://example.test/preview.jpg", postId: "42" }, "prompt text");
-		assert.deepEqual(harness.proxiedUrls, [["danbooru", "https://example.test/preview.jpg"]]);
-		await harness.buttons[0].onClick();
-		assert.equal(copied, "prompt text");
-		assert.equal(harness.toastCalls[0]?.severity, "success");
-	} finally {
-		if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
-		else delete globalThis.navigator;
-	}
 });
 
 test("gallery error dialog preserves and copies the complete TLS failure", async () => {

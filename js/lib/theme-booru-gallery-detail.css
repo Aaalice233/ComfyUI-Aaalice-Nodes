@@ -109,12 +109,6 @@
 .aa-gallery-favorite-notice > span { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid color-mix(in srgb, var(--p-pink-400, var(--aa-ui-danger)) 32%, var(--aa-ui-border)); border-radius: 12px; background: color-mix(in srgb, var(--p-pink-400, var(--aa-ui-danger)) 9%, var(--aa-ui-control)); color: var(--p-pink-400, var(--aa-ui-danger)); }
 .aa-gallery-favorite-notice .aa-ui-icon { width: 16px; height: 16px; }
 .aa-gallery-favorite-notice p { margin: 0; color: color-mix(in srgb, var(--aa-ui-text) 84%, var(--aa-ui-muted)); font-size: 10px; line-height: 1.5; }
-.aa-gallery-interrogate { display: grid; min-width: min(380px, calc(100vw - 56px)); max-width: min(520px, calc(100vw - 56px)); gap: 10px; }
-.aa-gallery-interrogate__meta { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.aa-gallery-interrogate__thumb { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; box-shadow: 0 3px 10px rgb(0 0 0 / .18); }
-.aa-gallery-interrogate__meta > span { padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--aa-gallery-source-tone, var(--aa-ui-node-accent)) 12%, var(--aa-ui-control)); color: color-mix(in srgb, var(--aa-gallery-source-tone, var(--aa-ui-node-accent)) 68%, var(--aa-ui-text)); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.aa-gallery-interrogate__meta > strong { color: var(--aa-ui-text); font-size: 11px; }
-.aa-gallery-interrogate__text { max-height: min(320px, 46vh); margin: 0; overflow: auto; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--aa-ui-node-accent) 5%, var(--aa-ui-control)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aa-ui-text) 5%, transparent), 0 2px 8px rgb(0 0 0 / .1); color: var(--aa-ui-text); font-size: 11px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; scrollbar-width: thin; }
 .aa-gallery-tag-editor-dialog.aa-ui-dialog { width: min(760px, calc(100vw - 32px)); }
 .aa-gallery-tag-editor { display: grid; height: min(460px, 66vh); min-height: 360px; grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
 .aa-gallery-tag-editor__context { display: flex; min-width: 0; align-items: center; gap: 10px; padding-bottom: 11px; border-bottom: 1px solid var(--aa-ui-border-soft); }

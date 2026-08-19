@@ -9,6 +9,7 @@ const sourcePaths = [
 	"../js/lib/booru_gallery_surface.js",
 	"../js/lib/booru_gallery_media.js",
 	"../js/lib/booru_gallery_cards.js",
+	"../js/lib/booru_gallery_card_layout.js",
 	"../js/lib/booru_gallery_hover.js",
 	"../js/lib/booru_gallery_controller.js",
 	"../js/lib/booru_gallery_random.js",
@@ -280,7 +281,7 @@ test("browse and selected switcher states use distinct semantic colors", () => {
 test("gallery cards use direct selection and adaptive animated overlay actions", () => {
 	assert.match(source, /card\.addEventListener\("click", \(event\) => runSelection\(event\)\)/);
 	assert.match(source, /iconName, action, actionIndex, onClick/);
-	for (const action of ["edit", "favorite", "copyPrompt", "interrogate", "detail"]) assert.match(theme, new RegExp(`\\.aa-gallery-card-action\\.is-${action}`));
+	for (const action of ["edit", "favorite", "copyPrompt", "download", "detail"]) assert.match(theme, new RegExp(`is-${action}`));
 	assert.match(theme, /\.aa-gallery-card-action\.is-favorite\.is-active \.aa-ui-icon \{[^}]*fill: currentColor/);
 	assert.match(theme, /\.aa-gallery-detail__action\.is-favorite\.is-active \.aa-ui-icon \{[^}]*fill: currentColor/);
 	assert.doesNotMatch(source, /actionButton\("statusCheck", "select"/);
@@ -289,13 +290,18 @@ test("gallery cards use direct selection and adaptive animated overlay actions",
 	assert.match(source, /restoreGalleryScrollFocus\(card, control, event\); onClick\(event\)/);
 	assert.doesNotMatch(source, /(?:card|control)\.blur\(\)/);
 	assert.match(source, /function galleryCardActionLayout\(width, height, count\)/);
-	assert.match(source, /availableWidth >= linearSize && availableHeight >= buttonSize/);
-	assert.match(source, /availableHeight >= linearSize && availableWidth >= buttonSize/);
-	assert.ok(source.indexOf("availableHeight >= linearSize") < source.indexOf("availableWidth >= linearSize"), "card actions must prefer a vertical column when both layouts fit");
-	assert.match(source, /card\._aaVirtualMasonryLayout = \(width, height\) => \{ card\.dataset\.actionsLayout = galleryCardActionLayout\(width, height, view\.visibleActions\); \}/);
+	assert.match(source, /for \(let columns = 1; columns <= actionCount; columns \+= 1\)/);
+	assert.match(source, /if \(!candidates\.length\) return \{ mode: "overflow", columns: 1, rows: 1 \}/);
+	assert.match(source, /card\._aaVirtualMasonryLayout = \(width, height\) => \{ view\.layoutWidth = width; view\.layoutHeight = height; syncActionLayout\(\); \}/);
+	assert.match(source, /createContextMenu\(\{/);
+	assert.match(source, /onSelect: \(\) => \{ if \(control\.disabled\) return; card\.closest\?\.\("\.aa-gallery-masonry"\)\?\.focus\?\.\(\{ preventScroll: true \}\); actionInvokers\.get\(control\)\?\.\(\); \}/);
+	assert.match(source, /view\.actionMenu\?\.close\(\{ restoreFocus: false \}\)/);
+	assert.match(source, /card\.append\(surface, actions\)/);
+	assert.equal(enLocale.aaalice.gallery.card.moreActions, "More image actions");
+	assert.equal(zhLocale.aaalice.gallery.card.moreActions, "更多图片操作");
 	assert.match(theme, /\.aa-gallery-card\.aa-virtual-masonry__item \{[^}]*position: absolute;/);
-	assert.match(theme, /\.aa-gallery-card__actions \{[^}]*top: 7px;[^}]*right: 7px;/);
-	assert.doesNotMatch(theme, /\.aa-gallery-card__actions \{[^}]*top: 50%;/);
+	assert.match(theme, /\.aa-gallery-card__actions \{[^}]*top: 7px;[^}]*right: 7px;[^}]*grid-template-columns: repeat\(var\(--aa-gallery-action-columns, 1\), 28px\)/);
+	assert.match(theme, /\.aa-gallery-card\[data-actions-layout="overflow"\] \.aa-gallery-card-action\.is-more \{ display: inline-flex; \}/);
 	assert.doesNotMatch(theme, /\.aa-gallery-card(?:\.[^{]+)? \{[^}]*container-type: inline-size/);
 	assert.match(source, /--aa-gallery-action-delay", `\$\{actionIndex \* 34\}ms`/);
 	assert.match(theme, /var\(--aa-gallery-action-delay\)/);
@@ -506,7 +512,7 @@ test("gallery hover copies the launcher preview card and translates its tag rows
 });
 
 test("gallery micro-interactions acknowledge state without adding polling or card observers", () => {
-	for (const animation of ["search-in", "view-in", "count-update", "selection-feedback", "favorite-feedback", "card-scan", "card-scan-glow", "media-in"]) assert.match(theme, new RegExp(`@keyframes aa-gallery-${animation}`));
+	for (const animation of ["search-in", "view-in", "count-update", "selection-feedback", "favorite-feedback", "media-in"]) assert.match(theme, new RegExp(`@keyframes aa-gallery-${animation}`));
 	assert.match(source, /is-selection-feedback/);
 	assert.match(source, /is-acknowledged/);
 	assert.match(source, /aria-expanded", "true"/);

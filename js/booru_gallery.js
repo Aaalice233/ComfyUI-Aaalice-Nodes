@@ -11,7 +11,7 @@ import { addLifecycleDOMWidget, bindDomWidgetWidthToNode } from "./lib/dom_widge
 import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
 import { createGallerySurfaceFactory, observeGalleryNodeMode } from "./lib/booru_gallery_surface.js";
-import { button, checkboxControl, createAnchoredPopover, createDialog, createTooltip, el, field, icon, iconButton, listboxControl, multiSelectControl, searchToggleButton, segmentedControl } from "./lib/ui.js";
+import { button, checkboxControl, createAnchoredPopover, createContextMenu, createDialog, createTooltip, el, field, icon, iconButton, listboxControl, multiSelectControl, searchToggleButton, segmentedControl } from "./lib/ui.js";
 import { createTagPillList } from "./lib/controls/tag_pills.js";
 import { createGalleryCards } from "./lib/booru_gallery_cards.js";
 import { createGalleryControllerFactory } from "./lib/booru_gallery_controller.js";
@@ -22,10 +22,6 @@ import { createGalleryMedia } from "./lib/booru_gallery_media.js";
 const NODE = "BooruGalleryNode";
 const PROPERTY = "booruGalleryState";
 const API = "/aaalice/booru-gallery";
-// PromptAssistant 的 API 前缀随其安装目录名变化（旧版固定 /prompt-assistant/api），两个候选都要探。
-const PROMPT_ASSISTANT_API_CANDIDATES = ["/prompt-assistant/api", "/ComfyUI-Prompt-Assistant/api"];
-let promptAssistantAvailable = false;
-let promptAssistantApi = null;
 const DEFAULT_SIZE = [760, 760];
 const MIN_SIZE = [620, 300];
 const STATIC_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
@@ -199,23 +195,14 @@ async function jsonRequest(path, options = {}) {
 	return data;
 }
 
-async function detectPromptAssistantApi() {
-	for (const base of PROMPT_ASSISTANT_API_CANDIDATES) {
-		const ok = await api.fetchApi(`${base}/config/llm/masked`).then((response) => response.ok).catch(() => false);
-		if (ok) return base;
-	}
-	return null;
-}
-
 async function loadSetup({ force = false } = {}) {
 	if (!force && settings && capabilities.length) return { settings, capabilities };
 	if (!force && setupRequest) return setupRequest;
 	setupRequest = Promise.all([
 		jsonRequest(`${API}/settings`),
 		jsonRequest(`${API}/sources`),
-		detectPromptAssistantApi(),
-	]).then(([nextSettings, sourceData, assistantApi]) => {
-		settings = nextSettings; capabilities = sourceData.sources || []; promptAssistantApi = assistantApi; promptAssistantAvailable = Boolean(assistantApi); return { settings, capabilities };
+	]).then(([nextSettings, sourceData]) => {
+		settings = nextSettings; capabilities = sourceData.sources || []; return { settings, capabilities };
 	}).finally(() => { setupRequest = null; });
 	return setupRequest;
 }
@@ -231,14 +218,6 @@ async function fetchMediaBlob(src) {
 	const response = await api.fetchApi(src);
 	if (!response.ok) throw new Error(label("error.media", "Image request failed (HTTP {status})").replace("{status}", String(response.status)));
 	return response.blob();
-}
-function blobToDataUrl(blob) {
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.addEventListener("load", () => resolve(String(reader.result || "")), { once: true });
-		reader.addEventListener("error", () => reject(reader.error || new Error("Failed to read image data")), { once: true });
-		reader.readAsDataURL(blob);
-	});
 }
 async function copyImageToClipboard(src) {
 	const blob = await fetchMediaBlob(src);
@@ -269,9 +248,9 @@ async function addGlobalBlacklistTag(tag) {
 }
 
 const {
-	createSearchControl, openClearSelectionDialog, openGalleryErrorDialog, openInterrogateResultDialog, openSingleSelectionDialog,
+	createSearchControl, openClearSelectionDialog, openGalleryErrorDialog, openSingleSelectionDialog,
 } = createGalleryDialogs({
-	app, button, createDialog, el, icon, iconButton, label, proxyUrl, searchQuery,
+	app, button, createDialog, el, icon, iconButton, label, searchQuery,
 	searchToggleButton, stateFor, t, transact,
 });
 
@@ -279,22 +258,22 @@ const {
 	createGalleryCard, createGalleryTagPills, createSelectedRow,
 	moveSelectionIndex, resolveSelectedDropTarget,
 } = createGalleryCards({
-	GALLERY_CATEGORIES, canWriteFavorite, capability, createSelectionStamp, createTagPillList,
+	GALLERY_CATEGORIES, canWriteFavorite, capability, createContextMenu, createSelectionStamp, createTagPillList,
 	dimensions, effectivePrompt, el, finalPrompt, getSettings: () => settings, icon, iconButton,
-	isPromptAssistantAvailable: () => promptAssistantAvailable, label, notifyFavorite, proxyUrl,
+	label, notifyFavorite, proxyUrl,
 	ratingLabel, ratingTone, selectionKey, stateFor, tagCount, transact,
 });
 
 const buildController = createGalleryControllerFactory({
 	API, GALLERY_CATEGORIES, STATIC_EXTENSIONS,
-	addGlobalBlacklistTag, addGlobalOutputFilterTag, app, blobToDataUrl, button, canWriteFavorite, capability,
+	addGlobalBlacklistTag, addGlobalOutputFilterTag, app, button, canWriteFavorite, capability,
 	copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
-	createTooltip, currentLocale, dimensions, effectivePrompt, el, fetchMediaBlob,
+	createTooltip, currentLocale, dimensions, effectivePrompt, el,
 	finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
-	moveSelectionIndex, normalizeTagGroups, notifyFavorite, openInterrogateResultDialog,
+	moveSelectionIndex, normalizeTagGroups, notifyFavorite,
 	openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
 	searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
-	streamTagTranslations, tagCount, transact, promptAssistantApi: () => promptAssistantApi,
+	streamTagTranslations, tagCount, transact,
 });
 
 function openFilter(node, anchor) {

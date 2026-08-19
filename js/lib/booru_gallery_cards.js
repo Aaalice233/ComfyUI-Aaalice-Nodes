@@ -1,3 +1,4 @@
+import { galleryCardActionLayout } from "./booru_gallery_card_layout.js";
 import { createDecodedImagePool, isCacheableDecodedPreview } from "./booru_gallery_image_pool.js";
 
 /** Gallery card, selection-row, and drag-order view helpers. */
@@ -112,20 +113,11 @@ export async function recoverGalleryCardImage(view, post, image, { proxyUrl, sur
 
 export function createGalleryCards(dependencies) {
 	const {
-		GALLERY_CATEGORIES, canWriteFavorite, capability, createSelectionStamp, createTagPillList,
+		GALLERY_CATEGORIES, canWriteFavorite, capability, createContextMenu, createSelectionStamp, createTagPillList,
 		dimensions, effectivePrompt, el, finalPrompt, getSettings, icon, iconButton,
-		isPromptAssistantAvailable, label, notifyFavorite, proxyUrl, ratingLabel, ratingTone,
+		label, notifyFavorite, proxyUrl, ratingLabel, ratingTone,
 		selectionKey, stateFor, tagCount, transact,
 	} = dependencies;
-
-function galleryCardActionLayout(width, height, count) {
-	const buttonSize = 28; const gap = 4; const inset = 14;
-	const availableWidth = Math.max(0, Number(width) - inset); const availableHeight = Math.max(0, Number(height) - inset);
-	const linearSize = Math.max(1, count) * buttonSize + Math.max(0, count - 1) * gap;
-	if (availableHeight >= linearSize && availableWidth >= buttonSize) return "vertical";
-	if (availableWidth >= linearSize && availableHeight >= buttonSize) return "horizontal";
-	return "hybrid";
-}
 
 // Session-level decoded-preview pool: virtual masonry destroys cards while
 // scrolling, so re-mounting a known image reuses the <img> element (kept off
@@ -203,12 +195,14 @@ function buildGalleryCardView() {
 	const rating = el("span", { className: "aa-gallery-card__rating", attrs: { hidden: true } });
 	const actions = el("div", { className: "aa-gallery-card__actions", attrs: { role: "group", "aria-label": label("card.actions", "Image actions") } });
 	const view = {
-		root: card, node: null, controller: null, post: null, image: null, currentSrc: "", previewRecovery: null, hoverTimer: 0, selectionPending: false, visibleActions: 0, bindingRevision: 0,
+		root: card, node: null, controller: null, post: null, image: null, currentSrc: "", previewRecovery: null, actionMenu: null, hoverTimer: 0, selectionPending: false, visibleActions: 0, bindingRevision: 0, layoutWidth: 0, layoutHeight: 0,
 	};
 	const bindingSnapshot = () => ({ controller: view.controller, post: view.post, revision: view.bindingRevision });
+	const actionInvokers = new Map();
 	const actionButton = (iconName, action, actionIndex, onClick) => {
 		const control = iconButton({ iconName, label: "", variant: "ghost", className: `aa-gallery-card-action is-${action}`, onClick: (event) => { event?.stopPropagation?.(); restoreGalleryScrollFocus(card, control, event); onClick(event); } });
 		control.style.setProperty("--aa-gallery-action-delay", `${actionIndex * 34}ms`);
+		actionInvokers.set(control, onClick);
 		return control;
 	};
 	const editAction = actionButton("edit", "edit", 0, () => view.controller.openEditor(view.post).catch(view.controller.showError));
@@ -230,24 +224,42 @@ function buildGalleryCardView() {
 		});
 	});
 	copyPromptAction.setAttribute("aria-label", label("card.copyPrompt", "Copy prompt")); copyPromptAction.title = label("card.copyPrompt", "Copy prompt");
-	const interrogateAction = actionButton("scan", "interrogate", 3, () => {
-		const binding = bindingSnapshot();
-		interrogateAction.disabled = true; card.classList.add("is-interrogating");
-		void runGalleryCardBindingAction(view, binding, () => binding.controller.interrogatePost(binding.post), {
-			onCurrentSuccess: () => interrogateAction.classList.add("is-acknowledged"),
-			onError: (_binding, error) => binding.controller.showError(error),
-			onCurrentSettled: () => { interrogateAction.disabled = false; card.classList.remove("is-interrogating"); },
-		});
-	});
-	interrogateAction.setAttribute("aria-label", label("card.interrogate", "Interrogate prompt")); interrogateAction.title = label("card.interrogate", "Interrogate prompt");
-	const downloadAction = actionButton("download", "download", 4, () => view.controller.downloadOriginal(view.post, downloadAction).catch(view.controller.showError));
+	const downloadAction = actionButton("download", "download", 3, () => view.controller.downloadOriginal(view.post, downloadAction).catch(view.controller.showError));
 	downloadAction.setAttribute("aria-label", label("card.download", "Download original")); downloadAction.title = label("card.download", "Download original");
-	const detailAction = actionButton("note", "detail", 5, () => view.controller.openDetail(view.post).catch(view.controller.showError));
+	const detailAction = actionButton("note", "detail", 4, () => view.controller.openDetail(view.post).catch(view.controller.showError));
 	detailAction.setAttribute("aria-label", label("card.detail", "View details")); detailAction.title = label("card.detail", "View details");
-	const actionControls = [editAction, favoriteAction, copyPromptAction, interrogateAction, downloadAction, detailAction];
-	actions.append(...actionControls);
-	surface.append(el("div", { className: "aa-gallery-card__loading", attrs: { "aria-hidden": "true" } }), selectedLayer, el("div", { className: "aa-gallery-card__shade" }), el("div", { className: "aa-gallery-card__scan", attrs: { "aria-hidden": "true" } }), rating, selectionStamp.root, errorLayer, actions);
-	card.append(surface);
+	const actionEntries = [
+		{ control: editAction, iconName: "edit", action: "edit" }, { control: favoriteAction, iconName: "favorite", action: "favorite" },
+		{ control: copyPromptAction, iconName: "copy", action: "copyPrompt" }, { control: downloadAction, iconName: "download", action: "download" },
+		{ control: detailAction, iconName: "note", action: "detail" },
+	];
+	const actionControls = actionEntries.map(({ control }) => control);
+	const openActionMenu = () => {
+		view.controller?.tooltip.hide();
+		view.actionMenu?.close({ restoreFocus: false });
+		const rect = actions.getBoundingClientRect();
+		let menu = null;
+		menu = createContextMenu({
+			x: rect.right + 6, y: rect.top, ownerElement: card, ariaLabel: label("card.actions", "Image actions"),
+			items: actionEntries.filter(({ control }) => control.style.display !== "none").map(({ control, iconName, action }) => ({
+				label: control.getAttribute("aria-label"), iconName, disabled: control.disabled, className: `aa-gallery-card-menu-action is-${action}${control.classList.contains("is-active") ? " is-active" : ""}`,
+				onSelect: () => { if (control.disabled) return; card.closest?.(".aa-gallery-masonry")?.focus?.({ preventScroll: true }); actionInvokers.get(control)?.(); },
+			})),
+			onClose: () => { if (view.actionMenu === menu) view.actionMenu = null; moreAction.classList.remove("is-open"); moreAction.setAttribute("aria-expanded", "false"); },
+		});
+		view.actionMenu = menu; moreAction.classList.add("is-open"); moreAction.setAttribute("aria-expanded", "true");
+	};
+	const moreAction = actionButton("more", "more", 0, openActionMenu);
+	moreAction.setAttribute("aria-label", label("card.moreActions", "More image actions")); moreAction.setAttribute("aria-haspopup", "menu"); moreAction.setAttribute("aria-expanded", "false"); moreAction.title = label("card.moreActions", "More image actions");
+	actions.append(...actionControls, moreAction);
+	surface.append(el("div", { className: "aa-gallery-card__loading", attrs: { "aria-hidden": "true" } }), selectedLayer, el("div", { className: "aa-gallery-card__shade" }), rating, selectionStamp.root, errorLayer);
+	card.append(surface, actions);
+	const syncActionLayout = () => {
+		const layout = galleryCardActionLayout(view.layoutWidth, view.layoutHeight, view.visibleActions);
+		card.dataset.actionsLayout = layout.mode;
+		if (layout.columns) actions.style.setProperty("--aa-gallery-action-columns", String(layout.columns));
+		else actions.style.removeProperty("--aa-gallery-action-columns");
+	};
 
 	view.handleImageLoad = (image) => {
 		if (image !== view.image || !view.post) return;
@@ -265,16 +277,15 @@ function buildGalleryCardView() {
 	};
 
 	view.bind = (node, controller, post, deferImage = false) => {
+		view.actionMenu?.close({ restoreFocus: false });
 		view.bindingRevision += 1;
 		view.previewRecovery = null;
 		view.selectionPending = false;
 		view.node = node; view.controller = controller; view.post = post;
-		card.classList.remove("is-selection-pending", "is-interrogating", "is-selection-feedback");
+		card.classList.remove("is-selection-pending", "is-selection-feedback");
 		delete card.dataset.selected;
 		favoriteAction.classList.remove("is-acknowledged");
 		copyPromptAction.classList.remove("is-acknowledged");
-		interrogateAction.classList.remove("is-acknowledged");
-		interrogateAction.disabled = false;
 		downloadAction._aaGalleryDownloadOperation = null;
 		downloadAction.disabled = false;
 		downloadAction.classList.remove("is-downloading");
@@ -315,10 +326,10 @@ function buildGalleryCardView() {
 		const favoriteVisible = Boolean(favoriteCapability?.favoriteRead || favoriteCapability?.favoriteWrite);
 		// .aa-ui-button 的 display 声明会覆盖 hidden 属性，显隐必须走 inline style。
 		favoriteAction.style.display = favoriteVisible ? "" : "none";
-		interrogateAction.style.display = isPromptAssistantAvailable() ? "" : "none";
 		downloadAction.style.display = favoriteCapability?.download ? "" : "none";
 		view.favoriteVisible = favoriteVisible;
 		view.visibleActions = actionControls.filter((control) => control.style.display !== "none").length;
+		if (view.layoutWidth > 0 && view.layoutHeight > 0) syncActionLayout();
 		const hasRating = Boolean(post.rating) && Boolean(favoriteCapability?.ratings?.length);
 		rating.hidden = !hasRating;
 		if (hasRating) { rating.dataset.rating = ratingTone(post.rating); rating.textContent = ratingLabel(post.rating); }
@@ -337,7 +348,7 @@ function buildGalleryCardView() {
 		card.setAttribute("aria-label", `${post.source} #${post.postId} · ${selected ? label("card.cancel", "Cancel selection") : label("card.select", "Select image")}`);
 	};
 	card._aaGalleryUpdate = () => view.update();
-	card._aaVirtualMasonryLayout = (width, height) => { card.dataset.actionsLayout = galleryCardActionLayout(width, height, view.visibleActions); };
+	card._aaVirtualMasonryLayout = (width, height) => { view.layoutWidth = width; view.layoutHeight = height; syncActionLayout(); };
 
 	const runSelection = (event = null) => {
 		if (view.selectionPending || !view.post) return;
@@ -376,12 +387,12 @@ function buildGalleryCardView() {
 	card.addEventListener("mouseleave", () => { clearTimeout(view.hoverTimer); view.hoverTimer = 0; view.controller?.tooltip.hide(); });
 	card._aaVirtualMasonryDispose = () => {
 		clearTimeout(view.hoverTimer); view.hoverTimer = 0;
+		view.actionMenu?.close({ restoreFocus: false });
 		view.bindingRevision += 1;
 		view.previewRecovery = null;
 		if (view.image) { delete view.image.dataset.previewRecovery; releaseCardImage(view, view.image); view.image = null; }
-		view.node = null; view.controller = null; view.post = null; view.selectionPending = false;
-		interrogateAction.disabled = false;
-		card.classList.remove("is-selection-pending", "is-interrogating", "is-selection-feedback");
+		view.node = null; view.controller = null; view.post = null; view.selectionPending = false; view.layoutWidth = 0; view.layoutHeight = 0;
+		card.classList.remove("is-selection-pending", "is-selection-feedback");
 		if (cardViewPool.length < MAX_POOLED_CARD_VIEWS) cardViewPool.push(view);
 	};
 	return view;

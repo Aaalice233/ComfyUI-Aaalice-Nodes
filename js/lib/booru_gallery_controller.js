@@ -10,14 +10,14 @@ export function filteredPageRefillAction(warnings, ended, needsMore, automaticPa
 export function createGalleryControllerFactory(dependencies) {
 	const {
 		API, GALLERY_CATEGORIES, STATIC_EXTENSIONS,
-		addGlobalBlacklistTag, addGlobalOutputFilterTag, app, blobToDataUrl, button, canWriteFavorite, capability,
+		addGlobalBlacklistTag, addGlobalOutputFilterTag, app, button, canWriteFavorite, capability,
 		copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
-		createTooltip, currentLocale, dimensions, effectivePrompt, el, fetchMediaBlob,
+		createTooltip, currentLocale, dimensions, effectivePrompt, el,
 		finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
-		moveSelectionIndex, normalizeTagGroups, notifyFavorite, openInterrogateResultDialog,
+		moveSelectionIndex, normalizeTagGroups, notifyFavorite,
 		openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
 		searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
-		streamTagTranslations, tagCount, transact, promptAssistantApi,
+		streamTagTranslations, tagCount, transact,
 	} = dependencies;
 
 	return function buildController(node, surfaces) {
@@ -458,18 +458,6 @@ export function createGalleryControllerFactory(dependencies) {
 		app.extensionManager.toast.add({ severity: "success", summary: label("card.copyPrompt", "Copy prompt"), detail: label("card.promptCopied", "Prompt copied to clipboard"), life: 3200 });
 		return true;
 	};
-	const interrogatePost = async (post) => {
-		const detail = await getDetail(post);
-		const mediaSrc = detail.mediaUrl || detail.sampleUrl || detail.previewUrl;
-		if (!mediaSrc) throw new Error(label("error.incomplete", "The post detail is incomplete."));
-		const imageData = await blobToDataUrl(await fetchMediaBlob(proxyUrl(detail.source, mediaSrc)));
-		const base = promptAssistantApi?.();
-		if (!base) throw new Error(label("interrogate.failed", "Interrogation failed."));
-		const result = await jsonRequest(`${base}/vlm/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageData, request_id: crypto.randomUUID() }) });
-		if (!result?.success) throw new Error(result?.error || label("interrogate.failed", "Interrogation failed."));
-		if (destroyed) return;
-		openInterrogateResultDialog(detail, String(result.data?.description || ""));
-	};
 	const { tooltip, showHover } = createGalleryHover({
 		cacheImage, capability, createTooltip, currentLocale, dimensions, el, getDetail, icon, label,
 		previewCache, proxyUrl, ratingLabel, ratingTone, streamTagTranslations, tagCount,
@@ -655,7 +643,6 @@ export function createGalleryControllerFactory(dependencies) {
 		toggleSelection,
 		toggleFavorite,
 		copyPostPrompt,
-		interrogatePost,
 		downloadOriginal,
 		recoverPreview,
 		showHover,

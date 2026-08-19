@@ -1,7 +1,7 @@
 /** Search and confirmation dialogs shared by the Gallery mount and controller. */
 export function createGalleryDialogs(dependencies) {
 	const {
-		app, button, createDialog, el, icon, iconButton, label, proxyUrl, searchQuery,
+		app, button, createDialog, el, icon, iconButton, label, searchQuery,
 		searchToggleButton, stateFor, t, transact,
 	} = dependencies;
 
@@ -114,29 +114,6 @@ function openGalleryErrorDialog(error, onRetry) {
 	});
 }
 
-function openInterrogateResultDialog(detail, text) {
-	let dialog;
-	const copy = button({ label: t("aaalice.common.copy", "Copy"), iconName: "copy", variant: "primary", onClick: async () => {
-		try {
-			await navigator.clipboard.writeText(text);
-			app.extensionManager.toast.add({ severity: "success", summary: label("interrogate.title", "Image interrogation"), detail: label("interrogate.copied", "Interrogated prompt copied to clipboard"), life: 3200 });
-			dialog.close();
-		} catch (error) {
-			app.extensionManager.toast.add({ severity: "error", summary: label("interrogate.title", "Image interrogation"), detail: error.message, life: 5000 });
-		}
-	} });
-	const close = button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() });
-	const body = el("div", { className: "aa-gallery-interrogate", children: [
-		el("div", { className: "aa-gallery-interrogate__meta", children: [
-			el("img", { className: "aa-gallery-interrogate__thumb", attrs: { src: proxyUrl(detail.source, detail.previewUrl), alt: "" } }),
-			el("span", { attrs: { "data-source": detail.source }, text: detail.source }),
-			el("strong", null, `#${detail.postId}`),
-		] }),
-		el("p", { className: "aa-gallery-interrogate__text", text }),
-	] });
-	dialog = createDialog({ title: label("interrogate.title", "Image interrogation"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: [close, copy] }), className: "aa-gallery-interrogate-dialog", confirmOnEnter: false });
-}
-
 function openClearSelectionDialog(node, controller) {
 	if (!stateFor(node).selections.length) return;
 	let dialog;
@@ -175,5 +152,5 @@ function openSingleSelectionDialog(onConfirm) {
 }
 
 
-	return { createSearchControl, openClearSelectionDialog, openGalleryErrorDialog, openInterrogateResultDialog, openSingleSelectionDialog };
+	return { createSearchControl, openClearSelectionDialog, openGalleryErrorDialog, openSingleSelectionDialog };
 }
