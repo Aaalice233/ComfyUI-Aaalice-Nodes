@@ -140,8 +140,9 @@ export function createGalleryHover(dependencies) {
 			}
 			syncGeometry();
 			tooltip.reposition();
-			if (currentLocale() === "zh" && translationTags.length) void streamTagTranslations({
-				locale: "zh",
+			const translationLocale = currentLocale();
+			if ((translationLocale === "zh" || translationLocale === "zh-TW") && translationTags.length) void streamTagTranslations({
+				locale: translationLocale,
 				tags: translationTags,
 				signal: currentTranslation.signal,
 				onChunk: ({ translations }) => {

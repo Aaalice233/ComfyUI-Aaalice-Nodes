@@ -59,7 +59,7 @@ test("hover preview keeps its media geometry stable while detail and larger medi
 	assert.match(theme, /\.aa-gallery-hover__info \{[^}]*min-height: 0;[^}]*overflow-y: auto/);
 	assert.match(hoverSource, /window\.addEventListener\("resize", syncViewportGeometry\)/);
 	assert.match(hoverSource, /geometryCleanup = \(\) => window\.removeEventListener\("resize", syncViewportGeometry\)/);
-	assert.match(hoverSource, /syncGeometry\(\);\s*tooltip\.reposition\(\);\s*if \(currentLocale\(\) === "zh"/);
+	assert.match(hoverSource, /syncGeometry\(\);\s*tooltip\.reposition\(\);\s*const translationLocale = currentLocale\(\);\s*if \(\(translationLocale === "zh" \|\| translationLocale === "zh-TW"\)/);
 	assert.doesNotMatch(theme, /\.aa-gallery-hover__media \{[^}]*transition: height/);
 });
 
@@ -266,7 +266,9 @@ test("post details stream three-layer tag translations into the pills", () => {
 	const detailSource = source.slice(source.indexOf("const openDetail ="), source.indexOf("const openEditor ="));
 	assert.match(source, /import \{ streamTagTranslations \} from "\.\/lib\/tag_translation\.js"/);
 	assert.match(source, /import \{ ensureI18nReady, currentLocale, t \} from "\.\/i18n\.js"/);
-	assert.match(detailSource, /currentLocale\(\) === "zh"/);
+	assert.match(detailSource, /const translationLocale = currentLocale\(\)/);
+	assert.match(detailSource, /translationLocale === "zh" \|\| translationLocale === "zh-TW"/);
+	assert.match(detailSource, /locale: translationLocale/);
 	assert.match(detailSource, /const translationAbort = new AbortController\(\)/);
 	assert.match(detailSource, /translationAbort\.abort\(\)/);
 	assert.match(detailSource, /void streamTagTranslations\(\{/);

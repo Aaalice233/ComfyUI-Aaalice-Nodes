@@ -39,7 +39,7 @@
 
 | 模块组 | 文件 | 职责 |
 |---|---|---|
-| 包入口 | `js/extension.js`、`js/i18n.js` | 加载共享样式、业务扩展和双语资源 |
+| 包入口 | `js/extension.js`、`js/i18n.js` | 加载共享样式、业务扩展和三语言资源 |
 | 分辨率预设 | `js/resolution_preset.js`、`js/lib/resolution_preset_model.js` | 状态规范化、预设匹配、二维映射、DOM 交互、个人预设请求和 width / height payload 注入 |
 | 组管理与导航 | `js/quick_group_manager.js`、`js/workspace/{group_navigation,group_navigation_wheel}.js`、`js/lib/{quick_group_manager_runtime,quick_group_manager_popovers,group_navigation,group_navigation_model,group_navigation_wheel_model}.js` | 节点生命周期与紧凑 DOM、独立颜色/联动浮层、原子模式事务、共享组边界导航、版本化手工清单与轮盘几何模型；轮盘 DOM 生命周期由工作区入口装配并按 owner 清理 |
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
@@ -89,7 +89,7 @@
 
 ## 生命周期与数据流
 
-交互节点覆盖 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描，并幂等挂载。DOM widget 同步创建；异步 i18n 就绪后只更新文案和重绘。本包新增的节点右键菜单项必须以语义明确的 emoji 开头，并在 `locales/en/main.json` 与 `locales/zh/main.json` 中同步维护；同一动作的启用、设置与取消项都遵循此规则。
+交互节点覆盖 `beforeRegisterNodeDef`、`nodeCreated`、`loadedGraphNode` 和 setup 现有节点扫描，并幂等挂载。DOM widget 同步创建；异步 i18n 就绪后只更新文案和重绘。本包新增的节点右键菜单项必须以语义明确的 emoji 开头，并在 `locales/en/main.json`、`locales/zh/main.json` 与 `locales/zh-TW/main.json` 中同步维护；同一动作的启用、设置与取消项都遵循此规则。
 
 现有节点扫描必须覆盖根图和全部嵌套 Subgraph 定义。`graphToPrompt` 注入不得用裸 `node.id` 查找执行节点，必须按每条 Subgraph wrapper 路径生成 ComfyUI 的限定执行 ID，并覆盖共享 Subgraph 定义的每个实例；前端执行事件也必须用同一限定 ID 反向定位节点。
 

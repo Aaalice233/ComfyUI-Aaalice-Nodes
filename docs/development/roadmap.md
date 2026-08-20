@@ -61,4 +61,4 @@
 1. 本文件的状态、队列和下一项。
 2. English / 简体中文 README 的已包含节点、用户用法和公开限制；内部进度与下一项不得复制过去。
 3. `docs/development/architecture.md` 的已注册节点与数据流。
-4. 节点定义和前端文案对应的 en / zh locale。
+4. 节点定义和前端文案对应的 en / zh / zh-TW locale。

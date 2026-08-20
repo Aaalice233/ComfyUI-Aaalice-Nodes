@@ -19,7 +19,7 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 - A current ComfyUI installation with V3 custom-node support.
 - Classic canvas or Nodes 2.0. App Mode is not currently supported.
-- English and Simplified Chinese UI are included; other locales fall back to English.
+- English, Simplified Chinese, and Traditional Chinese UI are included; other locales fall back to English.
 
 ## 📥 Installation
 

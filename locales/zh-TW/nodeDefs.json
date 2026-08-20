@@ -1,0 +1,99 @@
+{
+  "SimpleStringSplit": {
+    "display_name": "✂️ 簡易字串分隔",
+    "description": "依分隔符號拆分字串、移除各段前後空白，並捨棄空白片段。",
+    "inputs": {
+      "text": { "name": "文字", "tooltip": "要拆分的來源字串" },
+      "delimiter": { "name": "分隔符號", "tooltip": "用來拆分字串的字元" }
+    },
+    "outputs": { "0": { "name": "片段", "tooltip": "拆分後的字串清單" } }
+  },
+  "SimpleNotify": {
+    "display_name": "🔔 簡易通知",
+    "description": "執行到達此節點時，依開關傳送提醒，並將輸入值原樣傳遞至輸出。",
+    "inputs": {
+      "value": { "name": "值", "tooltip": "作為執行依賴，並原樣傳遞到輸出。" },
+      "message": { "name": "訊息", "tooltip": "通知內容；留空時使用目前語言的預設文字。" },
+      "desktop_notification": { "name": "桌面通知", "tooltip": "在發起執行的 ComfyUI 用戶端顯示桌面通知。" },
+      "sound": { "name": "提示音", "tooltip": "在發起執行的 ComfyUI 用戶端播放內建提示音。" },
+      "volume": { "name": "音量", "tooltip": "提示音音量，範圍為 0–1。" }
+    },
+    "outputs": { "0": { "name": "值", "tooltip": "未經修改的輸入值。" } }
+  },
+  "ConditionalSaveImage": {
+    "display_name": "💾 條件儲存影像",
+    "description": "僅在啟用時儲存影像，關閉時原樣直接傳遞。安裝 LoraManager 時使用其儲存實作，否則改用核心 PNG 儲存。",
+    "inputs": {
+      "images": { "name": "影像", "tooltip": "待儲存的影像；始終原樣直接傳遞到輸出。" },
+      "metadata": { "name": "中繼資料", "tooltip": "可選擇連接 LoraManager 的手動覆寫中繼資料輸出，確保覆寫參數在儲存前執行。" },
+      "enabled": { "name": "啟用", "tooltip": "關閉時不儲存任何檔案，影像原樣直接傳遞。" },
+      "filename_prefix": { "name": "檔名前綴", "tooltip": "基礎檔名。安裝 LoraManager 後支援 %seed%、%date:...% 等變數。" },
+      "file_format": { "name": "檔案格式", "tooltip": "png/jpeg/webp。jpeg 與 webp 需要安裝 ComfyUI-Lora-Manager。" },
+      "lossless_webp": { "name": "無損 WebP", "tooltip": "以無損方式儲存 WebP，檔案更大；需要 ComfyUI-Lora-Manager。" },
+      "quality": { "name": "品質", "tooltip": "JPEG 與有損 WebP 的壓縮品質（1–100）。" },
+      "webp_method": { "name": "WebP 壓縮方式", "tooltip": "WebP 壓縮方式（0–6）。0=最快/最大，6=最慢/最小。" },
+      "jpeg_subsampling": { "name": "JPEG 子取樣", "tooltip": "JPEG 色度子取樣。0=4:4:4（最佳），1=4:2:2，2=4:2:0（最小）。" },
+      "embed_workflow": { "name": "嵌入工作流程", "tooltip": "將完整工作流程存入影像，可拖回 ComfyUI 還原。僅 PNG 與 WebP。" },
+      "save_with_metadata": { "name": "儲存中繼資料", "tooltip": "將產生參數嵌入影像中繼資料。" },
+      "add_loras_to_prompt": { "name": "追加 LoRA 提示詞", "tooltip": "在儲存的中繼資料正向提示詞後追加 LoRA 語法行。需要 ComfyUI-Lora-Manager。" },
+      "add_counter_to_filename": { "name": "檔名計數器", "tooltip": "在檔名後追加遞增計數，避免覆蓋已有影像。" },
+      "save_as_recipe": { "name": "儲存為配方", "tooltip": "同時將每張影像儲存為 LoRA Manager 配方。需要 ComfyUI-Lora-Manager。" }
+    },
+    "outputs": { "0": { "name": "影像", "tooltip": "未經修改的輸入影像。" } }
+  },
+  "GroupIsEnabled": {
+    "display_name": "🚦 群組啟用偵測",
+    "description": "提交佇列時，回報所選可見群組是否已完全停用。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "已停用", "tooltip": "群組內所有節點均已靜音或繞過時為 True。" }
+    }
+  },
+  "GroupLogicProbe": {
+    "display_name": "🧭 群組邏輯偵測",
+    "description": "在佇列提交時將多個可見群組的啟用/停用偵測按 AND 或 OR 組合，輸出單一布林值用於懶執行分支。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "結果", "tooltip": "組合偵測結果；連線到 ImpactConditionalBranch 等懶執行條件分支的 cond。" }
+    }
+  },
+  "PromptSelector": {
+    "display_name": "📚 提示詞選擇器",
+    "description": "從詞庫中多選、排序並設定提示詞權重，同時保留可選前綴輸入。",
+    "inputs": { "prefix_prompt": { "name": "前綴提示詞", "tooltip": "放在已選詞條之前的可選提示詞。" } },
+    "outputs": { "0": { "name": "提示詞", "tooltip": "組合後的提示詞文字。" } }
+  },
+  "BooruGalleryNode": {
+    "display_name": "🖼️ Booru 圖庫",
+    "description": "搜尋多個 Booru 網站，並依選取順序輸出影像與提示詞快照。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "影像", "tooltip": "依已儲存的選取順序輸出影像。" },
+      "1": { "name": "提示詞", "tooltip": "與影像一一對應的處理後提示詞。" }
+    }
+  },
+  "ResolutionPreset": {
+    "display_name": "📐 解析度預設",
+    "description": "透過預設、精確輸入或拖曳畫布，選擇符合像素對齊的寬度與高度。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "寬度", "tooltip": "選取的像素寬度。" },
+      "1": { "name": "高度", "tooltip": "選取的像素高度。" }
+    }
+  },
+  "FetchFromKrita": {
+    "display_name": "🎨 從 Krita 取得",
+    "description": "節點執行時讀取 Krita 目前使用中的文件及其選取範圍。",
+    "inputs": {},
+    "outputs": {
+      "0": { "name": "影像", "tooltip": "Krita 目前活動文件的可見合成圖。" },
+      "1": { "name": "遮罩", "tooltip": "Krita 目前選取範圍；沒有選取範圍時輸出空白遮罩。" }
+    }
+  },
+  "QuickGroupManager": {
+    "display_name": "⚡ 快速群組管理器",
+    "description": "按顏色範圍快速啟用、靜音或繞過可見群組，並設定排序與聯動規則。",
+    "inputs": {},
+    "outputs": {}
+  }
+}

@@ -1,0 +1,313 @@
+{
+  "aaalice": {
+    "common": {
+      "cancel": "取消", "confirm": "確認", "close": "關閉",
+      "copy": "複製", "delete": "刪除", "disabled": "已停用", "enabled": "已啟用",
+      "error": "錯誤", "notice": "提示", "save": "儲存"
+    },
+    "legacyConflict": {
+      "title": "偵測到衝突的舊版外掛",
+      "detail": "ComfyUI-Danbooru-Gallery 與 ComfyUI-Aaalice-Nodes 同時安裝，兩者註冊了相同的節點 ID，會產生重複控制項和不可預期行為。請只保留其中一個，然後重啟 ComfyUI。"
+    },
+    "focusOnOpen": {
+      "menu": { "set": "👁️ 開啟時聚焦", "settings": "⚙️ 開啟時聚焦設定", "clear": "🚫 取消開啟時聚焦" },
+      "aria": { "cancel": "取消開啟時聚焦" },
+      "tooltip": { "cancel": "取消開啟時聚焦" },
+      "settings": { "title": "聚焦檢視", "aria": "開啟時聚焦檢視設定", "offsetX": "X 偏移", "offsetY": "Y 偏移", "zoom": "縮放 (%)", "invalid": "請輸入有效的數字。" }
+    },
+    "loraList": {
+      "title": "LoRA 清單", "activeSummary": "{active}/{total} 已啟用",
+      "enableAll": "全部啟用", "disableAll": "全部停用", "toggle": "切換 {name}", "model": "模型",
+      "empty": "清單中沒有 LoRA。", "previewLoading": "正在載入預覽…", "previewUnavailable": "尚無預覽",
+      "menu": "LoRA 操作", "add": "新增 LoRA", "viewOnCivitai": "在 Civitai 檢視", "delete": "刪除", "clearAll": "清除清單",
+      "moveUp": "上移", "moveDown": "下移", "moveTop": "移到頂部", "moveBottom": "移到底部",
+      "copyNotes": "複製備註", "copyTriggerWords": "複製觸發詞", "saveRecipe": "儲存配方",
+      "reorder": "調整 {name} 順序",
+      "decrease": "降低 {name} 的 {kind} 強度", "increase": "提高 {name} 的 {kind} 強度", "modelStrength": "{name} 的模型強度",
+      "toast": {
+        "success": "已複製", "copySuccessDetail": "所選 LoRA 文字已複製到剪貼簿。",
+        "copyFailedDetail": "剪貼簿拒絕了複製操作。", "warning": "LoRA 連結不可用",
+        "civitaiUnavailable": "這個 LoRA 沒有關聯的 Civitai 頁面。", "civitaiFailed": "無法找到 Civitai 連結。",
+        "notesFailed": "無法讀取 LoRA 備註。", "notesUnavailable": "這個 LoRA 沒有備註。",
+        "notesCopiedDetail": "LoRA 備註已複製到剪貼簿。", "triggerWordsFailed": "無法讀取 LoRA 觸發詞。",
+        "triggerWordsUnavailable": "這個 LoRA 沒有觸發詞。", "triggerWordsCopiedDetail": "LoRA 觸發詞已複製到剪貼簿。",
+        "recipeFailed": "無法儲存配方。", "recipeSaved": "目前工作流程配方已儲存。",
+        "error": "LoRA 操作失敗", "actionFailedDetail": "操作未能完成。", "info": "沒有可複製的內容"
+      }
+    },
+    "krita": {
+      "status": { "checking": "正在檢查 Krita…", "connected": "已連線", "notInstalled": "尚未安裝 Krita Bridge", "notEnabled": "Krita Bridge 尚未啟用", "offline": "Krita Bridge 未連線", "incompatible": "Krita Bridge 協議不相容", "noDocument": "Krita 沒有活動文件", "fetching": "正在讀取 Krita 文件…", "fetchSucceeded": "快照已就緒", "fetchFailed": "取得失敗" },
+      "document": { "untitled": "未命名", "meta": "{width} × {height} · {color}", "selectionSize": "選取範圍 {width} × {height}", "noSelection": "沒有選取範圍 · 輸出空白遮罩", "selectionAtExecution": "執行時讀取選取範圍", "none": "目前沒有活動文件", "unavailable": "Krita 目前不可用", "openHint": "請在 Krita 中開啟或建立文件", "setupHint": "請檢查 Krita 與 Bridge 設定" },
+      "result": { "queueHint": "工作流程執行時讀取目前文件", "success": "已取得 {width} × {height}{selection}", "withSelection": " · 包含選取範圍" },
+      "actions": { "refresh": "重新整理 Krita 狀態", "settings": "開啟 Krita 設定", "openSettings": "開啟 Krita 設定" },
+      "settings": { "entry": "Krita Bridge", "title": "Krita", "online": "Krita Bridge 已連線", "installedDisabled": "Bridge 已安裝 · 尚未啟用", "installedOffline": "Bridge 已安裝 · Krita 未連線", "incompatible": "Krita Bridge 協議不相容", "missing": "尚未安裝 Krita Bridge", "version": "已安裝 {installed} · Bridge {bridge} · 協議 {observed}/{protocol}", "installPath": "Bridge 安裝位置", "test": "測試連線", "testing": "正在測試連線…", "testPassed": "連線成功。", "install": "安裝並啟用 Bridge", "enable": "啟用 Bridge", "repair": "修復並啟用 Bridge", "installing": "正在安裝並啟用 Bridge…", "enabling": "正在啟用 Bridge…", "repairing": "正在修復並啟用 Bridge…", "installed": "Bridge 已安裝並啟用，啟動 Krita 後即可連線。", "closeKrita": "請先關閉 Krita，再修改 Bridge。", "done": "完成" }
+    },
+    "resolutionPreset": {
+      "title": "解析度預設",
+      "groups": { "square": "正方形", "portrait": "直式", "landscape": "橫式", "personal": "我的預設" },
+      "preset": { "choose": "選擇解析度", "custom": "自訂", "empty": "還沒有個人預設", "unavailable": "個人預設暫不可用", "saveCurrent": "儲存目前解析度", "manage": "管理解析度預設", "name": "名稱", "saved": "預設已儲存", "saveTitle": "儲存解析度預設", "rename": "編輯預設", "deleteConfirm": "刪除“{name}”？此操作無法撤銷。", "deleteTitle": "刪除預設" },
+      "alignment": { "title": "像素對齊", "chip": "{value} px 對齊" },
+      "range": { "title": "畫布最大範圍", "chip": "最大 {value}" },
+      "canvas": { "widthHandle": "拖曳調整寬度", "heightHandle": "拖曳調整高度", "bothHandle": "拖曳同時調整寬度和高度" },
+      "input": { "width": "寬度", "height": "高度", "rangeError": "請輸入有效的解析度", "alignmentError": "需要是 {alignment} 的倍數", "useSuggestion": "使用 {value}" },
+      "actions": { "swap": "交換寬度和高度", "cancel": "取消", "save": "儲存", "saveChanges": "儲存修改", "delete": "刪除", "done": "完成" }
+    },
+    "discordShare": {
+      "title": "Discord 分享",
+      "entry": { "short": "分享", "topbar": "分享上次執行的影像到 Discord", "connected": "分享上次執行的影像到 Discord · 已驗證", "unverified": "分享上次執行的影像到 Discord · 需要驗證", "busy": "正在準備 Discord 分享…" },
+      "menu": { "label": "Discord 分享入口", "toTopbar": "固定到畫布頂端列", "toSidebar": "收回到側邊欄底部", "hide": "隱藏分享入口", "hideConfirmTitle": "隱藏 Discord 分享？", "hideConfirmBody": "隱藏後仍可在“設定 > Aaalice Nodes > Discord 分享”中恢復入口。" },
+      "settings": { "entry": "Discord 分享", "category": "Discord 分享", "placement": "分享入口位置", "sidebar": "側邊欄底部", "topbar": "頂端列", "hidden": "隱藏", "account": "管理 Discord 連線" },
+      "dock": { "label": "Aaalice 社群連結", "repository": "開啟 Aaalice Nodes GitHub 儲存庫", "community": "加入 Aaalice Discord 伺服器" },
+      "connect": { "title": "驗證 Discord 身分", "serverOnly": "僅限伺服器成員", "body": "Discord 登入只用於確認你是否屬於伺服器。Webhook 金鑰始終儲存在中繼服務中，不會進入 ComfyUI。" },
+      "membership": { "title": "僅限伺服器成員", "body": "請先加入 Aaalice Discord 伺服器，加入後回到這裡再次驗證。" },
+      "unavailable": { "title": "分享服務尚未設定", "body": "目前安裝尚未設定 Aaalice Discord 中繼網址。" },
+      "account": { "title": "Discord 連線", "connected": "已連線的 Discord 帳號", "verified": "已驗證伺服器成員身分", "ready": "可用" },
+      "picker": { "title": "分享上次執行結果", "images": "上次執行產生的影像", "readingSize": "正在讀取解析度…", "prompt": "正向提示詞", "promptEditor": "編輯正向提示詞", "editPrompt": "編輯提示詞", "savePrompt": "使用修改後的提示詞", "discardPrompt": "放棄修改", "promptEditing": "正在編輯提示詞", "promptEdited": "已修改提示詞", "promptEmpty": "請輸入提示詞後再傳送。", "promptCharacters": "{count} 個字元", "promptLocalOnly": "修改僅套用於本次分享，不會改變工作流程。", "promptUnavailable": "提示詞不可用", "promptMissing": "請右鍵一個“預覽任何”節點，將它設為 Discord 提示詞來源，然後重新執行工作流程。", "viewer": "圖片檢視器。滾輪縮放，放大後拖曳檢視，連按兩下還原。", "viewerControls": "圖片檢視控制", "zoomIn": "放大", "zoomOut": "縮小", "resetView": "適應視窗" },
+      "targets": { "title": "傳送到", "aria": "Discord 分享頻道", "choose": "選擇頻道", "multiple": "頻道", "none": "請至少選擇一個頻道" },
+      "promptFile": { "label": "過長提示詞作為檔案傳送", "tooltipTitle": "為什麼推薦作為檔案傳送？", "limits": "Discord 單一 Embed 描述最多 4,096 個字元，單則訊息的全部 Embed 文字合計最多 6,000 個字元。", "recommended": "開啟後，超過 1,500 字元的提示詞會改為 TXT 附件；關閉後，長提示詞會拆成連續訊息，影像放在最後一則訊息中。", "channelRecommendation": "為避免洗版，跑圖交流推薦將過長提示詞作為檔案傳送；一般長度提示詞不受影響。" },
+      "promptSource": { "setMenu": "✈️ 設為 Discord 分享提示詞", "clearMenu": "✈️ 取消 Discord 分享提示詞" },
+      "actions": { "cancel": "取消", "done": "完成", "connect": "連線 Discord", "join": "加入伺服器", "verifyAgain": "再次驗證", "send": "傳送到 Discord", "sending": "正在傳送…", "disconnect": "中斷連線" },
+      "error": { "rateLimited": "這個 Discord 帳號的分享頻率已達上限，請等待約 60 秒後重試。", "rateLimiterUnavailable": "分享服務暫時無法檢查傳送頻率，請稍後重試。", "relayMisconfigured": "分享中繼尚未完成設定，請聯絡伺服器管理員。", "imageTooLarge": "所選影像超過 20 MB 的分享上限，請選擇較小的影像或壓縮後重試。", "imageUnavailable": "ComfyUI 無法讀取所選影像，請確認輸出檔案仍然存在後重試。", "webhookFailed": "Discord 未接受這次分享，請重試；如果持續失敗，請聯絡伺服器管理員。", "promptTooLong": "正向提示詞拆分後仍超過 10 則訊息的安全上限，請開啟“過長提示詞作為檔案傳送”或縮短後重試。", "promptFileTooLarge": "正向提示詞超過 TXT 附件大小上限，請縮短後重試。", "invalidTargets": "部分所選頻道已經不可用，請重新開啟分享視窗後再試。", "noTargets": "目前沒有可用的 Discord 分享頻道。", "serviceFailed": "分享服務發生內部錯誤，請稍後重試。", "unknown": "Discord 分享失敗，請重試。" },
+      "toast": { "runFirst": "請先執行一次工作流程，再進行分享。", "verifiedRunFirst": "Discord 伺服器成員身分已驗證。請先執行一次工作流程，再進行分享。", "connected": "Discord 伺服器成員身分驗證成功。", "sent": "影像和提示詞已傳送到 Discord。", "partial": "部分頻道傳送成功；已保留失敗頻道供重試：", "disconnected": "已中斷 Discord 連線。", "promptSet": "提示詞來源已設定。請儲存並重新執行工作流程後再分享。", "promptCleared": "Discord 提示詞來源已清除，請儲存工作流程以保留修改。" }
+    },
+    "promptSelector": {
+      "search": "搜尋詞庫", "allCategories": "全部分類", "allCollections": "全部收藏夾",
+      "filters": "提示詞篩選", "openSearch": "展開搜尋", "collapseSearch": "收起搜尋", "recentSort": "按最近使用排序", "recentSortActive": "最近使用優先；點擊恢復詞庫順序", "recentUsageFailed": "無法更新最近使用記錄", "showSelected": "僅顯示已選詞條", "showAll": "顯示全部相符詞條", "noResultsTitle": "沒有找到提示詞", "noResults": "沒有符合條件的詞條。", "manageLibrary": "管理詞庫", "emptySelected": "尚未選擇提示詞。", "clearAll": "清除已選",
+      "missing": "詞庫引用已失效", "missingShort": "項失效", "selected": "項已選", "weight": "權重", "weightHint": "滾輪或方向鍵調整，點擊重設為 1", "thumbnailEditHint": "連按兩下縮圖可快速編輯詞條", "uncategorized": "未分類", "categorySummary": "已選分類分佈", "outputQueue": "已選輸出佇列", "moreSelected": "還有更多已選詞條", "separator": "提示詞分隔符號", "separatorMenu": "⚙️ 設定提示詞分隔符號…", "copyEntry": "複製提示詞", "entryCopied": "提示詞已複製到剪貼簿", "copyFailedDetail": "剪貼簿拒絕了複製操作。"
+    },
+    "workspace": {
+      "title": "Aaalice 工作區", "sidebarTitle": "Aaalice", "dashboard": "參數控制", "groups": "群組導覽", "library": "詞庫管理", "edit": "版面", "done": "完成", "dashboardActions": "主控台操作",
+      "markdown": { "empty": "空白註解" },
+      "imageOutput": { "empty": "執行工作流程後顯示預覽圖", "previous": "上一張影像", "next": "下一張影像", "open": "全螢幕檢視影像預覽", "title": "影像預覽", "viewer": "全螢幕影像預覽。滾輪縮放，放大後拖曳檢視，連按兩下還原。", "close": "關閉全螢幕影像預覽", "zoomIn": "放大", "zoomOut": "縮小", "fit": "符合螢幕" },
+      "textOutput": { "empty": "執行工作流程後顯示預覽值", "plain": "純文字", "markdown": "Markdown", "content": "預覽值" },
+"imageCompare": { "empty": "執行工作流程後顯示對比圖", "before": "影像 A", "after": "影像 B", "previousBefore": "上一張影像 A", "nextBefore": "下一張影像 A", "previousAfter": "上一張影像 B", "nextAfter": "下一張影像 B", "slider": "對比位置", "open": "全螢幕檢視影像對比", "title": "影像對比", "viewer": "全螢幕影像對比。移動指標對比，滾輪縮放，放大後拖曳檢視，連按兩下還原。", "close": "關閉全螢幕影像對比", "zoomIn": "放大", "zoomOut": "縮小", "fit": "符合螢幕" },
+      "pin": { "pinned": "已固定：點擊外側不會收起。點擊開啟自動收起。", "unpinned": "已開啟自動收起：點擊外側將關閉側邊欄。點擊固定。" },
+      "autoSave": { "label": "自動儲存", "toggle": "自動儲存目前側邊欄預設", "on": "開", "off": "關", "enabledHint": "自動儲存預設開啟。目前側邊欄預設的參數和版面變化會自動儲存。", "disabledHint": "自動儲存已關閉。需要手動更新目前側邊欄預設才能保留修改。" },
+      "search": { "parameters": "搜尋元件", "parametersPlaceholder": "搜尋全部元件", "library": "搜尋詞庫", "close": "收起搜尋", "results": "元件搜尋結果", "summary": "符合 {count} 個元件", "all": "全部 {count} 個元件", "noParameters": "沒有符合的元件。" },
+      "groupNavigation": {
+        "title": "群組導覽", "actions": "群組導覽操作", "groups": "工作流程群組", "count": "{count} 個群組",
+        "search": "搜尋群組", "searchPlaceholder": "搜尋工作流程群組", "navigate": "前往 {group}", "unavailable": "無法在目前畫布中定位這個群組。",
+        "meta": "{count} 個節點 · {status}", "nodeCount": "{count} 個節點", "status": { "enabled": "已開啟", "disabled": "已關閉", "mixed": "混合狀態", "empty": "空群組", "missing": "群組已失效" },
+        "add": "新增群組", "addTitle": "新增群組到導覽", "addSelected": "新增所選群組", "allAddedTitle": "所有群組都已新增", "allAdded": "如需重新新增，請先移除已有導覽項。",
+        "remove": "從導覽中移除 {group}", "reorder": "拖曳調整群組順序", "reorderGroup": "調整 {group} 的順序", "settingsShort": "導覽設定", "settings": "導覽設定",
+        "wheel": { "open": "按住並拖曳開啟群組導覽輪盤", "settings": "設定輪盤啟用鍵", "ariaLabel": "群組導覽輪盤", "selected": "已選擇群組：{group}", "cancelHint": "鬆開取消", "releaseHint": "鬆開 {key} 前往 · 滾輪切頁", "clickHint": "按方向選擇，鬆開前往 · 滾輪切頁", "goTo": "前往 {group}", "missingGroup": "群組已失效：{group}", "missing": "群組已失效", "nodes": "{count} 個節點 · {status}", "page": "{current} / {total}", "previousPage": "上一頁", "nextPage": "下一頁", "settingsTitle": "群組導覽輪盤", "shortcutLabel": "輪盤啟用鍵", "currentKey": "目前按鍵", "shortcutPlaceholder": "請按任意鍵。", "shortcutHint": "請按任意鍵。", "invalidShortcut": "請按任意鍵。", "disabled": "已停用", "restoreDefault": "恢復預設" },
+        "viewTitle": "目標檢視", "viewHint": "偏移使用畫布座標；縮放倍率決定導覽後群組佔據檢視區的比例。", "offsetX": "水平偏移", "offsetY": "垂直偏移", "zoom": "縮放 %", "offsetMeta": "偏移 {x}, {y}", "zoomMeta": "縮放 {zoom}%",
+        "missingGroup": "已失效的群組 #{id}", "saveWorkflowReminder": "請儲存工作流程以保留群組導覽設定。",
+        "emptyTitle": "還沒有導覽群組", "empty": "請手動新增需要快速前往的工作流程群組。",
+        "noMatchesTitle": "沒有符合的群組", "noMatches": "請嘗試其他群組名稱。"
+      },
+      "empty": { "title": "建立你的控制頁面", "description": "先建立頁面，再從任意相容節點的右鍵選單新增參數。", "page": "請從相容節點的右鍵選單新增參數。" },
+      "page": { "pages": "側邊欄頁面", "reorder": "拖曳調整頁面順序", "add": "建立頁面", "name": "頁面名稱", "default": "產生參數", "menu": "頁面操作", "settings": "頁面設定", "switch": "切換頁面", "tone": "頁面顏色", "toneMenu": "設定頁面顏色", "customTone": "自訂顏色…", "toneDefault": "預設", "rename": "重新命名頁面", "delete": "刪除頁面", "duplicate": "複製頁面", "deleteConfirm": "確定刪除這個側邊欄頁面嗎？" },
+      "target": { "page": "頁面", "newPage": "新頁面" },
+      "color": { "palette": "預設顏色", "custom": "自訂顏色", "customPicker": "選擇自訂顏色", "customHex": "自訂顏色 Hex 值", "useCustom": "使用自訂顏色", "customInvalid": "請輸入 3 位或 6 位 Hex 顏色，例如 #3b82f6。" },
+      "renameHint": "連按兩下重新命名",
+		"card": { "menu": "參數卡片選單", "move": "移動參數", "remove": "移除參數", "width": "切換卡片寬度", "resize": "調整卡片大小；方向鍵按網格單位調整", "color": "卡片顏色", "colorMenu": "設定卡片顏色…" },
+			"componentNote": { "addMenu": "新增註解…", "editMenu": "編輯註解…", "addTitle": "新增元件說明", "editTitle": "編輯元件說明", "view": "檢視參數說明", "input": "元件說明 Markdown", "placeholder": "說明這個元件控制什麼；支援 Markdown。", "markdown": "Markdown", "edit": "編輯", "preview": "預覽", "switchMode": "在 Markdown 編輯和預覽之間切換", "toolbar": "Markdown 格式", "empty": "暫時沒有可預覽的內容。", "remove": "刪除註解", "removeConfirm": "確定刪除這個元件的註解嗎？", "formats": { "bold": "粗體", "italic": "斜體", "strike": "刪除線", "heading": "標題", "quote": "引用", "unordered-list": "無序清單", "ordered-list": "有序清單", "task-list": "任務清單", "inline-code": "行內程式碼", "code-block": "程式碼塊", "link": "連結", "image": "圖片", "table": "表格", "horizontal-rule": "分隔線" } },
+      "numericRange": { "menu": "設定數值範圍…", "title": "數值範圍", "minimum": "最小值", "maximum": "最大值", "step": "步進值", "reset": "恢復節點預設值", "hint": "只調整這個側邊欄控制項，不修改節點參數定義，也不會自動改變目前值。", "nodeDefaults": "節點預設值：{min} 到 {max}，步進值 {step}", "notSet": "未設定", "invalidError": "請輸入有限數值；最大值必須大於最小值，步進值必須為正數且不能超過整個範圍。", "integerError": "這個整數參數的最小值、最大值和步進值都必須是整數。", "sourceError": "側邊欄滑桿範圍必須位於節點參數允許的範圍內。" },
+		"layout": { "addComponent": "新增元件", "components": "側邊欄元件", "noComponents": "尚無可新增元件", "separator": "新增分隔線", "separatorItem": "分隔線", "separatorLabel": "分隔線", "separatorMenu": "分隔線選單", "remove": "移除版面項", "compact": "整理版面", "autoPlace": "自動排列落點" },
+      "selection": { "toolbar": "所選版面項快捷操作", "summary": "已選擇 {count} 項", "selectAll": "全選版面項", "group": "快速群組化", "ungroup": "移出群組", "width": "切換所選寬度", "duplicate": "複製所選", "move": "移動到頁面", "remove": "移除所選", "removeConfirm": "確定移除選取的 {count} 個版面項嗎？", "clear": "清除選擇" },
+      "group": { "menu": "版面群組選單", "resize": "調整版面群組寬度；左右方向鍵按網格單位調整", "create": "建立版面群組", "default": "建立版面群組", "name": "群組名稱", "edit": "編輯版面群組", "delete": "解除整個群組", "addItem": "加入版面群組", "removeItem": "移出版面群組", "tone": "群組顏色", "palette": "預設群組顏色", "custom": "自訂顏色", "customPicker": "選擇自訂群組顏色", "customHex": "自訂群組顏色 Hex 值", "useCustom": "使用自訂顏色", "customInvalid": "請輸入 3 位或 6 位 Hex 顏色，例如 #3b82f6。", "showTitle": "顯示群組標題", "sync": { "synced": "已同步", "needsSync": "來源有變化，點擊同步", "syncing": "正在同步來源群組", "missingSource": "來源不可用", "error": "來源描述無效", "currentPage": "同步目前頁來源群組", "title": "來源群組", "none": "目前頁沒有可同步的來源群組。", "complete": "來源群組已同步", "failed": "來源群組同步失敗", "unknownError": "無法同步來源。", "unavailable": "來源不可用。", "added": "新增 {count} 項", "removed": "移除 {count} 項", "renamed": "更新 {count} 個名稱", "reordered": "順序已更新", "updated": "更新 {count} 個類型", "preservedManual": "保留 {count} 個手動卡片", "noChanges": "無需更新。", "pageComplete": "目前頁來源群組", "pageSummary": "已同步 {synced} 個群組 · 未變化 {skipped} 個群組 · 失敗 {failed} 個群組" }, "tones": { "neutral": "中性", "slate": "石板灰", "blue": "藍色", "sky": "天空藍", "cyan": "青色", "teal": "藍綠色", "green": "綠色", "lime": "青檸綠", "yellow": "黃色", "amber": "琥珀色", "orange": "橙色", "red": "紅色", "rose": "玫瑰色", "pink": "粉色", "purple": "紫色", "violet": "紫羅蘭", "indigo": "靛藍" } },
+      "unsupported": { "title": "不支援舊版側邊欄版面", "description": "目前側邊欄使用了不受支援的版面模型，請重設後繼續。", "reset": "重設側邊欄" },
+      "binding": {
+        "menu": "📌 新增參數到側邊欄…", "linkMenu": "🔗 綁定到側邊欄已有參數…", "add": "新增參數到側邊欄", "added": "已新增",
+        "destination": "投放位置", "chooseControls": "選擇參數", "selectedControls": "個參數已選", "selectAll": "全選", "clearAll": "全不選", "addSelected": "新增參數 · {count}", "rebind": "重新綁定主參數", "rebindAction": "重新綁定", "noCompatible": "目前沒有相容參數。",
+		"searchParameter": "搜尋參數…", "searchComponent": "搜尋元件…", "noSearchMatches": "沒有符合搜尋的參數。", "rebound": "已重新綁定", "reboundDetail": "側邊欄元件現在由 {name} 驅動。", "brokenBadge": "已失效", "brokenMissingTitle": "綁定的參數已不可用", "brokenMissingHint": "此前綁定到 {name}。", "brokenTypeTitle": "綁定的參數類型已變化", "brokenErrorTitle": "控制項載入失敗", "brokenLinkedTitle": "部分聯動參數已失效", "brokenLinkedHint": "開啟聯動參數管理，修復或解除受影響的條目。",
+		"linkExisting": "綁定到側邊欄已有參數", "unbindMenu": "🔓 從側邊欄解除綁定…", "unbindTitle": "從側邊欄解除綁定", "unbindSelected": "解除綁定參數 · {count}", "unbound": "參數已解除綁定", "unboundDetail": "已從側邊欄移除 {count} 個參數。", "noBindings": "這個節點沒有綁定到側邊欄的參數。", "parameter": "節點參數", "sidebarParameter": "側邊欄參數", "link": "綁定參數", "linked": "參數已綁定", "linkedRole": "已綁定", "linkedDetail": "這個側邊欄元件現在會同時更新 {count} 個參數。", "manage": "管理綁定參數", "primary": "主參數", "unlink": "解除參數綁定", "noLinked": "目前沒有附加綁定參數。", "syncNow": "立即同步", "linkedParameters": "控制 {count} 個參數", "mixedValues": "參數值不一致", "linkError": "聯動參數更新失敗", "noLinkTargets": "這個節點目前沒有可綁定的相容側邊欄參數。",
+		"missing": "參數綁定已失效", "incompatible": "參數類型不相容", "selectOption": "請選擇", "noOptions": "尚無可用選項", "unset": "目前尚無可用值", "unavailable": "控制項暫時不可用", "error": "控制項發生錯誤，暫時不可用", "incompatibleDetail": "這些參數的類型、範圍或選項已經不一致，請管理綁定後重試。", "missingDetail": "至少有一個綁定參數已不存在，請管理綁定後重試。", "duplicateDetail": "這個參數已經綁定到該側邊欄元件。", "graphDetail": "只能綁定同一圖中的參數。", "unavailableDetail": "至少有一個聯動參數暫時不可用，請等待恢復後重試。", "asyncDetail": "第三方控制項嘗試非同步寫入，本次更新已取消。", "writeFailedDetail": "參數更新失敗，原值已恢復。", "rollbackFailed": "參數更新失敗，且至少有一個原值無法恢復。", "relocated": "綁定已恢復", "relocatedDetail": "{count} 個側邊欄綁定已重新掛接到替代節點。", "saveWorkflowReminder": "請儲存工作流程以保留這些側邊欄參數，否則修改將會丟失。"
+      },
+      "rebindAll": {
+        "menu": "重新綁定失效參數…", "title": "重新綁定失效參數", "intro": "本頁有 {count} 個元件的綁定已失效。請在套用前檢查自動符合的結果。", "confirm": "重新綁定 · {count}",
+        "origin": "此前綁定到 {name}", "noMatch": "未找到可信的相符項", "exactBadge": "精確", "suggestedBadge": "建議", "unmatchedBadge": "未符合", "manualBadge": "手動",
+        "change": "更改…", "collapse": "收起", "skip": "略過", "include": "恢復", "done": "已重新綁定", "doneDetail": "已在頁面“{page}”上重新綁定 {count} 個元件。"
+      },
+      "preset": { "title": "預設備份", "export": "匯出預設", "import": "匯入預設", "missingConfirm": "個綁定已失效或類型不相容。是否仍匯入預設並略過不相容的值？" },
+      "dashboardPreset": {
+          "title": "側邊欄預設", "open": "開啟側邊欄預設", "placeholder": "選擇預設", "attention": "需要處理", "attentionBindings": "{count} 個綁定需要處理", "attentionStale": "預設包含已移除元件的數值", "healthTitle": "綁定狀態", "healthLinked": "聯動", "healthClearLinked": "一鍵清除失效聯動 · {count}", "healthCleared": "已清除 {count} 條失效聯動綁定。", "healthEmpty": "目前所有綁定都能正常解析。該標記通常是因為預設儲存了已移除元件的數值，儲存預設即可清除。",
+          "empty": "還沒有預設", "emptyHint": "儲存目前所有頁面、版面和參數值，之後可一鍵切換；預設隨工作流程一起儲存和分享。", "emptyAction": "建立第一個預設", "name": "預設名稱", "defaultName": "預設 {count}", "copyName": "{name} 副本",
+		  "presetCount": "{count} 個預設", "presetSummary": "{pages} 個頁面 · {values} 個參數", "add": "新增", "create": "新增預設", "manage": "管理預設", "modified": "目前有修改", "update": "儲存修改", "saveCurrent": "儲存為預設", "restore": "放棄修改", "duplicate": "複製", "rename": "重新命名", "delete": "刪除", "reorderHint": "拖曳調整順序；也可使用 Alt+方向鍵", "reorderItem": "調整預設“{name}”順序，目前位置 {position}/{count}", "reordered": "已將“{name}”移動到第 {position} 位，共 {count} 項", "deleteConfirm": "確定刪除側邊欄預設“{name}”嗎？目前側邊欄不會改變。", "deleteSwitchConfirm": "確定刪除側邊欄預設“{name}”嗎？側邊欄將自動切換到“{fallback}”。", "deleteLastConfirm": "確定刪除側邊欄預設“{name}”嗎？刪除後將清除側邊欄，因為已經沒有其它預設。",
+		  "changeSummary": "版面 {layout} 處 · 參數 {values} 處", "dataError": "預設資料異常", "dataErrorHint": "無法讀取工作流程中儲存的側邊欄預設資料。",
+        "error": "側邊欄預設錯誤", "noContent": "目前沒有可以儲存的側邊欄版面。", "invalid": "值無效", "ambiguous": "需要確認", "unused": "側邊欄中不存在", "layoutOnly": "僅版面元件", "optionUnavailable": "選項不可用", "modelUnavailable": "模型未列出", "modelPathFound": "已找到巢狀路徑", "modelPathAmbiguous": "存在同名模型", "attention": "需要處理", "removedComponent": "已移除的側邊欄元件",
+        "locationPage": "頁面“{page}”", "locationGroup": "版面群組“{group}”", "locationParameter": "參數“{parameter}”", "locationMore": "另有 {count} 處",
+        "reasonMissingOption": "預設儲存的選項“{value}”已不在該參數的目前清單中，將保留工作流程目前值。", "reasonMissingModelOption": "元件需要的模型“{value}”未出現在目前模型清單中。請先確認模型檔案位於 ComfyUI 對應的模型目錄，再檢查檔案是否因巢狀分類導致相對路徑與預設不同；若二者均正常，請重新整理 ComfyUI 網頁後重試。確認後仍會寫入新預設的模型值，避免該元件靜默沿用上一個預設的模型。", "reasonAmbiguousModelOption": "在多個巢狀目錄中找到了同名模型“{value}”，無法安全確定應使用哪一個。確認後仍會寫入新預設的模型值；請移除或重新命名重複檔案後重新切換預設。", "reasonModelPathMatch": "已在“{path}”找到模型“{value}”。確認後，本次切換將自動使用偵測到的巢狀路徑。", "reasonBelowMinimum": "預設儲存的數值低於該參數目前最小值，將保留工作流程目前值。", "reasonAboveMaximum": "預設儲存的數值高於該參數目前最大值，將保留工作流程目前值。",
+        "reasonAmbiguous": "存在多個可能符合的元件，未猜測套用。", "reasonTypeChanged": "該參數現在使用了不同的值類型，將保留工作流程目前值。", "reasonTypeConflict": "目標綁定包含相互衝突的值類型，已略過該儲存值。", "reasonRejected": "該參數已不再接受這個儲存值，將保留工作流程目前值。", "reasonDamaged": "該儲存值已損壞，已略過。",
+        "reasonMissing": "目前工作流程中找不到該元件原來綁定的參數，請重新綁定後再恢復其數值。", "reasonIncompatible": "該參數的類型或約束已經變化，將保留工作流程目前值。", "reasonUnused": "該數值屬於側邊欄中已經移除的元件，將略過。", "reasonEmpty": "該參數目前沒有可用選項，將保留工作流程目前值。", "reasonUnset": "該參數目前沒有可恢復的數值。", "reasonUnavailable": "該參數暫時不可用，將保留工作流程目前值。", "reasonControlError": "無法安全讀取該參數，將保留工作流程目前值。", "reasonUnknown": "無法安全恢復該儲存值，將略過。",
+        "unsavedTitle": "目前修改尚未儲存", "unsavedHint": "切換前可以儲存目前版面和參數，也可以放棄修改。", "discardSwitch": "放棄並切換", "saveSwitch": "儲存並切換", "saveAsSwitch": "另存並切換",
+        "partialHint": "部分參數無法安全恢復，請確認後再套用其餘相容版面和參數。", "modelPathHint": "已在巢狀資料夾中找到符合的模型。確認後，本次切換將自動使用偵測到的實際路徑。", "modelReviewHint": "部分模型路徑需要處理。確認後仍會寫入新預設中的全部模型值，避免任何元件靜默沿用上一個預設；已找到的巢狀模型將使用下方列出的實際路徑。", "applyCompatible": "套用相容內容", "applyPresetModels": "套用預設模型",
+        "saveWorkflowReminder": "請儲存工作流程以保留這些側邊欄預設。", "created": "側邊欄預設已建立，請儲存工作流程以保留它。", "updated": "側邊欄預設已更新，請儲存工作流程以保留它。", "duplicated": "側邊欄預設已複製，請儲存工作流程以保留它。", "renamed": "側邊欄預設已重新命名，請儲存工作流程以保留它。", "deleted": "側邊欄預設已刪除，請儲存工作流程以保留修改。", "appliedReminder": "側邊欄預設已套用，請儲存工作流程以保留版面和參數。", "deletedAndSwitched": "側邊欄預設已刪除，並自動切換到其它預設；請儲存工作流程以保留修改。", "deletedAndCleared": "最後一個側邊欄預設已刪除，側邊欄已清除；請儲存工作流程以保留修改。"
+      },
+      "valueProfiles": {
+        "open": "調整設定檔", "title": "參數調整設定檔", "select": "調整設定檔", "name": "設定檔名稱",
+        "create": "建立設定檔", "duplicate": "複製為新設定檔", "copySuffix": "副本", "rename": "重新命名設定檔", "deleteConfirm": "刪除調整設定檔“{name}”？",
+        "emptyTitle": "還沒有調整設定檔", "emptyHint": "建立設定檔，為每次都要調整的控制項新增規則，之後一鍵套用。",
+        "emptyRules": "還沒有規則。使用“新增規則”擷取側邊欄控制項的目前值。",
+        "rulesTitle": "調整規則", "ruleCount": "{count} 條規則", "profileSummary": "{rules} 條規則 · {sources} 個來源", "issueCount": "{count} 條需處理",
+        "addRule": "新增規則", "availableCount": "可新增 {count} 個", "searchControl": "搜尋元件…", "searchRules": "搜尋規則…", "noControlMatches": "沒有符合搜尋條件的元件。", "noRuleMatches": "沒有符合搜尋條件的規則。",
+        "allAdded": "側邊欄所有元件都已有規則。", "noComponents": "側邊欄還沒有可綁定的元件。", "unavailableSource": "不可用來源", "linkedTargets": "聯動 {count} 個目標", "duplicateOrdinal": "同名第 {index}/{count} 項",
+        "captureCurrent": "更新為目前值", "captureFailed": "目前無法擷取該控制項的值。", "removeRule": "移除規則", "removeRuleConfirm": "移除規則“{name}”？",
+        "localAutoSave": "編輯會自動儲存在本機；只有套用設定檔才會修改目前側邊欄參數。", "savedLocally": "修改已儲存在本機。套用設定檔後才會更新目前側邊欄參數。", "saveFailed": "無法在本機儲存設定檔。",
+        "apply": "套用到目前側邊欄", "applyCount": "套用 {count} 條規則", "applyMatching": "套用相符規則", "applied": "已套用“{name}”的 {count} 條規則。",
+        "applyFailed": "設定檔套用失敗，參數已恢復原值。", "noRules": "該設定檔還沒有規則。",
+        "nothingToApply": "沒有可套用到目前側邊欄的規則。",
+        "partialHint": "部分規則無法安全套用。檢查後可以繼續套用相符規則。",
+        "on": "開", "off": "關", "seedValue": "種子值", "seedBehavior": "產生後行為",
+        "behaviors": { "fixed": "固定", "increment": "遞增", "decrement": "遞減", "randomize": "隨機" },
+        "issue": { "missing": "不在側邊欄", "ambiguous": "存在歧義", "incompatible": "類型不相容", "invalid": "值無效", "unset": "無可用值", "unavailable": "暫時不可用", "empty": "無可選項" }
+      },
+      "transfer": {
+		"backup": "便攜備份", "layoutPreset": "預設備份", "preflight": "安全檢查", "review": "匯入預覽",
+		"zipArchive": "ZIP 壓縮檔", "jsonPreset": "JSON 預設", "legacyJson": "舊版 JSON", "untitled": "未命名詞條",
+		"readingFile": "正在讀取備份…", "readingFileHint": "正在檢查壓縮檔結構、詞條和預覽資源，確認前不會寫入任何內容。",
+		"readingPreset": "正在讀取預設…", "readingPresetHint": "正在檢查預設結構、穩定綁定身分和儲存值類型。", "preflighting": "正在準備匯入…", "importMode": "匯入方式", "importAsNew": "版面和數值", "overwriteValues": "僅匯入數值", "importAsNewHint": "用檔案中的版面、綁定和相容數值建立新預設。", "overwriteValuesHint": "先複製一個已有預設，再把檔案中符合的數值套用到新副本。", "chooseImportMode": "選擇新預設的建立方式。",
+		"readyToImport": "可以安全匯入", "readyToImportHint": "備份已透過驗證。確認摘要後，將在一個事務中完成匯入。",
+		"resolveConflicts": "請選擇衝突處理方式", "resolveConflictsHint": "確認前不會修改任何內容。每項預設採用最安全的“保留本機”。",
+		"cannotImport": "這個備份需要處理", "invalidBlocksImport": "來源備份中存在無效詞條，修復後才能匯入。",
+		"entries": "詞條", "previews": "預覽圖", "pages": "頁面", "groups": "版面群組", "controls": "參數", "values": "儲存值",
+		"matched": "已符合", "needsRebinding": "需要重新綁定", "controlsMatched": "個參數已符合", "entriesImported": "個詞條已匯入", "entriesReviewed": "個詞條已檢查",
+		"conflictDecisions": "衝突處理", "conflictDecisionsHint": "可以逐項處理，也可以為全部衝突套用同一策略。", "bulkPolicy": "批次策略", "applyToAll": "套用到全部…",
+		"sameContent": "本機已存在相同內容。", "changedContent": "相同詞條 ID 的內容已經發生變化。",
+		"invalidEntries": "無效詞條", "invalidEntriesHint": "這些詞條會阻止事務安全匯入。", "newEntries": "新增詞條",
+		"unchangedEntries": "已有詞條", "unchangedEntriesHint": "這些詞條已與本機內容一致，無需額外處理。",
+		"importing": "正在匯入…", "importComplete": "匯入完成", "importCompleteHint": "詞庫已成功更新，提示詞選擇器會立即使用最新詞條。",
+		"importFailed": "匯入失敗", "importBlocked": "存在無效詞條，無法匯入", "preflightFailed": "無法讀取這個備份", "invalidPreset": "無法讀取這個版面備份",
+		"entireLibrary": "完整詞庫", "entireLibraryHint": "備份全部提示詞條，適合遷移和恢復。",
+		"currentFilter": "目前篩選結果", "currentFilterHint": "僅匯出符合目前分類和收藏夾篩選的詞條。",
+		"selectedEntries": "已選詞條", "selectedEntriesHint": "僅匯出目前手動選取的詞條。", "exportScope": "匯出範圍",
+		"exportLibraryTitle": "匯出提示詞庫", "exportLibraryHint": "選擇匯出範圍，相關分類、收藏夾、標籤和預覽圖會自動打包。",
+		"currentPreset": "目前預設", "currentLayout": "目前版面", "targetPreset": "基礎預設", "targetPresetHint": "會先複製它，所選預設本身不會改變。", "noTargetPreset": "請先建立一個側邊欄預設，再使用僅匯入數值。", "chooseTarget": "請選擇基礎預設", "noValuesMatched": "沒有符合基礎預設中的相容數值。",
+		"exportPresetTitle": "匯出側邊欄預設", "exportPresetHint": "下載目前側邊欄預設，包含版面、綁定和相容數值。",
+		"exporting": "正在匯出…", "exportComplete": "匯出已就緒", "exportCompleteHint": "ZIP 備份已下載，可以在另一套 ComfyUI 中匯入。", "exportFailed": "匯出失敗",
+		"presetIdentityHint": "預設名稱與下載檔名保持一致。匯入預設使用所選檔名；確認時如有重名會自動追加字尾。",
+		"presetExportCompleteHint": "預設“{name}”已匯出為 {file}。",
+		"importNameHint": "預設使用檔案名稱；確認時如有重名會自動追加字尾。",
+		"presetNeedsReview": "部分參數需要重新綁定", "presetNeedsReviewHint": "版面仍可恢復；缺失卡片會保留，不相容的儲存值會略過。",
+		"presetReadyHint": "所有參數綁定均與目前工作流程符合，版面和相容值將一起恢復。",
+		"unresolvedBindings": "未解析的綁定", "unresolvedBindingsHint": "匯入後仍保留在版面中，等待手動重新綁定。",
+		"compatibleValues": "個相容的儲存值將被恢復，超出目前範圍的值會安全略過。",
+		"presetImportComplete": "預設匯入完成", "presetImportCompleteHint": "預設“{name}”已建立並套用，版面、綁定和相容數值均已恢復。", "importPreset": "匯入預設", "newPresetWillBeCreated": "將額外建立一個新預設", "overwriteAndApply": "建立副本並套用", "willOverwrite": "將匯入", "willKeep": "將保留", "unmatched": "未符合", "needsReview": "需處理", "valuesReady": "可匯入數值", "valuesReadySummary": "{count} 個數值可匯入 · {recovered} 個安全恢復", "exactMatches": "精確符合", "recoveredMatches": "安全恢復", "ambiguousMatch": "符合結果有歧義", "recoveredMatch": "已安全恢復", "valueNeedsReview": "已略過數值", "valueNeedsReviewHint": "這些原始檔數值會略過，基礎預設不會改變。", "sourceValuesSkippedHint": "這些無效來源數值會略過，其餘有效版面和數值仍可匯入。", "valuesNotOnTarget": "基礎預設中不存在", "valuesNotOnTargetHint": "在基礎預設中找不到唯一相容目標的數值會略過。", "targetLayoutKept": "基礎預設“{name}”會連同頁面、卡片、版面群組、尺寸和綁定一起複製（{meta}）。", "valueImportHint": "優先使用穩定 Binding Key 精確符合；ID 變化時僅恢復唯一相容的卡片。", "valueCopyHint": "會把“{name}”複製為新預設，再把符合數值套用到副本；所選預設本身不會改變。", "fullPresetReadyHint": "將用檔案中的版面、綁定和相容數值建立一個新預設。", "fullPresetReviewHint": "仍會額外建立完整預設；請檢查被略過的數值和需要修復的綁定。", "recoveredValues": "工作流程更新後安全恢復", "recoveredValuesHint": "這些卡片的穩定 ID 已變化，但仍有唯一且相容的對應項。", "valueImportCompleteHint": "預設“{name}”已從“{source}”複製並套用；原預設未改變，已匯入 {count} 個相容數值。{skippedHint}", "valuesSkipped": "個來源數值被略過", "valuesImported": "預設匯入完成", "valuesOverwritten": "個數值已匯入",
+		"layoutBreakWarningTitle": "這個預設包含失效綁定", "layoutBreakWarningHint": "完整預設會保留 {count} 個失效綁定。", "layoutBreakConfirmHint": "新預設會保留 {count} 個失效綁定。僅匯入數值會複製已有預設，並只遷移能唯一確認的數值。", "useValueOnly": "改用僅匯入數值", "importLayoutAnyway": "仍匯入完整預設",
+		"presetImportPartialHint": "預設“{name}”已建立並套用；未解析的卡片已保留，可繼續手動重新綁定，無效來源數值已略過。",
+		"bindingsNeedAttention": "項需要處理", "allBindingsMatched": "所有綁定均已相符"
+	  },
+      "libraryUi": {
+        "addEntry": "新增詞條", "editEntry": "編輯詞條", "edit": "編輯", "contentDetails": "提示詞內容", "organization": "整理方式", "title": "標題", "prompt": "提示詞", "note": "備註", "category": "分類", "categories": "分類", "collections": "收藏夾", "tags": "標籤", "preview": "預覽圖", "choosePreview": "選擇預覽圖", "currentPreview": "目前預覽圖", "noPreview": "尚無預覽圖", "previewEmptyHint": "點擊選擇一張預覽圖", "clearPreviewSelection": "清除所選圖片", "removePreview": "移除目前預覽圖", "undoRemovePreview": "保留目前圖片", "copyEntry": "複製提示詞", "entryCopied": "提示詞已複製到剪貼簿", "copyFailedDetail": "剪貼簿拒絕了複製操作。",
+        "noCategory": "未分類", "moveAction": "移動", "moveSelected": "移動已選詞條", "targetCategory": "目標分類", "chooseTargetCategory": "選擇目標分類", "entriesSelectedForMove": "個已選詞條將一起移動。", "moveConfirm": "移動", "deleteSelected": "刪除已選", "deleteSelectedConfirm": "個已選詞條將被永久刪除，PromptSelector 中對它們的引用會變為缺失。",
+        "addCategory": "新增分類", "addCollectionAction": "新增收藏夾", "add": "新增", "manage": "分類與收藏夾管理", "manageAction": "分類與收藏夾", "manageCategories": "管理分類", "manageCollections": "管理收藏夾", "categoriesHint": "每個詞條歸屬一個分類，用於建立清晰的主結構。", "collectionsHint": "收藏夾可以跨分類收藏詞條，方便按用途靈活複用。", "newCategory": "建立根分類", "newCollection": "輸入新收藏夾名稱", "addSubcategory": "新增子分類", "searchCategories": "搜尋分類", "expandAll": "全部展開", "collapseAll": "全部摺疊", "expandCategory": "展開分類", "collapseCategory": "摺疊分類", "dragCategory": "拖曳分類", "categoryKeyboardHint": "聚焦分類後可用 Alt 加方向鍵排序、縮排或提升層級。", "categoryMoveFailed": "分類移動失敗", "noCategories": "還沒有分類", "noMatchingCategories": "沒有符合的分類", "noCollections": "還沒有收藏夾", "taxonomyEmptyHint": "在下方建立一個，開始整理提示詞條。", "entriesCount": "個詞條", "moveUp": "上移", "moveDown": "下移", "rename": "重新命名", "editCategory": "設定分類", "categoryColor": "分類顏色", "name": "名稱", "deleteConfirm": "刪除", "deleteCategoryTitle": "刪除分類", "deleteCollectionTitle": "刪除收藏夾", "deleteCategoryHint": "該分類中的詞條會變為未分類，此操作無法撤銷。", "deleteBranchMode": "刪除整個分類分支", "deleteCategorySafeHint": "預設只刪除目前分類：子分類提升一級，直屬詞條變為未分類，不會刪除任何提示詞條。", "deleteCategoryBranchHint": "目前分類及其全部後代分類都會刪除，分支內詞條全部變為未分類；不會刪除提示詞內容。", "directEntries": "直屬詞條", "childCategories": "直屬子分類", "branchCategories": "分支分類", "branchEntries": "分支詞條", "deleteCollectionHint": "該收藏夾與詞條的關聯會被移除，此操作無法撤銷。", "defaultFavorites": "預設收藏夾", "defaultFavoriteCannotDelete": "預設收藏夾不能刪除", "favorite": "收藏", "unfavorite": "取消收藏", "favoriteEntry": "收藏詞條", "favoriteEntryHint": "選擇要加入的收藏夾。", "deleteEntryConfirm": "確定刪除這個詞條嗎？", "select": "選擇", "selectAll": "全選", "clearAll": "全不選", "selectedShort": "項已選",
+        "actions": "詞庫操作", "emptyTitle": "詞庫還是空的", "emptyDescription": "新增第一個詞條，之後就能在提示詞選擇器中反覆使用。", "noMatchTitle": "沒有符合的詞條",
+        "export": "匯出", "exportSelected": "匯出已選", "import": "匯入", "importTitle": "匯入詞庫", "keepLocal": "保留本機", "useImport": "使用匯入內容", "createDuplicate": "建立副本", "new": "新增", "existing": "已有", "conflicts": "衝突", "duplicates": "重複", "invalid": "無效"
+      }
+    },
+    "groupIsEnabled": {
+      "group": "群組",
+      "untitled": "未命名群組"
+    },
+    "groupLogic": {
+      "mode": "組合方式",
+      "and": "AND",
+      "or": "OR",
+      "group": "群組",
+      "expect": "期望狀態",
+      "expectEnabled": "已啟用",
+      "expectDisabled": "已停用",
+      "add": "新增群組判斷",
+      "remove": "刪除條件",
+      "empty": "至少新增一個群組判斷",
+      "missing": "該群組已不存在，請重新選擇群組或刪除此條件。"
+    },
+    "quickGroup": {
+      "title": "快速群組管理器",
+      "titleWithIcon": "⚡ 快速群組管理器",
+      "untitled": "未命名群組",
+      "groups": "工作流程群組",
+      "refresh": "重新整理群組",
+      "navigate": "前往 {group}",
+      "navigateUnavailable": "無法在目前畫布中定位這個群組。",
+      "reorder": "拖曳排序；也可使用 Alt+方向鍵",
+      "reorderGroup": "調整 {group} 的順序",
+      "toggle": "切換 {group}",
+      "emptyGroup": "該群組中沒有節點",
+      "noGroups": "目前圖中沒有可見群組。",
+      "noFilteredGroups": "沒有符合所選顏色的群組。",
+      "mode": { "aria": "關閉群組的處理方式", "mute": "靜音", "bypass": "繞過" },
+      "filter": {
+        "aria": "選擇群組顏色", "all": "全部群組",
+        "empty": "未選擇顏色", "uncolored": "無顏色", "missing": "目前沒有群組使用該顏色",
+        "paletteTitle": "顏色預設", "currentTitle": "目前群組顏色", "savedTitle": "已儲存的自訂顏色", "noColorTitle": "無顏色的群組",
+        "colorChoice": "按 {color} 篩選群組", "customTitle": "新增自訂顏色", "customPicker": "預覽並選擇自訂顏色", "customInput": "自訂顏色十六進位值", "addCustom": "新增顏色",
+        "removeCustom": "移除自訂顏色 {color}", "invalidCustom": "請輸入有效的顏色值，例如 #3B82F6。", "customHint": "新增到已儲存的顏色清單，並同時選取用於篩選。"
+      },
+      "rules": {
+        "aria": "編輯 {group} 的聯動", "edit": "編輯 {group} 的聯動", "search": "搜尋群組",
+        "whenEnabled": "開啟時", "whenDisabled": "關閉時", "actionFor": "{group} 的動作",
+        "missingTarget": "已刪除的群組 #{id}", "noMatches": "沒有符合的群組"
+      },
+      "error": {
+        "generic": "無法更新該管理器。", "unavailable": "快速群組管理器暫時不可用",
+        "self": "群組不能聯動自身。", "cycle": "聯動規則中存在環路。",
+        "missing": "群組 {id} 已不存在。", "conflict": "群組 {id} 收到了互相衝突的動作。",
+        "empty": "群組 {id} 中沒有節點。", "nodeConflict": "重疊群組為同一個節點指定了不同模式。",
+        "invalid": "聯動規則無效。"
+      }
+    },
+    "simpleNotify": {
+      "defaultMessage": "執行已到達簡易通知節點。",
+      "menu": { "test": "🔔 啟用並測試提醒" },
+      "toast": { "noChannels": "目前沒有啟用任何提醒方式。" },
+      "error": {
+        "notificationUnsupported": "目前瀏覽器不支援桌面通知。",
+        "permissionRequired": "請從節點右鍵選單選擇“啟用並測試提醒”以開啟桌面通知。",
+        "permissionDenied": "桌面通知已被阻止，請在瀏覽器或系統設定中手動開啟。",
+        "permissionRequestFailed": "瀏覽器通知權限申請失敗。",
+        "notificationFailed": "無法顯示桌面通知。",
+        "soundFailed": "無法播放提示音，請從節點右鍵選單選擇“啟用並測試提醒”進行測試。"
+      }
+    },
+    "gallery": {
+      "source": "來源", "toolbar": "Booru 圖庫", "toolbarActions": "瀏覽工具", "more": "更多", "refresh": "重新整理", "reload": "重新搜尋", "refreshing": "正在重新整理...", "loading": "正在載入...", "end": "已經到底了", "continueFiltered": "已略過多頁封鎖內容，繼續查詢", "emptyResults": "沒有找到符合條件的貼文。試試放寬分級篩選或減少封鎖標籤。", "warning": { "restrictedMediaHidden": "Danbooru 對一般帳號和匿名訪客隱藏 loli / shota 類貼文，僅 Builder 及以上帳號可見，圖庫無法繞過此限制。" },
+      "random": { "off": "隨機", "on": "隨機中", "enable": "開啟隨機模式", "disable": "關閉隨機模式", "draw": "再抽一組", "drawHint": "再抽一組未出現過的圖片", "drawing": "抽取中...", "exhausted": "連續多次未抽到新圖片", "empty": "沒有抽到未出現的圖片，請調整搜尋或分級篩選。" },
+      "collection": { "label": "圖庫頻道", "latest": "最新", "new": "最新", "score": "高分榜", "favcount": "人氣榜", "dayRanking": "今日榜", "weekRanking": "週榜", "monthRanking": "月榜", "favorites": "收藏夾" },
+      "page": { "current": "第 {page} 頁", "open": "前往頁面", "title": "頁面導覽", "input": "頁碼", "unit": "頁", "previous": "上一頁", "next": "下一頁", "go": "前往" },
+      "tab": { "label": "圖庫檢視", "browse": "瀏覽", "selected": "已選" },
+      "selectionMode": { "label": "選擇模式", "single": "單選", "multiple": "多選", "changeTitle": "切換為單選", "changeConfirm": "切換後只保留第一張已選圖片，是否繼續？", "changeAction": "保留第一張" },
+      "nodeMode": { "label": "圖庫節點執行模式", "active": "啟用", "mute": "靜音", "bypass": "繞過" },
+      "projectionPaused": { "title": "圖庫正在側邊欄中顯示", "body": "為了保持畫布流暢，瀏覽側邊欄圖庫時會暫停此節點的圖片渲染；關閉或切換側邊欄後將自動恢復。" },
+      "search": { "label": "搜尋貼文", "placeholder": "搜尋標籤…", "close": "收起搜尋", "limitTitle": "已達到搜尋上限", "tagLimit": "目前來源每次最多搜尋 {count} 個標籤。" },
+      "filter": { "title": "篩選", "rating": "分級", "apply": "套用", "noRating": "目前來源不提供分級篩選。" },
+      "rating": { "general": "全齡", "safe": "安全", "sensitive": "敏感", "questionable": "暗示", "explicit": "露骨", "unknown": "未知" },
+      "stampSoldOutPostal": "閒魚賣掉了郵戳",
+      "stampQuarantineQualified": "檢疫合格圓章",
+      "card": { "actions": "圖片操作", "select": "選擇圖片", "cancel": "取消選擇", "edit": "編輯圖片標籤", "favorite": "收藏", "unfavorite": "取消收藏", "favoriteAdded": "已加入收藏。", "favoriteRemoved": "已取消收藏。", "favoriteFailed": "收藏狀態更新失敗：{reason}", "copyPrompt": "複製提示詞", "promptCopied": "提示詞已複製到剪貼簿", "download": "下載原圖", "detail": "檢視詳細資訊", "moreActions": "更多圖片操作", "favoriteLoginTitle": "需要設定帳號", "favoriteLoginBody": "請先設定 {source} 帳號，再新增收藏。", "favoriteReadOnlyTitle": "收藏功能為只讀", "favoriteReadOnlyBody": "{source} 目前可以讀取收藏，但暫不支援新增收藏。", "favoriteConfigure": "設定帳號", "favoriteDismiss": "知道了" }, "stamp": { "inspection": "檢驗合格", "approved": "稽核透過", "pass": "PASS", "qa": "品質檢驗", "audit": "已稽核", "certified": "專屬認證", "verified": "認證透過", "selected": "已選", "quality": "品質認證", "accepted": "驗收合格", "official": "官方認證", "checked": "檢查透過", "pure": "百分百純正", "crown": "優選", "inspectionDate": "檢驗01日期章", "inspectionReverse": "合格檢01章", "passDate": "PASS檢02章", "qaDate": "QA01日期章", "reviewBadge": "稽核透過齒章", "birthday": "生日快樂", "organic": "百分百原生態", "silverCapital": "官銀資本", "visa": "VISA灰章", "hotPick": "爆款推薦", "soldOut": "今日已售罄", "hot": "爆", "nationwideShipping": "全國包郵", "nationwideFlight": "全國可飛", "sfShipping": "順豐包郵", "qualityGuarantee": "品質保證", "praise": "好評如潮", "delicacySquare": "美味佳餚方章", "traditionVertical": "傳統文化豎章", "chinaCuisine": "中國美味", "ruyi": "如意", "snowCuisine": "雪尖美食", "traditionCircle": "傳統文化圓章", "delicacyWide": "美味佳餚橫章", "traditionWide": "傳統文化橫章", "auspicious": "吉祥", "exclusiveCertification": "專屬認證齒章" }, "hover": { "loading": "正在載入大圖…", "resolution": "解析度", "score": "評分", "favorites": "收藏數", "tags": "標籤數" },
+      "selected": { "title": "有序選擇", "summary": "{count} 張圖片 · 按目前順序輸出", "emptyTitle": "建立輸出集合", "empty": "從瀑布流選擇貼文，建立有順序的輸出。", "outputHint": "{count} 組輸出", "reorderHint": "拖曳左側控制點調整輸出順序", "tagCount": "{count} 個標籤", "tagsLabel": "提示詞標籤", "noPrompt": "目前類別選擇下沒有可輸出的提示詞標籤", "promptPreview": "輸出提示詞", "promptHover": "懸停檢視完整提示詞", "imageHover": "懸停檢視大圖預覽", "promptHoverHint": "該有序輸出對的最終提示詞", "promptEmptyHint": "可調整類別或編輯標籤", "edit": "編輯標籤", "editTag": "點擊編輯 · 右鍵刪除 {tag}", "editTagValue": "編輯標籤內容", "removeTag": "刪除 {tag}", "reorder": "拖曳調整順序", "remove": "移除", "clear": "清除", "clearTitle": "清除已選貼文", "clearAction": "全部清除", "clearConfirm": "這會移除目前圖庫節點中的全部已選貼文。" },
+      "detail": { "title": "貼文詳細資訊", "select": "選擇", "remove": "移出已選", "source": "開啟來源網站", "original": "開啟原圖", "download": "下載原圖", "copyImage": "複製影像", "imageCopied": "影像已複製到剪貼簿", "favorite": "收藏", "unfavorite": "取消收藏", "resolution": "解析度", "format": "格式", "fileSize": "檔案大小", "rating": "分級", "tags": "標籤", "localOnly": "只在本機選擇與編輯標籤", "noTags": "沒有標籤", "tagMenu": "標籤操作", "tagActionsHint": "點擊或右鍵開啟標籤操作", "editableTagMenu": "點擊編輯 · 右鍵開啟標籤操作 · {tag}", "editTag": "編輯", "copyTag": "複製標籤", "addToSearch": "加入搜尋框", "blockTag": "封鎖標籤", "outputFilterTag": "輸出時過濾標籤", "outputFilterAdded": "輸出和複製的提示詞將不再包含 {tag}", "blacklistAdded": "帶有 {tag} 的貼文已全部隱藏", "viewer": "圖片檢視器。滾輪縮放，放大後拖曳檢視，連按兩下恢復。", "viewerControls": "圖片檢視控制", "zoomIn": "放大", "zoomOut": "縮小", "resetView": "恢復完整檢視", "loadingOriginal": "正在載入原圖…", "originalFailed": "原圖載入失敗，已保留預覽圖。", "retryOriginal": "重試原圖" },
+      "editor": { "title": "編輯本機標籤", "restore": "恢復原始值", "copy": "複製提示詞", "save": "儲存本機標籤", "hint": "修改只儲存在目前工作流程選擇中。", "categories": "標籤類別", "pillHint": "點擊編輯 · 右鍵刪除 · 按 Enter 新增", "addPlaceholder": "+ 新增標籤" },
+      "prompt": { "title": "提示詞處理", "short": "提示詞", "sections": "提示詞設定分頁", "live": "即時生效", "categories": "類別", "transformTitle": "格式轉換", "underscores": "底線轉換為空格", "underscoresHint": "讓標籤更接近自然文字", "parentheses": "跳脫括號", "parenthesesHint": "將權重語法保留為普通字元", "exclude": "排除標籤", "excludePlaceholder": "例如 watermark、text focus", "excludeHint": "全域共用；隱藏含該標籤的貼文，並從輸出提示詞中排除", "outputFilter": "輸出篩選", "outputFilterPlaceholder": "例如 watermark、artist_name", "outputFilterHint": "全域共用；只從輸出和複製的提示詞中移除，不隱藏貼文" },
+      "category": { "artist": "作者", "copyright": "版權", "character": "角色", "general": "通用", "meta": "中繼資料" },
+      "error": { "staticOnly": "只能選擇靜態 JPG、PNG、WebP 和 GIF 貼文。", "incomplete": "貼文詳細資訊不完整。", "media": "影像請求失敗（HTTP {status}）", "credentialsRequired": "此來源需要帳號憑證。點擊這裡開啟 Gallery 設定。", "upstreamTimeout": "網站因結果集合過大而排序超時。請增加篩選條件或更多標籤縮小搜尋範圍。", "tlsCertificateSummary": "SSL 憑證驗證失敗。點擊檢視完整錯誤和疑難排解方式。", "tlsCertificate": "SSL 憑證驗證失敗。請檢查系統時間、HTTPS 代理或封包擷取軟體憑證，以及系統受信任根憑證。為保護帳號憑證與圖片內容，圖庫不會關閉憑證驗證。", "detailsHint": "開啟完整錯誤詳細資訊", "dialogTitle": "圖庫錯誤詳細資訊", "complete": "完整錯誤", "copy": "複製錯誤", "copied": "完整錯誤已複製到剪貼簿。", "retry": "重試" },
+      "settings": { "entry": "Booru 圖庫", "short": "設定", "open": "設定圖庫…", "openComfy": "開啟 ComfyUI 設定", "openFailed": "開啟 ComfyUI 設定", "pathHint": "請點擊 ComfyUI 介面左下角的齒輪，然後進入 Aaalice Nodes → Booru Gallery，設定帳號登入和圖庫設定。", "title": "Booru 圖庫", "keepCredential": "已設定；留空保持原值", "clearCredential": "清除已儲存值", "credentialWillClear": "儲存後將清除此值", "credential": { "username": "使用者名稱", "apiKey": "API Key", "userId": "使用者 ID" }, "test": "測試連線", "testing": "正在測試…", "connected": "連線成功。", "configured": "已設定", "notConfigured": "未設定", "favoriteRead": "可讀取收藏", "favoriteWrite": "可修改收藏", "tagGroups": "分類標籤", "rankings": "排行榜", "publicOnly": "公開訪問", "publicHint": "此來源無需登入即可使用。", "credentialsHint": "前往 {source} 帳號頁面取得 API Key", "introTitle": "把圖庫調整成順手的樣子", "intro": "憑證只保留在本機；工作流程只儲存節點選擇和提示詞規則。", "sourceCount": "{count} 個來源", "accountCount": "{count} 個帳號就緒", "navigation": "設定分類", "navAccounts": "帳號", "navBrowse": "瀏覽", "navPrompt": "提示詞", "navPerformance": "儲存", "sourcesTitle": "來源與帳號", "sourcesHint": "集中檢視登入狀態，以及各網站真正支援的能力", "browseTitle": "瀏覽預設值", "browseHint": "建立新 Gallery 節點時套用", "selectionStamp": "選取印章", "selectionStampHint": "所有圖庫節點的已選圖片共用這一款印章。", "blacklist": "內容封鎖清單", "blacklistIntro": "貼文只要包含任意封鎖標籤，就不會進入瀑布流。", "blacklistHint": "每行一個網站原始標籤，精確符合。這裡會隱藏貼文，不會修改輸出提示詞。", "blacklistPlaceholder": "watermark\ntext\nmale_focus", "blacklistCount": "已封鎖 {count} 個標籤", "outputFilter": "輸出篩選標籤", "outputFilterHint": "全域生效；只從輸出和複製的提示詞中移除，不隱藏貼文", "outputFilterPlaceholder": "watermark\nartist_name", "outputFilterCount": "輸出篩選 {count} 個標籤", "blacklistScope": "搜尋 · 排行榜 · 收藏夾", "promptTitle": "提示詞預設值", "promptHint": "只影響之後建立的新節點", "performanceTitle": "網路與儲存", "performanceHint": "由所有 Gallery 節點共享", "defaultSource": "預設來源", "defaultRating": "預設分級", "excluded": "新節點預設排除標籤", "tooltip": "顯示懸停詳細資訊", "tooltipHint": "懸停後載入更大預覽圖和貼文資訊。", "timeout": "請求超時（秒）", "cacheBudget": "原圖快取預算（MiB）", "clearCache": "清理圖庫快取", "clearCacheHint": "移除已快取的原圖和中繼資料，不會影響節點選擇。", "cacheCleared": "圖庫快取已清理。", "save": "儲存更改" }
+    },
+    "pcp": {
+      "seedMode": {
+		    "header": "每次工作流程執行後，按以下方式更新種子：",
+		    "fixed": "固定值",
+		    "fixedDescription": "保持目前種子不變",
+		    "increment": "遞增值",
+		    "incrementDescription": "每次執行後將種子增加 1",
+		    "decrement": "遞減值",
+		    "decrementDescription": "每次執行後將種子減少 1",
+		    "randomize": "隨機值",
+		    "randomizeDescription": "每次執行後隨機產生新的種子"
+		  },
+      "error": {
+		"imageUpload": "影像上傳失敗：{reason}",
+		"imageUploadResponse": "伺服器回應中沒有影像檔名。", "imageFileType": "請選擇影像檔案。"
+      },
+      "image": {
+		"none": "選擇影像", "upload": "從本機上傳", "drop": "鬆開以選擇影像", "uploaded": "影像上傳成功：{filename}", "clear": "清除已選擇影像",
+		"all": "全部", "imported": "已匯入", "generated": "已產生", "filter": "篩選影像來源", "search": "搜尋影像",
+		"sort": "影像排序", "sortUnsorted": "未排序", "sortAlphabetical": "A–Z", "view": "影像檢視",
+		"list": "清單檢視", "grid": "網格檢視", "loading": "正在載入影像…", "empty": "沒有找到影像",
+		"loadFailed": "部分影像載入失敗。"
+      },
+	  "taglist": { "placeholder": "輸入標籤後按 Enter 新增", "append": "+ 新增標籤", "empty": "輸入後按 Enter 新增標籤", "input": "新增標籤", "enable": "啟用 {tag}", "disable": "停用 {tag}", "remove": "刪除 {tag}" }
+    }
+  }
+}

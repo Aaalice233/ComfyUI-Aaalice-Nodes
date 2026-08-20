@@ -591,11 +591,12 @@ export function createGalleryControllerFactory(dependencies) {
 		const body = el("div", { className: "aa-gallery-detail", children: [viewer.root, inspector] });
 		dialog = createDialog({ title: label("detail.title", "Post details"), body, footer: el("div", { className: "aa-gallery-dialog-actions", children: actions }), size: "lg", className: "aa-gallery-detail-dialog", confirmOnEnter: false, onClose: () => { viewer.destroy(); translationAbort.abort(); if (activeDetailDialog === dialog) activeDetailDialog = null; } });
 		activeDetailDialog = dialog;
-		if (currentLocale() === "zh") {
+		const translationLocale = currentLocale();
+		if (translationLocale === "zh" || translationLocale === "zh-TW") {
 			const translationTags = [];
 			for (const category of GALLERY_CATEGORIES) for (const tag of detailDrafts[category]) translationTags.push({ name: tag, category });
 			void streamTagTranslations({
-				locale: "zh",
+				locale: translationLocale,
 				tags: translationTags,
 				signal: translationAbort.signal,
 				onChunk: ({ translations }) => {

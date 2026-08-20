@@ -27,4 +27,4 @@ V1/V3 格式差异决定了无法直接类继承（`SaveImageLM` 是 V1 风格�
 ## 交互
 
 - `enabled` 关闭时，前端将除图像输入与开关外的全部保存控件置灰（`js/conditional_save_image.js`），状态一目了然；控件值保留，重新开启即恢复。
-- 名称与 tooltip 走 `locales/{en,zh}/nodeDefs.json`，随界面语言切换。
+- 名称与 tooltip 走 `locales/{en,zh,zh-TW}/nodeDefs.json`，随界面语言切换。

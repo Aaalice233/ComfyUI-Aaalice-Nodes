@@ -168,7 +168,7 @@ BooruGalleryNode 还需覆盖：
 SimpleNotify 还需覆盖：
 
 - 桌面通知、声音分别单开、同时开启和同时关闭。
-- 空消息的 English / 简体中文默认文案。
+- 空消息的 English / 简体中文 / 繁体中文默认文案。
 - `granted`、`default`、`denied` 和不支持 Notification API。
 - 普通单值、list、连续 Queue，以及多个节点实例各提醒一次。
 - 一个渠道失败不阻断另一渠道，工作流本身不因提醒失败而失败。

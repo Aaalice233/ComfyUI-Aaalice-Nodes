@@ -3,7 +3,7 @@
 ComfyUI 加载本目录时导入此模块：
 - V3：`comfy_entrypoint()` → `ComfyExtension.get_node_list`
 - 前端：`WEB_DIRECTORY` 公开静态资源，`js/extension.js` 是唯一业务入口
-- i18n：`locales/{en,zh}/` 由 ComfyUI 扫描 `/api/i18n` 合并，无需在此注册
+- i18n：`locales/{en,zh,zh-TW}/` 由 ComfyUI 扫描 `/api/i18n` 合并，无需在此注册
 """
 
 from __future__ import annotations

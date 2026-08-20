@@ -19,7 +19,7 @@
 
 - 支持 V3 自定义节点的较新 ComfyUI。
 - 支持经典画布和 Nodes 2.0；暂不支持 App Mode。
-- 内置 English 和简体中文界面；其它语言回退到 English。
+- 内置 English、简体中文和繁体中文界面；其它语言回退到 English。
 
 ## 📥 安装
 

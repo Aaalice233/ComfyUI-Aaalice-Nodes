@@ -72,7 +72,7 @@ ComfyUI-Aaalice-Nodes/
 ├── __init__.py
 ├── nodes/{control,prompt,tools,_lib}/
 ├── js/{lib,assets}/
-├── locales/{en,zh}/
+├── locales/{en,zh,zh-TW}/
 ├── tests/
 └── docs/{adr,design,development}/
 ```
@@ -192,10 +192,10 @@ ComfyUI-Aaalice-Nodes/
 - 颜色来自 ComfyUI token；禁止写死品牌色或只适用于暗色主题的正文色。
 - 不得根据变量名称推断主题 token 的实际颜色或对比度。尤其 `--p-primary-contrast-color` 在 ComfyUI 主题中可能解析为深色，不能直接当作“白色图标”；深色或品牌色实心表面上的浅色图标优先使用 `--aa-ui-on-media`。涉及宿主顶栏或外部主题覆盖时，必须在真实挂载位置用 `getComputedStyle()` 核对按钮及 SVG / path 的 `color`、`stroke`、`fill` 和关键 token 解析值；静态 CSS 契约测试不能替代实际计算样式验收。
 - 新 DOM 根使用 `--aa-ui-*` token 前必须加入 `ui.css` 的共享主题作用域，并用契约测试确认关键 token 可继承；选择器命中不代表含未定义自定义属性的颜色声明实际生效。
-- 仅维护 `locales/{en,zh}/{main,nodeDefs}.json`。`nodeDefs.json` 管节点定义，自绘 DOM 使用 `main.json` 和 `js/i18n.js`。
-- 序列化 id、COMBO 值和路径使用稳定英文；修改用户文案时同步两种语言。
-- 所有节点的 V3 Schema 与 en/zh `nodeDefs.json` 显示名称必须以同一语义 emoji 开头；新增或重命名节点时同步三处并通过契约测试。
-- 本包新增的节点菜单以 emoji 开头，并进入 en/zh 本地化文案。
+- 仅维护 `locales/{en,zh,zh-TW}/{main,nodeDefs}.json`。`nodeDefs.json` 管节点定义，自绘 DOM 使用 `main.json` 和 `js/i18n.js`。
+- 序列化 id、COMBO 值和路径使用稳定英文；修改用户文案时同步 English、简体中文和繁体中文。
+- 所有节点的 V3 Schema 与 en/zh/zh-TW `nodeDefs.json` 显示名称必须以同一语义 emoji 开头；新增或重命名节点时同步四处并通过契约测试。
+- 本包新增的节点菜单以 emoji 开头，并进入 en/zh/zh-TW 本地化文案。
 - 只有用户明确要求视觉探索、方案比较或原型评审时，才制作多方案演示；正常功能开发直接完成并实现单一最佳方案。
 
 ### 6.1 按钮与操作层级
@@ -278,7 +278,7 @@ Tooltip、Hover Card、已选摘要浮层等多实体信息预览**不得**落�
 - [ ] 只改任务范围；无无关格式化、回滚或死代码
 - [ ] 若发生重构，已先说明必要性、范围、风险、不重构代价和验证计划并获得用户同意；已证明局部修复不足，核对调用方、持久状态、旧工作流、Subgraph、双画布模式和第三方集成，且没有扩大无关改动
 - [ ] node id、输入输出 id 和协议值使用英文
-- [ ] English / 简体中文文案同步
+- [ ] English / 简体中文 / 繁体中文文案同步
 - [ ] 新增或变更的可见状态已同时完成美观性、可读性、空间利用和主题适配检查；状态区块已在最小宽高下验证无逐字竖排、无叠印、无被裁切操作
 - [ ] 按钮组已检查操作层级、视觉重量、同组一致性、窄宽度和中英文文案；不存在无理由的高饱和实心按钮或语义错误图标
 - [ ] 复杂设置页已检查首屏焦点、渐进披露、单一主导航、当前对象可见性和滚动层级；没有同时展开多套完整表单或依赖嵌套滚动理解界面

@@ -1,17 +1,16 @@
 /**
- * 本包前端 i18n 辅助：供自绘 DOM / 侧栏 / toast 等读取 en|zh 文案。
+ * 本包前端 i18n 辅助：供自绘 DOM / 侧栏 / toast 等读取 en|zh|zh-TW 文案。
  *
  * 节点标题、输入输出、官方 widget 文案由 ComfyUI 自动合并各语言的 `nodeDefs.json`，
  * 一般无需本模块。本模块只覆盖**不走 nodeDefs** 的自定义 UI。
  *
  * 数据来源：后端 `/api/i18n`（扫描各 custom_nodes 的 `locales/`）。
- * 语言：跟随 ComfyUI `Comfy.Locale`；仅解析 `en` / `zh`，其余回退 `en`。
+ * 语言：跟随 ComfyUI `Comfy.Locale`；支持 `en` / `zh` / `zh-TW`，其余回退 `en`。
  */
 
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-
-const FALLBACK_LOCALE = "en";
+import { localeFallbackChain, resolveLocale } from "./lib/i18n_locale.js";
 
 /** @type {Record<string, Record<string, unknown>> | null} */
 let catalog = null;
@@ -20,36 +19,14 @@ let catalog = null;
 let loadPromise = null;
 
 /**
- * 将 ComfyUI 原始 locale 归一到本包支持的 `en` | `zh`。
- * @param {unknown} raw
- * @returns {"en" | "zh"}
- */
-function resolveLocale(raw) {
-	if (typeof raw !== "string" || !raw) {
-		return FALLBACK_LOCALE;
-	}
-	const lower = raw.toLowerCase().replace(/_/g, "-");
-	// 简体：zh / zh-CN / zh-Hans …
-	if (lower === "zh" || lower.startsWith("zh-cn") || lower.startsWith("zh-hans")) {
-		return "zh";
-	}
-	// 明确英文
-	if (lower === "en" || lower.startsWith("en-")) {
-		return "en";
-	}
-	// zh-TW 等其它语言：按项目约定回退英文
-	return FALLBACK_LOCALE;
-}
-
-/**
- * 读取当前 ComfyUI 界面语言并归一到 en|zh。
- * @returns {"en" | "zh"}
+ * 读取当前 ComfyUI 界面语言并归一到 en|zh|zh-TW。
+ * @returns {"en" | "zh" | "zh-TW"}
  */
 function getLocale() {
 	return resolveLocale(app.extensionManager?.setting?.get?.("Comfy.Locale"));
 }
 
-/** 当前界面语言（en|zh），供自绘 UI 做语言相关的能力开关。 */
+/** 当前界面语言（en|zh|zh-TW），供自绘 UI 做语言相关的能力开关。 */
 export function currentLocale() {
 	return getLocale();
 }
@@ -111,15 +88,14 @@ export function ensureI18nReady() {
  * key 对应 `locales/{lang}/main.json` 合并后的路径，例如：
  * - `aaalice.common.confirm`
  *
- * 查找顺序：当前语言 → `en` → `fallback` 参数 → key 本身。
+ * 查找顺序：当前语言 → 简体中文（仅繁中）→ `en` → `fallback` 参数 → key 本身。
  *
  * @param {string} key
  * @param {string} [fallback=""]
  * @returns {string}
  */
 export function t(key, fallback = "") {
-	const locale = getLocale();
-	const bags = [catalog?.[locale], catalog?.[FALLBACK_LOCALE]];
+	const bags = localeFallbackChain(getLocale()).map((language) => catalog?.[language]);
 	for (const bag of bags) {
 		const value = digString(bag, key);
 		if (value !== undefined) {
