@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import worker, {
-	DEFAULT_UPLOAD_LIMIT,
 	buildDiscordWebhookPayloads,
 	callbackResponse,
 	configuredWebhookTargets,
@@ -21,13 +20,19 @@ test("relay accepts loopback origins and explicit production origins only", () =
 	assert.equal(isAllowedOrigin("not-a-url", env), false);
 });
 
-test("relay defaults to a 20 MiB image limit and reports exact upload bounds", async () => {
-	assert.equal(DEFAULT_UPLOAD_LIMIT, 20 * 1024 * 1024);
-
+test("relay leaves image size policy to Discord instead of enforcing the former 20 MiB limit", async () => {
 	const originalFetch = globalThis.fetch;
-	globalThis.fetch = async (url) => {
+	let uploadedBytes = 0;
+	globalThis.fetch = async (url, options = {}) => {
 		if (String(url).includes("/users/@me/guilds/")) {
 			return new Response(JSON.stringify({ roles: [] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		}
+		if (String(url).startsWith("https://discord.com/api/webhooks/")) {
+			uploadedBytes = options.body.get("files[0]").size;
+			return new Response(JSON.stringify({ id: "message-1", channel_id: "channel-1", guild_id: "guild" }), {
 				status: 200,
 				headers: { "content-type": "application/json" },
 			});
@@ -64,11 +69,51 @@ test("relay defaults to a 20 MiB image limit and reports exact upload bounds", a
 			headers: { Authorization: "Bearer session", Origin: "http://127.0.0.1:8188" },
 			body: form,
 		}), env);
-		const payload = await response.json();
+		assert.equal(response.status, 200);
+		assert.equal(uploadedBytes, 1025);
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+});
+
+test("Discord attachment-size rejection remains an actionable 413 response", async () => {
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = async (url) => {
+		if (String(url).includes("/users/@me/guilds/")) return Response.json({ roles: [] });
+		if (String(url).startsWith("https://discord.com/api/webhooks/")) {
+			return new Response(JSON.stringify({ message: "Request entity too large", code: 40005 }), { status: 413 });
+		}
+		throw new Error(`Unexpected fetch: ${url}`);
+	};
+	const env = {
+		DISCORD_CLIENT_ID: "client",
+		DISCORD_CLIENT_SECRET: "secret",
+		DISCORD_GUILD_ID: "guild",
+		DISCORD_WEBHOOK_TARGETS: JSON.stringify([{ id: "target", label: "Target", url: "https://discord.com/api/webhooks/100/token" }]),
+		STATE_SECRET: "state-secret",
+		SESSIONS: {
+			get: async () => ({
+				access_token: "access",
+				refresh_token: "refresh",
+				access_expires_at: Math.floor(Date.now() / 1000) + 3600,
+				user: { id: "42", username: "alice" },
+			}),
+			put: async () => {},
+			delete: async () => {},
+		},
+		SHARE_RATE_LIMITER: { limit: async () => ({ success: true }) },
+	};
+	try {
+		const form = new FormData();
+		form.append("image", new File(["image"], "large.png", { type: "image/png" }));
+		form.append("prompt", "masterpiece");
+		const response = await worker.fetch(new Request("https://relay.example/v1/share", {
+			method: "POST",
+			headers: { Authorization: "Bearer session", Origin: "http://127.0.0.1:8188" },
+			body: form,
+		}), env);
 		assert.equal(response.status, 413);
-		assert.equal(payload.code, "image_too_large");
-		assert.equal(payload.image_bytes, 1025);
-		assert.equal(payload.max_upload_bytes, 1024);
+		assert.equal((await response.json()).code, "image_upload_rejected");
 	} finally {
 		globalThis.fetch = originalFetch;
 	}
@@ -168,11 +213,15 @@ test("webhook target configuration rejects invalid entries and keeps URLs server
 				{ id: "nsfw-collection", label: "NSFW 串串收集", url: "https://discord.com/api/webhooks/200/token-b" },
 				{ id: "generation-chat", label: "跑图交流", url: "https://discord.com/api/webhooks/300/token-c", prefer_prompt_file: true },
 			]),
+			DISCORD_WEBHOOK_TARGETS_CHAT_SFW: JSON.stringify([
+				{ id: "generation-chat-sfw", label: "跑图交流-SFW", url: "https://discord.com/api/webhooks/400/token-d", prefer_prompt_file: true },
+			]),
 		});
 	assert.deepEqual(targets.map(({ id, label, default: selectedByDefault, prefer_prompt_file }) => ({ id, label, default: selectedByDefault, prefer_prompt_file })), [
 		{ id: "sfw-collection", label: "SFW 串串收集", default: true, prefer_prompt_file: false },
 		{ id: "nsfw-collection", label: "NSFW 串串收集", default: false, prefer_prompt_file: false },
 		{ id: "generation-chat", label: "跑图交流", default: false, prefer_prompt_file: true },
+		{ id: "generation-chat-sfw", label: "跑图交流-SFW", default: false, prefer_prompt_file: true },
 	]);
 	assert.throws(
 		() => configuredWebhookTargets({

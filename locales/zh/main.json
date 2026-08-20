@@ -5,9 +5,15 @@
       "copy": "复制", "delete": "删除", "disabled": "已禁用", "enabled": "已启用",
       "error": "错误", "notice": "提示", "save": "保存"
     },
-    "legacyConflict": {
-      "title": "检测到冲突的旧版插件",
-      "detail": "ComfyUI-Danbooru-Gallery 与 ComfyUI-Aaalice-Nodes 同时安装，两者注册了相同的节点 ID，会产生重复控件和不可预期行为。请只保留其中一个，然后重启 ComfyUI。"
+    "incompatiblePlugins": {
+      "legacyGallery": {
+        "title": "检测到冲突的旧版插件",
+        "detail": "ComfyUI-Danbooru-Gallery 与 ComfyUI-Aaalice-Nodes 同时安装，两者注册了相同的节点 ID，会产生重复控件和不可预期行为。请只保留其中一个，然后重启 ComfyUI。"
+      },
+      "translation": {
+        "title": "检测到不兼容的翻译插件",
+        "detail": "AIGODLIKE-COMFYUI-TRANSLATION 会覆盖子图的自定义参数名称，导致侧边栏参数组件名称混乱。请卸载该插件并重启 ComfyUI，然后重新打开一份干净的工作流；该插件启用期间已保存的名称可能无法自动恢复。"
+      }
     },
     "focusOnOpen": {
       "menu": { "set": "👁️ 打开时聚焦", "settings": "⚙️ 打开时聚焦设置", "clear": "🚫 取消打开时聚焦" },
@@ -63,11 +69,12 @@
       "unavailable": { "title": "分享服务尚未配置", "body": "当前安装尚未配置 Aaalice Discord 中继地址。" },
       "account": { "title": "Discord 连接", "connected": "已连接的 Discord 账号", "verified": "已验证服务器成员身份", "ready": "可用" },
       "picker": { "title": "分享上次运行结果", "images": "上次运行生成的图像", "readingSize": "正在读取分辨率…", "prompt": "正面提示词", "promptEditor": "编辑正面提示词", "editPrompt": "编辑提示词", "savePrompt": "使用修改后的提示词", "discardPrompt": "放弃修改", "promptEditing": "正在编辑提示词", "promptEdited": "已修改提示词", "promptEmpty": "请输入提示词后再发送。", "promptCharacters": "{count} 个字符", "promptLocalOnly": "修改仅应用于本次分享，不会改变工作流。", "promptUnavailable": "提示词不可用", "promptMissing": "请右键一个“预览任何”节点，将它设为 Discord 提示词来源，然后重新运行工作流。", "viewer": "图片查看器。滚轮缩放，放大后拖动查看，双击还原。", "viewerControls": "图片查看控制", "zoomIn": "放大", "zoomOut": "缩小", "resetView": "适应窗口" },
-      "targets": { "title": "发送到", "aria": "Discord 分享频道", "choose": "选择频道", "multiple": "频道", "none": "请至少选择一个频道" },
+      "targets": { "title": "发送到", "multiHint": "发送到（可多选）", "aria": "Discord 分享频道", "choose": "选择频道", "multiple": "频道", "none": "请至少选择一个频道" },
       "promptFile": { "label": "过长提示词作为文件发送", "tooltipTitle": "为什么推荐作为文件发送？", "limits": "Discord 单个 Embed 描述最多 4,096 个字符，单条消息的全部 Embed 文本合计最多 6,000 个字符。", "recommended": "开启后，超过 1,500 字符的提示词会改为 TXT 附件；关闭后，长提示词会拆成连续消息，图像放在最后一条消息中。", "channelRecommendation": "为避免刷屏，跑图交流推荐将过长提示词作为文件发送；一般长度提示词不受影响。" },
+      "largeImage": { "title": "大图像：发送前压缩？", "body": "这张图像超过 20 MB。压缩上传副本可以加快发送，不会修改 ComfyUI 中的原图。", "original": "发送原图", "compress": "压缩后发送" },
       "promptSource": { "setMenu": "✈️ 设为 Discord 分享提示词", "clearMenu": "✈️ 取消 Discord 分享提示词" },
-      "actions": { "cancel": "取消", "done": "完成", "connect": "连接 Discord", "join": "加入服务器", "verifyAgain": "再次验证", "send": "发送到 Discord", "sending": "正在发送…", "disconnect": "断开连接" },
-      "error": { "rateLimited": "这个 Discord 账号的分享频率已达上限，请等待约 60 秒后重试。", "rateLimiterUnavailable": "分享服务暂时无法检查发送频率，请稍后重试。", "relayMisconfigured": "分享中继尚未完成配置，请联系服务器管理员。", "imageTooLarge": "所选图像超过 20 MB 的分享上限，请选择较小的图像或压缩后重试。", "imageUnavailable": "ComfyUI 无法读取所选图像，请确认输出文件仍然存在后重试。", "webhookFailed": "Discord 未接受这次分享，请重试；如果持续失败，请联系服务器管理员。", "promptTooLong": "正面提示词拆分后仍超过 10 条消息的安全上限，请开启“过长提示词作为文件发送”或缩短后重试。", "promptFileTooLarge": "正面提示词超过 TXT 附件大小上限，请缩短后重试。", "invalidTargets": "部分所选频道已经不可用，请重新打开分享窗口后再试。", "noTargets": "当前没有可用的 Discord 分享频道。", "serviceFailed": "分享服务发生内部错误，请稍后重试。", "unknown": "Discord 分享失败，请重试。" },
+      "actions": { "cancel": "取消", "done": "完成", "connect": "连接 Discord", "join": "加入服务器", "verifyAgain": "再次验证", "send": "发送到 Discord", "preparing": "正在准备…", "compressing": "正在压缩…", "disconnect": "断开连接" },
+      "error": { "rateLimited": "这个 Discord 账号的分享频率已达上限，请等待约 60 秒后重试。", "rateLimiterUnavailable": "分享服务暂时无法检查发送频率，请稍后重试。", "relayMisconfigured": "分享中继尚未完成配置，请联系服务器管理员。", "imageCompressionFailed": "浏览器无法压缩这张图像，请发送原图或改选其他图像。", "imageUnavailable": "ComfyUI 无法读取所选图像，请确认输出文件仍然存在后重试。", "platformUploadRejected": "Discord 或分享中继拒绝了该图像大小，请重新打开分享窗口并使用压缩上传副本。", "reconnect": "Discord 验证已失效，请重新打开分享窗口并再次验证。", "webhookFailed": "Discord 未接受这次分享，请重试；如果持续失败，请联系服务器管理员。", "promptTooLong": "正面提示词拆分后仍超过 10 条消息的安全上限，请开启“过长提示词作为文件发送”或缩短后重试。", "promptFileTooLarge": "正面提示词超过 TXT 附件大小上限，请缩短后重试。", "invalidTargets": "部分所选频道已经不可用，请重新打开分享窗口后再试。", "noTargets": "当前没有可用的 Discord 分享频道。", "serviceFailed": "分享服务发生内部错误，请稍后重试。", "unknown": "Discord 分享失败，请重试。" },
       "toast": { "runFirst": "请先运行一次工作流，再进行分享。", "verifiedRunFirst": "Discord 服务器成员身份已验证。请先运行一次工作流，再进行分享。", "connected": "Discord 服务器成员身份验证成功。", "sent": "图像和提示词已发送到 Discord。", "partial": "部分频道发送成功；已保留失败频道供重试：", "disconnected": "已断开 Discord 连接。", "promptSet": "提示词来源已设置。请保存并重新运行工作流后再分享。", "promptCleared": "Discord 提示词来源已清除，请保存工作流以保留修改。" }
     },
     "promptSelector": {

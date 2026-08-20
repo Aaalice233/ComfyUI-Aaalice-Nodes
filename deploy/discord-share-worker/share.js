@@ -1,7 +1,6 @@
 import { defaultDiscordAvatarUrl, discordMemberAvatarUrl, loadSession, verifiedSession } from "./auth.js";
 import { corsHeaders, errorResponse, json, relayConfigurationError } from "./http.js";
 
-export const DEFAULT_UPLOAD_LIMIT = 20 * 1024 * 1024;
 const RATE_LIMIT_RETRY_SECONDS = 60;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_LIMIT = 6000;
@@ -56,15 +55,23 @@ export function discordFence(value) {
 
 
 export function configuredWebhookTargets(env) {
-	let input;
-	try {
-		input = JSON.parse(String(env.DISCORD_WEBHOOK_TARGETS || ""));
-	} catch {
-		throw relayConfigurationError("DISCORD_WEBHOOK_TARGETS is not valid JSON.");
+	const fragments = Object.entries(env)
+		.filter(([key, value]) => /^DISCORD_WEBHOOK_TARGETS(?:_[A-Z0-9_]+)?$/.test(key) && value)
+		.sort(([left], [right]) => left === "DISCORD_WEBHOOK_TARGETS" ? -1 : right === "DISCORD_WEBHOOK_TARGETS" ? 1 : left.localeCompare(right));
+	const input = [];
+	for (const [key, value] of fragments) {
+		let entries;
+		try {
+			entries = JSON.parse(String(value));
+		} catch {
+			throw relayConfigurationError(`${key} is not valid JSON.`);
+		}
+		if (!Array.isArray(entries) || !entries.length) {
+			throw relayConfigurationError(`${key} must contain at least one target.`);
+		}
+		input.push(...entries);
 	}
-	if (!Array.isArray(input) || !input.length) {
-		throw relayConfigurationError("DISCORD_WEBHOOK_TARGETS must contain at least one target.");
-	}
+	if (!input.length) throw relayConfigurationError("DISCORD_WEBHOOK_TARGETS must contain at least one target.");
 	const ids = new Set();
 	return input.map((entry, index) => {
 		const id = String(entry?.id || "").trim();
@@ -289,9 +296,10 @@ async function sendWebhook(target, payload, image, filename, promptFile = null) 
 		if (response.ok) break;
 		if (attempt < 4 && await waitForDiscordRateLimit(response)) continue;
 		const detail = await response.text();
+		const imageRejected = response.status === 413 || /(?:request entity too large|\"code\"\s*:\s*40005)/i.test(detail);
 		const error = new Error(`Discord rejected the share for ${target.label} (HTTP ${response.status}): ${detail.slice(0, 300)}`);
-		error.code = "webhook_failed";
-		error.status = 502;
+		error.code = imageRejected ? "image_upload_rejected" : "webhook_failed";
+		error.status = imageRejected ? 413 : 502;
 		throw error;
 	}
 	const message = await response.json().catch(() => null);
@@ -320,15 +328,6 @@ export async function handleShare(request, env) {
 	const longPromptAsFile = longPromptAsFileValue == null || String(longPromptAsFileValue).toLowerCase() !== "false";
 	if (!(image instanceof File) || !image.type.startsWith("image/")) {
 		return errorResponse("invalid_image", "An image file is required.", 400, corsHeaders(request, env));
-	}
-	const uploadLimit = Math.max(1024, Number(env.MAX_UPLOAD_BYTES) || DEFAULT_UPLOAD_LIMIT);
-	if (image.size > uploadLimit) {
-		return json({
-			code: "image_too_large",
-			message: `Image exceeds the ${uploadLimit} byte upload limit.`,
-			image_bytes: image.size,
-			max_upload_bytes: uploadLimit,
-		}, 413, corsHeaders(request, env));
 	}
 	if (!prompt) return errorResponse("missing_prompt", "A positive prompt is required.", 400, corsHeaders(request, env));
 	const filename = safeFilename(data.get("filename") || image.name);
@@ -369,9 +368,13 @@ export async function handleShare(request, env) {
 	}));
 	const delivered = [];
 	const failed = [];
+	const failureReasons = [];
 	for (const [index, result] of settled.entries()) {
 		if (result.status === "fulfilled") delivered.push(result.value);
-		else failed.push({ id: targets[index].id, label: targets[index].label });
+		else {
+			failed.push({ id: targets[index].id, label: targets[index].label });
+			failureReasons.push(result.reason);
+		}
 	}
 	if (failed.length && delivered.length) {
 		return json({
@@ -383,6 +386,14 @@ export async function handleShare(request, env) {
 		}, 207, corsHeaders(request, env));
 	}
 	if (failed.length) {
+		const imageRejected = failureReasons.every((reason) => reason?.code === "image_upload_rejected");
+		if (imageRejected) {
+			return json({
+				code: "image_upload_rejected",
+				message: "Discord rejected the image because the attachment is too large.",
+				failed_targets: failed,
+			}, 413, corsHeaders(request, env));
+		}
 		const error = new Error("Discord rejected the share in every selected channel.");
 		error.code = "webhook_failed";
 		error.status = 502;

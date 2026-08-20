@@ -469,6 +469,13 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+.aa-discord-share-target-trigger__chevron.aa-ui-icon {
+	width: 14px;
+	height: 14px;
+	margin-left: auto;
+	transition: transform 160ms cubic-bezier(.2, .8, .2, 1);
+}
+.aa-discord-share-target-trigger[aria-expanded="true"] .aa-discord-share-target-trigger__chevron { transform: rotate(180deg); }
 .aa-discord-share-target-popover.aa-ui-popover {
 	display: grid;
 	gap: 7px;
@@ -516,6 +523,50 @@
 	border-radius: 8px;
 	background: color-mix(in srgb, var(--aa-ui-accent) 11%, transparent);
 	color: color-mix(in srgb, var(--aa-ui-accent) 66%, var(--aa-ui-text));
+}
+.aa-discord-share-large-image-dialog .aa-ui-dialog__footer { justify-content: flex-end; }
+.aa-discord-share-large-image {
+	display: grid;
+	grid-template-columns: 38px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px 10px;
+	padding: 12px;
+	border-radius: 12px;
+	background:
+		radial-gradient(circle at 0 0, color-mix(in srgb, var(--aa-ui-warning) 13%, transparent), transparent 50%),
+		color-mix(in srgb, var(--aa-ui-control) 78%, transparent);
+	box-shadow: var(--aa-ui-edge-shadow-soft);
+}
+.aa-discord-share-large-image__icon {
+	display: grid;
+	width: 38px;
+	height: 38px;
+	grid-row: 1 / 3;
+	place-items: center;
+	border-radius: 11px;
+	background: color-mix(in srgb, var(--aa-ui-warning) 16%, var(--aa-ui-control));
+	color: color-mix(in srgb, var(--aa-ui-warning) 72%, var(--aa-ui-text));
+}
+.aa-discord-share-large-image__icon .aa-ui-icon { width: 19px; height: 19px; }
+.aa-discord-share-large-image__filename {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--aa-ui-text);
+	font-size: 12px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.aa-discord-share-large-image__size { color: color-mix(in srgb, var(--aa-ui-warning) 68%, var(--aa-ui-text)); }
+.aa-discord-share-large-image p {
+	min-width: 0;
+	grid-column: 2 / -1;
+	margin: 0;
+	color: var(--aa-ui-muted);
+	font-size: 11.5px;
+	line-height: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+	.aa-discord-share-target-trigger__chevron.aa-ui-icon { transition: none; }
 }
 .aa-discord-share-target-list .aa-ui-multiselect__leading-icon .aa-ui-icon { width: 14px; height: 14px; }
 .aa-discord-share-target-list .aa-ui-multiselect__label { font-size: 11px; font-weight: 650; }

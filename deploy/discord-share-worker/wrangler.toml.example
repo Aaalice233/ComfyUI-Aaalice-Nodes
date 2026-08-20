@@ -23,7 +23,6 @@ ALLOWED_ORIGINS = ""
 # Optional comma-separated role IDs. Empty means every server member can share.
 ALLOWED_ROLE_IDS = ""
 SESSION_TTL_SECONDS = "2592000"
-MAX_UPLOAD_BYTES = "20971520"
 
 # Add these with `wrangler secret put`, never under [vars]:
 # DISCORD_CLIENT_SECRET

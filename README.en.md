@@ -14,6 +14,8 @@ Compact parameter controls and workflow utilities for ComfyUI.
 
 > [!WARNING]
 > **Do not install this package together with [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery)**: the two register the same node IDs (`PromptSelector`, `GroupIsEnabled`, `SimpleNotify`, `SimpleStringSplit`, `FetchFromKrita`), and the legacy package's frontend still hooks those node types, so having both installed produces duplicate widgets and unpredictable behavior. Keep only one of them installed. A warning toast appears in the interface when both are detected.
+>
+> **Do not install `AIGODLIKE-COMFYUI-TRANSLATION`**: it overwrites custom Subgraph parameter names and scrambles sidebar component labels. A warning toast appears when it is detected. Remove it, restart ComfyUI, and reopen a clean workflow copy; names saved while it was active may not recover automatically.
 
 ## 📋 Requirements
 
@@ -165,6 +167,12 @@ Enter text and choose `,` or `|` as the delimiter. The node trims each segment, 
 ## 🖥️ Aaalice Workspace
 
 Open **Aaalice Workspace** from ComfyUI's left sidebar. It hosts three views: **Controls** (dashboard pages), **Groups** (navigation), and **Library** (prompt library).
+
+### ✈️ One-click Discord sharing
+
+Use the paper-plane action in the workspace footer to share images from the most recent execution that produced any. Channel selection is explicitly multi-select, and the gallery defaults to the largest image by pixel area, breaking equal-size ties in favor of the latest output. Images produced earlier in the same run remain available even if a later upscale or other node fails. Above 20 MiB you can send the original or compress an upload copy without changing the ComfyUI output; the picker closes once preparation finishes and ComfyUI reports the background result with a toast.
+
+The repository maintainer must deploy the trusted relay and configure Discord OAuth, membership checks, and webhook targets. Regular users never receive webhook URLs.
 
 ### 👁️ Focus on open
 

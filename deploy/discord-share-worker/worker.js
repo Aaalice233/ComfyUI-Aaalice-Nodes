@@ -4,7 +4,7 @@ import { configuredWebhookTargets, handleShare, handleTargets } from "./share.js
 
 export { callbackResponse } from "./auth.js";
 export { isAllowedOrigin } from "./http.js";
-export { DEFAULT_UPLOAD_LIMIT, buildDiscordWebhookPayloads, configuredWebhookTargets, discordFence, enforceRateLimit } from "./share.js";
+export { buildDiscordWebhookPayloads, configuredWebhookTargets, discordFence, enforceRateLimit } from "./share.js";
 
 function validateEnvironment(env) {
 	const required = [

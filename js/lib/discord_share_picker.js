@@ -2,6 +2,7 @@
 import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 import {
+	loadDiscordShareImage,
 	loadDiscordSharePromptFilePreference,
 	loadDiscordShareTargetSelection,
 	saveDiscordSharePromptFilePreference,
@@ -10,9 +11,14 @@ import {
 } from "./discord_share_client.js";
 import { badge, button, createDialog, el, icon } from "./ui.js";
 import { createShareImageViewer } from "./discord_share_image_viewer.js";
+import {
+	compressDiscordShareImage,
+	formatShareBytes,
+	shouldOfferShareCompression,
+} from "./discord_share_image_prepare.js";
 import { createLongPromptFileControl } from "./discord_share_prompt_file.js";
 import { createShareTargetPicker } from "./discord_share_target_picker.js";
-import { normalizeSharePrompt } from "./discord_share_model.js";
+import { normalizeSharePrompt, preferredShareImageIndex } from "./discord_share_model.js";
 
 function imageUrl(reference) {
 	const query = new URLSearchParams({
@@ -23,11 +29,49 @@ function imageUrl(reference) {
 	return api.apiURL(`/view?${query}${app.getRandParam?.() || ""}`);
 }
 
+function chooseLargeImageUpload({ filename, byteLength, label }) {
+	return new Promise((resolve) => {
+		let settled = false;
+		const finish = (choice) => {
+			if (settled) return;
+			settled = true;
+			dialog.close(choice);
+			resolve(choice);
+		};
+		const body = el("div", {
+			className: "aa-discord-share-large-image",
+			children: [
+				el("div", { className: "aa-discord-share-large-image__icon", children: [icon("image")] }),
+				el("strong", { className: "aa-discord-share-large-image__filename", text: filename }),
+				badge(formatShareBytes(byteLength), { className: "aa-discord-share-large-image__size" }),
+				el("p", null, label("largeImage.body", "This image is larger than 20 MB. Compressing an upload copy can make sharing faster without changing the ComfyUI output.")),
+			],
+		});
+		const footer = el("div", { children: [
+			button({ label: label("actions.cancel", "Cancel"), variant: "ghost", onClick: () => finish(null) }),
+			button({ label: label("largeImage.original", "Send original"), variant: "secondary", onClick: () => finish("original") }),
+			button({ label: label("largeImage.compress", "Compress and send"), iconName: "sparkles", defaultAction: true, onClick: () => finish("compress") }),
+		] });
+		const dialog = createDialog({
+			title: label("largeImage.title", "Large image: compress before sending?"),
+			body,
+			footer,
+			size: "compact",
+			className: "aa-discord-share-large-image-dialog",
+			returnFocus: document.activeElement,
+			onClose: () => {
+				if (!settled) {
+					settled = true;
+					resolve(null);
+				}
+			},
+		});
+	});
+}
+
 export function createDiscordSharePicker({
 	closeActiveDialog,
 	label,
-	openConnectDialog,
-	openMembershipRequiredDialog,
 	scheduleEntrypointSync,
 	setActiveDialog,
 	shareErrorMessage,
@@ -44,20 +88,26 @@ export function createDiscordSharePicker({
 			: "…";
 	}
 	function hydrateImageDimensions(image, onChange) {
-		if (image.width && image.height) return;
-		const probe = new Image();
-		probe.onload = () => {
-			image.width = probe.naturalWidth;
-			image.height = probe.naturalHeight;
-			onChange?.();
-		};
-		probe.src = image.url;
+		if (image.width && image.height) return Promise.resolve();
+		return new Promise((resolve) => {
+			const probe = new Image();
+			probe.onload = () => {
+				image.width = probe.naturalWidth;
+				image.height = probe.naturalHeight;
+				onChange?.();
+				resolve();
+			};
+			probe.onerror = resolve;
+			probe.src = image.url;
+		});
 	}
 
 	return async function openSharePicker(shareConfig, session, snapshot, targets) {
 		closeActiveDialog();
 		const images = snapshot.images.map((image) => ({ ...image, url: imageUrl(image), width: 0, height: 0 }));
-		let selectedIndex = 0;
+		let selectedIndex = preferredShareImageIndex(images);
+		let selectionTouched = false;
+		let pickerActive = true;
 		const body = el("div", "aa-discord-share-picker");
 		const stageImage = el("img", { className: "aa-discord-share-picker__image", attrs: { alt: "" } });
 		const viewport = el("div", {
@@ -241,62 +291,90 @@ export function createDiscordSharePicker({
 				savePromptEdit();
 			}
 		});
+		const sendInBackground = async ({ selected, upload, sharePrompt, targetIds, promptAsFile }) => {
+			try {
+				const result = await sendDiscordShare(shareConfig, session, {
+					image: selected,
+					upload,
+					prompt: sharePrompt,
+					targetIds,
+					longPromptAsFile: promptAsFile,
+				});
+				if (result?.ok) {
+					const deliveredLabels = (result.delivered_targets || []).map((target) => target.label).filter(Boolean);
+					const destination = deliveredLabels.length ? ` (${deliveredLabels.join(" · ")})` : "";
+					toast("success", `${label("toast.sent", "Image and prompt sent to Discord.")}${destination}`);
+					return;
+				}
+				if (result?.code === "partial_delivery") {
+					const failedIds = (result.failed_targets || []).map((target) => target.id).filter(Boolean);
+					const failedLabels = (result.failed_targets || []).map((target) => target.label).filter(Boolean);
+					saveDiscordShareTargetSelection(failedIds, targets);
+					const suffix = failedLabels.length ? ` ${failedLabels.join(" · ")}` : "";
+					toast("warn", `${label("toast.partial", "Some channels succeeded. Failed channels remain selected for retry:")}${suffix}`);
+					return;
+				}
+				throw new Error(result?.message || label("error.unknown", "Discord sharing failed. Try again."));
+			} catch (error) {
+				if (error?.code === "not_member" || [401, 403].includes(error?.status)) scheduleEntrypointSync();
+				toast("error", shareErrorMessage(error));
+			}
+		};
 		const send = button({
 			label: label("actions.send", "Send to Discord"),
 			iconName: "send",
 			defaultAction: true,
 			onClick: async () => {
-				const selected = images[selectedIndex];
 				const sharePrompt = normalizeSharePrompt(promptValue);
-				if (!selected || !sharePrompt || promptEditing) return;
+				if (!sharePrompt || promptEditing) return;
 				clearSendFeedback();
 				send.disabled = true;
 				send.classList.add("is-loading");
-				send.querySelector(".aa-ui-button__label").textContent = label("actions.sending", "Sending…");
+				send.querySelector(".aa-ui-button__label").textContent = label("actions.preparing", "Preparing…");
 				try {
-					const result = await sendDiscordShare(shareConfig, session, {
-						image: selected,
-						prompt: sharePrompt,
-						targetIds: selectedTargetIds,
-						longPromptAsFile,
-					});
-					if (result?.ok) {
-						closeActiveDialog();
-						const deliveredLabels = (result.delivered_targets || []).map((target) => target.label).filter(Boolean);
-						const destination = deliveredLabels.length ? ` (${deliveredLabels.join("、")})` : "";
-						toast("success", `${label("toast.sent", "Image and prompt sent to Discord.")}${destination}`);
-						return;
+					await dimensionsReady;
+					if (!pickerActive) return;
+					const selected = images[selectedIndex];
+					if (!selected) return;
+					let upload = await loadDiscordShareImage(selected);
+					if (!pickerActive) return;
+					if (shouldOfferShareCompression(upload.blob.size)) {
+						const choice = await chooseLargeImageUpload({ filename: upload.filename, byteLength: upload.blob.size, label });
+						if (!pickerActive) return;
+						if (!choice) {
+							resetSendState();
+							return;
+						}
+						if (choice === "compress") {
+							send.querySelector(".aa-ui-button__label").textContent = label("actions.compressing", "Compressing…");
+							try {
+								upload = await compressDiscordShareImage(upload);
+								if (!pickerActive) return;
+							} catch (cause) {
+								const error = new Error("The browser could not compress the selected image.", { cause });
+								error.code = "image_compression_failed";
+								throw error;
+							}
+						}
 					}
-					if (result?.code === "partial_delivery") {
-						const failedIds = (result.failed_targets || []).map((target) => target.id).filter(Boolean);
-						const failedLabels = (result.failed_targets || []).map((target) => target.label).filter(Boolean);
-						targetPicker.setValues(failedIds);
-						resetSendState();
-						const message = `${label("toast.partial", "Sent to some channels. Retry the channels that failed.")} ${failedLabels.join("、")}`;
-						showSendFeedback(message, { warning: true });
-						toast("warn", message);
-						return;
-					}
-					throw new Error(result?.message || label("error.unknown", "Discord sharing failed. Try again."));
+					const backgroundRequest = {
+						selected: { ...selected },
+						upload,
+						sharePrompt,
+						targetIds: [...selectedTargetIds],
+						promptAsFile: longPromptAsFile,
+					};
+					closeActiveDialog();
+					void sendInBackground(backgroundRequest);
 				} catch (error) {
+					if (!pickerActive) return;
 					resetSendState();
-					if (error?.code === "not_member") {
-						closeActiveDialog();
-						scheduleEntrypointSync();
-						openMembershipRequiredDialog(error, shareConfig);
-					} else if ([401, 403].includes(error?.status)) {
-						closeActiveDialog();
-						scheduleEntrypointSync();
-						openConnectDialog(shareConfig);
-					} else {
-						const message = shareErrorMessage(error);
-						showSendFeedback(message);
-						toast("error", message);
-					}
+					showSendFeedback(shareErrorMessage(error));
 				}
 			},
 		});
 
+		const dimensionPromises = [];
 		const thumbnails = images.map((image, index) => {
 			const meta = el("span", "aa-discord-share-filmstrip__meta", compactImageMeta(image));
 			const item = el("button", {
@@ -313,14 +391,20 @@ export function createDiscordSharePicker({
 					meta,
 				],
 			});
-			item.addEventListener("click", () => select(index, { focus: false }));
-			hydrateImageDimensions(image, () => {
+			item.addEventListener("click", () => {
+				selectionTouched = true;
+				select(index, { focus: false });
+			});
+			dimensionPromises.push(hydrateImageDimensions(image, () => {
 				meta.textContent = compactImageMeta(image);
 				item.setAttribute("aria-label", `${image.filename} · ${imageMeta(image)}`);
-				if (selectedIndex === index) dimensions.textContent = imageMeta(image);
-			});
+				if (selectionTouched && selectedIndex === index) dimensions.textContent = imageMeta(image);
+			}));
 			filmstrip.append(item);
 			return item;
+		});
+		const dimensionsReady = Promise.all(dimensionPromises).then(() => {
+			if (!selectionTouched) select(preferredShareImageIndex(images), { focus: false });
 		});
 
 		function select(index, { focus = true } = {}) {
@@ -345,6 +429,7 @@ export function createDiscordSharePicker({
 		filmstrip.addEventListener("keydown", (event) => {
 			if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
 			event.preventDefault();
+			selectionTouched = true;
 			const next = event.key === "Home" ? 0
 				: event.key === "End" ? images.length - 1
 					: selectedIndex + (event.key === "ArrowRight" ? 1 : -1);
@@ -398,6 +483,7 @@ export function createDiscordSharePicker({
 			className: "aa-discord-share-dialog",
 			confirmOnEnter: false,
 			onClose: () => {
+				pickerActive = false;
 				imageViewer.destroy();
 				targetPicker.destroy();
 				promptFileControl.destroy();
@@ -405,6 +491,6 @@ export function createDiscordSharePicker({
 			},
 		});
 		setActiveDialog(dialog);
-		select(0, { focus: false });
+		select(preferredShareImageIndex(images), { focus: false });
 	};
 }

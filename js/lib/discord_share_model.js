@@ -43,10 +43,27 @@ export function imageReferenceKey(reference) {
 	return normalized ? `${normalized.type}\u0000${normalized.subfolder}\u0000${normalized.filename}` : "";
 }
 
+export function preferredShareImageIndex(images) {
+	let preferredIndex = Math.max(0, images.length - 1);
+	let preferredArea = 0;
+	for (const [index, image] of images.entries()) {
+		const area = Math.max(0, Number(image?.width) || 0) * Math.max(0, Number(image?.height) || 0);
+		if (area >= preferredArea) {
+			preferredArea = area;
+			preferredIndex = index;
+		}
+	}
+	return preferredIndex;
+}
+
+function executionOutputEntries(outputs) {
+	return outputs instanceof Map ? outputs.entries() : Object.entries(outputs || {});
+}
+
 export function collectExecutionImages(outputs) {
 	const result = [];
 	const seen = new Set();
-	for (const [executionId, output] of Object.entries(outputs || {})) {
+	for (const [executionId, output] of executionOutputEntries(outputs)) {
 		for (const candidate of Array.isArray(output?.images) ? output.images : []) {
 			const reference = normalizeImageReference(candidate);
 			const key = imageReferenceKey(reference);
@@ -68,7 +85,7 @@ export function textFromExecutionOutput(output) {
 export function findPromptForBinding(outputs, binding, resolveNode) {
 	if (!binding || typeof resolveNode !== "function") return "";
 	let prompt = "";
-	for (const [executionId, output] of Object.entries(outputs || {})) {
+	for (const [executionId, output] of executionOutputEntries(outputs)) {
 		const node = resolveNode(executionId);
 		if (!node || String(node.id) !== String(binding.nodeId)) continue;
 		const nodeGraphId = node.graph?.id == null ? "root" : String(node.graph.id);

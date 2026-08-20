@@ -284,23 +284,33 @@ function imageReferenceUrl(reference) {
 	return api.apiURL(`/view?${query}${app.getRandParam?.() || ""}`);
 }
 
+export async function loadDiscordShareImage(image) {
+	const imageResponse = await fetch(imageReferenceUrl(image));
+	if (!imageResponse.ok) throw new DiscordShareClientError(`Could not read image (${imageResponse.status})`, { code: "image_unavailable" });
+	return {
+		blob: await imageResponse.blob(),
+		filename: String(image?.filename || "image.png").trim() || "image.png",
+		width: Number(image?.width) || 0,
+		height: Number(image?.height) || 0,
+	};
+}
+
 export async function sendDiscordShare(config, session, {
 	image,
+	upload = null,
 	prompt,
 	targetIds = [],
 	longPromptAsFile = true,
 }) {
 	if (!config?.relayUrl) throw new DiscordShareClientError("Discord share relay is unavailable", { code: "not_configured" });
 	if (!session?.token) throw new DiscordShareClientError("Discord authorization is required", { code: "unauthorized", status: 401 });
-	const imageResponse = await fetch(imageReferenceUrl(image));
-	if (!imageResponse.ok) throw new DiscordShareClientError(`Could not read image (${imageResponse.status})`, { code: "image_unavailable" });
-	const blob = await imageResponse.blob();
+	const preparedUpload = upload || await loadDiscordShareImage(image);
 	const body = new FormData();
-	body.append("image", blob, image.filename);
+	body.append("image", preparedUpload.blob, preparedUpload.filename);
 	body.append("prompt", String(prompt || ""));
-	body.append("filename", image.filename);
-	body.append("width", String(image.width || ""));
-	body.append("height", String(image.height || ""));
+	body.append("filename", preparedUpload.filename);
+	body.append("width", String(preparedUpload.width || image?.width || ""));
+	body.append("height", String(preparedUpload.height || image?.height || ""));
 	for (const targetId of [...new Set(targetIds.map(String).filter(Boolean))]) body.append("target", targetId);
 	body.append("long_prompt_as_file", String(Boolean(longPromptAsFile)));
 	const response = await fetch(`${config.relayUrl}/v1/share`, {

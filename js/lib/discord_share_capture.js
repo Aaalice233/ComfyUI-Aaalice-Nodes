@@ -97,41 +97,43 @@ class DiscordShareCapture extends EventTarget {
 			if (!promptId) return;
 			const sequence = ++this.sequence;
 			this.promptSequences.set(promptId, sequence);
-			this.executedOutputs.set(promptId, {});
+			this.executedOutputs.set(promptId, new Map());
 		});
 		api.addEventListener("executed", (event) => {
 			const promptId = String(event.detail?.prompt_id || "");
 			const executionId = event.detail?.display_node ?? event.detail?.node;
 			if (!promptId || executionId == null) return;
-			const outputs = this.executedOutputs.get(promptId) || {};
-			outputs[String(executionId)] = event.detail?.output || {};
+			const outputs = this.executedOutputs.get(promptId) || new Map();
+			const outputId = String(executionId);
+			outputs.delete(outputId);
+			outputs.set(outputId, event.detail?.output || {});
 			this.executedOutputs.set(promptId, outputs);
 		});
 		api.addEventListener("execution_success", (event) => {
 			const promptId = String(event.detail?.prompt_id || "");
 			if (promptId) void this.finalize(promptId);
 		});
-		api.addEventListener("execution_error", (event) => {
+		const finalizePartial = (event) => {
 			const promptId = String(event.detail?.prompt_id || "");
-			if (!promptId) return;
-			this.executedOutputs.delete(promptId);
-			this.promptSequences.delete(promptId);
-		});
+			if (promptId) void this.finalize(promptId, { includeHistory: false, preserveOnEmpty: true });
+		};
+		api.addEventListener("execution_error", finalizePartial);
+		api.addEventListener("execution_interrupted", finalizePartial);
 	}
 
-	async finalize(promptId) {
+	async finalize(promptId, { includeHistory = true, preserveOnEmpty = false } = {}) {
 		const sequence = this.promptSequences.get(promptId) || ++this.sequence;
-		let outputs = this.executedOutputs.get(promptId) || {};
-		try {
-			const historyOutputs = await fetchHistoryOutputs(promptId);
-			if (Object.keys(historyOutputs).length) outputs = historyOutputs;
-		} catch (error) {
-			console.warn("[Aaalice] Discord share could not read completed history; using live execution outputs.", error);
+		const outputs = this.executedOutputs.get(promptId) || new Map();
+		if (includeHistory) {
+			try {
+				const historyOutputs = await fetchHistoryOutputs(promptId);
+				for (const [executionId, output] of Object.entries(historyOutputs)) outputs.set(executionId, output);
+			} catch (error) {
+				console.warn("[Aaalice] Discord share could not read completed history; using live execution outputs.", error);
+			}
 		}
-		if (sequence < this.latestSequence) return;
 		const binding = promptSourceBinding();
-		this.latestSequence = sequence;
-		this.latest = createShareSnapshot({
+		const snapshot = createShareSnapshot({
 			promptId,
 			outputs,
 			promptBinding: binding,
@@ -139,6 +141,9 @@ class DiscordShareCapture extends EventTarget {
 		});
 		this.executedOutputs.delete(promptId);
 		this.promptSequences.delete(promptId);
+		if ((preserveOnEmpty && snapshot.images.length === 0) || sequence < this.latestSequence) return;
+		this.latestSequence = sequence;
+		this.latest = snapshot;
 		this.dispatchEvent(new CustomEvent("latest-run-change", { detail: this.latest }));
 	}
 }

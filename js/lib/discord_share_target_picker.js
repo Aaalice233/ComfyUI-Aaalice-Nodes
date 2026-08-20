@@ -1,5 +1,5 @@
 /** Multi-channel target selection for the Discord share dialog. */
-import { button, createAnchoredPopover, el, multiSelectControl } from "./ui.js";
+import { button, createAnchoredPopover, el, icon, multiSelectControl } from "./ui.js";
 
 export function createShareTargetPicker(targets, initialValues, onChange, { label }) {
 	let selected = [...initialValues];
@@ -11,6 +11,9 @@ export function createShareTargetPicker(targets, initialValues, onChange, { labe
 		variant: "secondary",
 		className: "aa-discord-share-target-trigger",
 	});
+	const triggerChevron = icon("chevronDown", { className: "aa-discord-share-target-trigger__chevron" });
+	triggerChevron.setAttribute("aria-hidden", "true");
+	trigger.append(triggerChevron);
 	trigger.setAttribute("aria-haspopup", "dialog");
 	const syncTrigger = () => {
 		const selectedTargets = targets.filter((target) => selected.includes(target.id));
@@ -60,7 +63,7 @@ export function createShareTargetPicker(targets, initialValues, onChange, { labe
 			onChange: (values) => setValues(values),
 		});
 		popover.root.append(
-			el("strong", "aa-discord-share-target-popover__title", label("targets.title", "Send to")),
+			el("strong", "aa-discord-share-target-popover__title", label("targets.multiHint", "Send to (multiple allowed)")),
 			choices,
 		);
 	};

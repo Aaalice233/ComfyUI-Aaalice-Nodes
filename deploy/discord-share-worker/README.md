@@ -27,7 +27,11 @@ wrangler secret put STATE_SECRET
 ```
 
 `DISCORD_WEBHOOK_TARGETS` is a JSON array. Target IDs are stable public
-identifiers; URLs remain secret. For example:
+identifiers; URLs remain secret. Additional arrays can be stored in separately
+named secrets such as `DISCORD_WEBHOOK_TARGETS_CHAT_SFW`; every binding whose
+name is `DISCORD_WEBHOOK_TARGETS` or starts with `DISCORD_WEBHOOK_TARGETS_` is
+merged in stable name order. This lets maintainers add one channel without
+reading or replacing existing webhook secrets. For example:
 
 ```json
 [
@@ -65,9 +69,10 @@ Restart ComfyUI after changing either environment variable.
 - KV only stores OAuth handoffs and bearer sessions. Per-share abuse protection
   uses Cloudflare's native Rate Limiting binding, so a successful share does not
   consume a KV write.
-- The Worker rate-limits each Discord user and validates image type and size.
-  The default image upload limit is 20 MiB and can be overridden with
-  `MAX_UPLOAD_BYTES`.
+- The Worker rate-limits each Discord user and validates the image MIME type.
+  It does not impose an application-level image-size limit. The browser offers
+  optional upload-copy compression above 20 MiB; choosing the original remains
+  valid, while Cloudflare and Discord retain their own platform request limits.
 - Authenticated clients receive only target IDs, labels, defaults and the
   non-sensitive `prefer_prompt_file` interaction hint. Webhook URLs never leave
   the Worker.

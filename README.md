@@ -14,6 +14,8 @@
 
 > [!WARNING]
 > **不要与 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 同时安装**：两者注册了相同的节点 ID（`PromptSelector`、`GroupIsEnabled`、`SimpleNotify`、`SimpleStringSplit`、`FetchFromKrita`），且旧版包前端仍会挂钩这些节点类型，同时安装会产生重复控件和不可预期行为。请只保留其中一个。若检测到两者共存，界面会弹出警告提示。
+>
+> **不要安装 `AIGODLIKE-COMFYUI-TRANSLATION`**：该插件会覆盖子图的自定义参数名称，使侧边栏参数组件名称混乱。检测到该插件时界面会弹出警告；请卸载后重启 ComfyUI，并重新打开一份干净的工作流，插件启用期间已保存的名称可能无法自动恢复。
 
 ## 📋 环境要求
 
@@ -165,6 +167,12 @@ Krita、ComfyUI 与 Bridge 必须运行在同一台机器。缺少 Bridge、Krit
 ## 🖥️ Aaalice 工作区
 
 从 ComfyUI 左侧打开 **Aaalice 工作区**，其中包含三个视图：**参数控制**（看板页面）、**组导航**和**词库**。
+
+### ✈️ Discord 一键分享
+
+工作区底栏的纸飞机入口可把最近一次含图像执行的结果分享至已配置的 Discord 频道。频道支持明确的多选；相册默认选中像素面积最大、同尺寸下最新产出的图片。即使工作流后续放大等节点执行失败，本次运行中此前已经产出的图片仍可分享。超过 20 MiB 时可选择发送原图或压缩上传副本，压缩不会修改 ComfyUI 输出；选择完成后窗口立即关闭，发送结果通过 ComfyUI Toast 通知。
+
+分享服务需要仓库维护者部署受信任中继并配置 Discord OAuth、成员验证和 Webhook Target；普通使用者不会接触 Webhook URL。
 
 ### 👁️ 打开时聚焦
 

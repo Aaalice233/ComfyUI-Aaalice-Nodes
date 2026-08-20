@@ -57,12 +57,17 @@ function toast(severity, detail, summary = label("title", "Discord Share")) {
 }
 
 function shareErrorMessage(error) {
+	if (error?.status === 413 && (!error?.code || ["request_failed", "image_upload_rejected"].includes(error.code))) {
+		return label("error.platformUploadRejected", "Discord or the relay rejected this image size. Reopen Share and use the compressed upload copy.");
+	}
 	const messages = {
 		rate_limited: label("error.rateLimited", "Share limit reached for this Discord account. Wait about 60 seconds, then try again."),
 		rate_limiter_unavailable: label("error.rateLimiterUnavailable", "The sharing service could not check its rate limit. Try again shortly."),
 		relay_misconfigured: label("error.relayMisconfigured", "The sharing service is not fully configured. Contact the server administrator."),
-		image_too_large: label("error.imageTooLarge", "The selected image exceeds the 20 MB sharing limit. Choose a smaller image or compress it, then try again."),
+		image_compression_failed: label("error.imageCompressionFailed", "The browser could not compress this image. Send the original or try another image."),
 		image_unavailable: label("error.imageUnavailable", "ComfyUI could not read the selected image. Confirm that the output file still exists, then try again."),
+		not_member: label("error.reconnect", "Discord verification is no longer valid. Reopen Share and verify again."),
+		unauthorized: label("error.reconnect", "Discord verification is no longer valid. Reopen Share and verify again."),
 		webhook_failed: label("error.webhookFailed", "Discord did not accept this share. Try again; if it continues, contact the server administrator."),
 		prompt_too_long: label("error.promptTooLong", "The positive prompt exceeds the safe ten-message split limit. Enable long-prompt file mode or shorten it, then try again."),
 		prompt_file_too_large: label("error.promptFileTooLarge", "The positive prompt exceeds the TXT attachment limit. Shorten it, then try again."),
@@ -386,8 +391,6 @@ function openConnectDialog(shareConfig, { continueToPicker = true } = {}) {
 const openSharePicker = createDiscordSharePicker({
 	closeActiveDialog,
 	label,
-	openConnectDialog,
-	openMembershipRequiredDialog,
 	scheduleEntrypointSync,
 	setActiveDialog: (dialog) => { activeDialog = dialog; },
 	shareErrorMessage,

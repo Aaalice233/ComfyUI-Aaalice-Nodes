@@ -46,7 +46,7 @@
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,category_tree,category_picker,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库与分类树索引、共享分类选择器、词库事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_{model,cards,controller,dialogs,hover,media,settings,surface},booru_gallery_card_layout,virtual_masonry}.js`、`js/lib/controls/booru_gallery.js` | 入口装配、选择快照注入与 Dashboard Provider；单个控制器拥有请求和结果并向节点 / Dashboard 多投影定向同步，Surface、卡片、纯操作网格、悬浮预览、弹窗、媒体、设置和自然比例虚拟瀑布流按职责分离 |
 | Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
-| Discord 分享 | `js/discord_share.js`、`js/lib/discord_share_{capture,client,model,picker,image_viewer,prompt_file,target_picker}.js` | 入口与发送流程装配；执行快照、网络客户端、纯模型、选择器、图像查看、提示词附件和 Target 选择按职责分离 |
+| Discord 分享 | `js/discord_share.js`、`js/lib/discord_share_{capture,client,model,picker,image_prepare,image_viewer,prompt_file,target_picker}.js` | 入口与发送流程装配；执行快照、网络客户端、纯模型、选择器、上传副本压缩、图像查看、提示词附件和 Target 选择按职责分离 |
 | DIY 左侧工作区 | `js/workspace.js`、`js/workspace/*.js`、`js/lib/{dashboard_*,control_binding_set,control_providers,native_output_controls,control_host_events,workspace_controls,widget_control_adapters,image_preview,lora_preview}.js` | `workspace.js` 只装配生命周期；视图、滚动、绑定、预设、来源组、图签名、组导航、词库、分类树管理器、注释、数值范围和侧栏偏好位于 `js/workspace/`，纯模型、布局命令、Provider、事件和第三方 widget 适配位于 `js/lib/` |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,comfy,quick_group_manager,booru_gallery,numeric,boolean,choice,text,taglist,tag_pills,image_choice,image_compare,image_output,markdown,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、ComfyUI 控件策略、QuickGroupManager 与 Gallery 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
 | 纯模型 | `js/lib/{quick_group_manager_model,group_navigation_model,native_output_model}.js` | 状态规范化、校验、差异和可单测规划 |
@@ -76,7 +76,7 @@
 | Krita Bridge | Krita 插件目录与本机专用临时目录 | 连接心跳、请求关联的 JSON/PNG 和最近执行摘要 | `node.properties`、工作流 JSON、浏览器存储或旧快照复用 |
 | Discord 分享入口 | ComfyUI 应用设置 `Aaalice.DiscordShare.Placement` | 侧栏/顶栏 DOM 和验证状态点 | 多个布尔开关、工作流 JSON 或入口 DOM |
 | Discord 提示词来源 | `app.graph.extra.aaaliceDiscordShare.promptSource` | Preview Any 的限定执行 Id 与本次输出文本 | 提示词正文副本、节点标题或裸 Node Id |
-| Discord 最新运行 | 页面内存中的最后一次成功执行快照 | `/history/{prompt_id}` outputs、图片尺寸、当前选择和 Dialog 内本次分享的临时提示词草稿 | 工作流 JSON、节点属性、浏览器持久缓存 |
+| Discord 最新运行 | 页面内存中的最后一次含图像执行快照 | 成功时合并 `/history/{prompt_id}` outputs；失败或中断时保留该次 `executed` 已产出图片；图片尺寸、当前选择和 Dialog 内本次分享的临时提示词草稿 | 工作流 JSON、节点属性、浏览器持久缓存 |
 | Discord 成员会话 | 浏览器当前 Origin 的可撤销会话 | 中继逐次成员/角色校验 | Webhook、OAuth Secret 或工作流 |
 | Discord 频道选择 | 浏览器 `localStorage` | 中继公开的 Target Id 子集 | Webhook URL、工作流 JSON 或节点属性 |
 | Discord 长 Prompt 文件偏好 | 浏览器 `localStorage` | 是否把超过单 Embed 限制的 Prompt 改为 TXT 附件 | Prompt 正文、工作流 JSON 或频道密钥 |
@@ -116,10 +116,10 @@
 ### Discord 分享
 
 1. Aaalice 工作区底栏提供 GitHub、Discord 社区链接和分享入口，固定按钮位于底栏右侧；用户也可将分享入口迁移到画布顶栏。入口位置只使用一个应用级三态设置，宿主重挂时由单一 MutationObserver 幂等恢复，不轮询 DOM。
-2. Preview Any 右键菜单把 Graph Id、Node Id 和显示标签写入根图 `extra`。执行成功后按 `prompt_id` 读取历史 outputs，限定执行 Id 反查节点并生成页面会话快照；历史读取失败才使用本次 `executed` 事件缓存。
+2. Preview Any 右键菜单把 Graph Id、Node Id 和显示标签写入根图 `extra`。成功执行按 `prompt_id` 合并历史 outputs；执行失败或中断时直接把该次 `executed` 已产出图片组成页面会话快照，只有失败执行未产出图片时才继续保留上一次快照。限定执行 Id 反查提示词节点，不从其它运行猜测正文。
 3. 首次点击且没有有效会话时直接在独立 OAuth 窗口完成 Discord 登录和目标 Guild 成员检测，不以是否已有运行图像为前置条件；中继签名状态绑定原 ComfyUI Origin、一次性 Nonce 和 challenge，回调结果通过精确 Origin 的 `postMessage` 与短时 verifier handoff 交回随机会话 Token。
-4. 相册只展示最后一次成功执行的去重图像；尺寸由浏览器按需解码，当前缩略图、Dialog 状态和提示词编辑草稿不持久化。提示词缺失时禁用发送并要求重新绑定、执行；有提示词时可在发送前进入多行编辑态，保存或放弃修改，且编辑只影响本次分享。
-5. 发送前中继重新查询 Guild 成员和可选角色，执行用户级限流、Target Id、图片类型/大小与提示词校验。一般 Prompt 以连续 fenced Embed 排在图像之前；关闭文件化时超过单个 Embed 的内容按顺序拆成最多十条消息，图像只附在最后一条；启用文件化且超过 1,500 字符时，改为 UTF-8 TXT 与图像同消息附件。首个 Embed 使用会话用户或当前 Guild Member 的昵称与 Discord CDN 头像表达作者身份，但不覆盖 Webhook 自身头像和名称；后续分段不重复作者。任一分段失败时中继尽力删除该频道已发出的分段，任何步骤失败都保持明确错误，部分频道失败会返回独立目标结果。
+4. 相册展示最后一次含图像执行的去重结果；尺寸由浏览器按需解码，默认选择像素面积最大的图片，面积相同或尚未解码时选择更晚产出的图片。当前缩略图、Dialog 状态和提示词编辑草稿不持久化。提示词缺失时禁用发送并要求重新绑定、执行；有提示词时可在发送前进入多行编辑态，保存或放弃修改，且编辑只影响本次分享。
+5. 浏览器读取所选图像后，大于 20 MiB 只弹出可选压缩确认：用户可发送原图，或生成不修改 ComfyUI 输出的 WebP 上传副本。准备完成即关闭选择器，发送在后台继续并以 ComfyUI Toast 报告最终结果；多频道部分失败时成功结果保留，失败 Target Id 保存供下次直接重试。中继重新查询 Guild 成员和可选角色，执行用户级限流、Target Id、图片类型与提示词校验，不设置插件级图片大小上限。一般 Prompt 以连续 fenced Embed 排在图像之前；关闭文件化时超过单个 Embed 的内容按顺序拆成最多十条消息，图像只附在最后一条；启用文件化且超过 1,500 字符时，改为 UTF-8 TXT 与图像同消息附件。首个 Embed 使用会话用户或当前 Guild Member 的昵称与 Discord CDN 头像表达作者身份，但不覆盖 Webhook 自身头像和名称；后续分段不重复作者。任一分段失败时中继尽力删除该频道已发出的分段，任何步骤失败都保持明确错误，部分频道失败会返回独立目标结果。
 
 ### ResolutionPreset
 

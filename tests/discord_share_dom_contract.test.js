@@ -10,6 +10,8 @@ const sourcePaths = [
 	["entry", "discord_share.js"],
 	["picker", "lib/discord_share_picker.js"],
 	["viewer", "lib/discord_share_image_viewer.js"],
+	["imagePrepare", "lib/discord_share_image_prepare.js"],
+	["capture", "lib/discord_share_capture.js"],
 	["targets", "lib/discord_share_target_picker.js"],
 	["promptFile", "lib/discord_share_prompt_file.js"],
 ];
@@ -76,7 +78,7 @@ test("picker is latest-run only and requires a prompt before sending", () => {
 	assert.match(source, /aa-discord-share-picker__send-feedback/);
 	assert.match(source, /role:\s*"alert"/);
 	assert.match(source, /role:\s*"alert",\s*"aria-live":\s*"assertive",\s*hidden:\s*true/);
-	assert.match(source, /showSendFeedback\(message\)/);
+	assert.match(source, /showSendFeedback\(shareErrorMessage\(error\)\)/);
 	assert.match(source, /normalizeSharePrompt\(promptValue\)/);
 	assert.match(source, /promptEditor/);
 	assert.match(source, /savePromptEdit/);
@@ -92,7 +94,10 @@ test("picker exposes a persistent multi-target selector without receiving webhoo
 	assert.match(source, /createShareTargetPicker\(targets,/);
 	assert.match(source, /multiSelectControl\(/);
 	assert.match(source, /targetPicker\.root/);
-	assert.match(source, /targetIds:\s*selectedTargetIds/);
+	assert.match(source, /targetIds:\s*\[\.\.\.selectedTargetIds\]/);
+	assert.match(source, /chevronDown/);
+	assert.match(source, /aria-expanded/);
+	assert.match(source, /targets\.multiHint/);
 	assert.match(clientSource, /\/v1\/targets/);
 	assert.match(clientSource, /aaalice\.discord-share\.targets\.v1/);
 	assert.match(clientSource, /body\.append\("target",\s*targetId\)/);
@@ -100,6 +105,28 @@ test("picker exposes a persistent multi-target selector without receiving webhoo
 	assert.match(theme, /\.aa-discord-share-target-trigger/);
 	assert.match(theme, /\.aa-discord-share-target-popover/);
 	assert.match(theme, /\.aa-discord-share-target-list/);
+});
+
+test("large images offer compression or original upload and sending continues after the picker closes", () => {
+	assert.match(source, /shouldOfferShareCompression\(upload\.blob\.size\)/);
+	assert.match(source, /choice === "compress"/);
+	assert.match(source, /largeImage\.original/);
+	assert.match(source, /largeImage\.compress/);
+	assert.match(source, /closeActiveDialog\(\);\s*void sendInBackground\(backgroundRequest\)/s);
+	assert.match(source, /pickerActive = false/);
+	assert.match(source, /if \(!pickerActive\) return/);
+	assert.match(source, /toast\("success"/);
+	assert.match(source, /toast\("error"/);
+	assert.match(clientSource, /upload \|\| await loadDiscordShareImage\(image\)/);
+	assert.match(theme, /\.aa-discord-share-large-image/);
+});
+
+test("failed and interrupted runs preserve already executed images", () => {
+	assert.match(sources.capture, /execution_error", finalizePartial/);
+	assert.match(sources.capture, /execution_interrupted", finalizePartial/);
+	assert.match(sources.capture, /preserveOnEmpty:\s*true/);
+	assert.match(sources.capture, /snapshot\.images\.length === 0/);
+	assert.match(sources.capture, /executedOutputs\.set\(promptId, new Map\(\)\)/);
 });
 
 test("long prompt file mode is persistent and auto-recommended only by selected target capability", () => {
