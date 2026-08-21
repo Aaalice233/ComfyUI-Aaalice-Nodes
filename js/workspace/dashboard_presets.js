@@ -12,7 +12,6 @@ let runtime = null;
 let dashboardPresetModelError = null;
 let dashboardPresetAutoSaveFrame = 0;
 let dashboardPresetAutoSaveRunning = false;
-let dashboardPresetDiagnosticSignature = "";
 export function configureDashboardPresets(dependencies) { runtime = dependencies; }
 export function getDashboardPresetModelError() { return dashboardPresetModelError; }
 const dashboard = () => runtime.dashboard();
@@ -89,68 +88,6 @@ export function currentDashboardPresetSnapshot(model = dashboard(), previousValu
 	}
 	const captured = captureDashboardValues(model, (binding) => resolve(binding));
 	return { dashboard: model, values: mergeCapturedPresetValues(captured, previousValues), bindings: captured.bindings };
-}
-
-function diagnosticError(error) {
-	return error ? { name: error.name || "Error", message: String(error.message || error), stack: String(error.stack || "") } : null;
-}
-
-function diagnosticResolution(binding) {
-	try {
-		const resolved = resolve(binding);
-		return {
-			status: resolved?.status || "missing", presettable: resolved?.presettable !== false, kind: resolved?.kind || null,
-			controlId: resolved?.controlId || null, label: resolved?.label || null, availability: resolved?.availability || null,
-			node: resolved?.node ? { id: resolved.node.id, type: resolved.node.type, title: resolved.node.getTitle?.() || resolved.node.title || null } : null,
-			widget: resolved?.widget ? { name: resolved.widget.name || null, type: resolved.widget.type || null } : null,
-		};
-	} catch (error) {
-		return { status: "error", error: diagnosticError(error) };
-	}
-}
-
-function diagnosticEntry(currentModel, baselineModel, entry) {
-	return {
-		key: entry.key, status: entry.status, reason: entry.reason || null, binding: entry.binding || null,
-		currentLocations: dashboardPresetIssueLocations(currentModel, entry), baselineLocations: dashboardPresetIssueLocations(baselineModel, entry),
-		resolution: entry.binding ? diagnosticResolution(entry.binding) : null, error: diagnosticError(entry.error),
-	};
-}
-
-export function logDashboardPresetAttention({ baseline, current, comparison }) {
-	if (!baseline || !comparison?.attention) return;
-	try {
-		const model = current.dashboard;
-		const captured = captureDashboardValues(model, (binding) => resolve(binding));
-		const plan = planDashboardPresetApplication(baseline, (binding) => resolve(binding));
-		const baselineKeys = new Set(Object.keys(baseline.values || {}));
-		const currentKeys = new Set(Object.keys(current.values || {}));
-		const layoutKeys = new Set();
-		for (const page of model.pages || []) for (const item of page.items || []) for (const binding of controlItemBindings(item)) layoutKeys.add(bindingKey(binding));
-		const captureProblems = captured.bindings.filter((entry) => entry.status !== "ok").map((entry) => diagnosticEntry(model, baseline.dashboard, entry));
-		const planProblems = plan.entries.filter((entry) => !["ready", "repaired"].includes(entry.status)).map((entry) => diagnosticEntry(model, baseline.dashboard, entry));
-		const captureStatusCounts = {};
-		for (const entry of captured.bindings) captureStatusCounts[entry.status] = (captureStatusCounts[entry.status] || 0) + 1;
-		const report = {
-			timestamp: new Date().toISOString(), workflowTitle: document.title, autoSaveEnabled: Boolean(runtime.isAutoSaveEnabled()),
-			baseline: { id: baseline.id, name: baseline.name, pages: baseline.dashboard.pages.length, values: baselineKeys.size },
-			current: { pages: model.pages.length, values: currentKeys.size, layoutBindings: layoutKeys.size },
-			comparison,
-			keyDiff: {
-				baselineValuesMissingFromCurrent: [...baselineKeys].filter((key) => !currentKeys.has(key)),
-				currentValuesMissingFromBaseline: [...currentKeys].filter((key) => !baselineKeys.has(key)),
-				baselineValuesWithoutCurrentComponent: [...baselineKeys].filter((key) => !layoutKeys.has(key)),
-			},
-			captureStatusCounts,
-			captureProblems, presetPlanProblems: planProblems,
-		};
-		const signature = JSON.stringify([baseline.id, comparison, report.keyDiff, captureProblems, planProblems]);
-		if (signature === dashboardPresetDiagnosticSignature) return;
-		dashboardPresetDiagnosticSignature = signature;
-		console.warn("[Aaalice Dashboard Preset Diagnostics]\n" + JSON.stringify(report, null, 2));
-	} catch (error) {
-		console.error("[Aaalice Dashboard Preset Diagnostics] Failed to collect diagnostics", error);
-	}
 }
 
 function autoSaveActiveDashboardPreset() {

@@ -165,6 +165,10 @@ test("comparison detects layout and value changes but ignores transient unavaila
 	assert.equal(changed.layoutChanges, 1); assert.equal(changed.valueChanges, 1); assert.equal(changed.modified, true);
 	const unavailable = compareDashboardPreset(preset, { dashboard: layout(), values: {}, bindings: [{ key: KEY, status: "unavailable" }] });
 	assert.equal(unavailable.modified, false); assert.equal(unavailable.attention, false);
+	const invalidLiveOption = compareDashboardPreset(preset, { ...snapshot(), bindings: [{ key: KEY, status: "invalid", reason: "missing-option" }] });
+	assert.equal(invalidLiveOption.modified, false); assert.equal(invalidLiveOption.attention, false);
+	const resolverError = compareDashboardPreset(preset, { ...snapshot(), bindings: [{ key: KEY, status: "error" }] });
+	assert.equal(resolverError.modified, false); assert.equal(resolverError.attention, true);
 	const missing = compareDashboardPreset(preset, { dashboard: layout(), values: {}, bindings: [{ key: KEY, status: "missing" }] });
 	assert.equal(missing.modified, true); assert.equal(missing.attention, true);
 });

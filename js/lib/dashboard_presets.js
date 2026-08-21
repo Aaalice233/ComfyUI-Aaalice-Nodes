@@ -251,7 +251,7 @@ export function compareDashboardPreset(preset, currentSnapshot) {
 	}
 	for (const key of Object.keys(current.values)) if (!saved.values[key]) added++;
 	const valueChanges = changed + missing + added;
-	return { layoutChanges, valueChanges, changed, missing, added, modified: layoutChanges > 0 || valueChanges > 0, attention: missing > 0 || [...statuses.values()].some((status) => ["missing", "incompatible", "error", "invalid"].includes(status)) };
+	return { layoutChanges, valueChanges, changed, missing, added, modified: layoutChanges > 0 || valueChanges > 0, attention: missing > 0 || [...statuses.values()].some((status) => ["missing", "incompatible", "error"].includes(status)) };
 }
 
 export function serializeDashboardPreset(snapshot, name = null) {
