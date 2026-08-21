@@ -25,17 +25,37 @@ test("keeps status refresh separate from execution data", () => {
 	assert.match(source, /aaalice_krita_snapshot/);
 	assert.match(source, /onExecuted/);
 	assert.match(source, /execution_error/);
+	assert.match(source, /execution_success/);
+	assert.match(source, /execution_interrupted/);
+	assert.match(source, /local\.phase !== "fetching"/);
 	assert.match(source, /execution time/i);
 	assert.doesNotMatch(source, /graphToPrompt/);
 });
 
-test("uses shared UI settings and explicit bridge maintenance", () => {
+test("refreshes every FetchFromKrita node once before each queue operation", () => {
+	assert.match(source, /function installQueueHook\(\)/);
+	assert.match(source, /const originalQueuePrompt = app\.queuePrompt/);
+	assert.match(source, /await refreshKritaNodesBeforeQueue\(\)/);
+	assert.match(source, /originalQueuePrompt\.apply\(this, args\)/);
+	assert.match(source, /allGraphNodes\(app\.graph\)\.filter\(isKritaNode\)/);
+	assert.match(source, /local\.snapshot = null/);
+	assert.match(source, /if \(statusRequest\) return statusRequest/);
+});
+
+test("uses shared UI settings, managed updates, and explicit bridge maintenance", () => {
 	assert.match(source, /app\.ui\.settings\.addSetting/);
 	assert.match(source, /category:\s*\["Aaalice Nodes", "Krita"\]/);
 	assert.match(source, /createDialog/);
 	assert.match(source, /iconButton/);
 	assert.match(source, /app\.extensionManager\?\.toast/);
 	assert.match(source, /current\.installed && !enableOnly \? "repair" : "install"/);
+	assert.match(source, /current\.automatic_update/);
+	assert.match(source, /restart-required/);
+	assert.match(source, /update-failed/);
+	assert.match(source, /const enableOnly = .*&& !updateFailed/);
+	assert.match(source, /automatic updates/);
+	assert.match(source, /Refresh status/);
+	assert.match(source, /if \(busy\) return/);
 	assert.match(source, /current\.krita_running \|\| current\.responding/);
 	assert.match(source, /Install and enable Bridge/);
 	assert.match(source, /Enable Bridge/);

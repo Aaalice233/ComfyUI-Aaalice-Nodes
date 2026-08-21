@@ -15,7 +15,7 @@ from PyQt5.QtCore import QByteArray, QTimer
 from PyQt5.QtGui import QImage
 
 PROTOCOL_VERSION = 1
-BRIDGE_VERSION = "1.1.0"
+BRIDGE_VERSION = "1.2.0"
 STALE_FILE_AGE = 24 * 60 * 60
 METADATA_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
@@ -136,6 +136,7 @@ class AaaliceComfyBridgeExtension(Extension):
             if not isinstance(deadline, (int, float)) or time.time() > float(deadline):
                 self._failure(request_id, "request-expired", "the Krita snapshot request expired before it was handled")
                 return
+            self._response(request_id, status="processing")
             self._fetch_snapshot(request_id)
         except Exception as exc:
             self._failure(request_id, "bridge-error", f"Krita Bridge failed to process the request: {exc}")
@@ -166,6 +167,7 @@ class AaaliceComfyBridgeExtension(Extension):
         original_batch_mode = document.batchmode()
         try:
             document.setBatchmode(True)
+            document.refreshProjection()
             image_path = self.payloads / f"{request_id}-image.png"
             self._save_projection(document, image_path, width, height)
             selection = document.selection()

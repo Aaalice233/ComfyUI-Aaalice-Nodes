@@ -1,7 +1,8 @@
-"""Read-only Bridge status plus explicit user-triggered installation and repair."""
+"""Krita Bridge status, managed updates, and explicit installation or repair."""
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -9,15 +10,34 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from .._lib.krita_snapshot import PROTOCOL_VERSION
 from .bridge_client import bridge_root
 
 BRIDGE_ID = "aaalice_comfy_bridge"
-BRIDGE_VERSION = "1.1.0"
+BRIDGE_VERSION = "1.2.0"
 STATUS_MAX_AGE = 3.0
+
+_update_lock = threading.RLock()
+_auto_update_error: str | None = None
+_auto_updated_from: str | None = None
+_auto_update_recovery_required = False
+_auto_update_recovery_path: Path | None = None
+
+
+class BridgeRecoveryError(RuntimeError):
+    def __init__(self, message: str, recovery_path: Path):
+        super().__init__(message)
+        self.recovery_path = recovery_path
 
 
 def bundle_root() -> Path:
@@ -71,6 +91,197 @@ def installed_version() -> str | None:
     except OSError:
         return None
     return value or None
+
+
+@contextmanager
+def _installation_lock():
+    target_desktop, _target_package = installed_paths()
+    lock_path = target_desktop.parent / f".{BRIDGE_ID}.update.lock"
+    handle = None
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        handle = lock_path.open("a+b")
+        if os.name == "nt":
+            if handle.seek(0, os.SEEK_END) == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError as exc:
+                    if exc.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                        raise
+                    time.sleep(0.05)
+        else:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+    except OSError as exc:
+        if handle is not None:
+            handle.close()
+        raise RuntimeError(f"could not lock the Krita Bridge installation: {exc}") from exc
+    try:
+        yield
+    finally:
+        handle.close()
+
+
+def _restart_marker_path() -> Path:
+    target_desktop, _target_package = installed_paths()
+    return target_desktop.parent / f".{BRIDGE_ID}.restart-required"
+
+
+def _set_restart_marker(required: bool) -> None:
+    marker = _restart_marker_path()
+    try:
+        if required:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.touch(exist_ok=True)
+        else:
+            marker.unlink(missing_ok=True)
+    except OSError as exc:
+        action = "record" if required else "clear"
+        raise RuntimeError(f"could not {action} the Krita Bridge restart state: {exc}") from exc
+
+
+def _version_tuple(value: str | None) -> tuple[int, int, int] | None:
+    match = re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", value or "")
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3))) if match else None
+
+
+def _version_state(version: str | None) -> str:
+    if version is None:
+        return "not-installed"
+    installed = _version_tuple(version)
+    expected = _version_tuple(BRIDGE_VERSION)
+    if installed is None or expected is None:
+        return "manual-repair-required"
+    if installed < expected:
+        return "update-available"
+    if installed > expected:
+        return "newer"
+    return "current"
+
+
+def _bundle_sources() -> tuple[Path, Path]:
+    desktop = bundle_root() / f"{BRIDGE_ID}.desktop"
+    package = bundle_root() / BRIDGE_ID
+    if not desktop.is_file() or not package.is_dir():
+        raise RuntimeError("the bundled Krita Bridge files are missing")
+    version_file = package / "VERSION"
+    try:
+        bundled_version = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError("the bundled Krita Bridge version is unreadable") from exc
+    if bundled_version != BRIDGE_VERSION:
+        raise RuntimeError(f"the bundled Krita Bridge version is {bundled_version or 'missing'}, expected {BRIDGE_VERSION}")
+    return desktop, package
+
+
+def _deploy_bundle() -> None:
+    source_desktop, source_package = _bundle_sources()
+    target_desktop, target_package = installed_paths()
+    try:
+        target_desktop.parent.mkdir(parents=True, exist_ok=True)
+        staging_root = Path(tempfile.mkdtemp(prefix="aaalice-krita-bridge-", dir=target_desktop.parent))
+    except OSError as exc:
+        raise RuntimeError(f"could not prepare the Krita Bridge update: {exc}") from exc
+    staged_package = staging_root / BRIDGE_ID
+    staged_desktop = staging_root / f"{BRIDGE_ID}.desktop"
+    backup_package = staging_root / f".{BRIDGE_ID}.backup"
+    backup_desktop = staging_root / f".{BRIDGE_ID}.desktop.backup"
+    package_deployed = False
+    desktop_deployed = False
+    preserve_staging = False
+    try:
+        shutil.copytree(source_package, staged_package)
+        shutil.copy2(source_desktop, staged_desktop)
+        if target_package.exists():
+            os.replace(target_package, backup_package)
+        os.replace(staged_package, target_package)
+        package_deployed = True
+        if target_desktop.exists():
+            os.replace(target_desktop, backup_desktop)
+        os.replace(staged_desktop, target_desktop)
+        desktop_deployed = True
+    except (OSError, shutil.Error) as exc:
+        rollback_errors = []
+        try:
+            if desktop_deployed:
+                target_desktop.unlink(missing_ok=True)
+            if backup_desktop.exists():
+                os.replace(backup_desktop, target_desktop)
+        except (OSError, shutil.Error) as rollback_exc:
+            rollback_errors.append(f"desktop: {rollback_exc}")
+        try:
+            if package_deployed and target_package.exists():
+                shutil.rmtree(target_package)
+            if backup_package.exists():
+                os.replace(backup_package, target_package)
+        except (OSError, shutil.Error) as rollback_exc:
+            rollback_errors.append(f"package: {rollback_exc}")
+        if rollback_errors:
+            preserve_staging = True
+            details = "; ".join(rollback_errors)
+            raise BridgeRecoveryError(
+                f"could not update or fully restore the Krita Bridge ({details}); recovery files remain in {staging_root}",
+                staging_root,
+            ) from exc
+        raise RuntimeError(f"could not update the Krita Bridge installation: {exc}") from exc
+    finally:
+        if not preserve_staging:
+            shutil.rmtree(staging_root, ignore_errors=True)
+
+
+def _remove_recovery_files() -> None:
+    if _auto_update_recovery_path is None:
+        return
+    install_root = installed_paths()[0].parent.resolve()
+    recovery_path = _auto_update_recovery_path.resolve()
+    if recovery_path.parent != install_root or not recovery_path.name.startswith("aaalice-krita-bridge-"):
+        raise RuntimeError(f"refusing to remove an invalid Krita Bridge recovery path: {recovery_path}")
+    if not recovery_path.exists():
+        return
+    try:
+        shutil.rmtree(recovery_path)
+    except OSError as exc:
+        raise RuntimeError(f"could not remove the Krita Bridge recovery files in {recovery_path}: {exc}") from exc
+
+
+def auto_update_bridge() -> bool:
+    """Update an existing older Bridge without changing installation or enablement intent."""
+    global _auto_update_error, _auto_updated_from, _auto_update_recovery_required, _auto_update_recovery_path
+    with _update_lock:
+        initial_state = _version_state(installed_version())
+        if initial_state != "update-available":
+            if initial_state in {"current", "newer"} and not _auto_update_recovery_required:
+                _auto_update_error = None
+            return False
+        try:
+            with _installation_lock():
+                version = installed_version()
+                if _version_state(version) != "update-available":
+                    _auto_update_error = None
+                    return False
+                krita_was_running = _krita_is_running()
+                _set_restart_marker(True)
+                _deploy_bundle()
+                if installed_version() != BRIDGE_VERSION:
+                    raise RuntimeError("automatic Krita Bridge update did not produce the expected version")
+                if not krita_was_running and not _krita_is_running():
+                    _set_restart_marker(False)
+                _remove_recovery_files()
+        except RuntimeError as exc:
+            _auto_update_error = str(exc)
+            if isinstance(exc, BridgeRecoveryError):
+                _auto_update_recovery_required = True
+                _auto_update_recovery_path = exc.recovery_path
+            raise
+        _auto_update_error = None
+        _auto_update_recovery_required = False
+        _auto_update_recovery_path = None
+        _auto_updated_from = version
+        return True
 
 
 def _krita_is_running() -> bool:
@@ -180,6 +391,7 @@ def _enable_plugin(path: Path | None = None) -> None:
 
 
 def bridge_status() -> dict:
+    global _auto_update_error
     status_path = bridge_root() / "status.json"
     status = _read_json(status_path) or {}
     updated_at = status.get("updated_at")
@@ -188,9 +400,29 @@ def bridge_status() -> dict:
     protocol_compatible = bridge_protocol == PROTOCOL_VERSION
     online = responding and protocol_compatible
     version = installed_version()
+    version_state = _version_state(version)
+    running_version = status.get("bridge_version") if responding else None
+    krita_running = _krita_is_running()
+    restart_marker = _restart_marker_path().is_file()
+    if restart_marker and (not krita_running or running_version == BRIDGE_VERSION):
+        try:
+            _set_restart_marker(False)
+            restart_marker = False
+        except RuntimeError as exc:
+            _auto_update_error = str(exc)
+    restart_required = version == BRIDGE_VERSION and (
+        (responding and running_version != BRIDGE_VERSION) or restart_marker
+    )
+    if _auto_update_error:
+        update_state = "update-failed"
+    elif restart_required:
+        update_state = "restart-required"
+    elif _auto_updated_from is not None and version == BRIDGE_VERSION:
+        update_state = "updated"
+    else:
+        update_state = version_state
     configured_enabled = _plugin_enabled()
     enabled = configured_enabled or responding
-    krita_running = _krita_is_running()
     document = status.get("document") if online and isinstance(status.get("document"), dict) else None
     return {
         "bridge_id": BRIDGE_ID,
@@ -198,7 +430,7 @@ def bridge_status() -> dict:
         "protocol": PROTOCOL_VERSION,
         "bridge_protocol": bridge_protocol,
         "protocol_compatible": protocol_compatible,
-        "bridge_version": status.get("bridge_version") if responding else None,
+        "bridge_version": running_version,
         "responding": responding,
         "installed": version is not None,
         "installed_version": version,
@@ -209,48 +441,52 @@ def bridge_status() -> dict:
         "online": online,
         "document": document,
         "updated_at": updated_at if online else None,
+        "automatic_update": {
+            "state": update_state,
+            "from_version": _auto_updated_from,
+            "target_version": BRIDGE_VERSION,
+            "restart_required": restart_required,
+            "error": _auto_update_error,
+        },
     }
 
 
 def install_bridge(*, repair: bool = False) -> dict:
-    current = bridge_status()
-    if current["krita_running"] or current["responding"]:
-        raise RuntimeError("Krita is running; close Krita before installing, enabling, or repairing the Bridge")
-    source_desktop = bundle_root() / f"{BRIDGE_ID}.desktop"
-    source_package = bundle_root() / BRIDGE_ID
-    if not source_desktop.is_file() or not source_package.is_dir():
-        raise RuntimeError("the bundled Krita Bridge files are missing")
-    target_desktop, target_package = installed_paths()
-    target_desktop.parent.mkdir(parents=True, exist_ok=True)
-    if current["installed"] and not repair and current["installed_version"] == BRIDGE_VERSION:
-        _enable_plugin()
-        return bridge_status()
+    global _auto_update_error, _auto_updated_from, _auto_update_recovery_required, _auto_update_recovery_path
+    with _update_lock, _installation_lock():
+        current = bridge_status()
+        if current["krita_running"] or current["responding"]:
+            raise RuntimeError("Krita is running; close Krita before installing, enabling, or repairing the Bridge")
+        if (
+            current["installed"]
+            and not repair
+            and current["installed_version"] == BRIDGE_VERSION
+            and not _auto_update_recovery_required
+        ):
+            _enable_plugin()
+            _auto_update_error = None
+            return bridge_status()
 
-    staging_root = Path(tempfile.mkdtemp(prefix="aaalice-krita-bridge-", dir=target_desktop.parent))
-    staged_package = staging_root / BRIDGE_ID
-    staged_desktop = staging_root / f"{BRIDGE_ID}.desktop"
-    try:
-        shutil.copytree(source_package, staged_package)
-        shutil.copy2(source_desktop, staged_desktop)
-        if target_package.exists():
-            shutil.rmtree(target_package)
-        os.replace(staged_package, target_package)
-        os.replace(staged_desktop, target_desktop)
-    finally:
-        shutil.rmtree(staging_root, ignore_errors=True)
-    result = bridge_status()
-    if result["installed_version"] != BRIDGE_VERSION:
-        raise RuntimeError("Krita Bridge installation did not produce the expected version")
-    _enable_plugin()
-    result = bridge_status()
-    if not result["enabled"]:
-        raise RuntimeError("Krita Bridge was installed but could not be enabled")
-    return result
+        _deploy_bundle()
+        if installed_version() != BRIDGE_VERSION:
+            raise RuntimeError("Krita Bridge installation did not produce the expected version")
+        _enable_plugin()
+        _set_restart_marker(False)
+        _remove_recovery_files()
+        _auto_update_error = None
+        _auto_update_recovery_required = False
+        _auto_update_recovery_path = None
+        _auto_updated_from = None
+        result = bridge_status()
+        if not result["enabled"]:
+            raise RuntimeError("Krita Bridge was installed but could not be enabled")
+        return result
 
 
 __all__ = [
     "BRIDGE_ID",
     "BRIDGE_VERSION",
+    "auto_update_bridge",
     "bridge_status",
     "install_bridge",
     "installed_version",

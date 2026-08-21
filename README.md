@@ -163,9 +163,9 @@ Gallery 可从节点右键菜单加入 Dashboard；节点与侧边栏是同一�
 <details>
 <summary><strong>FetchFromKrita — 执行时 Krita 快照</strong></summary>
 
-每次执行读取 Krita 活动文档的可见合成图像作为 `IMAGE`，当前选区作为同尺寸 `MASK`（无选区时全黑），并从该文档打开的原始 PNG、JPEG 或 WebP 读取 `METADATA`。原文件没有生成参数、文档未保存或当前文件是 `.kra` 时输出显式空元数据。先关闭 Krita，然后打开 **ComfyUI 设置 → Aaalice Nodes → Krita** 安装或修复随附的 `Aaalice Comfy Bridge`，再启动 Krita 并测试连接。
+每次执行读取 Krita 活动文档的可见合成图像作为 `IMAGE`，当前选区作为同尺寸 `MASK`（无选区时全黑），并从该文档打开的原始 PNG、JPEG 或 WebP 读取 `METADATA`。原文件没有生成参数、文档未保存或当前文件是 `.kra` 时输出显式空元数据。点击运行时会先自动刷新节点显示的 Bridge 与活动文档状态，再进入队列；真正图像仍在节点执行时重新请求，不会复用状态预览或上次结果。首次使用时先关闭 Krita，然后打开 **ComfyUI 设置 → Aaalice Nodes → Krita** 安装并启用随附的 `Aaalice Comfy Bridge`，再启动 Krita 并测试连接。
 
-Krita、ComfyUI 与 Bridge 必须运行在同一台机器。新增元数据输出需要 Bridge 1.1.0；已安装旧版时请关闭 Krita 后执行修复。缺少 Bridge、Krita 离线、无活动文档、原图元数据损坏或导出失败都会让节点明确失败，绝不返回旧快照或占位图。
+Krita、ComfyUI 与 Bridge 必须运行在同一台机器。Bridge 首次安装后会随本包自动更新：ComfyUI 启动或刷新状态时通过跨进程锁原子替换旧版，替换失败会恢复原安装；若系统同时阻止恢复，则保留恢复文件并明确报告路径；不会覆盖更新的未知版本；若 Krita 正在运行，只需按节点提示重启 Krita 以加载新版。Bridge 会先确认已接收请求，再等待 Krita 完成当前投影合成与导出，复杂文档不会被错误当作无响应。缺少 Bridge、Krita 离线、无活动文档、原图元数据损坏或导出失败都会让节点明确失败，绝不返回旧快照或占位图。
 
 </details>
 

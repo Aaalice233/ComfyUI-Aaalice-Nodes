@@ -20,6 +20,7 @@ from .._lib.krita_snapshot import (
 )
 
 REQUEST_TIMEOUT = 15.0
+SNAPSHOT_TIMEOUT = 120.0
 POLL_INTERVAL = 0.05
 
 
@@ -66,31 +67,54 @@ async def fetch_snapshot(
     *,
     root: Path | None = None,
     timeout: float = REQUEST_TIMEOUT,
+    processing_timeout: float = SNAPSHOT_TIMEOUT,
     interrupt: Callable[[], None] | None = None,
 ):
     root = (root or bridge_root()).resolve()
     request_id = uuid4().hex
     request_path = root / "requests" / f"{request_id}.json"
+    processing_path = request_path.with_suffix(".processing")
     response_path = root / "responses" / f"{request_id}.json"
-    deadline = time.time() + timeout
+    started_at = time.time()
+    response_deadline = started_at + timeout
+    request_deadline = response_deadline + processing_timeout
+    accepted = False
+    completion_deadline = None
     snapshot = None
     _atomic_json(request_path, {
         "protocol": PROTOCOL_VERSION,
         "request_id": request_id,
         "action": "fetch_snapshot",
-        "deadline": deadline,
+        "deadline": request_deadline,
     })
     try:
-        while not response_path.is_file():
+        while True:
             if interrupt is not None:
                 interrupt()
+            if response_path.is_file():
+                response = _read_json(response_path)
+                if response.get("status") == "processing":
+                    if not accepted:
+                        accepted = True
+                        completion_deadline = time.time() + processing_timeout
+                else:
+                    snapshot = parse_snapshot_response(response, request_id, root)
+                    break
+            if processing_path.is_file() and not accepted:
+                accepted = True
+                completion_deadline = time.time() + processing_timeout
+            deadline = completion_deadline if accepted else response_deadline
             if time.time() >= deadline:
+                if accepted:
+                    raise KritaSnapshotError(
+                        "snapshot-timeout",
+                        f"Krita Bridge did not finish the snapshot within {processing_timeout:g} seconds",
+                    )
                 raise KritaSnapshotError(
                     "bridge-timeout",
                     f"Krita Bridge did not respond within {timeout:g} seconds",
                 )
             await asyncio.sleep(POLL_INTERVAL)
-        snapshot = parse_snapshot_response(_read_json(response_path), request_id, root)
         if interrupt is not None:
             interrupt()
         return (*await asyncio.to_thread(load_snapshot_tensors, snapshot), snapshot)
@@ -98,4 +122,4 @@ async def fetch_snapshot(
         cleanup_request(root, request_id, snapshot)
 
 
-__all__ = ["REQUEST_TIMEOUT", "bridge_root", "cleanup_request", "fetch_snapshot"]
+__all__ = ["REQUEST_TIMEOUT", "SNAPSHOT_TIMEOUT", "bridge_root", "cleanup_request", "fetch_snapshot"]

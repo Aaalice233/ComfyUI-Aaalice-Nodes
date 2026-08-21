@@ -187,12 +187,87 @@ class KritaBridgeClientTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(list((root / "requests").glob("*.json")), [])
             self.assertEqual(list((root / "payloads").glob("*.png")), [])
 
+    async def test_processing_acknowledgement_uses_snapshot_timeout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            async def bridge_worker():
+                while not list((root / "requests").glob("*.json")):
+                    await asyncio.sleep(0.005)
+                request_path = next((root / "requests").glob("*.json"))
+                request_id = request_path.stem
+                response_path = root / "responses" / f"{request_id}.json"
+                bridge_client._atomic_json(response_path, {
+                    "protocol": PROTOCOL_VERSION,
+                    "request_id": request_id,
+                    "status": "processing",
+                })
+                await asyncio.sleep(0.1)
+                bridge_client._atomic_json(response_path, _response(root, request_id))
+
+            worker = asyncio.create_task(bridge_worker())
+            image, mask, snapshot = await bridge_client.fetch_snapshot(
+                root=root,
+                timeout=0.05,
+                processing_timeout=1,
+            )
+            await worker
+        self.assertEqual(tuple(image.shape), (1, 3, 4, 3))
+        self.assertEqual(tuple(mask.shape), (1, 3, 4))
+        self.assertEqual(snapshot.document.name, "Study.kra")
+
+    async def test_legacy_processing_claim_uses_snapshot_timeout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            async def bridge_worker():
+                while not list((root / "requests").glob("*.json")):
+                    await asyncio.sleep(0.005)
+                request_path = next((root / "requests").glob("*.json"))
+                request_id = request_path.stem
+                request_path.rename(request_path.with_suffix(".processing"))
+                await asyncio.sleep(0.1)
+                bridge_client._atomic_json(root / "responses" / f"{request_id}.json", _response(root, request_id))
+
+            worker = asyncio.create_task(bridge_worker())
+            image, mask, snapshot = await bridge_client.fetch_snapshot(
+                root=root,
+                timeout=0.05,
+                processing_timeout=1,
+            )
+            await worker
+        self.assertEqual(tuple(image.shape), (1, 3, 4, 3))
+        self.assertEqual(tuple(mask.shape), (1, 3, 4))
+        self.assertEqual(snapshot.document.name, "Study.kra")
+
     async def test_timeout_and_interrupt_cleanup_request(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            with self.assertRaisesRegex(KritaSnapshotError, "did not respond"):
+            with self.assertRaisesRegex(KritaSnapshotError, "did not respond") as caught:
                 await bridge_client.fetch_snapshot(root=root, timeout=0.05)
+            self.assertEqual(caught.exception.code, "bridge-timeout")
             self.assertEqual(list((root / "requests").glob("*.json")), [])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            async def acknowledge():
+                while not list((root / "requests").glob("*.json")):
+                    await asyncio.sleep(0.005)
+                request_path = next((root / "requests").glob("*.json"))
+                request_id = request_path.stem
+                bridge_client._atomic_json(root / "responses" / f"{request_id}.json", {
+                    "protocol": PROTOCOL_VERSION,
+                    "request_id": request_id,
+                    "status": "processing",
+                })
+
+            worker = asyncio.create_task(acknowledge())
+            with self.assertRaisesRegex(KritaSnapshotError, "did not finish") as caught:
+                await bridge_client.fetch_snapshot(root=root, timeout=0.05, processing_timeout=0.05)
+            await worker
+            self.assertEqual(caught.exception.code, "snapshot-timeout")
+            self.assertEqual(list((root / "responses").glob("*.json")), [])
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -270,6 +345,30 @@ class FetchFromKritaNodeTests(unittest.IsolatedAsyncioTestCase):
 
 
 class KritaBridgeServiceAndRoutesTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        bridge_service._auto_update_error = None
+        bridge_service._auto_updated_from = None
+        bridge_service._auto_update_recovery_required = False
+        bridge_service._auto_update_recovery_path = None
+
+    def tearDown(self):
+        bridge_service._auto_update_error = None
+        bridge_service._auto_updated_from = None
+        bridge_service._auto_update_recovery_required = False
+        bridge_service._auto_update_recovery_path = None
+
+    def test_bundled_bridge_acknowledges_before_refreshing_and_reading_projection(self):
+        source = (bridge_service.bundle_root() / bridge_service.BRIDGE_ID / "extension.py").read_text(encoding="utf-8")
+        acknowledgement = 'self._response(request_id, status="processing")'
+        refresh = "document.refreshProjection()"
+        pixel_read = "pixels = document.pixelData(0, 0, width, height)"
+        self.assertLess(source.index(acknowledgement), source.index(refresh))
+        self.assertLess(source.index(refresh), source.index(pixel_read))
+        self.assertEqual(
+            (bridge_service.bundle_root() / bridge_service.BRIDGE_ID / "VERSION").read_text(encoding="utf-8").strip(),
+            bridge_service.BRIDGE_VERSION,
+        )
+
     async def test_explicit_install_copies_and_enables_the_bundled_bridge_then_refuses_while_krita_runs(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -375,6 +474,15 @@ class KritaBridgeServiceAndRoutesTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(status["protocol_compatible"])
         self.assertEqual(status["bridge_protocol"], PROTOCOL_VERSION + 1)
         self.assertIsNone(status["document"])
+
+    async def test_status_route_retries_failed_automatic_update_without_hiding_status(self):
+        with patch.object(routes, "auto_update_bridge", side_effect=RuntimeError("update failed")) as update, patch.object(
+            routes, "bridge_status", return_value={"online": False, "automatic_update": {"state": "update-failed"}}
+        ):
+            response = await routes.get_status(object())
+        self.assertEqual(response.status, 200)
+        self.assertIn("update-failed", response.text)
+        update.assert_called_once_with()
 
     async def test_test_route_requires_online_bridge(self):
         with patch.object(routes, "bridge_status", return_value={"online": False}):

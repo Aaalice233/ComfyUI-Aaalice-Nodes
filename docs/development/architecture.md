@@ -32,7 +32,7 @@
 - `ConditionalSaveImage` 关闭时透明透传 IMAGE 且不写盘，lazy `metadata` 也不求值；开启时优先委托已安装的 LoraManager `Save Image` 实现，缺失时只回退 ComfyUI 核心 PNG 保存，LoraManager 专属格式或配方选项显式失败。未连接 `metadata` 时完全使用当前 collector；普通 `Metadata Overwrite (LoraManager)` 字典仍只建立执行依赖并由 collector 做局部覆盖；版本化完整/空载荷则为本次调用创建 `SaveImageLM` 局部子类，仅覆盖 `format_metadata()`，在首次编码前返回源参数或空字符串。该适配器不修改注册类、模块函数、全局 collector 或保存实现，不执行保存后重编码；文件名变量和 workflow 仍来自当前执行上下文。任意完整/空载荷与 `save_as_recipe` 冲突时明确失败。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。`nodes/_lib/prompt_library.py` 拥有 SQLite 词库领域服务，`prompt_library_archive.py` 独立负责 ZIP 导入导出与图片归档，`prompt_library_images.py` 统一验证预览图并把过大的静态图缩放压缩为 WebP；归档导入在压缩后重写内容哈希，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
 - `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability（Summary 携带 Sample / Large Preview 地址供前端直接预取），路由只处理 JSON、流式媒体和错误映射；共享 `aiohttp` 会话读取系统/环境代理，以 Python 默认信任库为基础补充 `certifi` 公共 CA，并让 API 与媒体请求使用稳定的 `Aaalice-Nodes` 客户端标识，避免便携 Python 的 CA 缺失或上游把默认客户端误判为挑战流量；确定性的 TLS 证书校验失败不进入瞬时重试，保留完整底层异常并映射为 `tls_certificate_error`，HTTPS 校验始终开启。媒体代理（`nodes/gallery/media.py`）复用共享连接池，按 URL 磁盘缓存并去重并发请求，瞬时失败退避重试、客户端断开不中断共享下载，逐次复核 HTTPS 白名单、Content-Type 和大小，并使用适配器声明的站点请求头处理媒体源约束（Gelbooru 必须携带站点 Referer，否则上游会把图片重定向到 HTML 帖子页）。缓存与执行原图统一受 `cacheBudgetMiB` 预算修剪。
-- `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限快照路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 1.1.0 在同一短请求中额外报告活动文档原始 PNG/JPEG/WebP 路径，ComfyUI 立即读取其生成参数并输出版本化 `METADATA`；路径不进入工作流或元数据载荷，未保存文档、`.kra` 或无参数原图输出显式空元数据。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
+- `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求，先用 15 秒接单期限判定 Bridge 是否响应；Bridge 1.2.0 原子发布 `processing` 接单状态后同步刷新 Krita 投影，快照合成与导出使用独立的 120 秒完成期限，两阶段等待都响应 ComfyUI 取消。`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限快照路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 在同一请求中额外报告活动文档原始 PNG/JPEG/WebP 路径，ComfyUI 立即读取其生成参数并输出版本化 `METADATA`；路径不进入工作流或元数据载荷，未保存文档、`.kra` 或无参数原图输出显式空元数据。Bridge 状态、安装、启用、修复、自动更新和测试路由与快照执行分离：首次安装和异常修复保持显式操作；已安装的较旧 Bridge 在 ComfyUI 启动或状态刷新时通过用户插件目录内的跨进程文件锁串行化，锁内复核版本后再以同目录暂存、替换和失败回滚自动升级；回滚失败时保留恢复目录并持续返回路径，直到后续自动重试成功或显式修复完成后安全清理，不改变启用配置、不安装缺失插件、不降级更高或不可识别版本。更新前写入持久待确认标记；运行中的 Krita 继续使用内存旧版，状态协议持续要求前端提示重启，直到观察到 Krita 已停止或目标 Bridge 版本已响应后才清除标记；显式安装、启用或修复仍要求先关闭 Krita。
 - 共享图像选择器的栅格图片和紧凑字段只请求 `nodes/tools/image_thumbnail_routes.py` 提供的 256px WebP，SVG 保持原样响应；WebP 保留源图 Alpha，卡片、紧凑字段和悬浮大图使用同一主题棋盘底区分透明区域与黑色像素。路由以 ComfyUI `input` / `output` / `temp` 目录和 containment helper 重新验证路径。`blake3:` Asset 缩略图由前端经 `api.fetchApi()` 携带当前用户身份，再以可撤销 Blob URL 挂载；编码结果按源文件 stat 有界缓存，同一文件的并发请求去重且最多同时解码两张。只有用户打开悬浮大图时才请求原始 `/view` 资源。
 - Discord 分享不新增执行节点。`nodes/tools/discord_share_routes.py` 只向前端公开中继和社区 URL，Webhook、OAuth Secret 与成员会话不进入 ComfyUI Python 进程；可信中继实现位于 `deploy/discord-share-worker/`：`worker.js` 只负责环境校验与路由装配，`auth.js` 拥有 OAuth、会话和逐次成员/角色校验，`share.js` 拥有限流、公开 Target、消息规划和 Webhook 事务，`http.js` 统一 JSON、CORS 与配置错误。频道配置以 Worker Secret 中的 `{ id, label, url, default, prefer_prompt_file }` 数组为真源，浏览器只接收不含 URL 的公开字段并提交 Target Id。`prefer_prompt_file` 只驱动客户端推荐状态，不强制覆盖用户最终选择。KV 只保存短时 OAuth handoff 与带 TTL 的会话；每次发送的用户级滥用保护由 Cloudflare 原生 Rate Limiting binding 承担，避免分享吞吐受 KV 每日写入额度限制。
 
@@ -47,7 +47,7 @@
 | 提醒 | `js/simple_notify.js` | 执行结果消费、权限入口和右键测试 |
 | 提示词选择 | `js/prompt_selector.js`、`js/lib/{prompt_selector_model,library_store,library_index,category_tree,category_picker,virtual_list,image_preview,prompt_entry_details,category_color,collection}.js` | 虚拟条目列表、词库与分类树索引、共享分类选择器、词库事件、共享图片及词条信息预览、分类颜色与收藏夹适配、选择状态与执行 payload |
 | 多站点画廊 | `js/booru_gallery.js`、`js/lib/{booru_gallery_{model,cards,controller,dialogs,hover,media,settings,surface},booru_gallery_card_layout,virtual_masonry}.js`、`js/lib/controls/booru_gallery.js` | 入口装配、选择快照注入与 Dashboard Provider；单个控制器拥有请求和结果并向节点 / Dashboard 多投影定向同步，Surface、卡片、纯操作网格、悬浮预览、弹窗、媒体、设置和自然比例虚拟瀑布流按职责分离 |
-| Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、显式刷新与共享 Bridge 设置 |
+| Krita 快照 | `js/fetch_from_krita.js` | 紧凑连接状态、活动文档、最近执行摘要、自动更新/重启反馈、显式刷新与共享 Bridge 设置 |
 | Discord 分享 | `js/discord_share.js`、`js/lib/discord_share_{capture,client,model,picker,image_prepare,image_viewer,prompt_file,target_picker}.js` | 入口与发送流程装配；执行快照、网络客户端、纯模型、选择器、上传副本压缩、图像查看、提示词附件和 Target 选择按职责分离 |
 | DIY 左侧工作区 | `js/workspace.js`、`js/workspace/*.js`、`js/lib/{dashboard_*,control_binding_set,control_providers,native_output_controls,control_host_events,workspace_controls,widget_control_adapters,image_preview,lora_preview}.js` | `workspace.js` 只装配生命周期；视图、滚动、绑定、预设、来源组、图签名、组导航、词库、分类树管理器、注释、数值范围和侧栏偏好位于 `js/workspace/`，纯模型、布局命令、Provider、事件和第三方 widget 适配位于 `js/lib/` |
 | 参数控件 | `js/lib/controls/{contract,registry,specs,availability,comfy,quick_group_manager,booru_gallery,numeric,boolean,choice,text,taglist,tag_pills,image_choice,image_compare,image_output,markdown,text_output}.js`、`js/lib/control_tones.js`、`js/api.js` | 统一 Control Spec / Port / View 契约、暂不可用状态、ComfyUI 控件策略、QuickGroupManager 与 Gallery 整体控件、只读图像/文本/图像对比视图、稳定展示色分配、无状态控件实现和第三方公开注册入口 |
@@ -109,11 +109,11 @@
 
 ### FetchFromKrita
 
-1. 前端生命周期只幂等挂载界面并读取 Bridge 状态；刷新不会提前抓取执行图像，任何状态都不写入工作流。
-2. 每次执行生成唯一 `request_id`，原子写入 `fetch_snapshot` 请求并等待同身份响应；超时和取消终止本次等待。
-3. Krita Bridge 从当前活动文档导出可见合成图和可选选区；若文档直接打开自 PNG/JPEG/WebP，则在响应中附带本次执行可用的原文件路径，随后恢复批处理状态并原子发布响应。
-4. ComfyUI 校验全部响应和媒体后生成 Tensor；无选区生成同尺寸全黑 MASK，存在的全黑选区仍按“有选区”处理。原文件路径只在本次请求中读取 `parameters`，不持久化；不存在可用原文件或参数时构造显式空 `METADATA`。
-5. 完成或失败后只清理当前请求文件；前端执行摘要仅用于反馈，下次执行不会复用。
+1. 前端生命周期只幂等挂载界面并读取 Bridge 状态；状态读取会触发已有旧版 Bridge 的幂等自动更新，并明确区分更新成功、需重启 Krita、自动更新失败和需手动修复。每次 `queuePrompt` 在实际序列化和执行前为当前工作流中的全部 `FetchFromKrita` 节点合并执行一次状态刷新并清除旧执行摘要；状态请求并发去重，刷新失败只更新节点错误反馈，不拦截后端执行。刷新不会提前抓取执行图像，任何状态都不写入工作流。
+2. 每次执行生成唯一 `request_id`，原子写入 `fetch_snapshot` 请求；接单与快照处理使用独立期限，超时和取消终止本次等待。
+3. Krita Bridge 认领请求后先原子发布 `processing` 响应，再同步刷新当前活动文档投影并导出可见合成图和可选选区；若文档直接打开自 PNG/JPEG/WebP，则在最终响应中附带本次执行可用的原文件路径，随后恢复批处理状态并原子替换响应。
+4. ComfyUI 只把最终响应交给快照解析；校验全部响应和媒体后生成 Tensor。无选区生成同尺寸全黑 MASK，存在的全黑选区仍按“有选区”处理。原文件路径只在本次请求中读取 `parameters`，不持久化；不存在可用原文件或参数时构造显式空 `METADATA`。
+5. 完成或失败后只清理当前请求文件；执行成功、失败或中断都会结束仍残留的前端“获取中”反馈，前端执行摘要仅用于反馈，下次执行不会复用。
 
 ### Discord 分享
 

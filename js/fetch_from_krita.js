@@ -52,6 +52,10 @@ function statusView(node) {
 	if (local.phase === "error") return { tone: "error", iconName: "statusError", text: t("aaalice.krita.status.fetchFailed", "Fetch failed") };
 	if (!bridgeStatus) return { tone: "loading", iconName: "loading", text: t("aaalice.krita.status.checking", "Checking Krita…") };
 	if (!bridgeStatus.installed) return { tone: "error", iconName: "statusError", text: t("aaalice.krita.status.notInstalled", "Krita Bridge is not installed") };
+	const updateState = bridgeStatus.automatic_update?.state;
+	if (updateState === "update-failed") return { tone: "error", iconName: "statusError", text: t("aaalice.krita.status.updateFailed", "Krita Bridge update failed") };
+	if (updateState === "manual-repair-required") return { tone: "error", iconName: "statusError", text: t("aaalice.krita.status.repairRequired", "Krita Bridge needs repair") };
+	if (updateState === "restart-required") return { tone: "warning", iconName: "statusWarning", text: t("aaalice.krita.status.restartRequired", "Restart Krita to finish the Bridge update") };
 	if (!bridgeStatus.enabled) return { tone: "error", iconName: "statusError", text: t("aaalice.krita.status.notEnabled", "Krita Bridge is not enabled") };
 	if (bridgeStatus.bridge_protocol != null && !bridgeStatus.protocol_compatible) return { tone: "error", iconName: "statusError", text: t("aaalice.krita.status.incompatible", "Krita Bridge protocol is incompatible") };
 	if (!bridgeStatus.online) return { tone: "error", iconName: "statusError", text: t("aaalice.krita.status.offline", "Krita Bridge is offline") };
@@ -69,6 +73,7 @@ function render(node) {
 	node._aaKritaRoot.dataset.availability = document ? "document" : bridgeStatus?.online ? "empty" : "offline";
 	node._aaKritaStatusIcon.replaceChildren(icon(view.iconName));
 	node._aaKritaStatusText.textContent = view.text;
+	node._aaKritaStatusText.title = view.text;
 	node._aaKritaRefresh.classList.toggle("is-refreshing", view.tone === "loading");
 
 	if (document) {
@@ -104,7 +109,10 @@ function render(node) {
 		node._aaKritaDocument.hidden = false;
 	}
 
+	const updateState = bridgeStatus?.automatic_update?.state;
 	if (local.phase === "error") node._aaKritaResult.textContent = local.error;
+	else if (updateState === "restart-required") node._aaKritaResult.textContent = t("aaalice.krita.result.restartKrita", "Close and reopen Krita to load the updated Bridge");
+	else if (["update-failed", "manual-repair-required"].includes(updateState)) node._aaKritaResult.textContent = t("aaalice.krita.result.repairBridge", "Open settings to repair the Bridge");
 	else if (local.phase === "success" && local.snapshot) node._aaKritaResult.textContent = format(
 		t("aaalice.krita.result.success", "Fetched {width} × {height}{selection}"),
 		{
@@ -115,7 +123,7 @@ function render(node) {
 	);
 	else node._aaKritaResult.textContent = t("aaalice.krita.result.queueHint", "Queues read the current document at execution time");
 	node._aaKritaResult.title = node._aaKritaResult.textContent;
-	node._aaKritaSetup.hidden = Boolean(bridgeStatus?.online);
+	node._aaKritaSetup.hidden = Boolean(bridgeStatus?.online) && !["update-failed", "manual-repair-required"].includes(updateState);
 	node.setDirtyCanvas?.(true, true);
 }
 
@@ -123,12 +131,45 @@ function renderAll() {
 	for (const node of allGraphNodes(app.graph)) if (isKritaNode(node)) render(node);
 }
 
-async function refreshStatus({ force = false } = {}) {
-	if (!force && statusRequest) return statusRequest;
+async function refreshStatus() {
+	if (statusRequest) return statusRequest;
 	statusRequest = jsonRequest(`${API}/status`)
 		.then((status) => { bridgeStatus = status; renderAll(); return status; })
 		.finally(() => { statusRequest = null; });
 	return statusRequest;
+}
+
+async function refreshKritaNodesBeforeQueue() {
+	const nodes = allGraphNodes(app.graph).filter(isKritaNode);
+	if (nodes.length === 0) return;
+	for (const node of nodes) {
+		const local = stateFor(node);
+		local.phase = "idle";
+		local.error = "";
+		local.snapshot = null;
+		render(node);
+	}
+	try { await refreshStatus(); }
+	catch (error) {
+		for (const node of nodes) {
+			const local = stateFor(node);
+			local.phase = "error";
+			local.error = error.message;
+			render(node);
+		}
+		console.error("[Aaalice] Krita pre-queue status refresh failed", error);
+	}
+}
+
+function installQueueHook() {
+	if (app._aaKritaQueueHook) return;
+	if (typeof app.queuePrompt !== "function") throw new Error("[Aaalice] queuePrompt is unavailable for FetchFromKrita");
+	app._aaKritaQueueHook = true;
+	const originalQueuePrompt = app.queuePrompt;
+	app.queuePrompt = async function (...args) {
+		await refreshKritaNodesBeforeQueue();
+		return originalQueuePrompt.apply(this, args);
+	};
 }
 
 function toast(severity, detail) {
@@ -143,8 +184,9 @@ function openKritaSettings() {
 }
 
 async function openSettingsDialog() {
-	const status = await refreshStatus({ force: true });
+	const status = await refreshStatus();
 	let current = status;
+	let busy = false;
 	const connectionIcon = el("span", { className: "aa-krita-settings__status-icon" });
 	const connectionText = el("strong");
 	const connectionMeta = el("span");
@@ -155,53 +197,113 @@ async function openSettingsDialog() {
 
 	function renderSettings() {
 		const incompatible = current.bridge_protocol != null && !current.protocol_compatible;
-		const enableOnly = current.installed && !current.enabled && current.installed_version === current.expected_version;
-		connectionIcon.replaceChildren(icon(incompatible || !current.installed ? "statusError" : current.online ? "statusCheck" : "statusWarning"));
-		if (incompatible) connectionText.textContent = t("aaalice.krita.settings.incompatible", "Krita Bridge protocol is incompatible");
+		const update = current.automatic_update || {};
+		const updateFailed = ["update-failed", "manual-repair-required"].includes(update.state);
+		const restartRequired = update.state === "restart-required";
+		const enableOnly = current.installed && !current.enabled && current.installed_version === current.expected_version && !updateFailed;
+		connectionIcon.replaceChildren(icon(incompatible || updateFailed || !current.installed ? "statusError" : current.online && !restartRequired ? "statusCheck" : "statusWarning"));
+		if (update.state === "update-failed") connectionText.textContent = t("aaalice.krita.settings.updateFailed", "Krita Bridge could not update automatically");
+		else if (update.state === "manual-repair-required") connectionText.textContent = t("aaalice.krita.settings.repairRequired", "Krita Bridge needs repair");
+		else if (restartRequired) connectionText.textContent = t("aaalice.krita.settings.restartRequired", "Bridge updated · restart Krita");
+		else if (incompatible) connectionText.textContent = t("aaalice.krita.settings.incompatible", "Krita Bridge protocol is incompatible");
 		else if (current.online) connectionText.textContent = t("aaalice.krita.settings.online", "Krita Bridge is connected");
 		else if (current.installed && !current.enabled) connectionText.textContent = t("aaalice.krita.settings.installedDisabled", "Bridge installed · not enabled");
 		else if (current.installed) connectionText.textContent = t("aaalice.krita.settings.installedOffline", "Bridge installed · Krita offline");
 		else connectionText.textContent = t("aaalice.krita.settings.missing", "Krita Bridge is not installed");
-		connectionMeta.textContent = format(t("aaalice.krita.settings.version", "Installed {installed} · Bridge {bridge} · protocol {observed}/{protocol}"), {
+		connectionMeta.textContent = format(t("aaalice.krita.settings.version", "Installed {installed} · Bridge {bridge} · protocol {observed}/{protocol} · automatic updates"), {
 			installed: current.installed_version || "—",
 			bridge: current.bridge_version || "—",
 			observed: current.bridge_protocol ?? "—",
 			protocol: current.protocol,
 		});
+		connectionMeta.title = connectionMeta.textContent;
 		installPath.textContent = current.install_path;
 		maintenance.querySelector(".aa-ui-button__label").textContent = enableOnly
 			? t("aaalice.krita.settings.enable", "Enable Bridge")
 			: current.installed
 				? t("aaalice.krita.settings.repair", "Repair and enable Bridge")
 				: t("aaalice.krita.settings.install", "Install and enable Bridge");
-		maintenance.disabled = Boolean(current.krita_running || current.responding);
-		test.disabled = !current.installed || !current.enabled;
-		if (current.krita_running && !current.online && !feedback.textContent) {
+		maintenance.disabled = busy || Boolean(current.krita_running || current.responding);
+		const canTest = current.online && !updateFailed && !restartRequired;
+		test.querySelector(".aa-ui-button__label").textContent = canTest
+			? t("aaalice.krita.settings.test", "Test connection")
+			: t("aaalice.krita.settings.refresh", "Refresh status");
+		test.disabled = busy;
+		if (!feedback.textContent && update.state === "update-failed") {
+			feedback.textContent = update.error || t("aaalice.krita.settings.updateFailedHint", "Close Krita and repair the Bridge manually.");
+			feedback.classList.add("is-error");
+		} else if (!feedback.textContent && update.state === "manual-repair-required") {
+			feedback.textContent = t("aaalice.krita.settings.updateFailedHint", "Close Krita and repair the Bridge manually.");
+			feedback.classList.add("is-error");
+		} else if (!feedback.textContent && restartRequired) {
+			feedback.textContent = format(t("aaalice.krita.settings.restartHint", "Close and reopen Krita to load Bridge {version}."), { version: current.expected_version });
+		} else if (!feedback.textContent && update.state === "updated") {
+			feedback.textContent = format(t("aaalice.krita.settings.updated", "Bridge updated automatically to {version}."), { version: current.expected_version });
+		} else if (current.krita_running && !current.online && !feedback.textContent) {
 			feedback.textContent = t("aaalice.krita.settings.closeKrita", "Close Krita before changing the Bridge.");
 		}
 	}
 
 	test.onclick = async () => {
-		test.disabled = true; feedback.classList.remove("is-error"); feedback.textContent = t("aaalice.krita.settings.testing", "Testing connection…");
+		if (busy) return;
+		const shouldTest = current.online && !["update-failed", "manual-repair-required", "restart-required"].includes(current.automatic_update?.state);
+		busy = true; feedback.classList.remove("is-error");
+		feedback.textContent = shouldTest
+			? t("aaalice.krita.settings.testing", "Testing connection…")
+			: t("aaalice.krita.settings.refreshing", "Refreshing status…");
+		renderSettings();
 		try {
-			current = await jsonRequest(`${API}/test`, { method: "POST" });
-			bridgeStatus = current; feedback.textContent = t("aaalice.krita.settings.testPassed", "Connection succeeded."); renderSettings(); renderAll();
-		} catch (error) { feedback.textContent = error.message; feedback.classList.add("is-error"); test.disabled = false; }
+			current = shouldTest
+				? await jsonRequest(`${API}/test`, { method: "POST" })
+				: await refreshStatus();
+			bridgeStatus = current;
+			const update = current.automatic_update || {};
+			if (shouldTest) {
+				feedback.textContent = t("aaalice.krita.settings.testPassed", "Connection succeeded.");
+			} else if (["update-failed", "manual-repair-required"].includes(update.state)) {
+				feedback.textContent = update.error || t("aaalice.krita.settings.updateFailedHint", "Close Krita and repair the Bridge manually.");
+				feedback.classList.add("is-error");
+			} else if (update.state === "restart-required") {
+				feedback.textContent = format(t("aaalice.krita.settings.restartHint", "Close and reopen Krita to load Bridge {version}."), { version: current.expected_version });
+			} else if (update.state === "updated") {
+				feedback.textContent = format(t("aaalice.krita.settings.updated", "Bridge updated automatically to {version}."), { version: current.expected_version });
+			} else {
+				feedback.textContent = t("aaalice.krita.settings.refreshed", "Status refreshed.");
+			}
+			renderAll();
+		} catch (error) {
+			feedback.textContent = error.message;
+			feedback.classList.add("is-error");
+		} finally {
+			busy = false;
+			renderSettings();
+		}
 	};
 	maintenance.onclick = async () => {
-		maintenance.disabled = true; feedback.classList.remove("is-error");
-		const enableOnly = current.installed && !current.enabled && current.installed_version === current.expected_version;
+		if (busy) return;
+		busy = true; feedback.classList.remove("is-error");
+		const enableOnly = current.installed
+			&& !current.enabled
+			&& current.installed_version === current.expected_version
+			&& !["update-failed", "manual-repair-required"].includes(current.automatic_update?.state);
 		feedback.textContent = enableOnly
 			? t("aaalice.krita.settings.enabling", "Enabling Bridge…")
 			: current.installed
 				? t("aaalice.krita.settings.repairing", "Repairing and enabling Bridge…")
 				: t("aaalice.krita.settings.installing", "Installing and enabling Bridge…");
+		renderSettings();
 		try {
 			current = await jsonRequest(`${API}/${current.installed && !enableOnly ? "repair" : "install"}`, { method: "POST" });
 			bridgeStatus = current;
 			feedback.textContent = t("aaalice.krita.settings.installed", "Bridge installed and enabled. Start Krita to connect.");
-			renderSettings(); renderAll();
-		} catch (error) { feedback.textContent = error.message; feedback.classList.add("is-error"); maintenance.disabled = false; }
+			renderAll();
+		} catch (error) {
+			feedback.textContent = error.message;
+			feedback.classList.add("is-error");
+		} finally {
+			busy = false;
+			renderSettings();
+		}
 	};
 
 	const body = el("div", { className: "aa-krita-settings", children: [
@@ -238,8 +340,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const statusIcon = el("span", { className: "aa-krita-status__icon", attrs: { "aria-hidden": "true" } });
 	const statusText = el("span", { className: "aa-krita-status__text" });
 	const refresh = iconButton({ className: "aa-krita-refresh", iconName: "refresh", label: t("aaalice.krita.actions.refresh", "Refresh Krita status"), variant: "ghost", onClick: () => {
-		stateFor(node).phase = "idle"; render(node);
-		void refreshStatus({ force: true }).catch((error) => { stateFor(node).phase = "error"; stateFor(node).error = error.message; render(node); });
+		const local = stateFor(node); local.phase = "idle"; local.error = ""; local.snapshot = null; render(node);
+		void refreshStatus().catch((error) => { stateFor(node).phase = "error"; stateFor(node).error = error.message; render(node); });
 	} });
 	const settings = iconButton({ iconName: "settings", label: t("aaalice.krita.actions.settings", "Open Krita settings"), variant: "ghost", onClick: openKritaSettings });
 	const name = el("strong", { className: "aa-krita-document__name" });
@@ -321,7 +423,7 @@ function hookPrototype(nodeType) {
 	nodeType.prototype.onExecuted = function (output) {
 		previousExecuted?.apply(this, arguments);
 		const snapshot = output?.aaalice_krita_snapshot?.[0];
-		if (snapshot) { const local = stateFor(this); local.phase = "success"; local.error = ""; local.snapshot = snapshot; render(this); void refreshStatus({ force: true }); }
+		if (snapshot) { const local = stateFor(this); local.phase = "success"; local.error = ""; local.snapshot = snapshot; render(this); void refreshStatus(); }
 	};
 }
 
@@ -341,6 +443,17 @@ function registerSettingsEntry() {
 	});
 }
 
+function resetFetchingNodes() {
+	for (const node of allGraphNodes(app.graph)) {
+		if (!isKritaNode(node)) continue;
+		const local = stateFor(node);
+		if (local.phase !== "fetching") continue;
+		local.phase = "idle";
+		local.error = "";
+		render(node);
+	}
+}
+
 function registerExecutionEvents() {
 	if (app._aaKritaExecutionEvents) return;
 	app._aaKritaExecutionEvents = true;
@@ -353,17 +466,21 @@ function registerExecutionEvents() {
 	api.addEventListener("execution_error", (event) => {
 		const detail = event.detail || {};
 		const node = nodeById(detail.node_id);
-		if (!isKritaNode(node)) return;
-		const local = stateFor(node); local.phase = "error"; local.error = detail.exception_message || t("aaalice.krita.status.fetchFailed", "Fetch failed"); render(node);
+		if (isKritaNode(node)) {
+			const local = stateFor(node); local.phase = "error"; local.error = detail.exception_message || t("aaalice.krita.status.fetchFailed", "Fetch failed"); render(node);
+		}
+		resetFetchingNodes();
 	});
+	api.addEventListener("execution_success", resetFetchingNodes);
+	api.addEventListener("execution_interrupted", resetFetchingNodes);
 }
 
 app.registerExtension({
 	name: "ComfyUI.Aaalice.FetchFromKrita",
 	async init() {
 		await ensureI18nReady();
-		registerSettingsEntry(); registerExecutionEvents();
-		void refreshStatus({ force: true }).catch((error) => console.error("[Aaalice] Krita status failed", error));
+		registerSettingsEntry(); registerExecutionEvents(); installQueueHook();
+		void refreshStatus().catch((error) => console.error("[Aaalice] Krita status failed", error));
 	},
 	async beforeRegisterNodeDef(nodeType, nodeData) { if (nodeData?.name === NODE) hookPrototype(nodeType); },
 	nodeCreated(node) { if (isKritaNode(node)) setupNode(node, { initializeSize: true }); },

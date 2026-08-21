@@ -1,13 +1,16 @@
-"""HTTP routes for Krita Bridge status and explicit installation."""
+"""HTTP routes for Krita Bridge status, managed updates, and maintenance."""
 
 from __future__ import annotations
 
+import logging
+
 from aiohttp import web
 
-from .bridge_service import bridge_status, install_bridge
+from .bridge_service import auto_update_bridge, bridge_status, install_bridge
 
 API = "/aaalice/krita"
 _registered = False
+logger = logging.getLogger(__name__)
 
 
 def _error(exc: Exception) -> web.Response:
@@ -15,8 +18,17 @@ def _error(exc: Exception) -> web.Response:
     return web.json_response({"error": type(exc).__name__, "message": str(exc)}, status=status)
 
 
+def _attempt_auto_update(*, log_failure: bool = False) -> None:
+    try:
+        auto_update_bridge()
+    except RuntimeError as exc:
+        if log_failure:
+            logger.warning("Krita Bridge automatic update failed: %s", exc)
+
+
 async def get_status(_request: web.Request) -> web.Response:
     try:
+        _attempt_auto_update()
         return web.json_response(bridge_status())
     except Exception as exc:
         return _error(exc)
@@ -58,6 +70,7 @@ def register_krita_routes() -> None:
     routes.post(f"{API}/repair")(repair)
     routes.post(f"{API}/test")(test_connection)
     _registered = True
+    _attempt_auto_update(log_failure=True)
 
 
 __all__ = ["register_krita_routes"]
