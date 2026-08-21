@@ -15,8 +15,9 @@ from PyQt5.QtCore import QByteArray, QTimer
 from PyQt5.QtGui import QImage
 
 PROTOCOL_VERSION = 1
-BRIDGE_VERSION = "1.0.0"
+BRIDGE_VERSION = "1.1.0"
 STALE_FILE_AGE = 24 * 60 * 60
+METADATA_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 def _root() -> Path:
@@ -145,6 +146,16 @@ class AaaliceComfyBridgeExtension(Extension):
             except FileNotFoundError:
                 pass
 
+    @staticmethod
+    def _source_path(document):
+        filename = document.fileName()
+        if not filename:
+            return None
+        path = Path(filename)
+        if path.suffix.lower() not in METADATA_IMAGE_EXTENSIONS:
+            return None
+        return str(path.resolve())
+
     def _fetch_snapshot(self, request_id: str):
         document = Krita.instance().activeDocument()
         if document is None:
@@ -178,6 +189,7 @@ class AaaliceComfyBridgeExtension(Extension):
                     "color_model": str(document.colorModel()),
                 },
                 image_path=str(image_path.resolve()),
+                source_path=self._source_path(document),
                 selection=selection_data,
             )
         finally:

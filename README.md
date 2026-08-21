@@ -62,9 +62,10 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | 按逗号或竖线拆分文本，去除空白并移除空段。 |
 | `SimpleNotify` | `Aaalice/tools` | 在执行到达时发送可选的桌面和声音提醒，并原样透传数值。 |
 | `ConditionalSaveImage` | `Aaalice/tools` | 仅在启用时保存图像，关闭时原样透传；安装 LoraManager 时复用其保存实现。 |
+| `LoadImageWithMetadata` | `Aaalice/tools` | 按普通加载图像节点从输入目录选择、上传或拖入图像，同时输出 `IMAGE`、`MASK` 与可传递的 `METADATA`。 |
 | `PromptSelector` | `Aaalice/prompt` | 从词库中选择、排序、加权可复用词条。 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 在虚拟瀑布流画廊中搜索 Danbooru、Gelbooru、Safebooru 和 AI TAG，按顺序输出图像与对应提示词。 |
-| `FetchFromKrita` | `Aaalice/krita` | 读取 Krita 活动文档的可见合成图像与选区，输出 `IMAGE` 和 `MASK`。 |
+| `FetchFromKrita` | `Aaalice/krita` | 读取 Krita 活动文档的可见合成图像、选区及原文件生成参数。 |
 
 ## 📖 节点详情
 
@@ -116,9 +117,20 @@ QuickGroupManager 不参与工作流执行，也没有输入输出引脚。它�
 <details>
 <summary><strong>ConditionalSaveImage — 可开关的图像保存</strong></summary>
 
-与 `Save Image (LoraManager)` 相同的保存能力与选项（`%seed%` 等文件名变量、png/jpeg/webp、元数据、工作流嵌入、配方），但多了一个 **启用** 开关：关闭时不写盘、图像原样透传，保存相关控件随之灰化。可选的 `metadata` 引脚可连接 LoraManager 的 `Metadata Overwrite` 输出，确保手动覆盖参数先执行再保存。安装 ComfyUI-Lora-Manager 时保存逻辑完全由其原版实现承担；未安装时回退为核心 PNG 保存，jpeg/webp 与配方等专属能力会明确报错提示。
+与 `Save Image (LoraManager)` 相同的保存能力与选项（`%seed%` 等文件名变量、png/jpeg/webp、元数据、工作流嵌入、配方），但多了一个 **启用** 开关：关闭时不写盘、图像原样透传，且不会求值可选的 lazy `metadata` 输入。`metadata` 可连接 LoraManager 的 `Metadata Overwrite`，继续按原 collector 做局部覆盖；也可连接 `LoadImageWithMetadata` 或 `FetchFromKrita`，在首次编码前用源图完整 `parameters` 取代当前 collector 格式化结果。源图显式空元数据会让目标图同样不写 `parameters`，不会虚构当前参数。安装 ComfyUI-Lora-Manager 时保存仍由其原版实现承担；未安装时回退为核心 PNG 保存，但完整/空元数据传递、jpeg/webp 与配方等专属能力会明确报错。
+
+完整参数传递不改变 `%seed%`、`%model%` 等文件名变量的当前执行上下文，也不复制源图 workflow；开启 `embed_workflow` 时只嵌入当前工作流。完整/空元数据传递不能与 `save_as_recipe` 同时使用，避免图片和配方来自不同参数来源。
 
 所有保存节点都是输出节点，会被执行器无条件运行，因此“在开关节点上游串一个保存节点”无法阻止写盘；本节点把开关做进保存节点内部，是唯一不需要手动静音节点（`Ctrl+M`）的方案。
+
+</details>
+
+<details>
+<summary><strong>LoadImageWithMetadata — 加载图像与生成参数</strong></summary>
+
+这是普通 `Load Image` 的扩展版：使用相同的输入目录图像列表、上传、拖入与预览行为，并同时输出 `IMAGE`、`MASK` 与 `METADATA`。图像输出可自由进入切换、缩放或其它处理链，元数据输出独立连接到 `ConditionalSaveImage.metadata`，不再依赖 IMAGE 连线追溯源文件。
+
+PNG 只读取 `parameters` 文本块，JPEG/WebP 只读取 EXIF `UserComment`；`prompt`、`workflow` 和其它注释不会被冒充为生成参数。合法图片没有 `parameters` 时输出显式空元数据，目标图片也不写参数；文件不存在、路径越界、文件损坏、格式不支持或元数据无法解码时明确失败。节点按文件内容失效缓存，同名文件被覆盖后会重新加载和提取。
 
 </details>
 
@@ -151,9 +163,9 @@ Gallery 可从节点右键菜单加入 Dashboard；节点与侧边栏是同一�
 <details>
 <summary><strong>FetchFromKrita — 执行时 Krita 快照</strong></summary>
 
-每次执行读取 Krita 活动文档的可见合成图像作为 `IMAGE`，当前选区作为同尺寸 `MASK`（无选区时全黑）。先关闭 Krita，然后打开 **ComfyUI 设置 → Aaalice Nodes → Krita** 安装并启用随附的 `Aaalice Comfy Bridge`，再启动 Krita 并测试连接。
+每次执行读取 Krita 活动文档的可见合成图像作为 `IMAGE`，当前选区作为同尺寸 `MASK`（无选区时全黑），并从该文档打开的原始 PNG、JPEG 或 WebP 读取 `METADATA`。原文件没有生成参数、文档未保存或当前文件是 `.kra` 时输出显式空元数据。先关闭 Krita，然后打开 **ComfyUI 设置 → Aaalice Nodes → Krita** 安装或修复随附的 `Aaalice Comfy Bridge`，再启动 Krita 并测试连接。
 
-Krita、ComfyUI 与 Bridge 必须运行在同一台机器。缺少 Bridge、Krita 离线、无活动文档或导出失败都会让节点明确失败，绝不返回旧快照或占位图。
+Krita、ComfyUI 与 Bridge 必须运行在同一台机器。新增元数据输出需要 Bridge 1.1.0；已安装旧版时请关闭 Krita 后执行修复。缺少 Bridge、Krita 离线、无活动文档、原图元数据损坏或导出失败都会让节点明确失败，绝不返回旧快照或占位图。
 
 </details>
 

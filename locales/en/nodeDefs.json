@@ -25,7 +25,7 @@
     "description": "Save images only while enabled; otherwise pass them through unchanged. Uses LoraManager's save implementation when installed, otherwise the core PNG save.",
     "inputs": {
       "images": { "name": "Images", "tooltip": "Images to save; always passed through unchanged." },
-      "metadata": { "name": "Metadata", "tooltip": "Optionally connect LoraManager's manual metadata override output so its values execute before saving." },
+      "metadata": { "name": "Metadata", "tooltip": "Optionally connect LoraManager's manual override, Load Image with Metadata, or Fetch from Krita. Complete source parameters replace generated parameters; explicit empty metadata writes none." },
       "enabled": { "name": "Enabled", "tooltip": "When off, nothing is saved and the images pass through unchanged." },
       "filename_prefix": { "name": "Filename Prefix", "tooltip": "Base filename. With LoraManager installed, patterns like %seed% or %date:...% are supported." },
       "file_format": { "name": "File Format", "tooltip": "png/jpeg/webp. jpeg and webp require ComfyUI-Lora-Manager." },
@@ -40,6 +40,19 @@
       "save_as_recipe": { "name": "Save As Recipe", "tooltip": "Also save each image as a LoRA Manager recipe. Requires ComfyUI-Lora-Manager." }
     },
     "outputs": { "0": { "name": "Images", "tooltip": "The unchanged input images." } }
+  },
+  "LoadImageWithMetadata": {
+    "display_name": "🧾 Load Image with Metadata",
+    "description": "Load a PNG, JPEG, or WebP from the input folder together with its complete generation parameters.",
+    "inputs": {
+      "image": { "name": "Image", "tooltip": "Select, upload, or drop an input image." },
+      "upload": { "name": "Choose file to upload" }
+    },
+    "outputs": {
+      "0": { "name": "Image", "tooltip": "Loaded image pixels." },
+      "1": { "name": "Mask", "tooltip": "Loaded alpha mask, matching ComfyUI Load Image behavior." },
+      "2": { "name": "Metadata", "tooltip": "Complete source parameters, or explicit empty metadata when none exist." }
+    }
   },
   "GroupIsEnabled": {
     "display_name": "🚦 Group Is Enabled",
@@ -87,7 +100,8 @@
     "inputs": {},
     "outputs": {
       "0": { "name": "Image", "tooltip": "Visible composite of the active Krita document." },
-      "1": { "name": "Mask", "tooltip": "Current Krita selection, or an empty mask when no selection exists." }
+      "1": { "name": "Mask", "tooltip": "Current Krita selection, or an empty mask when no selection exists." },
+      "2": { "name": "Metadata", "tooltip": "Generation parameters from the original PNG, JPEG, or WebP opened in Krita, or explicit empty metadata." }
     }
   },
   "QuickGroupManager": {

@@ -12,10 +12,11 @@
 | `ResolutionPreset` | `Aaalice/tools` | 校验执行载荷并输出精确 width / height | 预设、精确输入、画幅拖拽、对齐和个人预设管理 |
 | `SimpleStringSplit` | `Aaalice/tools` | 拆分字符串、清理空白并移除空段 | 无业务前端 |
 | `SimpleNotify` | `Aaalice/tools` | 透明透传并返回提醒 payload | 在发起执行的页面发送桌面通知和提示音 |
-| `ConditionalSaveImage` | `Aaalice/tools` | 按开关保存或透明透传 IMAGE | 同步保存选项可用性和禁用状态 |
+| `ConditionalSaveImage` | `Aaalice/tools` | 按开关保存或透明透传 IMAGE，并按可选载荷覆盖完整生成参数 | 同步保存选项可用性和禁用状态 |
+| `LoadImageWithMetadata` | `Aaalice/tools` | 复用官方输入图像加载能力并同时提取完整或显式空生成参数 | 无业务前端 |
 | `PromptSelector` | `Aaalice/prompt` | 组合前缀与有序词条正文，校验缺失引用和权重 | 跨分类选择、筛选、排序、权重和实时词库 payload 注入 |
 | `BooruGalleryNode` | `Aaalice/gallery` | 下载有序选择快照，原子解码并输出一一对应的 IMAGE/STRING list | 多站点搜索、虚拟瀑布流、选择排序、本地标签编辑、详情、收藏与设置 |
-| `FetchFromKrita` | `Aaalice/krita` | 每次执行请求当前活动文档快照并输出 IMAGE/MASK | Bridge 连接、活动文档与最近获取状态，以及共享 Krita 设置入口 |
+| `FetchFromKrita` | `Aaalice/krita` | 每次执行请求当前活动文档快照并输出 IMAGE/MASK/METADATA | Bridge 连接、活动文档与最近获取状态，以及共享 Krita 设置入口 |
 
 根 `__init__.py` 只公开 `WEB_DIRECTORY` 和 `comfy_entrypoint()`。`nodes/__init__.py` 按稳定域顺序加载 `NODE_CLASSES`；域导入错误保留原始异常。当前 Python 域为 `nodes/control`、`nodes/tools`、`nodes/prompt`、`nodes/gallery`、`nodes/krita` 与无 ComfyUI 运行时依赖的 `nodes/_lib`。
 
@@ -27,10 +28,11 @@
 - `nodes/tools/resolution_preset.py` 没有可见输入，只接受前端注入的版本化 `resolution_json`，校验 ComfyUI 尺寸范围与基础 8 px 对齐后输出两个具名 INT。个人预设 Store 位于当前用户目录，使用线程锁、临时文件和原子替换；专用 HTTP 路由只负责 CRUD 和明确错误映射。
 - `SimpleStringSplit` 是独立纯后端工具，不依赖参数系统。
 - `SimpleNotify` 使用成对 MatchType 输入输出和 ComfyUI 默认 list 映射。后端只返回透传值与提醒 payload，浏览器副作用不进入执行层。
-- `ConditionalSaveImage` 关闭时透明透传 IMAGE 且不写盘；开启时优先委托已安装的 LoraManager `Save Image` 实现，缺失时只回退 ComfyUI 核心 PNG 保存，LoraManager 专属格式或配方选项显式失败。可选 `METADATA` 输入只建立 `Metadata Overwrite (LoraManager)` 到保存节点的执行依赖；覆盖值仍由 LoraManager 自己的 metadata collector 应用，不在本包复制或改写。
+- `LoadImageWithMetadata` 使用与官方 `LoadImage` 相同的 input-folder Combo、上传、拖入、预览与像素加载契约，并增加第三个 `METADATA` 输出；节点不修改官方注册类，也不加入 `LoadImageOutput` 的生成后自动刷新与 output 目录语义。PNG 只读取 `parameters` text chunk，JPEG/WebP 只读取 EXIF `UserComment`，不把 `prompt`、`workflow` 或其它注释冒充生成参数。`nodes/_lib/image_file_metadata.py` 统一拥有文件参数解码，`nodes/_lib/image_generation_metadata.py` 拥有版本 1 载荷 `{schema, version, parameters}` 的纯构造与校验；`parameters=None` 是显式空元数据而非错误。文件内容指纹负责同名覆盖后的缓存失效。
+- `ConditionalSaveImage` 关闭时透明透传 IMAGE 且不写盘，lazy `metadata` 也不求值；开启时优先委托已安装的 LoraManager `Save Image` 实现，缺失时只回退 ComfyUI 核心 PNG 保存，LoraManager 专属格式或配方选项显式失败。未连接 `metadata` 时完全使用当前 collector；普通 `Metadata Overwrite (LoraManager)` 字典仍只建立执行依赖并由 collector 做局部覆盖；版本化完整/空载荷则为本次调用创建 `SaveImageLM` 局部子类，仅覆盖 `format_metadata()`，在首次编码前返回源参数或空字符串。该适配器不修改注册类、模块函数、全局 collector 或保存实现，不执行保存后重编码；文件名变量和 workflow 仍来自当前执行上下文。任意完整/空载荷与 `save_as_recipe` 冲突时明确失败。
 - `PromptSelector` 接收可选前缀并输出单一 STRING；纯逻辑校验有序词条 payload、0–20 权重和分隔符。`nodes/_lib/prompt_library.py` 拥有 SQLite 词库领域服务，`prompt_library_archive.py` 独立负责 ZIP 导入导出与图片归档，`prompt_library_images.py` 统一验证预览图并把过大的静态图缩放压缩为 WebP；归档导入在压缩后重写内容哈希，HTTP 路由只负责 JSON、图片、ZIP 与变更事件传输。
 - `BooruGalleryNode` 没有可见输入，执行版本化选择 payload，并并发下载最多三张原图；`asyncio.gather` 保持快照顺序，任一下载或解码失败则整体失败。站点适配器统一 Summary、Detail、Page 与 capability（Summary 携带 Sample / Large Preview 地址供前端直接预取），路由只处理 JSON、流式媒体和错误映射；共享 `aiohttp` 会话读取系统/环境代理，以 Python 默认信任库为基础补充 `certifi` 公共 CA，并让 API 与媒体请求使用稳定的 `Aaalice-Nodes` 客户端标识，避免便携 Python 的 CA 缺失或上游把默认客户端误判为挑战流量；确定性的 TLS 证书校验失败不进入瞬时重试，保留完整底层异常并映射为 `tls_certificate_error`，HTTPS 校验始终开启。媒体代理（`nodes/gallery/media.py`）复用共享连接池，按 URL 磁盘缓存并去重并发请求，瞬时失败退避重试、客户端断开不中断共享下载，逐次复核 HTTPS 白名单、Content-Type 和大小，并使用适配器声明的站点请求头处理媒体源约束（Gelbooru 必须携带站点 Referer，否则上游会把图片重定向到 HTML 帖子页）。缓存与执行原图统一受 `cacheBudgetMiB` 预算修剪。
-- `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
+- `FetchFromKrita` 没有公开输入且标记为非幂等。执行层写入唯一请求、最多等待 15 秒并响应 ComfyUI 取消；`nodes/_lib/krita_snapshot.py` 校验协议、请求身份、受限快照路径、PNG、尺寸和选区语义，再规范化为 IMAGE/MASK。Bridge 1.1.0 在同一短请求中额外报告活动文档原始 PNG/JPEG/WebP 路径，ComfyUI 立即读取其生成参数并输出版本化 `METADATA`；路径不进入工作流或元数据载荷，未保存文档、`.kra` 或无参数原图输出显式空元数据。Bridge 状态、安装、启用、修复和测试路由与快照执行分离，启动时只检查；用户显式安装或修复时原子更新 Krita 插件开关，覆盖文件或配置前要求 Krita 已关闭。
 - 共享图像选择器的栅格图片和紧凑字段只请求 `nodes/tools/image_thumbnail_routes.py` 提供的 256px WebP，SVG 保持原样响应；WebP 保留源图 Alpha，卡片、紧凑字段和悬浮大图使用同一主题棋盘底区分透明区域与黑色像素。路由以 ComfyUI `input` / `output` / `temp` 目录和 containment helper 重新验证路径。`blake3:` Asset 缩略图由前端经 `api.fetchApi()` 携带当前用户身份，再以可撤销 Blob URL 挂载；编码结果按源文件 stat 有界缓存，同一文件的并发请求去重且最多同时解码两张。只有用户打开悬浮大图时才请求原始 `/view` 资源。
 - Discord 分享不新增执行节点。`nodes/tools/discord_share_routes.py` 只向前端公开中继和社区 URL，Webhook、OAuth Secret 与成员会话不进入 ComfyUI Python 进程；可信中继实现位于 `deploy/discord-share-worker/`：`worker.js` 只负责环境校验与路由装配，`auth.js` 拥有 OAuth、会话和逐次成员/角色校验，`share.js` 拥有限流、公开 Target、消息规划和 Webhook 事务，`http.js` 统一 JSON、CORS 与配置错误。频道配置以 Worker Secret 中的 `{ id, label, url, default, prefer_prompt_file }` 数组为真源，浏览器只接收不含 URL 的公开字段并提交 Target Id。`prefer_prompt_file` 只驱动客户端推荐状态，不强制覆盖用户最终选择。KV 只保存短时 OAuth handoff 与带 TTL 的会话；每次发送的用户级滥用保护由 Cloudflare 原生 Rate Limiting binding 承担，避免分享吞吐受 KV 每日写入额度限制。
 
@@ -109,8 +111,8 @@
 
 1. 前端生命周期只幂等挂载界面并读取 Bridge 状态；刷新不会提前抓取执行图像，任何状态都不写入工作流。
 2. 每次执行生成唯一 `request_id`，原子写入 `fetch_snapshot` 请求并等待同身份响应；超时和取消终止本次等待。
-3. Krita Bridge 从当前活动文档导出可见合成图和可选选区，恢复批处理状态，再原子发布响应。
-4. ComfyUI 校验全部响应和媒体后生成 Tensor；无选区生成同尺寸全黑 MASK，存在的全黑选区仍按“有选区”处理。
+3. Krita Bridge 从当前活动文档导出可见合成图和可选选区；若文档直接打开自 PNG/JPEG/WebP，则在响应中附带本次执行可用的原文件路径，随后恢复批处理状态并原子发布响应。
+4. ComfyUI 校验全部响应和媒体后生成 Tensor；无选区生成同尺寸全黑 MASK，存在的全黑选区仍按“有选区”处理。原文件路径只在本次请求中读取 `parameters`，不持久化；不存在可用原文件或参数时构造显式空 `METADATA`。
 5. 完成或失败后只清理当前请求文件；前端执行摘要仅用于反馈，下次执行不会复用。
 
 ### Discord 分享

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from nodes.tools import NODE_CLASSES  # noqa: E402
+from nodes._lib.image_generation_metadata import build_image_generation_metadata  # noqa: E402
 from nodes.tools import conditional_save_image as csi  # noqa: E402
 from nodes.tools.conditional_save_image import ConditionalSaveImage  # noqa: E402
 
@@ -24,15 +25,23 @@ class _FakeLoraManagerSave:
     """Stand-in for LoraManager's SaveImageLM; records the delegation call."""
 
     calls = []
+    formatted = []
+
+    def format_metadata(self, metadata_dict, add_loras_to_prompt=False):
+        return "collector metadata"
 
     def process_image(self, images, id, **kwargs):
         type(self).calls.append((images, id, kwargs))
+        type(self).formatted.append(
+            self.format_metadata({}, kwargs.get("add_loras_to_prompt", False))
+        )
         return {"result": (["normalized-list"],), "ui": {"images": [{"filename": "a.png"}]}}
 
 
 class ConditionalSaveImageNodeTests(unittest.TestCase):
     def setUp(self):
         _FakeLoraManagerSave.calls = []
+        _FakeLoraManagerSave.formatted = []
         _set_hidden()
         self._mappings = {}
         self._original = csi._node_class_mappings
@@ -60,6 +69,7 @@ class ConditionalSaveImageNodeTests(unittest.TestCase):
         self.assertFalse(schema.is_output_node)
         self.assertTrue(schema.not_idempotent)
         self.assertTrue(schema.inputs[1].optional)
+        self.assertTrue(schema.inputs[1].lazy)
         self.assertEqual(schema.inputs[1].io_type, "METADATA")
         self.assertIs(schema.inputs[2].default, True)
         self.assertIs(schema.inputs[11].default, True)  # add_loras_to_prompt 默认开启
@@ -80,6 +90,16 @@ class ConditionalSaveImageNodeTests(unittest.TestCase):
         self.assertIs(output.args[0], images)
         self.assertEqual(output.ui, {"images": []})
         self.assertEqual(_FakeLoraManagerSave.calls, [])
+        self.assertIsNone(
+            ConditionalSaveImage.check_lazy_status(enabled=False, metadata=None)
+        )
+
+    def test_enabled_requests_connected_lazy_metadata(self):
+        self.assertEqual(
+            ConditionalSaveImage.check_lazy_status(enabled=True, metadata=None),
+            ["metadata"],
+        )
+        self.assertIsNone(ConditionalSaveImage.check_lazy_status(enabled=True))
 
     def test_enabled_delegates_to_loramanager_and_keeps_original_batch(self):
         self._install_fake_loramanager()
@@ -102,6 +122,111 @@ class ConditionalSaveImageNodeTests(unittest.TestCase):
         self.assertEqual(kwargs["file_format"], "webp")
         self.assertEqual(kwargs["quality"], 90)
         self.assertNotIn("metadata", kwargs)
+        self.assertEqual(_FakeLoraManagerSave.formatted, ["collector metadata"])
+
+    def test_complete_metadata_uses_isolated_format_adapter(self):
+        self._install_fake_loramanager()
+        payload = build_image_generation_metadata("提示词\nSteps: 24, Unknown: 保留")
+
+        ConditionalSaveImage.execute(
+            object(), metadata=payload, add_loras_to_prompt=True
+        )
+
+        self.assertEqual(
+            _FakeLoraManagerSave.formatted,
+            ["提示词\nSteps: 24, Unknown: 保留"],
+        )
+        self.assertEqual(
+            _FakeLoraManagerSave().format_metadata({}, True), "collector metadata"
+        )
+
+    def test_explicit_empty_metadata_does_not_fall_back_to_collector(self):
+        self._install_fake_loramanager()
+        ConditionalSaveImage.execute(
+            object(), metadata=build_image_generation_metadata(None)
+        )
+        self.assertEqual(_FakeLoraManagerSave.formatted, [""])
+
+    def test_adapter_instances_do_not_share_parameters_or_modify_original_class(self):
+        first = csi._metadata_override_save_instance(_FakeLoraManagerSave, "first")
+        second = csi._metadata_override_save_instance(_FakeLoraManagerSave, "second")
+
+        self.assertEqual(first.format_metadata({}, True), "first")
+        self.assertEqual(second.format_metadata({}, False), "second")
+        self.assertEqual(
+            _FakeLoraManagerSave().format_metadata({}, True), "collector metadata"
+        )
+        self.assertIsNot(type(first), type(second))
+
+    def test_save_and_workflow_toggles_are_forwarded_with_complete_metadata(self):
+        self._install_fake_loramanager()
+        ConditionalSaveImage.execute(
+            object(),
+            metadata=build_image_generation_metadata("source"),
+            save_with_metadata=False,
+            embed_workflow=True,
+        )
+        kwargs = _FakeLoraManagerSave.calls[0][2]
+        self.assertFalse(kwargs["save_with_metadata"])
+        self.assertTrue(kwargs["embed_workflow"])
+
+    def test_failed_adapter_call_does_not_pollute_the_next_save(self):
+        class FailingSave(_FakeLoraManagerSave):
+            def process_image(self, images, id, **kwargs):
+                raise RuntimeError("save failed")
+
+        self._mappings[csi._LORAMANAGER_SAVE_ID] = FailingSave
+        with self.assertRaisesRegex(RuntimeError, "save failed"):
+            ConditionalSaveImage.execute(
+                object(), metadata=build_image_generation_metadata("first")
+            )
+
+        self._install_fake_loramanager()
+        ConditionalSaveImage.execute(
+            object(), metadata=build_image_generation_metadata("second")
+        )
+        self.assertEqual(_FakeLoraManagerSave.formatted, ["second"])
+        self.assertEqual(
+            _FakeLoraManagerSave().format_metadata({}, False), "collector metadata"
+        )
+
+    def test_plain_metadata_overwrite_keeps_original_save_class(self):
+        self._install_fake_loramanager()
+        ConditionalSaveImage.execute(object(), metadata={"steps": 24})
+        self.assertEqual(_FakeLoraManagerSave.formatted, ["collector metadata"])
+
+    def test_transferred_metadata_rejects_recipe_saving(self):
+        self._install_fake_loramanager()
+        with self.assertRaisesRegex(ValueError, "save_as_recipe"):
+            ConditionalSaveImage.execute(
+                object(),
+                metadata=build_image_generation_metadata("prompt"),
+                save_as_recipe=True,
+            )
+        self.assertEqual(_FakeLoraManagerSave.calls, [])
+
+    def test_transfer_requires_loramanager(self):
+        with self.assertRaisesRegex(RuntimeError, "requires ComfyUI-Lora-Manager"):
+            ConditionalSaveImage.execute(
+                object(), metadata=build_image_generation_metadata(None)
+            )
+
+    def test_transfer_rejects_incompatible_loramanager(self):
+        class MissingFormatMetadata:
+            def process_image(self, images, id, **kwargs):
+                raise AssertionError("must not save")
+
+        class WrongFormatMetadataSignature(MissingFormatMetadata):
+            def format_metadata(self):
+                return "invalid"
+
+        for save_class in (MissingFormatMetadata, WrongFormatMetadataSignature):
+            with self.subTest(save_class=save_class.__name__):
+                self._mappings[csi._LORAMANAGER_SAVE_ID] = save_class
+                with self.assertRaisesRegex(RuntimeError, "format_metadata"):
+                    ConditionalSaveImage.execute(
+                        object(), metadata=build_image_generation_metadata("prompt")
+                    )
 
     def test_fallback_rejects_non_png_formats(self):
         with self.assertRaises(ValueError):

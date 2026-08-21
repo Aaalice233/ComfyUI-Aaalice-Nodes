@@ -25,7 +25,7 @@
     "description": "僅在啟用時儲存影像，關閉時原樣直接傳遞。安裝 LoraManager 時使用其儲存實作，否則改用核心 PNG 儲存。",
     "inputs": {
       "images": { "name": "影像", "tooltip": "待儲存的影像；始終原樣直接傳遞到輸出。" },
-      "metadata": { "name": "中繼資料", "tooltip": "可選擇連接 LoraManager 的手動覆寫中繼資料輸出，確保覆寫參數在儲存前執行。" },
+      "metadata": { "name": "中繼資料", "tooltip": "可選擇連接 LoraManager 手動覆寫、載入影像（含中繼資料）或從 Krita 取得。完整來源參數會取代目前產生參數；明確空中繼資料則不寫入參數。" },
       "enabled": { "name": "啟用", "tooltip": "關閉時不儲存任何檔案，影像原樣直接傳遞。" },
       "filename_prefix": { "name": "檔名前綴", "tooltip": "基礎檔名。安裝 LoraManager 後支援 %seed%、%date:...% 等變數。" },
       "file_format": { "name": "檔案格式", "tooltip": "png/jpeg/webp。jpeg 與 webp 需要安裝 ComfyUI-Lora-Manager。" },
@@ -40,6 +40,19 @@
       "save_as_recipe": { "name": "儲存為配方", "tooltip": "同時將每張影像儲存為 LoRA Manager 配方。需要 ComfyUI-Lora-Manager。" }
     },
     "outputs": { "0": { "name": "影像", "tooltip": "未經修改的輸入影像。" } }
+  },
+  "LoadImageWithMetadata": {
+    "display_name": "🧾 載入影像（含中繼資料）",
+    "description": "從輸入目錄載入 PNG、JPEG 或 WebP，並同時輸出完整產生參數。",
+    "inputs": {
+      "image": { "name": "影像", "tooltip": "選擇、上傳或拖入輸入影像。" },
+      "upload": { "name": "選擇檔案上傳" }
+    },
+    "outputs": {
+      "0": { "name": "影像", "tooltip": "載入後的影像像素。" },
+      "1": { "name": "遮罩", "tooltip": "載入後的 Alpha 遮罩，與 ComfyUI 載入影像行為一致。" },
+      "2": { "name": "中繼資料", "tooltip": "完整來源產生參數；來源影像沒有參數時輸出明確空中繼資料。" }
+    }
   },
   "GroupIsEnabled": {
     "display_name": "🚦 群組啟用偵測",
@@ -87,7 +100,8 @@
     "inputs": {},
     "outputs": {
       "0": { "name": "影像", "tooltip": "Krita 目前活動文件的可見合成圖。" },
-      "1": { "name": "遮罩", "tooltip": "Krita 目前選取範圍；沒有選取範圍時輸出空白遮罩。" }
+      "1": { "name": "遮罩", "tooltip": "Krita 目前選取範圍；沒有選取範圍時輸出空白遮罩。" },
+      "2": { "name": "中繼資料", "tooltip": "Krita 開啟的原始 PNG、JPEG 或 WebP 中的產生參數；不存在時輸出明確空中繼資料。" }
     }
   },
   "QuickGroupManager": {

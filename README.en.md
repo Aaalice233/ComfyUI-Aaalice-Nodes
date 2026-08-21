@@ -62,9 +62,10 @@ pip install -r requirements.txt
 | `SimpleStringSplit` | `Aaalice/tools` | Split text by comma or pipe, trim whitespace, and remove empty parts. |
 | `SimpleNotify` | `Aaalice/tools` | Send optional desktop and sound alerts at an execution point, then pass its value through. |
 | `ConditionalSaveImage` | `Aaalice/tools` | Save images only while enabled, otherwise pass them through; reuses LoraManager's save implementation when installed. |
+| `LoadImageWithMetadata` | `Aaalice/tools` | Match the regular image loader: select, upload, or drop an input image and return `IMAGE`, `MASK`, and transferable `METADATA`. |
 | `PromptSelector` | `Aaalice/prompt` | Select, order, and weight reusable entries from the prompt library. |
 | `BooruGalleryNode` | `Aaalice/gallery` | Search Danbooru, Gelbooru, Safebooru, and AI TAG in a virtual masonry gallery and output ordered images with paired prompts. |
-| `FetchFromKrita` | `Aaalice/krita` | Read the visible composite and selection of Krita's active document as `IMAGE` and `MASK`. |
+| `FetchFromKrita` | `Aaalice/krita` | Read Krita's active composite, selection, and original-file generation parameters. |
 
 ## 📖 Node details
 
@@ -116,9 +117,20 @@ Connect any value to receive one alert when execution reaches the node, then con
 <details>
 <summary><strong>ConditionalSaveImage — toggleable image saving</strong></summary>
 
-The same saving capabilities and options as `Save Image (LoraManager)` (`%seed%` filename patterns, png/jpeg/webp, metadata, workflow embedding, recipes), plus an **Enabled** toggle: when off, nothing is written, the images pass through unchanged, and the save-related widgets are dimmed. The optional `metadata` socket accepts LoraManager's `Metadata Overwrite` output so manual overrides execute before saving. With ComfyUI-Lora-Manager installed, all saving is performed by its original implementation; without it, the node falls back to the core PNG save and clearly errors on LoraManager-only capabilities such as jpeg/webp or recipes.
+The same saving capabilities and options as `Save Image (LoraManager)` (`%seed%` filename patterns, png/jpeg/webp, metadata, workflow embedding, recipes), plus an **Enabled** toggle: when off, nothing is written, the images pass through unchanged, and the optional lazy `metadata` input is not evaluated. `metadata` can still accept LoraManager's `Metadata Overwrite` for collector-based field overrides, or `LoadImageWithMetadata` / `FetchFromKrita` for a complete source `parameters` replacement before the first encode. Explicit empty source metadata writes no `parameters` instead of inventing current values. With ComfyUI-Lora-Manager installed, its original implementation still owns saving; without it, the node falls back to core PNG saving but clearly rejects complete/empty metadata transfer and LoraManager-only features such as jpeg/webp or recipes.
+
+Complete transfer does not change the current execution context used by `%seed%`, `%model%`, and other filename variables, and it never copies the source workflow. `embed_workflow` embeds only the current workflow. Complete or empty transfer cannot be combined with `save_as_recipe`, preventing image and recipe metadata from coming from different sources.
 
 Every save node is an output node that the executor runs unconditionally, so placing a save node upstream of a switch cannot prevent writes. Building the toggle into the save node itself is the only option that does not require manually muting the node (`Ctrl+M`).
+
+</details>
+
+<details>
+<summary><strong>LoadImageWithMetadata — load images with generation parameters</strong></summary>
+
+This extends the regular `Load Image` node with the same input-folder list, upload, drop, and preview behavior, then adds `METADATA` beside `IMAGE` and `MASK`. The image output can freely enter switches, scaling, or other processing while the independent metadata output connects to `ConditionalSaveImage.metadata`; no IMAGE-link source tracing is involved.
+
+PNG reads only the `parameters` text chunk, while JPEG/WebP read only EXIF `UserComment`; `prompt`, `workflow`, and other comments are never substituted for generation parameters. A valid image without `parameters` produces explicit empty metadata, so the target also has no generated parameters. Missing or escaped paths, damaged files, unsupported formats, and undecodable metadata fail clearly. A file-content fingerprint reloads and re-extracts metadata when a same-named file is overwritten.
 
 </details>
 
@@ -151,9 +163,9 @@ Gallery can be added to Dashboard from the node context menu. The node and sideb
 <details>
 <summary><strong>FetchFromKrita — execution-time Krita snapshot</strong></summary>
 
-Every execution reads the visible composite of Krita's active document as `IMAGE` and the current selection as a same-size `MASK` (fully black when nothing is selected). Close Krita, then open **ComfyUI Settings → Aaalice Nodes → Krita** to install and enable the bundled `Aaalice Comfy Bridge`, start Krita, and test the connection.
+Every execution reads the visible composite of Krita's active document as `IMAGE`, the current selection as a same-size `MASK` (fully black when nothing is selected), and `METADATA` from the original PNG, JPEG, or WebP opened by that document. An unsaved document, a `.kra` document, or a source without generation parameters produces explicit empty metadata. Close Krita, then open **ComfyUI Settings → Aaalice Nodes → Krita** to install or repair the bundled `Aaalice Comfy Bridge`, start Krita, and test the connection.
 
-Krita, ComfyUI, and the Bridge must run on the same machine. Missing Bridge, offline Krita, no active document, or an export failure fails the node explicitly; it never returns an old snapshot or placeholder.
+Krita, ComfyUI, and the Bridge must run on the same machine. The metadata output requires Bridge 1.1.0; close Krita and run Repair when an older version is installed. A missing Bridge, offline Krita, no active document, damaged source metadata, or export failure fails explicitly; the node never returns an old snapshot or placeholder.
 
 </details>
 

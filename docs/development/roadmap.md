@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- 进度：`10 / 10` 个节点
+- 进度：`11 / 11` 个节点
 - 下一项：无
 - 稳定编号继承重置计划，调整优先级时不重编号。
 - 每次只重置一个节点；包骨架和非节点前端扩展不计入节点进度。
@@ -20,9 +20,10 @@
 | 17 | `GroupIsEnabled` | control | 队列提交时快照可视组成员模式，报告是否被完全禁用。 |
 | 18 | `QuickGroupManager` | control | 按颜色范围统一启用、静音或绕过组，并配置排序与联动。 |
 | 21 | `BooruGalleryNode` | gallery | 跨 Danbooru、Gelbooru、Safebooru 与 AI TAG 搜索或无重复随机抽取自然比例瀑布流；节点与 Dashboard 共享完整多视图运行时，组件状态受 Dashboard 预设控制，并保存有序选择、输出对应图片与 Prompt。 |
-| 24 | `FetchFromKrita` | krita | 每次执行从 Krita 当前活动文档获取可见合成图与选区蒙版。 |
+| 24 | `FetchFromKrita` | krita | 每次执行从 Krita 活动文档获取可见合成图、选区蒙版与原文件生成参数。 |
 | 27 | `GroupLogicProbe` | control | 多条组启用/禁用条件按 AND/OR 组合，队列提交时快照求值并输出单个布尔用于懒执行分支。 |
 | 28 | `ConditionalSaveImage` | tools | 仅在启用时复用现有保存实现，关闭时透明透传图像。 |
+| 29 | `LoadImageWithMetadata` | tools | 扩展官方输入图像加载契约，同时输出 IMAGE、MASK 与完整或显式空 METADATA。 |
 
 ## 不再重置
 

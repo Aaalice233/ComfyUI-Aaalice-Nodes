@@ -10,10 +10,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from PIL import Image
+from PIL import Image, PngImagePlugin
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
+from nodes._lib.image_generation_metadata import parse_image_generation_metadata  # noqa: E402
 from nodes._lib.krita_snapshot import (  # noqa: E402
     KritaSnapshotError,
     PROTOCOL_VERSION,
@@ -64,6 +65,7 @@ class KritaSnapshotTests(unittest.TestCase):
             snapshot = parse_snapshot_response(_response(root, "request", selection=False), "request", root)
             _, mask = load_snapshot_tensors(snapshot)
         self.assertFalse(snapshot.selection_present)
+        self.assertIsNone(snapshot.parameters)
         self.assertEqual(tuple(mask.shape), (1, 3, 4))
 
     def test_request_protocol_and_payload_paths_are_strict(self):
@@ -112,6 +114,38 @@ class KritaSnapshotTests(unittest.TestCase):
             Image.new("RGB", (4, 3)).save(jpg_path)
             data["image_path"] = str(jpg_path)
             with self.assertRaisesRegex(KritaSnapshotError, "PNG"):
+                parse_snapshot_response(data, "request", root)
+
+    def test_original_document_parameters_are_read_during_the_snapshot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_path = root / "original.png"
+            png_info = PngImagePlugin.PngInfo()
+            png_info.add_text("parameters", "Krita source 参数\nSteps: 20")
+            Image.new("RGB", (4, 3), "blue").save(source_path, pnginfo=png_info)
+            data = _response(root, "request")
+            data["source_path"] = str(source_path)
+            snapshot = parse_snapshot_response(data, "request", root)
+            self.assertEqual(snapshot.parameters, "Krita source 参数\nSteps: 20")
+
+            data = _response(root, "empty")
+            data["source_path"] = str(root / "empty-source.png")
+            Image.new("RGB", (4, 3), "green").save(data["source_path"])
+            snapshot = parse_snapshot_response(data, "empty", root)
+            self.assertIsNone(snapshot.parameters)
+
+    def test_invalid_original_document_source_fails_explicitly(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            data = _response(root, "request")
+            data["source_path"] = str(root / "missing.png")
+            with self.assertRaisesRegex(KritaSnapshotError, "no longer exists"):
+                parse_snapshot_response(data, "request", root)
+
+            source_path = root / "source.kra"
+            source_path.write_bytes(b"not an image")
+            data["source_path"] = str(source_path)
+            with self.assertRaisesRegex(KritaSnapshotError, "PNG, JPEG, or WebP"):
                 parse_snapshot_response(data, "request", root)
 
     def test_explicit_bridge_failure_keeps_code_and_message(self):
@@ -200,18 +234,31 @@ class FetchFromKritaNodeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(schema.node_id, "FetchFromKrita")
         self.assertEqual(schema.category, "Aaalice/krita")
         self.assertEqual(schema.inputs, [])
-        self.assertEqual([output.id for output in schema.outputs], ["image", "mask"])
+        self.assertEqual(
+            [output.id for output in schema.outputs],
+            ["image", "mask", "metadata"],
+        )
         self.assertTrue(schema.not_idempotent)
         self.assertNotEqual(FetchFromKrita.fingerprint_inputs(), FetchFromKrita.fingerprint_inputs())
 
     async def test_success_returns_execution_metadata_and_failure_is_explicit(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            snapshot = parse_snapshot_response(_response(root, "request"), "request", root)
+            source_path = root / "original.png"
+            png_info = PngImagePlugin.PngInfo()
+            png_info.add_text("parameters", "Krita parameters")
+            Image.new("RGB", (4, 3), "blue").save(source_path, pnginfo=png_info)
+            response = _response(root, "request")
+            response["source_path"] = str(source_path)
+            snapshot = parse_snapshot_response(response, "request", root)
             image, mask = load_snapshot_tensors(snapshot)
             with patch("nodes.krita.fetch_from_krita.fetch_snapshot", return_value=(image, mask, snapshot)):
                 output = await FetchFromKrita.execute()
-        self.assertEqual(output.args, (image, mask))
+        self.assertEqual(output.args[:2], (image, mask))
+        self.assertEqual(
+            parse_image_generation_metadata(output.args[2]),
+            "Krita parameters",
+        )
         self.assertEqual(output.ui["aaalice_krita_snapshot"][0]["document"], "Study.kra")
 
         async def fail(**_kwargs):

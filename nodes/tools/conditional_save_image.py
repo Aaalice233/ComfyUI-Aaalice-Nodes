@@ -9,13 +9,20 @@ the node into a pure pass-through and nothing is written to disk.
 
 from __future__ import annotations
 
+import inspect
 import sys
 from typing import Any
 from uuid import uuid4
 
 from comfy_api.latest import io
 
+from .._lib.image_generation_metadata import (
+    is_image_generation_metadata,
+    parse_image_generation_metadata,
+)
+
 _LORAMANAGER_SAVE_ID = "Save Image (LoraManager)"
+_MISSING = object()
 
 
 def _node_class_mappings() -> dict:
@@ -37,6 +44,30 @@ def _loramanager_save_class():
     return _node_class_mappings().get(_LORAMANAGER_SAVE_ID)
 
 
+def _metadata_override_save_instance(save_class: type, parameters: str | None):
+    format_metadata = getattr(save_class, "format_metadata", None)
+    if not callable(format_metadata):
+        raise RuntimeError(
+            "ConditionalSaveImage: the installed ComfyUI-Lora-Manager does not expose "
+            "the required format_metadata() capability; update Lora Manager."
+        )
+    try:
+        inspect.signature(format_metadata).bind(None, {}, False)
+    except (TypeError, ValueError) as error:
+        raise RuntimeError(
+            "ConditionalSaveImage: the installed ComfyUI-Lora-Manager has an incompatible "
+            "format_metadata() signature; update Lora Manager."
+        ) from error
+
+    class CompleteMetadataSaveAdapter(save_class):
+        def format_metadata(
+            self, metadata_dict: dict[str, Any], add_loras_to_prompt: bool = False
+        ) -> str:
+            return parameters or ""
+
+    return CompleteMetadataSaveAdapter()
+
+
 class ConditionalSaveImage(io.ComfyNode):
     """Pass images through; save them only while the enabled toggle is on."""
 
@@ -55,7 +86,11 @@ class ConditionalSaveImage(io.ComfyNode):
                 io.Custom("METADATA").Input(
                     "metadata",
                     optional=True,
-                    tooltip="Optional Metadata Overwrite (LoraManager) output; establishes execution order before saving.",
+                    lazy=True,
+                    tooltip=(
+                        "Optional Metadata Overwrite dependency or complete parameters from "
+                        "Image Metadata Extractor."
+                    ),
                 ),
                 io.Boolean.Input(
                     "enabled",
@@ -92,10 +127,18 @@ class ConditionalSaveImage(io.ComfyNode):
         return uuid4().hex
 
     @classmethod
+    def check_lazy_status(
+        cls, enabled: bool, metadata: Any = _MISSING, **_kwargs
+    ) -> list[str] | None:
+        if enabled and metadata is None:
+            return ["metadata"]
+        return None
+
+    @classmethod
     def execute(
         cls,
         images: Any,
-        metadata: Any = None,
+        metadata: Any = _MISSING,
         enabled: bool = True,
         filename_prefix: str = "ComfyUI",
         file_format: str = "png",
@@ -109,16 +152,28 @@ class ConditionalSaveImage(io.ComfyNode):
         add_counter_to_filename: bool = True,
         save_as_recipe: bool = False,
     ) -> io.NodeOutput:
-        # LoraManager applies the overwrite through its collector; the socket makes
-        # that node execute before this save node without replacing collector data.
-        _ = metadata
         if not enabled:
             return io.NodeOutput(images, ui={"images": []})
+
+        parameters_override = None
+        has_parameters_override = is_image_generation_metadata(metadata)
+        if has_parameters_override:
+            parameters_override = parse_image_generation_metadata(metadata)
+            if save_as_recipe:
+                raise ValueError(
+                    "ConditionalSaveImage: transferred image metadata cannot be combined "
+                    "with save_as_recipe; disable recipe saving."
+                )
 
         hidden = cls.hidden
         save_class = _loramanager_save_class()
         if save_class is not None:
-            result = save_class().process_image(
+            saver = (
+                _metadata_override_save_instance(save_class, parameters_override)
+                if has_parameters_override
+                else save_class()
+            )
+            result = saver.process_image(
                 images,
                 hidden.unique_id,
                 filename_prefix=filename_prefix,
@@ -140,6 +195,11 @@ class ConditionalSaveImage(io.ComfyNode):
             ui = result.get("ui") if isinstance(result, dict) else None
             return io.NodeOutput(images, ui=ui)
 
+        if has_parameters_override:
+            raise RuntimeError(
+                "ConditionalSaveImage: complete or empty metadata transfer requires "
+                "ComfyUI-Lora-Manager."
+            )
         if file_format != "png":
             raise ValueError(
                 "ConditionalSaveImage: jpeg/webp requires ComfyUI-Lora-Manager; only png is available without it."

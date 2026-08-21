@@ -10,6 +10,11 @@ import numpy as np
 import torch
 from PIL import Image
 
+from .image_file_metadata import (
+    SUPPORTED_IMAGE_METADATA_EXTENSIONS,
+    extract_image_generation_parameters,
+)
+
 PROTOCOL_VERSION = 1
 MAX_PAYLOAD_BYTES = 512 * 1024 * 1024
 
@@ -38,6 +43,7 @@ class KritaSnapshot:
     selection_present: bool
     mask_path: Path | None
     selection_bounds: tuple[int, int, int, int] | None
+    parameters: str | None
 
 
 def _object(value: Any, name: str) -> dict[str, Any]:
@@ -72,6 +78,29 @@ def _payload_path(value: Any, root: Path, name: str) -> Path:
     if path.stat().st_size > MAX_PAYLOAD_BYTES:
         raise KritaSnapshotError("payload-too-large", f"{name} exceeds the 512 MiB safety limit")
     return path
+
+
+def _source_parameters(value: Any) -> str | None:
+    if value is None:
+        return None
+    source_path = Path(_text(value, "source_path")).resolve()
+    if source_path.suffix.lower() not in SUPPORTED_IMAGE_METADATA_EXTENSIONS:
+        raise KritaSnapshotError(
+            "invalid-source-format",
+            "source_path must reference a PNG, JPEG, or WebP image",
+        )
+    if not source_path.is_file():
+        raise KritaSnapshotError(
+            "missing-source",
+            f"the active Krita document source no longer exists: {source_path}",
+        )
+    try:
+        return extract_image_generation_parameters(source_path)
+    except Exception as exc:
+        raise KritaSnapshotError(
+            "source-metadata-decode-failed",
+            f"failed to read generation metadata from the active Krita document source: {exc}",
+        ) from exc
 
 
 def parse_snapshot_response(data: Any, expected_request_id: str, root: Path) -> KritaSnapshot:
@@ -120,6 +149,7 @@ def parse_snapshot_response(data: Any, expected_request_id: str, root: Path) -> 
         selection_present=present,
         mask_path=mask_path,
         selection_bounds=selection_bounds,
+        parameters=_source_parameters(response.get("source_path")),
     )
 
 

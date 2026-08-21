@@ -16,7 +16,7 @@ from .._lib.krita_snapshot import PROTOCOL_VERSION
 from .bridge_client import bridge_root
 
 BRIDGE_ID = "aaalice_comfy_bridge"
-BRIDGE_VERSION = "1.0.0"
+BRIDGE_VERSION = "1.1.0"
 STATUS_MAX_AGE = 3.0
 
 
