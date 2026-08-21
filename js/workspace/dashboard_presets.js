@@ -197,11 +197,12 @@ export async function deleteCurrentDashboardPreset(presetId) {
 async function commitDeletedActiveDashboardPreset(nextState, nextPreset) {
 	let plan = null;
 	if (nextPreset) {
-		plan = planDashboardPresetApplication(nextPreset, (binding) => resolve(binding));
+		plan = planDashboardPresetApplication(nextPreset, (binding) => resolve(binding), { repairDamaged: true });
 		if (plan.issues.length && !await confirmPartialDashboardPreset(plan, nextPreset)) return;
+		if (plan.repairs.length) nextState = replaceDashboardPreset(nextState, nextPreset.id, plan.repairedSnapshot);
 	}
 	const graph = app.graph; const previousPresetExtra = structuredClone(graph?.extra?.[runtime.presetsExtraKey]); const previousActivePageId = runtime.getActivePageId();
-	const applicationPlan = plan || { dashboard: emptyDashboard(), ready: [], issues: [] };
+	const applicationPlan = plan || { dashboard: emptyDashboard(), ready: [], issues: [], repairs: [] };
 	const nextActivePageId = nextPreset?.dashboard.pages.some((page) => page.id === previousActivePageId) ? previousActivePageId : nextPreset?.dashboard.pages[0]?.id || null;
 	graph?.beforeChange?.();
 	try {
@@ -312,10 +313,11 @@ async function prepareDashboardPresetSwitch(presetId, { restore = false, forcePr
 export async function applyDashboardPreset(presetId, { restore = false } = {}) {
 	const prepared = await prepareDashboardPresetSwitch(presetId, { restore }); if (!prepared) return;
 	const { state, preset } = prepared;
-	const plan = planDashboardPresetApplication(preset, (binding) => resolve(binding));
+	const plan = planDashboardPresetApplication(preset, (binding) => resolve(binding), { repairDamaged: true });
 	if (plan.issues.length && !await confirmPartialDashboardPreset(plan, preset)) return;
 	const graph = app.graph; const previousPresetExtra = structuredClone(graph?.extra?.[runtime.presetsExtraKey]); const previousActivePageId = runtime.getActivePageId();
-	const nextPresetState = setDashboardPresetBaseline(state, presetId); const nextActivePageId = preset.dashboard.pages.some((page) => page.id === previousActivePageId) ? previousActivePageId : preset.dashboard.pages[0]?.id || null;
+	const repairedState = plan.repairs.length ? replaceDashboardPreset(state, presetId, plan.repairedSnapshot) : state;
+	const nextPresetState = setDashboardPresetBaseline(repairedState, presetId); const nextActivePageId = preset.dashboard.pages.some((page) => page.id === previousActivePageId) ? previousActivePageId : preset.dashboard.pages[0]?.id || null;
 	graph?.beforeChange?.();
 	try {
 		graph.extra ||= {};
@@ -327,7 +329,10 @@ export async function applyDashboardPreset(presetId, { restore = false } = {}) {
 		});
 	} catch (error) { notifyDashboardPresetError(error); return; }
 	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender("dashboard"); }
-	notifyDashboardPresetSuccess(preset.name, t("aaalice.workspace.dashboardPreset.appliedReminder", "Sidebar preset applied. Save the workflow to keep the layout and values."));
+	const detail = plan.repairs.length
+		? t("aaalice.workspace.dashboardPreset.repairedReminder", "Sidebar preset applied. {count} damaged saved values were replaced with the current workflow values. Save the workflow to keep the repair.").replace("{count}", String(plan.repairs.length))
+		: t("aaalice.workspace.dashboardPreset.appliedReminder", "Sidebar preset applied. Save the workflow to keep the layout and values.");
+	notifyDashboardPresetSuccess(preset.name, detail);
 }
 
 export function openDashboardExport(model) {

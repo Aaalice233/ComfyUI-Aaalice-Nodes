@@ -32,6 +32,23 @@ function readCurrentPayload(resolved, key) {
 	return typeof value === "undefined" ? undefined : structuredClone(value);
 }
 
+function validationReason(validation) {
+	if (validation === false || validation?.ok === false) return "invalid-value";
+	return typeof validation === "string" ? validation : null;
+}
+
+const DAMAGED_PRESET_REASONS = new Set(["type-mismatch", "invalid-number", "invalid-integer", "invalid-boolean", "invalid-string", "invalid-list", "invalid-reference", "invalid-seed-behavior"]);
+
+function currentPresetRepairEntry(binding, resolved, key) {
+	const payload = typeof resolved.readPresetRepairValue === "function"
+		? structuredClone(resolved.readPresetRepairValue())
+		: readCurrentPayload(resolved, key);
+	if (typeof payload === "undefined") return null;
+	const current = normalizeDashboardPresetValues({ [key]: { valueType: binding.valueType, payload } })[key];
+	const validation = synchronous(resolved.validatePresetValue?.(current), "validation", key);
+	return validationReason(validation) ? null : current;
+}
+
 function writePresetEntry(entry, value) {
 	const result = entry.resolved.applyPresetValue
 		? entry.resolved.applyPresetValue(value, { transaction: false, workspaceRedraw: false })
@@ -230,8 +247,14 @@ export function captureDashboardValues(dashboard, resolveBinding) {
 		catch (error) { captured.push({ key, binding, status: "error", error }); continue; }
 		if (status !== "ok") { captured.push({ key, binding, status }); continue; }
 		if (typeof payload === "undefined") { captured.push({ key, binding, status: "unset" }); continue; }
-		try { values[key] = normalizeDashboardPresetValues({ [key]: { valueType: binding.valueType, payload } })[key]; }
+		let current;
+		try {
+			current = normalizeDashboardPresetValues({ [key]: { valueType: binding.valueType, payload } })[key];
+			const reason = validationReason(synchronous(resolved.validatePresetValue?.(current), "validation", key));
+			if (reason) { captured.push({ key, binding, status: "invalid", reason, resolved }); continue; }
+		}
 		catch (error) { captured.push({ key, binding, status: "invalid", reason: error.message, error }); continue; }
+		values[key] = current;
 		captured.push({ key, binding, status: "ok", modelOptions: modelOptionValues(resolved) });
 	}
 	return { values, bindings: captured };
@@ -349,7 +372,7 @@ export function planDashboardPresetValueOverwrite(sourceSnapshot, targetPreset, 
 	};
 }
 
-export function planDashboardPresetApplication(snapshot, resolveBinding) {
+export function planDashboardPresetApplication(snapshot, resolveBinding, { repairDamaged = false } = {}) {
 	const normalized = normalizeDashboardSnapshot(snapshot); const { bindings: dashboardBindings, conflicts } = uniqueBindings(normalized.dashboard); const entries = [];
 	for (const [key, binding] of dashboardBindings) {
 		const saved = normalized.values[key];
@@ -374,9 +397,17 @@ export function planDashboardPresetApplication(snapshot, resolveBinding) {
 		let validation;
 		try { validation = synchronous(resolved.validatePresetValue?.(saved), "validation", key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
-		const reason = validation === false || validation?.ok === false || typeof validation === "string" ? (typeof validation === "string" ? validation : "invalid-value") : null;
+		const reason = validationReason(validation);
 		const modelResolution = reason ? resolveDashboardPresetModelValue(binding, saved, resolved, reason) : null;
-		if (reason && !modelResolution) { entries.push({ key, binding, saved, resolved, status: "invalid", reason }); continue; }
+		if (reason && !modelResolution) {
+			let replacement = null; let previousPayload;
+			if (repairDamaged && DAMAGED_PRESET_REASONS.has(reason)) {
+				try { replacement = currentPresetRepairEntry(binding, resolved, key); previousPayload = replacement ? readCurrentPayload(resolved, key) : undefined; }
+				catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
+			}
+			entries.push(replacement ? { key, binding, saved: replacement, presetSaved: saved, resolved, replacement, previous: { valueType: binding.valueType, payload: previousPayload }, status: "repaired", reason, applySaved: true } : { key, binding, saved, resolved, status: "invalid", reason });
+			continue;
+		}
 		let previousPayload;
 		try { previousPayload = readCurrentPayload(resolved, key); }
 		catch (error) { entries.push({ key, binding, saved, resolved, status: "invalid", reason: error.message, error }); continue; }
@@ -384,11 +415,16 @@ export function planDashboardPresetApplication(snapshot, resolveBinding) {
 		entries.push(modelResolution ? { ...common, presetSaved: modelResolution.presetValue, ...modelResolution, saved: modelResolution.value } : { ...common, status: "ready" });
 	}
 	for (const [key, saved] of Object.entries(normalized.values)) if (!dashboardBindings.has(key)) entries.push({ key, saved, status: "unused" });
+	const repairs = entries.filter((entry) => entry.status === "repaired");
+	const repairedValues = structuredClone(normalized.values);
+	for (const entry of repairs) repairedValues[entry.key] = structuredClone(entry.replacement);
 	return {
 		dashboard: normalized.dashboard,
+		repairedSnapshot: { dashboard: normalized.dashboard, values: repairedValues },
 		entries,
 		ready: applicablePresetEntries(entries),
-		issues: entries.filter((entry) => !["ready", "layout-only"].includes(entry.status)),
+		repairs,
+		issues: entries.filter((entry) => !["ready", "repaired", "layout-only"].includes(entry.status)),
 	};
 }
 

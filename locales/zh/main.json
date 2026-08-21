@@ -140,7 +140,7 @@
         "reasonMissing": "当前工作流中找不到该组件原来绑定的参数，请重新绑定后再恢复其数值。", "reasonIncompatible": "该参数的类型或约束已经变化，将保留工作流当前值。", "reasonUnused": "该数值属于侧边栏中已经移除的组件，将跳过。", "reasonEmpty": "该参数当前没有可用选项，将保留工作流当前值。", "reasonUnset": "该参数当前没有可恢复的数值。", "reasonUnavailable": "该参数暂时不可用，将保留工作流当前值。", "reasonControlError": "无法安全读取该参数，将保留工作流当前值。", "reasonUnknown": "无法安全恢复该保存值，将跳过。",
         "unsavedTitle": "当前修改尚未保存", "unsavedHint": "切换前可以保存当前布局和参数，也可以放弃修改。", "discardSwitch": "放弃并切换", "saveSwitch": "保存并切换", "saveAsSwitch": "另存并切换",
         "partialHint": "部分参数无法安全恢复，请确认后再应用其余兼容布局和参数。", "modelPathHint": "已在嵌套文件夹中找到匹配的模型。确认后，本次切换将自动使用检测到的实际路径。", "modelReviewHint": "部分模型路径需要处理。确认后仍会写入新预设中的全部模型值，避免任何组件静默沿用上一个预设；已找到的嵌套模型将使用下方列出的实际路径。", "applyCompatible": "应用兼容内容", "applyPresetModels": "应用预设模型",
-        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "created": "侧边栏预设已创建，请保存工作流以保留它。", "updated": "侧边栏预设已更新，请保存工作流以保留它。", "duplicated": "侧边栏预设已复制，请保存工作流以保留它。", "renamed": "侧边栏预设已重命名，请保存工作流以保留它。", "deleted": "侧边栏预设已删除，请保存工作流以保留修改。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "deletedAndSwitched": "侧边栏预设已删除，并自动切换到其它预设；请保存工作流以保留修改。", "deletedAndCleared": "最后一个侧边栏预设已删除，侧边栏已清空；请保存工作流以保留修改。"
+        "saveWorkflowReminder": "请保存工作流以保留这些侧边栏预设。", "created": "侧边栏预设已创建，请保存工作流以保留它。", "updated": "侧边栏预设已更新，请保存工作流以保留它。", "duplicated": "侧边栏预设已复制，请保存工作流以保留它。", "renamed": "侧边栏预设已重命名，请保存工作流以保留它。", "deleted": "侧边栏预设已删除，请保存工作流以保留修改。", "appliedReminder": "侧边栏预设已应用，请保存工作流以保留布局和参数。", "repairedReminder": "侧边栏预设已应用，已用工作流当前值自动修复 {count} 个损坏的保存值；请保存工作流以保留修复。", "deletedAndSwitched": "侧边栏预设已删除，并自动切换到其它预设；请保存工作流以保留修改。", "deletedAndCleared": "最后一个侧边栏预设已删除，侧边栏已清空；请保存工作流以保留修改。"
       },
       "valueProfiles": {
         "open": "调整档案", "title": "参数调整档案", "select": "调整档案", "name": "档案名称",

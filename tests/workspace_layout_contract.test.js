@@ -243,7 +243,10 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(workspace, /dashboardPreset\.(created|updated|duplicated|renamed|deleted)/);
 	assert.match(workspace, /deleteCurrentDashboardPreset[\s\S]*confirmAction\(message, \{ title: dashboardPresetLabels\(\)\.delete, confirmLabel: dashboardPresetLabels\(\)\.delete, danger: true \}\)[\s\S]*removeDashboardPreset/);
 	assert.match(workspace, /commitDeletedActiveDashboardPreset[\s\S]*planDashboardPresetApplication/);
-	assert.match(workspace, /applicationPlan = plan \|\| \{ dashboard: emptyDashboard\(\), ready: \[\], issues: \[\] \}/);
+	assert.match(workspace, /planDashboardPresetApplication\(preset,[\s\S]*\{ repairDamaged: true \}\)/);
+	assert.match(workspace, /replaceDashboardPreset\(state, presetId, plan\.repairedSnapshot\)/);
+	assert.match(workspace, /dashboardPreset\.repairedReminder/);
+	assert.match(workspace, /applicationPlan = plan \|\| \{ dashboard: emptyDashboard\(\), ready: \[\], issues: \[\], repairs: \[\] \}/);
 	assert.match(enLocale, /deleteSwitchConfirm/);
 	assert.match(enLocale, /deleteLastConfirm/);
 	assert.match(zhLocale, /deleteSwitchConfirm/);

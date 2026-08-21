@@ -140,7 +140,7 @@
         "reasonMissing": "目前工作流程中找不到該元件原來綁定的參數，請重新綁定後再恢復其數值。", "reasonIncompatible": "該參數的類型或約束已經變化，將保留工作流程目前值。", "reasonUnused": "該數值屬於側邊欄中已經移除的元件，將略過。", "reasonEmpty": "該參數目前沒有可用選項，將保留工作流程目前值。", "reasonUnset": "該參數目前沒有可恢復的數值。", "reasonUnavailable": "該參數暫時不可用，將保留工作流程目前值。", "reasonControlError": "無法安全讀取該參數，將保留工作流程目前值。", "reasonUnknown": "無法安全恢復該儲存值，將略過。",
         "unsavedTitle": "目前修改尚未儲存", "unsavedHint": "切換前可以儲存目前版面和參數，也可以放棄修改。", "discardSwitch": "放棄並切換", "saveSwitch": "儲存並切換", "saveAsSwitch": "另存並切換",
         "partialHint": "部分參數無法安全恢復，請確認後再套用其餘相容版面和參數。", "modelPathHint": "已在巢狀資料夾中找到符合的模型。確認後，本次切換將自動使用偵測到的實際路徑。", "modelReviewHint": "部分模型路徑需要處理。確認後仍會寫入新預設中的全部模型值，避免任何元件靜默沿用上一個預設；已找到的巢狀模型將使用下方列出的實際路徑。", "applyCompatible": "套用相容內容", "applyPresetModels": "套用預設模型",
-        "saveWorkflowReminder": "請儲存工作流程以保留這些側邊欄預設。", "created": "側邊欄預設已建立，請儲存工作流程以保留它。", "updated": "側邊欄預設已更新，請儲存工作流程以保留它。", "duplicated": "側邊欄預設已複製，請儲存工作流程以保留它。", "renamed": "側邊欄預設已重新命名，請儲存工作流程以保留它。", "deleted": "側邊欄預設已刪除，請儲存工作流程以保留修改。", "appliedReminder": "側邊欄預設已套用，請儲存工作流程以保留版面和參數。", "deletedAndSwitched": "側邊欄預設已刪除，並自動切換到其它預設；請儲存工作流程以保留修改。", "deletedAndCleared": "最後一個側邊欄預設已刪除，側邊欄已清除；請儲存工作流程以保留修改。"
+        "saveWorkflowReminder": "請儲存工作流程以保留這些側邊欄預設。", "created": "側邊欄預設已建立，請儲存工作流程以保留它。", "updated": "側邊欄預設已更新，請儲存工作流程以保留它。", "duplicated": "側邊欄預設已複製，請儲存工作流程以保留它。", "renamed": "側邊欄預設已重新命名，請儲存工作流程以保留它。", "deleted": "側邊欄預設已刪除，請儲存工作流程以保留修改。", "appliedReminder": "側邊欄預設已套用，請儲存工作流程以保留版面和參數。", "repairedReminder": "側邊欄預設已套用，已用工作流程目前值自動修復 {count} 個損壞的儲存值；請儲存工作流程以保留修復。", "deletedAndSwitched": "側邊欄預設已刪除，並自動切換到其它預設；請儲存工作流程以保留修改。", "deletedAndCleared": "最後一個側邊欄預設已刪除，側邊欄已清除；請儲存工作流程以保留修改。"
       },
       "valueProfiles": {
         "open": "調整設定檔", "title": "參數調整設定檔", "select": "調整設定檔", "name": "設定檔名稱",

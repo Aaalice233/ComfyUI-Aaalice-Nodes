@@ -282,6 +282,9 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 			if (typeof adapter.readPresetValue === "function") return adapter.readPresetValue(context);
 			return currentValue();
 		},
+		readPresetRepairValue: typeof described.readPresetRepairValue === "function"
+			? () => described.readPresetRepairValue(context)
+			: typeof adapter.readPresetRepairValue === "function" ? () => adapter.readPresetRepairValue(context) : undefined,
 		validatePresetValue(entry) {
 			if (typeof described.validatePresetValue === "function") return described.validatePresetValue(entry, context);
 			if (typeof adapter.validatePresetValue === "function") return adapter.validatePresetValue(entry, context);
@@ -576,6 +579,11 @@ function controlIdForWidget(node, widget, requestedControlId) {
 	return requested;
 }
 
+function normalizedNativeValue(value, definition) {
+	if (definition.valueType === "boolean" && (typeof value === "boolean" || value === 0 || value === 1)) return Boolean(value);
+	return value;
+}
+
 registerWidgetControlAdapter({
 	id: "comfy-native-widget",
 	priority: -1000,
@@ -590,6 +598,8 @@ registerWidgetControlAdapter({
 		// 必须沿提升链到内部真实 widget 上检测种子行为控件。
 		const owner = resolveWidgetDefinitionOwner(node, widget);
 		const seedMode = numericDomain !== "float" ? linkedSeedModeWidget(owner.node, owner.widget) : null;
+		const sourceWidget = promoted && owner.widget !== widget ? owner.widget : null;
+		const currentValue = () => normalizedNativeValue(widget.value, definition);
 		const kind = seedMode ? "seed" : definition.kind;
 		const options = { ...(widget.options || {}) };
 		if (kind === "numeric" || kind === "seed") options.step = realWidgetStep(widget.options);
@@ -597,13 +607,15 @@ registerWidgetControlAdapter({
 		return {
 			controlId: widget.name,
 			label,
-			getValue: () => widget.value,
-			value: widget.value,
-			valueType: kind === "choice" ? controlValueType(widget.value) || definition.valueType : definition.valueType,
+			getValue: currentValue,
+			value: currentValue(),
+			valueType: kind === "choice" ? controlValueType(currentValue()) || definition.valueType : definition.valueType,
+			setValue: (next) => setNativeWidgetValue(node, widget, next),
 			kind,
 			numericDomain: seedMode ? "integer" : numericDomain,
 			options: { ...options, ...(seedMode ? { control_after_generate: seedMode.value, behaviors: seedBehaviorValues(seedMode) } : {}) },
 			...(seedMode ? { seedBehaviors: seedBehaviorValues(seedMode) } : {}),
+			...(sourceWidget ? { readPresetRepairValue: () => normalizedNativeValue(sourceWidget.value, definition) } : {}),
 			...(seedMode ? {
 				readPresetValue: () => createSeedPresetPayload(widget.value, seedMode.value),
 				validatePresetValue: (entry) => validateSeedPresetEntry(entry, { ...(widget.options || {}), behaviors: seedBehaviorValues(seedMode) }),

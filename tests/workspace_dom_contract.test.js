@@ -320,7 +320,8 @@ test("providers cover native and public subgraph widgets by stable host identity
 	assert.match(providers, /listAdaptedWidgetControls/);
 	assert.match(widgetAdapters, /registerWidgetControlAdapter/);
 	assert.match(widgetAdapters, /comfy-native-widget/);
-	assert.match(widgetAdapters, /valueType: kind === "choice" \? controlValueType\(widget\.value\)/);
+	assert.match(widgetAdapters, /valueType: kind === "choice" \? controlValueType\(currentValue\(\)\)/);
+	assert.match(widgetAdapters, /definition\.valueType === "boolean"[\s\S]*value === 0 \|\| value === 1[\s\S]*Boolean\(value\)/);
 	assert.match(widgetAdapters, /state: "empty", reason: "no-options"/);
 	assert.doesNotMatch(widgetAdapters, /Boolean\(controlValueType\(widget\.value\)\)/);
 	assert.match(widgetAdapters, /priority/);

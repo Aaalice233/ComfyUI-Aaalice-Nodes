@@ -110,6 +110,47 @@ test("capture rejects non-finite live values without breaking the remaining pres
 	});
 });
 
+test("capture validates live payloads before replacing the saved preset value", () => {
+	const enabled = binding("enabled", "boolean"); const key = bindingKey(enabled);
+	const captured = captureDashboardValues(dashboard(enabled), () => ({
+		status: "ok", value: "euler", validatePresetValue: (entry) => typeof entry.payload === "boolean" ? true : "invalid-boolean",
+	}));
+	assert.deepEqual(captured.values, {});
+	assert.equal(captured.bindings[0].reason, "invalid-boolean");
+	assert.deepEqual(mergeCapturedPresetValues(captured, { [key]: { valueType: "boolean", payload: true } }), { [key]: { valueType: "boolean", payload: true } });
+});
+
+test("preset switching repairs a damaged promoted projection from its canonical source value", () => {
+	const enabled = binding("enabled", "boolean"); const key = bindingKey(enabled); let projectedValue = "euler"; let sourceValue = true;
+	const damaged = snapshot(dashboard(enabled), { [key]: { valueType: "boolean", payload: "euler" } });
+	const resolve = () => ({
+		status: "ok", readPresetValue: () => projectedValue, readPresetRepairValue: () => sourceValue,
+		validatePresetValue: (entry) => typeof entry.payload === "boolean" ? true : "invalid-boolean",
+		applyPresetValue: (entry) => { projectedValue = entry.payload; },
+	});
+	const ordinaryPlan = planDashboardPresetApplication(damaged, resolve);
+	assert.equal(ordinaryPlan.repairs.length, 0); assert.equal(ordinaryPlan.issues[0].reason, "invalid-boolean");
+	const switchPlan = planDashboardPresetApplication(damaged, resolve, { repairDamaged: true });
+	assert.equal(switchPlan.issues.length, 0); assert.equal(switchPlan.ready.length, 1);
+	assert.deepEqual(switchPlan.repairs.map(({ key: repairedKey }) => repairedKey), [key]);
+	assert.deepEqual(switchPlan.repairedSnapshot.values[key], { valueType: "boolean", payload: true });
+	applyDashboardPresetPlan(switchPlan);
+	assert.equal(projectedValue, true);
+});
+
+test("preset switching keeps review for constraint changes and damaged live values", () => {
+	const ranged = binding("steps"); const enabled = binding("enabled", "boolean");
+	const damaged = snapshot(dashboard(ranged, enabled), {
+		[bindingKey(ranged)]: { valueType: "number", payload: 100 },
+		[bindingKey(enabled)]: { valueType: "boolean", payload: "euler" },
+	});
+	const plan = planDashboardPresetApplication(damaged, (candidate) => candidate.controlId === "steps"
+		? { status: "ok", value: 20, validatePresetValue: (entry) => entry.payload <= 50 ? true : "above-maximum" }
+		: { status: "ok", value: 1, validatePresetValue: (entry) => typeof entry.payload === "boolean" ? true : "invalid-boolean" }, { repairDamaged: true });
+	assert.equal(plan.repairs.length, 0);
+	assert.deepEqual(plan.issues.map(({ reason }) => reason), ["above-maximum", "invalid-boolean"]);
+});
+
 test("application planning separates ready, absent, incompatible and invalid values", () => {
 	const steps = binding("steps"); const cfg = binding("cfg"); const mode = binding("mode", "string");
 	const preset = snapshot(dashboard(steps, cfg, mode), {

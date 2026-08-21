@@ -282,7 +282,14 @@ test("store-backed promoted widgets resolve source identity through subgraph slo
 	};
 	const controls = listAdaptedWidgetControls(host, { promoted: true });
 	assert.deepEqual(controls.map((item) => item.controlId), ['promoted:["4","cfg",null]']);
-	assert.equal(resolveAdaptedWidgetControl(host, 'promoted:["4","cfg",null]', { promoted: true })?.widget, projected);
+	const resolved = resolveAdaptedWidgetControl(host, 'promoted:["4","cfg",null]', { promoted: true });
+	assert.equal(resolved?.widget, projected);
+	assert.equal(resolved?.value, 8);
+	assert.equal(resolved?.readPresetValue(), 8);
+	assert.equal(resolved?.readPresetRepairValue(), 7.5);
+	resolved.setValue(9);
+	assert.equal(projected.value, 9);
+	assert.equal(interiorWidget.value, 7.5);
 	// 旧持久化的裸名绑定仍按 legacy alias 命中。
 	assert.equal(resolveAdaptedWidgetControl(host, "cfg", { promoted: true })?.widget, projected);
 });
