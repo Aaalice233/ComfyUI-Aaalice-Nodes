@@ -606,3 +606,13 @@ test("Ctrl+S flushes working-copy changes into the active baseline preset before
 	assert.match(workspace, /replaceDashboardPreset\(current, baseline\.id, snapshot\)/);
 	assert.match(workspace, /flushActiveDashboardPresetOnSave\(\);\s+\}, true\);/);
 });
+
+test("preset attention writes one detailed copyable diagnostic report", () => {
+	assert.match(workspace, /if \(comparison\?\.attention\) logDashboardPresetAttention\(/);
+	assert.match(workspace, /autoSaveEnabled: Boolean\(runtime\.isAutoSaveEnabled\(\)\)/);
+	assert.match(workspace, /baselineValuesMissingFromCurrent/);
+	assert.match(workspace, /baselineValuesWithoutCurrentComponent/);
+	assert.match(workspace, /captureStatusCounts/);
+	assert.match(workspace, /captureProblems, presetPlanProblems: planProblems/);
+	assert.match(workspace, /\[Aaalice Dashboard Preset Diagnostics\]/);
+});

@@ -25,7 +25,7 @@ export function renderDashboard(container, host) {
 	const {
 		dashboard, currentPage, sourceGroupViewState, resolveGroupTitle, resolvePageControls, dashboardModelError,
 		isWorkspaceRootInteractive, scheduleRender, scheduleStructuralRender, askText, updateDashboard, removePage, syncCurrentPageSourceGroups,
-		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetLabels,
+		dashboardPresetState, currentDashboardPresetSnapshot, dashboardPresetLabels, logDashboardPresetAttention,
 		applyDashboardPreset, createCurrentDashboardPreset, updateCurrentDashboardPreset, duplicateCurrentDashboardPreset,
 		openValueProfiles,
 		renameCurrentDashboardPreset, reorderDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
@@ -141,6 +141,7 @@ export function renderDashboard(container, host) {
 			snapshotError = error;
 		}
 		const error = runtime.dashboardPresetModelError || snapshotError;
+		if (comparison?.attention) logDashboardPresetAttention({ baseline: baselinePreset, current: currentPresetSnapshot, comparison });
 		const attentionCount = comparison?.attention ? brokenDashboardBindingEntries(currentModel).length : 0;
 		const signature = JSON.stringify([
 			presetState.baselinePresetId,
