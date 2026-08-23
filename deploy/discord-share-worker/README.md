@@ -58,6 +58,35 @@ AAALICE_DISCORD_SHARE_COMMUNITY_URL=https://discord.gg/<invite>
 
 Restart ComfyUI after changing either environment variable.
 
+## `POST /v1/share` contract
+
+The authenticated endpoint accepts `multipart/form-data` with these content
+fields:
+
+- `image` is required and must be an `image/*` file.
+- `prompt` is optional. It is trimmed before planning; an empty or omitted value
+  sends the image without a prompt. A non-empty value keeps the existing inline
+  splitting and optional UTF-8 TXT attachment behavior.
+- `caption` is optional and must be a text field. It is trimmed and may contain
+  at most 256 characters. A non-empty caption becomes the title of the final
+  Embed that contains the image; it is never placed on an earlier prompt
+  segment.
+- `filename`, `width`, `height`, repeated `target` fields and
+  `long_prompt_as_file` retain their existing behavior.
+
+The first Embed retains the verified Discord author. For a split prompt, the
+caption and image are both on the final Embed while the author remains only on
+the first Embed. Image-only and image-plus-caption requests still produce one
+Embed and therefore keep both the author and image there. Discord's 6,000
+character per-message Embed validation includes `title` characters.
+
+Validation failures are machine-readable: `invalid_image` for a missing or
+non-image upload, `invalid_caption` when the caption is uploaded as a file, and
+`caption_too_long` with `caption_length` and `max_caption_length` details after
+trimming. If an otherwise valid caption makes the combined Embed exceed Discord's
+6,000-character limit, the response is `embed_too_large`; existing prompt-only
+size errors remain unchanged for non-empty prompts.
+
 ## Security behavior
 
 - OAuth requests only `identify` and `guilds.members.read`.
@@ -79,10 +108,10 @@ Restart ComfyUI after changing either environment variable.
 - Rate-limit responses use HTTP 429, include `Retry-After: 60` and
   `retry_after_seconds: 60`; missing or unavailable relay bindings return a
   distinct HTTP 503 error instead of a generic failure.
-- Each selected channel receives one message for regular or file-mode shares.
-  With file mode disabled, an oversized inline prompt is split into consecutive
-  messages; the author appears on the first prompt segment and the image is attached
-  only to the final segment.
-  When enabled, prompts longer than 1,500 characters are attached as a UTF-8 TXT;
-  shorter prompts remain inline. Inline mode allows up to ten segments; larger
-  prompts are rejected with an explicit recommendation to enable file mode.
+- Each selected channel receives one message for image-only, regular or file-mode
+  shares. With file mode disabled, an oversized non-empty prompt is split into
+  consecutive messages; the author appears on the first Embed and the image plus
+  optional caption appear only on the final Embed. When enabled, prompts longer
+  than 1,500 characters are attached as a UTF-8 TXT; shorter prompts remain inline.
+  Inline mode allows up to ten segments; larger prompts are rejected with an
+  explicit recommendation to enable file mode.

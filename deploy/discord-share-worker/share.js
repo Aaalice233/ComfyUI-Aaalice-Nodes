@@ -2,6 +2,7 @@ import { defaultDiscordAvatarUrl, discordMemberAvatarUrl, loadSession, verifiedS
 import { corsHeaders, errorResponse, json, relayConfigurationError } from "./http.js";
 
 const RATE_LIMIT_RETRY_SECONDS = 60;
+const DISCORD_EMBED_TITLE_LIMIT = 256;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_LIMIT = 6000;
 const LONG_PROMPT_FILE_THRESHOLD = 1500;
@@ -137,6 +138,7 @@ export function buildDiscordWebhookPayloads({
 	image = null,
 	filename = "",
 	prompt = "",
+	caption = "",
 	authorId = "",
 	authorName = "",
 	authorAvatarUrl = "",
@@ -144,6 +146,23 @@ export function buildDiscordWebhookPayloads({
 	height = "",
 	longPromptAsFile = true,
 }) {
+	const normalizedCaption = String(caption || "").trim();
+	if (normalizedCaption.length > DISCORD_EMBED_TITLE_LIMIT) {
+		const error = new Error(`Caption must be ${DISCORD_EMBED_TITLE_LIMIT} characters or fewer after trimming.`);
+		error.code = "caption_too_long";
+		error.status = 400;
+		error.details = {
+			caption_length: normalizedCaption.length,
+			max_caption_length: DISCORD_EMBED_TITLE_LIMIT,
+		};
+		throw error;
+	}
+	if (normalizedCaption && !image) {
+		const error = new Error("Caption requires an image attachment.");
+		error.code = "caption_requires_image";
+		error.status = 400;
+		throw error;
+	}
 	const escapedPrompt = String(prompt || "").trim().replaceAll("```", "``\u200b`");
 	const attachPromptFile = shouldAttachPromptFile(prompt, longPromptAsFile);
 	const chunks = attachPromptFile ? [] : splitDiscordPrompt(escapedPrompt, DISCORD_EMBED_DESCRIPTION_LIMIT - 8);
@@ -183,6 +202,9 @@ export function buildDiscordWebhookPayloads({
 			}],
 			attachments: [],
 		}));
+	if (!payloads.length && image) {
+		payloads.push({ embeds: [{ color: 0x5865F2 }], attachments: [] });
+	}
 	if (!payloads.length) {
 		const error = new Error("A positive prompt is required.");
 		error.code = "missing_prompt";
@@ -192,6 +214,7 @@ export function buildDiscordWebhookPayloads({
 	if (image) {
 		const finalPayload = payloads.at(-1);
 		const imageEmbed = finalPayload.embeds.at(-1) || { color: 0x5865F2 };
+		if (normalizedCaption) imageEmbed.title = normalizedCaption;
 		imageEmbed.image = { url: `attachment://${filename}` };
 		if (footerText) imageEmbed.footer = { text: footerText };
 		if (!finalPayload.embeds.length) finalPayload.embeds.push(imageEmbed);
@@ -219,6 +242,7 @@ export function buildDiscordWebhookPayloads({
 	};
 	for (const payload of payloads) {
 		const embedCharacters = payload.embeds.reduce((total, embed) => total
+			+ (embed.title?.length || 0)
 			+ (embed.description?.length || 0)
 			+ (embed.footer?.text?.length || 0)
 			+ (embed.author?.name?.length || 0), 0);
@@ -227,11 +251,15 @@ export function buildDiscordWebhookPayloads({
 			|| embedCharacters > DISCORD_EMBED_TOTAL_LIMIT
 			|| payload.embeds.length > 10
 		) {
-			const error = new Error("The positive prompt could not be split into valid Discord messages.");
-			error.code = "prompt_too_long";
+			const captionExceededTotal = Boolean(normalizedCaption) && embedCharacters > DISCORD_EMBED_TOTAL_LIMIT;
+			const error = new Error(captionExceededTotal
+				? "The caption and positive prompt exceed Discord's Embed character limit."
+				: "The positive prompt could not be split into valid Discord messages.");
+			error.code = captionExceededTotal ? "embed_too_large" : "prompt_too_long";
 			error.status = 400;
 			error.details = {
 				prompt_length: String(prompt || "").trim().length,
+				...(normalizedCaption ? { caption_length: normalizedCaption.length } : {}),
 				discord_embed_character_limit: DISCORD_EMBED_TOTAL_LIMIT,
 			};
 			throw error;
@@ -324,17 +352,22 @@ export async function handleShare(request, env) {
 	const targets = selectedWebhookTargets(data, configuredWebhookTargets(env));
 	const image = data.get("image");
 	const prompt = String(data.get("prompt") || "").trim();
+	const captionValue = data.get("caption");
 	const longPromptAsFileValue = data.get("long_prompt_as_file");
 	const longPromptAsFile = longPromptAsFileValue == null || String(longPromptAsFileValue).toLowerCase() !== "false";
 	if (!(image instanceof File) || !image.type.startsWith("image/")) {
 		return errorResponse("invalid_image", "An image file is required.", 400, corsHeaders(request, env));
 	}
-	if (!prompt) return errorResponse("missing_prompt", "A positive prompt is required.", 400, corsHeaders(request, env));
+	if (captionValue instanceof File) {
+		return errorResponse("invalid_caption", "Caption must be submitted as text.", 400, corsHeaders(request, env));
+	}
+	const caption = String(captionValue || "").trim();
 	const filename = safeFilename(data.get("filename") || image.name);
 	const payloads = buildDiscordWebhookPayloads({
 		image,
 		filename,
 		prompt,
+		caption,
 		authorId: verified.session.user.id,
 		authorName: verified.member?.nick || verified.session.user.global_name || verified.session.user.username,
 		authorAvatarUrl: discordMemberAvatarUrl(

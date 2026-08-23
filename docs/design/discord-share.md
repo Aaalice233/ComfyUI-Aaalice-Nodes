@@ -66,12 +66,16 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
 8. 用户点击发送后先读取所选图像。超过 20 MiB 时必须同时提供“发送原图”和“压缩后发送”；
    压缩只生成当前请求使用的 WebP 上传副本，不改写 ComfyUI 输出，拒绝压缩仍可继续发送。
    准备完成即关闭相册，网络发送在后台继续，并用 ComfyUI 原生 Toast 报告成功或失败。
-9. 中继把所选 Id 解析为服务端 Target。内联模式超过单个 Embed 后按顺序拆成多条
-   fenced Prompt 消息，并只把图像放在最后一条消息底部；首个 Embed 作者区显示
-   当前服务器昵称、Discord 头像和用户资料链接，不覆盖 Webhook 自身身份，也不再重复一行
-   Emoji mention；后续 Prompt 分段不重复作者区。文件模式在同一条
-   消息附图像与完整 Prompt TXT。关闭文件化后最多允许十条连续消息；超过安全上限时明确
-   建议开启文件模式。任一中间发送失败时尽力回收该频道已发出的分段，部分频道失败则保留失败项供重试。
+9. 中继把所选 Id 解析为服务端 Target。`/v1/share` 必须包含 `image/*` 图片，`prompt`
+   可缺省或 trim 后为空，以支持只发图；可选文本字段 `caption` trim 后最多 256 字符，非空时
+   作为最终图片 Embed 的 title。内联模式的非空 Prompt 超过单个 Embed 后按顺序拆成多条
+   fenced Prompt 消息，并只把图像与 caption 放在最后一条消息的同一个 Embed；首个 Embed
+   作者区显示当前服务器昵称、Discord 头像和用户资料链接，不覆盖 Webhook 自身身份，也不再
+   重复一行 Emoji mention；后续 Prompt 分段不重复作者区。只发图或图片加 caption 时生成单个
+   Embed，因此作者、图片与 caption 同处该 Embed。文件模式在同一条消息附图像与完整 Prompt
+   TXT，并把 caption 留在包含图片的 Embed。关闭文件化后最多允许十条连续消息；超过安全上限时
+   明确建议开启文件模式。单消息 Embed 6,000 字符总量校验必须计入 title。任一中间发送失败时
+   尽力回收该频道已发出的分段，部分频道失败则保留失败项供重试。
 
 ## 中继安全
 
@@ -82,8 +86,9 @@ tonal Hover、纸飞机轻微位移和加载环，`prefers-reduced-motion` 下�
   ComfyUI 请求日志。
 - 会话 Token 使用高熵随机值，KV 仅以 SHA-256 摘要索引并设置 TTL；OAuth
   handoff 与会话之外不得为每次分享写入 KV。
-- 每次发送校验成员、可选角色、用户级速率、图片 MIME 与提示词非空；插件和中继不设置
-  图片大小上限。20 MiB 只是客户端触发可选压缩提示的阈值，用户仍可发送原图；Discord 与
+- 每次发送校验成员、可选角色、用户级速率、图片 MIME 与请求字段；提示词允许为空，caption
+  必须是文本且 trim 后不超过 256 字符。图片仍为必填，插件和中继不设置图片大小上限。20 MiB
+  只是客户端触发可选压缩提示的阈值，用户仍可发送原图；Discord 与
   Cloudflare 的平台请求限制导致的拒绝必须返回明确错误。
   用户级速率使用 Cloudflare 原生 Rate Limiting binding，按 Discord User Id
   隔离；达到上限返回 `429`、`Retry-After` 和可机读重试秒数，绑定缺失或暂时
