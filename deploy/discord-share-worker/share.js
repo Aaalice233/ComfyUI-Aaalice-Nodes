@@ -315,7 +315,7 @@ async function sendWebhookSequence(target, steps, filename) {
 	}
 }
 
-async function sendWebhook(target, payload, image, filename, promptFile = null) {
+export async function sendWebhook(target, payload, image, filename, promptFile = null) {
 	const webhook = new URL(target.url);
 	webhook.searchParams.set("wait", "true");
 	let response;

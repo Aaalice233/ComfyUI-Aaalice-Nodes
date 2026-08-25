@@ -10,6 +10,7 @@ import worker, {
 	enforceRateLimit,
 	isAllowedOrigin,
 } from "../deploy/discord-share-worker/worker.js";
+import { sendWebhook } from "../deploy/discord-share-worker/share.js";
 
 test("relay accepts loopback origins and explicit production origins only", () => {
 	const env = { ALLOWED_ORIGINS: "https://comfy.example, https://studio.example" };
@@ -285,6 +286,21 @@ test("share rate limit rejection gives a clear retry contract", async () => {
 	);
 });
 
+test("eight concurrent shares pass, the ninth is rejected, and the next window recovers", async () => {
+	let remaining = 8;
+	const env = {
+		SHARE_RATE_LIMITER: {
+			limit: async () => ({ success: remaining-- > 0 }),
+		},
+	};
+
+	await Promise.all(Array.from({ length: 8 }, () => enforceRateLimit(env, "42")));
+	await assert.rejects(enforceRateLimit(env, "42"), (error) => error.code === "rate_limited");
+
+	remaining = 8;
+	await enforceRateLimit(env, "42");
+});
+
 test("rate limiter failures do not silently bypass abuse protection", async () => {
 	const cause = new Error("binding unavailable");
 	const env = {
@@ -303,14 +319,38 @@ test("rate limiter failures do not silently bypass abuse protection", async () =
 	);
 });
 
-test("Worker configuration binds native rate limiting and has no KV rate counter variable", () => {
+test("Worker configuration allows eight shares per user in each 60-second window", () => {
 	const config = readFileSync(
 		new URL("../deploy/discord-share-worker/wrangler.toml.example", import.meta.url),
 		"utf8",
 	);
 	assert.match(config, /\[\[ratelimits\]\][\s\S]*name = "SHARE_RATE_LIMITER"/);
-	assert.match(config, /\[ratelimits\.simple\][\s\S]*limit = 5[\s\S]*period = 60/);
+	assert.match(config, /\[ratelimits\.simple\][\s\S]*limit = 8[\s\S]*period = 60/);
 	assert.doesNotMatch(config, /RATE_LIMIT_PER_MINUTE/);
+});
+
+test("Discord webhook 429 responses wait for retry_after before retrying once", async () => {
+	const originalFetch = globalThis.fetch;
+	let requestCount = 0;
+	globalThis.fetch = async () => {
+		requestCount += 1;
+		if (requestCount === 1) {
+			return Response.json({ retry_after: 0 }, { status: 429 });
+		}
+		return Response.json({ id: "message-1", channel_id: "channel-1" });
+	};
+	try {
+		const message = await sendWebhook(
+			{ label: "Showcase", url: "https://discord.com/api/webhooks/100/token" },
+			{ embeds: [], attachments: [] },
+			null,
+			"result.png",
+		);
+		assert.equal(requestCount, 2);
+		assert.equal(message.id, "message-1");
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
 });
 
 test("authenticated clients receive public targets and multi-target shares keep complete ordered sequences", async () => {

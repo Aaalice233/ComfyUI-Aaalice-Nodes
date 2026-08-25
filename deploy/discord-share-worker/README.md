@@ -98,7 +98,9 @@ size errors remain unchanged for non-empty prompts.
 - KV only stores OAuth handoffs and bearer sessions. Per-share abuse protection
   uses Cloudflare's native Rate Limiting binding, so a successful share does not
   consume a KV write.
-- The Worker rate-limits each Discord user and validates the image MIME type.
+- The Worker allows each Discord user up to eight share requests per 60 seconds
+  and validates the image MIME type. This limit is intentionally per-user, so
+  a small increase does not remove burst or cross-account abuse protection.
   It does not impose an application-level image-size limit. The browser offers
   optional upload-copy compression above 20 MiB; choosing the original remains
   valid, while Cloudflare and Discord retain their own platform request limits.

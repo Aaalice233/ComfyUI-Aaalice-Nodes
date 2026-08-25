@@ -12,7 +12,7 @@ name = "SHARE_RATE_LIMITER"
 namespace_id = "replace-with-unique-positive-integer"
 
   [ratelimits.simple]
-  limit = 5
+  limit = 8
   period = 60
 
 [vars]
