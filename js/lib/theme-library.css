@@ -12,7 +12,7 @@
 .aa-library-selection-toggle.is-clear:hover:not(:disabled), .aa-library-selection-toggle.is-clear:focus-visible { background: color-mix(in srgb, var(--aa-ui-danger) 12%, transparent); color: var(--aa-ui-danger); }
 .aa-library-list, .aa-add-controls-list, .aa-rebind-list { min-height: 0; overflow-y: auto; }
 .aa-add-controls-list, .aa-rebind-list { display: flex; flex-direction: column; gap: 6px; }
-.aa-library-list { flex: 1; padding: 1px 3px 8px 0; scrollbar-width: thin; scrollbar-color: var(--aa-ui-border-soft) transparent; }
+.aa-library-list { flex: 1; overflow-x: hidden; padding: 1px 3px 8px 0; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--aa-ui-border-soft) transparent; }
 .aa-library-list > .aa-library-empty { min-height: 230px; flex: 1; margin-right: 1px; }
 .aa-library-entry { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 9px; align-items: center; min-height: 68px; padding: 9px; background: color-mix(in srgb, var(--aa-ui-surface) 76%, transparent); border: 1px solid var(--aa-ui-border-soft); border-radius: 10px; transition: border-color .15s ease, background-color .15s ease, transform .15s ease; }
 .aa-library-entry:hover { border-color: color-mix(in srgb, var(--aa-ui-accent) 26%, var(--aa-ui-border)); background: color-mix(in srgb, var(--aa-ui-surface-raised) 78%, transparent); }

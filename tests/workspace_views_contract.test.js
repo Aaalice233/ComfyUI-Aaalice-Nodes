@@ -113,6 +113,10 @@ test("dashboard and library searches share a collapsible event-driven control", 
 	assert.match(theme, /@keyframes aa-workspace-search-open/);
 });
 
+test("library list keeps its scroll geometry stable while virtual rows change", () => {
+	assert.match(themeLibrary, /\.aa-library-list \{[^}]*overflow-x: hidden[^}]*scrollbar-gutter: stable/);
+});
+
 test("dashboard search mounts live controls for every page and excludes group context", () => {
 	assert.match(dashboardComponents, /export function createDashboardSearchResults/);
 	assert.match(dashboardComponents, /renderItem\?\.\(entry\)/);
