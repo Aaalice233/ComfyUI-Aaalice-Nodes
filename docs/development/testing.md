@@ -165,6 +165,10 @@ BooruGalleryNode 还需覆盖：
 
 可用 `npm run benchmark:gallery` 运行不访问真实网站的 10,000 条布局基准。时间结果只作为本机观察值，CI 只断言有界可见数量。
 
+LoadImageWithMetadata 还需覆盖：
+
+- Schema 图片列表生成后再上传、拖入或经 MaskEditor 保存的新图片即使不在旧 Combo options 中，只要当前 annotated path 合法且存在就能执行；文件缺失或路径越界仍必须在执行前明确拒绝。
+
 SimpleNotify 还需覆盖：
 
 - 桌面通知、声音分别单开、同时开启和同时关闭。

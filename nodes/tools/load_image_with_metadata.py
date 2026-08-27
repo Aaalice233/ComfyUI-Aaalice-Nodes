@@ -99,6 +99,12 @@ class LoadImageWithMetadata(io.ComfyNode):
         )
 
     @classmethod
+    def validate_inputs(cls, image: str) -> bool | str:
+        if not folder_paths.exists_annotated_filepath(image):
+            return f"Invalid image file: {image}"
+        return True
+
+    @classmethod
     def fingerprint_inputs(cls, image: str, **_kwargs) -> str:
         image_path = _resolve_image_path(image)
         digest = hashlib.sha256()

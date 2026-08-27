@@ -80,6 +80,26 @@ class LoadImageWithMetadataTests(unittest.TestCase):
             ["IMAGE", "MASK", "METADATA"],
         )
 
+    def test_validation_accepts_images_added_after_schema_generation(self):
+        image = "clipspace-painted-masked-123456.png [input]"
+        with patch.object(loader, "_input_image_options", return_value=["existing.png"]):
+            schema = LoadImageWithMetadata.define_schema()
+        self.assertNotIn(image, schema.inputs[0].options)
+
+        with patch.object(
+            loader.folder_paths, "exists_annotated_filepath", return_value=True
+        ) as exists:
+            self.assertIs(LoadImageWithMetadata.validate_inputs(image), True)
+        exists.assert_called_once_with(image)
+
+        with patch.object(
+            loader.folder_paths, "exists_annotated_filepath", return_value=False
+        ):
+            self.assertEqual(
+                LoadImageWithMetadata.validate_inputs(image),
+                f"Invalid image file: {image}",
+            )
+
     def test_locale_contract(self):
         for language in ("en", "zh", "zh-TW"):
             definitions = json.loads(
