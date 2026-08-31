@@ -9,6 +9,7 @@ import os
 import sqlite3
 import threading
 import time
+import weakref
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -106,7 +107,15 @@ class GalleryService:
         self.detail_cache: TTLCache[GalleryPostDetail] = TTLCache(512, 86400)
         self.tag_cache = TagCategoryCache(cache_dir / "tag_categories.sqlite3")
         self._media = MediaProxy(cache_dir)
-        self._execution_semaphore = asyncio.Semaphore(3)
+        self._execution_semaphores: weakref.WeakValueDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = weakref.WeakValueDictionary()
+
+    def _execution_semaphore(self) -> asyncio.Semaphore:
+        loop = asyncio.get_running_loop()
+        semaphore = self._execution_semaphores.get(loop)
+        if semaphore is None:
+            semaphore = asyncio.Semaphore(3)
+            self._execution_semaphores[loop] = semaphore
+        return semaphore
 
     def sources(self) -> list[dict[str, Any]]:
         return [adapter.capabilities.json() for adapter in ADAPTERS.values()]
@@ -269,7 +278,8 @@ class GalleryService:
 
     async def execution_bytes(self, source: str, post_id: str, url: str) -> bytes:
         path = self._cache_path(source, post_id, url)
-        async with self._execution_semaphore:
+        execution_semaphore = self._execution_semaphore()
+        async with execution_semaphore:
             if path.exists():
                 os.utime(path, None)
                 return await asyncio.to_thread(path.read_bytes)
