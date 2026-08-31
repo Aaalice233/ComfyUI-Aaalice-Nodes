@@ -11,12 +11,12 @@ export function createGalleryControllerFactory(dependencies) {
 	const {
 		API, GALLERY_CATEGORIES, STATIC_EXTENSIONS,
 		addGlobalBlacklistTag, addGlobalOutputFilterTag, app, button, canWriteFavorite, capability,
-		copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
+		clearViewportAnchor, copyImageToClipboard, createDetailImageViewer, createDialog, createGalleryTagPills,
 		createTooltip, currentLocale, dimensions, effectivePrompt, el,
 		finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
 		moveSelectionIndex, normalizeTagGroups, notifyFavorite,
 		openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
-		searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
+		saveViewportAnchor, searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
 		streamTagTranslations, tagCount, transact,
 	} = dependencies;
 
@@ -42,7 +42,10 @@ export function createGalleryControllerFactory(dependencies) {
 	};
 	const captureViewport = (view) => {
 		const anchor = view?.masonryController?.getViewportAnchor?.();
-		if (anchor) viewportAnchor = anchor;
+		if (anchor) {
+			viewportAnchor = anchor;
+			saveViewportAnchor?.(node, anchor);
+		}
 		return anchor;
 	};
 	const setSurfaceActive = (view, active) => {
@@ -283,18 +286,22 @@ export function createGalleryControllerFactory(dependencies) {
 		clearTimeout(pageCommitTimer);
 		pageCommitTimer = setTimeout(() => { pageCommitTimer = 0; node.graph?.change?.(); }, 250);
 	};
-	const search = async ({ reset = false, page = null, automaticRefill = false } = {}) => {
+	const search = async ({ reset = false, page = null, automaticRefill = false, restoreAnchor = null } = {}) => {
 		if ((!reset && (loading || manualContinuation)) || (ended && !reset)) return;
 		if (!automaticRefill) { automaticRefillPages = 0; manualContinuation = false; eachElement("continueResults", (element) => { element.hidden = true; }); }
 		const state = stateFor(node); const randomMode = Boolean(state.randomMode);
 		const randomScope = JSON.stringify([state.source, state.filters.feed, state.filters.period, searchQuery(state), state.filters.ratings]);
 		randomSession.sync(randomMode, randomScope, { reset });
 		const requestedPage = reset && !randomMode ? Math.max(1, Math.floor(Number(page ?? state.navigation.page) || 1)) : null;
+		const requestedAnchor = reset && !randomMode && restoreAnchor?.key && Number.isFinite(Number(restoreAnchor.offset))
+			? { key: String(restoreAnchor.key), offset: Number(restoreAnchor.offset) }
+			: null;
+		if (reset && generation > 0 && !requestedAnchor) clearViewportAnchor?.(node);
 		// Mark the request active before clearing the masonry. setItems() draws synchronously
 		// and may report near-end; that callback must not start a competing first-page request.
 		setLoading(true);
 		if (reset) {
-			requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; viewportAnchor = null; nextCursor = null; ended = false; randomMisses = 0; randomSession.reset();
+			requestController?.abort(); requestController = new AbortController(); generation += 1; rotatePreviewCache(); posts = []; knownPostKeys = new Set(); pageSegments = []; viewportAnchor = requestedAnchor; nextCursor = null; ended = false; randomMisses = 0; randomSession.reset();
 			for (const masonry of masonryControllers()) masonry.setItems([], { preserveScroll: false });
 			eachElement("end", (element) => { element.hidden = true; }); eachElement("emptyResults", (element) => { element.hidden = true; });
 			clearError(); if (!randomMode) rememberPage(requestedPage);
@@ -329,7 +336,10 @@ export function createGalleryControllerFactory(dependencies) {
 			});
 			const start = posts.length; posts.push(...additions);
 			if (!randomMode) pageSegments.push({ page: Math.max(1, Number(resultPage.page) || requestedPage || pageSegments.at(-1)?.page + 1 || 1), start, end: posts.length });
-			for (const masonry of masonryControllers()) masonry.append(additions);
+			for (const masonry of masonryControllers()) {
+				if (requestedAnchor) masonry.setItems(additions, { preserveScroll: false, restoreAnchor: requestedAnchor });
+				else masonry.append(additions);
+			}
 			if (randomMode) { randomMisses = additions.length ? 0 : randomMisses + 1; nextCursor = randomMisses < RANDOM_UNIQUE_MISS_LIMIT ? "random" : null; ended = !nextCursor; }
 			else { nextCursor = resultPage.nextCursor || null; ended = Boolean(resultPage.ended || !nextCursor); }
 			const noResults = ended && !posts.length;
@@ -700,6 +710,12 @@ export function createGalleryControllerFactory(dependencies) {
 		syncProjectionActivity,
 		setSurfaceActive,
 		claimSurface,
+		rememberViewport(view) { if (!view || view !== activeSurface) return null; return captureViewport(view); },
+		getViewportAnchor() {
+			if (activeSurface) captureViewport(activeSurface);
+			const anchor = currentViewportAnchor();
+			return anchor ? { ...anchor } : null;
+		},
 		attachSurface(view) {
 			if (destroyed) throw new Error("Cannot attach a Gallery surface after its node was removed");
 			surfaces.add(view); syncProjectionActivity(); view.syncState();

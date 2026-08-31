@@ -171,7 +171,7 @@ export function createGallerySurfaceFactory(dependencies) {
 		selectedListRoot.addEventListener("scroll", () => { controller.tooltip.hide(); if (controller.selectedDragFrom != null) controller.handleSelectedDragLeave({ currentTarget: selectedListRoot, relatedTarget: null }); }, { passive: true });
 		selectedListRoot.addEventListener("dragover", (event) => controller.handleSelectedDragOver(event)); selectedListRoot.addEventListener("drop", (event) => controller.handleSelectedDrop(event)); selectedListRoot.addEventListener("dragleave", (event) => controller.handleSelectedDragLeave(event));
 		let scrollSettleTimer = 0;
-		const settleScroll = () => { scrollSettleTimer = 0; masonry.classList.remove("is-scrolling"); masonry.querySelectorAll('img[data-deferred="1"]').forEach((image) => { image.removeAttribute("data-deferred"); image.src = image.dataset.src; image.removeAttribute("data-src"); }); };
+		const settleScroll = () => { scrollSettleTimer = 0; controller.rememberViewport(surface); masonry.classList.remove("is-scrolling"); masonry.querySelectorAll('img[data-deferred="1"]').forEach((image) => { image.removeAttribute("data-deferred"); image.src = image.dataset.src; image.removeAttribute("data-src"); }); };
 		const claimSurface = () => controller.claimSurface(surface);
 		masonry.addEventListener("pointerdown", claimSurface, { passive: true });
 		masonry.addEventListener("wheel", (event) => { if (!event.ctrlKey && !event.metaKey) claimSurface(); }, { passive: true });
@@ -189,7 +189,7 @@ export function createGallerySurfaceFactory(dependencies) {
 			if (placement === "dashboard") searchControl.setOpen(state.dashboard.searchOpen, { focus: false, submitChanges: false, notifyChange: false });
 			collection.setOptions(collectionOptions(state.source), collectionValue(state)); pageControl.setPage(state.navigation.page); syncRandomModePresentation(state.randomMode); surface.mode = state.view; root.dataset.mode = state.view; tabs.setValue(state.view); selectionMode.setValue(state.selectionMode); surface.syncNodeMode();
 		};
-		surface.destroy = () => { if (destroyed) return; destroyed = true; clearTimeout(scrollSettleTimer); removeCardMotion?.(); visibility.destroy(); selectedDropIndicator.remove(); surface.masonryController.destroy(); surface.selectedList.destroy(); root.remove(); };
+		surface.destroy = () => { if (destroyed) return; destroyed = true; controller.rememberViewport(surface); clearTimeout(scrollSettleTimer); removeCardMotion?.(); visibility.destroy(); selectedDropIndicator.remove(); surface.masonryController.destroy(); surface.selectedList.destroy(); root.remove(); };
 		surface.syncState();
 		return surface;
 	};
