@@ -17,6 +17,7 @@ import { createGalleryCards } from "./lib/booru_gallery_cards.js";
 import { createGalleryControllerFactory } from "./lib/booru_gallery_controller.js";
 import { createGalleryDialogs } from "./lib/booru_gallery_dialogs.js";
 import { createGallerySettings } from "./lib/booru_gallery_settings.js";
+import { clearGalleryViewportSession, galleryViewportSessionScope, readGalleryViewportSession, saveGalleryViewportSession } from "./lib/booru_gallery_viewport_session.js";
 import { createGalleryMedia } from "./lib/booru_gallery_media.js";
 
 const NODE = "BooruGalleryNode";
@@ -264,6 +265,17 @@ const {
 	ratingLabel, ratingTone, selectionKey, stateFor, tagCount, transact,
 });
 
+function galleryViewportScope(node) {
+	const runtime = node?._aaGalleryRuntime;
+	const liveScope = galleryViewportSessionScope(node);
+	if (liveScope && runtime) runtime.viewportSessionScope = liveScope;
+	return liveScope || runtime?.viewportSessionScope || null;
+}
+
+function cacheGalleryViewportAnchor(node, anchor) {
+	if (anchor) saveGalleryViewportSession(galleryViewportScope(node), stateFor(node), anchor);
+}
+
 const buildController = createGalleryControllerFactory({
 	API, GALLERY_CATEGORIES, STATIC_EXTENSIONS,
 	addGlobalBlacklistTag, addGlobalOutputFilterTag, app, button, canWriteFavorite, capability,
@@ -271,8 +283,9 @@ const buildController = createGalleryControllerFactory({
 	createTooltip, currentLocale, dimensions, effectivePrompt, el,
 	finalPrompt, hasSourceCredentials, icon, jsonRequest, label,
 	moveSelectionIndex, normalizeTagGroups, notifyFavorite,
+	clearViewportAnchor: (node) => clearGalleryViewportSession(galleryViewportScope(node)),
 	openSingleSelectionDialog, proxyUrl, ratingLabel, ratingTone, resolveSelectedDropTarget,
-	searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
+	saveViewportAnchor: cacheGalleryViewportAnchor, searchQuery, sectionHeading, selectionFromDetail, selectionKey, stateFor,
 	streamTagTranslations, tagCount, transact,
 });
 
@@ -377,7 +390,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaGalleryMounted = true; stateFor(node);
 	const surfaces = new Set();
 	const controller = buildController(node, surfaces);
-	const runtime = { controller, surfaces, nodeSurface: null, accent: null, modeObserver: null };
+	const runtime = { controller, surfaces, nodeSurface: null, accent: null, modeObserver: null, viewportSessionScope: galleryViewportSessionScope(node) };
 	node._aaGalleryRuntime = runtime; node._aaGalleryController = controller;
 	runtime.getPresetValue = () => {
 		const dashboardSurface = [...surfaces].find((view) => view.placement === "dashboard" && view.root.isConnected)
@@ -424,6 +437,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const previousConfigure = node.onConfigure; node.onConfigure = function () { const result = previousConfigure?.apply(this, arguments); restoreNode(this); return result; };
 	const previousClone = node.clone; node.clone = function () { const cloned = previousClone?.apply(this, arguments); if (cloned?.properties?.[PROPERTY]) cloned.properties[PROPERTY] = structuredClone(cloned.properties[PROPERTY]); return cloned; };
 	const previousRemoved = node.onRemoved; node.onRemoved = function () {
+		cacheGalleryViewportAnchor(this, controller.getViewportAnchor());
 		controller.destroy(); cleanupDomWidgetResizePassthrough(this); runtime.accent?.dispose?.(); runtime.modeObserver?.dispose?.();
 		this._aaGalleryRuntime = null; this._aaGalleryController = null;
 		return previousRemoved?.apply(this, arguments);
@@ -435,8 +449,10 @@ function restoreNode(node) {
 	if (!node?._aaGalleryMounted || !node._aaGalleryRuntime) return;
 	node.properties[PROPERTY] = normalizeGalleryState(node.properties?.[PROPERTY], settings || {});
 	const state = stateFor(node);
+	const viewportSessionScope = galleryViewportSessionScope(node);
+	if (viewportSessionScope) node._aaGalleryRuntime.viewportSessionScope = viewportSessionScope;
 	node._aaGalleryController.syncState();
-	void node._aaGalleryController.search({ reset: true, page: state.navigation.page });
+	void node._aaGalleryController.search({ reset: true, page: state.navigation.page, restoreAnchor: readGalleryViewportSession(node._aaGalleryRuntime.viewportSessionScope, state) });
 	node._aaGalleryRuntime.accent?.sync?.();
 }
 
