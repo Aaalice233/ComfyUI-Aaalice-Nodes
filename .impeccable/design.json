@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-31T02:56:51Z",
+  "title": "Design System: ComfyUI-Aaalice-Nodes",
+  "extensions": {
+    "colorMeta": {
+      "text": {
+        "role": "neutral",
+        "displayName": "正文",
+        "canonical": "var(--fg-color, var(--p-text-color, #e5e7eb))",
+        "tonalRamp": ["oklch(18% 0.008 255)", "oklch(29% 0.008 255)", "oklch(40% 0.008 255)", "oklch(51% 0.008 255)", "oklch(62% 0.008 255)", "oklch(73% 0.008 255)", "oklch(84% 0.008 255)", "oklch(95% 0.008 255)"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "弱化文字",
+        "canonical": "var(--descrip-text, var(--p-text-muted-color, #9ca3af))",
+        "tonalRamp": ["oklch(18% 0.014 255)", "oklch(29% 0.014 255)", "oklch(40% 0.014 255)", "oklch(51% 0.014 255)", "oklch(62% 0.014 255)", "oklch(73% 0.014 255)", "oklch(84% 0.014 255)", "oklch(95% 0.014 255)"]
+      },
+      "canvas-depth": {
+        "role": "neutral",
+        "displayName": "深层画布",
+        "canonical": "var(--comfy-menu-bg, var(--p-surface-950, #111))",
+        "tonalRamp": ["oklch(15% 0.006 255)", "oklch(25% 0.006 255)", "oklch(36% 0.006 255)", "oklch(48% 0.006 255)", "oklch(60% 0.006 255)", "oklch(72% 0.006 255)", "oklch(84% 0.006 255)", "oklch(95% 0.006 255)"]
+      },
+      "work-surface": {
+        "role": "neutral",
+        "displayName": "工作表面",
+        "canonical": "var(--comfy-menu-secondary-bg, var(--p-content-background, #222))",
+        "tonalRamp": ["oklch(16% 0.008 255)", "oklch(27% 0.008 255)", "oklch(38% 0.008 255)", "oklch(49% 0.008 255)", "oklch(61% 0.008 255)", "oklch(73% 0.008 255)", "oklch(85% 0.008 255)", "oklch(95% 0.008 255)"]
+      },
+      "raised-surface": {
+        "role": "neutral",
+        "displayName": "抬升表面",
+        "canonical": "color-mix(in srgb, var(--aa-ui-surface) 88%, var(--aa-ui-text))",
+        "tonalRamp": ["oklch(17% 0.009 255)", "oklch(28% 0.009 255)", "oklch(39% 0.009 255)", "oklch(50% 0.009 255)", "oklch(62% 0.009 255)", "oklch(74% 0.009 255)", "oklch(86% 0.009 255)", "oklch(95% 0.009 255)"]
+      },
+      "control-surface": {
+        "role": "neutral",
+        "displayName": "控件表面",
+        "canonical": "var(--comfy-input-bg, var(--p-form-field-background, #18181b))",
+        "tonalRamp": ["oklch(15% 0.009 285)", "oklch(26% 0.009 285)", "oklch(37% 0.009 285)", "oklch(48% 0.009 285)", "oklch(60% 0.009 285)", "oklch(72% 0.009 285)", "oklch(84% 0.009 285)", "oklch(95% 0.009 285)"]
+      },
+      "field-surface": {
+        "role": "neutral",
+        "displayName": "字段凹面",
+        "canonical": "color-mix(in srgb, var(--aa-ui-control) 88%, var(--aa-ui-canvas))",
+        "tonalRamp": ["oklch(15% 0.008 275)", "oklch(26% 0.008 275)", "oklch(37% 0.008 275)", "oklch(48% 0.008 275)", "oklch(60% 0.008 275)", "oklch(72% 0.008 275)", "oklch(84% 0.008 275)", "oklch(95% 0.008 275)"]
+      },
+      "soft-edge": {
+        "role": "neutral",
+        "displayName": "柔和边缘",
+        "canonical": "color-mix(in srgb, var(--border-color, var(--p-content-border-color, #444)) 60%, transparent)",
+        "tonalRamp": ["oklch(17% 0.008 255)", "oklch(28% 0.008 255)", "oklch(39% 0.008 255)", "oklch(50% 0.008 255)", "oklch(62% 0.008 255)", "oklch(74% 0.008 255)", "oklch(86% 0.008 255)", "oklch(95% 0.008 255)"]
+      },
+      "host-accent": {
+        "role": "primary",
+        "displayName": "宿主强调色",
+        "canonical": "var(--p-primary-color, var(--primary-color, #0b8ce9))",
+        "tonalRamp": ["oklch(20% 0.09 245)", "oklch(31% 0.13 245)", "oklch(42% 0.16 245)", "oklch(53% 0.18 245)", "oklch(64% 0.16 245)", "oklch(75% 0.12 245)", "oklch(86% 0.07 245)", "oklch(95% 0.03 245)"]
+      },
+      "accent-wash": {
+        "role": "primary",
+        "displayName": "强调浅洗",
+        "canonical": "color-mix(in srgb, var(--aa-ui-accent) 13%, transparent)",
+        "tonalRamp": ["oklch(20% 0.035 245 / .22)", "oklch(31% 0.045 245 / .2)", "oklch(42% 0.055 245 / .18)", "oklch(53% 0.065 245 / .16)", "oklch(64% 0.06 245 / .14)", "oklch(75% 0.05 245 / .12)", "oklch(86% 0.04 245 / .1)", "oklch(95% 0.025 245 / .08)"]
+      },
+      "accent-contrast": {
+        "role": "neutral",
+        "displayName": "强调面前景",
+        "canonical": "var(--p-primary-contrast-color, #fff)",
+        "tonalRamp": ["oklch(18% 0 0)", "oklch(29% 0 0)", "oklch(40% 0 0)", "oklch(51% 0 0)", "oklch(62% 0 0)", "oklch(73% 0 0)", "oklch(84% 0 0)", "oklch(100% 0 0)"]
+      },
+      "media-foreground": {
+        "role": "neutral",
+        "displayName": "媒体前景",
+        "canonical": "var(--p-surface-0, #fff)",
+        "tonalRamp": ["oklch(18% 0 0)", "oklch(29% 0 0)", "oklch(40% 0 0)", "oklch(51% 0 0)", "oklch(62% 0 0)", "oklch(73% 0 0)", "oklch(84% 0 0)", "oklch(100% 0 0)"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "危险玫红",
+        "canonical": "var(--error-text, var(--p-red-400, #d66d75))",
+        "tonalRamp": ["oklch(20% 0.08 20)", "oklch(31% 0.12 20)", "oklch(42% 0.16 20)", "oklch(53% 0.18 20)", "oklch(64% 0.16 20)", "oklch(75% 0.12 20)", "oklch(86% 0.07 20)", "oklch(95% 0.03 20)"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "警告琥珀",
+        "canonical": "var(--warning-text, var(--p-amber-400, #d6a84f))",
+        "tonalRamp": ["oklch(20% 0.06 78)", "oklch(31% 0.09 78)", "oklch(42% 0.12 78)", "oklch(53% 0.14 78)", "oklch(64% 0.13 78)", "oklch(75% 0.1 78)", "oklch(86% 0.06 78)", "oklch(95% 0.03 78)"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "成功绿",
+        "canonical": "var(--success-text, var(--p-green-400, #6fbf73))",
+        "tonalRamp": ["oklch(20% 0.06 145)", "oklch(31% 0.09 145)", "oklch(42% 0.12 145)", "oklch(53% 0.14 145)", "oklch(64% 0.13 145)", "oklch(75% 0.1 145)", "oklch(86% 0.06 145)", "oklch(95% 0.03 145)"]
+      },
+      "library-identity": {
+        "role": "secondary",
+        "displayName": "Library 身份紫",
+        "canonical": "var(--p-purple-400, var(--aa-ui-warning))",
+        "tonalRamp": ["oklch(20% 0.08 305)", "oklch(31% 0.12 305)", "oklch(42% 0.16 305)", "oklch(53% 0.18 305)", "oklch(64% 0.16 305)", "oklch(75% 0.12 305)", "oklch(86% 0.07 305)", "oklch(95% 0.03 305)"]
+      },
+      "group-identity": {
+        "role": "secondary",
+        "displayName": "Groups 身份青",
+        "canonical": "var(--p-cyan-400, var(--aa-ui-accent))",
+        "tonalRamp": ["oklch(20% 0.06 205)", "oklch(31% 0.09 205)", "oklch(42% 0.12 205)", "oklch(53% 0.14 205)", "oklch(64% 0.13 205)", "oklch(75% 0.1 205)", "oklch(86% 0.06 205)", "oklch(95% 0.03 205)"]
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "页面标题", "purpose": "Dashboard 当前页面等最高层级操作上下文。" },
+      "title": { "displayName": "局部标题", "purpose": "Dialog 标题和局部主标题。" },
+      "body": { "displayName": "正文", "purpose": "说明、表单内容和一般交互文字。" },
+      "label": { "displayName": "操作标签", "purpose": "按钮、字段、导航和列表主标签。" },
+      "meta": { "displayName": "元数据", "purpose": "计数、来源、时间和次级状态。" },
+      "mono": { "displayName": "精确读数", "purpose": "快捷键、路径、数值和技术身份。" }
+    },
+    "shadows": [
+      { "name": "edge-working", "value": "0 10px 28px rgb(0 0 0 / .22), 0 2px 8px rgb(0 0 0 / .16)", "purpose": "Popover、Hover 和抬升工作表面。" },
+      { "name": "edge-soft", "value": "0 4px 12px rgb(0 0 0 / .15), 0 1px 4px rgb(0 0 0 / .11)", "purpose": "卡片、徽章和静态容器。" },
+      { "name": "well-inset", "value": "inset 0 2px 5px rgb(0 0 0 / .17), inset 0 -1px 2px color-mix(in srgb, var(--aa-ui-text) 4%, transparent)", "purpose": "输入、分段轨道和 Toggle 轨道。" },
+      { "name": "active-glow", "value": "0 6px 18px color-mix(in srgb, var(--aa-ui-accent) 16%, rgb(0 0 0 / .18)), 0 2px 7px rgb(0 0 0 / .16)", "purpose": "焦点、选择和激活状态。" },
+      { "name": "dialog-depth", "value": "0 22px 70px rgb(0 0 0 / .42)", "purpose": "Dialog 与最高层浮层。" }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "140ms ease", "purpose": "按钮、字段、图标和基础状态切换。" },
+      { "name": "surface-standard", "value": "180ms ease", "purpose": "表面、列表和工作区状态变化。" },
+      { "name": "precise-slide", "value": "cubic-bezier(.2, .75, .25, 1)", "purpose": "Segmented Thumb 和精确位置切换。" },
+      { "name": "tactile-spring", "value": "cubic-bezier(.34, 1.35, .64, 1)", "purpose": "Toggle Thumb 的短促触感反馈。" }
+    ],
+    "breakpoints": [
+      { "name": "compact-settings", "value": "520px" },
+      { "name": "gallery-single-column", "value": "680px" },
+      { "name": "dialog-inline-stack", "value": "720px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "当前任务区唯一的实心主操作。",
+      "html": "<button class=\"ds-btn-primary\">保存更改</button>",
+      "css": ".ds-btn-primary { min-height:32px; padding:6px 12px; border:1px solid transparent; border-radius:6px; background:var(--aa-ui-accent,#0b8ce9); color:var(--aa-ui-accent-text,#fff); font:600 11px/1.35 Inter,system-ui,sans-serif; cursor:pointer; transition:background-color .14s ease,color .14s ease,transform .14s ease,box-shadow .14s ease; } .ds-btn-primary:hover { transform:translateY(-1px); } .ds-btn-primary:focus-visible { outline:0; box-shadow:0 0 0 3px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 26%,transparent); } .ds-btn-primary:active { transform:translateY(0); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "与主操作相邻但不争夺注意力的次要行动。",
+      "html": "<button class=\"ds-btn-secondary\">导入</button>",
+      "css": ".ds-btn-secondary { min-height:32px; padding:6px 12px; border:1px solid transparent; border-radius:6px; background:var(--aa-ui-control,#18181b); color:var(--aa-ui-text,#e5e7eb); box-shadow:0 4px 12px rgb(0 0 0 / .15),0 1px 4px rgb(0 0 0 / .11); font:600 11px/1.35 Inter,system-ui,sans-serif; cursor:pointer; transition:background-color .14s ease,color .14s ease,transform .14s ease,box-shadow .14s ease; } .ds-btn-secondary:hover { background:color-mix(in srgb,var(--aa-ui-surface,#222) 88%,var(--aa-ui-text,#e5e7eb)); transform:translateY(-1px); } .ds-btn-secondary:focus-visible { outline:0; box-shadow:0 0 0 3px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 26%,transparent); } .ds-btn-secondary:active { transform:translateY(0); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "带凹面触感和稳定强调光环的紧凑字段。",
+      "html": "<input class=\"ds-input\" value=\"Aaalice preset\" aria-label=\"预设名称\">",
+      "css": ".ds-input { width:240px; min-height:36px; padding:8px 10px; border:1px solid transparent; border-radius:8px; outline:0; background:color-mix(in srgb,var(--aa-ui-control,#18181b) 88%,var(--aa-ui-canvas,#111)); box-shadow:inset 0 2px 5px rgb(0 0 0 / .17),inset 0 -1px 2px rgb(255 255 255 / .04); color:var(--aa-ui-text,#e5e7eb); caret-color:var(--aa-ui-accent,#0b8ce9); font:400 13px/1.45 Inter,system-ui,sans-serif; transition:background-color .14s ease,box-shadow .14s ease; } .ds-input:hover { background:color-mix(in srgb,var(--aa-ui-control,#18181b) 94%,var(--aa-ui-text,#e5e7eb)); } .ds-input:focus-visible { box-shadow:0 6px 18px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 16%,rgb(0 0 0 / .18)),0 0 0 3px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 12%,transparent); }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "nav",
+      "description": "一个 Thumb 在稳定轨道中平移的上下文切换器。",
+      "html": "<div class=\"ds-segmented\" role=\"radiogroup\" aria-label=\"工作区\"><span class=\"ds-segmented-thumb\"></span><button class=\"is-active\" role=\"radio\" aria-checked=\"true\">Dashboard</button><button role=\"radio\" aria-checked=\"false\">Library</button></div>",
+      "css": ".ds-segmented { position:relative; display:grid; width:240px; height:32px; grid-template-columns:1fr 1fr; padding:2px; border-radius:8px; background:var(--aa-ui-control,#18181b); box-shadow:inset 0 2px 5px rgb(0 0 0 / .17); } .ds-segmented-thumb { position:absolute; inset:2px 50% 2px 2px; border-radius:6px; background:color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 13%,transparent); box-shadow:0 6px 18px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 16%,rgb(0 0 0 / .18)); } .ds-segmented button { position:relative; z-index:1; border:0; background:transparent; color:var(--aa-ui-muted,#9ca3af); font:500 11px/1.35 Inter,system-ui,sans-serif; cursor:pointer; } .ds-segmented button.is-active { color:var(--aa-ui-text,#e5e7eb); font-weight:600; } .ds-segmented button:focus-visible { outline:0; box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 18%,transparent); }"
+    },
+    {
+      "name": "Toggle Switch",
+      "kind": "input",
+      "description": "强调色轨道与短促弹性 Thumb 组成的布尔控件。",
+      "html": "<button class=\"ds-toggle is-on\" role=\"switch\" aria-checked=\"true\" aria-label=\"自动保存\"><span></span></button>",
+      "css": ".ds-toggle { position:relative; width:38px; height:22px; padding:0; border:1px solid transparent; border-radius:999px; background:linear-gradient(135deg,color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 86%,rgb(255 255 255 / 10%)),var(--aa-ui-accent,#0b8ce9)); box-shadow:0 0 0 1px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 40%,transparent),0 2px 8px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 28%,transparent); cursor:pointer; } .ds-toggle span { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--aa-ui-accent-text,#fff); box-shadow:0 1px 3px rgb(0 0 0 / .3); transform:translateX(18px); transition:transform .2s cubic-bezier(.34,1.35,.64,1),width .16s ease; } .ds-toggle:hover { box-shadow:0 0 0 1px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 52%,transparent),0 3px 10px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 36%,transparent); } .ds-toggle:focus-visible { outline:2px solid var(--aa-ui-accent,#0b8ce9); outline-offset:2px; } .ds-toggle:active span { width:19px; transform:translateX(15px); }"
+    },
+    {
+      "name": "Tonal Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "不使用重复描边的计数与短状态胶囊。",
+      "html": "<span class=\"ds-badge\">12 项</span>",
+      "css": ".ds-badge { display:inline-flex; min-height:22px; align-items:center; padding:3px 9px; border:0; border-radius:999px; background:var(--aa-ui-control,#18181b); color:var(--aa-ui-muted,#9ca3af); box-shadow:0 3px 8px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 13%,rgb(0 0 0 / .16)),inset 0 1px rgb(255 255 255 / .07); font:600 11px/1.35 Inter,system-ui,sans-serif; }"
+    },
+    {
+      "name": "Control Card",
+      "kind": "card",
+      "description": "用局部身份光和低强度表面承载单个工作参数。",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card-mark\"></div><div><strong>采样步数</strong><span>Integer · 24</span></div></article>",
+      "css": ".ds-card { display:grid; width:240px; grid-template-columns:4px minmax(0,1fr); align-items:center; gap:9px; padding:8px 10px; border:1px solid transparent; border-radius:9px; background:color-mix(in srgb,var(--aa-ui-surface,#222) 62%,var(--aa-ui-control,#18181b)); box-shadow:0 4px 12px rgb(0 0 0 / .15),inset 0 1px rgb(255 255 255 / .03); color:var(--aa-ui-text,#e5e7eb); font-family:Inter,system-ui,sans-serif; transition:background-color .14s ease,box-shadow .14s ease,transform .14s ease; } .ds-card:hover { background:color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 7%,var(--aa-ui-control,#18181b)); box-shadow:0 6px 18px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 16%,rgb(0 0 0 / .18)); transform:translateY(-1px); } .ds-card-mark { width:4px; height:30px; border-radius:4px; background:var(--aa-ui-accent,#0b8ce9); box-shadow:0 0 8px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 30%,transparent); } .ds-card div:last-child { display:grid; gap:3px; } .ds-card strong { font-size:11px; font-weight:680; } .ds-card span { color:var(--aa-ui-muted,#9ca3af); font-size:10px; }"
+    },
+    {
+      "name": "Dialog Surface",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "固定 Header/Footer 与唯一滚动 Body 的最高层工作面。",
+      "html": "<section class=\"ds-dialog\" role=\"dialog\" aria-labelledby=\"ds-dialog-title\"><header id=\"ds-dialog-title\">页面设置</header><div class=\"ds-dialog-body\">配置当前 Dashboard 页面。</div><footer><button>取消</button><button class=\"is-primary\">保存</button></footer></section>",
+      "css": ".ds-dialog { display:grid; width:360px; overflow:hidden; grid-template-rows:auto minmax(0,1fr) auto; border:1px solid transparent; border-radius:14px; background:var(--aa-ui-surface,#222); box-shadow:0 10px 28px rgb(0 0 0 / .22),0 22px 70px rgb(0 0 0 / .42); color:var(--aa-ui-text,#e5e7eb); font:400 13px/1.45 Inter,system-ui,sans-serif; } .ds-dialog header { padding:15px 18px; background:color-mix(in srgb,var(--aa-ui-surface,#222) 88%,var(--aa-ui-control,#18181b)); font-size:15px; font-weight:720; } .ds-dialog-body { padding:16px 18px 20px; color:var(--aa-ui-muted,#9ca3af); } .ds-dialog footer { display:flex; justify-content:flex-end; gap:8px; padding:10px 18px; background:color-mix(in srgb,var(--aa-ui-surface,#222) 90%,var(--aa-ui-control,#18181b)); } .ds-dialog button { min-height:32px; padding:6px 12px; border:0; border-radius:6px; background:var(--aa-ui-control,#18181b); color:var(--aa-ui-text,#e5e7eb); cursor:pointer; } .ds-dialog button.is-primary { background:var(--aa-ui-accent,#0b8ce9); color:var(--aa-ui-accent-text,#fff); } .ds-dialog button:focus-visible { outline:0; box-shadow:0 0 0 3px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 26%,transparent); }"
+    },
+    {
+      "name": "Workspace Page Rail",
+      "kind": "nav",
+      "description": "固定圆点列在 Hover 或 Focus 时展开页面名称。",
+      "html": "<nav class=\"ds-rail\" aria-label=\"Dashboard 页面\"><button class=\"is-active\"><i></i><span>生成参数</span></button><button><i></i><span>图像控制</span></button><button><i></i><span>输出</span></button></nav>",
+      "css": ".ds-rail { display:flex; width:154px; flex-direction:column; align-items:flex-end; gap:6px; padding:8px; border-radius:14px; background:color-mix(in srgb,var(--aa-ui-surface,#222) 92%,transparent); box-shadow:0 10px 28px rgb(0 0 0 / .22); } .ds-rail button { display:flex; width:24px; min-height:24px; align-items:center; gap:8px; overflow:hidden; padding:0 6px; border:0; border-radius:999px; background:transparent; color:var(--aa-ui-muted,#9ca3af); font:600 11px/1.35 Inter,system-ui,sans-serif; cursor:pointer; transition:width .18s cubic-bezier(.2,.78,.22,1),background-color .14s ease,box-shadow .14s ease; } .ds-rail:hover button,.ds-rail button:focus-visible { width:138px; outline:0; } .ds-rail button i { width:7px; height:7px; flex:none; border-radius:50%; background:currentColor; } .ds-rail button span { white-space:nowrap; } .ds-rail button.is-active { width:138px; background:color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 13%,transparent); box-shadow:0 6px 18px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 16%,rgb(0 0 0 / .18)); color:var(--aa-ui-text,#e5e7eb); } .ds-rail button.is-active i { background:var(--aa-ui-accent,#0b8ce9); box-shadow:0 0 8px color-mix(in srgb,var(--aa-ui-accent,#0b8ce9) 44%,transparent); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "主题光晕下的精密工作台",
+    "overview": "界面像嵌入 ComfyUI 的一张精密创作工作台：宿主主题决定基础材质，节点或领域强调色像局部工作灯，只照亮当前对象、状态与操作。它紧凑、精确、有触感、克制但不单调；品牌感来自可靠的层级、恰到好处的色彩身份和短促反馈，而不是另造一套脱离 ComfyUI 的外壳。\n\n工作台以信息密度服务操作效率，但不会用更小的文字、更多的线或同时展开更多区域换取容量。表面、空间聚合、圆角轮廓和柔和边缘阴影共同建立结构；焦点、选择、危险和业务分级拥有不同且可辨的语义。",
+    "keyCharacteristics": [
+      "宿主主题驱动，明暗主题与节点强调色自然继承",
+      "紧凑的参数密度，清晰的主次行动和稳定几何",
+      "半透明工作表面、柔和边缘阴影与局部状态光晕",
+      "English、简体中文、繁体中文下保持同一信息层级",
+      "Classic、Nodes 2.0 与 Subgraph 共享同一视觉语言"
+    ],
+    "rules": [
+      { "name": "The Host Theme Rule", "body": "基础文字、表面、控件和强调色必须从 ComfyUI token 解析；fallback 只保证未挂载环境可读，不能成为第二主题。", "section": "colors" },
+      { "name": "The One Spotlight Rule", "body": "一个独立任务区原则上只有一个实心强调色主操作；其余导航、刷新、设置和取消使用低强度表面。", "section": "colors" },
+      { "name": "The Semantic Color Rule", "body": "身份色、状态色、类别色和元数据色各司其职；颜色不是唯一信号，也不能互相借用。", "section": "colors" },
+      { "name": "The Ten Pixel Floor", "body": "用户可见文字不得低于 10px；按钮、输入、导航、列表主标签和表单标签原则上不低于 11px。", "section": "typography" },
+      { "name": "The One Title Rule", "body": "每个区域只保留一个可独立理解的主标题或标签，不在其下堆叠同义副标题。", "section": "typography" },
+      { "name": "The One Scroll Surface Rule", "body": "页面内容区承担主要纵向滚动；局部滚动必须有稳定高度和完整的可收缩父链，不能形成多个互相竞争的完整表单滚动区。", "section": "layout" },
+      { "name": "The Container Owns Response Rule", "body": "控件根据自身可用宽高收敛，不假设理想节点尺寸，也不通过延迟测量或重复重建制造适配。", "section": "layout" },
+      { "name": "The Edge, Not Line Rule", "body": "普通区域不依赖连续细分割线或密集 1px 边框建立层级；优先用表面、间距和边缘阴影。", "section": "elevation" },
+      { "name": "The Stable Geometry Rule", "body": "Hover、Focus 和 Active 不改变组件占位；透明边框可保留几何，但可见反馈由表面和深度承担。", "section": "elevation" },
+      { "name": "The Radius Hierarchy Rule", "body": "控件、容器和浮层按 6px、8–10px、14px 逐级组织；999px 只用于 Switch、圆点和真正的短胶囊。", "section": "shapes" }
+    ],
+    "dos": [
+      "Do 从 ComfyUI token 派生所有基础颜色，并在真实挂载位置验证计算样式。",
+      "Do 使用一个稳定状态真源定向更新现有 DOM，保留焦点、光标、动画元素和滚动位置。",
+      "Do 用表面、间距、圆角、局部身份色和柔和边缘阴影建立清晰层级。",
+      "Do 在最窄和最矮支持尺寸下检查中英文文案、主要行动、命中面和滚动可达性。",
+      "Do 同时保证 Classic、Nodes 2.0、Subgraph、明暗主题和 prefers-reduced-motion。"
+    ],
+    "donts": [
+      "Don't 使用大片空白、密集细分割线、默认浏览器控件或整块单调灰色信息面充当正式设计。",
+      "Don't 用更小文字、压扁控件、嵌套完整表单滚动或同时展开多套配置硬塞内容。",
+      "Don't 重画 ComfyUI 节点外壳、伪造 socket、遮挡原生缩放角或让 DOM 与 Canvas 重复表达同一状态。",
+      "Don't 为普通导航、刷新、设置和取消使用高饱和实心按钮，也不要让危险色承担非危险操作。",
+      "Don't 用颜色作为唯一状态信号，或把来源色、类别色、Rating 色和成功/警告/危险色混为一套。"
+    ]
+  }
+}

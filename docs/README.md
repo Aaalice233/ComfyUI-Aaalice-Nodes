@@ -9,6 +9,8 @@
 | 文档 | 面向对象 | 唯一职责 |
 |---|---|---|
 | [中文 README](../README.md) / [English README](../README.en.md) | 用户 | 安装、已发布节点、操作方法和公开限制 |
+| [PRODUCT.md](../PRODUCT.md) | 产品与设计 | 用户、产品目的、定位、约束、品牌承诺和产品原则 |
+| [DESIGN.md](../DESIGN.md) | 产品与设计 | 当前视觉 token、组件语言、设计原则和护栏 |
 | [AGENTS.md](../AGENTS.md) | 协作者 | 开发硬规则、上下文路由和验收门槛 |
 | [CONTEXT.md](../CONTEXT.md) | 产品与开发 | 领域词汇、身份概念和统一称呼 |
 

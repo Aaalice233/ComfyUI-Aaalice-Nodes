@@ -43,6 +43,8 @@
 
 所有开发任务先加载：
 
+- @PRODUCT.md
+- @DESIGN.md
 - @CONTEXT.md
 - @docs/development/architecture.md
 
