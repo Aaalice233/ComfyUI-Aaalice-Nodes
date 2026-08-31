@@ -99,6 +99,8 @@ test("gallery presets own browsing, selection, and dashboard projection state", 
 	assert.match(surfaceSource, /readPresetProjection = \(\) => \(\{ queryDraft: searchControl\.getValue\(\) \}\)/);
 	assert.match(surfaceSource, /masonryController\.setActive\(false\); surface\.selectedList\.setActive\(false\)/);
 	assert.match(surfaceSource, /controller\.setSurfaceActive\(surface, active\)/);
+	assert.match(surfaceSource, /const settleScroll = \(\) => \{ scrollSettleTimer = 0; controller\.rememberViewport\(surface\)/);
+	assert.match(surfaceSource, /surface\.destroy = \(\) => \{ if \(destroyed\) return; destroyed = true; controller\.rememberViewport\(surface\)/);
 	assert.match(surfaceSource, /controller\.claimSurface\(surface\)/);
 	assert.match(source, /syncProjectionActivity\(\)/);
 	assert.match(source, /dashboardActive = views\(\)\.some\(\(view\) => view\.placement === "dashboard" && view\.viewportActive\)/);
@@ -117,7 +119,8 @@ test("gallery restores every workflow-owned browsing state after configuration",
 	assert.match(source, /if \(persist\) transact\(node, \(state\) => \{ state\.view = mode; \}\)/);
 	assert.match(source, /function restoreNode\(node\)/);
 	assert.match(source, /node\._aaGalleryController\.syncState\(\)/);
-	assert.match(source, /node\._aaGalleryController\.search\(\{ reset: true, page: state\.navigation\.page \}\)/);
+	assert.match(source, /if \(viewportSessionScope\) node\._aaGalleryRuntime\.viewportSessionScope = viewportSessionScope/);
+	assert.match(source, /node\._aaGalleryController\.search\(\{ reset: true, page: state\.navigation\.page, restoreAnchor: readGalleryViewportSession\(node\._aaGalleryRuntime\.viewportSessionScope, state\) \}\)/);
 	assert.match(source, /loadedGraphNode\(node\) \{ if \(isGallery\(node\)\) \{ setupNodeSafely\(node\); restoreNode\(node\); \} \}/);
 	assert.match(source, /if \(\(!reset && \(loading \|\| manualContinuation\)\) \|\| \(ended && !reset\)\) return/);
 	assert.match(source, /setLoading\(true\);\s*if \(reset\) \{[^}]*for \(const masonry of masonryControllers\(\)\) masonry\.setItems\(\[\], \{ preserveScroll: false \}\)/s);

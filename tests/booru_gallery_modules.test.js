@@ -42,6 +42,7 @@ const sources = Object.fromEntries([
 	["random", "../js/lib/booru_gallery_random.js"],
 	["dialogs", "../js/lib/booru_gallery_dialogs.js"],
 	["settings", "../js/lib/booru_gallery_settings.js"],
+	["viewportSession", "../js/lib/booru_gallery_viewport_session.js"],
 ].map(([name, modulePath]) => [name, fs.readFileSync(new URL(modulePath, import.meta.url), "utf8")]));
 
 test("every gallery module parses as a real ES module", () => {
@@ -58,6 +59,7 @@ test("every gallery module parses as a real ES module", () => {
 		["random", "../js/lib/booru_gallery_random.js"],
 		["dialogs", "../js/lib/booru_gallery_dialogs.js"],
 		["settings", "../js/lib/booru_gallery_settings.js"],
+		["viewportSession", "../js/lib/booru_gallery_viewport_session.js"],
 	]) {
 		const file = fileURLToPath(new URL(modulePath, import.meta.url));
 		execFileSync(process.execPath, ["--check", file], { encoding: "utf8" });
@@ -244,7 +246,7 @@ test("destroyed Gallery controllers discard late selection details", async () =>
 	assert.equal(harness.transactionCount, 0);
 });
 
-test("gallery entry delegates cohesive surface, media, card, controller, dialog, and settings modules", () => {
+test("gallery entry delegates cohesive surface, media, card, controller, dialog, settings, and viewport session modules", () => {
 	for (const name of ["Media", "Cards", "ControllerFactory", "Dialogs", "Settings"]) {
 		assert.match(sources.entry, new RegExp(`import \\{ createGallery${name}(?:, [^}]+)? \\}`));
 	}
@@ -261,6 +263,14 @@ test("gallery entry delegates cohesive surface, media, card, controller, dialog,
 	assert.match(sources.controller, /import \{ createGalleryHover \} from "\.\/booru_gallery_hover\.js"/);
 	assert.match(sources.dialogs, /export function createGalleryDialogs/);
 	assert.match(sources.settings, /export function createGallerySettings/);
+	assert.match(sources.viewportSession, /export function clearGalleryViewportSession/);
+	assert.match(sources.viewportSession, /export function galleryViewportSessionScope/);
+	assert.match(sources.viewportSession, /export function saveGalleryViewportSession/);
+	assert.match(sources.viewportSession, /export function readGalleryViewportSession/);
+	assert.match(sources.entry, /cacheGalleryViewportAnchor\(this, controller\.getViewportAnchor\(\)\)/);
+	assert.match(sources.entry, /clearViewportAnchor: \(node\) => clearGalleryViewportSession\(galleryViewportScope\(node\)\)/);
+	assert.match(sources.entry, /saveViewportAnchor: cacheGalleryViewportAnchor/);
+	assert.match(sources.entry, /restoreAnchor: readGalleryViewportSession\(node\._aaGalleryRuntime\.viewportSessionScope, state\)/);
 	for (const [name, contents] of Object.entries(sources)) {
 		assert.ok(contents.split(/\r?\n/).length <= 800, `${name} module exceeds the source-size contract`);
 	}
@@ -454,7 +464,7 @@ test("attaching the Dashboard projection suspends the duplicate node projection"
 });
 
 test("Gallery projections restore the active card anchor after switching and remounting", () => {
-	const restored = []; const setItemsOptions = [];
+	const restored = []; const setItemsOptions = []; const saved = [];
 	const makeSurface = (placement, initialAnchor) => {
 		let anchor = initialAnchor;
 		return {
@@ -481,7 +491,7 @@ test("Gallery projections restore the active card anchor after switching and rem
 	const dashboardSurface = makeSurface("dashboard", null);
 	const controller = createGalleryControllerFactory({
 		createTooltip: () => ({ hide() {}, destroy() {} }), label: (_key, fallback) => fallback,
-		stateFor: () => ({ selections: [], selectionMode: "multi" }),
+		saveViewportAnchor: (_node, anchor) => saved.push(anchor), stateFor: () => ({ selections: [], selectionMode: "multi" }),
 	})({}, new Set());
 
 	controller.attachSurface(nodeSurface); nodeSurface.active = true; controller.setSurfaceActive(nodeSurface, true);
@@ -490,6 +500,7 @@ test("Gallery projections restore the active card anchor after switching and rem
 	nodeSurface.active = false; controller.setSurfaceActive(nodeSurface, false);
 
 	dashboardSurface.setAnchor(laterAnchor); controller.claimSurface(dashboardSurface);
+	assert.deepEqual(saved.at(-1), laterAnchor, "captured anchors are published to the workflow-session cache");
 	dashboardSurface.active = false; controller.setSurfaceActive(dashboardSurface, false); controller.detachSurface(dashboardSurface);
 	const replacement = makeSurface("dashboard", null); controller.attachSurface(replacement);
 	assert.deepEqual(setItemsOptions.at(-1), ["dashboard", { preserveScroll: false, restoreAnchor: laterAnchor }], "a replacement surface receives the last active anchor before its first draw");
@@ -500,6 +511,39 @@ test("Gallery projections restore the active card anchor after switching and rem
 	controller.detachSurface(replacement);
 	assert.equal(restored.length, restorationsBeforeOwnerRemoval + 1, "removing the viewport owner transfers its anchor to another active projection");
 	assert.deepEqual(restored.at(-1), ["dashboard", laterAnchor]);
+	assert.deepEqual(controller.getViewportAnchor(), laterAnchor, "the node lifecycle can capture the current owner before destroying the controller");
+	controller.destroy();
+});
+
+test("a new Gallery controller restores a workflow-session anchor after reloading its logical page", async () => {
+	const state = { source: "danbooru", query: "", randomMode: false, filters: { feed: "search", sort: "latest", period: "", ratings: [] }, navigation: { page: 5 }, selections: [], selectionMode: "multi" };
+	const anchor = { key: "danbooru:500", offset: 37 };
+	const setItemsCalls = []; let clearedAnchors = 0;
+	const surface = {
+		placement: "node", active: true, root: { isConnected: true }, setProjectionEnabled() {}, syncState() {},
+		masonryController: {
+			setItems(posts, options) { setItemsCalls.push([posts.map((post) => post.postId), options]); }, append() {}, setActive() {},
+			needsMore() { return false; }, recheckNearEnd() {}, updateItemSize() {}, getViewportAnchor() { return anchor; }, restoreViewportAnchor() { return true; }, destroy() {},
+		},
+		selectedList: { setItems() {}, destroy() {} }, selectedDropIndicator: null,
+		loading: { hidden: true }, randomMode: { disabled: false }, pageControl: { setBusy() {}, setPage() {} }, end: { hidden: true }, endLabel: { textContent: "" },
+		emptyResults: { hidden: true, querySelector: () => ({ textContent: "" }) }, continueResults: { hidden: true },
+		error: { hidden: true, classList: { toggle() {} } }, errorLabel: { textContent: "" },
+		tabs: { setValue() {} }, selectionMode: { setValue() {} }, selectedCount: { textContent: "", setAttribute() {} },
+		selectedSummary: { textContent: "" }, selectedClear: { disabled: false }, emptySelected: { hidden: true }, mode: "browse", destroy() {},
+	};
+	const controller = createGalleryControllerFactory({
+		API: "/gallery", capability: () => ({ authRequired: false }), clearViewportAnchor: () => { clearedAnchors += 1; }, createTooltip: () => ({ hide() {}, destroy() {} }), hasSourceCredentials: () => true,
+		jsonRequest: async () => ({ page: 5, posts: [{ source: "danbooru", postId: "500", previewUrl: "https://example.test/500.jpg", width: 1, height: 1 }], nextCursor: null, ended: true, warnings: [] }),
+		label: (_key, fallback) => fallback, searchQuery: () => "", stateFor: () => state,
+	})({ graph: { change() {} } }, surface);
+
+	await controller.search({ reset: true, page: 5, restoreAnchor: anchor });
+	assert.deepEqual(setItemsCalls.at(-1), [["500"], { preserveScroll: false, restoreAnchor: anchor }]);
+	assert.equal(clearedAnchors, 0, "a restore request must keep its session anchor");
+	await controller.search({ reset: true, page: 5 });
+	assert.equal(clearedAnchors, 1, "a later explicit reset clears the reusable session anchor");
+	assert.equal(state.navigation.page, 5);
 	controller.destroy();
 });
 
