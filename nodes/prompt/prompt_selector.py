@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from comfy_api.latest import io
 
-from .._lib.prompt_selector import compose_prompt, parse_selection_payload
+from .._lib.prompt_selector import MissingPromptText, compose_prompt, parse_selection_payload
+from .prompt_selector_diagnostics import diagnose_missing_text
 
 
 class PromptSelector(io.ComfyNode):
@@ -29,10 +30,15 @@ class PromptSelector(io.ComfyNode):
     def validate_inputs(cls, selection_payload_json: str = ""):
         try:
             parse_selection_payload(selection_payload_json)
+        except MissingPromptText as exc:
+            return diagnose_missing_text(exc)
         except ValueError as exc:
             return str(exc)
         return True
 
     @classmethod
     def execute(cls, prefix_prompt: str = "", selection_payload_json: str = "", **_kwargs) -> io.NodeOutput:
-        return io.NodeOutput(compose_prompt(prefix_prompt, selection_payload_json))
+        try:
+            return io.NodeOutput(compose_prompt(prefix_prompt, selection_payload_json))
+        except MissingPromptText as exc:
+            raise ValueError(diagnose_missing_text(exc)) from exc

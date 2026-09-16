@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from nodes._lib.prompt_library import DEFAULT_COLLECTION_ID, PromptLibrary
 from nodes.prompt import prompt_library_routes as routes
@@ -122,6 +123,59 @@ class PromptLibraryRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(routes.get_library().snapshot(), before)
         staged_manifest, _assets = routes.get_library().staged_import(token)
         self.assertEqual(staged_manifest["entries"][0]["id"], entry_id)
+
+    async def test_mutation_audit_records_ids_without_prompt_content(self):
+        entry = routes.get_library().create_entry({"title": "private title", "text": "private text"})
+        with patch.object(routes, "_changed"), self.assertLogs(routes.logger, level="INFO") as logs:
+            response = await routes._handler(routes.delete_entry, action="entry.deleted")(
+                FakeRequest(match_info={"id": entry["id"]}),
+            )
+        self.assertEqual(response.status, 200)
+        output = "\n".join(logs.output)
+        self.assertIn("action=entry.deleted", output)
+        self.assertIn(entry["id"], output)
+        self.assertNotIn("private title", output)
+        self.assertNotIn("private text", output)
+
+    async def test_batch_delete_audit_records_exact_deleted_ids(self):
+        entry = routes.get_library().create_entry({"title": "private title", "text": "private text"})
+        with self.assertLogs(routes.logger, level="INFO") as logs:
+            response = await routes._handler(routes.delete_entries)(FakeRequest({"entryIds": [entry["id"]]}))
+        self.assertEqual(response.status, 200)
+        output = "\n".join(logs.output)
+        self.assertIn("deleted=1", output)
+        self.assertIn(entry["id"], output)
+        self.assertNotIn("private text", output)
+
+    async def test_failed_mutation_is_not_logged_as_success(self):
+        with patch.object(routes, "_changed") as changed, self.assertLogs(routes.logger, level="WARNING") as logs:
+            response = await routes._handler(routes.delete_entry, action="entry.deleted")(
+                FakeRequest(match_info={"id": "missing"}),
+            )
+        self.assertEqual(response.status, 404)
+        changed.assert_not_called()
+        self.assertTrue(all(":INFO:" not in line for line in logs.output))
+        self.assertIn("request-failed operation=delete_entry", "\n".join(logs.output))
+
+    async def test_usage_success_does_not_emit_audit_noise(self):
+        entry = routes.get_library().create_entry({"title": "A", "text": "a"})
+        with patch.object(routes, "_changed"), self.assertNoLogs(routes.logger, level="INFO"):
+            response = await routes._handler(routes.record_usage, action="entries.usage.updated")(
+                FakeRequest({"entryIds": [entry["id"]]}),
+            )
+        self.assertEqual(response.status, 200)
+
+    async def test_import_audit_only_records_applied_count(self):
+        source = Path(self.temp.name) / "audit.json"
+        source.write_text(json.dumps({"Private": ["private prompt"]}), encoding="utf-8")
+        token, manifest = routes.get_library().prepare_import(source, source.name)
+        entry_id = manifest["entries"][0]["id"]
+        with self.assertLogs(routes.logger, level="INFO") as logs:
+            await routes.import_apply(FakeRequest({"token": token, "resolutions": {entry_id: "import"}}))
+        output = "\n".join(logs.output)
+        self.assertIn("import-applied imported=1", output)
+        self.assertNotIn("private prompt", output)
+        self.assertNotIn(token, output)
 
 
 if __name__ == "__main__":

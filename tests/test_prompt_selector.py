@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from nodes._lib.prompt_selector import compose_prompt, parse_selection_payload
+from nodes._lib.prompt_selector import MissingPromptText, compose_prompt, parse_selection_payload
 
 
 def payload(selections, separator=", "):
@@ -25,7 +25,7 @@ class PromptSelectorLogicTests(unittest.TestCase):
 
     def test_missing_text_rejects_execution(self):
         value = payload([{"entryId": "missing", "weight": 1}])
-        with self.assertRaisesRegex(ValueError, "missing from the prompt library"):
+        with self.assertRaisesRegex(MissingPromptText, "missing or invalid text in the submitted payload"):
             compose_prompt("", value)
 
     def test_rejects_duplicate_ids_and_invalid_weights(self):

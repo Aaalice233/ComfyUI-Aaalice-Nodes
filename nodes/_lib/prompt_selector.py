@@ -15,6 +15,13 @@ class PromptSelection:
     weight: Decimal
 
 
+class MissingPromptText(ValueError):
+    def __init__(self, entry_id: str, selection_count: int):
+        self.entry_id = entry_id
+        self.selection_count = selection_count
+        super().__init__(f"PromptSelector entry {entry_id!r} has missing or invalid text in the submitted payload")
+
+
 def _parse_weight(value: Any) -> Decimal:
     try:
         weight = Decimal(str(value))
@@ -52,7 +59,7 @@ def parse_selection_payload(payload_json: str) -> tuple[list[PromptSelection], s
         if entry_id in seen:
             raise ValueError(f"PromptSelector contains duplicate entry id: {entry_id}")
         if not isinstance(text, str):
-            raise ValueError(f"PromptSelector entry {entry_id} is missing from the prompt library")
+            raise MissingPromptText(entry_id, len(raw_selections))
         seen.add(entry_id)
         selections.append(PromptSelection(entry_id, text, _parse_weight(raw.get("weight", 1))))
     return selections, separator

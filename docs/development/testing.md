@@ -92,6 +92,18 @@ Assert-NativeSuccess 'git diff --check'
 - slot、widget 或序列化结构变化后，删除旧节点实例并重新创建。
 - `/object_info/<Node>` 只证明后端注册，不代表节点 UI、执行或副作用可用。
 
+### PromptSelector 服务端诊断
+
+启动器导出的日志中搜索 `[Aaalice PromptSelector]` 和 `[Aaalice PromptLibrary]`。这些记录通过 Python 标准日志输出，不依赖用户导出浏览器 Console；应保留从启动到报错的完整日志及报错时的工作流副本。
+
+- `status=entry-present`：提交数据缺少合法正文，但诊断时数据库中存在该 ID；检查前端词库加载、快照与提交数据，不应直接判定用户删除了词条。
+- `status=entry-absent`：诊断时当前数据库中没有该 ID；结合数据库路径、初始化的 `existed`、删除/导入记录与工作流引用核对来源，不能仅凭这一项断言发生了删除。
+- `status=database-unavailable`：只读查询失败；记录原始提交错误和数据库异常堆栈，不把读取失败当作空词库。
+- `selection_count`、`entry_count`、`entry_id` 和 `database` 用于关联 ComfyUI 自带的节点校验错误。该检查只发生于缺正文的失败路径，反映诊断时刻，不证明提交前数据库状态。
+- 词库初始化与成功变更使用 INFO，请求失败保留操作名和错误类型；批量删除记录 ID，导入记录数量。正常最近使用时间更新不打印成功日志，避免连续生成刷屏。
+
+诊断不打印词条标题、正文、前缀或完整工作流，不创建缺失数据库、不修复数据库、不自动补正文；缺正文仍阻止执行。日志会包含本机数据库路径，公开分享前应检查路径中的个人信息。后端更新后完整重启 ComfyUI；无需重建节点或重导词库。
+
 ## 4. GUI 验收规则
 
 GUI 主路径由用户在真实 ComfyUI 页面中人工验收；不能用脚本点击、合成事件、mock API 或静态源码检查替代真实交互：

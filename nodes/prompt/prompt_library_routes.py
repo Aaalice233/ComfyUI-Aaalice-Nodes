@@ -24,13 +24,21 @@ _registered = False
 _library: PromptLibrary | None = None
 
 
+def get_library_database_path() -> Path:
+    if _library is not None:
+        return _library.db_path
+    import folder_paths
+
+    return Path(folder_paths.get_user_directory()) / "aaalice" / "prompt-library" / "prompt-library.sqlite3"
+
+
 def get_library() -> PromptLibrary:
     global _library
     if _library is None:
-        import folder_paths
-
-        root = Path(folder_paths.get_user_directory()) / "aaalice" / "prompt-library"
-        _library = PromptLibrary(root)
+        database = get_library_database_path()
+        existed = database.exists()
+        _library = PromptLibrary(database.parent)
+        logger.info("[Aaalice PromptLibrary] ready database=%r existed=%s", database.resolve().as_posix(), existed)
     return _library
 
 
@@ -62,11 +70,20 @@ def _handler(operation: Callable[..., Any], *, action: str | None = None):
         try:
             result = await operation(request)
             if action:
+                if action != "entries.usage.updated":
+                    item_id = request.match_info.get("id")
+                    if item_id is None and isinstance(result, dict):
+                        item_id = result.get("id")
+                    logger.info("[Aaalice PromptLibrary] action=%s item_id=%r", action, item_id)
                 _changed(action, request.match_info.get("id"))
             if isinstance(result, web.StreamResponse):
                 return result
             return web.json_response(result if result is not None else {"ok": True})
         except Exception as exc:
+            logger.warning(
+                "[Aaalice PromptLibrary] request-failed operation=%s action=%s error_type=%s",
+                operation.__name__, action, type(exc).__name__,
+            )
             return _error(exc)
 
     return wrapped
@@ -149,7 +166,9 @@ async def delete_entries(request: web.Request):
     entry_ids = data.get("entryIds")
     if not isinstance(entry_ids, list) or not all(isinstance(item, str) for item in entry_ids):
         raise ValueError("entryIds must be a string list")
-    return {"deleted": get_library().delete_entries(entry_ids)}
+    deleted = get_library().delete_entries(entry_ids)
+    logger.info("[Aaalice PromptLibrary] batch-delete deleted=%d entry_ids=%r", deleted, entry_ids)
+    return {"deleted": deleted}
 
 
 async def record_usage(request: web.Request):
@@ -269,6 +288,7 @@ async def import_apply(request: web.Request):
         assets,
         {str(key): str(value) for key, value in resolutions.items()},
     )
+    logger.info("[Aaalice PromptLibrary] import-applied imported=%d", result["imported"])
     try:
         get_library().discard_import(token)
     except KeyError:
