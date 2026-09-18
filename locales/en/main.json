@@ -163,7 +163,7 @@
         "gallerySelections": "{count} selected", "loraEmpty": "0 LoRAs", "promptsSelected": "{count} selected",
         "behaviors": { "fixed": "Fixed", "increment": "Increment", "decrement": "Decrement", "randomize": "Randomize" },
         "issue": { "missing": "Not on sidebar", "ambiguous": "Ambiguous", "incompatible": "Incompatible", "invalid": "Invalid value", "unset": "No value available", "unavailable": "Temporarily unavailable", "empty": "No options available" },
-        "openManage": "Manage profiles", "previewTitle": "Parameters to apply", "presetTargetBadge": "Target preset: {name}", "editPresetName": "Click to edit recommended preset name", "setPresetName": "+ Target preset name", "dragToReorder": "Drag to reorder; Alt+Arrow keys also work",
+        "openManage": "Manage profiles", "previewTitle": "Parameters to apply", "presetTargetBadge": "Target preset: {name}", "editPresetName": "Click to edit recommended preset name", "setPresetName": "+ Target preset name", "presetTargetHint": "When duplicating a sidebar preset with this profile, this preset name will be suggested automatically. Leave blank to clear.", "clearPresetName": "Clear name", "dragToReorder": "Drag to reorder; Alt+Arrow keys also work",
         "diffBtn": "Diff presets", "exportBtn": "Export", "importBtn": "Import", "exportSuccess": "Override profile exported as JSON.", "importSuccess": "Imported {count} override profile(s).", "importFailed": "Import failed:", "diffSuccess": "Created override profile “{name}” with {count} rules.",
         "diff": {
           "dialogTitle": "Compare presets to create override profile",

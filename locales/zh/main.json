@@ -163,7 +163,7 @@
         "gallerySelections": "已选 {count} 项", "loraEmpty": "0 个 LoRA", "promptsSelected": "已选 {count} 项",
         "behaviors": { "fixed": "固定", "increment": "递增", "decrement": "递减", "randomize": "随机" },
         "issue": { "missing": "不在侧边栏", "ambiguous": "存在歧义", "incompatible": "类型不兼容", "invalid": "值无效", "unset": "无可用值", "unavailable": "暂时不可用", "empty": "无可选项" },
-        "openManage": "管理预设", "previewTitle": "将生效的覆盖参数", "presetTargetBadge": "推荐新预设名: {name}", "editPresetName": "点击编辑推荐新预设名称", "setPresetName": "+ 推荐预设名", "dragToReorder": "拖拽调整顺序；也可使用 Alt+方向键",
+        "openManage": "管理预设", "previewTitle": "将生效的覆盖参数", "presetTargetBadge": "推荐新预设名: {name}", "editPresetName": "点击编辑推荐新预设名称", "setPresetName": "+ 推荐预设名", "presetTargetHint": "在复制侧边栏预设并套用此档案时，将自动填入该预设名称。留空可清除。", "clearPresetName": "清除名称", "dragToReorder": "拖拽调整顺序；也可使用 Alt+方向键",
         "diffBtn": "比对预设", "exportBtn": "导出", "importBtn": "导入", "exportSuccess": "覆盖预设已导出为 JSON 文件。", "importSuccess": "已导入 {count} 个覆盖预设。", "importFailed": "导入失败：", "diffSuccess": "已创建包含 {count} 条规则的覆盖预设“{name}”。",
         "diff": {
           "dialogTitle": "比对预设制作覆盖预设",

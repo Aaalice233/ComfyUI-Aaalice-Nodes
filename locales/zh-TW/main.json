@@ -163,7 +163,7 @@
         "gallerySelections": "已選 {count} 項", "loraEmpty": "0 個 LoRA", "promptsSelected": "已選 {count} 項",
         "behaviors": { "fixed": "固定", "increment": "遞增", "decrement": "遞減", "randomize": "隨機" },
         "issue": { "missing": "不在側邊欄", "ambiguous": "存在歧義", "incompatible": "類型不相容", "invalid": "值無效", "unset": "無可用值", "unavailable": "暫時不可用", "empty": "無可選項" },
-        "openManage": "管理預設", "previewTitle": "將生效的覆蓋參數", "presetTargetBadge": "推薦新預設名: {name}", "editPresetName": "點擊編輯推薦新預設名稱", "setPresetName": "+ 推薦預設名", "dragToReorder": "拖曳調整順序；也可使用 Alt+方向鍵",
+        "openManage": "管理預設", "previewTitle": "將生效的覆蓋參數", "presetTargetBadge": "推薦新預設名: {name}", "editPresetName": "點擊編輯推薦新預設名稱", "setPresetName": "+ 推薦預設名", "presetTargetHint": "在複製側邊欄預設並套用此檔案時，將自動填入該預設名稱。留空可清除。", "clearPresetName": "清除名稱", "dragToReorder": "拖曳調整順序；也可使用 Alt+方向鍵",
         "diffBtn": "比對預設", "exportBtn": "匯出", "importBtn": "匯入", "exportSuccess": "覆蓋預設已匯出為 JSON 檔案。", "importSuccess": "已匯入 {count} 個覆蓋預設。", "importFailed": "匯入失敗：", "diffSuccess": "已建立包含 {count} 條規則的覆蓋預設“{name}”。",
         "diff": {
           "dialogTitle": "比對預設製作覆蓋預設",

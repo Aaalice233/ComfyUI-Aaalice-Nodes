@@ -556,16 +556,22 @@ export function openValueProfiles() {
 				onClick: () => { addPanelOpen = true; render(); },
 			}));
 			const targetPresetBadge = profile.presetName
-				? badge(t("aaalice.workspace.valueProfiles.presetTargetBadge", "Target: {name}").replace("{name}", profile.presetName), {
+				? button({
+					iconName: "edit",
+					label: t("aaalice.workspace.valueProfiles.presetTargetBadge", "Target: {name}").replace("{name}", profile.presetName),
+					title: t("aaalice.workspace.valueProfiles.editPresetName", "Click to edit recommended preset name"),
+					variant: "ghost",
+					size: "sm",
 					className: "aa-value-profile-target-badge",
-					attrs: { title: t("aaalice.workspace.valueProfiles.editPresetName", "Click to edit recommended preset name") },
 					onClick: editPresetTargetName,
 				})
 				: button({
+					iconName: "add",
 					label: t("aaalice.workspace.valueProfiles.setPresetName", "+ Target preset name"),
+					title: t("aaalice.workspace.valueProfiles.editPresetName", "Click to edit recommended preset name"),
 					variant: "ghost",
 					size: "sm",
-					className: "aa-value-profile-target-badge-add",
+					className: "aa-value-profile-target-badge aa-value-profile-target-badge--empty",
 					onClick: editPresetTargetName,
 				});
 
@@ -625,12 +631,43 @@ export function openValueProfiles() {
 	const editPresetTargetName = () => {
 		const profile = selectedProfile();
 		if (!profile) return;
-		runtime.askText(
-			t("aaalice.workspace.valueProfiles.diff.presetNameLabel", "Recommended preset name"),
-			t("aaalice.workspace.valueProfiles.diff.presetNamePlaceholder", "Recommended preset name when duplicating (optional)"),
-			profile.presetName || "",
-			(val) => persist((current) => setProfilePresetName(current, profile.id, val)),
+		const input = document.createElement("input");
+		input.type = "text";
+		input.className = "aa-ui-input";
+		input.value = profile.presetName || "";
+		input.placeholder = t("aaalice.workspace.valueProfiles.diff.presetNamePlaceholder", "Recommended preset name when duplicating (optional)");
+		const body = el("div", { className: "aa-value-profiles__prompt-body", children: [
+			el("p", { className: "aa-value-profiles__prompt-hint", text: t("aaalice.workspace.valueProfiles.presetTargetHint", "When duplicating a sidebar preset with this profile, this preset name will be suggested automatically. Leave blank to clear.") }),
+			input,
+		] });
+		const footer = el("div", { className: "aa-value-profiles__prompt-footer" });
+		const dialog = createDialog({
+			title: t("aaalice.workspace.valueProfiles.diff.presetNameLabel", "Recommended preset name"),
+			body,
+			footer,
+			size: "sm",
+		});
+		const save = (val) => {
+			persist((current) => setProfilePresetName(current, profile.id, val.trim()));
+			dialog.close();
+		};
+		footer.append(
+			el("div", { children: [
+				profile.presetName ? button({
+					label: t("aaalice.workspace.valueProfiles.clearPresetName", "Clear"),
+					variant: "ghost",
+					onClick: () => save(""),
+				}) : null,
+			].filter(Boolean) }),
+			el("div", { className: "aa-value-profiles__footer-actions", children: [
+				button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }),
+				button({ label: t("aaalice.common.save", "Save"), variant: "primary", onClick: () => save(input.value) }),
+			] }),
 		);
+		input.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") { e.preventDefault(); save(input.value); }
+		});
+		requestAnimationFrame(() => { input.focus(); input.select(); });
 	};
 
 	const exportCurrentProfile = () => {
