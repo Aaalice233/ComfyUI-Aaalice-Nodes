@@ -94,6 +94,11 @@ test("draws the canvas preset frame with a purple theme token", () => {
 	assert.match(styles, /border: 1px solid color-mix\(in srgb, var\(--aa-resolution-selection-tone\)/);
 });
 
+test("compact resolution fields override typed dialog input defaults without growing", () => {
+	assert.match(styles, /\.aa-resolution-sidebar-field input\.aa-resolution-number-input\[type="number"\] \{[^}]*box-sizing: border-box;[^}]*height: 26px; min-height: 26px; padding: 0 6px 0 2px; border: 0;/);
+	assert.match(styles, /\.aa-resolution-sidebar-field input\.aa-resolution-number-input\[type="number"\]:focus \{ background: transparent; color: var\(--aa-ui-text\); box-shadow: none; \}/);
+});
+
 test("allows every canvas range and previews automatic fitting", () => {
 	assert.match(source, /fitCanvasLimit\(state, limit, personalPresets\)/);
 	assert.match(source, /`\$\{state\.width\}×\$\{state\.height\} → \$\{fitted\.width\}×\$\{fitted\.height\}`/);

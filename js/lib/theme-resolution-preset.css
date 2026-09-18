@@ -130,11 +130,13 @@
 .aa-resolution-sidebar-field:hover { background: color-mix(in srgb, var(--aa-ui-surface-raised) 74%, transparent); }
 .aa-resolution-sidebar-field:focus-within { background: color-mix(in srgb, var(--aa-ui-surface-raised) 86%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aa-resolution-sidebar-tone) 58%, transparent); }
 .aa-resolution-sidebar-field .aa-resolution-number-marker { color: color-mix(in srgb, var(--aa-resolution-sidebar-tone) 76%, var(--aa-ui-muted)); font-size: 10px; }
-.aa-resolution-sidebar-field .aa-resolution-number-input {
+/* Typed input specificity keeps dialog form defaults from stretching this compact field. */
+.aa-resolution-sidebar-field input.aa-resolution-number-input[type="number"] {
 	box-sizing: border-box; width: 100%; min-width: 0; height: 26px; min-height: 26px; padding: 0 6px 0 2px; border: 0; border-radius: 0 6px 6px 0; appearance: textfield;
 	background: transparent; color: var(--aa-ui-text); font: 650 11px/1 var(--comfy-font, Inter, system-ui, sans-serif); font-variant-numeric: tabular-nums; text-align: right; box-shadow: none;
 }
-.aa-resolution-sidebar-field .aa-resolution-number-input:hover, .aa-resolution-sidebar-field .aa-resolution-number-input:focus { background: transparent; color: var(--aa-ui-text); box-shadow: none; }
+.aa-resolution-sidebar-field input.aa-resolution-number-input[type="number"]:hover,
+.aa-resolution-sidebar-field input.aa-resolution-number-input[type="number"]:focus { background: transparent; color: var(--aa-ui-text); box-shadow: none; }
 .aa-resolution-sidebar-field .aa-resolution-number-input::-webkit-inner-spin-button, .aa-resolution-sidebar-field .aa-resolution-number-input::-webkit-outer-spin-button { margin: 0; appearance: none; }
 .aa-resolution-sidebar-separator { display: grid; height: 24px; place-items: center; color: color-mix(in srgb, var(--aa-resolution-sidebar-tone) 72%, var(--aa-ui-muted)); font-size: 13px; font-weight: 700; line-height: 1; pointer-events: none; }
 .aa-resolution-selection { --aa-resolution-selection-tone: var(--p-purple-400, var(--aa-ui-node-accent)); }
