@@ -264,6 +264,7 @@ export function adaptWidgetControl(node, widget, { promoted = false, adapterId =
 		rowSpan: Number.isFinite(Number(described.rowSpan)) ? Number(described.rowSpan) : null,
 		minRowSpan: Number.isFinite(Number(described.minRowSpan)) ? Number(described.minRowSpan) : null,
 		hasCustomPresetCodec,
+		presetEditor: described.presetEditor || adapter.presetEditor || null,
 		widget,
 		control: described.control || widget,
 		setValue(next) {

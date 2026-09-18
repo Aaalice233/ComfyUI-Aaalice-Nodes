@@ -144,6 +144,7 @@
         "duplicateDialogTitle": "複製側邊欄預設", "modeStandard": "僅重新命名複製", "modeWithProfile": "套用覆蓋預設", "duplicateMode": "複製模式", "standardCopyHint": "完整複製目前預設的頁面版面、群組與全部參數。", "duplicateAndApplyBtn": "複製並套用 ({count})", "duplicateAndApplySuccess": "已建立側邊欄預設“{name}”並套用覆蓋預設。請儲存工作流程以保留它。"
       },
       "valueProfiles": {
+        "editor": {"singleSelection":"已儲存多張影像，請保留多選模式。","groupCount":"{count} 個群組","missing":"參數來源暫不可用。","failed":"此參數無法編輯","groupStatus":{"conflict":"群組狀態衝突","ready":"可套用","ambiguous":"存在多個同名群組","missing":"群組或成員缺失","partial":"略過缺失成員","outOfScope":"不在目前納管範圍"},"searchOpen":"展開搜尋框","more":"更多參數","excludedGroups":"{count} 個非目前納管群組"},
         "open": "參數套用管理", "manageBtn": "參數套用管理", "title": "參數套用管理", "select": "覆蓋預設", "name": "覆蓋預設名稱",
         "create": "建立預設", "duplicate": "複製為新預設", "copySuffix": "副本", "rename": "重新命名預設", "deleteConfirm": "刪除覆蓋預設“{name}”？",
         "emptyTitle": "還沒有覆蓋參數預設", "emptyHint": "尚無參數套用檔案。",

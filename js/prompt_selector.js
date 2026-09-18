@@ -41,6 +41,13 @@ function defaultFavoritesLabel() { return t("aaalice.workspace.libraryUi.default
 function favoriteFolderName(collection) { return collectionDisplayName(collection, defaultFavoritesLabel()); }
 
 function mutate(node, callback) {
+	if (node._aaPresetDraft) {
+		try { node._aaPresetDraft.commit(normalizePromptSelectorState(callback(stateFor(node)))); }
+		catch (error) { node._aaPresetError(error); }
+		node.properties[PROPERTY] = node._aaPresetDraft.getValue();
+		render(node);
+		return;
+	}
 	const host = node._aaalicePromptSelectorHost || node;
 	node.graph?.beforeChange?.();
 	try { node.properties[PROPERTY] = normalizePromptSelectorState(callback(stateFor(node))); }
@@ -227,9 +234,9 @@ function mountPromptEntries(node, list, view, entries) {
 	const virtualList = mountVirtualList(list, { rowHeight: 55, gap: 3, overscan: 5, onBeforeRender: () => closePromptSurfaces(node), renderItem: (entry) => {
 		const isSelected = selectionById.has(entry.id);
 		const row = el("div", `aa-prompt-selector-row${isSelected ? " is-selected" : ""}`);
-		const quickEditHint = t("aaalice.promptSelector.thumbnailEditHint", "Double-click the thumbnail to edit this entry");
+		const quickEditHint = node._aaPresetDraft ? "" : t("aaalice.promptSelector.thumbnailEditHint", "Double-click the thumbnail to edit this entry");
 		const preview = createImagePreview({ source: entry.previewHash ? api.apiURL(`/aaalice/prompt-library/assets/${entry.previewHash}`) : "", title: entry.title, label: `${entry.title}. ${quickEditHint}`, hint: quickEditHint, className: "aa-prompt-selector-preview" });
-		preview.addEventListener("dblclick", (event) => { event.preventDefault(); event.stopPropagation(); closePromptSurfaces(node); void openPromptLibraryEntryEditor(entry.id); });
+		if (!node._aaPresetDraft) preview.addEventListener("dblclick", (event) => { event.preventDefault(); event.stopPropagation(); closePromptSurfaces(node); void openPromptLibraryEntryEditor(entry.id); });
 		const category = promptLibraryStore.category(entry.categoryId);
 		const copy = el("button", { className: "aa-prompt-selector-copy", attrs: { type: "button", "aria-label": entry.title, "aria-pressed": String(isSelected) }, children: [
 			el("span", { className: "aa-prompt-selector-title", children: [el("strong", null, entry.title), ...(category ? [applyCategoryColor(el("em", { attrs: { title: promptLibraryStore.categoryPath(category.id) }, text: promptLibraryStore.categoryPath(category.id) }), category)] : [])] }),
@@ -251,7 +258,7 @@ function mountPromptEntries(node, list, view, entries) {
 			void copyEntryPromptText({ text: entry.text, title: t("aaalice.promptSelector.copyEntry", "Copy prompt"), app, copiedLabel: t("aaalice.promptSelector.entryCopied", "Prompt copied to clipboard"), failedLabel: t("aaalice.promptSelector.copyFailedDetail", "The clipboard rejected the copy operation.") }).then((ok) => { if (ok) flashCopied(control); });
 		} });
 		const weightAction = isSelected ? promptWeightControl(node, entry.id, selectionById.get(entry.id)?.weight ?? 1) : null;
-		const actions = el("div", { className: "aa-prompt-selector-row-actions", children: [weightAction, favoriteAction, copyAction, editAction] });
+		const actions = el("div", { className: "aa-prompt-selector-row-actions", children: node._aaPresetDraft ? [weightAction, copyAction] : [weightAction, favoriteAction, copyAction, editAction] });
 		row.append(preview, copy, actions); return row;
 	}, renderEmpty: () => emptyState({ iconName: "note", className: "aa-prompt-selector-empty", title: t("aaalice.promptSelector.noResultsTitle", "No prompts found"), description: t("aaalice.promptSelector.noResults", "No matching prompt entries.") }) });
 	virtualList.setState = (state) => { view.state = state; selectionById = new Map(state.selections.map((item) => [item.entryId, item])); };
@@ -426,7 +433,8 @@ function render(node, { syncHost = false } = {}) {
 	view.summaryMissing = summaryMissing;
 	view.clearAction = clearAction;
 	const manageLibrary = button({ label: t("aaalice.promptSelector.manageLibrary", "Manage library"), iconName: "note", variant: "ghost", size: "sm", onClick: () => openWorkspace("library") });
-	const actions = el("div", { className: "aa-prompt-selector-footer-actions", children: [manageLibrary] });
+	const actions = el("div", { className: "aa-prompt-selector-footer-actions", children: node._aaPresetDraft
+		? [iconButton({ iconName: "settings", label: t("aaalice.promptSelector.separator", "Prompt separator"), variant: "ghost", onClick: () => openSeparatorEditor(node) })] : [manageLibrary] });
 	footer.append(summary, clearAction, actions);
 	root.append(toolbar, list, footer);
 	node._aaalicePromptSelectorView = view;
@@ -438,13 +446,16 @@ function render(node, { syncHost = false } = {}) {
 	}
 }
 
-export function createPromptSelectorControl(node) {
+export function createPromptSelectorControl(node, { draft = null, onError = null } = {}) {
+	if (draft) node = { properties: { [PROPERTY]: draft.getValue() } };
 	node.properties ||= {};
 	const controller = {
 		get graph() { return node.graph; },
 		get properties() { node.properties ||= {}; return node.properties; },
 		set properties(value) { node.properties = value; },
 		_aaalicePromptSelectorHost: node,
+		_aaPresetDraft: draft,
+		_aaPresetError: onError,
 		_aaalicePromptRecentFirst: true,
 		_aaalicePromptSelectorViewportActive: true,
 	};
@@ -466,6 +477,7 @@ export function createPromptSelectorControl(node) {
 		root,
 		update: () => render(controller),
 		destroy: () => {
+			if (controller._aaalicePromptFilterFrame) cancelAnimationFrame(controller._aaalicePromptFilterFrame);
 			promptLibraryStore.removeEventListener("change", onLibraryChange);
 			node._aaalicePromptSelectorSidebarViews?.delete(update);
 			controller._aaalicePromptSelectorVisibility?.destroy?.();
@@ -495,6 +507,7 @@ function setup(node, loaded = false) {
 			return true;
 		},
 		createSidebarControl: () => createPromptSelectorControl(node),
+		createPresetEditor: (draft, onError) => createPromptSelectorControl(null, { draft, onError }),
 	};
 	const root = isolate(el("div", { className: "aa-prompt-selector", attrs: { "data-capture-wheel": "true" } })); node._aaalicePromptSelectorRoot = root;
 	node._aaalicePromptSelectorViewportActive = true;

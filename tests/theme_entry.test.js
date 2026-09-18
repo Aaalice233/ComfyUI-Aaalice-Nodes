@@ -12,6 +12,7 @@ const EXPECTED_IMPORTS = [
 	"theme-workspace.css",
 	"theme-dashboard-layout.css",
 	"theme-value-profiles.css",
+	"theme-profile-editors.css",
 	"theme-preset-duplicate.css",
 	"theme-group-navigation-wheel.css",
 	"theme-library.css",

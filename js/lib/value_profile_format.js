@@ -120,6 +120,9 @@ function seedBehaviorLabel(mode, t = null) {
 
 export function formatProfilePayload(payload, { resolved = null, valueType = null, t = null, format = "summary" } = {}) {
 	if (payload == null) return "—";
+	if (valueType === "quick-group-manager" && Array.isArray(payload.groups)) {
+		return t ? t("aaalice.workspace.valueProfiles.editor.groupCount", "{count} groups").replace("{count}", String(payload.groups.length)) : `${payload.groups.length} groups`;
+	}
 
 	// 1. Seed
 	if (resolved?.kind === "seed" || (typeof payload === "object" && payload !== null && "control_after_generate" in payload)) {

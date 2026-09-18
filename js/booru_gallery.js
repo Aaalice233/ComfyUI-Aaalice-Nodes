@@ -396,6 +396,8 @@ function setupNode(node, { initializeSize = false } = {}) {
 	const controller = buildController(node, surfaces);
 	const runtime = { controller, surfaces, nodeSurface: null, accent: null, modeObserver: null, viewportSessionScope: galleryViewportSessionScope(node) };
 	node._aaGalleryRuntime = runtime; node._aaGalleryController = controller;
+	runtime.getCapabilities = () => capabilities;
+	runtime.collectionOptions = collectionOptions;
 	runtime.getPresetValue = () => {
 		const dashboardSurface = [...surfaces].find((view) => view.placement === "dashboard" && view.root.isConnected)
 			|| [...surfaces].find((view) => view.placement === "dashboard");

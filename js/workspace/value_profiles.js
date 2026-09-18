@@ -5,15 +5,16 @@ import { t } from "../i18n.js";
 import { bindingKey, controlItemBindings } from "../lib/dashboard_model.js";
 import { captureDashboardValues } from "../lib/dashboard_preset_runtime.js";
 import { stableToneIndexes } from "../lib/control_tones.js";
-import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES } from "../lib/seed_preset.js";
-import { badge, button, createDialog, el, emptyState, icon, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
+import { badge, button, createDialog, el, emptyState, icon, iconButton, selectControl } from "../lib/ui.js";
+import { createValueProfileEditor } from "./value_profile_editor.js";
+import { captureProfileGroups } from "../lib/value_profile_groups.js";
+import { quickGroupManagerSnapshot } from "../lib/quick_group_manager_runtime.js";
 import { createSearchableSelect } from "../lib/searchable_select.js";
 import { availableValueProfileName, createValueProfile, duplicateValueProfile, matchValueProfileRules, parseOverridePresetsForImport, removeValueProfile, removeValueProfileRule, removeValueProfileRules, renameValueProfile, reorderValueProfileRule, serializeOverridePresets, setProfilePresetName, upsertValueProfileRule } from "../lib/value_profiles.js";
 import { loadValueProfiles, saveValueProfiles } from "./sidebar_preferences.js";
 import { confirmAction, downloadBlob, pickFile } from "./dom_utils.js";
 import { openValueProfileDiffDialog } from "./value_profile_diff_dialog.js";
 import { dashboardPresetState } from "./dashboard_presets.js";
-import { formatProfilePayload } from "../lib/value_profile_format.js";
 
 
 let runtime = null;
@@ -67,84 +68,14 @@ function captureRule(candidate) {
 	const captured = captureDashboardValues(synthetic, (binding) => runtime.resolve(binding));
 	const entry = captured.values[candidate.key];
 	if (!entry) throw new Error(t("aaalice.workspace.valueProfiles.captureFailed", "The control value cannot be captured right now."));
-	return { key: candidate.key, valueType: candidate.valueType, payload: entry.payload, label: candidate.label, hostLabel: candidate.hostLabel };
+	const payload = candidate.resolved.kind === "quick-group-manager" ? captureProfileGroups(entry.payload, quickGroupManagerSnapshot(candidate.resolved.node).visibleGroups) : entry.payload;
+	return { key: candidate.key, valueType: candidate.valueType, payload, label: candidate.label, hostLabel: candidate.hostLabel };
 }
 
-function choiceOptions(resolved) {
-	return (Array.isArray(resolved?.options?.values) ? resolved.options.values : []).map((entry) => {
-		if (entry && typeof entry === "object") return { value: String(entry.value ?? entry.label ?? ""), label: String(entry.label ?? entry.value ?? "") };
-		return { value: String(entry), label: String(entry) };
-	});
-}
-
-function seedBehaviorLabel(mode) {
-	const fallbacks = { fixed: "Fixed", increment: "Increment", decrement: "Decrement", randomize: "Randomize" };
-	return t(`aaalice.workspace.valueProfiles.behaviors.${mode}`, fallbacks[mode] || mode);
-}
-
-function payloadSummary(rule, resolved, format = "summary") {
-	return formatProfilePayload(rule.payload, { resolved, valueType: rule.valueType, t, format });
-}
-
-function buildValueEditor(rule, match, onCommit) {
-	const resolved = match.status === "ready" ? match.candidate.resolved : null;
-	const summary = payloadSummary(rule, resolved, "summary");
-	const tooltip = payloadSummary(rule, resolved, "tooltip");
-	if (!resolved) return el("span", { className: "aa-value-profile-rule__value", attrs: { title: tooltip }, text: summary });
-	if (resolved.kind === "seed") {
-		const decoded = decodeSeedPresetEntry({ valueType: rule.valueType, payload: rule.payload });
-		const number = document.createElement("input");
-		number.type = "number"; number.step = "1"; number.className = "aa-ui-input"; number.value = String(decoded.value ?? 0);
-		number.setAttribute("aria-label", t("aaalice.workspace.valueProfiles.seedValue", "Seed value"));
-		number.addEventListener("change", () => { const value = Math.round(Number(number.value)); if (Number.isFinite(value)) onCommit(createSeedPresetPayload(value, decoded.behavior)); });
-		const behavior = selectControl({
-			options: (resolved.seedBehaviors?.length ? resolved.seedBehaviors : SEED_AFTER_GENERATE_MODES).map((mode) => ({ value: mode, label: seedBehaviorLabel(mode) })),
-			value: decoded.behavior,
-			ariaLabel: t("aaalice.workspace.valueProfiles.seedBehavior", "After generate"),
-			onChange: (mode) => onCommit(createSeedPresetPayload(Math.round(Number(number.value)) || 0, mode)),
-		});
-		return el("div", { className: "aa-value-profile-rule__editor", children: [number, behavior] });
-	}
-	if (resolved.kind === "choice") {
-		const control = selectControl({
-			options: choiceOptions(resolved), value: String(rule.payload),
-			ariaLabel: rule.label,
-			onChange: (value) => onCommit(value),
-		});
-		control.title = summary;
-		control.control.title = summary;
-		return control;
-	}
-	if (typeof rule.payload === "boolean") {
-		return el("div", { className: "aa-value-profile-rule__boolean", children: [
-			toggleSwitch({ checked: rule.payload, label: rule.label, onChange: (value) => onCommit(value) }),
-			el("span", null, summary),
-		] });
-	}
-	if (typeof rule.payload === "number") {
-		const input = document.createElement("input");
-		input.type = "number"; input.className = "aa-ui-input"; input.value = String(rule.payload);
-		input.setAttribute("aria-label", rule.label);
-		if (resolved.numericDomain === "integer") input.step = "1";
-		input.addEventListener("change", () => {
-			let value = Number(input.value);
-			if (!Number.isFinite(value)) return;
-			if (resolved.numericDomain === "integer") value = Math.round(value);
-			onCommit(value);
-		});
-		return input;
-	}
-	if (resolved.kind === "text" && typeof rule.payload === "string") {
-		const input = document.createElement("input");
-		input.type = "text"; input.className = "aa-ui-input"; input.value = rule.payload; input.title = rule.payload;
-		input.setAttribute("aria-label", rule.label);
-		input.addEventListener("change", () => { input.title = input.value; onCommit(input.value); });
-		return input;
-	}
-	return el("span", { className: "aa-value-profile-rule__value", attrs: { title: tooltip }, text: summary });
-}
 
 export function openValueProfiles() {
+	const editors = new Set();
+	const disposeEditors = () => { for (const editor of editors) editor.destroy(); editors.clear(); };
 	let state = loadValueProfiles();
 	let selectedId = state.profiles[0]?.id || null;
 	let addPanelOpen = false;
@@ -156,7 +87,7 @@ export function openValueProfiles() {
 
 	const body = el("div", { className: "aa-value-profiles" });
 	const footer = el("div");
-	const dialog = createDialog({ title: t("aaalice.workspace.valueProfiles.title", "Adjustment profiles"), body, footer, size: "md", className: "aa-value-profiles-dialog" });
+	const dialog = createDialog({ title: t("aaalice.workspace.valueProfiles.title", "Adjustment profiles"), body, footer, size: "md", className: "aa-value-profiles-dialog", onClose: disposeEditors });
 	const resetRulesScroll = () => {
 		rulesScrollTop = 0;
 		const list = body.querySelector(".aa-value-profile-rules");
@@ -164,7 +95,7 @@ export function openValueProfiles() {
 	};
 
 	const selectedProfile = () => state.profiles.find((profile) => profile.id === selectedId) || null;
-	const persist = (mutator) => {
+	const persist = (mutator, { redraw = true } = {}) => {
 		const previousSelectedId = selectedId;
 		try {
 			const nextState = mutator(state);
@@ -175,9 +106,14 @@ export function openValueProfiles() {
 			selectedId = previousSelectedId;
 			const message = t("aaalice.workspace.valueProfiles.saveFailed", "The profile could not be saved locally.");
 			notify("error", `${message} ${error.message}`);
-			return;
+			return false;
 		}
-		render();
+		if (redraw) render();
+		else {
+			const status = footer.querySelector(".aa-value-profiles__save-status > span");
+			if (status) status.textContent = t("aaalice.workspace.valueProfiles.savedLocally", "Changes saved locally; select this profile when duplicating a preset to apply it.");
+		}
+		return true;
 	};
 
 	const addRule = (candidate) => {
@@ -270,6 +206,12 @@ export function openValueProfiles() {
 				handle.draggable = true;
 				handle.setAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown");
 
+				const editor = createValueProfileEditor(rule, match, (payload) => persist((current) => {
+					const latest = current.profiles.find((entry) => entry.id === profile.id)?.rules.find((entry) => entry.key === rule.key);
+					if (!latest) throw new Error("Profile rule is no longer available");
+					return upsertValueProfileRule(current, profile.id, { ...latest, payload });
+				}, { redraw: false }));
+				editors.add(editor);
 				const card = el("div", {
 					className: `aa-value-profile-rule${match.status === "ready" ? "" : " is-unmatched"}`,
 					attrs: { "data-search-text": searchText, "data-rule-key": rule.key },
@@ -282,7 +224,7 @@ export function openValueProfiles() {
 							] }),
 							el("div", { className: "aa-value-profile-rule__actions", children: [updateButton, removeButton].filter(Boolean) }),
 						] }),
-						el("div", { className: "aa-value-profile-rule__control", children: [buildValueEditor(rule, match, (payload) => persist((current) => upsertValueProfileRule(current, profile.id, { ...rule, payload })))] }),
+						el("div", { className: "aa-value-profile-rule__control", children: [editor.root] }),
 					],
 				});
 
@@ -380,6 +322,7 @@ export function openValueProfiles() {
 
 
 	const render = () => {
+		disposeEditors();
 		const currentRules = body.querySelector(".aa-value-profile-rules");
 		if (currentRules) rulesScrollTop = currentRules.scrollTop;
 		body.replaceChildren();
@@ -719,7 +662,11 @@ export function openValueProfiles() {
 				persist((current) => {
 					const next = createValueProfile(current, name, presetName);
 					const created = next.profiles[next.profiles.length - 1];
-					created.rules = rules;
+					created.rules = rules.map((rule) => {
+						const candidate = candidates.find((entry) => entry.key === rule.key);
+						return candidate?.resolved.kind === "quick-group-manager"
+							? { ...rule, payload: captureProfileGroups(rule.payload, quickGroupManagerSnapshot(candidate.resolved.node).visibleGroups) } : rule;
+					});
 					selectedId = created.id;
 					return next;
 				});

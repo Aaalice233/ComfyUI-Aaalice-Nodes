@@ -1,0 +1,56 @@
+/* Draft editors inherit the existing dialog's ComfyUI tokens. */
+.aa-value-profile-group__rows:has(.aa-profile-editor[data-kind="quick-group-manager"]),
+.aa-value-profile-group__rows:has(.aa-profile-editor[data-kind="booru-gallery"]),
+.aa-value-profile-group__rows:has(.aa-profile-editor[data-kind="prompt-selector"]),
+.aa-value-profile-group__rows:has(.aa-profile-editor[data-kind="lora-list"]) {
+	grid-template-columns: minmax(0, 1fr);
+}
+.aa-profile-editor {
+	--aa-control-accent: var(--aa-ui-accent);
+	--aa-control-accent-soft: var(--aa-ui-accent-soft);
+	--aa-control-text: var(--aa-ui-text);
+	--aa-control-muted: var(--aa-ui-muted);
+	--aa-control-field: var(--aa-ui-control);
+	--aa-control-field-hover: var(--aa-ui-surface-raised);
+	--aa-control-border: var(--aa-ui-border-soft);
+	display: flex; flex-direction: column; gap: 8px; min-width: 0;
+}
+.aa-profile-editor[data-kind="numeric"] { display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: center; }
+.aa-profile-editor[data-kind="numeric"] > .aa-control-numeric { grid-column: 1; grid-row: 1; }
+.aa-profile-editor[data-kind="numeric"] > .aa-profile-editor__accessories { grid-column: 2; grid-row: 1; }
+.aa-profile-editor[data-kind="numeric"] > .aa-profile-editor__error { grid-column: 1 / -1; }
+.aa-profile-editor[data-kind="numeric"] .aa-control-numeric-value { width: 64px; height: 32px; font-size: 12px; }
+.aa-profile-editor .aa-control-numeric-range { height: 32px; min-height: 32px; }
+.aa-profile-editor .aa-control-choice-select > select.aa-ui-select__native {
+	box-sizing: border-box; height: 34px; min-height: 34px; padding: 4px 36px 4px 10px;
+	font-size: 12px; line-height: 24px;
+}
+.aa-profile-editor__accessories { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 32px; }
+.aa-profile-editor__error, .aa-profile-editor__warning, .aa-profile-group-editor__status {
+	color: var(--aa-ui-warning); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.aa-profile-editor__error { color: var(--aa-ui-danger); }
+.aa-profile-editor .aa-control-prompt-selector { height: 380px; min-height: 0; }
+.aa-profile-editor .aa-control-lora-list { min-height: 100px; height: auto; }
+.aa-profile-editor .aa-control-lora-list__items { overflow: visible; }
+.aa-profile-editor .aa-control-text { min-height: 36px; }
+.aa-profile-editor textarea.aa-control-text { height: 140px; resize: vertical; }
+.aa-profile-gallery-editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.aa-profile-editor__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 10px; }
+.aa-profile-editor__switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; font-size: 12px; }
+.aa-profile-editor__advanced { min-width: 0; }
+.aa-profile-editor__advanced > summary { cursor: pointer; padding-block: 8px; font-size: 12px; color: var(--aa-ui-muted); }
+.aa-profile-editor__advanced > summary:focus-visible { outline: 2px solid var(--aa-ui-accent); outline-offset: 2px; }
+.aa-profile-editor__advanced > :not(summary) { margin-top: 8px; }
+.aa-profile-group-editor .aa-quick-group-control__row { grid-template-columns: minmax(0, 1fr) auto; min-height: 38px; padding: 4px 10px; cursor: default; }
+.aa-profile-group-editor .aa-quick-group-control__copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.aa-profile-group-editor strong { overflow-wrap: anywhere; white-space: normal; font-size: 12px; }
+.aa-value-profile-rule:has(.aa-profile-editor):hover { translate: none; }
+.aa-value-profile-rule__control:has(.aa-profile-editor) { min-width: 0; }
+.aa-profile-editor [hidden] { display: none !important; }
+.aa-value-profile-group__rows { align-items: start; }
+.aa-value-profile-rule:has(.aa-profile-editor) { gap: 5px; padding: 8px 10px; border-radius: 8px; }
+.aa-value-profiles [hidden] { display: none !important; }
+.aa-value-profile-rule:has(.aa-profile-editor) .aa-value-profile-rule__head { grid-template-columns: 24px minmax(0, 1fr) auto; }
+.aa-value-profile-rule:has(.aa-profile-editor) .aa-value-profile-rule__actions { grid-column: 3; grid-row: 1; }
+.aa-value-profile-rule:has(.aa-profile-editor) .aa-value-profile-rule__copy { grid-column: 2; grid-row: 1; }

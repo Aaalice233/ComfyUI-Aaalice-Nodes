@@ -89,6 +89,7 @@ export function openDuplicatePresetDialog({ preset, presetState, planRules, onCo
 							el("span", { className: "aa-duplicate-preset__val is-base", text: format(preset.values?.[match.candidate?.key]?.payload) }),
 							icon("arrowRight"), el("span", { className: "aa-duplicate-preset__val is-target", text: format(match.rule.payload) }),
 						] }),
+						...(match.groupIssues?.length ? [el("div", { className: "aa-profile-editor__warning", text: match.groupIssues.map((issue) => `${issue.title}: ${t(`aaalice.workspace.valueProfiles.editor.groupStatus.${issue.status}`, issue.status)}`).join("; ") })] : []),
 					] }),
 				] }));
 			}

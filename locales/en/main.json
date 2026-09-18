@@ -144,6 +144,7 @@
         "duplicateDialogTitle": "Duplicate sidebar preset", "modeStandard": "Rename copy only", "modeWithProfile": "Apply override profile", "duplicateMode": "Duplicate mode", "standardCopyHint": "Duplicates the entire sidebar layout, groups and current parameter values.", "duplicateAndApplyBtn": "Duplicate & apply ({count})", "duplicateAndApplySuccess": "Sidebar preset “{name}” created with override profile applied. Save the workflow to keep it."
       },
       "valueProfiles": {
+        "editor": {"singleSelection":"Multiple saved images require multiple-selection mode.","groupCount":"{count} groups","missing":"The parameter source is unavailable.","failed":"Cannot edit this parameter","groupStatus":{"conflict":"Conflicting group states","ready":"Ready","ambiguous":"Multiple matching groups","missing":"Group or members missing","partial":"Missing members skipped","outOfScope":"Outside the managed scope"},"searchOpen":"Show search field","more":"More parameters","excludedGroups":"{count} groups not on this manager"},
         "open": "Override profiles", "manageBtn": "Override profiles", "title": "Override profiles", "select": "Override profile", "name": "Profile name",
         "create": "New profile", "duplicate": "Copy as new profile", "copySuffix": "Copy", "rename": "Rename profile", "deleteConfirm": "Delete override profile “{name}”?",
         "emptyTitle": "No override profiles", "emptyHint": "No override profiles yet.",

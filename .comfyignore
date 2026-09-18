@@ -8,6 +8,7 @@
 .agents/
 .orca/
 tmp/
+.tmp/
 AGENTS.md
 Agents.md
 CLAUDE.md

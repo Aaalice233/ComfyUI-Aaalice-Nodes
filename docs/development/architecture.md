@@ -191,6 +191,10 @@
 
 #### 第三方节点适配
 
+参数套用管理通过 `value_profile_draft.js` 隔离档案 payload，`value_profile_editor.js` 复用共享 Control Renderer，但不传入真实 Provider 写入、节点或图事务。普通控件由 draft port 校验并保存，连续数值手势只在结束时持久化；分辨率与提示词选择器使用同一编辑表面的 draft 模式，Gallery 使用不挂载媒体、不发起搜索的参数编辑面。值提交不重建档案列表；关闭和结构重绘清理各编辑器与浮层。第三方 Adapter 可通过可选 `presetEditor: { decode(payload), encode(value, previousPayload) }` 声明渲染值与预设 payload 的转换，或通过 `presetEditor.create(draft, onError)` 返回 `{ root, update, destroy }` 提供领域编辑面；转换与工厂必须遵守隔离契约，不闭包写入真实节点。未声明 codec 的未知渲染类型明确报错，不将 JSON 摘要冒充可编辑控件。
+
+QuickGroupManager 的参数套用 payload v3 与普通 Dashboard v2 成员快照分离：v3 保存组名称，以及可选的整组 `enabled` 意图；混合组仍保留逐成员状态。套用时在目标 Manager 所属 graph 内优先 ID、其次唯一规范化名称匹配，不按位置猜测，多个规则竞争目标时精确 ID 优先。缺失、歧义和冲突逐组报告，其他组继续套用；新增组保留基础预设值。规划器把匹配结果与基础值合成单一节点状态映射，再转换为既有 v2 codec，避免重叠组覆盖与破坏事务回滚。v1/v2 老档案仍按已保存成员恢复，不推测新增成员状态。
+
 - 简单原生节点无需注册适配器，节点右键菜单会直接提供可序列化的基础控件。子图公开控件是宿主投影，真实状态仍由内部 widget 持有，因此只在子图 Provider 路径允许该投影进入适配。前端两代协议由 `js/lib/promoted_widget_source.js` 统一屏蔽：旧协议投影（`PromotedWidgetView`）自带 `sourceNodeId` / `sourceWidgetName`（嵌套时另有 `disambiguatingSourceNodeId`）；新协议（frontend >= 1.47，上游 ADR 0009）普通宿主 widget 是由非枚举 `widgetId` 寻址的 widgetValueStore 投影；官方多行 `STRING` 则会物化为不携带 `widgetId` 的宿主 DOM widget，必须先按宿主 input 的 `_widget` 对象身份认领，再沿同一 input 的 `_subgraphSlot` 链路解析来源，不能把 DOM widget 当作未公开控件过滤。Promoted widget 的 Control ID 在两代协议下由同一源身份元组（`sourceNodeId`、`sourceWidgetName`、可选 `disambiguatingSourceNodeId`）生成，不使用公开名称或显示标签，旧工作流绑定在新协议下继续命中；同名的采样器、调度器等公开控件仍保持独立绑定。已转换为输入的 widget 和原生 linked widget 不作为独立侧边栏参数，也不会阻断同节点其它基础控件。
 - ComfyUI 内置 `PreviewImage`、`PreviewAny` 与 `ImageCompare` 使用显式只读适配，不进入普通 widget fallback。执行结果与纯文本/Markdown 显示模式变化通过宿主回调触发一次控制面板失效；图像 URL 在同一批结果内保持稳定，禁止轮询或把输出快照持久化进侧边栏预设。
 - 除 ComfyUI 保留的 `$$` 前缀不可序列化 / canvas-only pseudo widget 外，只要普通节点包含未知 widget、DOM 面板、图片上传、预览或自定义操作控件，内置 fallback 就不接管该节点的原生控件，避免把自定义状态拆成不完整的侧边栏副本。此类节点必须由节点作者或本包使用显式适配器逐项接入；可序列化的 `$$` 自定义 widget 仍按未知控件处理。

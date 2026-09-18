@@ -26,6 +26,7 @@ htmlcov/
 .claude/tmp/
 .omc/
 tmp/
+.tmp/
 
 # OS / IDE
 .DS_Store

@@ -144,6 +144,7 @@
         "duplicateDialogTitle": "复制侧边栏预设", "modeStandard": "仅重命名复制", "modeWithProfile": "套用覆盖预设", "duplicateMode": "复制模式", "standardCopyHint": "完整复制当前预设的页面布局、分组与全部参数。", "duplicateAndApplyBtn": "复制并套用 ({count})", "duplicateAndApplySuccess": "已创建侧边栏预设“{name}”并套用覆盖预设。请保存工作流以保留它。"
       },
       "valueProfiles": {
+        "editor": {"singleSelection":"已保存多张图像，请保留多选模式。","groupCount":"{count} 个组","missing":"参数来源暂不可用。","failed":"此参数无法编辑","groupStatus":{"conflict":"组状态冲突","ready":"可套用","ambiguous":"存在多个同名组","missing":"组或成员缺失","partial":"跳过缺失成员","outOfScope":"不在当前纳管范围"},"searchOpen":"展开搜索框","more":"更多参数","excludedGroups":"{count} 个非当前纳管组"},
         "open": "参数套用管理", "manageBtn": "参数套用管理", "title": "参数套用管理", "select": "覆盖预设", "name": "覆盖预设名称",
         "create": "新建预设", "duplicate": "复制为新预设", "copySuffix": "副本", "rename": "重命名预设", "deleteConfirm": "删除覆盖预设“{name}”？",
         "emptyTitle": "还没有覆盖参数预设", "emptyHint": "暂无参数套用档案。",

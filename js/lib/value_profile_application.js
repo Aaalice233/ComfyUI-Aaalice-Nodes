@@ -4,6 +4,8 @@ import { normalizeDashboardSnapshot } from "./dashboard_presets.js";
 import { planDashboardPresetApplication } from "./dashboard_preset_runtime.js";
 import { resolveControlBindingSet } from "./control_binding_set.js";
 import { matchValueProfileRules } from "./value_profiles.js";
+import { quickGroupManagerSnapshot } from "./quick_group_manager_runtime.js";
+import { planProfileGroups } from "./value_profile_groups.js";
 
 export function collectValueProfileCandidates(model, resolve, controlTitle) {
 	const seen = new Map();
@@ -48,7 +50,17 @@ export function planValueProfileCopy(base, rules, resolve, controlTitle) {
 			match.status = resolved.status === "ok" ? "unavailable" : resolved.status;
 			continue;
 		}
-		const values = Object.fromEntries(controlItemBindings(item).map((binding) => [bindingKey(binding), { valueType: match.rule.valueType, payload: structuredClone(match.rule.payload) }]));
+		let payload = match.rule.payload;
+		if (resolved.kind === "quick-group-manager") {
+			try {
+				const manager = quickGroupManagerSnapshot(resolved.node);
+				const groupPlan = planProfileGroups(payload, manager.groups, snapshot.values[match.candidate.key]?.payload, manager.visibleGroups);
+				match.groupIssues = groupPlan.matches.filter((group) => group.status !== "ready").map((group) => ({ title: group.saved.title || group.saved.id, status: group.status }));
+				if (!groupPlan.applied) { match.status = "invalid"; match.reason = "no-matching-groups"; continue; }
+				payload = groupPlan.payload;
+			} catch (error) { match.status = "invalid"; match.reason = error.message; continue; }
+		}
+		const values = Object.fromEntries(controlItemBindings(item).map((binding) => [bindingKey(binding), { valueType: match.rule.valueType, payload: structuredClone(payload) }]));
 		const plan = planDashboardPresetApplication(cardSnapshot(item, values), resolve);
 		// Unlike sidebar switching, overrides must not force a missing/ambiguous model into a valid workflow.
 		if (plan.entries.some((entry) => !["ready", "model-path-match"].includes(entry.status))) {

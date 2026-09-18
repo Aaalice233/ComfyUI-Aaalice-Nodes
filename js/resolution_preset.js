@@ -65,6 +65,12 @@ async function loadPersonalPresets({ force = false } = {}) {
 }
 
 function commit(node, mutate) {
+	if (node._aaPresetDraft) {
+		try { mutate(); node._aaPresetDraft.commit(node.properties[PROPERTY]); }
+		catch (error) { node.properties[PROPERTY] = node._aaPresetDraft.getValue(); node._aaPresetError(error); }
+		render(node);
+		return;
+	}
 	const host = node._aaResolutionHost || node;
 	node.graph?.beforeChange?.();
 	try { mutate(); }
@@ -371,13 +377,16 @@ function render(node, { syncHost = false } = {}) {
 	node._aaResolutionAccent?.sync?.();
 }
 
-export function createResolutionControl(node) {
+export function createResolutionControl(node, { draft = null, onError = null } = {}) {
+	if (draft) node = { properties: { [PROPERTY]: draft.getValue() } };
 	node.properties ||= {};
 	const controller = {
 		get graph() { return node.graph; },
 		get properties() { node.properties ||= {}; return node.properties; },
 		set properties(value) { node.properties = value; },
 		_aaResolutionHost: node,
+		_aaPresetDraft: draft,
+		_aaPresetError: onError,
 	};
 	const root = createSidebarInterface(controller);
 	const update = () => renderSidebar(controller);
@@ -418,6 +427,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 			return true;
 		},
 		createSidebarControl: () => createResolutionControl(node),
+		createPresetEditor: (draft, onError) => createResolutionControl(null, { draft, onError }),
 	};
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] ResolutionPreset requires addDOMWidget");
 	const root = createInterface(node); node._aaResolutionAccent = bindNodeAccent(node, root);

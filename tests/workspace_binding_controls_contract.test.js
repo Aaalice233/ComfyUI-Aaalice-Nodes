@@ -171,7 +171,10 @@ test("adjustment profiles use source-grouped card rules and one stable scroll su
 	assert.match(workspace, /selectedId = next\.profiles\[next\.profiles\.length - 1\]\.id/);
 	assert.match(workspace, /const nextState = mutator\(state\);[\s\S]*?saveValueProfiles\(nextState\);[\s\S]*?state = nextState/);
 	assert.match(workspace, /duplicateAndApplyBtn/);
-	assert.match(workspace, /resolved\.kind === "text" && typeof rule\.payload === "string"/);
+	assert.match(workspace, /createValueProfileEditor\(rule, match,/);
+	assert.match(workspace, /redraw: false/);
+	assert.match(source("js/workspace/value_profile_editor.js"), /createSharedControl\(spec\(\),/);
+	assert.match(source("js/lib/controls/text.js"), /spec\.options\.multiline \? document\.createElement\("textarea"\)/);
 	assert.match(theme, /\.aa-value-profile-rule__linked/);
 	assert.match(theme, /\.aa-value-profiles__surface \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\)/);
 	assert.match(theme, /\.aa-value-profile-rules \{[\s\S]*?overflow-y: auto;/);
