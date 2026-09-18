@@ -7,6 +7,7 @@ import { applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssu
 import { badge, button, createDialog, el, field, icon, segmentedControl, selectControl } from "../lib/ui.js";
 import { createTransferResult, createTransferSection, createTransferStats, formatFileSize } from "../lib/workspace_components.js";
 import { confirmAction, downloadBlob, setActionBusy, setDialogFooter } from "./dom_utils.js";
+import { openDuplicatePresetDialog } from "./dashboard_preset_duplicate.js";
 
 let runtime = null;
 let dashboardPresetModelError = null;
@@ -147,12 +148,98 @@ export function updateCurrentDashboardPreset(presetId, model = dashboard()) {
 	return commitDashboardPresetChange((current) => replaceDashboardPreset(current, presetId, snapshot), t("aaalice.workspace.dashboardPreset.updated", "Sidebar preset updated. Save the workflow to keep it."));
 }
 
-export async function duplicateCurrentDashboardPreset(presetId) {
-	const state = dashboardPresetState(); const preset = state.presets.find((item) => item.id === presetId); if (!preset) return;
-	const name = t("aaalice.workspace.dashboardPreset.copyName", "{name} copy").replace("{name}", preset.name);
-	const nextName = await askTextValue(dashboardPresetLabels().duplicate, t("aaalice.workspace.dashboardPreset.name", "Preset name"), name);
-	if (nextName) commitDashboardPresetChange((current) => duplicateDashboardPreset(current, presetId, nextName), t("aaalice.workspace.dashboardPreset.duplicated", "Sidebar preset duplicated. Save the workflow to keep it."));
+function collectPresetCandidates() {
+	const model = dashboard(); const seen = new Map();
+	for (const page of model?.pages || []) for (const item of page.items || []) {
+		if (item.kind !== "control" || !item.binding) continue;
+		const key = bindingKey(item.binding);
+		if (seen.has(key)) continue;
+		let resolved = null;
+		try { resolved = resolve(item.binding); } catch { resolved = null; }
+		if (resolved?.status !== "ok" || resolved.presettable === false) continue;
+		seen.set(key, {
+			item,
+			binding: item.binding,
+			key,
+			valueType: item.binding.valueType,
+			label: runtime.controlTitle ? runtime.controlTitle(item, resolved) : (item.label || item.binding.controlId),
+			hostLabel: String(resolved.node?.getTitle?.() || resolved.node?.title || "").trim(),
+			pageName: String(page.name || ""),
+			resolved,
+		});
+	}
+	return [...seen.values()];
 }
+
+export async function duplicateCurrentDashboardPreset(presetId) {
+	const state = dashboardPresetState();
+	const preset = state.presets.find((item) => item.id === presetId);
+	if (!preset) return;
+	const candidates = collectPresetCandidates();
+
+	openDuplicatePresetDialog({
+		preset,
+		presetState: state,
+		candidates,
+		resolve,
+		openManageProfiles: runtime.openValueProfiles,
+		onCommitSuccess: async ({ mode, name, rules }) => {
+			if (mode === "standard") {
+				commitDashboardPresetChange(
+					(current) => duplicateDashboardPreset(current, presetId, name),
+					t("aaalice.workspace.dashboardPreset.duplicated", "Sidebar preset duplicated. Save the workflow to keep it."),
+				);
+				return;
+			}
+
+			// Mode with-profile: create new preset with merged override values, apply and switch
+			const snapshot = structuredClone(preset);
+			snapshot.values ||= {};
+			for (const rule of rules || []) {
+				snapshot.values[rule.key] = { valueType: rule.valueType, payload: structuredClone(rule.payload) };
+			}
+			const plan = planDashboardPresetApplication(snapshot, (binding) => resolve(binding));
+			const currentState = dashboardPresetState();
+			const nextState = createDashboardPreset(currentState, name, snapshot);
+			const graph = app.graph;
+			const previousPresetExtra = structuredClone(graph?.extra?.[runtime.presetsExtraKey]);
+			const previousActivePageId = runtime.getActivePageId();
+			const nextActivePageId = snapshot.dashboard.pages.some((page) => page.id === previousActivePageId)
+				? previousActivePageId
+				: snapshot.dashboard.pages[0]?.id || null;
+
+			graph?.beforeChange?.();
+			try {
+				graph.extra ||= {};
+				applyDashboardSnapshotPlan(plan, {
+					readDashboard: () => dashboard(),
+					writeDashboard: (next) => { graph.extra[runtime.dashboardExtraKey] = normalizeDashboard(next); },
+					commit: () => {
+						graph.extra[runtime.presetsExtraKey] = nextState;
+						runtime.setActivePageId(nextActivePageId);
+					},
+					rollbackCommit: () => {
+						restoreGraphExtra(graph, runtime.presetsExtraKey, previousPresetExtra);
+						runtime.setActivePageId(previousActivePageId);
+					},
+				});
+			} catch (error) {
+				notifyDashboardPresetError(error);
+				return;
+			} finally {
+				graph?.afterChange?.();
+				graph?.setDirtyCanvas?.(true, true);
+				scheduleStructuralRender("dashboard");
+			}
+
+			notifyDashboardPresetSuccess(
+				name,
+				t("aaalice.workspace.dashboardPreset.duplicateAndApplySuccess", "Sidebar preset “{name}” created with override profile applied. Save the workflow to keep it.").replace("{name}", name),
+			);
+		},
+	});
+}
+
 
 export function reorderDashboardPreset(presetId, targetIndex) {
 	try {

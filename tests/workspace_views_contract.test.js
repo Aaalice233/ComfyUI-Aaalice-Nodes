@@ -550,8 +550,7 @@ test("category manager locks accessible tree editing, movement, and rollback con
 test("workspace empty states and compact action bars keep narrow sidebars deliberate", () => {
 	assert.match(workspace, /aa-dashboard-toolbar/);
 	assert.match(workspace, /aa-library-toolbar/);
-	assert.match(workspace, /iconName: "upload", label: t\("aaalice\.workspace\.preset\.export"/);
-	assert.match(workspace, /iconName: "download", label: t\("aaalice\.workspace\.preset\.import"/);
+	assert.match(workspace, /iconName: "sliders", label: t\("aaalice\.workspace\.valueProfiles\.manageBtn"/);
 	assert.match(workspace, /iconName: "upload", label: selected\.size[\s\S]*libraryUi\.export/);
 	assert.match(workspace, /iconName: "download", label: t\("aaalice\.workspace\.libraryUi\.import"/);
 	assert.match(workspace, /aa-workspace-empty aa-dashboard-empty/);

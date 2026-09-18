@@ -68,8 +68,9 @@ export function normalizeValueProfileState(raw) {
 			if (ruleKeys.has(normalized.key)) throw new ValueProfileError(`Duplicate value profile rule: ${normalized.key}`, "duplicate-profile-rule");
 			ruleKeys.add(normalized.key); rules.push(normalized);
 		}
+		const presetName = String(source?.presetName || "").trim().slice(0, VALUE_PROFILE_NAME_LIMIT);
 		// 早期版本的 pages 页面范围字段已随功能移除，读取时直接丢弃。
-		return { id, name, rules };
+		return { id, name, presetName, rules };
 	});
 	return { version: VALUE_PROFILES_VERSION, profiles };
 }
@@ -86,9 +87,14 @@ function assertUniqueName(state, name, ignoredId = null) {
 	return normalized;
 }
 
-export function createValueProfile(state, name) {
+export function createValueProfile(state, name, presetName = "") {
 	const next = copy(state);
-	next.profiles.push({ id: stableProfileId(), name: assertUniqueName(next, name), rules: [] });
+	next.profiles.push({
+		id: stableProfileId(),
+		name: assertUniqueName(next, name),
+		presetName: String(presetName || "").trim().slice(0, VALUE_PROFILE_NAME_LIMIT),
+		rules: [],
+	});
 	return next;
 }
 
@@ -105,11 +111,30 @@ export function renameValueProfile(state, profileId, name) {
 	return next;
 }
 
+export function setProfilePresetName(state, profileId, presetName) {
+	const next = copy(state);
+	findProfile(next, profileId).presetName = String(presetName || "").trim().slice(0, VALUE_PROFILE_NAME_LIMIT);
+	return next;
+}
+
+export function reorderValueProfileRule(state, profileId, ruleKey, targetIndex) {
+	const next = copy(state);
+	const profile = findProfile(next, profileId);
+	const sourceIndex = profile.rules.findIndex((item) => item.key === ruleKey);
+	if (sourceIndex < 0) throw new ValueProfileError("Rule is missing", "missing-rule");
+	const clampedTarget = Math.max(0, Math.min(profile.rules.length - 1, targetIndex));
+	if (sourceIndex === clampedTarget) return next;
+	const [rule] = profile.rules.splice(sourceIndex, 1);
+	profile.rules.splice(clampedTarget, 0, rule);
+	return next;
+}
+
 export function removeValueProfile(state, profileId) {
 	const next = copy(state);
 	next.profiles = next.profiles.filter((profile) => profile.id !== profileId);
 	return next;
 }
+
 
 export function upsertValueProfileRule(state, profileId, rule) {
 	const next = copy(state);
@@ -125,6 +150,14 @@ export function removeValueProfileRule(state, profileId, key) {
 	const next = copy(state);
 	const profile = findProfile(next, profileId);
 	profile.rules = profile.rules.filter((rule) => rule.key !== key);
+	return next;
+}
+
+export function removeValueProfileRules(state, profileId, keysToRemove) {
+	const next = copy(state);
+	const profile = findProfile(next, profileId);
+	const removeSet = new Set(Array.isArray(keysToRemove) ? keysToRemove : [keysToRemove]);
+	profile.rules = profile.rules.filter((rule) => !removeSet.has(rule.key));
 	return next;
 }
 
@@ -150,3 +183,79 @@ export function matchValueProfileRules(rules, candidates) {
 		return { rule, status: "missing", candidate: null };
 	});
 }
+
+/**
+ * Compare two presets or preset-like snapshots and extract different values.
+ * candidateMap: Map<bindingKey, { label, hostLabel, pageName }>
+ */
+export function diffDashboardPresets(basePreset, targetPreset, candidateMap = new Map()) {
+	const baseValues = basePreset?.values || {};
+	const targetValues = targetPreset?.values || {};
+	const diffs = [];
+	const keysToCompare = (candidateMap && candidateMap.size > 0)
+		? [...candidateMap.keys()]
+		: Object.keys(targetValues);
+
+	for (const key of keysToCompare) {
+		const targetEntry = targetValues[key];
+		if (!targetEntry || typeof targetEntry !== "object") continue;
+		const baseEntry = baseValues[key];
+		const isDifferent = !baseEntry || JSON.stringify(baseEntry.payload) !== JSON.stringify(targetEntry.payload);
+		if (!isDifferent) continue;
+		const candidate = candidateMap?.get?.(key) || null;
+		diffs.push({
+			key,
+			valueType: targetEntry.valueType,
+			payload: structuredClone(targetEntry.payload),
+			label: candidate?.label || key,
+			hostLabel: candidate?.hostLabel || "",
+			pageName: candidate?.pageName || "",
+			basePayload: baseEntry ? structuredClone(baseEntry.payload) : null,
+			targetPayload: structuredClone(targetEntry.payload),
+		});
+	}
+	return diffs;
+}
+
+export const OVERRIDE_PRESET_FILE_TYPE = "aaalice-override-presets";
+
+export function serializeOverridePresets(state, profileIdOrIds = null) {
+	const normalized = normalizeValueProfileState(state);
+	const ids = profileIdOrIds == null
+		? null
+		: new Set(Array.isArray(profileIdOrIds) ? profileIdOrIds : [profileIdOrIds]);
+	const profiles = ids == null
+		? normalized.profiles
+		: normalized.profiles.filter((profile) => ids.has(profile.id));
+	return {
+		version: VALUE_PROFILES_VERSION,
+		type: OVERRIDE_PRESET_FILE_TYPE,
+		profiles: structuredClone(profiles),
+	};
+}
+
+export function parseOverridePresetsForImport(raw, existingState = emptyValueProfileState()) {
+	if (!raw || typeof raw !== "object") throw new ValueProfileError("Invalid override preset file format", "invalid-import-format");
+	if (raw.version !== VALUE_PROFILES_VERSION) throw new ValueProfileError(`Unsupported version: ${raw?.version}`, "unsupported-value-profiles");
+	const incomingProfiles = Array.isArray(raw.profiles) ? raw.profiles : [];
+	if (!incomingProfiles.length) throw new ValueProfileError("No profiles found in import file", "empty-import");
+
+	let next = copy(existingState);
+	const importedIds = [];
+	for (const item of incomingProfiles) {
+		const baseName = normalizeName(item.name);
+		const safeName = availableValueProfileName(baseName, next);
+		const nextId = stableProfileId();
+		const presetName = String(item.presetName || "").trim().slice(0, VALUE_PROFILE_NAME_LIMIT);
+		const rules = (Array.isArray(item.rules) ? item.rules : []).map(normalizeRule);
+		next.profiles.push({
+			id: nextId,
+			name: safeName,
+			presetName,
+			rules,
+		});
+		importedIds.push(nextId);
+	}
+	return { state: next, importedIds };
+}
+

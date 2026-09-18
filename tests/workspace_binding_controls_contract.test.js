@@ -175,9 +175,9 @@ test("adjustment profiles use source-grouped card rules and one stable scroll su
 	assert.match(theme, /\.aa-value-profiles__surface \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\)/);
 	assert.match(theme, /\.aa-value-profile-rules \{[\s\S]*?overflow-y: auto;/);
 	assert.match(theme, /\.aa-value-profile-group \{[\s\S]*?--aa-value-profile-tone:/);
-	assert.match(theme, /\.aa-value-profile-rule \{[\s\S]*?grid-template-columns: minmax\(150px, 1fr\) minmax\(210px, \.76fr\) 68px;/);
-	assert.match(theme, /@container \(max-width: 700px\)[\s\S]*?\.aa-value-profile-rule \{/);
-	assert.match(theme, /@container \(max-width: 560px\)[\s\S]*?\.aa-value-profiles__profile \{[\s\S]*?padding-right: 142px;/);
+	assert.match(theme, /\.aa-value-profile-group__rows \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(240px, 1fr\)\);/);
+	assert.match(theme, /\.aa-value-profile-rule \{[\s\S]*?display: flex;/);
+	assert.match(theme, /\.aa-value-profile-rule__drag-handle/);
 	assert.match(workspace, /initialQuery: pickerSearch/);
 	assert.match(workspace, /onSearchChange: \(query\) => \{ pickerSearch = query; \}/);
 	assert.match(workspace, /let rulesScrollTop = 0/);

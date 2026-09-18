@@ -1,11 +1,7 @@
 /** Single-select picker with a fuzzy filter box, for long candidate lists in workspace dialogs. */
 
-import { matchesDashboardSearch } from "./dashboard_search.js";
+import { scoreDashboardOptionSearch } from "./dashboard_search.js";
 import { el, icon } from "./ui.js";
-
-function optionSearchText(option) {
-	return [option.label, option.description].filter(Boolean).join(" ");
-}
 
 /**
  * options: [{ value, label, description?, badge?, badgeTone?: "warning"|"danger"|null, disabled? }]
@@ -32,7 +28,17 @@ export function createSearchableSelect({ options = [], value = "", ariaLabel = "
 	const list = el("div", { className: "aa-searchable-select__list", attrs: { role: "listbox", "aria-label": ariaLabel } });
 	const root = el("div", { className: "aa-searchable-select", children: [searchRow, list] });
 
-	const filteredOptions = () => currentOptions.filter((option) => matchesDashboardSearch(optionSearchText(option), query));
+	const filteredOptions = () => {
+		if (!query.trim()) return currentOptions;
+		const scored = [];
+		for (let index = 0; index < currentOptions.length; index++) {
+			const option = currentOptions[index];
+			const score = scoreDashboardOptionSearch(option.label, option.description, query);
+			if (score > 0) scored.push({ option, score, index });
+		}
+		scored.sort((a, b) => b.score - a.score || a.index - b.index);
+		return scored.map((item) => item.option);
+	};
 
 	const ensureActive = (visible) => {
 		if (activeValue != null && visible.some((option) => String(option.value) === activeValue && !option.disabled)) return;

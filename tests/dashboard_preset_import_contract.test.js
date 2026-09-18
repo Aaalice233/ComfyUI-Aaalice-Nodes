@@ -52,7 +52,7 @@ test("full preset import still warns before creating a preset with broken bindin
 });
 
 test("dashboard toolbar and dialogs call the files presets instead of layouts", () => {
-	for (const sourceText of [dashboardView, importUi]) {
+	for (const sourceText of [importUi]) {
 		assert.match(sourceText, /Export preset/);
 		assert.match(sourceText, /Import preset/);
 	}

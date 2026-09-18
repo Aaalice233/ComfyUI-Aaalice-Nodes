@@ -8,9 +8,13 @@ import { stableToneIndexes } from "../lib/control_tones.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES } from "../lib/seed_preset.js";
 import { badge, button, createDialog, el, emptyState, icon, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
 import { createSearchableSelect } from "../lib/searchable_select.js";
-import { availableValueProfileName, createValueProfile, duplicateValueProfile, matchValueProfileRules, removeValueProfile, removeValueProfileRule, renameValueProfile, upsertValueProfileRule } from "../lib/value_profiles.js";
+import { availableValueProfileName, createValueProfile, duplicateValueProfile, matchValueProfileRules, parseOverridePresetsForImport, removeValueProfile, removeValueProfileRule, removeValueProfileRules, renameValueProfile, reorderValueProfileRule, serializeOverridePresets, setProfilePresetName, upsertValueProfileRule } from "../lib/value_profiles.js";
 import { loadValueProfiles, saveValueProfiles } from "./sidebar_preferences.js";
-import { confirmAction } from "./dom_utils.js";
+import { confirmAction, downloadBlob, pickFile } from "./dom_utils.js";
+import { openValueProfileDiffDialog } from "./value_profile_diff_dialog.js";
+import { dashboardPresetState } from "./dashboard_presets.js";
+import { formatProfilePayload } from "../lib/value_profile_format.js";
+
 
 let runtime = null;
 export function configureValueProfiles(dependencies) { runtime = dependencies; }
@@ -78,22 +82,15 @@ function seedBehaviorLabel(mode) {
 	return t(`aaalice.workspace.valueProfiles.behaviors.${mode}`, fallbacks[mode] || mode);
 }
 
-function payloadSummary(rule, resolved) {
-	if (resolved?.kind === "seed" || (rule.payload && typeof rule.payload === "object" && "control_after_generate" in rule.payload)) {
-		const decoded = decodeSeedPresetEntry({ valueType: rule.valueType, payload: rule.payload });
-		return decoded.hasBehavior ? `${decoded.value} · ${seedBehaviorLabel(decoded.behavior)}` : String(decoded.value);
-	}
-	if (typeof rule.payload === "boolean") return rule.payload ? t("aaalice.workspace.valueProfiles.on", "On") : t("aaalice.workspace.valueProfiles.off", "Off");
-	if (resolved?.kind === "choice") {
-		const hit = choiceOptions(resolved).find((option) => option.value === String(rule.payload));
-		return hit ? hit.label : String(rule.payload);
-	}
-	return String(rule.payload);
+function payloadSummary(rule, resolved, format = "summary") {
+	return formatProfilePayload(rule.payload, { resolved, valueType: rule.valueType, t, format });
 }
 
 function buildValueEditor(rule, match, onCommit) {
 	const resolved = match.status === "ready" ? match.candidate.resolved : null;
-	if (!resolved) return el("span", { className: "aa-value-profile-rule__value", text: payloadSummary(rule, null) });
+	const summary = payloadSummary(rule, resolved, "summary");
+	const tooltip = payloadSummary(rule, resolved, "tooltip");
+	if (!resolved) return el("span", { className: "aa-value-profile-rule__value", attrs: { title: tooltip }, text: summary });
 	if (resolved.kind === "seed") {
 		const decoded = decodeSeedPresetEntry({ valueType: rule.valueType, payload: rule.payload });
 		const number = document.createElement("input");
@@ -114,14 +111,14 @@ function buildValueEditor(rule, match, onCommit) {
 			ariaLabel: rule.label,
 			onChange: (value) => onCommit(value),
 		});
-		control.title = payloadSummary(rule, resolved);
-		control.control.title = payloadSummary(rule, resolved);
+		control.title = summary;
+		control.control.title = summary;
 		return control;
 	}
 	if (typeof rule.payload === "boolean") {
 		return el("div", { className: "aa-value-profile-rule__boolean", children: [
 			toggleSwitch({ checked: rule.payload, label: rule.label, onChange: (value) => onCommit(value) }),
-			el("span", null, payloadSummary(rule, resolved)),
+			el("span", null, summary),
 		] });
 	}
 	if (typeof rule.payload === "number") {
@@ -144,7 +141,7 @@ function buildValueEditor(rule, match, onCommit) {
 		input.addEventListener("change", () => { input.title = input.value; onCommit(input.value); });
 		return input;
 	}
-	return el("span", { className: "aa-value-profile-rule__value", attrs: { title: payloadSummary(rule, resolved) }, text: payloadSummary(rule, resolved) });
+	return el("span", { className: "aa-value-profile-rule__value", attrs: { title: tooltip }, text: summary });
 }
 
 function confirmProfileIssues(profileName, issues) {
@@ -287,6 +284,8 @@ export function openValueProfiles() {
 		}
 		const groups = groupMatches(matches);
 		const tones = stableToneIndexes(groups.map((group) => group.key));
+		let draggedRuleKey = null;
+
 		for (const group of groups) {
 			const labelTotals = new Map();
 			for (const match of group.matches) {
@@ -331,24 +330,106 @@ export function openValueProfiles() {
 					})(); },
 				});
 				const searchText = [label, rule.label, group.title, ...group.pages, match.status].filter(Boolean).join(" ").toLocaleLowerCase();
-				return el("div", {
+
+				const handle = iconButton({
+					iconName: "drag",
+					label: t("aaalice.workspace.valueProfiles.dragToReorder", "Drag to reorder"),
+					title: t("aaalice.workspace.valueProfiles.dragToReorder", "Drag to reorder; Alt+Arrow keys also work"),
+					variant: "ghost",
+					className: "aa-value-profile-rule__drag-handle",
+				});
+				handle.draggable = true;
+				handle.setAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown");
+
+				const card = el("div", {
 					className: `aa-value-profile-rule${match.status === "ready" ? "" : " is-unmatched"}`,
-					attrs: { "data-search-text": searchText },
+					attrs: { "data-search-text": searchText, "data-rule-key": rule.key },
 					children: [
-						el("div", { className: "aa-value-profile-rule__copy", children: [
-							el("strong", { attrs: { title: label }, text: label }),
-							el("div", { className: "aa-value-profile-rule__meta", children: [duplicateBadge, linkedBadge, statusBadge].filter(Boolean) }),
+						el("div", { className: "aa-value-profile-rule__head", children: [
+							handle,
+							el("div", { className: "aa-value-profile-rule__copy", children: [
+								el("strong", { attrs: { title: label }, text: label }),
+								el("div", { className: "aa-value-profile-rule__meta", children: [duplicateBadge, linkedBadge, statusBadge].filter(Boolean) }),
+							] }),
+							el("div", { className: "aa-value-profile-rule__actions", children: [updateButton, removeButton].filter(Boolean) }),
 						] }),
 						el("div", { className: "aa-value-profile-rule__control", children: [buildValueEditor(rule, match, (payload) => persist((current) => upsertValueProfileRule(current, profile.id, { ...rule, payload })))] }),
-						el("div", { className: "aa-value-profile-rule__actions", children: [updateButton, removeButton].filter(Boolean) }),
 					],
 				});
+
+				handle.addEventListener("dragstart", (e) => {
+					draggedRuleKey = rule.key;
+					card.classList.add("is-dragging");
+					e.dataTransfer?.setData("text/plain", rule.key);
+				});
+				handle.addEventListener("dragend", () => {
+					draggedRuleKey = null;
+					card.classList.remove("is-dragging");
+					container.querySelectorAll(".aa-value-profile-rule").forEach((c) => c.classList.remove("is-drop-before", "is-drop-after"));
+				});
+				card.addEventListener("dragover", (e) => {
+					if (!draggedRuleKey || draggedRuleKey === rule.key) return;
+					e.preventDefault();
+					container.querySelectorAll(".aa-value-profile-rule").forEach((c) => c.classList.remove("is-drop-before", "is-drop-after"));
+					const rect = card.getBoundingClientRect();
+					card.classList.add(e.clientX >= rect.left + rect.width / 2 ? "is-drop-after" : "is-drop-before");
+				});
+				card.addEventListener("drop", (e) => {
+					const sourceKey = draggedRuleKey || e.dataTransfer?.getData("text/plain");
+					if (!sourceKey || sourceKey === rule.key) return;
+					e.preventDefault();
+					const rect = card.getBoundingClientRect();
+					const after = e.clientX >= rect.left + rect.width / 2;
+					container.querySelectorAll(".aa-value-profile-rule").forEach((c) => c.classList.remove("is-drop-before", "is-drop-after"));
+
+					const allRules = profile.rules;
+					const sourceIndex = allRules.findIndex((r) => r.key === sourceKey);
+					let targetIndex = allRules.findIndex((r) => r.key === rule.key) + (after ? 1 : 0);
+					if (sourceIndex < targetIndex) targetIndex -= 1;
+					persist((current) => reorderValueProfileRule(current, profile.id, sourceKey, targetIndex));
+				});
+				handle.addEventListener("keydown", (e) => {
+					if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown" && e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+					e.preventDefault();
+					e.stopPropagation();
+					const allRules = profile.rules;
+					const currIdx = allRules.findIndex((r) => r.key === rule.key);
+					const delta = (e.key === "ArrowUp" || e.key === "ArrowLeft") ? -1 : 1;
+					const nextIdx = Math.max(0, Math.min(allRules.length - 1, currIdx + delta));
+					if (currIdx !== nextIdx) {
+						persist((current) => reorderValueProfileRule(current, profile.id, rule.key, nextIdx));
+					}
+				});
+
+				return card;
 			});
 			const pageLabels = [...group.pages].map((page) => {
 				const pageBadge = badge(page);
 				pageBadge.title = page;
 				return pageBadge;
 			});
+			const groupInvalid = group.matches.filter((m) => m.status !== "ready");
+			const groupCleanBtn = groupInvalid.length > 0 ? iconButton({
+				iconName: "delete",
+				label: t("aaalice.workspace.valueProfiles.cleanGroupIssues", "Remove invalid rules in this group"),
+				title: t("aaalice.workspace.valueProfiles.cleanGroupIssues", "Remove invalid rules in this group"),
+				variant: "ghost",
+				className: "aa-value-profile-group__clean",
+				onClick: async () => {
+					const count = groupInvalid.length;
+					const confirmMsg = t("aaalice.workspace.valueProfiles.cleanGroupConfirm", "Remove {count} invalid rule(s) in group “{name}”?")
+						.replace("{count}", String(count))
+						.replace("{name}", group.title);
+					if (!await confirmAction(confirmMsg, {
+						title: t("aaalice.workspace.valueProfiles.cleanIssues", "Clean invalid rules"),
+						confirmLabel: t("aaalice.common.delete", "Delete"),
+						danger: true,
+					})) return;
+					const removeKeys = groupInvalid.map((m) => m.rule.key);
+					persist((current) => removeValueProfileRules(current, profile.id, removeKeys));
+					notify("success", t("aaalice.workspace.valueProfiles.cleanedIssues", "Removed {count} invalid rule(s).").replace("{count}", String(count)));
+				},
+			}) : null;
 			container.append(el("section", {
 				className: "aa-value-profile-group",
 				attrs: { "data-control-tone": tones.get(group.key) },
@@ -357,13 +438,17 @@ export function openValueProfiles() {
 						el("span", { className: "aa-value-profile-group__icon", children: [icon("link")] }),
 						el("strong", { attrs: { title: group.title }, text: group.title }),
 						el("div", { className: "aa-value-profile-group__pages", children: pageLabels }),
-						badge(t("aaalice.workspace.valueProfiles.ruleCount", "{count} rules").replace("{count}", String(rows.length)), { className: "aa-value-profile-group__count" }),
+						el("div", { className: "aa-value-profile-group__header-actions", children: [
+							badge(t("aaalice.workspace.valueProfiles.ruleCount", "{count} rules").replace("{count}", String(rows.length)), { className: "aa-value-profile-group__count" }),
+							groupCleanBtn,
+						].filter(Boolean) }),
 					] }),
 					el("div", { className: "aa-value-profile-group__rows", children: rows }),
 				],
 			}));
 		}
 	};
+
 
 	const render = () => {
 		const currentRules = body.querySelector(".aa-value-profile-rules");
@@ -408,29 +493,59 @@ export function openValueProfiles() {
 			},
 		});
 		profileSelect.control.title = profile.name;
+		const profileOps = el("div", { className: "aa-value-profiles__profile-ops", children: [
+			iconButton({ iconName: "add", label: t("aaalice.workspace.valueProfiles.create", "New profile"), variant: "ghost", onClick: createProfile }),
+			iconButton({ iconName: "copy", label: t("aaalice.workspace.valueProfiles.duplicate", "Copy as new profile"), variant: "ghost", onClick: () => duplicateProfile(profile) }),
+			iconButton({ iconName: "edit", label: t("aaalice.workspace.valueProfiles.rename", "Rename profile"), variant: "ghost", onClick: () => {
+				runtime.askText(t("aaalice.workspace.valueProfiles.rename", "Rename profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), profile.name, (name) => persist((current) => renameValueProfile(current, profile.id, name)));
+			} }),
+			iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", className: "aa-value-profiles__delete-profile", onClick: async () => {
+				if (!await confirmAction(t("aaalice.workspace.valueProfiles.deleteConfirm", "Delete adjustment profile “{name}”?").replace("{name}", profile.name), { title: t("aaalice.common.delete", "Delete"), confirmLabel: t("aaalice.common.delete", "Delete"), danger: true })) return;
+				resetRulesScroll();
+				ruleSearch = "";
+				persist((current) => {
+					const next = removeValueProfile(current, profile.id);
+					selectedId = next.profiles[0]?.id || null;
+					return next;
+				});
+			} }),
+			issueCount ? badge(t("aaalice.workspace.valueProfiles.issueCount", "{count} need attention").replace("{count}", String(issueCount)), {
+				className: "is-warning",
+				attrs: { title: t("aaalice.workspace.valueProfiles.cleanIssuesHint", "Remove {count} invalid rule(s) not on sidebar").replace("{count}", String(issueCount)) },
+			}) : null,
+			issueCount ? iconButton({
+				iconName: "delete",
+				label: t("aaalice.workspace.valueProfiles.cleanIssues", "Clean invalid rules"),
+				title: t("aaalice.workspace.valueProfiles.cleanIssuesHint", "Remove {count} invalid rule(s) not on sidebar").replace("{count}", String(issueCount)),
+				variant: "ghost",
+				className: "aa-value-profiles__clean-issues",
+				onClick: async () => {
+					const count = issueCount;
+					const confirmMsg = t("aaalice.workspace.valueProfiles.cleanIssuesConfirm", "Remove all {count} invalid or unresolvable rule(s) from this profile?").replace("{count}", String(count));
+					if (!await confirmAction(confirmMsg, {
+						title: t("aaalice.workspace.valueProfiles.cleanIssues", "Clean invalid rules"),
+						confirmLabel: t("aaalice.common.delete", "Delete"),
+						danger: true,
+					})) return;
+					const invalidKeys = matches.filter((m) => m.status !== "ready").map((m) => m.rule.key);
+					persist((current) => removeValueProfileRules(current, profile.id, invalidKeys));
+					notify("success", t("aaalice.workspace.valueProfiles.cleanedIssues", "Removed {count} invalid rule(s).").replace("{count}", String(count)));
+				},
+			}) : null,
+		].filter(Boolean) });
+
+		const toolActions = el("div", { className: "aa-value-profiles__bar-actions", children: [
+			button({ iconName: "swap", label: t("aaalice.workspace.valueProfiles.diffBtn", "Diff presets"), variant: "ghost", size: "sm", className: "aa-value-profiles__diff-btn", onClick: openDiff }),
+			iconButton({ iconName: "upload", label: t("aaalice.workspace.valueProfiles.exportBtn", "Export profile"), variant: "ghost", onClick: exportCurrentProfile }),
+			iconButton({ iconName: "download", label: t("aaalice.workspace.valueProfiles.importBtn", "Import profile"), variant: "ghost", onClick: importProfiles }),
+		] });
+
 		body.append(el("div", { className: "aa-value-profiles__bar", children: [
 			el("div", { className: "aa-value-profiles__profile", children: [
 				profileSelect,
-				el("span", { className: "aa-value-profiles__summary", text: profileSummary }),
-				issueCount ? badge(t("aaalice.workspace.valueProfiles.issueCount", "{count} need attention").replace("{count}", String(issueCount)), { className: "is-warning" }) : null,
-			].filter(Boolean) }),
-			el("div", { className: "aa-value-profiles__bar-actions", children: [
-				iconButton({ iconName: "add", label: t("aaalice.workspace.valueProfiles.create", "New profile"), variant: "ghost", onClick: createProfile }),
-				iconButton({ iconName: "copy", label: t("aaalice.workspace.valueProfiles.duplicate", "Copy as new profile"), variant: "ghost", onClick: () => duplicateProfile(profile) }),
-				iconButton({ iconName: "edit", label: t("aaalice.workspace.valueProfiles.rename", "Rename profile"), variant: "ghost", onClick: () => {
-					runtime.askText(t("aaalice.workspace.valueProfiles.rename", "Rename profile"), t("aaalice.workspace.valueProfiles.name", "Profile name"), profile.name, (name) => persist((current) => renameValueProfile(current, profile.id, name)));
-				} }),
-				iconButton({ iconName: "delete", label: t("aaalice.common.delete", "Delete"), variant: "ghost", className: "aa-value-profiles__delete-profile", onClick: async () => {
-					if (!await confirmAction(t("aaalice.workspace.valueProfiles.deleteConfirm", "Delete adjustment profile “{name}”?").replace("{name}", profile.name), { title: t("aaalice.common.delete", "Delete"), confirmLabel: t("aaalice.common.delete", "Delete"), danger: true })) return;
-					resetRulesScroll();
-					ruleSearch = "";
-					persist((current) => {
-						const next = removeValueProfile(current, profile.id);
-						selectedId = next.profiles[0]?.id || null;
-						return next;
-					});
-				} }),
+				profileOps,
 			] }),
+			toolActions,
 		] }));
 
 		if (addPanelOpen) {
@@ -511,9 +626,27 @@ export function openValueProfiles() {
 				className: "aa-value-profiles__add",
 				onClick: () => { addPanelOpen = true; render(); },
 			}));
+			const targetPresetBadge = profile.presetName
+				? badge(t("aaalice.workspace.valueProfiles.presetTargetBadge", "Target: {name}").replace("{name}", profile.presetName), {
+					className: "aa-value-profile-target-badge",
+					attrs: { title: t("aaalice.workspace.valueProfiles.editPresetName", "Click to edit recommended preset name") },
+					onClick: editPresetTargetName,
+				})
+				: button({
+					label: t("aaalice.workspace.valueProfiles.setPresetName", "+ Target preset name"),
+					variant: "ghost",
+					size: "sm",
+					className: "aa-value-profile-target-badge-add",
+					onClick: editPresetTargetName,
+				});
+
 			body.append(el("section", { className: "aa-value-profiles__surface", children: [
 				el("div", { className: "aa-value-profiles__surface-head", children: [
-					el("div", { className: "aa-value-profiles__surface-title", children: [el("strong", null, t("aaalice.workspace.valueProfiles.rulesTitle", "Rules"))] }),
+					el("div", { className: "aa-value-profiles__surface-title", children: [
+						el("strong", null, t("aaalice.workspace.valueProfiles.rulesTitle", "Rules")),
+						el("span", { className: "aa-value-profiles__summary", text: profileSummary }),
+						targetPresetBadge,
+					].filter(Boolean) }),
 					toolbar,
 				] }),
 				rulesContainer,
@@ -564,6 +697,75 @@ export function openValueProfiles() {
 			});
 		});
 	};
+
+	const editPresetTargetName = () => {
+		const profile = selectedProfile();
+		if (!profile) return;
+		runtime.askText(
+			t("aaalice.workspace.valueProfiles.diff.presetNameLabel", "Recommended preset name"),
+			t("aaalice.workspace.valueProfiles.diff.presetNamePlaceholder", "Recommended preset name when duplicating (optional)"),
+			profile.presetName || "",
+			(val) => persist((current) => setProfilePresetName(current, profile.id, val)),
+		);
+	};
+
+	const exportCurrentProfile = () => {
+		const profile = selectedProfile();
+		if (!profile) return;
+		const exported = serializeOverridePresets(state, profile.id);
+		const blob = new Blob([JSON.stringify(exported, null, 2)], { type: "application/json" });
+		const safeName = profile.name.replace(/[\\/:*?"<>|]/g, "_");
+		downloadBlob(blob, `${safeName}.override-preset.json`);
+		notify("success", t("aaalice.workspace.valueProfiles.exportSuccess", "Override profile exported."));
+	};
+
+	const importProfiles = () => {
+		pickFile(".json,application/json", async (file) => {
+			try {
+				const text = await file.text();
+				const parsed = JSON.parse(text);
+				const { state: nextState, importedIds } = parseOverridePresetsForImport(parsed, state);
+				saveValueProfiles(nextState);
+				state = nextState;
+				if (importedIds[0]) selectedId = importedIds[0];
+				notify("success", t("aaalice.workspace.valueProfiles.importSuccess", "Imported {count} override profile(s).").replace("{count}", String(importedIds.length)));
+				render();
+			} catch (error) {
+				notify("error", `${t("aaalice.workspace.valueProfiles.importFailed", "Import failed:")} ${error.message}`);
+			}
+		});
+	};
+
+	const openDiff = () => {
+		const pState = dashboardPresetState();
+		const presets = pState?.presets || [];
+		const candidates = collectCandidates();
+		let currentVals = {};
+		try {
+			const synthetic = { version: 4, pages: [{ id: "temp", name: "", gridColumns: 12, tone: null, groups: [], items: candidates.map((c, i) => ({ id: `c-${i}`, kind: "control", binding: c.binding })) }] };
+			const captured = captureDashboardValues(synthetic, (binding) => runtime.resolve(binding));
+			currentVals = captured?.values || {};
+		} catch {
+			currentVals = {};
+		}
+
+		openValueProfileDiffDialog({
+			presets,
+			currentValues: currentVals,
+			candidates,
+			onCommit: ({ name, presetName, rules }) => {
+				persist((current) => {
+					const next = createValueProfile(current, name, presetName);
+					const created = next.profiles[next.profiles.length - 1];
+					created.rules = rules;
+					selectedId = created.id;
+					return next;
+				});
+				notify("success", t("aaalice.workspace.valueProfiles.diffSuccess", "Created override profile “{name}” with {count} rules.").replace("{name}", name).replace("{count}", String(rules.length)));
+			},
+		});
+	};
+
 
 	render();
 	return dialog;
