@@ -579,26 +579,33 @@ export function openValueProfiles() {
 		input.type = "text";
 		input.className = "aa-ui-input";
 		input.value = profile.presetName || "";
+		input.maxLength = 80;
+		input.setAttribute("aria-label", t("aaalice.workspace.valueProfiles.diff.presetNameLabel", "Recommended preset name"));
 		input.placeholder = t("aaalice.workspace.valueProfiles.diff.presetNamePlaceholder", "Recommended preset name when duplicating (optional)");
-		const body = el("div", { className: "aa-value-profiles__prompt-body", children: [
+		const content = el("div", { className: "aa-value-profiles__prompt-body", children: [
 			el("p", { className: "aa-value-profiles__prompt-hint", text: t("aaalice.workspace.valueProfiles.presetTargetHint", "When duplicating a sidebar preset with this profile, this preset name will be suggested automatically. Leave blank to clear.") }),
 			input,
 		] });
-		const footer = el("div", { className: "aa-value-profiles__prompt-footer" });
+		// Shared dialog shells own padding; full-width content stays inside their content box.
+		const body = el("div", { children: [content] });
+		const actions = el("div", { className: "aa-value-profiles__prompt-footer" });
+		const footer = el("div", { children: [actions] });
 		const dialog = createDialog({
 			title: t("aaalice.workspace.valueProfiles.diff.presetNameLabel", "Recommended preset name"),
 			body,
 			footer,
 			size: "sm",
+			initialFocus: input,
+			confirmOnEnter: false,
 		});
 		const save = (val) => {
-			persist((current) => setProfilePresetName(current, profile.id, val.trim()));
+			if (!persist((current) => setProfilePresetName(current, profile.id, val.trim()))) return;
 			dialog.close();
 		};
-		footer.append(
+		actions.append(
 			el("div", { children: [
 				profile.presetName ? button({
-					label: t("aaalice.workspace.valueProfiles.clearPresetName", "Clear"),
+					label: t("aaalice.workspace.valueProfiles.clearPresetName", "Clear name"),
 					variant: "ghost",
 					onClick: () => save(""),
 				}) : null,
@@ -609,7 +616,7 @@ export function openValueProfiles() {
 			] }),
 		);
 		input.addEventListener("keydown", (e) => {
-			if (e.key === "Enter") { e.preventDefault(); save(input.value); }
+			if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); e.stopPropagation(); save(input.value); }
 		});
 		requestAnimationFrame(() => { input.focus(); input.select(); });
 	};
