@@ -24,3 +24,16 @@ test("first-time profile users can import without creating an empty profile", ()
 	const empty = view.slice(view.indexOf("if (!profile) {"), view.indexOf("const candidates = collectCandidates();", view.indexOf("if (!profile) {")));
 	assert.match(empty, /onClick: importProfiles/);
 });
+
+test("copy modes use separate compact header and scrollable override section", () => {
+	const dialog = source("js/workspace/dashboard_preset_duplicate.js");
+	const css = source("js/lib/theme-preset-duplicate.css");
+	assert.match(dialog, /body\.append\(header, profileSection, error\)/);
+	assert.match(dialog, /profileSection\.hidden = mode !== "with-profile"/);
+	assert.match(dialog, /dialog\.dialog\.dataset\.copyMode = mode/);
+	assert.match(css, /\.aa-duplicate-preset \[hidden\]\s*\{\s*display: none !important/);
+	assert.match(css, /data-copy-mode="with-profile"/);
+	assert.match(css, /\.aa-duplicate-preset__rules-list\s*\{[^}]*overflow-y: auto/);
+	assert.match(source("js/lib/theme.css"), /theme-preset-duplicate\.css/);
+	assert.doesNotMatch(source("js/lib/theme-value-profiles.css"), /\.aa-duplicate-preset/);
+});

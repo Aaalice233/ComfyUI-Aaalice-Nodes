@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { availableDashboardPresetName } from "../lib/dashboard_presets.js";
 import { formatProfilePayload } from "../lib/value_profile_format.js";
 import { loadValueProfiles } from "./sidebar_preferences.js";
-import { badge, button, createDialog, el, field, icon, segmentedControl, selectControl } from "../lib/ui.js";
+import { badge, button, createDialog, el, field, icon, iconButton, segmentedControl, selectControl } from "../lib/ui.js";
 
 export function openDuplicatePresetDialog({ preset, presetState, planRules, onCommitSuccess, openManageProfiles } = {}) {
 	const profiles = loadValueProfiles().profiles;
@@ -16,12 +16,12 @@ export function openDuplicatePresetDialog({ preset, presetState, planRules, onCo
 	const body = el("div", { className: "aa-duplicate-preset" });
 	const footer = el("div");
 	const dialog = createDialog({ title: t("aaalice.workspace.dashboardPreset.duplicateDialogTitle", "Duplicate preset"), body, footer, size: "md", className: "aa-duplicate-preset-dialog", onRequestClose: () => !busy });
-	const error = el("div", { attrs: { role: "alert", hidden: true } });
+	const error = el("div", { className: "aa-duplicate-preset__error", attrs: { role: "alert", hidden: true } });
 	const nameInput = document.createElement("input");
 	nameInput.className = "aa-ui-input";
 	nameInput.maxLength = 80;
 	const list = el("div", { className: "aa-duplicate-preset__rules-list" });
-	const summary = el("div", { attrs: { role: "status" } });
+	const summary = el("div", { className: "aa-duplicate-preset__summary", attrs: { role: "status" } });
 	const selectedProfile = () => profiles.find((profile) => profile.id === profileId);
 	const selectedRules = () => (selectedProfile()?.rules || []).filter((rule) => selection?.has(rule.key));
 	const syncSubmit = () => {
@@ -39,9 +39,11 @@ export function openDuplicatePresetDialog({ preset, presetState, planRules, onCo
 	const profileControl = selectControl({ value: profileId, options: profiles.map((profile) => ({ value: profile.id, label: profile.name })),
 		ariaLabel: t("aaalice.workspace.valueProfiles.select", "Override profile"),
 		onChange: (next) => { profileId = next; selection = null; editedName = false; render(); } });
-	const profileBar = el("div", { className: "aa-duplicate-preset__profile-bar", children: [profileControl,
-		...(openManageProfiles ? [button({ label: t("aaalice.workspace.valueProfiles.openManage", "Manage profiles"), onClick: () => { dialog.close(); openManageProfiles(); } })] : []),
+	const profileBar = el("div", { className: "aa-duplicate-preset__profile-bar", children: [
+		field({ label: t("aaalice.workspace.valueProfiles.select", "Override profile"), control: profileControl }),
+		...(openManageProfiles ? [iconButton({ iconName: "settings", variant: "ghost", label: t("aaalice.workspace.valueProfiles.openManage", "Manage profiles"), onClick: () => { if (!busy) { dialog.close(); openManageProfiles(); } } })] : []),
 	] });
+	const profileSection = el("section", { className: "aa-duplicate-preset__profile-section", children: [profileBar, summary, list] });
 	const submit = button({ label: t("aaalice.workspace.dashboardPreset.duplicate", "Duplicate"), onClick: async () => {
 		if (busy) return;
 		busy = true; syncSubmit(); error.hidden = true;
@@ -56,13 +58,17 @@ export function openDuplicatePresetDialog({ preset, presetState, planRules, onCo
 		finally { busy = false; modeControl.setDisabled?.(false); profileControl.setDisabled(false); nameInput.disabled = false; syncSubmit(); }
 	} });
 	footer.append(button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => { if (!busy) dialog.close(); } }), submit);
-	body.append(modeControl, field({ label: t("aaalice.workspace.dashboardPreset.name", "Preset name"), control: nameInput }), profileBar, summary, list, error);
+	const header = el("div", { className: "aa-duplicate-preset__header", children: [modeControl,
+		field({ label: t("aaalice.workspace.dashboardPreset.name", "Preset name"), control: nameInput }),
+	] });
+	body.append(header, profileSection, error);
 	function render() {
 		const profile = selectedProfile();
 		if (!editedName) nameInput.value = availableDashboardPresetName(mode === "with-profile" && profile
 			? profile.presetName || `${preset.name} (${profile.name})`
 			: t("aaalice.workspace.dashboardPreset.copyName", "{name} copy").replace("{name}", preset.name), presetState);
-		profileBar.hidden = mode !== "with-profile"; list.hidden = mode !== "with-profile"; summary.hidden = mode !== "with-profile";
+		dialog.dialog.dataset.copyMode = mode;
+		profileSection.hidden = mode !== "with-profile";
 		list.replaceChildren(); preview = null;
 		if (mode === "with-profile") {
 			try { preview = planRules(profile?.rules || []); }
@@ -71,12 +77,12 @@ export function openDuplicatePresetDialog({ preset, presetState, planRules, onCo
 			summary.textContent = t("aaalice.workspace.valueProfiles.previewResult", "Available: {applied}; skipped: {skipped}.").replace("{applied}", String(preview.applied)).replace("{skipped}", String(preview.skipped));
 			for (const match of preview.matches) {
 				const checkbox = document.createElement("input"); checkbox.type = "checkbox";
-				checkbox.checked = selection.has(match.rule.key); checkbox.disabled = match.status !== "ready";
+				checkbox.checked = match.status === "ready" && selection.has(match.rule.key); checkbox.disabled = match.status !== "ready";
 				checkbox.setAttribute("aria-label", match.rule.label || t("aaalice.workspace.valueProfiles.rulesTitle", "Rules"));
 				checkbox.addEventListener("change", () => { if (checkbox.checked) selection.add(match.rule.key); else selection.delete(match.rule.key); syncSubmit(); });
 				const status = match.status === "ready" ? null : badge(t(`aaalice.workspace.valueProfiles.issue.${match.status}`, t("aaalice.workspace.valueProfiles.skipped", "Skipped")), { className: "is-warning" });
 				const format = (value) => formatProfilePayload(value, { valueType: match.rule.valueType, t });
-				list.append(el("div", { className: `aa-duplicate-preset__rule-row${match.status === "ready" ? "" : " is-warning"}`, children: [checkbox,
+				list.append(el("label", { className: `aa-duplicate-preset__rule-row${match.status === "ready" ? "" : " is-warning"}`, children: [checkbox,
 					el("div", { className: "aa-duplicate-preset__rule-main", children: [
 						el("div", { className: "aa-duplicate-preset__rule-info", children: [el("strong", null, match.rule.label), el("small", null, match.rule.hostLabel), ...(status ? [status] : [])] }),
 						el("div", { className: "aa-duplicate-preset__rule-vals", children: [
