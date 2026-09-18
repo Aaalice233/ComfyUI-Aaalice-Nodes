@@ -327,7 +327,6 @@ test("complete sidebar presets track layout and values as a custom working copy"
 	assert.match(theme, /\.aa-value-preset-switch-warning/);
 	assert.match(dashboardPresets, /DASHBOARD_PRESETS_VERSION = 1/);
 	assert.match(dashboardPresets, /export function compareDashboardPreset/);
-	assert.match(dashboardPresets, /export function serializeDashboardPreset/);
 	assert.match(dashboardPresetRuntime, /function uniqueBindings/);
 	assert.match(dashboardPresetRuntime, /rollbackErrors/);
 	assert.match(dashboardPresetRuntime, /export function applyDashboardSnapshotPlan/);
@@ -477,19 +476,10 @@ test("import and export use one reusable review flow with explicit outcomes", ()
 	assert.match(components, /export function createTransferSection/);
 	assert.match(components, /export function createTransferResult/);
 	assert.match(workspace, /function openLibraryExport/);
-	assert.match(workspace, /function openDashboardExport/);
 	assert.match(workspace, /createTransferSection\(\{ title: t\("aaalice\.workspace\.transfer\.conflictDecisions"/);
 	assert.match(workspace, /disabled: groups\.invalid\.length > 0/);
-	assert.match(workspace, /importAsNew/);
-	assert.match(workspace, /overwriteValues/);
-	assert.match(workspace, /planDashboardPresetValueOverwrite/);
-	assert.match(workspace, /targetSelect/);
 	assert.match(workspace, /input\.addEventListener\("cancel", cleanup/);
 	assert.match(workspace, /document\.body\.append\(input\)/);
-	assert.match(workspace, /dashboardPresetNameFromFile\(file\.name, fallbackName\)/);
-	assert.match(workspace, /availableDashboardPresetName\(presetName\.value, currentState\)/);
-	assert.match(workspace, /createDashboardPreset\(currentState, importedPresetName, snapshot\)/);
-	assert.match(workspace, /createTransferResult\(\{ title: t\("aaalice\.workspace\.transfer\.presetImportComplete"/);
 	assert.match(libraryStore, /importPreflight\(file, \{ signal \} = \{\}\)/);
 	assert.match(libraryStore, /importApply\(token, resolutions = \{\}, \{ signal \} = \{\}\)/);
 	assert.match(libraryStore, /discardImport\(token\)/);

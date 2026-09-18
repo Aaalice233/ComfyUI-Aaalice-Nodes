@@ -1,12 +1,12 @@
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { bindingControlIdLabel, isModelResourceBinding } from "../lib/dashboard_binding_identity.js";
-import { bindingKey, controlItemBindings, emptyDashboard, normalizeDashboard } from "../lib/dashboard_model.js";
-import { availableDashboardPresetName, compareDashboardPreset, createDashboardPreset, dashboardPresetFileName, dashboardPresetNameFromFile, dashboardPresetStateNeedsMigration, duplicateDashboardPreset, emptyDashboardPresetState, moveDashboardPreset, normalizeDashboardPresetState, parseDashboardPresetForImport, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, serializeDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
-import { applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssueLocations, mergeCapturedPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../lib/dashboard_preset_runtime.js";
-import { badge, button, createDialog, el, field, icon, segmentedControl, selectControl } from "../lib/ui.js";
-import { createTransferResult, createTransferSection, createTransferStats, formatFileSize } from "../lib/workspace_components.js";
-import { confirmAction, downloadBlob, setActionBusy, setDialogFooter } from "./dom_utils.js";
+import { emptyDashboard, normalizeDashboard } from "../lib/dashboard_model.js";
+import { compareDashboardPreset, createDashboardPreset, dashboardPresetStateNeedsMigration, duplicateDashboardPreset, emptyDashboardPresetState, moveDashboardPreset, normalizeDashboardPresetState, removeDashboardPreset, renameDashboardPreset, replaceDashboardPreset, setDashboardPresetBaseline } from "../lib/dashboard_presets.js";
+import { applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssueLocations, mergeCapturedPresetValues, planDashboardPresetApplication } from "../lib/dashboard_preset_runtime.js";
+import { badge, button, createDialog, el, field, icon } from "../lib/ui.js";
+import { confirmAction } from "./dom_utils.js";
+import { planValueProfileCopy } from "../lib/value_profile_application.js";
 import { openDuplicatePresetDialog } from "./dashboard_preset_duplicate.js";
 
 let runtime = null;
@@ -148,100 +148,49 @@ export function updateCurrentDashboardPreset(presetId, model = dashboard()) {
 	return commitDashboardPresetChange((current) => replaceDashboardPreset(current, presetId, snapshot), t("aaalice.workspace.dashboardPreset.updated", "Sidebar preset updated. Save the workflow to keep it."));
 }
 
-function collectPresetCandidates() {
-	const model = dashboard(); const seen = new Map();
-	for (const page of model?.pages || []) for (const item of page.items || []) {
-		if (item.kind !== "control" || !item.binding) continue;
-		const key = bindingKey(item.binding);
-		if (seen.has(key)) continue;
-		let resolved = null;
-		try { resolved = resolve(item.binding); } catch { resolved = null; }
-		if (resolved?.status !== "ok" || resolved.presettable === false) continue;
-		seen.set(key, {
-			item,
-			binding: item.binding,
-			key,
-			valueType: item.binding.valueType,
-			label: runtime.controlTitle ? runtime.controlTitle(item, resolved) : (item.label || item.binding.controlId),
-			hostLabel: String(resolved.node?.getTitle?.() || resolved.node?.title || "").trim(),
-			pageName: String(page.name || ""),
-			resolved,
-		});
-	}
-	return [...seen.values()];
-}
-
 export async function duplicateCurrentDashboardPreset(presetId) {
+	const graph = app.graph;
 	const state = dashboardPresetState();
 	const preset = state.presets.find((item) => item.id === presetId);
 	if (!preset) return;
-	const candidates = collectPresetCandidates();
-
+	const latestPreset = () => {
+		if (app.graph !== graph) throw new Error(t("aaalice.workspace.valueProfiles.workflowChanged", "The workflow changed. Reopen this dialog."));
+		const latest = dashboardPresetState().presets.find((item) => item.id === presetId);
+		if (!latest) throw new Error(t("aaalice.workspace.valueProfiles.baseMissing", "The base preset is no longer available."));
+		return latest;
+	};
 	openDuplicatePresetDialog({
-		preset,
-		presetState: state,
-		candidates,
-		resolve,
-		openManageProfiles: runtime.openValueProfiles,
+		preset, presetState: state, openManageProfiles: runtime.openValueProfiles,
+		planRules: (rules) => planValueProfileCopy(latestPreset(), rules, resolve, runtime.controlTitle),
 		onCommitSuccess: async ({ mode, name, rules }) => {
+			const base = latestPreset();
 			if (mode === "standard") {
-				commitDashboardPresetChange(
-					(current) => duplicateDashboardPreset(current, presetId, name),
-					t("aaalice.workspace.dashboardPreset.duplicated", "Sidebar preset duplicated. Save the workflow to keep it."),
-				);
-				return;
+				const next = duplicateDashboardPreset(dashboardPresetState(), presetId, name);
+				updateDashboardPresetState(() => next);
+				notifyDashboardPresetSuccess(name, t("aaalice.workspace.dashboardPreset.duplicated", "Sidebar preset duplicated. Save the workflow to keep it."));
+				return true;
 			}
-
-			// Mode with-profile: create new preset with merged override values, apply and switch
-			const snapshot = structuredClone(preset);
-			const candidateMap = new Map((candidates || []).map((c) => [c.key, c]));
-			for (const rule of rules || []) {
-				snapshot.values[rule.key] = { valueType: rule.valueType, payload: structuredClone(rule.payload) };
-				const candidate = candidateMap.get(rule.key);
-				if (candidate?.item) {
-					for (const binding of controlItemBindings(candidate.item)) {
-						snapshot.values[bindingKey(binding)] = { valueType: rule.valueType, payload: structuredClone(rule.payload) };
-					}
-				}
-			}
-			const plan = planDashboardPresetApplication(snapshot, (binding) => resolve(binding));
-			const currentState = dashboardPresetState();
-			const nextState = createDashboardPreset(currentState, name, snapshot);
-			const graph = app.graph;
-			const previousPresetExtra = structuredClone(graph?.extra?.[runtime.presetsExtraKey]);
+			const result = planValueProfileCopy(base, rules, resolve, runtime.controlTitle);
+			if (!result.applied) return { applied: 0, skipped: result.skipped };
+			const nextState = createDashboardPreset(dashboardPresetState(), name, result.snapshot);
+			const previousPresetExtra = structuredClone(graph.extra?.[runtime.presetsExtraKey]);
 			const previousActivePageId = runtime.getActivePageId();
-			const nextActivePageId = snapshot.dashboard.pages.some((page) => page.id === previousActivePageId)
-				? previousActivePageId
-				: snapshot.dashboard.pages[0]?.id || null;
-
-			graph?.beforeChange?.();
+			const nextActivePageId = result.snapshot.dashboard.pages.some((page) => page.id === previousActivePageId)
+				? previousActivePageId : result.snapshot.dashboard.pages[0]?.id || null;
+			graph.beforeChange?.();
 			try {
 				graph.extra ||= {};
-				applyDashboardSnapshotPlan(plan, {
-					readDashboard: () => dashboard(),
+				applyDashboardSnapshotPlan(result.application, {
+					readDashboard: dashboard,
 					writeDashboard: (next) => { graph.extra[runtime.dashboardExtraKey] = normalizeDashboard(next); },
-					commit: () => {
-						graph.extra[runtime.presetsExtraKey] = nextState;
-						runtime.setActivePageId(nextActivePageId);
-					},
-					rollbackCommit: () => {
-						restoreGraphExtra(graph, runtime.presetsExtraKey, previousPresetExtra);
-						runtime.setActivePageId(previousActivePageId);
-					},
+					commit: () => { graph.extra[runtime.presetsExtraKey] = nextState; runtime.setActivePageId(nextActivePageId); },
+					rollbackCommit: () => { restoreGraphExtra(graph, runtime.presetsExtraKey, previousPresetExtra); runtime.setActivePageId(previousActivePageId); },
 				});
-			} catch (error) {
-				notifyDashboardPresetError(error);
-				return;
-			} finally {
-				graph?.afterChange?.();
-				graph?.setDirtyCanvas?.(true, true);
-				scheduleStructuralRender("dashboard");
-			}
-
-			notifyDashboardPresetSuccess(
-				name,
-				t("aaalice.workspace.dashboardPreset.duplicateAndApplySuccess", "Sidebar preset “{name}” created with override profile applied. Save the workflow to keep it.").replace("{name}", name),
-			);
+			} finally { graph.afterChange?.(); graph.setDirtyCanvas?.(true, true); scheduleStructuralRender("dashboard"); }
+			app.extensionManager?.toast?.add?.({ severity: result.skipped ? "warn" : "success", summary: name,
+				detail: t("aaalice.workspace.valueProfiles.copyResult", "Applied {applied} rules; skipped {skipped}. Save the workflow to keep the new preset.")
+					.replace("{applied}", String(result.applied)).replace("{skipped}", String(result.skipped)), life: 5200 });
+			return result;
 		},
 	});
 }
@@ -427,276 +376,3 @@ export async function applyDashboardPreset(presetId, { restore = false } = {}) {
 		: t("aaalice.workspace.dashboardPreset.appliedReminder", "Sidebar preset applied. Save the workflow to keep the layout and values.");
 	notifyDashboardPresetSuccess(preset.name, detail);
 }
-
-export function openDashboardExport(model) {
-	const state = dashboardPresetState();
-	const baseline = state.presets.find((preset) => preset.id === state.baselinePresetId) || null;
-	const presetName = baseline?.name || t("aaalice.workspace.transfer.currentLayout", "Current layout");
-	const fileName = dashboardPresetFileName(presetName);
-	const preset = serializeDashboardPreset(currentDashboardPresetSnapshot(model), presetName);
-	const pages = preset.dashboard.pages;
-	const controls = pages.flatMap((page) => page.items).filter((item) => item.kind === "control");
-	const values = Object.keys(preset.values).length;
-	const body = el("div", { className: "aa-transfer-dialog-body aa-dashboard-preset-transfer", children: [
-		createDashboardPresetTransferSource({ iconName: "upload", title: presetName, meta: fileName }),
-		createTransferStats([
-			{ value: pages.length, label: t("aaalice.workspace.transfer.pages", "Pages"), tone: "primary" },
-			{ value: controls.length, label: t("aaalice.workspace.transfer.controls", "Controls") },
-			{ value: values, label: t("aaalice.workspace.transfer.values", "Saved values"), tone: values < controls.length ? "warning" : "success" },
-		]),
-		el("div", { className: "aa-transfer-callout is-info", children: [icon("statusIdle"), el("p", null, t("aaalice.workspace.transfer.exportPresetHint", "The current sidebar preset will be downloaded with its layout, bindings and compatible values."))] }),
-	] });
-	const footer = el("div");
-	const dialog = createDialog({ title: t("aaalice.workspace.preset.export", "Export preset"), body, footer, size: "md", className: "aa-transfer-dialog" });
-	setDialogFooter(footer, button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), button({ label: t("aaalice.workspace.preset.export", "Export preset"), onClick: () => {
-		downloadBlob(new Blob([JSON.stringify(preset, null, 2)], { type: "application/json" }), fileName);
-		body.replaceChildren(createTransferResult({ title: t("aaalice.workspace.transfer.exportComplete", "Preset exported"), description: t("aaalice.workspace.transfer.presetExportCompleteHint", "Preset “{name}” was downloaded as {file}.").replace("{name}", presetName).replace("{file}", fileName), count: controls.length, countLabel: t("aaalice.workspace.transfer.controls", "controls") }));
-		setDialogFooter(footer, button({ label: t("aaalice.workspace.done", "Done"), onClick: () => dialog.close() }));
-	} }));
-}
-
-
-function dashboardPresetTransferStatusLabel(status) {
-	const availability = workspaceLabels().availability;
-	return {
-		missing: t("aaalice.workspace.binding.missing", "Missing binding"),
-		incompatible: t("aaalice.workspace.binding.incompatible", "Incompatible"),
-		invalid: t("aaalice.workspace.dashboardPreset.invalid", "Invalid value"),
-		ambiguous: t("aaalice.workspace.transfer.ambiguousMatch", "Ambiguous match"),
-		"model-path-match": t("aaalice.workspace.dashboardPreset.modelPathFound", "Nested path found"),
-		"missing-model": t("aaalice.workspace.dashboardPreset.modelUnavailable", "Model not listed"),
-		"ambiguous-model": t("aaalice.workspace.dashboardPreset.modelPathAmbiguous", "Duplicate model names"),
-		recovered: t("aaalice.workspace.transfer.recoveredMatch", "Recovered match"),
-		unused: t("aaalice.workspace.dashboardPreset.unused", "Not on sidebar"),
-		unset: availability.unset,
-		unavailable: availability.unavailable,
-		empty: availability.noOptions,
-		"layout-only": t("aaalice.workspace.dashboardPreset.layoutOnly", "Layout only"),
-		error: availability.error,
-	}[status] || status;
-}
-
-function dashboardPresetTransferRows(entries) {
-	return entries.map((entry) => {
-		const value = entry.imported || entry.saved; const statusLabel = dashboardPresetTransferStatusLabel(entry.status);
-		const identity = entry.binding ? `${entry.binding.provider} · ${entry.binding.valueType}` : value?.valueType || statusLabel;
-		const badgeClass = ["recovered", "model-path-match"].includes(entry.status) ? "is-success" : ["invalid", "incompatible", "error"].includes(entry.status) ? "is-danger" : "is-warning";
-		return el("div", { className: "aa-transfer-entry-row", children: [
-			el("div", { children: [el("strong", null, entry.binding ? bindingControlIdLabel(entry.binding) : entry.key), el("small", null, identity)] }),
-			badge(statusLabel, { className: badgeClass }),
-		] });
-	});
-}
-
-function layoutBreakingPresetIssues(plan) {
-	return plan.issues.filter((entry) => ["missing", "error"].includes(entry.status)
-		|| (entry.status === "incompatible" && entry.resolved?.status !== "ok")
-		|| (entry.status === "invalid" && (!entry.resolved || entry.conflicts)));
-}
-
-function createDashboardPresetTransferSource({ iconName, title, meta }) {
-	return el("section", { className: "aa-dashboard-preset-transfer-source", children: [
-		el("span", { className: "aa-dashboard-preset-transfer-source__icon", children: [icon(iconName)] }),
-		el("div", { children: [el("strong", null, title), el("span", null, meta)] }),
-	] });
-}
-
-function confirmUnsafeDashboardLayoutImport(issueCount, canUseValues) {
-	return new Promise((resolveDecision) => {
-		let settled = false; let dialog;
-		const finish = (decision) => { if (settled) return; settled = true; dialog.close(); resolveDecision(decision); };
-		const body = el("div", { className: "aa-dashboard-import-risk-confirm", children: [
-			icon("statusWarning"),
-			el("p", null, t("aaalice.workspace.transfer.layoutBreakConfirmHint", "The new preset will keep {count} broken bindings. Values-only import is safer because it copies an existing preset and transfers only uniquely identified values.").replace("{count}", String(issueCount))),
-		] });
-		const actions = [button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => finish(null) })];
-		if (canUseValues) actions.push(button({ label: t("aaalice.workspace.transfer.useValueOnly", "Use values only"), onClick: () => finish("values") }));
-		actions.push(button({ label: t("aaalice.workspace.transfer.importLayoutAnyway", "Import full preset anyway"), variant: "danger", onClick: () => finish("layout") }));
-		dialog = createDialog({ title: t("aaalice.workspace.transfer.layoutBreakWarningTitle", "This preset contains broken bindings"), body, footer: el("div", { className: "aa-dashboard-import-risk-actions", children: actions }), size: "sm", className: "aa-dashboard-import-risk-dialog", onRequestClose: () => { finish(null); return false; } });
-	});
-}
-
-export async function importDashboardPreset(file) {
-	const sourceMeta = `${formatFileSize(file.size)} · ${t("aaalice.workspace.transfer.jsonPreset", "JSON preset")}`;
-	const body = el("div", { className: "aa-transfer-dialog-body aa-dashboard-preset-transfer", children: [
-		createDashboardPresetTransferSource({ iconName: "download", title: file.name, meta: sourceMeta }),
-		el("div", { className: "aa-transfer-loading", attrs: { role: "status" }, children: [el("span", "aa-transfer-loading__bar"), el("span", null, t("aaalice.workspace.transfer.preflighting", "Preparing import…"))] }),
-	] });
-	const footer = el("div");
-	const dialog = createDialog({ title: t("aaalice.workspace.preset.import", "Import preset"), body, footer, size: "md", className: "aa-transfer-dialog" });
-	setDialogFooter(footer, button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }));
-	try {
-		const parsed = parseDashboardPresetForImport(JSON.parse(await file.text()));
-		const { snapshot } = parsed; const sourceBindings = new Map();
-		for (const page of snapshot.dashboard.pages) for (const item of page.items) for (const binding of controlItemBindings(item)) sourceBindings.set(bindingKey(binding), binding);
-		const sourceIssues = parsed.issues.map((entry) => ({ ...entry, binding: sourceBindings.get(entry.key) || null }));
-		const fallbackName = snapshot.name || t("aaalice.workspace.dashboardPreset.defaultName", "Preset {count}").replace("{count}", "1");
-		const defaultPresetName = dashboardPresetNameFromFile(file.name, fallbackName);
-		const initialState = dashboardPresetState();
-		let targetId = initialState.baselinePresetId || initialState.presets[0]?.id || "";
-		let mode = initialState.presets.length ? "values" : "new";
-		let actionBusy = false; let presetNameEdited = false; let primary;
-		const modeControl = segmentedControl({
-			value: mode,
-			ariaLabel: t("aaalice.workspace.transfer.importMode", "Import mode"),
-			className: "aa-dashboard-import-mode",
-			options: [
-				{ value: "values", label: t("aaalice.workspace.transfer.overwriteValues", "Values only"), iconName: "download", disabled: !initialState.presets.length },
-				{ value: "new", label: t("aaalice.workspace.transfer.importAsNew", "Layout + values"), iconName: "copy" },
-			],
-			onChange: (next) => { mode = next; renderImportPreview(); },
-		});
-		const targetSelect = selectControl({
-			options: [], value: targetId, ariaLabel: t("aaalice.workspace.transfer.targetPreset", "Base preset"), className: "aa-dashboard-import-target",
-			onChange: (next) => { targetId = next; renderImportPreview(); },
-		});
-		const presetName = document.createElement("input"); presetName.maxLength = 80;
-		presetName.addEventListener("input", () => { presetNameEdited = true; renderImportPreview(); });
-		const modeField = field({ label: t("aaalice.workspace.transfer.importMode", "Import mode"), control: modeControl, className: "aa-dashboard-import-mode-field" });
-		const targetField = field({ label: t("aaalice.workspace.transfer.targetPreset", "Base preset"), control: targetSelect, className: "aa-dashboard-import-target-field" });
-		const nameField = field({ label: t("aaalice.workspace.dashboardPreset.name", "New preset name"), control: presetName, className: "aa-dashboard-import-name-field" });
-		const form = el("div", { className: "aa-dashboard-preset-transfer-form", children: [modeField, targetField, nameField] });
-		const preview = el("div", { className: "aa-dashboard-import-preview" });
-		const importError = el("div", { className: "aa-transfer-inline-error", attrs: { role: "alert", hidden: true } });
-		const actionableFullIssues = (plan) => plan.issues.filter((entry) => !["unset", "layout-only", "unused"].includes(entry.status));
-		const setImportControlsBusy = (busy) => {
-			actionBusy = busy; modeControl.setDisabled?.(busy); targetSelect.setDisabled(busy || mode !== "values" || !dashboardPresetState().presets.length); presetName.disabled = busy;
-		};
-		const useValueOnly = () => { mode = "values"; modeControl.setValue(mode, false); renderImportPreview(); };
-		const suggestedName = (state, targetPreset) => {
-			const copyName = targetPreset ? t("aaalice.workspace.dashboardPreset.copyName", "{name} copy").replace("{name}", targetPreset.name) : defaultPresetName;
-			const sourceName = mode === "values" ? copyName : defaultPresetName;
-			return availableDashboardPresetName(sourceName.slice(0, 80), state);
-		};
-		const renderFullPreview = (plan) => {
-			const pages = plan.dashboard.pages;
-			const controls = pages.flatMap((page) => page.items).filter((item) => item.kind === "control").length;
-			const review = [...actionableFullIssues(plan), ...sourceIssues];
-			return [
-				createTransferStats([
-					{ value: pages.length, label: t("aaalice.workspace.transfer.pages", "Pages"), tone: "primary" },
-					{ value: controls, label: t("aaalice.workspace.transfer.controls", "Controls"), tone: "success" },
-					{ value: review.length, label: t("aaalice.workspace.transfer.needsReview", "Needs review"), tone: review.length ? "warning" : "neutral" },
-				]),
-				el("div", { className: `aa-transfer-callout ${review.length ? "is-warning" : "is-success"}`, children: [icon(review.length ? "statusWarning" : "statusCheck"), el("p", null, review.length ? t("aaalice.workspace.transfer.fullPresetReviewHint", "A new full preset will still be created. Review the skipped values and bindings that need repair.") : t("aaalice.workspace.transfer.fullPresetReadyHint", "A new preset will be created with this layout, its bindings and compatible values."))] }),
-				...(review.length ? [createTransferSection({ title: t("aaalice.workspace.transfer.needsReview", "Needs review"), count: review.length, tone: "warning", children: [el("div", { className: "aa-transfer-entry-list", children: dashboardPresetTransferRows(review) })] })] : []),
-			];
-		};
-		const renderValuePreview = (plan, targetPreset) => {
-			if (!targetPreset) return [el("div", { className: "aa-transfer-callout is-warning", children: [icon("statusWarning"), el("p", null, t("aaalice.workspace.transfer.noTargetPreset", "Create a sidebar preset before importing values only."))] })];
-			const review = [...sourceIssues, ...plan.entries.filter((entry) => !["ready", "preserved", "unused"].includes(entry.status))];
-			const skipped = review.length + plan.entries.filter((entry) => entry.status === "unused").length;
-			return [
-				createTransferStats([
-					{ value: plan.summary.overwritten, label: t("aaalice.workspace.transfer.valuesReady", "Values ready"), tone: "success" },
-					{ value: plan.summary.recovered, label: t("aaalice.workspace.transfer.recoveredMatches", "Recovered"), tone: plan.summary.recovered ? "info" : "neutral" },
-					{ value: skipped, label: t("aaalice.workspace.transfer.valuesSkipped", "Skipped"), tone: skipped ? "warning" : "neutral" },
-				]),
-				el("div", { className: "aa-transfer-callout is-success", children: [icon("copy"), el("p", null, t("aaalice.workspace.transfer.valueCopyHint", "“{name}” will be copied into a new preset, then the matched values will be applied to that copy. The selected preset will not change.").replace("{name}", targetPreset.name))] }),
-				...(review.length ? [createTransferSection({ title: t("aaalice.workspace.transfer.valueNeedsReview", "Skipped values"), count: review.length, tone: "warning", children: [el("div", { className: "aa-transfer-entry-list", children: dashboardPresetTransferRows(review) })] })] : []),
-			];
-		};
-
-		function renderImportPreview() {
-			const state = dashboardPresetState();
-			let targetPreset = state.presets.find((preset) => preset.id === targetId) || null;
-			if (!targetPreset && state.presets.length) { targetId = state.baselinePresetId || state.presets[0].id; targetPreset = state.presets.find((preset) => preset.id === targetId) || null; }
-			const hasPresets = state.presets.length > 0;
-			if (!hasPresets && mode === "values") { mode = "new"; modeControl.setValue(mode, false); }
-			modeControl.setOptionDisabled?.("values", !hasPresets);
-			targetSelect.setOptions(hasPresets ? state.presets.map((preset) => ({ value: preset.id, label: preset.name })) : [{ value: "", label: t("aaalice.workspace.transfer.noTargetPreset", "No saved presets"), disabled: true }], targetId);
-			if (!presetNameEdited) presetName.value = suggestedName(state, targetPreset);
-			let fullPlan = null; let valuePlan = null;
-			if (mode === "values" && targetPreset) valuePlan = planDashboardPresetValueOverwrite(snapshot, targetPreset, (binding) => resolve(binding));
-			else if (mode === "new") fullPlan = planDashboardPresetApplication(snapshot, (binding) => resolve(binding));
-			targetField.hidden = mode !== "values";
-			modeControl.setDisabled?.(actionBusy); targetSelect.setDisabled(actionBusy || mode !== "values" || !hasPresets); presetName.disabled = actionBusy;
-			preview.replaceChildren(...(mode === "values" ? renderValuePreview(valuePlan, targetPreset) : renderFullPreview(fullPlan)));
-			const validName = Boolean(presetName.value.trim());
-			const canApply = validName && (mode === "new" || Boolean(targetPreset && valuePlan?.ready.length));
-			primary.disabled = !canApply;
-			const footerNote = mode === "values" && valuePlan
-				? t("aaalice.workspace.transfer.valuesReadySummary", "{count} values ready · {recovered} recovered").replace("{count}", String(valuePlan.summary.overwritten)).replace("{recovered}", String(valuePlan.summary.recovered))
-				: t("aaalice.workspace.transfer.newPresetWillBeCreated", "A new preset will be created");
-			setDialogFooter(footer, el("span", "aa-transfer-footer-note", footerNote), button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => dialog.close() }), primary);
-		}
-
-		primary = button({ label: t("aaalice.workspace.transfer.importPreset", "Import preset"), onClick: async () => {
-			importError.hidden = true;
-			const actionLabel = t("aaalice.workspace.transfer.importPreset", "Import preset");
-			setActionBusy(primary, true, actionLabel, t("aaalice.workspace.transfer.importing", "Importing…")); setImportControlsBusy(true);
-			try {
-				const graph = app.graph;
-				if (mode === "new") {
-					const latestPlan = planDashboardPresetApplication(snapshot, (binding) => resolve(binding), { repairDamaged: true });
-					const currentState = dashboardPresetState(); const brokenBindings = layoutBreakingPresetIssues(latestPlan);
-					if (brokenBindings.length) {
-						const currentTarget = currentState.presets.find((preset) => preset.id === targetId) || null;
-						const canUseValues = Boolean(currentTarget && planDashboardPresetValueOverwrite(snapshot, currentTarget, (binding) => resolve(binding)).ready.length);
-						const decision = await confirmUnsafeDashboardLayoutImport(brokenBindings.length, canUseValues);
-						if (decision !== "layout") {
-							setImportControlsBusy(false); setActionBusy(primary, false, actionLabel, "");
-							if (decision === "values") useValueOnly(); else renderImportPreview();
-							return;
-						}
-					}
-					const modelIssues = latestPlan.issues.filter((entry) => entry.applySaved === true);
-					if (modelIssues.length && !await confirmPartialDashboardPreset({ ...latestPlan, issues: modelIssues }, { name: presetName.value.trim() || defaultPresetName })) {
-						setImportControlsBusy(false); setActionBusy(primary, false, actionLabel, ""); renderImportPreview(); return;
-					}
-					const importedPresetName = availableDashboardPresetName(presetName.value, currentState);
-					const previousPresetExtra = structuredClone(graph?.extra?.[runtime.presetsExtraKey]); const previousActivePageId = runtime.getActivePageId();
-					const nextPresetState = createDashboardPreset(currentState, importedPresetName, snapshot); const nextActivePageId = latestPlan.dashboard.pages[0]?.id || null;
-					graph?.beforeChange?.();
-					try {
-						graph.extra ||= {};
-						applyDashboardSnapshotPlan(latestPlan, {
-							readDashboard: () => dashboard(), writeDashboard: (next) => { graph.extra[runtime.dashboardExtraKey] = normalizeDashboard(next); },
-							commit: () => { graph.extra[runtime.presetsExtraKey] = nextPresetState; runtime.setActivePageId(nextActivePageId); },
-							rollbackCommit: () => { restoreGraphExtra(graph, runtime.presetsExtraKey, previousPresetExtra); runtime.setActivePageId(previousActivePageId); },
-						});
-					} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender(); }
-					const resultHint = (actionableFullIssues(latestPlan).length + sourceIssues.length ? t("aaalice.workspace.transfer.presetImportPartialHint", "Preset “{name}” was created and applied. Unresolved cards were kept and invalid values were skipped.") : t("aaalice.workspace.transfer.presetImportCompleteHint", "Preset “{name}” was created and applied with its layout, bindings and compatible values.")).replace("{name}", importedPresetName);
-					body.replaceChildren(createTransferResult({ title: t("aaalice.workspace.transfer.presetImportComplete", "Preset imported"), description: resultHint, count: latestPlan.ready.length, countLabel: t("aaalice.workspace.transfer.controlsMatched", "controls matched") }));
-				} else {
-					const state = dashboardPresetState();
-					const targetPreset = state.presets.find((preset) => preset.id === targetId);
-					if (!targetPreset) throw new Error(t("aaalice.workspace.transfer.noTargetPreset", "Create a sidebar preset before importing values only."));
-					const latestValues = planDashboardPresetValueOverwrite(snapshot, targetPreset, (binding) => resolve(binding));
-					if (!latestValues.ready.length) throw new Error(t("aaalice.workspace.transfer.noValuesMatched", "No compatible values matched the selected base preset."));
-					const applicationPlan = planDashboardPresetApplication(latestValues.merged, (binding) => resolve(binding));
-					const applicationIssues = applicationPlan.issues.filter((entry) => !["unset", "unused", "layout-only"].includes(entry.status));
-					if (applicationIssues.length && !await confirmPartialDashboardPreset({ ...applicationPlan, issues: applicationIssues }, targetPreset)) { setImportControlsBusy(false); setActionBusy(primary, false, actionLabel, ""); renderImportPreview(); return; }
-					const importedPresetName = availableDashboardPresetName(presetName.value, state);
-					const previousPresetExtra = structuredClone(graph?.extra?.[runtime.presetsExtraKey]); const previousActivePageId = runtime.getActivePageId();
-					const nextState = createDashboardPreset(state, importedPresetName, latestValues.merged);
-					const nextActivePageId = applicationPlan.dashboard.pages.some((page) => page.id === previousActivePageId) ? previousActivePageId : applicationPlan.dashboard.pages[0]?.id || null;
-					graph?.beforeChange?.();
-					try {
-						graph.extra ||= {};
-						applyDashboardSnapshotPlan(applicationPlan, {
-							readDashboard: () => dashboard(), writeDashboard: (next) => { graph.extra[runtime.dashboardExtraKey] = normalizeDashboard(next); },
-							commit: () => { graph.extra[runtime.presetsExtraKey] = nextState; runtime.setActivePageId(nextActivePageId); },
-							rollbackCommit: () => { restoreGraphExtra(graph, runtime.presetsExtraKey, previousPresetExtra); runtime.setActivePageId(previousActivePageId); },
-						});
-					} finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); scheduleStructuralRender(); }
-					const skipped = sourceIssues.length + latestValues.summary.needsReview + latestValues.summary.unmatched + applicationIssues.length;
-					const resultHint = t("aaalice.workspace.transfer.valueImportCompleteHint", "Preset “{name}” was created from “{source}” and applied. The source preset was not changed; {count} compatible values were imported.{skippedHint}").replace("{name}", importedPresetName).replace("{source}", targetPreset.name).replace("{count}", String(latestValues.summary.overwritten)).replace("{skippedHint}", skipped ? ` ${skipped} ${t("aaalice.workspace.transfer.valuesSkipped", "source values were skipped")}.` : "");
-					body.replaceChildren(createTransferResult({ title: t("aaalice.workspace.transfer.valuesImported", "Preset imported"), description: resultHint, count: latestValues.summary.overwritten, countLabel: t("aaalice.workspace.transfer.valuesOverwritten", "values imported") }));
-				}
-				setDialogFooter(footer, button({ label: t("aaalice.workspace.done", "Done"), onClick: () => dialog.close() }));
-			} catch (error) {
-				importError.textContent = String(error?.message || error); importError.hidden = false;
-				setImportControlsBusy(false); setActionBusy(primary, false, actionLabel, ""); renderImportPreview();
-			}
-		} });
-		body.replaceChildren(createDashboardPresetTransferSource({ iconName: "download", title: file.name, meta: sourceMeta }), form, preview, importError);
-		renderImportPreview();
-	} catch (error) {
-		body.replaceChildren(createTransferResult({ title: t("aaalice.workspace.transfer.invalidPreset", "Could not read this preset"), description: error.message, tone: "error" }));
-		setDialogFooter(footer, button({ label: t("aaalice.workspace.done", "Close"), onClick: () => dialog.close() }));
-	}
-}
-
-const renderedWorkspaceTabs = new WeakSet();
-const workspaceWidthObservers = new Map();

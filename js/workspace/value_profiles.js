@@ -395,7 +395,8 @@ export function openValueProfiles() {
 				iconName: "sliders",
 				title: t("aaalice.workspace.valueProfiles.emptyTitle", "No adjustment profiles"),
 				description: t("aaalice.workspace.valueProfiles.emptyHint", "Create a profile, add rules for the controls you adjust every time, then apply them in one click."),
-				actions: [button({ label: t("aaalice.workspace.valueProfiles.create", "New profile"), iconName: "add", onClick: createProfile })],
+				actions: [button({ label: t("aaalice.workspace.valueProfiles.create", "New profile"), iconName: "add", onClick: createProfile }),
+					button({ label: t("aaalice.workspace.valueProfiles.importBtn", "Import profile"), iconName: "download", onClick: importProfiles })],
 			}));
 			footer.append(button({ label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => dialog.close() }));
 			return;

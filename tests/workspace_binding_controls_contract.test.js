@@ -10,7 +10,7 @@ const source = (path) => readFileSync(join(ROOT, ...path.split("/")), "utf8");
 const workspace = [
 	"workspace.js", "workspace/dashboard_bindings.js", "workspace/dashboard_linking.js", "workspace/dashboard_unbinding.js",
 	"workspace/dashboard_view.js", "workspace/dashboard_batch_rebind.js", "workspace/labels.js", "workspace/library.js", "workspace/value_profiles.js",
-	"workspace/dashboard_presets.js", "workspace/dashboard_preset_duplicate.js",
+	"workspace/dashboard_presets.js", "workspace/dashboard_preset_duplicate.js", "lib/value_profile_application.js",
 ].map((path) => source(`js/${path}`)).join("\n");
 const selector = source("js/prompt_selector.js");
 const rebindMatch = source("js/lib/rebind_match.js");
@@ -157,7 +157,7 @@ test("adjustment profiles use source-grouped card rules and one stable scroll su
 	assert.match(workspace, /item\.kind !== "control" \|\| !item\.binding/);
 	assert.match(workspace, /bindingKey\(item\.binding\)/);
 	assert.match(workspace, /linkedCount: Math\.max\(0, controlItemBindings\(item\)\.length - 1\)/);
-	assert.match(workspace, /controlItemBindings\(candidate\.item\)/);
+	assert.match(workspace, /controlItemBindings\(item\)/);
 	assert.match(workspace, /available = candidates\.filter\(\(candidate\) => !taken\.has\(candidate\.key\)\)/);
 	assert.match(workspace, /const groupMatches = \(matches\) =>/);
 	assert.match(workspace, /aa-value-profile-group__header/);

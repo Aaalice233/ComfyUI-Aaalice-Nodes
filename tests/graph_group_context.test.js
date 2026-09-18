@@ -2,6 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { findNodeGraphGroup, resolveControlHierarchy } from "../js/lib/graph_group_context.js";
 
+test("missing promoted sources preserve the host context without throwing", () => {
+	const hierarchy = resolveControlHierarchy({ title: "Host", subgraph: { getNodeById: () => null } }, { sourceNodeId: 9, sourceWidgetName: "steps" });
+	assert.equal(hierarchy.hostTitle, "Host");
+	assert.equal(hierarchy.sourceNodeTitle, "");
+});
+
 test("findNodeGraphGroup returns empty string when node has no graph or no groups", () => {
 	assert.equal(findNodeGraphGroup(null), "");
 	assert.equal(findNodeGraphGroup({}), "");

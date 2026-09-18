@@ -91,18 +91,18 @@ test("matching prefers the stable binding key", () => {
 });
 
 test("matching falls back to a unique saved label, then to the host title, never guessing", () => {
-	const moved = candidate("steps-renamed", { label: "Steps" });
+	const moved = candidate("steps", { hostId: "moved", label: "Steps" });
 	const [byLabel] = matchValueProfileRules([rule("steps", { label: "Steps" })], [moved]);
 	assert.equal(byLabel.status, "ready");
-	assert.equal(byLabel.candidate.binding.controlId, "steps-renamed");
+	assert.equal(byLabel.candidate.binding.hostId, "moved");
 
 	const duplicates = [
-		candidate("steps-a", { label: "Steps", hostLabel: "KSampler One" }),
-		candidate("steps-b", { label: "Steps", hostLabel: "KSampler Two" }),
+		candidate("steps", { hostId: "host-one", label: "Steps", hostLabel: "KSampler One" }),
+		candidate("steps", { hostId: "host-two", label: "Steps", hostLabel: "KSampler Two" }),
 	];
 	const [disambiguated] = matchValueProfileRules([rule("steps", { label: "Steps", hostLabel: "KSampler Two" })], duplicates);
 	assert.equal(disambiguated.status, "ready");
-	assert.equal(disambiguated.candidate.binding.controlId, "steps-b");
+	assert.equal(disambiguated.candidate.binding.hostId, "host-two");
 	const [ambiguous] = matchValueProfileRules([rule("steps", { label: "Steps", hostLabel: "Elsewhere" })], duplicates);
 	assert.equal(ambiguous.status, "ambiguous");
 	const [missing] = matchValueProfileRules([rule("steps", { label: "Steps" })], [candidate("cfg")]);

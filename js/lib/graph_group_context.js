@@ -1,6 +1,6 @@
 /** Helpers for discovering node graph groups and subgraph promotion hierarchies. */
 
-import { isPromotedWidget, resolvePromotedDefinitionOwner } from "./promoted_widget_source.js";
+import { isPromotedWidget, promotedWidgetIdentity, resolvePromotedDefinitionOwner } from "./promoted_widget_source.js";
 
 function nodeTitle(node, fallback = "") {
 	const title = typeof node?.getTitle === "function" ? node.getTitle() : node?.title;

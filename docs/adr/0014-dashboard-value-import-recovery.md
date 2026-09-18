@@ -1,5 +1,7 @@
 # ADR 0014：侧边栏仅数值导入使用唯一语义恢复
 
+> 当前实现说明：独立侧边栏预设文件导入/导出已移除。本文保留历史决策；当前跨工作流参数迁移使用参数套用档案，参见 docs/design/prompt-selector-workspace.md。
+
 **Status:** Accepted
 
 ## 背景

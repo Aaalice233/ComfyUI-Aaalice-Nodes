@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
-import { applyDashboardPresetPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../js/lib/dashboard_preset_runtime.js";
+import { applyDashboardPresetPlan, captureDashboardValues, mergeCapturedPresetValues, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
 
 const binding = (controlId) => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType: "string" });
 const dashboard = (model) => ({ version: 4, pages: [{ id: "page-a", name: "Models", gridColumns: 12, tone: null, groups: [], items: [{ id: "model", kind: "control", binding: model, label: "", groupId: null, layout: { row: 0, column: 0, columnSpan: 6, rowSpan: 13 } }] }] });
@@ -35,15 +35,6 @@ test("model preset values resolve unique nested paths across common model contro
 	}
 });
 
-test("values-only import keeps portable model filenames while planning a nested local path", () => {
-	const model = binding("vae_name"); const key = bindingKey(model);
-	const target = snapshot(model, "krea_vae.safetensors");
-	const plan = planDashboardPresetValueOverwrite(snapshot(model, "anima_vae.safetensors"), target, () => ({
-		status: "ok", label: "VAE", options: { values: ["VAE/Anima/anima_vae.safetensors"] }, validatePresetValue: () => "missing-option",
-	}));
-	assert.equal(plan.ready[0].imported.payload, "VAE/Anima/anima_vae.safetensors");
-	assert.equal(plan.merged.values[key].payload, "anima_vae.safetensors");
-});
 
 test("missing and empty model options receive the new preset value", () => {
 	for (const [controlId, resolved] of [

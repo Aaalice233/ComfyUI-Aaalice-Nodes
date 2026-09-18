@@ -29,7 +29,7 @@ export function renderDashboard(container, host) {
 		applyDashboardPreset, createCurrentDashboardPreset, updateCurrentDashboardPreset, duplicateCurrentDashboardPreset,
 		openValueProfiles,
 		renameCurrentDashboardPreset, reorderDashboardPreset, deleteCurrentDashboardPreset, addPage, mounted, captureDashboardPageSnapshots,
-		dashboardPageRails, registerDashboardPresetView, workspaceLabels, openDashboardExport, importDashboardPreset, openEditGroup,
+		dashboardPageRails, registerDashboardPresetView, workspaceLabels, openEditGroup,
 		openComponentNoteEditor, numericRangeForControl, flushDeferredWorkspaceRender, notifyWorkspaceImageUpload,
 		notifyControlBindingError, openManageLinkedBindings, openRebind, controlTitle, openCardActions, openMoveControl,
 		openAssignGroup, resolve, syncDashboardSourceGroup, dashboardColumnsForWorkspaceWidth, dashboardScrollState,

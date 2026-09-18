@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { bindingKey } from "../js/lib/dashboard_model.js";
-import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssueLocations, mergeCapturedPresetValues, mergeDashboardPresetValues, planDashboardPresetApplication, planDashboardPresetValueOverwrite } from "../js/lib/dashboard_preset_runtime.js";
+import { applyDashboardPresetPlan, applyDashboardSnapshotPlan, captureDashboardValues, dashboardPresetIssueLocations, mergeCapturedPresetValues, planDashboardPresetApplication } from "../js/lib/dashboard_preset_runtime.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, validateSeedPresetEntry } from "../js/lib/seed_preset.js";
 
 const binding = (controlId, valueType = "number") => ({ provider: "generic-widget", hostId: "host-a", controlId, valueType });
@@ -167,182 +167,13 @@ test("application planning separates ready, absent, incompatible and invalid val
 	assert.deepEqual(plan.issues.map(({ status }) => status), ["invalid", "incompatible", "unused"]);
 });
 
-test("value overwrite uses the target dashboard and preserves its layout and unmatched values", () => {
-	const steps = binding("steps"); const linked = binding("linked"); const added = binding("added"); const old = binding("old");
-	const targetDashboard = dashboard(steps, added);
-	targetDashboard.pages[0].items[0].linkedBindings = [linked];
-	targetDashboard.pages[0].items[1].linkedBindings = [linked];
-	const target = snapshot(targetDashboard, {
-		[bindingKey(steps)]: { valueType: "number", payload: 11 },
-		[bindingKey(linked)]: { valueType: "number", payload: 12 },
-		[bindingKey(added)]: { valueType: "number", payload: 99 },
-		[bindingKey(old)]: { valueType: "number", payload: 7 },
-	});
-	const source = snapshot(dashboard(steps), {
-		[bindingKey(steps)]: { valueType: "number", payload: 41 },
-		[bindingKey(linked)]: { valueType: "number", payload: 42 },
-		[bindingKey(old)]: { valueType: "number", payload: 8 },
-	});
-	const resolves = [];
-	const plan = planDashboardPresetValueOverwrite(source, target, (candidate) => {
-		resolves.push(candidate.controlId);
-		return { status: "ok", validatePresetValue: () => true };
-	});
-	assert.deepEqual(resolves, ["steps", "linked"]);
-	assert.deepEqual(plan.merged.dashboard, targetDashboard);
-	assert.deepEqual(plan.merged.values, {
-		[bindingKey(steps)]: { valueType: "number", payload: 41 },
-		[bindingKey(linked)]: { valueType: "number", payload: 42 },
-		[bindingKey(added)]: { valueType: "number", payload: 99 },
-		[bindingKey(old)]: { valueType: "number", payload: 7 },
-	});
-	assert.deepEqual(plan.summary, { overwritten: 2, exact: 2, recovered: 0, preserved: 1, unmatched: 1, needsReview: 0 });
-	assert.deepEqual(mergeDashboardPresetValues(source, target, [bindingKey(steps)]).dashboard, targetDashboard);
-});
 
-test("value overwrite safely recovers a uniquely identified card after workflow binding IDs change", () => {
-	const sourceBinding = { provider: "generic-widget", adapterId: "legacy", hostId: "old-host", controlId: "steps", valueType: "number" };
-	const targetBinding = { provider: "generic-widget", adapterId: "current", hostId: "new-host", controlId: "steps", valueType: "number" };
-	const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetBinding);
-	sourceLayout.pages[0].items[0].id = "old-item"; sourceLayout.pages[0].items[0].label = "Sampling Steps";
-	targetLayout.pages[0].items[0].id = "new-item"; targetLayout.pages[0].items[0].label = "Sampling Steps v2";
-	const source = snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 36 } });
-	const target = snapshot(targetLayout, { [bindingKey(targetBinding)]: { valueType: "number", payload: 18 } });
-	const resolved = [];
-	const plan = planDashboardPresetValueOverwrite(source, target, (candidate) => {
-		resolved.push(candidate);
-		return { status: "ok", validatePresetValue: () => true };
-	});
-	assert.deepEqual(resolved, [targetBinding]);
-	assert.deepEqual(plan.merged.dashboard, targetLayout);
-	assert.equal(plan.merged.values[bindingKey(targetBinding)].payload, 36);
-	assert.equal(plan.entries[0].match, "recovered");
-	assert.equal(plan.entries[0].sourceKey, bindingKey(sourceBinding));
-	assert.deepEqual(plan.summary, { overwritten: 1, exact: 0, recovered: 1, preserved: 0, unmatched: 0, needsReview: 0 });
-});
 
-test("recovery tiers remain stable across card, host, context, and label drift", () => {
-	for (const recovery of ["card", "host", "context", "label"]) {
-		const sourceBinding = { provider: "generic-widget", adapterId: "source-adapter", hostId: "source-host", controlId: "cfg", valueType: "number" };
-		const targetBinding = { ...sourceBinding, adapterId: "target-adapter", hostId: recovery === "host" ? sourceBinding.hostId : "target-host" };
-		const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetBinding);
-		sourceLayout.pages[1].items = []; targetLayout.pages[1].items = [];
-		const sourceItem = sourceLayout.pages[0].items[0]; const targetItem = targetLayout.pages[0].items[0];
-		sourceItem.id = "source-card"; sourceItem.label = "Source label";
-		targetItem.id = recovery === "card" ? sourceItem.id : "target-card";
-		targetItem.label = recovery === "label" ? "ＳＯＵＲＣＥ　ＬＡＢＥＬ" : "Target label";
-		if (recovery !== "context") targetLayout.pages[0].name = "Changed page";
-		const source = snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 27 } });
-		const target = snapshot(targetLayout, { [bindingKey(targetBinding)]: { valueType: "number", payload: 9 } });
-		const plan = planDashboardPresetValueOverwrite(source, target, () => ({ status: "ok", validatePresetValue: () => true }));
-		assert.equal(plan.ready.length, 1, recovery);
-		assert.equal(plan.ready[0].match, "recovered", recovery);
-		assert.equal(plan.merged.values[bindingKey(targetBinding)].payload, 27, recovery);
-	}
-});
 
-test("recovered card values fan out to the updated card binding set", () => {
-	const sourceBinding = { provider: "generic-widget", hostId: "old-host", controlId: "guidance", valueType: "number" };
-	const targetPrimary = { provider: "generic-widget", hostId: "new-host", controlId: "guidance", valueType: "number" };
-	const targetLinked = { provider: "generic-widget", hostId: "linked-host", controlId: "guidance", valueType: "number" };
-	const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetPrimary);
-	sourceLayout.pages[0].items[0].id = "old-guidance"; sourceLayout.pages[0].items[0].label = "Guidance";
-	targetLayout.pages[0].items[0].id = "new-guidance"; targetLayout.pages[0].items[0].label = "Guidance";
-	targetLayout.pages[0].items[0].linkedBindings = [targetLinked];
-	const source = snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 4.5 } });
-	const target = snapshot(targetLayout, {
-		[bindingKey(targetPrimary)]: { valueType: "number", payload: 3 },
-		[bindingKey(targetLinked)]: { valueType: "number", payload: 3 },
-	});
-	const plan = planDashboardPresetValueOverwrite(source, target, () => ({ status: "ok", validatePresetValue: () => true }));
-	assert.deepEqual(plan.ready.map(({ binding: entry, match }) => [entry.hostId, match]), [["new-host", "recovered"], ["linked-host", "recovered"]]);
-	assert.equal(plan.merged.values[bindingKey(targetPrimary)].payload, 4.5);
-	assert.equal(plan.merged.values[bindingKey(targetLinked)].payload, 4.5);
-	assert.deepEqual(plan.summary, { overwritten: 2, exact: 0, recovered: 2, preserved: 0, unmatched: 0, needsReview: 0 });
-});
 
-test("binding anchors do not fan out values from an incompatible source card", () => {
-	const sourcePrimary = { provider: "generic-widget", hostId: "old-cfg", controlId: "cfg", valueType: "number" };
-	const anchor = { provider: "generic-widget", hostId: "shared-steps", controlId: "steps", valueType: "number" };
-	const targetLinked = { provider: "generic-widget", hostId: "new-steps", controlId: "steps", valueType: "number" };
-	const sourceLayout = dashboard(sourcePrimary); sourceLayout.pages[0].items[0].linkedBindings = [anchor];
-	const targetLayout = dashboard(anchor); targetLayout.pages[0].items[0].linkedBindings = [targetLinked];
-	const source = snapshot(sourceLayout, {
-		[bindingKey(sourcePrimary)]: { valueType: "number", payload: 6 },
-		[bindingKey(anchor)]: { valueType: "number", payload: 28 },
-	});
-	const target = snapshot(targetLayout, {
-		[bindingKey(anchor)]: { valueType: "number", payload: 20 },
-		[bindingKey(targetLinked)]: { valueType: "number", payload: 20 },
-	});
-	const plan = planDashboardPresetValueOverwrite(source, target, () => ({ status: "ok", validatePresetValue: () => true }));
-	assert.equal(plan.merged.values[bindingKey(anchor)].payload, 28);
-	assert.equal(plan.merged.values[bindingKey(targetLinked)].payload, 20);
-	assert.equal(plan.entries.find((entry) => entry.key === bindingKey(targetLinked)).status, "preserved");
-});
 
-test("semantic recovery refuses ambiguous cards instead of pairing by order", () => {
-	const sourceA = { provider: "generic-widget", hostId: "old-a", controlId: "strength", valueType: "number" };
-	const sourceB = { provider: "generic-widget", hostId: "old-b", controlId: "strength", valueType: "number" };
-	const targetBinding = { provider: "generic-widget", hostId: "new-host", controlId: "strength", valueType: "number" };
-	const sourceLayout = dashboard(sourceA, sourceB); const targetLayout = dashboard(targetBinding);
-	for (const [index, item] of sourceLayout.pages[0].items.entries()) { item.id = `old-${index}`; item.label = "Strength"; }
-	targetLayout.pages[0].items[0].id = "new-target"; targetLayout.pages[0].items[0].label = "Strength";
-	const source = snapshot(sourceLayout, {
-		[bindingKey(sourceA)]: { valueType: "number", payload: 0.2 },
-		[bindingKey(sourceB)]: { valueType: "number", payload: 0.8 },
-	});
-	const target = snapshot(targetLayout, { [bindingKey(targetBinding)]: { valueType: "number", payload: 0.5 } });
-	const plan = planDashboardPresetValueOverwrite(source, target, () => { throw new Error("ambiguous values must not resolve"); });
-	assert.equal(plan.ready.length, 0);
-	assert.equal(plan.entries.find((entry) => entry.key === bindingKey(targetBinding)).status, "ambiguous");
-	assert.equal(plan.merged.values[bindingKey(targetBinding)].payload, 0.5);
-	assert.deepEqual(plan.summary, { overwritten: 0, exact: 0, recovered: 0, preserved: 0, unmatched: 2, needsReview: 1 });
-});
 
-test("semantic recovery also refuses one source that could fit multiple targets", () => {
-	const sourceBinding = { provider: "generic-widget", hostId: "old-host", controlId: "strength", valueType: "number" };
-	const targetA = { provider: "generic-widget", hostId: "new-a", controlId: "strength", valueType: "number" };
-	const targetB = { provider: "generic-widget", hostId: "new-b", controlId: "strength", valueType: "number" };
-	const sourceLayout = dashboard(sourceBinding); const targetLayout = dashboard(targetA, targetB);
-	sourceLayout.pages[0].items[0].id = "old"; sourceLayout.pages[0].items[0].label = "Strength";
-	for (const [index, item] of targetLayout.pages[0].items.entries()) { item.id = `new-${index}`; item.label = "Strength"; }
-	const plan = planDashboardPresetValueOverwrite(
-		snapshot(sourceLayout, { [bindingKey(sourceBinding)]: { valueType: "number", payload: 0.8 } }),
-		snapshot(targetLayout, { [bindingKey(targetA)]: { valueType: "number", payload: 0.2 }, [bindingKey(targetB)]: { valueType: "number", payload: 0.4 } }),
-		() => { throw new Error("one-to-many recovery must not resolve"); },
-	);
-	assert.equal(plan.ready.length, 0);
-	assert.deepEqual(plan.entries.filter((entry) => entry.status === "ambiguous").map((entry) => entry.key).sort(), [bindingKey(targetA), bindingKey(targetB)].sort());
-	assert.equal(plan.merged.values[bindingKey(targetA)].payload, 0.2);
-	assert.equal(plan.merged.values[bindingKey(targetB)].payload, 0.4);
-});
 
-test("value overwrite reports incompatible, unavailable and invalid source values without changing target values", () => {
-	const incompatible = binding("incompatible"); const missing = binding("missing"); const invalid = binding("invalid");
-	const target = snapshot(dashboard(incompatible, missing, invalid), {
-		[bindingKey(incompatible)]: { valueType: "number", payload: 1 },
-		[bindingKey(missing)]: { valueType: "number", payload: 2 },
-		[bindingKey(invalid)]: { valueType: "number", payload: 3 },
-	});
-	const source = snapshot(dashboard(incompatible, missing, invalid), {
-		[bindingKey(incompatible)]: { valueType: "string", payload: "wrong" },
-		[bindingKey(missing)]: { valueType: "number", payload: 20 },
-		[bindingKey(invalid)]: { valueType: "number", payload: 30 },
-	});
-	const plan = planDashboardPresetValueOverwrite(source, target, (candidate) => {
-		if (candidate.controlId === "missing") return { status: "missing" };
-		return { status: "ok", availability: candidate.controlId === "invalid" ? { state: "unavailable" } : null, validatePresetValue: () => "codec-rejected" };
-	});
-	assert.equal(plan.ready.length, 0);
-	assert.deepEqual(plan.issues.map(({ key, status }) => [key, status]), [
-		[bindingKey(incompatible), "incompatible"],
-		[bindingKey(missing), "missing"],
-		[bindingKey(invalid), "unavailable"],
-	]);
-	assert.deepEqual(plan.merged.values, target.values);
-	assert.equal(plan.summary.needsReview, 3);
-});
 
 test("linked targets surface missing and invalid values in application issues", () => {
 	const primary = binding("primary"); const missing = binding("missing"); const invalid = binding("invalid");

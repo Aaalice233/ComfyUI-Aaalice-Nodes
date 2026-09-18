@@ -6,19 +6,15 @@ import {
 	availableDashboardPresetName,
 	compareDashboardPreset,
 	createDashboardPreset,
-	dashboardPresetFileName,
-	dashboardPresetNameFromFile,
 	dashboardPresetStateNeedsMigration,
 	duplicateDashboardPreset,
 	emptyDashboardPresetState,
 	moveDashboardPreset,
 	normalizeDashboardPresetState,
-	parseDashboardPreset,
-	parseDashboardPresetForImport,
+	normalizeDashboardSnapshot,
 	removeDashboardPreset,
 	renameDashboardPreset,
 	replaceDashboardPreset,
-	serializeDashboardPreset,
 	setDashboardPresetBaseline,
 } from "../js/lib/dashboard_presets.js";
 import { bindingKey, legacyBindingKey } from "../js/lib/dashboard_model.js";
@@ -145,7 +141,7 @@ test("QuickGroupManager preset values migrate to shared configuration semantics"
 	assert.deepEqual(state.presets[0].values[managerKey].payload, { version: 2, groups });
 	const current = { dashboard: layout(), values: { [managerKey]: { valueType: "quick-group-manager", payload: { version: 2, groups } } } };
 	assert.equal(compareDashboardPreset(legacyPreset, current).modified, false);
-	assert.deepEqual(parseDashboardPreset(serializeDashboardPreset(legacyPreset)).values[managerKey].payload, { version: 2, groups });
+	assert.deepEqual(normalizeDashboardSnapshot(legacyPreset).values[managerKey].payload, { version: 2, groups });
 });
 
 test("preset state rejects old value-only state and invalid payloads", () => {
@@ -182,41 +178,14 @@ test("legacy scalar seed presets compare against the current structured seed sta
 	assert.equal(changed.modified, true);
 });
 
-test("portable backups use the same normalized snapshot contract", () => {
-	const serialized = serializeDashboardPreset(snapshot());
-	assert.equal(serialized.format, "aaalice-sidebar-preset");
-	assert.deepEqual(parseDashboardPreset(serialized), snapshot());
-	assert.throws(() => parseDashboardPreset({ ...serialized, version: 99 }), /Unsupported sidebar preset backup/);
-});
 
-test("import parsing isolates invalid legacy values instead of rejecting the complete layout", () => {
-	const serialized = serializeDashboardPreset(snapshot());
-	serialized.values.bad = { valueType: "number" };
-	assert.throws(() => parseDashboardPreset(serialized), /Invalid preset value/);
-	const parsed = parseDashboardPresetForImport(serialized);
-	assert.deepEqual(parsed.snapshot, snapshot());
-	assert.equal(parsed.issues.length, 1);
-	assert.deepEqual({ key: parsed.issues[0].key, status: parsed.issues[0].status }, { key: "bad", status: "invalid" });
-	assert.equal(parsed.issues[0].reason, "invalid-preset-value");
-	assert.throws(() => parseDashboardPresetForImport({ ...serialized, dashboard: { version: 99, pages: [] } }), /Unsupported dashboard version/);
-});
 
-test("preset file stems and conflict names share one portable naming contract", () => {
-	assert.equal(dashboardPresetFileName("Updated layout"), "Updated layout.json");
-	assert.equal(dashboardPresetNameFromFile("legacy-values.json", "Embedded name"), "legacy-values");
-	assert.equal(dashboardPresetNameFromFile("legacy-values.JSON", "Embedded name"), "legacy-values");
-	assert.equal(dashboardPresetNameFromFile("", "Embedded name"), "Embedded name");
-	let state = createDashboardPreset(emptyDashboardPresetState(), "Legacy values", snapshot());
-	state = createDashboardPreset(state, "Legacy values 2", snapshot());
-	assert.equal(availableDashboardPresetName("legacy values", state), "legacy values 3");
-	assert.equal(availableDashboardPresetName("Fresh values", state), "Fresh values");
-});
 
 test("numeric card range overrides round-trip through complete sidebar presets", () => {
 	const source = snapshot(); source.dashboard.pages[0].items[0].numericRange = { min: 1, max: 100, step: 2 };
 	const state = createDashboardPreset(emptyDashboardPresetState(), "Custom slider", source);
 	assert.deepEqual(state.presets[0].dashboard.pages[0].items[0].numericRange, { min: 1, max: 100, step: 2 });
-	const parsed = parseDashboardPreset(serializeDashboardPreset(state.presets[0]));
+	const parsed = normalizeDashboardSnapshot(state.presets[0]);
 	assert.deepEqual(parsed.dashboard.pages[0].items[0].numericRange, { min: 1, max: 100, step: 2 });
 });
 
@@ -224,7 +193,7 @@ test("component Markdown notes round-trip through complete sidebar presets", () 
 	const source = snapshot(); source.dashboard.pages[0].items[0].note = "## Steps\n\nKeep this below **40**.";
 	const state = createDashboardPreset(emptyDashboardPresetState(), "Documented slider", source);
 	assert.equal(state.presets[0].dashboard.pages[0].items[0].note, source.dashboard.pages[0].items[0].note);
-	const parsed = parseDashboardPreset(serializeDashboardPreset(state.presets[0]));
+	const parsed = normalizeDashboardSnapshot(state.presets[0]);
 	assert.equal(parsed.dashboard.pages[0].items[0].note, source.dashboard.pages[0].items[0].note);
 });
 

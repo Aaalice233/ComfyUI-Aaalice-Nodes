@@ -3,8 +3,6 @@
 import { bindingKey, controlItemBindings, legacyBindingKey, normalizeDashboard } from "./dashboard_model.js";
 
 export const DASHBOARD_PRESETS_VERSION = 1;
-export const DASHBOARD_PRESET_FILE_FORMAT = "aaalice-sidebar-preset";
-export const DASHBOARD_PRESET_FILE_VERSION = 1;
 const DASHBOARD_PRESET_NAME_LIMIT = 80;
 const UNSAFE_VALUE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -90,21 +88,6 @@ export function availableDashboardPresetName(sourceName, state) {
 	}
 }
 
-export function dashboardPresetNameFromFile(fileName, fallbackName = "") {
-	const baseName = String(fileName || "").trim().split(/[\\/]/).pop() || "";
-	const stem = baseName.replace(/\.json$/i, "").trim().slice(0, DASHBOARD_PRESET_NAME_LIMIT).trim();
-	return stem || String(fallbackName || "").trim().slice(0, DASHBOARD_PRESET_NAME_LIMIT).trim();
-}
-
-export function dashboardPresetFileName(name) {
-	const safeName = String(name || "").trim()
-		.replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")
-		.replace(/\s+/g, " ")
-		.replace(/[. ]+$/g, "")
-		.slice(0, DASHBOARD_PRESET_NAME_LIMIT)
-		.trim();
-	return `${safeName || "aaalice-dashboard-layout"}.json`;
-}
 
 export function normalizeDashboardSnapshot(source) {
 	if (!source || typeof source !== "object") throw new DashboardPresetError("Sidebar preset snapshot is missing", "invalid-preset-snapshot");
@@ -252,32 +235,4 @@ export function compareDashboardPreset(preset, currentSnapshot) {
 	for (const key of Object.keys(current.values)) if (!saved.values[key]) added++;
 	const valueChanges = changed + missing + added;
 	return { layoutChanges, valueChanges, changed, missing, added, modified: layoutChanges > 0 || valueChanges > 0, attention: missing > 0 || [...statuses.values()].some((status) => ["missing", "incompatible", "error"].includes(status)) };
-}
-
-export function serializeDashboardPreset(snapshot, name = null) {
-	const normalized = normalizeDashboardSnapshot(snapshot);
-	const presetName = name == null ? snapshot?.name : name;
-	return { format: DASHBOARD_PRESET_FILE_FORMAT, version: DASHBOARD_PRESET_FILE_VERSION, ...(presetName == null ? {} : { name: normalizeName(presetName) }), ...normalized };
-}
-
-export function parseDashboardPreset(raw) {
-	if (raw?.format !== DASHBOARD_PRESET_FILE_FORMAT || raw?.version !== DASHBOARD_PRESET_FILE_VERSION) throw new DashboardPresetError("Unsupported sidebar preset backup", "unsupported-preset-file");
-	const snapshot = normalizeDashboardSnapshot(raw);
-	return raw.name == null ? snapshot : { ...snapshot, name: normalizeName(raw.name) };
-}
-
-export function parseDashboardPresetForImport(raw) {
-	if (raw?.format !== DASHBOARD_PRESET_FILE_FORMAT || raw?.version !== DASHBOARD_PRESET_FILE_VERSION) throw new DashboardPresetError("Unsupported sidebar preset backup", "unsupported-preset-file");
-	const rawValues = raw.values ?? {};
-	if (!rawValues || typeof rawValues !== "object" || Array.isArray(rawValues)) throw new DashboardPresetError("Preset values must be an object", "invalid-preset-values");
-	const values = {}; const issues = [];
-	for (const [key, entry] of Object.entries(rawValues)) {
-		try { Object.assign(values, normalizeDashboardPresetValues({ [key]: entry })); }
-		catch (error) { issues.push({ key, status: "invalid", reason: error?.code || "invalid-preset-value" }); }
-	}
-	const snapshot = normalizeDashboardSnapshot({ dashboard: raw.dashboard, values });
-	return {
-		snapshot: raw.name == null ? snapshot : { ...snapshot, name: normalizeName(raw.name) },
-		issues,
-	};
 }

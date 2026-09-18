@@ -1,6 +1,7 @@
 /** Pure model for global value adjustment profiles: named reusable control-value override lists. */
 
 import { normalizeDashboardPresetValues } from "./dashboard_presets.js";
+import { bindingControlIdLabel } from "./dashboard_binding_identity.js";
 
 export const VALUE_PROFILES_VERSION = 1;
 const VALUE_PROFILE_NAME_LIMIT = 80;
@@ -161,7 +162,21 @@ export function removeValueProfileRules(state, profileId, keysToRemove) {
 	return next;
 }
 
-function labelKey(value) { return String(value || "").trim().toLocaleLowerCase(); }
+function labelKey(value) { return String(value || "").normalize("NFKC").trim().toLocaleLowerCase(); }
+
+function ruleIdentity(key) {
+	try {
+		const tuple = JSON.parse(key);
+		if (!Array.isArray(tuple) || tuple.length !== 4 || tuple.slice(0, 3).some((value) => typeof value !== "string" || !value)) return null;
+		return { provider: tuple[0], hostId: tuple[1], controlId: tuple[2], adapterId: tuple[3] };
+	} catch { return null; }
+}
+
+function compatibleRule(rule, candidate) {
+	if (rule.valueType !== candidate.valueType) return false;
+	const source = ruleIdentity(rule.key); const target = ruleIdentity(candidate.key);
+	return Boolean(source && target && source.provider === target.provider && source.adapterId === target.adapterId);
+}
 
 /**
  * candidates: [{ key, valueType, label, hostLabel }]
@@ -170,18 +185,33 @@ function labelKey(value) { return String(value || "").trim().toLocaleLowerCase()
  */
 export function matchValueProfileRules(rules, candidates) {
 	const byKey = new Map((candidates || []).map((candidate) => [candidate.key, candidate]));
-	return (rules || []).map((rule) => {
+	const matches = (rules || []).map((rule) => {
 		const direct = byKey.get(rule.key);
-		if (direct) return { rule, status: "ready", candidate: direct };
-		const byLabel = (candidates || []).filter((candidate) => labelKey(candidate.label) === labelKey(rule.label));
-		if (byLabel.length === 1) return { rule, status: "ready", candidate: byLabel[0] };
-		if (byLabel.length > 1) {
-			const byHost = byLabel.filter((candidate) => labelKey(candidate.hostLabel) === labelKey(rule.hostLabel));
-			if (byHost.length === 1) return { rule, status: "ready", candidate: byHost[0] };
-			return { rule, status: "ambiguous", candidate: null };
-		}
-		return { rule, status: "missing", candidate: null };
+		if (direct) return { rule, status: rule.valueType === direct.valueType ? "ready" : "incompatible", candidate: direct, exact: true };
+		const source = ruleIdentity(rule.key);
+		if (!source) return { rule, status: "missing", candidate: null };
+		const compatible = (candidates || []).filter((candidate) => compatibleRule(rule, candidate));
+		const named = compatible.filter((candidate) => labelKey(bindingControlIdLabel(ruleIdentity(candidate.key))) === labelKey(bindingControlIdLabel(source)));
+		const sameHost = named.filter((candidate) => ruleIdentity(candidate.key).hostId === source.hostId);
+		const sameContext = named.filter((candidate) => labelKey(rule.hostLabel) && labelKey(candidate.hostLabel) === labelKey(rule.hostLabel));
+		const sameLabel = named.filter((candidate) => labelKey(rule.label) && labelKey(candidate.label) === labelKey(rule.label));
+		// A reused display label cannot turn a removed parameter into another control.
+		const options = [sameHost, sameContext, sameLabel].find((entries) => entries.length) || [];
+		const contextual = options.filter((candidate) => labelKey(rule.label) && labelKey(candidate.label) === labelKey(rule.label)
+			&& labelKey(rule.hostLabel) && labelKey(candidate.hostLabel) === labelKey(rule.hostLabel));
+		if (options.length > 1 && contextual.length === 1) return { rule, status: "ready", candidate: contextual[0], exact: false };
+		return { rule, status: options.length === 1 ? "ready" : options.length ? "ambiguous" : "missing", candidate: options.length === 1 ? options[0] : null, exact: false };
 	});
+	const owners = new Map();
+	for (const match of matches) if (match.status === "ready") {
+		const entries = owners.get(match.candidate.key) || [];
+		entries.push(match); owners.set(match.candidate.key, entries);
+	}
+	for (const entries of owners.values()) if (entries.length > 1) {
+		const exact = entries.filter((entry) => entry.exact);
+		for (const entry of entries) if (exact.length !== 1 || entry !== exact[0]) { entry.status = "ambiguous"; entry.candidate = null; }
+	}
+	return matches;
 }
 
 /**
@@ -236,6 +266,7 @@ export function serializeOverridePresets(state, profileIdOrIds = null) {
 
 export function parseOverridePresetsForImport(raw, existingState = emptyValueProfileState()) {
 	if (!raw || typeof raw !== "object") throw new ValueProfileError("Invalid override preset file format", "invalid-import-format");
+	if (raw.type !== OVERRIDE_PRESET_FILE_TYPE) throw new ValueProfileError("Invalid override preset file type", "invalid-import-format");
 	if (raw.version !== VALUE_PROFILES_VERSION) throw new ValueProfileError(`Unsupported version: ${raw?.version}`, "unsupported-value-profiles");
 	const incomingProfiles = Array.isArray(raw.profiles) ? raw.profiles : [];
 	if (!incomingProfiles.length) throw new ValueProfileError("No profiles found in import file", "empty-import");
@@ -247,7 +278,8 @@ export function parseOverridePresetsForImport(raw, existingState = emptyValuePro
 		const safeName = availableValueProfileName(baseName, next);
 		const nextId = stableProfileId();
 		const presetName = String(item.presetName || "").trim().slice(0, VALUE_PROFILE_NAME_LIMIT);
-		const rules = (Array.isArray(item.rules) ? item.rules : []).map(normalizeRule);
+		if (!Array.isArray(item.rules)) throw new ValueProfileError("Value profile rules must be an array");
+		const rules = item.rules.map(normalizeRule);
 		next.profiles.push({
 			id: nextId,
 			name: safeName,
@@ -256,6 +288,6 @@ export function parseOverridePresetsForImport(raw, existingState = emptyValuePro
 		});
 		importedIds.push(nextId);
 	}
-	return { state: next, importedIds };
+	return { state: normalizeValueProfileState(next), importedIds };
 }
 

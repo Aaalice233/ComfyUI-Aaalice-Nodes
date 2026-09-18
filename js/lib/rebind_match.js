@@ -25,7 +25,7 @@ export function bindingLabelScore(sourceLabel, targetLabel) {
  */
 export function bestRebindMatch({ preferredLabel = "", identityLabel = "", itemLabel = "", preferredGroup = "", preferredNodeTitle = "" } = {}, candidates = []) {
 	let best = null;
-	let exactMatches = [];
+	let tied = false;
 
 	for (const [index, candidate] of candidates.entries()) {
 		const titleScore = Math.max(
@@ -35,8 +35,6 @@ export function bestRebindMatch({ preferredLabel = "", identityLabel = "", itemL
 		const identityTitleScore = bindingLabelScore(identityLabel, candidate.title);
 		const identityScore = bindingLabelScore(identityLabel, candidate.identityLabel);
 		const baseScore = Math.max(titleScore, identityTitleScore, identityScore);
-
-		if (baseScore === 1000) exactMatches.push(index);
 
 		const signals = [titleScore, identityTitleScore, identityScore].filter((value) => value === 1000).length;
 		const nodeScore = Math.max(
@@ -57,13 +55,16 @@ export function bestRebindMatch({ preferredLabel = "", identityLabel = "", itemL
 			|| (totalScore === best.totalScore && baseScore === best.baseScore && signals > best.signals)
 			|| (totalScore === best.totalScore && baseScore === best.baseScore && signals === best.signals && nodeScore > best.nodeScore)) {
 			best = { index, totalScore, baseScore, signals, nodeScore, groupScore };
+			tied = false;
+		} else if (totalScore === best.totalScore && baseScore === best.baseScore && signals === best.signals && nodeScore === best.nodeScore) {
+			tied = true;
 		}
 	}
 
 	if (!best || best.baseScore <= 0) return null;
 
-	const isAmbiguous = exactMatches.length > 1 && best.groupScore === 0 && best.nodeScore === 0;
-	const isExact = best.baseScore === 1000 && exactMatches.length === 1;
+	const isAmbiguous = tied;
+	const isExact = best.baseScore === 1000 && !tied;
 
 	return {
 		index: best.index,

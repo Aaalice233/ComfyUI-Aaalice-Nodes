@@ -46,7 +46,8 @@ test("bestRebindMatch prefers the candidate matching both title and identity ove
 		{ title: "反推模型", description: "图像反推", identityLabel: "model_name" },
 	]);
 	assert.equal(match.index, 1);
-	assert.equal(match.exact, false);
+	assert.equal(match.exact, true);
+	assert.equal(Boolean(match.ambiguous), false);
 });
 
 test("bestRebindMatch falls back to the item label when an override title hides the parameter name", () => {
