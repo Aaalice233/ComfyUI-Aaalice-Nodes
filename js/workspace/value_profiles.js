@@ -3,7 +3,7 @@
 import { app } from "../../../scripts/app.js";
 import { t } from "../i18n.js";
 import { bindingKey, controlItemBindings } from "../lib/dashboard_model.js";
-import { applyDashboardPresetPlan, captureDashboardValues, planDashboardPresetApplication } from "../lib/dashboard_preset_runtime.js";
+import { captureDashboardValues } from "../lib/dashboard_preset_runtime.js";
 import { stableToneIndexes } from "../lib/control_tones.js";
 import { createSeedPresetPayload, decodeSeedPresetEntry, SEED_AFTER_GENERATE_MODES } from "../lib/seed_preset.js";
 import { badge, button, createDialog, el, emptyState, icon, iconButton, selectControl, toggleSwitch } from "../lib/ui.js";
@@ -142,77 +142,6 @@ function buildValueEditor(rule, match, onCommit) {
 		return input;
 	}
 	return el("span", { className: "aa-value-profile-rule__value", attrs: { title: tooltip }, text: summary });
-}
-
-function confirmProfileIssues(profileName, issues) {
-	return new Promise((resolveDecision) => {
-		let settled = false; let dialog;
-		const finish = (decision) => { if (settled) return; settled = true; dialog.close(); resolveDecision(decision); };
-		const labels = {
-			missing: t("aaalice.workspace.valueProfiles.issue.missing", "Not on sidebar"),
-			ambiguous: t("aaalice.workspace.valueProfiles.issue.ambiguous", "Ambiguous"),
-			incompatible: t("aaalice.workspace.valueProfiles.issue.incompatible", "Incompatible"),
-			invalid: t("aaalice.workspace.valueProfiles.issue.invalid", "Invalid value"),
-			unset: t("aaalice.workspace.valueProfiles.issue.unset", "No value available"),
-			unavailable: t("aaalice.workspace.valueProfiles.issue.unavailable", "Temporarily unavailable"),
-			empty: t("aaalice.workspace.valueProfiles.issue.empty", "No options available"),
-			error: t("aaalice.common.error", "Error"),
-		};
-		const rows = issues.map((entry) => el("div", { className: "aa-value-preset-issue", children: [
-			el("div", { children: [el("strong", null, entry.label), ...(entry.reason ? [el("small", null, entry.reason)] : [])] }),
-			badge(labels[entry.status] || entry.status, { className: "is-warning" }),
-		] }));
-		const body = el("div", { className: "aa-value-preset-review", children: [
-			el("p", null, t("aaalice.workspace.valueProfiles.partialHint", "Some rules cannot be applied safely. Review them before applying the matching rules.")),
-			el("div", { className: "aa-value-preset-issues", children: rows }),
-		] });
-		const footer = el("div", { children: [
-			button({ label: t("aaalice.common.cancel", "Cancel"), variant: "ghost", onClick: () => finish(false) }),
-			button({ label: t("aaalice.workspace.valueProfiles.applyMatching", "Apply matching rules"), onClick: () => finish(true) }),
-		] });
-		dialog = createDialog({ title: profileName, body, footer, size: "sm", className: "aa-value-preset-review-dialog", onRequestClose: () => { finish(false); return false; } });
-	});
-}
-
-async function applyValueProfile(profile) {
-	if (!profile.rules.length) { notify("info", t("aaalice.workspace.valueProfiles.noRules", "This profile has no rules yet.")); return; }
-	const candidates = collectCandidates();
-	const matches = matchValueProfileRules(profile.rules, candidates);
-	const matched = matches.filter((match) => match.status === "ready");
-	// 命中卡片展开为主绑定 + 全部联动绑定，复用预设管线的逐目标校验、快照与整体回滚。
-	const items = []; const values = {}; const issueLabels = new Map();
-	for (const match of matched) {
-		const label = match.rule.label || match.rule.key;
-		for (const binding of controlItemBindings(match.candidate.item)) {
-			const key = bindingKey(binding);
-			items.push({ id: `rule-${items.length}`, kind: "control", binding, layout: { row: items.length * 13, column: 0, columnSpan: 6, rowSpan: 13 } });
-			values[key] = { valueType: match.rule.valueType, payload: structuredClone(match.rule.payload) };
-			issueLabels.set(key, label);
-		}
-	}
-	const synthetic = { version: 4, pages: [{ id: "value-profiles", name: "", gridColumns: 12, tone: null, groups: [], items }] };
-	const plan = planDashboardPresetApplication({ dashboard: synthetic, values }, (binding) => runtime.resolve(binding));
-	const issues = [
-		...matches.filter((match) => match.status !== "ready").map((match) => ({ label: match.rule.label || match.rule.key, status: match.status, reason: "" })),
-		...plan.issues.map((entry) => ({ label: issueLabels.get(entry.key) || entry.binding?.controlId || entry.key, status: entry.status, reason: entry.reason || "" })),
-	];
-	if (issues.length && !await confirmProfileIssues(profile.name, issues)) return;
-	if (!plan.ready.length) {
-		notify("info", t("aaalice.workspace.valueProfiles.nothingToApply", "No rule can be applied to the current sidebar."));
-		return;
-	}
-	const graph = app.graph; graph?.beforeChange?.();
-	try { applyDashboardPresetPlan(plan); }
-	catch (error) {
-		console.error("[Aaalice] Value profile application failed", error);
-		notify("error", t("aaalice.workspace.valueProfiles.applyFailed", "The profile could not be applied; values were restored."));
-		return;
-	}
-	finally { graph?.afterChange?.(); graph?.setDirtyCanvas?.(true, true); }
-	runtime.scheduleStructuralRender("dashboard");
-	runtime.scheduleActiveDashboardPresetAutoSave();
-	const appliedCount = new Set(plan.ready.map((entry) => issueLabels.get(entry.key))).size;
-	notify("success", t("aaalice.workspace.valueProfiles.applied", "Applied {count} rule(s) from “{name}”.").replace("{count}", String(appliedCount)).replace("{name}", profile.name));
 }
 
 export function openValueProfiles() {
@@ -655,17 +584,12 @@ export function openValueProfiles() {
 		}
 
 		const statusText = saveFeedback === "saved"
-			? t("aaalice.workspace.valueProfiles.savedLocally", "Changes saved locally. Apply the profile to update the current sidebar.")
-			: t("aaalice.workspace.valueProfiles.localAutoSave", "Edits save locally automatically; only applying the profile changes the current sidebar.");
+			? t("aaalice.workspace.valueProfiles.savedLocally", "Changes saved locally; select this profile when duplicating a preset to apply it.")
+			: t("aaalice.workspace.valueProfiles.localAutoSave", "Edits save locally automatically; select this profile when duplicating a preset to apply it.");
 		footer.append(
 			el("div", { className: "aa-value-profiles__save-status", children: [icon("storage"), el("span", null, statusText)] }),
 			el("div", { className: "aa-value-profiles__footer-actions", children: [
 				button({ label: t("aaalice.common.close", "Close"), variant: "ghost", onClick: () => dialog.close() }),
-				button({
-					label: t("aaalice.workspace.valueProfiles.applyCount", "Apply {count} rules").replace("{count}", String(profile.rules.length)),
-					disabled: profile.rules.length === 0,
-					onClick: () => { void applyValueProfile(profile); },
-				}),
 			] }),
 		);
 		restoreRulesScroll();

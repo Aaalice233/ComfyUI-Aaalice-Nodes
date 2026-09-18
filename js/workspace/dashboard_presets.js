@@ -194,9 +194,15 @@ export async function duplicateCurrentDashboardPreset(presetId) {
 
 			// Mode with-profile: create new preset with merged override values, apply and switch
 			const snapshot = structuredClone(preset);
-			snapshot.values ||= {};
+			const candidateMap = new Map((candidates || []).map((c) => [c.key, c]));
 			for (const rule of rules || []) {
 				snapshot.values[rule.key] = { valueType: rule.valueType, payload: structuredClone(rule.payload) };
+				const candidate = candidateMap.get(rule.key);
+				if (candidate?.item) {
+					for (const binding of controlItemBindings(candidate.item)) {
+						snapshot.values[bindingKey(binding)] = { valueType: rule.valueType, payload: structuredClone(rule.payload) };
+					}
+				}
 			}
 			const plan = planDashboardPresetApplication(snapshot, (binding) => resolve(binding));
 			const currentState = dashboardPresetState();

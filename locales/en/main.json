@@ -154,7 +154,7 @@
         "captureCurrent": "Update to current value", "captureFailed": "The control value cannot be captured right now.", "removeRule": "Remove rule", "removeRuleConfirm": "Remove the rule “{name}”?",
         "cleanIssues": "Clean invalid rules", "cleanIssuesHint": "Remove {count} invalid rule(s) not on sidebar", "cleanIssuesConfirm": "Remove all {count} invalid or unresolvable rule(s) from this profile?",
         "cleanGroupIssues": "Remove invalid rules in this group", "cleanGroupConfirm": "Remove {count} invalid rule(s) in group “{name}”?", "cleanedIssues": "Removed {count} invalid rule(s).",
-        "localAutoSave": "Edits save locally automatically; only applying the profile changes the current sidebar.", "savedLocally": "Changes saved locally. Apply the profile to update the current sidebar.", "saveFailed": "The profile could not be saved locally.",
+        "localAutoSave": "Edits save locally automatically; select this profile when duplicating a preset to apply it.", "savedLocally": "Changes saved locally; select this profile when duplicating a preset to apply it.", "saveFailed": "The profile could not be saved locally.",
         "apply": "Apply to current sidebar", "applyCount": "Apply {count} rules", "applyMatching": "Apply matching rules", "applied": "Applied {count} rule(s) from “{name}”.",
         "applyFailed": "The profile could not be applied; values were restored.", "noRules": "This profile has no rules yet.",
         "nothingToApply": "No rule can be applied to the current sidebar.",

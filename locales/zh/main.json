@@ -154,7 +154,7 @@
         "captureCurrent": "更新为当前值", "captureFailed": "当前无法捕获该控件的值。", "removeRule": "移除规则", "removeRuleConfirm": "移除规则“{name}”？",
         "cleanIssues": "清理无效规则", "cleanIssuesHint": "清理 {count} 条不在侧边栏的无效规则", "cleanIssuesConfirm": "确定从当前预设中移除全部 {count} 条不在侧边栏的无效规则吗？",
         "cleanGroupIssues": "移除该来源下的无效规则", "cleanGroupConfirm": "确定移除来源“{name}”下的 {count} 条无效规则吗？", "cleanedIssues": "已移除 {count} 条无效规则。",
-        "localAutoSave": "编辑会自动保存在本机；只有套用档案才会修改当前侧边栏参数。", "savedLocally": "修改已保存在本机。套用档案后才会更新当前侧边栏参数。", "saveFailed": "无法在本机保存档案。",
+        "localAutoSave": "编辑会自动保存在本机；在复制侧边栏预设时可选择套用。", "savedLocally": "修改已保存在本机；在复制侧边栏预设时可选择套用。", "saveFailed": "无法在本机保存档案。",
         "apply": "应用到当前侧边栏", "applyCount": "套用 {count} 条规则", "applyMatching": "应用可匹配规则", "applied": "已应用“{name}”的 {count} 条规则。",
         "applyFailed": "档案应用失败，参数已恢复原值。", "noRules": "该预设还没有规则。",
         "nothingToApply": "没有可应用到当前侧边栏的规则。",

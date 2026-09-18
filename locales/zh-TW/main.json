@@ -154,7 +154,7 @@
         "captureCurrent": "更新為目前值", "captureFailed": "目前無法擷取該控制項的值。", "removeRule": "移除規則", "removeRuleConfirm": "移除規則“{name}”？",
         "cleanIssues": "清理無效規則", "cleanIssuesHint": "清理 {count} 條不在側邊欄的無效規則", "cleanIssuesConfirm": "確定從目前預設中移除全部 {count} 條不在側邊欄的無效規則嗎？",
         "cleanGroupIssues": "移除該來源下的無效規則", "cleanGroupConfirm": "確定移除來源“{name}”下的 {count} 條無效規則嗎？", "cleanedIssues": "已移除 {count} 條無效規則。",
-        "localAutoSave": "編輯會自動儲存在本機；只有套用檔案才會修改目前側邊欄參數。", "savedLocally": "修改已儲存在本機。套用檔案後才會更新目前側邊欄參數。", "saveFailed": "無法在本機儲存檔案。",
+        "localAutoSave": "編輯會自動儲存在本機；在複製側邊欄預設時可選擇套用。", "savedLocally": "修改已儲存在本機；在複製側邊欄預設時可選擇套用。", "saveFailed": "無法在本機儲存檔案。",
         "apply": "套用到目前側邊欄", "applyCount": "套用 {count} 條規則", "applyMatching": "套用相符規則", "applied": "已套用“{name}”的 {count} 條規則。",
         "applyFailed": "檔案套用失敗，參數已恢復原值。", "noRules": "該預設還沒有規則。",
         "nothingToApply": "沒有可套用到目前側邊欄的規則。",
