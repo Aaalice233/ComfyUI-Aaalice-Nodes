@@ -16,13 +16,17 @@ export function bindingLabelScore(sourceLabel, targetLabel) {
 
 /**
  * 从候选参数中选出失效卡片的最佳重绑目标。
- * candidates: [{ title, description?, identityLabel? }]（description 为节点标题，identityLabel 为候选自身的控件身份）。
- * 返回 { index, score, exact }；exact 表示唯一满分（归一化后完全一致）。无任何正向匹配时返回 null。
- * 打平消歧依次为：命中的独立信号数（标题与身份同时命中优先于单一信号）、节点标题得分，
- * 避免不同节点上原始名相同的 widget（如多个 model_name）抢走标题一致的候选。
+ * candidates: [{ title, description?, identityLabel?, groupName?, sourceGroupTitle?, sourceNodeTitle? }]
+ * 打分与消歧依次为：
+ * 1. 标题与参数身份匹配分（titleScore, identityTitleScore, identityScore）
+ * 2. 所属分组与层级匹配分（groupScore, sourceNodeScore）
+ * 3. 命中的独立信号数（避免单一重名强占目标）
+ * 返回 { index, score, exact, ambiguous }；若存在同等最高分候选且无法明确区分，ambiguous 为 true，exact 为 false。
  */
-export function bestRebindMatch({ preferredLabel = "", identityLabel = "", itemLabel = "" } = {}, candidates = []) {
-	let best = null; let exactCount = 0;
+export function bestRebindMatch({ preferredLabel = "", identityLabel = "", itemLabel = "", preferredGroup = "", preferredNodeTitle = "" } = {}, candidates = []) {
+	let best = null;
+	let exactMatches = [];
+
 	for (const [index, candidate] of candidates.entries()) {
 		const titleScore = Math.max(
 			bindingLabelScore(preferredLabel, candidate.title),
@@ -30,19 +34,41 @@ export function bestRebindMatch({ preferredLabel = "", identityLabel = "", itemL
 		);
 		const identityTitleScore = bindingLabelScore(identityLabel, candidate.title);
 		const identityScore = bindingLabelScore(identityLabel, candidate.identityLabel);
-		const score = Math.max(titleScore, identityTitleScore, identityScore);
-		if (score === 1000) exactCount += 1;
+		const baseScore = Math.max(titleScore, identityTitleScore, identityScore);
+
+		if (baseScore === 1000) exactMatches.push(index);
+
 		const signals = [titleScore, identityTitleScore, identityScore].filter((value) => value === 1000).length;
 		const nodeScore = Math.max(
 			bindingLabelScore(preferredLabel, candidate.description),
 			bindingLabelScore(identityLabel, candidate.description),
+			preferredNodeTitle ? bindingLabelScore(preferredNodeTitle, candidate.sourceNodeTitle || candidate.description) : 0,
 		);
-		if (!best || score > best.score
-			|| (score === best.score && score > 0 && signals > best.signals)
-			|| (score === best.score && score > 0 && signals === best.signals && nodeScore > best.nodeScore)) {
-			best = { index, score, signals, nodeScore };
+
+		const candidateGroup = candidate.groupName || candidate.sourceGroupTitle || "";
+		const groupScore = preferredGroup && candidateGroup ? bindingLabelScore(preferredGroup, candidateGroup) : 0;
+
+		// 综合总分：基础匹配分为主，群组与节点类型作为重要的消歧增益
+		const totalScore = baseScore + (groupScore > 0 ? Math.round(groupScore * 0.2) : 0);
+
+		if (!best
+			|| totalScore > best.totalScore
+			|| (totalScore === best.totalScore && baseScore > best.baseScore)
+			|| (totalScore === best.totalScore && baseScore === best.baseScore && signals > best.signals)
+			|| (totalScore === best.totalScore && baseScore === best.baseScore && signals === best.signals && nodeScore > best.nodeScore)) {
+			best = { index, totalScore, baseScore, signals, nodeScore, groupScore };
 		}
 	}
-	if (!best || best.score <= 0) return null;
-	return { index: best.index, score: best.score, exact: best.score === 1000 && exactCount === 1 };
+
+	if (!best || best.baseScore <= 0) return null;
+
+	const isAmbiguous = exactMatches.length > 1 && best.groupScore === 0 && best.nodeScore === 0;
+	const isExact = best.baseScore === 1000 && exactMatches.length === 1;
+
+	return {
+		index: best.index,
+		score: best.baseScore,
+		exact: isExact,
+		...(isAmbiguous ? { ambiguous: true } : {}),
+	};
 }

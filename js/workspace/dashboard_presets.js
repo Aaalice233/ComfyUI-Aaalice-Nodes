@@ -535,7 +535,7 @@ export async function importDashboardPreset(file) {
 			try {
 				const graph = app.graph;
 				if (mode === "new") {
-					const latestPlan = planDashboardPresetApplication(snapshot, (binding) => resolve(binding));
+					const latestPlan = planDashboardPresetApplication(snapshot, (binding) => resolve(binding), { repairDamaged: true });
 					const currentState = dashboardPresetState(); const brokenBindings = layoutBreakingPresetIssues(latestPlan);
 					if (brokenBindings.length) {
 						const currentTarget = currentState.presets.find((preset) => preset.id === targetId) || null;

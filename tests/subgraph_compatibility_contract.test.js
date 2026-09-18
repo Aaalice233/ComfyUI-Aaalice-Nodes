@@ -68,3 +68,11 @@ test("execution events resolve qualified subgraph node ids", () => {
 	assert.match(contents, /findNodeByExecutionId\(app\.graph, value\)/);
 	assert.doesNotMatch(contents, /app\.graph\?\.getNodeById/);
 });
+
+test("promoted fallback rejects mutually exclusive slot conflicts when wires are misconnected", async () => {
+	const { resolveAdaptedWidgetControl } = await import("../js/lib/widget_control_adapters.js");
+	const misconnected = { name: "seed", type: "number", value: 20, options: {}, serialize: false, sourceNodeId: "9", sourceWidgetName: "steps" };
+	const node = { widgets: [misconnected] };
+	const resolved = resolveAdaptedWidgetControl(node, 'promoted:["4","steps",null]', { promoted: true });
+	assert.equal(resolved, null);
+});

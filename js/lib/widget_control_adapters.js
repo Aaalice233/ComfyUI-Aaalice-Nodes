@@ -367,6 +367,19 @@ export function parsePromotedControlId(controlId) {
 	}
 }
 
+const MUTUALLY_EXCLUSIVE_CONTROL_NAMES = new Set([
+	"seed", "steps", "cfg", "denoise", "sampler_name", "scheduler",
+	"width", "height", "batch_size", "ckpt_name", "vae_name", "clip_name",
+]);
+
+function isCompatiblePromotedCandidate(requestedTuple, candidateWidget) {
+	const requested = String(requestedTuple?.[1] || "").toLowerCase().replace(/[\s_-]+/g, "");
+	const widgetName = String(candidateWidget?.name || "").toLowerCase().replace(/[\s_-]+/g, "");
+	if (!widgetName || !requested || requested === widgetName) return true;
+	// 仅当两者分别属于不同的互斥保留控制词时才视为连错线冲突（例如把外部的 cfg 连到了内部的 steps）
+	return !(MUTUALLY_EXCLUSIVE_CONTROL_NAMES.has(requested) && MUTUALLY_EXCLUSIVE_CONTROL_NAMES.has(widgetName));
+}
+
 function findAdaptedControl(node, controls, controlId, promoted) {
 	const key = String(controlId);
 	const exact = controls.find((candidate) => candidate.controlId === key);
@@ -374,17 +387,18 @@ function findAdaptedControl(node, controls, controlId, promoted) {
 	const legacy = controls.filter((candidate) => legacyControlAliases(node, candidate.widget).includes(key));
 	if (legacy.length === 1) return legacy[0];
 	// 子图内部重建会重排节点 Id，持久化元组中的 sourceNodeId 随之失效；
-	// 此时按来源身份的唯一匹配回退解析，多个候选同名时宁可保持失效也不猜。
+	// 此时按来源身份的唯一匹配回退解析，且外部槽位名不能与内部参数明显冲突，避免连错线时整组串线。
 	const tuple = parsePromotedControlId(key);
 	if (!tuple || typeof tuple[1] !== "string" || !tuple[1]) return null;
 	const identityOf = (candidate) => promotedWidgetIdentity(node, candidate.widget);
 	const byFullSource = controls.filter((candidate) => {
 		const identity = identityOf(candidate);
 		return identity && String(identity.sourceWidgetName) === tuple[1]
-			&& String(identity.disambiguatingSourceNodeId ?? null) === String(tuple[2] ?? null);
+			&& String(identity.disambiguatingSourceNodeId ?? null) === String(tuple[2] ?? null)
+			&& isCompatiblePromotedCandidate(tuple, candidate.widget);
 	});
 	if (byFullSource.length === 1) return byFullSource[0];
-	const bySourceName = controls.filter((candidate) => identityOf(candidate)?.sourceWidgetName === tuple[1]);
+	const bySourceName = controls.filter((candidate) => identityOf(candidate)?.sourceWidgetName === tuple[1] && isCompatiblePromotedCandidate(tuple, candidate.widget));
 	return bySourceName.length === 1 ? bySourceName[0] : null;
 }
 

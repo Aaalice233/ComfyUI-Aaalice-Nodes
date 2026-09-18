@@ -204,6 +204,7 @@ function matchValueCards(source, target) {
 	pairUniqueCards(sourceCards, targetCards, pairs, sourceUsed, (left, right) => left.hostId === right.hostId && sameCardContract(left, right), "host-control");
 	pairUniqueCards(sourceCards, targetCards, pairs, sourceUsed, (left, right) => sameCardContract(left, right) && left.pageName === right.pageName && left.groupName === right.groupName, "layout-context");
 	pairUniqueCards(sourceCards, targetCards, pairs, sourceUsed, sameCardSemantic, "card-label");
+	pairUniqueCards(sourceCards, targetCards, pairs, sourceUsed, sameCardContract, "control-name");
 	const ambiguous = new Set();
 	for (const targetCard of targetCards) {
 		if (pairs.has(targetCard)) continue;
@@ -381,6 +382,9 @@ export function planDashboardPresetApplication(snapshot, resolveBinding, { repai
 		try { resolved = resolveBinding(binding); }
 		catch (error) { entries.push({ key, binding, saved, status: "invalid", reason: error.message, error }); continue; }
 		if (resolved?.status !== "ok") { entries.push({ key, binding, saved, resolved, status: resolved?.status || "missing" }); continue; }
+		if (resolved.relocatedHostId && resolved.relocatedHostId !== binding.hostId) {
+			binding.hostId = resolved.relocatedHostId;
+		}
 		if (resolved.presettable === false) { entries.push({ key, binding, saved, resolved, status: "layout-only" }); continue; }
 		const availability = runtimeAvailability(resolved);
 		if (availability) {

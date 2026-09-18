@@ -16,6 +16,8 @@ import {
 	commitDashboardBindingSet, controlTitle, dashboard, findDashboardControl, graphNodes, message, notifyControlBindingError, resolve,
 } from "./dashboard_bindings.js";
 
+import { resolveControlHierarchy } from "../lib/graph_group_context.js";
+
 function resolvedBindingEntry(binding) {
 	let resolved;
 	try { resolved = resolve(binding); }
@@ -23,19 +25,28 @@ function resolvedBindingEntry(binding) {
 	return { binding, resolved };
 }
 
-function bindingNodeTitle(node) {
-	const title = String(node?.getTitle?.() || node?.title || node?.type || ""); if (!title) return "";
-	const matches = graphNodes().filter((candidate) => String(candidate?.getTitle?.() || candidate?.title || candidate?.type || "") === title);
+function bindingNodeTitle(node, widget = null) {
+	if (!node) return "";
+	const hierarchy = resolveControlHierarchy(node, widget);
+	const title = hierarchy.contextDescription || String(node.getTitle?.() || node.title || node.type || "");
+	if (!title) return "";
+	const matches = graphNodes().filter((candidate) => {
+		const h = resolveControlHierarchy(candidate);
+		return (h.contextDescription || String(candidate.getTitle?.() || candidate.title || candidate.type || "")) === title;
+	});
 	const index = matches.indexOf(node);
 	return matches.length > 1 && index >= 0 ? `${title} (${index + 1})` : title;
 }
 
 export function bindingDisplay(binding) {
 	const entry = resolvedBindingEntry(binding); const node = entry.resolved.node;
+	const widget = entry.resolved.widget || entry.resolved.control || null;
+	const hierarchy = node ? resolveControlHierarchy(node, widget) : null;
 	return {
 		...entry,
 		title: entry.resolved.label || bindingControlIdLabel(binding),
-		description: bindingNodeTitle(node) || binding.provider,
+		description: bindingNodeTitle(node, widget) || binding.provider,
+		hierarchy,
 	};
 }
 
@@ -102,7 +113,10 @@ export function rebindCandidates(item, model = dashboard()) {
  */
 export function describeRebindCandidates(item) {
 	const candidates = rebindCandidates(item);
-	const rawLabels = candidates.map((candidate) => { const display = bindingDisplay(candidate.binding); return { title: display.title, description: display.description }; });
+	const rawLabels = candidates.map((candidate) => {
+		const display = bindingDisplay(candidate.binding);
+		return { title: display.title, description: display.description, hierarchy: display.hierarchy };
+	});
 	const labelTotals = new Map(); const labelOccurrences = new Map();
 	for (const entry of rawLabels) {
 		const key = `${entry.description} · ${entry.title}`;
@@ -120,9 +134,17 @@ export function describeRebindCandidates(item) {
 	// 失效绑定自带来源身份（promoted 元组的来源名）与卡片标题；按两者给候选打分，
 	// 同名的原参数在候选中时无需手动搜索。
 	const identityLabel = bindingControlIdLabel(item.binding);
+	const preferredGroup = item.groupName || "";
 	const match = bestRebindMatch(
-		{ preferredLabel: item.labelOverride || item.label || identityLabel, identityLabel, itemLabel: item.label || "" },
-		candidates.map((candidate, index) => ({ title: rawLabels[index].title, description: rawLabels[index].description, identityLabel: bindingControlIdLabel(candidate.binding) })),
+		{ preferredLabel: item.labelOverride || item.label || identityLabel, identityLabel, itemLabel: item.label || "", preferredGroup },
+		candidates.map((candidate, index) => ({
+			title: rawLabels[index].title,
+			description: rawLabels[index].description,
+			identityLabel: bindingControlIdLabel(candidate.binding),
+			groupName: rawLabels[index].hierarchy?.groupName || "",
+			sourceGroupTitle: rawLabels[index].hierarchy?.sourceGroupTitle || "",
+			sourceNodeTitle: rawLabels[index].hierarchy?.sourceNodeTitle || "",
+		})),
 	);
 	return { candidates, options, match };
 }
