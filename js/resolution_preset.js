@@ -3,6 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { cleanupDomWidgetResizePassthrough, installDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { cloneStateValue } from "./lib/safe_clone.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { allGraphNodes, promptNodesForGraphNode } from "./lib/graph_scope.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
@@ -234,7 +235,7 @@ function openManageDialog(node) {
 
 function beginDrag(node, mode, event) {
 	if (event.button !== 0 || node._aaResolutionDrag) return;
-	const stage = node._aaResolutionStage; const rect = stage.getBoundingClientRect(); const snapshot = structuredClone(stateFor(node));
+	const stage = node._aaResolutionStage; const rect = stage.getBoundingClientRect(); const snapshot = cloneStateValue(stateFor(node));
 	node.graph?.beforeChange?.();
 	const drag = { mode, pointerId: event.pointerId, snapshot, rect, target: event.currentTarget };
 	node._aaResolutionDrag = drag; drag.target.setPointerCapture?.(event.pointerId); node._aaResolutionRoot.classList.add("is-dragging");
@@ -412,7 +413,7 @@ function setupNode(node, { initializeSize = false } = {}) {
 	node._aaResolutionMounted = true; stateFor(node);
 	node._aaaliceResolutionSidebarViews ||= new Set();
 	node._aaaliceResolutionControl = {
-		getValue: () => structuredClone(stateFor(node)),
+		getValue: () => cloneStateValue(stateFor(node)),
 		getPresets: () => allPresets(personalPresets),
 		getAlignments: () => ALIGNMENTS,
 		getCanvasLimits: () => CANVAS_LIMITS,

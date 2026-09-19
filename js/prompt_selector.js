@@ -4,6 +4,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { installDomWidgetResizePassthrough, cleanupDomWidgetResizePassthrough } from "./lib/dom_widget_resize.js";
+import { cloneStateValue } from "./lib/safe_clone.js";
 import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
 import { applyCategoryColor } from "./lib/category_color.js";
 import { categoryPicker } from "./lib/category_picker.js";
@@ -493,7 +494,7 @@ function setup(node, loaded = false) {
 	node._aaalicePromptSelectorMounted = true; stateFor(node);
 	node._aaalicePromptSelectorSidebarViews ||= new Set();
 	node._aaalicePromptSelectorControl = {
-		getValue: () => structuredClone(stateFor(node)),
+		getValue: () => cloneStateValue(stateFor(node)),
 		setValue: (next) => { node.properties[PROPERTY] = normalizePromptSelectorState(next); render(node); notifySidebarViews(node); },
 		validatePresetValue: (entry) => {
 			const value = entry?.payload;
