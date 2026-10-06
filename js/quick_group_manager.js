@@ -3,7 +3,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ensureI18nReady, t } from "./i18n.js";
 import { bindNodeAccent } from "./lib/node_accent.js";
-import { addLifecycleDOMWidget } from "./lib/dom_widget_lifecycle.js";
+import { addLifecycleDOMWidget, bindDomWidgetWidthToNode } from "./lib/dom_widget_lifecycle.js";
 import { allGraphNodes } from "./lib/graph_scope.js";
 import {
 	applyQuickGroupManagerAction,
@@ -391,7 +391,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 	if (typeof node.addDOMWidget !== "function") throw new Error("[Aaalice] QuickGroupManager requires addDOMWidget");
 	const toolbar = isolate(el("div", "aaalice-qgm-toolbar aaalice-qgm"));
 	node._aaaliceQuickToolbar = toolbar;
-		const toolbarWidget = addLifecycleDOMWidget(node, TOOLBAR_WIDGET, "custom", toolbar, {
+	const toolbarWidget = addLifecycleDOMWidget(node, TOOLBAR_WIDGET, "custom", toolbar, {
 		serialize: false,
 		hideOnZoom: true,
 		margin: 0,
@@ -401,11 +401,12 @@ function setupManager(node, { initializeSize = false } = {}) {
 		getValue: () => "",
 		setValue: () => {},
 	});
+	bindDomWidgetWidthToNode(node, toolbarWidget);
 	toolbarWidget.computedHeight = 0;
 	const root = isolate(el("div", "aaalice-qgm aaalice-qgm-body aaalice-pcp"));
 	node._aaaliceQuickRoot = root;
 	node._aaaliceQuickAccent = bindNodeAccent(node, () => [toolbar, root]);
-		addLifecycleDOMWidget(node, WIDGET, "custom", root, {
+	const bodyWidget = addLifecycleDOMWidget(node, WIDGET, "custom", root, {
 		serialize: false,
 		hideOnZoom: true,
 		margin: 0,
@@ -414,6 +415,7 @@ function setupManager(node, { initializeSize = false } = {}) {
 		getValue: () => "",
 		setValue: () => {},
 	});
+	bindDomWidgetWidthToNode(node, bodyWidget);
 	const previousComputeSize = node.computeSize;
 	node.computeSize = function () {
 		const computed = previousComputeSize?.apply(this, arguments) || [0, MIN_BODY_HEIGHT];
